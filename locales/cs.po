@@ -11,18 +11,65 @@ msgstr ""
 msgid " days"
 msgstr " dní"
 
-#. Context: if link["thr:count"] then facet_text = T(_("%1 (%2)"), facet_text, link["thr:count"]) end
-#: opds.lua:1308
+#. Context: local name = require("common/language_name").get(code) return name ~= code and T(_("%1 (%2)"), name, code) or code end
+#: metadata_editor.lua:152 opds.lua:1308
 msgid "%1 (%2)"
 msgstr "%1 (%2)"
 
-msgid "%1 mins left in chapter"
+#. Context: elseif retained > 1 then message = message .. "\n" .. T(_("%1 manually edited fields were retained."), retained) end
+#: metadata_editor.lua:233
+msgid "%1 manually edited fields were retained."
+msgstr "%1 ručně upravených polí bylo zachováno."
+
+#. Context: local template = format == "compact" and _("%1 min left") or _("%1 min left in chapter") return hair .. T(template, minutes):gsub(" ", nbsp)
+#: reader_footer_time_format.lua:110 reader_settings.lua:1097
+msgid "%1 min left"
+msgstr "%1 min zbývá"
+
+#. Context: local template = format == "compact" and _("%1 min left") or _("%1 min left in chapter") return hair .. T(template, minutes):gsub(" ", nbsp)
+#: reader_footer_time_format.lua:110 reader_settings.lua:1096
+msgid "%1 min left in chapter"
 msgstr "%1 min do konce kapitoly"
+
+#. Context: language_label(edition.language), pages and T(_("%1 pages"), pages) or "", })
+#: metadata_editor.lua:165
+msgid "%1 pages"
+msgstr "%1 stránek"
+
+#. Context: offer_metadata_settings(provider ~= "" and T(_("%1 rejected its API credential. Open metadata settings?"), provider) or _("A metadata provider rejected its API credential. Open metadata settings?"))
+#: metadata_editor.lua:189
+msgid "%1 rejected its API credential. Open metadata settings?"
+msgstr "%1 odmítl své přihlašovací údaje pro API. Otevřít nastavení metadat?"
+
+#. Context: if name ~= self.draft.language then return T(_("%1 · %2"), name, self.draft.language) end
+#: metadata_editor.lua:204
+msgid "%1 · %2"
+msgstr "%1 · %2"
+
+#. Context: return T(_("%1 · %2 / %3 still loading"), _("Metadata results"), remaining, total)
+#: metadata_editor.lua:501
+msgid "%1 · %2 / %3 still loading"
+msgstr "%1 · %2 / %3 se stále načítá"
 
 #. Context: local marker = "\1" local text = BaseUtil.template(_("%1, %2 %3"), marker, month, day) :gsub("（" .. marker .. "）", "")
 #: date_format.lua:61 date_format.lua:91
 msgid "%1, %2 %3"
-msgstr "%1, %3. %2"
+msgstr "%1, %2 %3"
+
+#. Context: if hours == 0 then return T(_("%1m"), minutes) end if minutes == 0 then return T(_("%1h"), hours) end return T(_("%1h %2m"), hours, minutes)
+#: reader_footer_time_format.lua:77
+msgid "%1h"
+msgstr "%1h"
+
+#. Context: if minutes == 0 then return T(_("%1h"), hours) end return T(_("%1h %2m"), hours, minutes) end
+#: reader_footer_time_format.lua:78
+msgid "%1h %2m"
+msgstr "%1h %2m"
+
+#. Context: local minutes = total_minutes % 60 if hours == 0 then return T(_("%1m"), minutes) end if minutes == 0 then return T(_("%1h"), hours) end
+#: reader_footer_time_format.lua:76 reader_settings.lua:1098
+msgid "%1m"
+msgstr "%1m"
 
 #. Context: -- has recorded progress status_label = string.format(_("%d%% Read"), math.floor(100 * percent_finished)) else
 #: browser_list_item_layout.lua:464
@@ -65,7 +112,7 @@ msgid "(auto)"
 msgstr "(auto)"
 
 #. Context: { text = "3:4 " .. _("(Kindle)"), radio = true,
-#: library_settings.lua:699
+#: library_settings.lua:701
 msgid "(Kindle)"
 msgstr "(Kindle)"
 
@@ -75,7 +122,7 @@ msgid "(none)"
 msgstr "(žádné)"
 
 #. Context: { text = "2:3 " .. _("(standard)"), radio = true,
-#: library_settings.lua:686
+#: library_settings.lua:688
 msgid "(standard)"
 msgstr "(standardní)"
 
@@ -89,8 +136,15 @@ msgstr "1 autor"
 msgid "1 book"
 msgstr "1 kniha"
 
-msgid "1 min left in chapter"
-msgstr "1 min do konce kapitoly"
+#. Context: elseif tab_id == "languages" then subtitle = count == 1 and _("1 language") or (tostring(count) .. " " .. _("languages"))
+#: group_view.lua:1275
+msgid "1 language"
+msgstr "1 jazyk"
+
+#. Context: if retained == 1 then message = message .. "\n" .. _("1 manually edited field was retained.") elseif retained > 1 then
+#: metadata_editor.lua:231
+msgid "1 manually edited field was retained."
+msgstr "1 ručně upravené pole bylo zachováno."
 
 #. Context: else subtitle = count == 1 and _("1 series") or (tostring(count) .. " " .. _("series"))
 #: group_view.lua:1281
@@ -132,18 +186,45 @@ msgstr "270°"
 msgid "90°"
 msgstr "90°"
 
-msgid "< 1 min left in chapter"
-msgstr "< 1 min do konce kapitoly"
+#. Context: local function format_short_duration(total_minutes) if total_minutes < 1 then return T(_("< %1m"), 1) end local hours = math.floor(total_minutes / 60)
+#: reader_footer_time_format.lua:73
+msgid "< %1m"
+msgstr "< %1m"
 
 #. Context: icon = "_zen_quickstart", description = _("A clean, minimal experience for your e-reader.\n\nSwipe or tap Next to continue."), },
 #: quickstart_pages.lua:652
 msgid "A clean, minimal experience for your e-reader.\n\nSwipe or tap Next to continue."
 msgstr "Čistý, minimální zážitek pro vaši elektronickou čtečku.\n\nPokračujte přejetím nebo klepnutím na Další."
 
+#. Context: if lfs.symlinkattributes(destination) then return nil, _("A file with this name already exists.") end
+#: metadata_editor.lua:473
+msgid "A file with this name already exists."
+msgstr "Soubor s tímto názvem již existuje."
+
 #. Context: local subtitle = _("ZenPM has been installed. Restart KOReader to use it.") .. "\n\n" .. _("A launcher button has been added for ZenPM.") if apk_template then
 #: zenpm_installer.lua:398
 msgid "A launcher button has been added for ZenPM."
 msgstr "Pro ZenPM bylo přidáno spouštěcí tlačítko."
+
+#. Context: offline = _("Connect to a network before searching metadata."), rate_limited = _("A metadata provider is rate-limiting requests. Try again later."), server = _("A metadata provider is unavailable right now. Try again later."),
+#: metadata_editor.lua:174
+msgid "A metadata provider is rate-limiting requests. Try again later."
+msgstr "Poskytovatel metadat omezuje četnost požadavků. Zkuste to později."
+
+#. Context: rate_limited = _("A metadata provider is rate-limiting requests. Try again later."), server = _("A metadata provider is unavailable right now. Try again later."), malformed = _("A metadata provider returned an unreadable response."),
+#: metadata_editor.lua:175
+msgid "A metadata provider is unavailable right now. Try again later."
+msgstr "Poskytovatel matadat je nyní nedostupný. Zkuste to později."
+
+#. Context: and T(_("%1 rejected its API credential. Open metadata settings?"), provider) or _("A metadata provider rejected its API credential. Open metadata settings?")) return
+#: metadata_editor.lua:190
+msgid "A metadata provider rejected its API credential. Open metadata settings?"
+msgstr "Poskytovatel metadat odmítl přihlašovací údaje pro API. Otevřít nastavení metadat?"
+
+#. Context: server = _("A metadata provider is unavailable right now. Try again later."), malformed = _("A metadata provider returned an unreadable response."), no_match = _("No metadata matches were found."),
+#: metadata_editor.lua:176
+msgid "A metadata provider returned an unreadable response."
+msgstr "Poskytovatel metadat vrátil nečitelnou odpověď."
 
 #. Context: title = _("Bug report title"), description = _("A short summary of what went wrong"), input = "",
 #: zen_bugreporter.lua:189
@@ -151,7 +232,7 @@ msgid "A short summary of what went wrong"
 msgstr "Krátké shrnutí, co se nepovedlo"
 
 #. Context: IconItem.decorate({ text = _("About"), sub_item_table = general_items,
-#: zen_settings.lua:149
+#: zen_settings.lua:155
 msgid "About"
 msgstr "O aplikaci"
 
@@ -200,9 +281,6 @@ msgstr "Přidat"
 msgid "Add action"
 msgstr "Přidat akci"
 
-msgid "Add at least one quote to settings/ZenOS/quotes.lua to enable this source."
-msgstr "Chcete-li povolit tento zdroj, přidejte alespoň jeden citát do settings/ZenOS/quotes.lua."
-
 #. Context: local items = {{ text = _("Add book"), enabled_func = function() return #custom.paths < custom_strip_max_books end,
 #: home_settings.lua:1523
 msgid "Add book"
@@ -229,7 +307,7 @@ msgid "Add custom buttons for other plugins or actions."
 msgstr "Přidat vlastní tlačítka pro ostatní doplňky nebo akce"
 
 #. Context: table.insert(sub, { text = _("Add folder…"), keep_menu_open = true,
-#: library_settings.lua:1353
+#: library_settings.lua:1355
 msgid "Add folder…"
 msgstr "Přidat složku…"
 
@@ -244,17 +322,22 @@ msgid "Add plugin"
 msgstr "Přidat doplněk"
 
 #. Context: {{ text = "\u{F01BE} " .. _("Move"), align = "left", callback = function() end }}, {{ text = "\u{F04CE} " .. _("Add to collection") .. " \u{25B6}", align = "left", callback = function() end }}, {{ text = "\u{F0B64} " .. _("Read status")...
-#: quickstart_pages.lua:304 context_menu.lua:1862 context_menu.lua:1890
+#: quickstart_pages.lua:304 context_menu.lua:1897 context_menu.lua:1925
 msgid "Add to collection"
 msgstr "Přidat do kolekce"
 
+#. Context: end return text == _("Add to vocabulary builder") or text == _("Remove from vocabulary builder")
+#: dict_quick_lookup.lua:74
+msgid "Add to vocabulary builder"
+msgstr "Přidat do nástroje pro tvorbu slovníku"
+
 #. Context: text = display .. (already_in and " \u{2713}" or ""), mandatory = already_in and _("added") or nil, dim = already_in,
-#: context_menu.lua:1883
+#: context_menu.lua:1918
 msgid "added"
 msgstr "přidáno"
 
 #. Context: { text = _("Additional home folders"), sub_item_table_func = build_additional_home_items,
-#: library_settings.lua:1465
+#: library_settings.lua:1467
 msgid "Additional home folders"
 msgstr "Další domovské složky"
 
@@ -269,7 +352,7 @@ msgid "Alexandre Dumas"
 msgstr "Alexandre Dumas"
 
 #. Context: table.insert(fbts, {{ text = _("All") .. (is_all and " " .. icons.check or ""), align = "left",
-#: context_menu.lua:719 context_menu.lua:2285
+#: context_menu.lua:719 context_menu.lua:2320
 msgid "All"
 msgstr "Vše"
 
@@ -283,33 +366,43 @@ msgstr "Všechna nastavení jsou na jedné kartě.\nTato ikona s tečkou indikuj
 msgid "All tags"
 msgstr "Všechny značky"
 
-#. Context: this_year = _("This year"), all_time = _("All time"), personal_records = _("Personal records"),
-#: stats_settings.lua:31
-msgid "All time"
-msgstr "Celou dobu"
-
 #. Context: this_year = _("This Year"), all_time = _("All Time"), personal_records = _("Personal Records"),
 #: stats_page.lua:64
 msgid "All Time"
 msgstr "Za celou dobu"
 
+#. Context: this_year = _("This year"), all_time = _("All time"), personal_records = _("Personal records"),
+#: stats_settings.lua:31
+msgid "All time"
+msgstr "Za celou dobu"
+
 #. Context: table.insert(items, { text = _("Allow delete"), checked_func = function()
-#: library_settings.lua:1472
+#: library_settings.lua:1474
 msgid "Allow delete"
 msgstr "Povolit odstranění"
 
 #. Context: { text = _("Green"), r = 0x99, g = 0xCC, b = 0x99 }, { text = _("Amber"), r = 0xF0, g = 0xD0, b = 0x80 }, { text = _("Red"), r = 0xDD, g = 0x99, b = 0x99 },
-#: library_settings.lua:566 navbar_settings.lua:1576
+#: library_settings.lua:568 navbar_settings.lua:1576
 msgid "Amber"
 msgstr "Jantar"
 
+#. Context: and _("An EPUB title is required.") or _("An EPUB language is required.")) return
+#: metadata_editor.lua:685 metadata_editor.lua:24
+msgid "An EPUB language is required."
+msgstr "Je vyžadován jazyk pro EPUB."
+
+#. Context: self:showError(key == "title" and _("An EPUB title is required.") or _("An EPUB language is required."))
+#: metadata_editor.lua:684 metadata_editor.lua:23
+msgid "An EPUB title is required."
+msgstr "Je vyžadován název pro EPUB."
+
 #. Context: UIManager:show(InfoMessage:new{ text = _("An item with that name already exists."), icon = "notice-warning",
-#: context_menu.lua:1777
+#: context_menu.lua:1812
 msgid "An item with that name already exists."
 msgstr "Položka s tímto názvem již existuje."
 
 #. Context: if annotation_count > 0 then add_detail(tostring(annotation_count) .. " " .. _("Annotations"), "secondary", false, 3)
-#: book_details.lua:246 home_settings.lua:2388
+#: book_details.lua:246 home_settings.lua:2363
 msgid "Annotations"
 msgstr "Anotace"
 
@@ -319,7 +412,7 @@ msgid "App"
 msgstr "Aplikace"
 
 #. Context: { text = _("Close"), callback = function() self:onClose() end }, { text = _("Apply"), callback = function() if self.callback then self.callback(cur) end
-#: zen_slider_dialog.lua:158
+#: zen_slider_dialog.lua:158 metadata_editor.lua:634 metadata_editor.lua:666 metadata_editor.lua:707
 msgid "Apply"
 msgstr "Použít"
 
@@ -353,6 +446,16 @@ msgstr "Uspořádat"
 msgid "Arrange center items"
 msgstr "Uspořádat položky na střed"
 
+#. Context: require("common/ui/zen_arrange_list").show{ title = _("Arrange items"), item_table = item_table,
+#: reader_footer.lua:255
+msgid "Arrange items"
+msgstr "Uspořádat položky"
+
+#. Context: for _j, child in ipairs(item.sub_item_table or {}) do if child.text == _("Arrange items in status bar") then arrange_item = child
+#: reader_footer.lua:161
+msgid "Arrange items in status bar"
+msgstr "Uspořádat položky ve stavovém řádku"
+
 #. Context: text = _("Left items"), sub_item_table = make_header_slot_items("left", _("Arrange left items")), },
 #: reader_settings.lua:307 status_bar_settings.lua:308
 msgid "Arrange left items"
@@ -373,25 +476,25 @@ msgstr "Vzestupně"
 msgid "At least one tab must be visible"
 msgstr "Alespoň jedna karta musí být viditelná"
 
-#. Context: { key = "book_title", text = _("Book title") }, { key = "author", text = _("Author") }, { key = "chapter", text = _("Chapter") },
-#: reader_settings.lua:163 home_settings.lua:824
+#. Context: { description = _("Title"), text = draft.title }, { description = _("Author"), text = first_author(draft) }, },
+#: metadata_editor.lua:376 reader_settings.lua:163 home_settings.lua:824
 msgid "Author"
 msgstr "Autor"
-
-#. Context: { id = "to_be_read", label = _("To Be Read"), source = true }, { id = "authors", label = _("Authors"), source = true }, { id = "series", label = _("Series"), source = true },
-#: nav_button_model.lua:9 quickstart_pages.lua:687 context_menu.lua:2127 group_view.lua:1257 group_view.lua:1302 navbar.lua:272 home_settings.lua:1061 navbar_settings.lua:172
-msgid "Authors"
-msgstr "Autoři"
 
 #. Context: subtitle = count == 1 and _("1 author") or (tostring(count) .. " " .. _("authors")) elseif tab_id == "languages" then
 #: group_view.lua:1273
 msgid "authors"
 msgstr "autoři"
 
-#. Context: label = type(config.gyro_label) == "string" and config.gyro_label ~= "" and config.gyro_label or _("Autorotate"), visible_func = function() return Device:hasGSensor() end,
-#: quick_settings.lua:628 menu_settings.lua:62 menu_settings.lua:984
-msgid "Autorotate"
-msgstr "Automatické otáčení"
+#. Context: { id = "to_be_read", label = _("To Be Read"), source = true }, { id = "authors", label = _("Authors"), source = true }, { id = "series", label = _("Series"), source = true },
+#: nav_button_model.lua:9 quickstart_pages.lua:687 metadata_editor.lua:37 context_menu.lua:2162 group_view.lua:1257 group_view.lua:1302 navbar.lua:272 home_settings.lua:1061 navbar_settings.lua:172
+msgid "Authors"
+msgstr "Autoři"
+
+#. Context: { text = _("Auto-pick best match"), radio = true,
+#: metadata_settings.lua:168
+msgid "Auto-pick best match"
+msgstr "Automaticky vybrat nejlepší shodu"
 
 #. Context: local size = mcfg.automatic_font_size ~= false and _("Automatic") or tostring(style.font_size) return font_label(style.font_face) .. ", " .. size
 #: home_settings.lua:529 home_settings.lua:2132
@@ -399,7 +502,7 @@ msgid "Automatic"
 msgstr "Automaticky"
 
 #. Context: { text = _("Automatic font size"), checked_func = function() return mcfg.automatic_font_size ~= false end,
-#: home_settings.lua:620 home_settings.lua:2140 home_settings.lua:2420
+#: home_settings.lua:620 home_settings.lua:2140 home_settings.lua:2395
 msgid "Automatic font size"
 msgstr "Automatická velikost písma"
 
@@ -408,13 +511,18 @@ msgstr "Automatická velikost písma"
 msgid "Automatic suspend"
 msgstr "Automaticky potlačit"
 
+#. Context: label = type(config.gyro_label) == "string" and config.gyro_label ~= "" and config.gyro_label or _("Autorotate"), visible_func = function() return Device:hasGSensor() end,
+#: quick_settings.lua:628 menu_settings.lua:62 menu_settings.lua:984
+msgid "Autorotate"
+msgstr "Automaticky otočit"
+
 #. Context: id = "__back", label = _("Back"), icon = "chevron.left",
 #: app_launcher.lua:432
 msgid "Back"
 msgstr "Zpět"
 
 #. Context: table.insert(items, { text = _("Background"), checked_func = function()
-#: library_settings.lua:1253 library_settings.lua:1330
+#: library_settings.lua:1255 library_settings.lua:1332
 msgid "Background"
 msgstr "Pozadí"
 
@@ -424,42 +532,42 @@ msgid "Background color"
 msgstr "Barva pozadí"
 
 #. Context: elseif code == "decode_failed" then return _("Background image could not be loaded. It may be corrupt or unsupported.") end
-#: library_settings.lua:1236
+#: library_settings.lua:1238
 msgid "Background image could not be loaded. It may be corrupt or unsupported."
 msgstr "Obrázek na pozadí se nepodařilo načíst. Může být poškozený nebo nepodporovaný."
 
 #. Context: elseif code == "missing" then return _("Background image file not found.") elseif code == "no_decoder" then
-#: library_settings.lua:1232
+#: library_settings.lua:1234
 msgid "Background image file not found."
 msgstr "Soubor obrázku na pozadí nebyl nalezen."
 
 #. Context: if code == "not_jpeg" then return _("Background image must be a JPG or JPEG file.") elseif code == "missing" then
-#: library_settings.lua:1230
+#: library_settings.lua:1232
 msgid "Background image must be a JPG or JPEG file."
 msgstr "Obrázek pozadí musí být soubor typu JPG nebo JPEG."
 
 #. Context: reset_text = _("Default (black)"), dialog_title = _("Badge color RGB"), presets = {
-#: library_settings.lua:559
+#: library_settings.lua:561
 msgid "Badge color RGB"
 msgstr "RGB hodnota barvy značky"
 
 #. Context: zen_settings_utils.buildColorSubMenu({ label = _("Badge color: "), get = function()
-#: library_settings.lua:536
+#: library_settings.lua:538
 msgid "Badge color: "
 msgstr "Barva značky: "
 
 #. Context: { text = _("Badge size"), sub_item_table = (function()
-#: library_settings.lua:503
+#: library_settings.lua:505
 msgid "Badge size"
 msgstr "Velikost značky"
 
 #. Context: { text = _("Badges"), sub_item_table = {
-#: library_settings.lua:500
+#: library_settings.lua:502
 msgid "Badges"
 msgstr "Značky"
 
 #. Context: local scroll_bar_styles = { { text = _("Bar"), style = "bar" }, { text = _("Dots"), style = "dots" },
-#: library_settings.lua:1027
+#: library_settings.lua:1029
 msgid "Bar"
 msgstr "Pruh"
 
@@ -474,7 +582,7 @@ msgid "Battery Stats"
 msgstr "Statistiky baterie"
 
 #. Context: { text = _("Skip 20 pages"), skip = "20" }, { text = _("Beginning / End"), skip = "ends" }, }
-#: library_settings.lua:1088
+#: library_settings.lua:1090
 msgid "Beginning / End"
 msgstr "Začátek / Konec"
 
@@ -499,12 +607,12 @@ msgid "Beta"
 msgstr "Beta"
 
 #. Context: presets = { { text = _("Black"), r = 0, g = 0, b = 0 }, { text = _("White"), r = 255, g = 255, b = 255 },
-#: library_settings.lua:561
+#: library_settings.lua:563
 msgid "Black"
 msgstr "Černá"
 
 #. Context: { text = _("Gray"), r = 204, g = 204, b = 204 }, { text = _("Blue"), r = 0x99, g = 0xBB, b = 0xF0 }, { text = _("Green"), r = 0x99, g = 0xCC, b = 0x99 },
-#: library_settings.lua:564 reader_settings.lua:65 navbar_settings.lua:1574
+#: library_settings.lua:566 reader_settings.lua:65 navbar_settings.lua:1574
 msgid "Blue"
 msgstr "Modrá"
 
@@ -563,20 +671,25 @@ msgstr "Pás knih"
 msgid "Book switcher"
 msgstr "Přepínač knih"
 
-#. Context: { key = "custom_text", text = _("Custom text") }, { key = "book_title", text = _("Book title") }, { key = "author", text = _("Author") },
-#: reader_settings.lua:162
-msgid "Book title"
-msgstr "Název knihy"
-
 #. Context: table.insert(vstack, TextWidget:new{ text = (cover_info and cover_info.title) or _("Book Title"), face = Font:getFace("cfont", 20),
 #: quickstart_pages.lua:275
 msgid "Book Title"
+msgstr "Název knihy"
+
+#. Context: { key = "custom_text", text = _("Custom text") }, { key = "book_title", text = _("Book title") }, { key = "author", text = _("Author") },
+#: reader_settings.lua:162
+msgid "Book title"
 msgstr "Název knihy"
 
 #. Context: text_func = function() return _("Book: ") .. path_label(mcfg.path) end,
 #: home_settings.lua:1031
 msgid "Book: "
 msgstr "Kniha: "
+
+#. Context: make_page_browser_font_size_item( "bookmarks_font_size", _("Bookmarks") ),
+#: reader_settings.lua:1186
+msgid "Bookmarks"
+msgstr "Záložky"
 
 #. Context: _zen_group_subtitle = book_count == 1 and _("1 book") or (tostring(book_count) .. " " .. _("books")), _zen_sort_cb = function()
 #: collections.lua:441 collections.lua:539 context_menu.lua:643 context_menu.lua:1248 group_view.lua:1242
@@ -599,7 +712,7 @@ msgid "Books tab label"
 msgstr "Označení karty knih"
 
 #. Context: { text = _("Bottom"), radio = true,
-#: library_settings.lua:473
+#: library_settings.lua:475
 msgid "Bottom"
 msgstr "Dole"
 
@@ -641,7 +754,7 @@ msgstr "Tlačítka"
 #. Context: text = pack.name, help_text = pack.author and T(_("By %1"), pack.author) or nil, radio = true,
 #: extras_settings.lua:191
 msgid "By %1"
-msgstr "Autor %1"
+msgstr "Od %1"
 
 #. Context: icon = "quick_stats_calendar", label = _("Calendar"), visible_func = function() return hasPlugin("statistics") end,
 #: quick_settings.lua:963
@@ -663,8 +776,8 @@ msgstr "Doplněk Calibre není nainstalován."
 msgid "Calibre Search"
 msgstr "Hledat v Calibre"
 
-#. Context: ok_text = _("Open"), cancel_text = _("Cancel"), ok_callback = open,
-#: home_page.lua:2133 zen_bugreporter.lua:152 zen_bugreporter.lua:194 zen_bugreporter.lua:225 zen_settings_utils.lua:537 zen_updater.lua:1343 zen_updater.lua:1647 zenpm_installer.lua:339 app_launcher_settings.lua:186 app_launcher_settings.lua:273 global_settings.lua:237 menu_settings.lua:884 menu_settings.lua:987 reader_settings.lua:114 reader_settings.lua:335 reader_settings.lua:607 reader_settings.lua:937 home_settings.lua:1163 home_settings.lua:1930 home_settings.lua:2008 navbar_settings.lua:806 navbar_settings.lua:931 navbar_settings.lua:1002 navbar_settings.lua:1138 status_bar_settings.lua:260 status_bar_settings.lua:356
+#. Context: buttons = {{ { text = _("Cancel"), id = "close", callback = function() UIManager:close(dialog) end }, { text = _("Rename"), is_enter_default = true, callback = rename },
+#: metadata_editor.lua:558 metadata_editor.lua:665 metadata_editor.lua:706 metadata_editor.lua:796 home_page.lua:2133 metadata_editor.lua:379 metadata_editor.lua:530 zen_bugreporter.lua:152 zen_bugreporter.lua:194 zen_bugreporter.lua:225 zen_settings_utils.lua:537 zen_updater.lua:1343 zen_updater.lua:1647 zenpm_installer.lua:339 app_launcher_settings.lua:186 app_launcher_settings.lua:273 global_settings.lua:237 menu_settings.lua:884 menu_settings.lua:987 reader_settings.lua:114 reader_settings.lua:335 reader_settings.lua:607 reader_settings.lua:937 home_settings.lua:1163 home_settings.lua:1930 home_settings.lua:2008 metadata_settings.lua:27 navbar_settings.lua:806 navbar_settings.lua:931 navbar_settings.lua:1002 navbar_settings.lua:1138 status_bar_settings.lua:260 status_bar_settings.lua:356
 msgid "Cancel"
 msgstr "Zrušit"
 
@@ -679,7 +792,7 @@ msgid "Casual Chess"
 msgstr "Neformální šachy"
 
 #. Context: { text = _("Center"), radio = true,
-#: library_settings.lua:464
+#: library_settings.lua:466
 msgid "Center"
 msgstr "Střed"
 
@@ -728,13 +841,23 @@ msgstr "Šachy"
 msgid "Choose a different folder"
 msgstr "Vybrat jinou složku"
 
+#. Context: picker = require("common/ui/zen_menu_picker"){ title = _("Choose an edition"), items = items,
+#: metadata_editor.lua:462
+msgid "Choose an edition"
+msgstr "Zvolte edici"
+
 #. Context: require("common/ui/zen_menu_picker"){ title = _("Choose control"), items = picker_items,
 #: app_launcher_settings.lua:471 menu_settings.lua:427 home_settings.lua:1324 navbar_settings.lua:631 navbar_settings.lua:653
 msgid "Choose control"
 msgstr "Zvolte ovládání"
 
+#. Context: { text = _("Choose image"), action = "image",
+#: metadata_editor.lua:737
+msgid "Choose image"
+msgstr "Zvolte obrázek"
+
 #. Context: local title_tw = TW:new{ text = opts.title or _("Choose item"), face = TitleStyle.getTitleFace(),
-#: zen_menu_picker.lua:49
+#: zen_menu_picker.lua:89
 msgid "Choose item"
 msgstr "Vyberte položku"
 
@@ -742,6 +865,11 @@ msgstr "Vyberte položku"
 #: app_launcher_settings.lua:414 menu_settings.lua:407 home_settings.lua:1306 navbar_settings.lua:447
 msgid "Choose KOReader menu"
 msgstr "Vyberte nabídku KOReader"
+
+#. Context: { text = _("Choose match manually"), radio = true,
+#: metadata_settings.lua:179
+msgid "Choose match manually"
+msgstr "Vyberte shodu ručně"
 
 #. Context: show_menu_picker{ title = _("Choose plugin menu"), items = picker_items,
 #: app_launcher_settings.lua:320 app_launcher_settings.lua:390 menu_settings.lua:392 home_settings.lua:1284 navbar_settings.lua:432
@@ -769,12 +897,12 @@ msgid "Classic"
 msgstr "Klasické"
 
 #. Context: local display_modes = { { text = _("Classic (filename only)"), mode = "classic" }, { text = _("Mosaic with cover images"), mode = "mosaic_image" },
-#: library_settings.lua:786
+#: library_settings.lua:788
 msgid "Classic (filename only)"
 msgstr "Klasické (pouze název souboru)"
 
 #. Context: local clear_label = TextWidget:new{ text = _("Clear"), face = Font:getFace("cfont", clear_font_size),
-#: folder_cover_picker.lua:52 folder_cover_picker.lua:408 context_menu.lua:2237 advanced_settings.lua:128
+#: folder_cover_picker.lua:52 folder_cover_picker.lua:408 context_menu.lua:2272 advanced_settings.lua:128 metadata_settings.lua:80
 msgid "Clear"
 msgstr "Vymazat"
 
@@ -788,10 +916,35 @@ msgstr "Vymazat všechna gesta"
 msgid "Clear book"
 msgstr "Vymazat knihu"
 
+#. Context: label = _("Google Books API key:"), clear = _("Clear Google Books API key"), confirm = _("Clear the saved Google Books API key?"),
+#: metadata_settings.lua:134
+msgid "Clear Google Books API key"
+msgstr "Vymazat klíč API pro Google Books"
+
+#. Context: { text = _("Clear Hardcover token"), enabled_func = function()
+#: metadata_settings.lua:71
+msgid "Clear Hardcover token"
+msgstr "Vymazat Hardcover token"
+
+#. Context: clear = _("Clear Google Books API key"), confirm = _("Clear the saved Google Books API key?"), clear_failed = _("The Google Books API key could not be cleared."),
+#: metadata_settings.lua:135
+msgid "Clear the saved Google Books API key?"
+msgstr "Vymazat uložený klíč API pro Google Books?"
+
+#. Context: UIManager:show(ConfirmBox:new{ text = _("Clear the saved Hardcover API token?"), ok_text = _("Clear"),
+#: metadata_settings.lua:79
+msgid "Clear the saved Hardcover API token?"
+msgstr "Vymazat uložený token API pro Hardcover?"
+
 #. Context: buttons = {{ { text = _("Close"), callback = function() self:onClose() end }, { text = _("Apply"), callback = function()
 #: zen_slider_dialog.lua:157 zen_updater.lua:1738 zen_updater.lua:1755
 msgid "Close"
 msgstr "Zavřít"
+
+#. Context: invalid_file = _("This file is no longer available."), open_book = _("Close this book before editing its metadata."), invalid_epub = _("This EPUB could not be read."),
+#: metadata_editor.lua:20
+msgid "Close this book before editing its metadata."
+msgstr "Zavřete knihu, než budete upravovat její metadata."
 
 #. Context: icon = "quick_cloud", label = _("Cloud"), callback = function()
 #: quick_settings.lua:730
@@ -819,12 +972,12 @@ msgid "Colored status icons"
 msgstr "Barevné stavové ikony"
 
 #. Context: width_factor = 0.6, left_text = _("Columns"), left_value = c,
-#: library_settings.lua:871 library_settings.lua:925
+#: library_settings.lua:873 library_settings.lua:927
 msgid "Columns"
 msgstr "Sloupce"
 
 #. Context: local sizes = { { label = _("Compact"), value = "compact" }, { label = _("Normal"), value = "normal" },
-#: library_settings.lua:506
+#: library_settings.lua:508
 msgid "Compact"
 msgstr "Kompaktní"
 
@@ -832,6 +985,11 @@ msgstr "Kompaktní"
 #: collections.lua:374
 msgid "Connect folders"
 msgstr "Propojit složky"
+
+#. Context: local metadata_errors = { offline = _("Connect to a network before searching metadata."), rate_limited = _("A metadata provider is rate-limiting requests. Try again later."),
+#: metadata_editor.lua:173
+msgid "Connect to a network before searching metadata."
+msgstr "Před hledáním metadat se připojte k síti."
 
 #. Context: icon = "quick_connections", label = _("Connections"), visible_func = function() return hasPlugin("nytconnections") end,
 #: quick_settings.lua:912 menu_settings.lua:100
@@ -883,9 +1041,6 @@ msgstr "Kopírovat"
 msgid "Could not determine update status."
 msgstr "Stav aktualizace nalze určit."
 
-msgid "Could not find a ZenPM release."
-msgstr "Nelze najít vydání ZenPM."
-
 #. Context: if not entries then M._last_error = _("Could not get release from update server.") return false
 #: zen_updater.lua:711
 msgid "Could not get release from update server."
@@ -901,6 +1056,11 @@ msgstr "Nelze nainstalovat %1: %2"
 msgid "Could not install ZenPM."
 msgstr "Nelze nainstalovat ZenPM."
 
+#. Context: no_match = _("No metadata matches were found."), network = _("Could not reach a metadata provider."), }
+#: metadata_editor.lua:178
+msgid "Could not reach a metadata provider."
+msgstr "Poskytovatel metadat není dostupný."
+
 #. Context: else M._last_error = _("Could not reach update server.") end
 #: zen_updater.lua:704
 msgid "Could not reach update server."
@@ -911,13 +1071,20 @@ msgstr "Server s aktualizacemi není dostupný."
 msgid "Could not reach update server. Check your internet connection."
 msgstr "Server s aktualizacemi je nedostupný. Zkontrolujte připojení k internetu."
 
-msgid "Could not reach update server. Check your internet connection.\n\nUnable to load changelog."
-msgstr "Server s aktualizacemi je nedostupný. Zkontrolujte připojení k internetu.\n\nNelze načíst seznam změn."
-
 #. Context: logger.warn("suppressed Kindle Wi-Fi profile scan crash", err) return nil, _("Could not scan Wi-Fi networks. Please try again after waking the device.") end
 #: kindle_network_profile_guard.lua:25
 msgid "Could not scan Wi-Fi networks. Please try again after waking the device."
 msgstr "Sítě Wi-Fi nelze prohledat. Zkuste to prosím po probuzení zařízení."
+
+#. Context: local label = TextWidget:new{ text = _("Cover") .. " " .. tostring(slot), face = label_face,
+#: folder_cover_picker.lua:297 folder_cover_picker.lua:421 folder_cover_picker.lua:441 metadata_editor.lua:238 metadata_editor.lua:239 metadata_editor.lua:320 metadata_editor.lua:440
+msgid "Cover"
+msgstr "Obálka"
+
+#. Context: UIManager:show(InfoMessage:new{ text = _("Cover updated from Hardcover. Review and save."), })
+#: metadata_editor.lua:211
+msgid "Cover updated from Hardcover. Review and save."
+msgstr "Obálka aktualizována z platformy Hardcover. Zkontrolujte a uložte."
 
 #. Context: dialog = ButtonDialog:new{ title = _("CoverBrowser plugin is not enabled, some features will not work correctly."), title_align = "center",
 #: coverbrowser_check.lua:51
@@ -925,7 +1092,7 @@ msgid "CoverBrowser plugin is not enabled, some features will not work correctly
 msgstr "Doplněk Prohlížeč obálek není povolen, některé funkce nebudou správně pracovat."
 
 #. Context: { text = _("Covers"), sub_item_table = {
-#: library_settings.lua:392 library_settings.lua:497
+#: library_settings.lua:394 library_settings.lua:499
 msgid "Covers"
 msgstr "Obálky"
 
@@ -944,28 +1111,33 @@ msgstr "Vytvořit tuto složku a použít jako domovskou"
 msgid "Crossword"
 msgstr "Křížovka"
 
+#. Context: local pairs = BD.mirroredUILayout() and { preview_pair(_("New"), pending), preview_pair(_("Current"), current) } or { preview_pair(_("Current"), current), preview_pair(_("New"), pending) }
+#: metadata_editor.lua:313 metadata_editor.lua:314
+msgid "Current"
+msgstr "Aktuální"
+
 #. Context: { key = "progress_percent", text = _("Progress %") }, { key = "page_progress", text = _("Current / total pages") }, }
 #: reader_settings.lua:166
 msgid "Current / total pages"
 msgstr "Aktuální / celkem stránek"
-
-#. Context: library = _("Library"), current_book = _("Current book"), trend_graph = _("Reading trend"),
-#: stats_settings.lua:34
-msgid "Current book"
-msgstr "Aktuální kniha"
 
 #. Context: library = _("Library"), current_book = _("Current Book"), trend_graph = _("Reading Trend"),
 #: stats_page.lua:67 stats_page.lua:260
 msgid "Current Book"
 msgstr "Aktuální kniha"
 
+#. Context: library = _("Library"), current_book = _("Current book"), trend_graph = _("Reading trend"),
+#: stats_settings.lua:34
+msgid "Current book"
+msgstr "Aktuální kniha"
+
 #. Context: local filemanagerutil = require("apps/filemanager/filemanagerutil") local title_header = _("Current home folder:") local current_path = paths.getHomeDir()
-#: library_settings.lua:1414
+#: library_settings.lua:1416
 msgid "Current home folder:"
 msgstr "Aktuální domovská složka:"
 
 #. Context: local pn_formats = { { text = _("Current only"), fmt = "current" }, { text = _("Page x / y"), fmt = "total" },
-#: library_settings.lua:1056
+#: library_settings.lua:1058
 msgid "Current only"
 msgstr "Pouze aktuální"
 
@@ -1000,7 +1172,7 @@ msgid "Custom icons"
 msgstr "Vlastní ikony"
 
 #. Context: { text = _("Custom quotes"), sub_item_table_func = custom_quote_items,
-#: home_settings.lua:2383
+#: home_settings.lua:2358
 msgid "Custom quotes"
 msgstr "Vlastní nabídky"
 
@@ -1015,7 +1187,7 @@ msgid "Custom separator"
 msgstr "Vlastní oddělovač"
 
 #. Context: { text = _("Custom strip widget"), sub_item_table_func = function() return build_strip_widget_items("strip_custom") end,
-#: home_settings.lua:2622
+#: home_settings.lua:2597
 msgid "Custom strip widget"
 msgstr "Vlastní proužkový widget"
 
@@ -1059,13 +1231,18 @@ msgstr "Přizpůsobte si widget"
 msgid "Cut"
 msgstr "Vyjmout"
 
+#. Context: { key = "olive", text = _("Olive") }, { key = "cyan", text = _("Cyan") }, { key = "blue", text = _("Blue") },
+#: reader_settings.lua:64
+msgid "Cyan"
+msgstr "Azurová"
+
 #. Context: for _i, item in ipairs({ { id = "cycle", text = _("Cycle") }, { id = "90", text = _("90°") },
 #: quick_settings.lua:1181 menu_settings.lua:132
 msgid "Cycle"
 msgstr "Cyklus"
 
 #. Context: { id = "daily", text = _("Daily"), pages = { key = "daily_pages_target", default = 30, max = 5000 },
-#: reading_goals.lua:8 reading_goals.lua:225 home_settings.lua:2398
+#: reading_goals.lua:8 reading_goals.lua:225 home_settings.lua:2373
 msgid "Daily"
 msgstr "Denní"
 
@@ -1150,17 +1327,17 @@ msgid "Debug logging must be enabled to submit bug reports."
 msgstr "K odesílání zpráv o chybách musíte zapnout protokolování pro ladění."
 
 #. Context: local function font_name_text(cfg, FontChooser) if cfg.font_face == "default" then return _("default") end return FontChooser.getFontNameText(resolved_library_font(cfg.font_face)) or cfg.font_face
-#: library_settings.lua:31 library_settings.lua:220 library_settings.lua:251 reader_settings.lua:360 reader_settings.lua:393 reader_settings.lua:719 reader_settings.lua:1261 home_settings.lua:512
+#: library_settings.lua:32 library_settings.lua:222 library_settings.lua:253 reader_settings.lua:360 reader_settings.lua:393 reader_settings.lua:719 reader_settings.lua:1261 home_settings.lua:512
 msgid "default"
 msgstr "výchozí"
 
 #. Context: local label = opts.label local default_text = opts.default_text or _("Default") local reset_text = opts.reset_text or default_text
-#: zen_settings_utils.lua:489 library_settings.lua:557 reader_settings.lua:523 reader_settings.lua:558
+#: zen_settings_utils.lua:489 library_settings.lua:559 reader_settings.lua:523 reader_settings.lua:558
 msgid "Default"
 msgstr "Výchozí"
 
 #. Context: default_text = _("Default"), reset_text = _("Default (black)"), dialog_title = _("Badge color RGB"),
-#: library_settings.lua:558
+#: library_settings.lua:560
 msgid "Default (black)"
 msgstr "Výchozí (černá)"
 
@@ -1170,7 +1347,7 @@ msgid "Default font size:"
 msgstr "Výchozí velikost písma:"
 
 #. Context: local source_items = { source_item(_("Default quotes"), "default"), {
-#: home_settings.lua:2381
+#: home_settings.lua:2356
 msgid "Default quotes"
 msgstr "Výchozí uvozovky"
 
@@ -1244,23 +1421,23 @@ msgstr "Odstranit tuto kartu?"
 msgid "Descending"
 msgstr "Sestupně"
 
-#. Context: local title_ref = item.title or item.text table.insert(buttons, {{ text = "\u{F02FD} " .. _("Description"), align = "left", bold = true, callback = function()
-#: opds.lua:1655 home_settings.lua:827
+#. Context: publisher = { label = _("Publisher") }, description = { label = _("Description"), long = true }, }
+#: metadata_editor.lua:42 opds.lua:1655 home_settings.lua:827
 msgid "Description"
 msgstr "Popis"
 
 #. Context: { text = _("Detailed list with metadata, no images"), mode = "list_only_meta" }, { text = _("Detailed list with cover images and filenames"), mode = "list_image_filename" }, }
-#: library_settings.lua:791
+#: library_settings.lua:793
 msgid "Detailed list with cover images and filenames"
 msgstr "Podrobný seznam s obrázky obálek a názvy souborů"
 
 #. Context: { text = _("Mosaic with text"), mode = "mosaic_text" }, { text = _("Detailed list with cover images and metadata"), mode = "list_image_meta" }, { text = _("Detailed list with metadata, no images"), mode = "list_only_meta" },
-#: library_settings.lua:789
+#: library_settings.lua:791
 msgid "Detailed list with cover images and metadata"
 msgstr "Podrobný seznam s obrázky obálek a metadaty"
 
 #. Context: { text = _("Detailed list with cover images and metadata"), mode = "list_image_meta" }, { text = _("Detailed list with metadata, no images"), mode = "list_only_meta" }, { text = _("Detailed list with cover images and filenames"), mode =...
-#: library_settings.lua:790
+#: library_settings.lua:792
 msgid "Detailed list with metadata, no images"
 msgstr "Podrobný seznam s metadaty, bez obrázků"
 
@@ -1285,7 +1462,7 @@ msgid "Dictionary lookup"
 msgstr "Vyhledání ve slovníku"
 
 #. Context: { text = _("Dim finished books"), checked_func = function()
-#: library_settings.lua:714
+#: library_settings.lua:716
 msgid "Dim finished books"
 msgstr "Dokončené knihy šedé"
 
@@ -1324,18 +1501,23 @@ msgstr "Pro přístup k výchozím nabídkám KOReader vypněte režim Zen."
 msgid "Disable Zen Mode with this icon to adjust KOReader settings that aren’t available in Zen Settings."
 msgstr "Pomocí této ikony deaktivujte režim Zen a upravte nastavení KOReaderu, která nejsou dostupná v nastavení Zen."
 
+#. Context: cancel_text = _("Keep editing"), choice1_text = _("Discard"), choice1_callback = function() UIManager:close(dialog) end,
+#: metadata_editor.lua:632 metadata_editor.lua:809 metadata_editor.lua:437
+msgid "Discard"
+msgstr "Vyřadit"
+
 #. Context: { key = "ram", text = _("RAM usage") }, { key = "disk", text = _("Disk space") }, { key = "custom_text", text = _("Custom text") },
 #: reader_settings.lua:160 status_bar_settings.lua:30
 msgid "Disk space"
 msgstr "Místo na disku"
 
 #. Context: table.insert(buttons, {{ text = "\u{F06D0} " .. _("Display") .. " \u{25B8}", align = "left",
-#: collections.lua:453 collections.lua:562 collections.lua:635 context_menu.lua:676 context_menu.lua:2115
+#: collections.lua:453 collections.lua:562 collections.lua:635 context_menu.lua:676 context_menu.lua:2150
 msgid "Display"
 msgstr "Obrazovka"
 
 #. Context: view_dialog = ButtonDialog:new{ title = _("Display mode"), title_align = "center",
-#: collections.lua:423 collections.lua:521 collections.lua:614 context_menu.lua:2102 group_view.lua:533 zen_settings.lua:80 extras_settings.lua:61 library_settings.lua:826
+#: collections.lua:423 collections.lua:521 collections.lua:614 context_menu.lua:2137 group_view.lua:533 zen_settings.lua:80 extras_settings.lua:61 library_settings.lua:828
 msgid "Display mode"
 msgstr "Režim zobrazení"
 
@@ -1355,7 +1537,7 @@ msgid "Done"
 msgstr "Hotovo"
 
 #. Context: { text = _("Bar"), style = "bar" }, { text = _("Dots"), style = "dots" }, { text = _("Page number"), style = "page_number" },
-#: library_settings.lua:1028
+#: library_settings.lua:1030
 msgid "Dots"
 msgstr "Tečky"
 
@@ -1384,10 +1566,20 @@ msgstr "Staženo"
 msgid "Downloading"
 msgstr "Stahování"
 
+#. Context: "zen-metadata-cover-" .. cover_download_serial .. ".jpg") run_hardcover_request(_("Downloading cover…"), function() return require("modules/filebrowser/metadata/hardcover")
+#: metadata_editor.lua:199
+msgid "Downloading cover…"
+msgstr "Stahování obálky…"
+
 #. Context: title = _("ZenPM"), subtitle = _("Downloading ZenPM") .. "...", button = false,
 #: zenpm_installer.lua:326
 msgid "Downloading ZenPM"
 msgstr "Stahování ZenPM"
+
+#. Context: local retained = editor:applyHardcover(metadata, edition_summary(edition)) local message = _("Draft updated from Hardcover. Review and save.") if retained == 1 then
+#: metadata_editor.lua:229
+msgid "Draft updated from Hardcover. Review and save."
+msgstr "Koncept byl aktualizován z platformy Hardcover. Zkontrolujte a uložte."
 
 #. Context: ReaderFooter.textOptionTitles = function(self, option) if option == "dynamic_filler_2" then return _("Dynamic filler 2") end if option == "progress_bar" then return _("Progress bar") end
 #: reader_footer.lua:76
@@ -1395,22 +1587,29 @@ msgid "Dynamic filler 2"
 msgstr "Dynamická výplň 2"
 
 #. Context: {{ text = "\u{F0B64} " .. _("Read status") .. " \u{25B6}", align = "left", callback = function() end }}, {{ text = "\u{F090C} " .. _("Edit") .. " \u{25B6}", align = "left", callback = function() end }}, }
-#: quickstart_pages.lua:306 context_menu.lua:2349 opds.lua:1445 book_info_widget.lua:110
+#: quickstart_pages.lua:306 context_menu.lua:2384 opds.lua:1445 book_info_widget.lua:110
 msgid "Edit"
 msgstr "Upravit"
 
+#. Context: width = self.width, title = _("Edit metadata"), title_full_width = true,
+#: metadata_editor.lua:335
+msgid "Edit metadata"
+msgstr "Upravit metadata"
+
 #. Context: IconItem.decorate({ text = _("Edit mode"), checked_func = function()
-#: stats_settings.lua:366 home_settings.lua:2569
+#: stats_settings.lua:366 home_settings.lua:2544
 msgid "Edit mode"
 msgstr "Režim úprav"
 
+#. Context: local value = join_parts({ edition.edition_format, edition.release_year }, ", ") return value ~= "" and value or _("Edition") end
+#: metadata_editor.lua:157
+msgid "Edition"
+msgstr "Vydání"
+
 #. Context: table.insert(buttons, {{ text = _("Enable"), callback = function()
-#: coverbrowser_check.lua:32 app_launcher_settings.lua:938 home_settings.lua:2327
+#: coverbrowser_check.lua:32 app_launcher_settings.lua:938
 msgid "Enable"
 msgstr "Povolit"
-
-msgid "Enable bottom status bar"
-msgstr "Povolit dolní stavový řádek"
 
 #. Context: table.insert(items, IconItem.decorate({ text = _("Enable bottom swipe"), checked_func = function()
 #: reader_settings.lua:1131
@@ -1427,9 +1626,6 @@ msgstr "Zapnout časový plán jasu"
 msgid "Enable custom icons"
 msgstr "Povolit vlastní ikony"
 
-msgid "Enable custom status bar"
-msgstr "Zapnout vlastní stavový řádek"
-
 #. Context: text = _("Debug logging"), help_text = _("Enable KOReader verbose debug logging. Logs are written to koreader.log. Takes effect immediately."), checked_func = function()
 #: advanced_settings.lua:104
 msgid "Enable KOReader verbose debug logging. Logs are written to koreader.log. Takes effect immediately."
@@ -1439,12 +1635,6 @@ msgstr "Zapnout protokolování KOReaderu pro ladění. Protokol se zapisuje do 
 #: global_settings.lua:336
 msgid "Enable night mode schedule"
 msgstr "Zapnout noční časový plán"
-
-msgid "Enable reader themes"
-msgstr "Povolit čtenářská témata"
-
-msgid "Enable top status bar"
-msgstr "Zapnout horní stavový řádek"
 
 #. Context: { text = _("Enable warmth schedule"), checked_func = function()
 #: global_settings.lua:563
@@ -1461,15 +1651,50 @@ msgstr "Povolit Zen OPDS"
 msgid "Enable ZenOS enhancements to the OPDS browser: cover art, list view, hold menu, and navigation improvements."
 msgstr "Povolit rozšíření ZenOS pro prohlížeč OPDS: vylepšení zobrazení obálek, seznamu, nabídky zadržení a navigace."
 
+#. Context: or missing_credential and _("Enabled metadata providers need an API credential. Open settings?") or _("No metadata providers are available. Open settings?"))
+#: metadata_editor.lua:576
+msgid "Enabled metadata providers need an API credential. Open settings?"
+msgstr "Povolení poskytovatelé metadat vyžadují pověření pro API. Open settings?"
+
 #. Context: .. "\n\n" .. _("Enabling debug logging, restart required. Please reproduce the issue, then submit the report."), ok_text = _("Restart now"),
 #: zen_bugreporter.lua:150
 msgid "Enabling debug logging, restart required. Please reproduce the issue, then submit the report."
 msgstr "Zapínám protokolování pro ladění, což vyžaduje restart. Zkuste prosím znovu navodit chybu a pak odešlete zprávu."
 
+#. Context: if title == "" then editor:showError(_("Enter a title to search metadata.")) return
+#: metadata_editor.lua:655
+msgid "Enter a title to search metadata."
+msgstr "Zadejte název pro vyhledání metadat."
+
+#. Context: or basename:find("\\", 1, true) then self:showError(_("Enter a valid filename.")) return
+#: metadata_editor.lua:539
+msgid "Enter a valid filename."
+msgstr "Zadejte platný název souboru."
+
+#. Context: description = _("The key is stored locally as plain text and is never logged."), invalid = _("Enter a valid Google Books API key without spaces."), label = _("Google Books API key:"),
+#: metadata_settings.lua:132
+msgid "Enter a valid Google Books API key without spaces."
+msgstr "Zadejte platný klíč pro API Google Books bez mezer."
+
+#. Context: UIManager:show(require("ui/widget/infomessage"):new{ text = _("Enter a valid Hardcover token without spaces."), })
+#: metadata_settings.lua:38
+msgid "Enter a valid Hardcover token without spaces."
+msgstr "Zadejte platný token pro Hardcover bez mezer."
+
+#. Context: input_hint = spec.list and _("One per line") or spec.label, description = spec.list and _("Enter one value per line.") or nil, allow_newline = spec.list or spec.long,
+#: metadata_editor.lua:697
+msgid "Enter one value per line."
+msgstr "Na každý řádek zadejte jednu hodnotu."
+
 #. Context: title = _("GitHub username (optional)"), description = _("Enter your GitHub username to be tagged in the issue"), input = "",
 #: zen_bugreporter.lua:250
 msgid "Enter your GitHub username to be tagged in the issue"
 msgstr "Zadejte jméno uživatele pro GitHub, které bude uvedeno u chyby"
+
+#. Context: parts[#parts + 1] = provider_label(work._provider) if work.exact_edition then parts[#parts + 1] = _("Exact ISBN match") end parts[#parts + 1] = table.concat(
+#: metadata_editor.lua:244
+msgid "Exact ISBN match"
+msgstr "Přesná shoda ISBN"
 
 #. Context: { id = "stats", label = _("Stats") }, { id = "exit", label = _("Exit") }, { id = "page_left", label = _("Previous page") },
 #: nav_button_model.lua:23 navbar.lua:317 quick_settings.lua:678 quick_settings.lua:682 menu_settings.lua:83 navbar_settings.lua:181
@@ -1477,7 +1702,7 @@ msgid "Exit"
 msgstr "Ukončit"
 
 #. Context: { label = _("Large"), value = "large" }, { label = _("Extra large"), value = "extra_large" }, }
-#: library_settings.lua:509
+#: library_settings.lua:511
 msgid "Extra large"
 msgstr "Extra velké"
 
@@ -1492,9 +1717,19 @@ msgid "Extract metadata"
 msgstr "Extrahovat metadata"
 
 #. Context: IconItem.decorate({ text = _("Reader"), sub_item_table = reader_items }, icons.settings_reader), IconItem.decorate({ text = _("Extras"), sub_item_table = extras_items }, icons.fav_add), IconItem.decorate({ text = _("Updates"), sub_item_t...
-#: zen_settings.lua:146 stats_settings.lua:303 stats_settings.lua:327
+#: zen_settings.lua:152 stats_settings.lua:303 stats_settings.lua:327
 msgid "Extras"
 msgstr "Doplňky"
+
+#. Context: UIManager:show(InfoMessage:new{ text = _("Failed to clear folder cover."), })
+#: context_menu.lua:1559
+msgid "Failed to clear folder cover."
+msgstr "Obálku složky se nepodařilo vymazat."
+
+#. Context: UIManager:show(InfoMessage:new{ text = _("Failed to set folder cover."), })
+#: context_menu.lua:1541
+msgid "Failed to set folder cover."
+msgstr "Obálku složky se nepodařilo nastavit."
 
 #. Context: UIManager:show(InfoMessage:new{ text = _("Failed to submit report: ") .. (err or "unknown error"), })
 #: zen_bugreporter.lua:346
@@ -1502,17 +1737,17 @@ msgid "Failed to submit report: "
 msgstr "Zprávu se nepodařilo odeslat: "
 
 #. Context: { id = "recent", label = _("Recent"), source = true }, { id = "favorites", label = _("Favorites"), source = true }, { id = "to_be_read", label = _("To Be Read"), source = true },
-#: nav_button_model.lua:7 quickstart_pages.lua:685 collections.lua:353 collections.lua:987 collections.lua:1023 context_menu.lua:1879 navbar.lua:262 home_settings.lua:1060 navbar_settings.lua:170
+#: nav_button_model.lua:7 quickstart_pages.lua:685 collections.lua:353 collections.lua:987 collections.lua:1023 context_menu.lua:1914 navbar.lua:262 home_settings.lua:1060 navbar_settings.lua:170
 msgid "Favorites"
 msgstr "Oblíbené"
 
 #. Context: id = "featured", label = _("Featured book"), size = shared.SIZE,
-#: featured.lua:6 home_settings.lua:2613
+#: featured.lua:6 home_settings.lua:2588
 msgid "Featured book"
 msgstr "Doporučená kniha"
 
 #. Context: { text = _("Featured widgets"), sub_item_table = {
-#: home_settings.lua:2610
+#: home_settings.lua:2585
 msgid "Featured widgets"
 msgstr "Doporučené widgety"
 
@@ -1536,23 +1771,28 @@ msgstr "Prohlížeč souborů"
 msgid "Filebrowser plugin is not installed."
 msgstr "Doplněk Prohlížeč souborů není nainstalován."
 
-#. Context: if type(entry) == "table" then if entry[1] == _("Filename:") and file_manager
-#: metadata_editor.lua:59
-msgid "Filename:"
-msgstr "Název souboru:"
+#. Context: items[#items + 1] = { text = _("Filename"), _zen_display_text = _("Filename"),
+#: metadata_editor.lua:228 metadata_editor.lua:229 metadata_editor.lua:555 context_menu.lua:2161 group_view.lua:566 group_view.lua:793
+msgid "Filename"
+msgstr "Název souboru"
 
 #. Context: table.insert(buttons, {{ text = icons.filter .. " " .. _("Filter") .. (n_gf > 0 and " (" .. n_gf .. ")" or "")
-#: context_menu.lua:765 context_menu.lua:2334
+#: context_menu.lua:765 context_menu.lua:2369
 msgid "Filter"
 msgstr "Filtrovat"
 
 #. Context: filter_dialog = new_context_menu_dialog{ title = _("Filter by status"), title_align = "center",
-#: context_menu.lua:750 context_menu.lua:2319
+#: context_menu.lua:750 context_menu.lua:2354
 msgid "Filter by status"
 msgstr "Filtrovat dle stavu"
 
+#. Context: end return _("Find metadata") end
+#: metadata_editor.lua:652 metadata_editor.lua:814 metadata_editor.lua:743
+msgid "Find metadata"
+msgstr "Vyhledat metadata"
+
 #. Context: elseif display_status == "complete" then status_label = _("Finished") progress_str = "\u{F012C}" -- MD check
-#: browser_list_item_layout.lua:457 context_menu.lua:715 context_menu.lua:2025 context_menu.lua:2280 stats_page.lua:943 stats_page.lua:955
+#: browser_list_item_layout.lua:457 context_menu.lua:715 context_menu.lua:2060 context_menu.lua:2315 stats_page.lua:943 stats_page.lua:955
 msgid "Finished"
 msgstr "Dokončeno"
 
@@ -1562,7 +1802,7 @@ msgid "Firmware: "
 msgstr "Firmware: "
 
 #. Context: { text = _("First cover image"), radio = true,
-#: library_settings.lua:404
+#: library_settings.lua:406
 msgid "First cover image"
 msgstr "První obrázek obálky"
 
@@ -1587,12 +1827,12 @@ msgid "Folder buttons"
 msgstr "Tlačítka složky"
 
 #. Context: { text = _("Folder name"), sub_item_table = {
-#: library_settings.lua:450
+#: library_settings.lua:452
 msgid "Folder name"
 msgstr "Název složky"
 
 #. Context: { text = _("Folder name position"), sub_item_table = {
-#: library_settings.lua:461
+#: library_settings.lua:463
 msgid "Folder name position"
 msgstr "Umístění názvu složky"
 
@@ -1602,19 +1842,19 @@ msgid "Folder presets"
 msgstr "Předvolby složek"
 
 #. Context: table.insert(right_widgets, TextWidget:new{ text = tostring(dir_count) .. " " .. (dir_count == 1 and _("Folder") or _("Folders")), face = library_font.getFace(fs_right),
-#: browser_list_item_layout.lua:182 library_settings.lua:375
+#: browser_list_item_layout.lua:182 library_settings.lua:377
 msgid "Folders"
 msgstr "Složky"
-
-#. Context: UIManager:show(FontChooser:new{ title = string.format("%s %s", label, _("font")), font_file = display_face,
-#: home_settings.lua:575 home_settings.lua:719 home_settings.lua:1599
-msgid "font"
-msgstr "písmo"
 
 #. Context: table.insert(items, { text = _("Font"), enabled_func = function()
 #: reader_settings.lua:1019 reader_settings.lua:1268 reader_settings.lua:1308 home_settings.lua:1671
 msgid "Font"
 msgstr "Písmo"
+
+#. Context: UIManager:show(FontChooser:new{ title = string.format("%s %s", label, _("font")), font_file = display_face,
+#: home_settings.lua:575 home_settings.lua:719 home_settings.lua:1599
+msgid "font"
+msgstr "písmo"
 
 #. Context: UIManager:show(SpinWidget:new{ title_text = label_for(id) .. " " .. _("font size"), value = widget().font_size or default_font_size,
 #: stats_settings.lua:148 home_settings.lua:545 home_settings.lua:640 home_settings.lua:694 home_settings.lua:1573
@@ -1627,7 +1867,7 @@ msgid "Font size"
 msgstr "Velikost písma"
 
 #. Context: local cfg = ensure_library_font_cfg(config) return string.format("%s %s", _("Font size:"), tostring(cfg.font_size)) end,
-#: library_settings.lua:228 reader_settings.lua:369 reader_settings.lua:1149 reader_settings.lua:1233 stats_settings.lua:141 home_settings.lua:538 home_settings.lua:687 home_settings.lua:1566 home_settings.lua:2088 home_settings.lua:2182 home_settings.lua:2464
+#: library_settings.lua:230 reader_settings.lua:369 reader_settings.lua:1149 reader_settings.lua:1233 stats_settings.lua:141 home_settings.lua:538 home_settings.lua:687 home_settings.lua:1566 home_settings.lua:2088 home_settings.lua:2182 home_settings.lua:2439
 msgid "Font size:"
 msgstr "Velikost písma:"
 
@@ -1637,7 +1877,7 @@ msgid "Font, margins, contrast, line spacing etc - tested together for the best 
 msgstr "Písmo, okraje, kontrast, řádkování atd. – společně testováno pro nejlepší zážitek ze čtení"
 
 #. Context: or (ok_fc and font_name_text(cfg, FontChooser) or cfg.font_face) return string.format("%s %s, %s", _("Font:"), face_text, tostring(cfg.font_size)) end,
-#: library_settings.lua:222 library_settings.lua:253 reader_settings.lua:363 reader_settings.lua:395 reader_settings.lua:1262 home_settings.lua:563 home_settings.lua:709 home_settings.lua:1588
+#: library_settings.lua:224 library_settings.lua:255 reader_settings.lua:363 reader_settings.lua:395 reader_settings.lua:1262 home_settings.lua:563 home_settings.lua:709 home_settings.lua:1588
 msgid "Font:"
 msgstr "Písmo:"
 
@@ -1651,11 +1891,6 @@ msgstr "Vynutit synchronizaci"
 msgid "Force sync all catalogs"
 msgstr "Vynutit synchronizaci všech katalogů"
 
-#. Context: end elseif entry[1] == _("Format:") then format_index = index
-#: metadata_editor.lua:67
-msgid "Format:"
-msgstr "Formát:"
-
 #. Context: input = fmt(c), hint = _("Format: R,G,B (0-255)"), buttons = {{
 #: zen_settings_utils.lua:534
 msgid "Format: R,G,B (0-255)"
@@ -1667,9 +1902,14 @@ msgid "Frontlight"
 msgstr "Přední osvětlení"
 
 #. Context: { text = _("Gallery"), radio = true,
-#: library_settings.lua:395
+#: library_settings.lua:397
 msgid "Gallery"
 msgstr "Galerie"
+
+#. Context: series = { label = _("Series") }, genres = { label = _("Genres"), list = true }, language = { label = _("Language") },
+#: metadata_editor.lua:39
+msgid "Genres"
+msgstr "Žánry"
 
 #. Context: if not (is_last and page.finale) then local next_lbl = is_last and _("Get Started") or _("Next") local show_chevron = not is_last and IconWidget ~= nil
 #: quickstart_screen.lua:489 quickstart_screen.lua:532 zen_screen.lua:502 zen_screen.lua:508
@@ -1691,6 +1931,21 @@ msgstr "Přejít"
 msgid "Go to page"
 msgstr "Přejít na stránku"
 
+#. Context: id = "google_books", label = _("Google Books"), module = "modules/filebrowser/metadata/google_books",
+#: metadata_editor.lua:130 metadata_settings.lua:162
+msgid "Google Books"
+msgstr "Google Books"
+
+#. Context: local google_items = credential_items(GoogleBooksStore, { title = _("Google Books API key"), description = _("The key is stored locally as plain text and is never logged."),
+#: metadata_settings.lua:130
+msgid "Google Books API key"
+msgstr "Klíč API pro Google Books"
+
+#. Context: invalid = _("Enter a valid Google Books API key without spaces."), label = _("Google Books API key:"), clear = _("Clear Google Books API key"),
+#: metadata_settings.lua:133
+msgid "Google Books API key:"
+msgstr "Klíč API pro Google Books:"
+
 #. Context: menu._zen_block_dlg = ButtonDialog:new{ title = _("Graph metric"), title_align = "center",
 #: stats_page.lua:1360
 msgid "Graph metric"
@@ -1702,24 +1957,44 @@ msgid "Graph range"
 msgstr "Rozsah grafu"
 
 #. Context: { text = _("White"), r = 255, g = 255, b = 255 }, { text = _("Gray"), r = 204, g = 204, b = 204 }, { text = _("Blue"), r = 0x99, g = 0xBB, b = 0xF0 },
-#: library_settings.lua:563 reader_settings.lua:67
+#: library_settings.lua:565 reader_settings.lua:67
 msgid "Gray"
 msgstr "Šedá"
 
 #. Context: { text = _("Blue"), r = 0x99, g = 0xBB, b = 0xF0 }, { text = _("Green"), r = 0x99, g = 0xCC, b = 0x99 }, { text = _("Amber"), r = 0xF0, g = 0xD0, b = 0x80 },
-#: library_settings.lua:565 reader_settings.lua:62 navbar_settings.lua:1575
+#: library_settings.lua:567 reader_settings.lua:62 navbar_settings.lua:1575
 msgid "Green"
 msgstr "Zelená"
 
 #. Context: { text = _("Group book series into folders"), checked_func = function()
-#: library_settings.lua:344
+#: library_settings.lua:346
 msgid "Group book series into folders"
 msgstr "Seskupit série knih do složek"
+
+#. Context: local provider = trim(self.edition_provider) if provider == "" then provider = _("Hardcover") end return T(_("%1 · %2"), provider, self.edition_summary)
+#: metadata_editor.lua:649 metadata_editor.lua:1042 metadata_editor.lua:123 metadata_settings.lua:161
+msgid "Hardcover"
+msgstr "Hardcover"
+
+#. Context: dlg = InputDialog:new{ title = _("Hardcover API token"), description = _("Use a token limited to read:catalog. It is stored locally as plain text and is never logged."),
+#: metadata_settings.lua:21
+msgid "Hardcover API token"
+msgstr "Token API pro Hardcover"
+
+#. Context: text_func = function() return _("Hardcover API token:") .. " " .. masked_token(TokenStore.get())
+#: metadata_settings.lua:64
+msgid "Hardcover API token:"
+msgstr "Token API pro Hardcover:"
 
 #. Context: filter_status_item(recent, "filter_tbr", _("Hide on-hold books")), filter_status_item(recent, "filter_finished", _("Hide finished books")), },
 #: home_settings.lua:1777
 msgid "Hide finished books"
 msgstr "Skrýt dočtené knihy"
+
+#. Context: sub_items[#sub_items + 1] = { text = _("Hide grouped series"), checked_func = function()
+#: library_settings.lua:362
+msgid "Hide grouped series"
+msgstr "Skrýt seskupené série"
 
 #. Context: { text = _("Hide in CBZ/PDF files"), checked_func = function()
 #: reader_settings.lua:508 reader_settings.lua:1318
@@ -1727,7 +2002,7 @@ msgid "Hide in CBZ/PDF files"
 msgstr "Skrýt v souborech CBZ/PDF"
 
 #. Context: table.insert(layout_items, { text = _("Hide list borders"), checked_func = function()
-#: library_settings.lua:1165
+#: library_settings.lua:1167
 msgid "Hide list borders"
 msgstr "Skrýt okraje seznamu"
 
@@ -1747,7 +2022,7 @@ msgid "Hide unread books"
 msgstr "Skrýt nepřečtené knihy"
 
 #. Context: { text = _("Hide up folder"), checked_func = function() return config.browser_hide_up_folder.hide_up_folder == true end,
-#: library_settings.lua:378
+#: library_settings.lua:380
 msgid "Hide up folder"
 msgstr "Skrýt složku"
 
@@ -1761,38 +2036,40 @@ msgstr "Skrýt, když je vypnuto"
 msgid "Highlight / Lookup"
 msgstr "Zvýraznit / Vyhledat"
 
+#. Context: { text = _("Highlight names"), sub_item_table_func = make_highlight_name_items,
+#: reader_settings.lua:1050
+msgid "Highlight names"
+msgstr "Zvýraznit názvy"
+
 #. Context: { id = "continue", label = _("Continue") }, { id = "history", label = _("History") }, { id = "home", label = _("Home") },
 #: nav_button_model.lua:18 quickstart_pages.lua:684 navbar.lua:257 navbar_settings.lua:169
 msgid "History"
 msgstr "Historie"
 
 #. Context: table.insert(scroll_bar_sub_items, { text = _("Hold to skip"), enabled_func = function() return get_scroll_bar_style() == "page_number" end,
-#: library_settings.lua:1109
+#: library_settings.lua:1111
 msgid "Hold to skip"
 msgstr "Přidržením vynechat"
 
 #. Context: { id = "history", label = _("History") }, { id = "home", label = _("Home") }, { id = "search", label = _("Search") },
-#: nav_button_model.lua:19 quickstart_pages.lua:682 navbar.lua:217 zen_settings.lua:135 home_settings.lua:1428 home_settings.lua:1828 home_settings.lua:2534 home_settings.lua:2550 home_settings.lua:2662 navbar_settings.lua:147 navbar_settings.lua:964
+#: nav_button_model.lua:19 quickstart_pages.lua:682 navbar.lua:217 zen_settings.lua:135 home_settings.lua:1428 home_settings.lua:1828 home_settings.lua:2509 home_settings.lua:2525 home_settings.lua:2637 navbar_settings.lua:147 navbar_settings.lua:964
 msgid "Home"
 msgstr "Domov"
+
+#. Context: table.insert(items, { text = _("Home folder"), sub_item_table = {
+#: library_settings.lua:1410
+msgid "Home folder"
+msgstr "Domovská složka"
 
 #. Context: table.insert(pages, #pages, { title = _("Home Folder"), description = T(_("The place for all your books %1"), books_dir),
 #: quickstart_pages.lua:833 quickstart_pages.lua:905
 msgid "Home Folder"
 msgstr "Domovská složka"
 
-#. Context: table.insert(items, { text = _("Home folder"), sub_item_table = {
-#: library_settings.lua:1408
-msgid "Home folder"
-msgstr "Domovská složka"
-
 #. Context: input = preset_name, input_hint = _("Home page preset"), buttons = {{
 #: home_settings.lua:1927 home_settings.lua:2005
 msgid "Home page preset"
 msgstr "Předvolba domovské stránky"
-
-msgid "Home spacing was updated. Your saved widget order and selections were kept and refitted to the new grid."
-msgstr "Rozestupy domovské obrazovky byly aktualizovány. Uložené pořadí a výběr widgetů byly zachovány a přizpůsobeny nové mřížce."
 
 #. Context: dialog = InputDialog:new{ title = _("Home tab label"), input = config.navbar.home_label or "Home",
 #: navbar_settings.lua:927
@@ -1803,6 +2080,11 @@ msgstr "Popisek domovské karty"
 #: zen_settings_utils.lua:369
 msgid "Hour"
 msgstr "Hodina"
+
+#. Context: items[#items + 1] = { text = _("HTML"), checked_func = function()
+#: home_settings.lua:772
+msgid "HTML"
+msgstr "HTML"
 
 #. Context: _("Show icons"), _("Icon size:"), })
 #: zen_settings.lua:123 navbar_settings.lua:1505
@@ -1820,17 +2102,17 @@ msgid "Icons"
 msgstr "Ikony"
 
 #. Context: elseif code == "no_decoder" then return _("Image support is unavailable on this device.") elseif code == "decode_failed" then
-#: library_settings.lua:1234
+#: library_settings.lua:1236
 msgid "Image support is unavailable on this device."
 msgstr "Obrázky nejsou na tomto zařízení podporovány."
 
 #. Context: local name = select(2, util.splitFilePathName(path)) return _("Image: ") .. (name ~= "" and name or path) end,
-#: library_settings.lua:1286
+#: library_settings.lua:1288
 msgid "Image: "
 msgstr "Obrázek: "
 
 #. Context: local path = lib_bg_path() if path == "" then return _("Image: none") end local util = require("util")
-#: library_settings.lua:1283
+#: library_settings.lua:1285
 msgid "Image: none"
 msgstr "Obrázek: žádný"
 
@@ -1904,30 +2186,55 @@ msgstr "Interaktivní"
 msgid "IP address: %1"
 msgstr "IP adresa: %1"
 
+#. Context: { text = _("Items") .. " \u{25B8}", keep_menu_open = true,
+#: app_launcher_settings.lua:992
+msgid "Items"
+msgstr "Položek"
+
+#. Context: _("Display mode"), _("Items per page"), _("Sort by"),
+#: zen_settings.lua:81 library_settings.lua:853
+msgid "Items per page"
+msgstr "Položek na stránku"
+
 #. Context: fpp = math.min(fpp, max_fpp) return _("List: ") .. tostring(fpp) .. " " .. _("items per page") end,
-#: library_settings.lua:968
+#: library_settings.lua:970
 msgid "items per page"
 msgstr "položek na stránku"
 
-#. Context: _("Display mode"), _("Items per page"), _("Sort by"),
-#: zen_settings.lua:81 library_settings.lua:851
-msgid "Items per page"
-msgstr "Položek na stránku"
+#. Context: items[#items + 1] = { text = _("Justify text"), checked_func = function()
+#: home_settings.lua:762
+msgid "Justify text"
+msgstr "Zarovnat text"
+
+#. Context: { text = _("Keep an EPUB metadata backup"), checked_func = function() return metadata.epub_backup == true end,
+#: metadata_settings.lua:192
+msgid "Keep an EPUB metadata backup"
+msgstr "Zachovat zálohu metadat EPUB"
+
+#. Context: text = _("You have unsaved changes."), cancel_text = _("Keep editing"), choice1_text = _("Discard"),
+#: metadata_editor.lua:631 metadata_editor.lua:808 metadata_editor.lua:88
+msgid "Keep editing"
+msgstr "Pokračovat v úpravách"
 
 #. Context: choices = { { id = "keep", text = _("Keep existing settings"), checked = quickstart_completed }, { id = "cover_black", text = _("Show Book cover"), checked = not quickstart_completed },
 #: quickstart_pages.lua:726 quickstart_pages.lua:776
 msgid "Keep existing settings"
 msgstr "Zachovat stávající nastavení"
 
+#. Context: if file_extension(basename):lower() ~= file_extension(seed):lower() then self:showError(_("Keep the current file extension.")) return
+#: metadata_editor.lua:543
+msgid "Keep the current file extension."
+msgstr "Zachovat aktuální příponu souboru."
+
 #. Context: if entry.type == "koreader_menu" then return entry.koreader_menu and entry.koreader_menu.title or _("KOReader menu") end
 #: nav_button_model.lua:113 quick_settings.lua:1059 app_launcher_settings.lua:577 menu_settings.lua:509 menu_settings.lua:670 menu_settings.lua:723 home_settings.lua:1404 navbar_settings.lua:310 navbar_settings.lua:536 navbar_settings.lua:1353
 msgid "KOReader menu"
-msgstr "Nabídka KOReader"
+msgstr "Nabídka KOReaderu"
 
 #. Context: local target = entry.koreader_menu return T(_("KOReader menu: %1"), type(target) == "table" and target.title or entry.label or _("(none)"))
 #: app_launcher_settings.lua:817 menu_settings.lua:770 navbar_settings.lua:739
 msgid "KOReader menu: %1"
-msgstr "Nabídka KOReader: %1"
+msgstr "Nabídka KOReaderu: %1"
 
 #. Context: text_func = function() return _("KOReader: ") .. utils.get_koreader_version() end,
 #: about_settings.lua:32
@@ -1960,17 +2267,32 @@ msgid "Labels"
 msgstr "Popisky"
 
 #. Context: UIManager:show(require("ui/widget/doublespinwidget"):new{ title_text = _("Landscape mosaic mode"), width_factor = 0.6,
-#: library_settings.lua:923
+#: library_settings.lua:925
 msgid "Landscape mosaic mode"
 msgstr "Režim dlaždic na šířku"
 
 #. Context: local r = (fc and fc.nb_rows_landscape) or (bim and bim:getSetting("nb_rows_landscape")) or 2 return _("Landscape mosaic: ") .. c .. "x" .. r end,
-#: library_settings.lua:913
+#: library_settings.lua:915
 msgid "Landscape mosaic: "
 msgstr "Dlaždice na šířku: "
 
+#. Context: genres = { label = _("Genres"), list = true }, language = { label = _("Language") }, publisher = { label = _("Publisher") },
+#: metadata_editor.lua:40
+msgid "Language"
+msgstr "Jazyk"
+
+#. Context: { id = "series", label = _("Series"), source = true }, { id = "languages", label = _("Languages"), source = true }, { id = "tags", label = _("Tags"), source = true },
+#: nav_button_model.lua:11 group_view.lua:1258 group_view.lua:1304 navbar.lua:282 home_settings.lua:1062 navbar_settings.lua:174
+msgid "Languages"
+msgstr "Jazyky"
+
+#. Context: subtitle = count == 1 and _("1 language") or (tostring(count) .. " " .. _("languages")) elseif tab_id == "tags" then
+#: group_view.lua:1276
+msgid "languages"
+msgstr "jazyky"
+
 #. Context: { label = _("Normal"), value = "normal" }, { label = _("Large"), value = "large" }, { label = _("Extra large"), value = "extra_large" },
-#: library_settings.lua:508
+#: library_settings.lua:510
 msgid "Large"
 msgstr "Velké"
 
@@ -2000,7 +2322,7 @@ msgid "Launcher label"
 msgstr "Popisek spouštěče"
 
 #. Context: table.insert(items, 2, { text = _("Layout"), sub_item_table = layout_items,
-#: library_settings.lua:1190
+#: library_settings.lua:1192
 msgid "Layout"
 msgstr "Rozvržení"
 
@@ -2020,7 +2342,7 @@ msgid "Left items"
 msgstr "Položky vlevo"
 
 #. Context: { id = "collections", label = _("Collections"), source = true }, { id = "books", label = _("Library") }, { id = "manga", label = _("Manga") },
-#: nav_button_model.lua:14 navbar.lua:213 stats_page.lua:66 zen_settings.lua:143 global_settings.lua:771 stats_settings.lua:33 navbar_settings.lua:164 navbar_settings.lua:222 navbar_settings.lua:973
+#: nav_button_model.lua:14 navbar.lua:213 stats_page.lua:66 zen_settings.lua:140 global_settings.lua:771 stats_settings.lua:33 navbar_settings.lua:164 navbar_settings.lua:222 navbar_settings.lua:973
 msgid "Library"
 msgstr "Knihovna"
 
@@ -2030,12 +2352,12 @@ msgid "Library background was disabled because the image file was not found."
 msgstr "Pozadí knihovny bylo zakázáno, protože soubor obrázku nebyl nalezen."
 
 #. Context: UIManager:show(FontChooser:new{ title = _("Library font"), font_file = display_face,
-#: library_settings.lua:276
+#: library_settings.lua:278
 msgid "Library font"
 msgstr "Písmo knihovny"
 
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Library font size"), value = cfg.font_size,
-#: library_settings.lua:235
+#: library_settings.lua:237
 msgid "Library font size"
 msgstr "Velikost písma knihovny"
 
@@ -2070,12 +2392,12 @@ msgid "List"
 msgstr "Seznam"
 
 #. Context: viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"), viewBtn(_("List (basic)"), "\u{F0CA}", "list_image_filename"), }),
-#: collections.lua:428 collections.lua:526 collections.lua:619 context_menu.lua:2107 group_view.lua:538
+#: collections.lua:428 collections.lua:526 collections.lua:619 context_menu.lua:2142 group_view.lua:538
 msgid "List (basic)"
 msgstr "Seznam (základní)"
 
 #. Context: viewBtn(_("Mosaic"), "\u{F00A}", "mosaic_image"), viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"), viewBtn(_("List (basic)"), "\u{F0CA}", "list_image_filename"),
-#: collections.lua:427 collections.lua:525 collections.lua:618 context_menu.lua:2106 group_view.lua:537
+#: collections.lua:427 collections.lua:525 collections.lua:618 context_menu.lua:2141 group_view.lua:537
 msgid "List (detailed)"
 msgstr "Seznam (podrobný)"
 
@@ -2085,7 +2407,7 @@ msgid "List - detailed titles and metadata"
 msgstr "Seznam - podrobné názvy a metadata"
 
 #. Context: fpp = math.min(fpp, max_fpp) return _("List: ") .. tostring(fpp) .. " " .. _("items per page") end,
-#: library_settings.lua:968
+#: library_settings.lua:970
 msgid "List: "
 msgstr "Seznam: "
 
@@ -2094,16 +2416,13 @@ msgstr "Seznam: "
 msgid "Load more"
 msgstr "Načíst další"
 
-msgid "Loading changelog"
-msgstr "Načítání seznamu změn"
-
 #. Context: icon = "quick_localsend", label = _("LocalSend"), visible_func = function() return hasPlugin("localsend") end,
 #: quick_settings.lua:804 menu_settings.lua:94
 msgid "LocalSend"
 msgstr "LocalSend"
 
 #. Context: { text = _("Lock home folder"), enabled_func = function()
-#: library_settings.lua:1439
+#: library_settings.lua:1441
 msgid "Lock home folder"
 msgstr "Zamknout domovskou složku"
 
@@ -2116,6 +2435,11 @@ msgstr "Uzamknout"
 #: global_settings.lua:757
 msgid "Lockdown mode"
 msgstr "Režim uzamčení"
+
+#. Context: or text == _("Remove from vocabulary builder") or text == _("Long-press to add to vocabulary builder") end
+#: dict_quick_lookup.lua:76
+msgid "Long-press to add to vocabulary builder"
+msgstr "Dlouhým stiskem přidejte do nástroje pro tvorbu slovníku"
 
 #. Context: local active_id = active_pack_id() if active_id == "" then return _("Loose icons") end for _i, pack in ipairs(IconPacks.getLastScan().packs or {}) do
 #: extras_settings.lua:159
@@ -2152,6 +2476,11 @@ msgstr "Složka Manga nenalezena: "
 msgid "Manually download and sideload %1 from the same ZenPM release."
 msgstr "Ručně si stáhněte a stáhněte %1 ze stejného vydání ZenPM."
 
+#. Context: { text = _("Match selection"), sub_item_table = {
+#: metadata_settings.lua:165
+msgid "Match selection"
+msgstr "Porovnat výběr"
+
 #. Context: { text = _("Match whole words"), help_text = _("When enabled, search matches whole words only. When disabled, substring matching is used (e.g., 'fish' matches 'fishing')."),
 #: global_settings.lua:317
 msgid "Match whole words"
@@ -2178,12 +2507,12 @@ msgid "Maximum 9 buttons allowed"
 msgstr "Povoleno je maximálně Akce karty Manga: "
 
 #. Context: text_func = function() return string.format("%s %s", _("Maximum font size:"), tostring(mcfg.max_font_size))
-#: home_settings.lua:632 home_settings.lua:2154 home_settings.lua:2437
+#: home_settings.lua:632 home_settings.lua:2154 home_settings.lua:2412
 msgid "Maximum font size:"
 msgstr "Maximální velikost písma:"
 
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Maximum quote font size"), value = dcfg.quotes.max_font_size or 14,
-#: home_settings.lua:2447
+#: home_settings.lua:2422
 msgid "Maximum quote font size"
 msgstr "Maximální velikost písma nabídky"
 
@@ -2191,6 +2520,41 @@ msgstr "Maximální velikost písma nabídky"
 #: nav_button_model.lua:26 navbar.lua:332 navbar_settings.lua:184
 msgid "Menu"
 msgstr "Nabídka"
+
+#. Context: local item = { text = _("Metadata"), _zen_metadata_settings = true,
+#: metadata_settings.lua:59
+msgid "Metadata"
+msgstr "Metadata"
+
+#. Context: UIManager:show(InfoMessage:new{ text = error_text(err, _("Metadata could not be loaded.")), })
+#: metadata_editor.lua:34
+msgid "Metadata could not be loaded."
+msgstr "Metadata nelze načíst."
+
+#. Context: end return restored, error_text(restore_err, _("Metadata could not be restored.")) end,
+#: metadata_editor.lua:561
+msgid "Metadata could not be restored."
+msgstr "Metadata nelze obnovit."
+
+#. Context: return nil, error_text(save_err, _("Metadata could not be saved.")) end
+#: metadata_editor.lua:504 metadata_settings.lua:44
+msgid "Metadata could not be saved."
+msgstr "Metadata nelze uložit."
+
+#. Context: UIManager:show(InfoMessage:new{ text = metadata_errors[kind] or _("Metadata lookup failed."), })
+#: metadata_editor.lua:194
+msgid "Metadata lookup failed."
+msgstr "Hledání metadat selhalo."
+
+#. Context: picker = require("common/ui/zen_menu_picker"){ title = _("Metadata results"), items = items,
+#: metadata_editor.lua:550
+msgid "Metadata results"
+msgstr "Výsledky metadat"
+
+#. Context: return nil, metadata_dirty and _("Metadata was saved, but the cover image could not be saved.") or _("The cover image could not be saved.")
+#: metadata_editor.lua:514
+msgid "Metadata was saved, but the cover image could not be saved."
+msgstr "Metadata byla uložena, ale obrázek obálky nelze uložit."
 
 #. Context: buttons[#buttons + 1] = {{ text = _("Metric") .. ": " .. (current.metric == "time" and _("Time") or _("Pages")), callback = function() showMetricMenu(block_idx) end,
 #: stats_page.lua:1422 stats_settings.lua:99
@@ -2207,15 +2571,15 @@ msgstr "min"
 msgid "Minute"
 msgstr "Minuta"
 
-#. Context: local function metricLabel(metric) return metric == "time" and _("Minutes") or _("Pages") end
-#: stats_page.lua:76
-msgid "Minutes"
-msgstr "Zápis"
-
 #. Context: width = pill_w, height = card_h, stat_style = stat_style, value = minuteCount(minutes), label = _("minutes"), },
 #: stats_page.lua:425
 msgid "minutes"
 msgstr "zápis"
+
+#. Context: local function metricLabel(metric) return metric == "time" and _("Minutes") or _("Pages") end
+#: stats_page.lua:76
+msgid "Minutes"
+msgstr "Minuty"
 
 #. Context: end return T(_("Missing: %1"), active_id) end
 #: extras_settings.lua:163
@@ -2233,7 +2597,7 @@ msgid "Months"
 msgstr "měsíce"
 
 #. Context: buttons = apply_button_group_font({ viewBtn(_("Mosaic"), "\u{F00A}", "mosaic_image"), viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"),
-#: collections.lua:426 collections.lua:524 collections.lua:617 context_menu.lua:2105 group_view.lua:536 extras_settings.lua:39
+#: collections.lua:426 collections.lua:524 collections.lua:617 context_menu.lua:2140 group_view.lua:536 extras_settings.lua:39
 msgid "Mosaic"
 msgstr "Dlaždice"
 
@@ -2243,22 +2607,22 @@ msgid "Mosaic - large cover thumbnails"
 msgstr "Dlaždice - velké náhledy obálek"
 
 #. Context: { text = _("Classic (filename only)"), mode = "classic" }, { text = _("Mosaic with cover images"), mode = "mosaic_image" }, { text = _("Mosaic with text"), mode = "mosaic_text" },
-#: library_settings.lua:787
+#: library_settings.lua:789
 msgid "Mosaic with cover images"
 msgstr "Dlaždice s obrázky obálek"
 
 #. Context: { text = _("Mosaic with cover images"), mode = "mosaic_image" }, { text = _("Mosaic with text"), mode = "mosaic_text" }, { text = _("Detailed list with cover images and metadata"), mode = "list_image_meta" },
-#: library_settings.lua:788
+#: library_settings.lua:790
 msgid "Mosaic with text"
 msgstr "Dlaždice s textem"
 
 #. Context: {{ text = "\u{F02FD} " .. _("Details"), align = "left", callback = function() end }}, {{ text = "\u{F01BE} " .. _("Move"), align = "left", callback = function() end }}, {{ text = "\u{F04CE} " .. _("Add to collection") .. " \u{25B6}", ali...
-#: quickstart_pages.lua:303 context_menu.lua:1458 context_menu.lua:1744
+#: quickstart_pages.lua:303 context_menu.lua:1458 context_menu.lua:1779
 msgid "Move"
 msgstr "Přesunout"
 
 #. Context: UIManager:show(InfoMessage:new{ text = _("Move failed."), icon = "notice-warning",
-#: context_menu.lua:1821
+#: context_menu.lua:1856
 msgid "Move failed."
 msgstr "Přesun selhal."
 
@@ -2273,9 +2637,14 @@ msgid "Move to folder"
 msgstr "Přesunout do složky"
 
 #. Context: show_files = true, title = _("Move to…"), path = move_home_dir,
-#: context_menu.lua:1767
+#: context_menu.lua:1802
 msgid "Move to…"
 msgstr "Přesunout do…"
+
+#. Context: fields = { { description = _("Name"), text = seed[1] }, { description = _("Position"), text = seed[2] },
+#: metadata_editor.lua:661
+msgid "Name"
+msgstr "Název"
 
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Navbar"), { _("Tabs") .. " \u{25B8}",
 #: zen_settings.lua:96 zen_settings.lua:137 navbar_settings.lua:3 navbar_settings.lua:1420
@@ -2297,6 +2666,11 @@ msgstr "Velikost popisku lišty navigace"
 msgid "Navbar Tabs"
 msgstr "Karty navigace"
 
+#. Context: navigate_to_tag = _("Navigate to tag"),
+#: library_settings.lua:1506
+msgid "Navigate to tag"
+msgstr "Přejít na značku"
+
 #. Context: main = _("Main menu"), navi = _("Navigation"), search = _("Search"),
 #: native_menu.lua:8
 msgid "Navigation"
@@ -2307,8 +2681,8 @@ msgstr "Navigace"
 msgid "Network unavailable."
 msgstr "Síť není dostupná."
 
-#. Context: if is_new then status_label = _("New") elseif display_status == "tbr" then
-#: browser_list_item_layout.lua:452 zen_renderer.lua:823 strip_common.lua:453
+#. Context: local pairs = BD.mirroredUILayout() and { preview_pair(_("New"), pending), preview_pair(_("Current"), current) } or { preview_pair(_("Current"), current), preview_pair(_("New"), pending) }
+#: metadata_editor.lua:313 metadata_editor.lua:314 browser_list_item_layout.lua:452 zen_renderer.lua:823 strip_common.lua:453
 msgid "New"
 msgstr "Nový"
 
@@ -2323,7 +2697,7 @@ msgid "New custom theme"
 msgstr "Nový vlastní motiv"
 
 #. Context: { text = "\u{F0B9D} " .. _("New folder"), align = "left",
-#: context_menu.lua:1731 app_launcher_settings.lua:269
+#: context_menu.lua:1766 app_launcher_settings.lua:269
 msgid "New folder"
 msgstr "Nová složka"
 
@@ -2333,7 +2707,7 @@ msgid "New includes unread books and books modified since they were last opened.
 msgstr "Za Nové jsou považovány nepřečtené knihy a knihy upravené od jejich posledního tevření."
 
 #. Context: { text = _("New quote"), sub_item_table = {
-#: home_settings.lua:2395
+#: home_settings.lua:2370
 msgid "New quote"
 msgstr "Nový citát"
 
@@ -2433,7 +2807,7 @@ msgid "Night warmth: "
 msgstr "Noční teplota: "
 
 #. Context: end return _("No background image selected.") end
-#: library_settings.lua:1238
+#: library_settings.lua:1240
 msgid "No background image selected."
 msgstr "Není vybrán žádný obrázek na pozadí."
 
@@ -2457,6 +2831,11 @@ msgstr "Žádné knihy k přechodu"
 msgid "No books with author metadata found"
 msgstr "Nebyly nalezeny žádné knihy s metadaty autora"
 
+#. Context: series = _("No books with series metadata found"), languages = _("No books with language metadata found"), tags = _("No books with tags metadata found"),
+#: group_view.lua:397
+msgid "No books with language metadata found"
+msgstr "Nebyly nalezeny žádné knihy s metadaty jazyka"
+
 #. Context: authors = _("No books with author metadata found"), series = _("No books with series metadata found"), languages = _("No books with language metadata found"),
 #: group_view.lua:396
 msgid "No books with series metadata found"
@@ -2466,9 +2845,6 @@ msgstr "Nebyly nalezeny žádné knihy s metadaty seriálu"
 #: group_view.lua:398
 msgid "No books with tags metadata found"
 msgstr "Nebyly nalezeny žádné knihy s metadaty značek"
-
-msgid "No changelog entries found.\n\nNo releases are available for this channel."
-msgstr "Nebyly nalezeny žádné položky seznamu změn.\n\nPro tento kanál nejsou dostupná žádná vydání."
 
 #. Context: if type(notes) ~= "string" then return _("No changelog provided.") end
 #: zen_updater.lua:214 zen_updater.lua:219 zen_updater.lua:799 zen_updater.lua:812
@@ -2489,6 +2865,21 @@ msgstr "Nebyly nalezeny žádné podnabídky KOReader"
 #: app_launcher_settings.lua:308 app_launcher_settings.lua:378 menu_settings.lua:380 navbar_settings.lua:421
 msgid "No launchable plugin menus found"
 msgstr "Nenalezeny žádné spustitelné nabídky doplňků"
+
+#. Context: malformed = _("A metadata provider returned an unreadable response."), no_match = _("No metadata matches were found."), network = _("Could not reach a metadata provider."),
+#: metadata_editor.lua:177
+msgid "No metadata matches were found."
+msgstr "Nebyly nalezeny žádné shody metadat."
+
+#. Context: and _("Enabled metadata providers need an API credential. Open settings?") or _("No metadata providers are available. Open settings?")) return
+#: metadata_editor.lua:577
+msgid "No metadata providers are available. Open settings?"
+msgstr "Žádný poskytovatel metadat není dostupný. Otevřít nastavení?"
+
+#. Context: offer_metadata_settings(not any_enabled and _("No metadata providers are enabled. Open settings?") or missing_credential
+#: metadata_editor.lua:574
+msgid "No metadata providers are enabled. Open settings?"
+msgstr "Není povolen žádný poskytovatel metadat. Otevřít nastavení?"
 
 #. Context: UIManager:show(InfoMessage:new{ text = _("No network connection. Please connect to Wi-Fi and try again."), })
 #: zen_bugreporter.lua:168
@@ -2541,12 +2932,12 @@ msgid "None"
 msgstr "Žádný"
 
 #. Context: { text = _("None (folder name only)"), radio = true,
-#: library_settings.lua:422
+#: library_settings.lua:424
 msgid "None (folder name only)"
 msgstr "Žádný (pouze název složky)"
 
 #. Context: { label = _("Compact"), value = "compact" }, { label = _("Normal"), value = "normal" }, { label = _("Large"), value = "large" },
-#: library_settings.lua:507
+#: library_settings.lua:509
 msgid "Normal"
 msgstr "Normální"
 
@@ -2554,6 +2945,11 @@ msgstr "Normální"
 #: home_settings.lua:435
 msgid "Not enough Home space: %1/%2 units used; this widget needs %3."
 msgstr "Nedostatek domácího prostoru: %1/%2 použité jednotky; tento widget potřebuje %3."
+
+#. Context: local Screen = Device.screen local EMPTY = _("Not set") local FIELD_ORDER = {
+#: metadata_editor.lua:30 metadata_settings.lua:11
+msgid "Not set"
+msgstr "Nenastaveno"
 
 #. Context: local text = Dispatcher:menuTextFunc(entry.action) if text and text ~= "" and text ~= _("Nothing") then return icon_utils.stripZenPrefix(text)
 #: app_launcher_settings.lua:158 menu_settings.lua:727 home_settings.lua:1346 navbar_settings.lua:314
@@ -2571,7 +2967,7 @@ msgid "NotionSync"
 msgstr "NotionSync"
 
 #. Context: else return "☼", " " .. _("Off"), colors.frontlight end
-#: status_bar.lua:443 incognito_mode.lua:248 reader_top_status_bar.lua:157 library_settings.lua:1445 home_settings.lua:461 home_settings.lua:472
+#: status_bar.lua:443 incognito_mode.lua:248 reader_top_status_bar.lua:157 library_settings.lua:1447 home_settings.lua:461 home_settings.lua:472
 msgid "Off"
 msgstr "Vypnuto"
 
@@ -2580,23 +2976,33 @@ msgstr "Vypnuto"
 msgid "OK"
 msgstr "OK"
 
+#. Context: { key = "green", text = _("Green") }, { key = "olive", text = _("Olive") }, { key = "cyan", text = _("Cyan") },
+#: reader_settings.lua:63
+msgid "Olive"
+msgstr "Olivová"
+
 #. Context: { text = _("On"), radio = true,
-#: library_settings.lua:1457
+#: library_settings.lua:1459
 msgid "On"
 msgstr "Zapnuto"
 
 #. Context: elseif display_status == "abandoned" then status_label = _("On hold") progress_str = "\u{F03E4}"
-#: browser_list_item_layout.lua:460 context_menu.lua:714 context_menu.lua:2024 context_menu.lua:2279
+#: browser_list_item_layout.lua:460 context_menu.lua:714 context_menu.lua:2059 context_menu.lua:2314
 msgid "On hold"
 msgstr "Podrženo"
 
 #. Context: { text = _("On Home refresh"), checked_func = function()
-#: home_settings.lua:2408
+#: home_settings.lua:2383
 msgid "On Home refresh"
 msgstr "Při obnově domova"
 
+#. Context: input = seed, input_hint = spec.list and _("One per line") or spec.label, description = spec.list and _("Enter one value per line.") or nil,
+#: metadata_editor.lua:696
+msgid "One per line"
+msgstr "Jedna na řádek"
+
 #. Context: { text = _("Only in Zen mode"), radio = true,
-#: library_settings.lua:1451
+#: library_settings.lua:1453
 msgid "Only in Zen mode"
 msgstr "Pouze v režimu Zen"
 
@@ -2605,8 +3011,13 @@ msgstr "Pouze v režimu Zen"
 msgid "Only show while reading"
 msgstr "Zobrazit pouze při čtení"
 
+#. Context: text_func = function() return string.format("%s: %d%%", _("Opacity"), ensure_lib_bg().opacity)
+#: library_settings.lua:1322 library_settings.lua:1332
+msgid "Opacity"
+msgstr "Neprůhlednost"
+
 #. Context: { text = _("Opaque background"), checked_func = function() return fbc().name_opaque == true end,
-#: library_settings.lua:453
+#: library_settings.lua:455
 msgid "Opaque background"
 msgstr "Neprůhledné pozadí"
 
@@ -2614,11 +3025,6 @@ msgstr "Neprůhledné pozadí"
 #: quick_settings.lua:795 menu_settings.lua:93
 msgid "OPDS"
 msgstr "OPDS"
-
-#. Context: text_func = function() return string.format("%s: %d%%", _("Opacity"), ensure_lib_bg().opacity)
-#: library_settings.lua:1320 library_settings.lua:1330
-msgid "Opacity"
-msgstr "Krytí"
 
 #. Context: text = _("Open this file?") .. "\n\n" .. filename, ok_text = _("Open"), cancel_text = _("Cancel"),
 #: home_page.lua:2132 opening_banner.lua:539
@@ -2629,6 +3035,16 @@ msgstr "OTEVŘENO"
 #: app_launcher_settings.lua:537 app_launcher_settings.lua:592 navbar_settings.lua:1077 navbar_settings.lua:1079
 msgid "Open folder"
 msgstr "Otevřít složku"
+
+#. Context: { text = _("Open Hardcover token page"), callback = function() require("device"):openLink(TOKEN_URL) end,
+#: metadata_settings.lua:106
+msgid "Open Hardcover token page"
+msgstr "Otevřít stránku tokenu pro Hardcover"
+
+#. Context: id = "open_library", label = _("Open Library"), module = "modules/filebrowser/metadata/open_library",
+#: metadata_editor.lua:137 metadata_settings.lua:163
+msgid "Open Library"
+msgstr "Otevřít knihovnu"
 
 #. Context: { text = _("Open menu to Launcher"), checked_func = function()
 #: app_launcher_settings.lua:1017
@@ -2655,23 +3071,38 @@ msgstr "Otevřít Rakuyomi"
 msgid "Open RSS Reader"
 msgstr "Otevřít čtečku RSS"
 
+#. Context: cancel_text = _("Keep editing"), ok_text = _("Open settings"), ok_callback = open_metadata_settings,
+#: metadata_editor.lua:89
+msgid "Open settings"
+msgstr "Otevřít nastavení"
+
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Open this file?") .. "\n\n" .. filename, ok_text = _("Open"),
 #: home_page.lua:2131 opening_banner.lua:538
 msgid "Open this file?"
 msgstr "Otevřít tento soubor?"
 
-#. Context: local button = Button:new{ text = _("Open with…"), text_font_face = "cfont",
-#: metadata_editor.lua:105
+#. Context: self._open_with_button = Button:new{ text = _("Open with…"), width = button_w,
+#: metadata_editor.lua:374
 msgid "Open with…"
 msgstr "Otevřít pomocí…"
+
+#. Context: UIManager:show(InfoMessage:new{ text = _("Open Zen UI Settings → Library → Metadata to configure providers."), })
+#: metadata_editor.lua:98
+msgid "Open Zen UI Settings → Library → Metadata to configure providers."
+msgstr "Poskytovatele nakonfigurujte otevřením Nastavení Zen UI → Knihovna → Metadata."
 
 #. Context: local tw = TextWidget:new{ text = self.label or _("Opening"), face = Font:getFace("cfont", Screen:scaleBySize(7)),
 #: opening_banner.lua:463
 msgid "Opening"
 msgstr "Otevírání"
 
+#. Context: { key = "red", text = _("Red") }, { key = "orange", text = _("Orange") }, { key = "yellow", text = _("Yellow") },
+#: reader_settings.lua:60
+msgid "Orange"
+msgstr "Oranžová"
+
 #. Context: for _i, key in ipairs(settings_resume.path or {}) do path[#path + 1] = key end path[#path + 1] = _("Order") settings_resume = {
-#: tbr_index.lua:815 tbr_index.lua:823 context_menu.lua:2159 context_menu.lua:2219 group_view.lua:585 group_view.lua:849 app_launcher_settings.lua:60 app_launcher_settings.lua:1012 home_settings.lua:1141 navbar_settings.lua:1203
+#: tbr_index.lua:815 tbr_index.lua:823 context_menu.lua:2194 context_menu.lua:2254 group_view.lua:585 group_view.lua:849 app_launcher_settings.lua:60 app_launcher_settings.lua:1012 home_settings.lua:1141 navbar_settings.lua:1203
 msgid "Order"
 msgstr "Pořadí"
 
@@ -2688,7 +3119,7 @@ msgstr "Označené rámečky"
 #. Context: function M.formatPageCount(pages, long) local label = long and __("pages") or __("p.") return tostring(pages) .. "\u{00A0}" .. label
 #: utils.lua:345
 msgid "p."
-msgstr "p."
+msgstr "s."
 
 #. Context: if page_num > 1 then self.page_info_text:setText(T(_("Page %1 of %2"), page, page_num)) else
 #: touch_menu_panel.lua:198 book_details.lua:95
@@ -2701,12 +3132,12 @@ msgid "Page Browser"
 msgstr "Prohlížeč stránek"
 
 #. Context: { text = _("Dots"), style = "dots" }, { text = _("Page number"), style = "page_number" }, }
-#: library_settings.lua:1029
+#: library_settings.lua:1031
 msgid "Page number"
 msgstr "Číslo stránky"
 
 #. Context: table.insert(scroll_bar_sub_items, { text = _("Page number format"), enabled_func = function() return get_scroll_bar_style() == "page_number" end,
-#: library_settings.lua:1078
+#: library_settings.lua:1080
 msgid "Page number format"
 msgstr "Formát čísla stráánky"
 
@@ -2716,19 +3147,19 @@ msgid "Page stream"
 msgstr "Proud stránek"
 
 #. Context: { text = _("Current only"), fmt = "current" }, { text = _("Page x / y"), fmt = "total" }, }
-#: library_settings.lua:1057
+#: library_settings.lua:1059
 msgid "Page x / y"
 msgstr "Stránka x / y"
-
-#. Context: function M.formatPageCount(pages, long) local label = long and __("pages") or __("p.") return tostring(pages) .. "\u{00A0}" .. label
-#: utils.lua:345 context_menu.lua:1117 stats_page.lua:429 reading_goals.lua:92 reading_goals.lua:267 book_details_page.lua:226
-msgid "pages"
-msgstr "stránky"
 
 #. Context: { text = _("Pages"), radio = true,
 #: reading_goals.lua:127 stats_page.lua:76 stats_page.lua:916 stats_page.lua:925 stats_page.lua:933 stats_page.lua:1341 stats_page.lua:1422 app_launcher_settings.lua:79 stats_settings.lua:102
 msgid "Pages"
 msgstr "Stránky"
+
+#. Context: function M.formatPageCount(pages, long) local label = long and __("pages") or __("p.") return tostring(pages) .. "\u{00A0}" .. label
+#: utils.lua:345 context_menu.lua:1117 stats_page.lua:429 reading_goals.lua:92 reading_goals.lua:267 book_details_page.lua:226
+msgid "pages"
+msgstr "stránky"
 
 #. Context: blockCard{ width = c4_w, height = card_h, value = formatLongTime(book.total_time), label = _("Total time") }, blockCard{ width = c4_w, height = card_h, value = tostring(book.pages_read or 0), label = _("Pages read") }, blockCard{ width =...
 #: stats_page.lua:962
@@ -2770,15 +3201,15 @@ msgstr "Vložte vybrané soubory"
 msgid "Percent"
 msgstr "Procenta"
 
-#. Context: all_time = _("All time"), personal_records = _("Personal records"), library = _("Library"),
-#: stats_settings.lua:32
-msgid "Personal records"
-msgstr "Osobní rekordy"
-
 #. Context: all_time = _("All Time"), personal_records = _("Personal Records"), library = _("Library"),
 #: stats_page.lua:65
 msgid "Personal Records"
 msgstr "Osobní záznamy"
+
+#. Context: all_time = _("All time"), personal_records = _("Personal records"), library = _("Library"),
+#: stats_settings.lua:32
+msgid "Personal records"
+msgstr "Osobní rekordy"
 
 #. Context: end, help_text = _("Place pack folders or ZIP files in /koreader/icons/zen. ZIP files are installed automatically."), enabled_func = function()
 #: extras_settings.lua:230
@@ -2811,19 +3242,24 @@ msgid "Plugin: %1"
 msgstr "Doplněk: %1"
 
 #. Context: UIManager:show(require("ui/widget/spinwidget"):new{ title_text = _("Portrait list mode"), value = math.min(fpp, max_fpp),
-#: library_settings.lua:978
+#: library_settings.lua:980
 msgid "Portrait list mode"
 msgstr "Režim seznamu na výšku"
 
 #. Context: UIManager:show(require("ui/widget/doublespinwidget"):new{ title_text = _("Portrait mosaic mode"), width_factor = 0.6,
-#: library_settings.lua:869
+#: library_settings.lua:871
 msgid "Portrait mosaic mode"
 msgstr "Režim dlaždic na výšku"
 
 #. Context: local r = (fc and fc.nb_rows_portrait) or (bim and bim:getSetting("nb_rows_portrait")) or 3 return _("Portrait mosaic: ") .. c .. "x" .. r end,
-#: library_settings.lua:859
+#: library_settings.lua:861
 msgid "Portrait mosaic: "
 msgstr "Dlaždice na výšku: "
+
+#. Context: { description = _("Name"), text = seed[1] }, { description = _("Position"), text = seed[2] }, },
+#: metadata_editor.lua:662
+msgid "Position"
+msgstr "Pozice"
 
 #. Context: dlg = InputDialog:new{ title = _("Preset name"), input = "",
 #: global_settings.lua:233 reader_settings.lua:933 home_settings.lua:1925 home_settings.lua:2003
@@ -2831,7 +3267,7 @@ msgid "Preset name"
 msgstr "Název předvolby"
 
 #. Context: table.insert(sub, { text = _("Presets"), sub_item_table_func = build_preset_items,
-#: global_settings.lua:723 home_settings.lua:2579
+#: global_settings.lua:723 home_settings.lua:2554
 msgid "Presets"
 msgstr "Předvolby"
 
@@ -2870,6 +3306,16 @@ msgstr "Popisky postupu"
 msgid "Project: Title is not compatible with ZenOS."
 msgstr "Project: Title není kompatibilní s rozhraním ZenOS."
 
+#. Context: language = { label = _("Language") }, publisher = { label = _("Publisher") }, description = { label = _("Description"), long = true },
+#: metadata_editor.lua:41
+msgid "Publisher"
+msgstr "Vydavatel"
+
+#. Context: { key = "blue", text = _("Blue") }, { key = "purple", text = _("Purple") }, { key = "gray", text = _("Gray") },
+#: reader_settings.lua:66
+msgid "Purple"
+msgstr "Fialová"
+
 #. Context: icon = "quick_puzzle", label = _("Puzzle"), visible_func = function() return hasPlugin("slidepuzzle") end,
 #: quick_settings.lua:945
 msgid "Puzzle"
@@ -2906,24 +3352,19 @@ msgid "Quit KOReader"
 msgstr "Ukončit KOReader"
 
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Quote font size"), value = quote_font_size(),
-#: home_settings.lua:2473
+#: home_settings.lua:2448
 msgid "Quote font size"
 msgstr "Velikost písma nabídky"
 
 #. Context: { text = _("Quote sources"), sub_item_table = source_items,
-#: home_settings.lua:2391
+#: home_settings.lua:2366
 msgid "Quote sources"
 msgstr "Zdroje citace"
 
 #. Context: id = "quotes", label = _("Quotes"), size = { units = 1.5 },
-#: quotes.lua:124 home_settings.lua:2648
+#: quotes.lua:124 home_settings.lua:2623
 msgid "Quotes"
 msgstr "Citace"
-
-#. Context: items[#items + 1] = { text = _("quotes.lua is empty"), enabled = false,
-#: home_settings.lua:2365
-msgid "quotes.lua is empty"
-msgstr "quotes.lua je prázdný"
 
 #. Context: table.insert(items, { text = _("Rakuyomi"), sub_item_table = {
 #: extras_settings.lua:113
@@ -2945,13 +3386,18 @@ msgstr "Využití RAM"
 msgid "Range"
 msgstr "Rozsah"
 
+#. Context: { id = "rating", label = _("Rating") }, { id = "annotations", label = _("Annotations") },
+#: library_settings.lua:1504
+msgid "Rating"
+msgstr "Hodnocení"
+
 #. Context: -- cancel = Read now (left), ok = Done (right) cancel_text = "\u{F0B63} " .. _("Read now"), cancel_callback = function()
 #: opds.lua:1625
 msgid "Read now"
 msgstr "Přečteno nyní"
 
 #. Context: {{ text = "\u{F04CE} " .. _("Add to collection") .. " \u{25B6}", align = "left", callback = function() end }}, {{ text = "\u{F0B64} " .. _("Read status") .. " \u{25B6}", align = "left", callback = function() end }}, {{ text = "\u{F090C}...
-#: quickstart_pages.lua:305 context_menu.lua:1927 context_menu.lua:2018
+#: quickstart_pages.lua:305 context_menu.lua:1962 context_menu.lua:2053
 msgid "Read status"
 msgstr "Stav čtení"
 
@@ -2965,8 +3411,13 @@ msgstr "Čas čtení"
 msgid "Read today"
 msgstr "Přečtěte si dnes"
 
+#. Context: if id == "read_time" and book.read_time_secs ~= nil then return string.format(_("Read: %s"), format_duration(_, book.read_time_secs)) elseif id == "time_remaining" and book.time_left_secs ~= nil then
+#: book_details_page.lua:204
+msgid "Read: %s"
+msgstr "Přečteno: %s"
+
 #. Context: { title = _("Reader"), description = _("Font, margins, contrast, line spacing etc - tested together for the best reading experience"),
-#: quickstart_pages.lua:772 action_filter.lua:66 zen_settings.lua:145 global_settings.lua:814
+#: quickstart_pages.lua:772 action_filter.lua:66 zen_settings.lua:151 global_settings.lua:814
 msgid "Reader"
 msgstr "Čtečka"
 
@@ -2976,7 +3427,7 @@ msgid "Reader themes"
 msgstr "Témata čtenářů"
 
 #. Context: else status_label = _("Reading") end
-#: browser_list_item_layout.lua:466 context_menu.lua:712 context_menu.lua:2022 context_menu.lua:2277 stats_page.lua:954
+#: browser_list_item_layout.lua:466 context_menu.lua:712 context_menu.lua:2057 context_menu.lua:2312 stats_page.lua:954
 msgid "Reading"
 msgstr "Čtení"
 
@@ -2991,7 +3442,7 @@ msgid "Reading calendar"
 msgstr "Čtecí kalendář"
 
 #. Context: trend_graph = _("Reading Trend"), goal_progress = _("Reading goals"), calendar = _("Reading Calendar"),
-#: stats_page.lua:69 reading_goals.lua:156 reading_goals.lua:184 stats_settings.lua:36 home_settings.lua:2640
+#: stats_page.lua:69 reading_goals.lua:156 reading_goals.lua:184 stats_settings.lua:36 home_settings.lua:2615
 msgid "Reading goals"
 msgstr "Cíle čtení"
 
@@ -3001,18 +3452,18 @@ msgid "Reading goals font size"
 msgstr "Velikost písma pro čtení cílů"
 
 #. Context: id = "stats_triplet", label = _("Reading stats"), size = "xs",
-#: stats_triplet.lua:171 home_settings.lua:2644
+#: stats_triplet.lua:171 home_settings.lua:2619
 msgid "Reading stats"
 msgstr "Statistiky čtení"
-
-#. Context: current_book = _("Current book"), trend_graph = _("Reading trend"), goal_progress = _("Reading goals"),
-#: stats_settings.lua:35
-msgid "Reading trend"
-msgstr "Trend čtení"
 
 #. Context: current_book = _("Current Book"), trend_graph = _("Reading Trend"), goal_progress = _("Reading goals"),
 #: stats_page.lua:68
 msgid "Reading Trend"
+msgstr "Trend čtení"
+
+#. Context: current_book = _("Current book"), trend_graph = _("Reading trend"), goal_progress = _("Reading goals"),
+#: stats_settings.lua:35
+msgid "Reading trend"
 msgstr "Trend čtení"
 
 #. Context: local BUILTINS = { { id = "recent", label = _("Recent"), source = true }, { id = "favorites", label = _("Favorites"), source = true },
@@ -3026,17 +3477,17 @@ msgid "Recent filters"
 msgstr "Nedávné filtry"
 
 #. Context: { key = "series", text = "\u{F0436} " .. _("Series") }, { key = "access", text = "\u{F02DA} " .. _("Recently read") }, }
-#: context_menu.lua:2129 group_view.lua:567 group_view.lua:794 home_settings.lua:946 home_settings.lua:984
+#: context_menu.lua:2164 group_view.lua:567 group_view.lua:794 home_settings.lua:946 home_settings.lua:984
 msgid "Recently read"
 msgstr "Právě přečteno"
 
 #. Context: { text = _("Recently read strip widget"), sub_item_table_func = function() return build_strip_widget_items("strip_recent") end,
-#: home_settings.lua:2634
+#: home_settings.lua:2609
 msgid "Recently read strip widget"
 msgstr "Proužkový widget Právě přečteno"
 
 #. Context: { text = _("Amber"), r = 0xF0, g = 0xD0, b = 0x80 }, { text = _("Red"), r = 0xDD, g = 0x99, b = 0x99 }, },
-#: library_settings.lua:567 reader_settings.lua:59 navbar_settings.lua:1577
+#: library_settings.lua:569 reader_settings.lua:59 navbar_settings.lua:1577
 msgid "Red"
 msgstr "Červená"
 
@@ -3046,7 +3497,7 @@ msgid "Reflowable documents (epub, fb2, txt…)"
 msgstr "Dynamicky zobrazované dokumenty (epub, fb2, txt…)"
 
 #. Context: { text = icons.refresh .. " " .. _("Refresh"), align = "left",
-#: context_menu.lua:1636 context_menu.lua:2037
+#: context_menu.lua:1636 context_menu.lua:2072
 msgid "Refresh"
 msgstr "Obnovit"
 
@@ -3060,8 +3511,13 @@ msgstr "běžný"
 msgid "Release metadata is invalid or incomplete."
 msgstr "Metadata vydání jsou neplatná nebo neúplná."
 
+#. Context: elseif id == "time_remaining" and book.time_left_secs ~= nil then return string.format(_("Remaining: %s"), format_duration(_, book.time_left_secs)) elseif id == "pages_today" and book.pages_today ~= nil then
+#: book_details_page.lua:206
+msgid "Remaining: %s"
+msgstr "Zbývá: %s"
+
 #. Context: text = _("Remove this book from history?"), ok_text = _("Remove"), ok_callback = function()
-#: context_menu.lua:2372 library_settings.lua:1394
+#: context_menu.lua:2407 library_settings.lua:1396
 msgid "Remove"
 msgstr "Odebrat"
 
@@ -3071,22 +3527,27 @@ msgid "Remove default"
 msgstr "Odebrat výchozí"
 
 #. Context: { text = "\u{F04D2} " .. _("Remove from collection"), align = "left",
-#: context_menu.lua:1841
+#: context_menu.lua:1876
 msgid "Remove from collection"
 msgstr "Odebrat z kolekce"
 
 #. Context: { text = icons.delete .. " " .. _("Remove from history"), align = "left",
-#: context_menu.lua:2365 history.lua:301
+#: context_menu.lua:2400 history.lua:301
 msgid "Remove from history"
 msgstr "Odebrat z historie"
 
+#. Context: return text == _("Add to vocabulary builder") or text == _("Remove from vocabulary builder") or text == _("Long-press to add to vocabulary builder")
+#: dict_quick_lookup.lua:75
+msgid "Remove from vocabulary builder"
+msgstr "Odebrat ze tvůrce slovníku"
+
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Remove this book from history?"), ok_text = _("Remove"),
-#: context_menu.lua:2371
+#: context_menu.lua:2406
 msgid "Remove this book from history?"
 msgstr "Odebrat tuto knihu z historie?"
 
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Remove this folder from additional home folders?") .. "\n" .. dir, ok_text = _("Remove"),
-#: library_settings.lua:1393
+#: library_settings.lua:1395
 msgid "Remove this folder from additional home folders?"
 msgstr "Odebrat tuto složku z dalších domovských složek?"
 
@@ -3095,10 +3556,20 @@ msgstr "Odebrat tuto složku z dalších domovských složek?"
 msgid "Remove: "
 msgstr "Odebrat: "
 
-#. Context: table.insert(prepend_buttons, {{ text = icons.rename .. " " .. _("Rename"), align = "left",
-#: collections.lua:362 context_menu.lua:1718 home_settings.lua:1935 home_settings.lua:2060
+#. Context: { text = _("Cancel"), id = "close", callback = function() UIManager:close(dialog) end }, { text = _("Rename"), is_enter_default = true, callback = rename }, }},
+#: metadata_editor.lua:559 collections.lua:362 context_menu.lua:1753 home_settings.lua:1935 home_settings.lua:2060
 msgid "Rename"
 msgstr "Přejmenovat"
+
+#. Context: if not next_file then self:showError(err or _("Renaming the file failed.")) return
+#: metadata_editor.lua:548 metadata_editor.lua:489
+msgid "Renaming the file failed."
+msgstr "Přejmenování souboru selhalo."
+
+#. Context: _zen_settings_row = true, _zen_settings_breadcrumb = _("Replace this book with its last backup"), _zen_has_submenu = true,
+#: metadata_editor.lua:259
+msgid "Replace this book with its last backup"
+msgstr "Nahradit tuto kniu z její poslední zálohy"
 
 #. Context: table.insert(items, { text = _("Report a Bug"), callback = function()
 #: about_settings.lua:99
@@ -3116,7 +3587,7 @@ msgid "Require hold to toggle buttons"
 msgstr "Vyžadovat podržení pro přepínání tačítek"
 
 #. Context: text = _("Reset font family and size to default?"), ok_text = _("Reset"), ok_callback = function()
-#: library_settings.lua:302 menu_settings.lua:1159 reader_settings.lua:86 home_settings.lua:1685
+#: library_settings.lua:304 menu_settings.lua:1159 reader_settings.lua:86 home_settings.lua:1685
 msgid "Reset"
 msgstr "Resetovat"
 
@@ -3126,12 +3597,12 @@ msgid "Reset Controls to defaults?"
 msgstr "Resetovat ovládací prvky na výchozí?"
 
 #. Context: { text = _("Reset font"), keep_menu_open = true,
-#: library_settings.lua:296
+#: library_settings.lua:298
 msgid "Reset font"
 msgstr "Resetovat písmo"
 
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Reset font family and size to default?"), ok_text = _("Reset"),
-#: library_settings.lua:301
+#: library_settings.lua:303
 msgid "Reset font family and size to default?"
 msgstr "Resetovat druh a velikost písma na výchozí hodnoty?"
 
@@ -3165,10 +3636,35 @@ msgstr "Restartovat nyní"
 msgid "Restarting"
 msgstr "Restartování"
 
+#. Context: cancel_text = _("Cancel"), ok_text = _("Restore"), ok_callback = restore,
+#: metadata_editor.lua:797
+msgid "Restore"
+msgstr "Obnovit"
+
 #. Context: table.insert(items, IconItem.decorate({ text = _("Restore library location on exit"), checked_func = function()
 #: reader_settings.lua:1191
 msgid "Restore library location on exit"
 msgstr "Při ukončení obnovit umístění knihovny"
+
+#. Context: items[#items + 1] = { text = _("Restore previous EPUB"), _zen_display_text = _("Restore previous EPUB"),
+#: metadata_editor.lua:256 metadata_editor.lua:257
+msgid "Restore previous EPUB"
+msgstr "Obnovit předchozí EPUB"
+
+#. Context: text = self:isDirty() and _("Restore the previous metadata and discard your unsaved changes?") or _("Restore the previous metadata for this book?"),
+#: metadata_editor.lua:794
+msgid "Restore the previous metadata and discard your unsaved changes?"
+msgstr "Obnovit předchozí metadata a zahodit neuložené změny?"
+
+#. Context: and _("Restore the previous metadata and discard your unsaved changes?") or _("Restore the previous metadata for this book?"), cancel_text = _("Cancel"),
+#: metadata_editor.lua:795
+msgid "Restore the previous metadata for this book?"
+msgstr "Obnovit předchozí metadata pro tuto knihu?"
+
+#. Context: if not ok then self:showError(err or _("Restoring metadata failed.")) else
+#: metadata_editor.lua:787
+msgid "Restoring metadata failed."
+msgstr "Obnovení metadat selhalo."
 
 #. Context: if acq.last_read then table.insert(buttons, {{ text = "\u{25B6} " .. _("Resume from page") .. " " .. acq.last_read, align = "left", bold = true, callback = function()
 #: opds.lua:1684
@@ -3206,7 +3702,7 @@ msgid "Rotate: %1"
 msgstr "Otočit: %1"
 
 #. Context: { text = _("Rounded cover corners"), checked_func = function()
-#: library_settings.lua:732
+#: library_settings.lua:734
 msgid "Rounded cover corners"
 msgstr "Zaoblené rohy obálek"
 
@@ -3216,7 +3712,7 @@ msgid "Row break"
 msgstr "Zalomení řádku"
 
 #. Context: left_min = 2, left_max = 8, left_default = 3, left_precision = "%01d", right_text = _("Rows"), right_value = r,
-#: library_settings.lua:874 library_settings.lua:928
+#: library_settings.lua:876 library_settings.lua:930
 msgid "Rows"
 msgstr "Řádky"
 
@@ -3225,8 +3721,8 @@ msgstr "Řádky"
 msgid "RSS Reader plugin is not installed."
 msgstr "Doplněk Čtečka RSS není nainstalován."
 
-#. Context: { text = _("Save"), is_enter_default = true,
-#: global_settings.lua:242 reader_settings.lua:942 home_settings.lua:2013
+#. Context: action = { text = icons.save .. " " .. _("Save"), callback = function() return self:_save(false) end,
+#: metadata_editor.lua:351 metadata_editor.lua:811 global_settings.lua:242 reader_settings.lua:942 home_settings.lua:2013 metadata_settings.lua:32
 msgid "Save"
 msgstr "Uložit"
 
@@ -3239,6 +3735,31 @@ msgstr "Uložit aktuální domovskou stránku jako předvolbu"
 #: global_settings.lua:227 reader_settings.lua:927
 msgid "Save current settings as preset"
 msgstr "Uložit aktuální nastavení jako předvolbu"
+
+#. Context: cancel_text = _("Cancel"), ok_text = _("Save EPUB"), flush_events_on_show = true,
+#: metadata_editor.lua:531
+msgid "Save EPUB"
+msgstr "Uložit EPUB"
+
+#. Context: and _("Save these changes inside the EPUB? ZenOS will keep one restorable backup.") or _("Save these changes inside the EPUB?"), cancel_text = _("Cancel"),
+#: metadata_editor.lua:890
+msgid "Save these changes inside the EPUB?"
+msgstr "Uložit tyto změny v souboru EPUB?"
+
+#. Context: UIManager:show(ConfirmBox:new{ text = _("Save these changes inside the EPUB? ZenOS will keep one restorable backup."), cancel_text = _("Cancel"),
+#: metadata_editor.lua:529
+msgid "Save these changes inside the EPUB? ZenOS will keep one restorable backup."
+msgstr "Uložit tyto změny v souboru EPUB? ZenOS uchová jednu obnovitelnou zálohu."
+
+#. Context: if not ok then self:showError(err or _("Saving metadata failed.")) return true
+#: metadata_editor.lua:767
+msgid "Saving metadata failed."
+msgstr "Uložení metadat selhalo."
+
+#. Context: local overlay = InfoMessage:new{ text = _("Saving metadata…"), dismissable = false,
+#: metadata_editor.lua:536
+msgid "Saving metadata…"
+msgstr "Ukládání metadat…"
 
 #. Context: { text = _("Schedules"), sub_item_table = {
 #: global_settings.lua:874
@@ -3266,14 +3787,19 @@ msgid "Screenshot: %1 s"
 msgstr "Snímek: %1 s"
 
 #. Context: table.insert(items, { text = _("Scroll bar"), sub_item_table = scroll_bar_sub_items,
-#: library_settings.lua:1115
+#: library_settings.lua:1117
 msgid "Scroll bar"
 msgstr "Posuvná lišta"
 
 #. Context: { id = "home", label = _("Home") }, { id = "search", label = _("Search") }, { id = "calibre_search", label = _("Calibre Search") },
-#: nav_button_model.lua:20 quickstart_pages.lua:690 collections.lua:648 navbar.lua:302 navbar.lua:307 search.lua:64 opds.lua:1292 opds.lua:1486 opds.lua:1490 native_menu.lua:9 quick_settings.lua:705 quick_settings.lua:745 page_browser.lua:2657 global_settings.lua:314 navbar_settings.lua:178
+#: nav_button_model.lua:20 quickstart_pages.lua:690 collections.lua:648 metadata_editor.lua:380 navbar.lua:302 navbar.lua:307 search.lua:64 opds.lua:1292 opds.lua:1486 opds.lua:1490 native_menu.lua:9 quick_settings.lua:705 quick_settings.lua:745 page_browser.lua:2657 global_settings.lua:314 navbar_settings.lua:178
 msgid "Search"
 msgstr "Vyhledat"
+
+#. Context: { text = _("Search again"), secondary_text = join_parts({ draft.title, first_author(draft) }),
+#: metadata_editor.lua:258 metadata_editor.lua:306
+msgid "Search again"
+msgstr "Hledat znovu"
 
 #. Context: self.input_dialog = InputDialog:new{ title = _("Search Book"), width = math.floor(math.min(Screen_s:getWidth(), Screen_s:getHeight()) * 0.9),
 #: page_browser.lua:2648
@@ -3285,6 +3811,11 @@ msgstr "Prohledat knihu"
 msgid "Search Library"
 msgstr "Prohledat knihovnu"
 
+#. Context: dialog = MultiInputDialog:new{ title = _("Search metadata"), fields = {
+#: metadata_editor.lua:666
+msgid "Search metadata"
+msgstr "Vyhledat metadata"
+
 #. Context: UIManager:close(dialog) browser.catalog_title = _("Search results") local search_url = item_url:gsub("%%s", function() return search_str end)
 #: opds.lua:1480
 msgid "Search results"
@@ -3295,6 +3826,11 @@ msgstr "Výsedky vyhledávání"
 msgid "Search settings"
 msgstr "Nastavení vyhledávání"
 
+#. Context: Edition lookup and metadata search
+#: metadata_editor.lua:456 metadata_editor.lua:541
+msgid "Searching metadata…"
+msgstr "Hledání metadat…"
+
 #. Context: { text = "\u{F0489} " .. _("Select"), align = "left",
 #: context_menu.lua:1619
 msgid "Select"
@@ -3304,6 +3840,11 @@ msgstr "Vybrat"
 #: zen_icon_picker.lua:71
 msgid "Select icon"
 msgstr "Vyberte ikonu"
+
+#. Context: local summary = join_parts({ edition_primary(edition), edition.publisher }) return summary ~= "" and summary or _("Selected edition") end
+#: metadata_editor.lua:171
+msgid "Selected edition"
+msgstr "Vybrané vydání"
 
 #. Context: { text = icons.send .. " " .. _("Send with LocalSend"), align = "left",
 #: countdown_screenshot.lua:143
@@ -3326,7 +3867,7 @@ msgid "series"
 msgstr "série"
 
 #. Context: { id = "authors", label = _("Authors"), source = true }, { id = "series", label = _("Series"), source = true }, { id = "languages", label = _("Languages"), source = true },
-#: nav_button_model.lua:10 quickstart_pages.lua:688 context_menu.lua:2128 group_view.lua:1259 group_view.lua:1308 navbar.lua:277 library_settings.lua:387 home_settings.lua:825 home_settings.lua:1062 navbar_settings.lua:173
+#: nav_button_model.lua:10 quickstart_pages.lua:688 metadata_editor.lua:38 metadata_editor.lua:659 context_menu.lua:2163 group_view.lua:1259 group_view.lua:1308 navbar.lua:277 library_settings.lua:389 home_settings.lua:825 home_settings.lua:1062 navbar_settings.lua:173
 msgid "Series"
 msgstr "Série"
 
@@ -3334,6 +3875,11 @@ msgstr "Série"
 #: group_view.lua:563 group_view.lua:790
 msgid "Series number"
 msgstr "Číslo v sérii"
+
+#. Context: if index ~= "" and not valid_number(index) then self:showError(_("Series position must be a number.")) return
+#: metadata_editor.lua:647 metadata_editor.lua:22
+msgid "Series position must be a number."
+msgstr "Pozice série musí být číslo."
 
 #. Context: blockCard{ width = c4_w, height = card_h, value = formatTime(avg), label = _("Time/page") }, blockCard{ width = c4_w, height = card_h, value = tostring(book.session_pages or 0), label = _("Session pages") }, }, stat_style, card_gap)
 #: stats_page.lua:964
@@ -3365,8 +3911,13 @@ msgstr "Nastavit jako pozadí"
 msgid "Set file types to sync"
 msgstr "Nastavit typy synchronizovaných souborů"
 
+#. Context: name = "folder_cover_picker", title = options.title or _("Set folder cover"), subtitle = options.subtitle or (type(options.path) == "string"
+#: folder_cover_picker.lua:461 context_menu.lua:1506 context_menu.lua:1649
+msgid "Set folder cover"
+msgstr "Nastavit obrázek složky"
+
 #. Context: { text = _("Set home folder"), callback = function()
-#: library_settings.lua:1411
+#: library_settings.lua:1413
 msgid "Set home folder"
 msgstr "Nastavit domovskou složku"
 
@@ -3381,7 +3932,7 @@ msgid "Set sync folder"
 msgstr "Nastavit složku pro synchronizaci"
 
 #. Context: search = _("Search"), setting = _("Settings"), tools = _("Tools"),
-#: native_menu.lua:10 zen_settings_page.lua:180 zen_settings_page.lua:205 zen_settings_page.lua:257 zen_settings_page.lua:691 zen_settings_page.lua:862 zen_settings_page.lua:864 home_settings.lua:2597
+#: native_menu.lua:10 zen_settings_page.lua:180 zen_settings_page.lua:205 zen_settings_page.lua:257 zen_settings_page.lua:691 zen_settings_page.lua:862 zen_settings_page.lua:864 home_settings.lua:2572
 msgid "Settings"
 msgstr "Nastavení"
 
@@ -3406,17 +3957,17 @@ msgid "Show AI assistant"
 msgstr "Zobrazit asistenta s umělou inteligencí"
 
 #. Context: table.insert(layout_items, { text = _("Show all files from subfolders"), checked_func = function()
-#: library_settings.lua:1128
+#: library_settings.lua:1130
 msgid "Show all files from subfolders"
 msgstr "Zobrazit všechny soubory z podsložek"
 
 #. Context: items[#items + 1] = { text = _("Show author"), checked_func = function()
-#: home_settings.lua:2491
+#: home_settings.lua:2466
 msgid "Show author"
 msgstr "Zobrazit autora"
 
 #. Context: { text = _("Show author below cover (mosaic)"), checked_func = function()
-#: library_settings.lua:763
+#: library_settings.lua:765
 msgid "Show author below cover (mosaic)"
 msgstr "Zobrazit autora pod obálkou (dlaždice)"
 
@@ -3450,16 +4001,13 @@ msgstr "Zobrazit posuvník jasu"
 msgid "Show controls"
 msgstr "Zobrazit ovládací prvky"
 
-msgid "Show description"
-msgstr "Zobrazit popis"
-
 #. Context: { text = _("Show favorite badge"), checked_func = function()
-#: library_settings.lua:603
+#: library_settings.lua:605
 msgid "Show favorite badge"
 msgstr "Zobrazit značku oblíbené"
 
 #. Context: { text = _("Show folder name"), checked_func = function() return fbc().show_folder_name ~= false end,
-#: library_settings.lua:484
+#: library_settings.lua:486
 msgid "Show folder name"
 msgstr "Zobrazit název složky"
 
@@ -3467,6 +4015,11 @@ msgstr "Zobrazit název složky"
 #: reading_goals.lua:110
 msgid "Show goal"
 msgstr "Zobrazit cíl"
+
+#. Context: { text = _("Show Hardcover token-page QR code"), callback = function()
+#: metadata_settings.lua:94
+msgid "Show Hardcover token-page QR code"
+msgstr "Zobrazit QR kód stránky tokenu pro Hardcover"
 
 #. Context: table.insert(items, { text = _("Show hidden files"), checked_func = function()
 #: advanced_settings.lua:65
@@ -3479,12 +4032,12 @@ msgid "Show icons"
 msgstr "Zobrazit ikony"
 
 #. Context: { text = _("Show item count"), checked_func = function() return fbc().show_item_count ~= false end,
-#: library_settings.lua:439
+#: library_settings.lua:441
 msgid "Show item count"
 msgstr "Zobrazit počet položek"
 
 #. Context: table.insert(layout_items, { text = _("Show item underline"), checked_func = function()
-#: library_settings.lua:1155
+#: library_settings.lua:1157
 msgid "Show item underline"
 msgstr "Zobrazit podrtžení položek"
 
@@ -3499,7 +4052,7 @@ msgid "Show labels"
 msgstr "Zobrazit popisky"
 
 #. Context: { text = _("Show new banner"), checked_func = function()
-#: library_settings.lua:619
+#: library_settings.lua:621
 msgid "Show new banner"
 msgstr "Zobrazit novou lištu"
 
@@ -3514,17 +4067,17 @@ msgid "Show other KOReader quick lookup options alongside Zen buttons."
 msgstr "Zobrazit se Zen tlačítky i ostatní volby pro KOReader."
 
 #. Context: { text = _("Show page count"), checked_func = function()
-#: library_settings.lua:571
+#: library_settings.lua:573
 msgid "Show page count"
 msgstr "Zobrazit počet stránek"
 
 #. Context: { text = _("Show progress bar"), checked_func = function()
-#: library_settings.lua:635
+#: library_settings.lua:637
 msgid "Show progress bar"
 msgstr "Zobrazit ukazatel průběhu"
 
 #. Context: { text = _("Show reading progress"), checked_func = function()
-#: library_settings.lua:651
+#: library_settings.lua:653
 msgid "Show reading progress"
 msgstr "Zobrazit průběh čtení"
 
@@ -3534,22 +4087,22 @@ msgid "Show separator"
 msgstr "Zobrazit oddělovač"
 
 #. Context: { text = _("Show series number on covers"), checked_func = function()
-#: library_settings.lua:587
+#: library_settings.lua:589
 msgid "Show series number on covers"
 msgstr "Zobrazit číslo série na obálkách"
 
 #. Context: { text = _("Show spine lines"), checked_func = function() return fbc().show_spine_lines ~= false end,
-#: library_settings.lua:431
+#: library_settings.lua:433
 msgid "Show spine lines"
 msgstr "Zobrazit čáry hřbetů"
 
 #. Context: items[#items + 1] = { text = _("Show title"), checked_func = function()
-#: home_settings.lua:2501
+#: home_settings.lua:2476
 msgid "Show title"
 msgstr "Zobrazit název"
 
 #. Context: { text = _("Show title below cover (mosaic)"), checked_func = function()
-#: library_settings.lua:747
+#: library_settings.lua:749
 msgid "Show title below cover (mosaic)"
 msgstr "Zobrazit název pod obálkou (dlaždice)"
 
@@ -3559,7 +4112,7 @@ msgid "Show top border"
 msgstr "Zobrazit horní rámeček"
 
 #. Context: { text = _("Show top status bar"), checked_func = function()
-#: home_settings.lua:2583 home_settings.lua:2600
+#: home_settings.lua:2558 home_settings.lua:2575
 msgid "Show top status bar"
 msgstr "Zobrazit horní stavový řádek"
 
@@ -3588,21 +4141,18 @@ msgstr "Zobrazit ikonu Zen - černé pozadí"
 msgid "Show Zen icon - white background"
 msgstr "Zobrazit ikonu Zen - bílé pozadí"
 
-msgid "Single tag"
-msgstr "Jediný štítek"
-
 #. Context: { id = "choose", text = _("Choose a different folder"), checked = false }, { id = "skip", text = _("Skip"), checked = false }, },
 #: quickstart_pages.lua:839 zen_bugreporter.lua:255
 msgid "Skip"
 msgstr "Přeskočit"
 
 #. Context: local hold_skip_opts = { { text = _("Skip 10 pages"), skip = "10" }, { text = _("Skip 20 pages"), skip = "20" },
-#: library_settings.lua:1086
+#: library_settings.lua:1088
 msgid "Skip 10 pages"
 msgstr "Přeskočit 10 stránek"
 
 #. Context: { text = _("Skip 10 pages"), skip = "10" }, { text = _("Skip 20 pages"), skip = "20" }, { text = _("Beginning / End"), skip = "ends" },
-#: library_settings.lua:1087
+#: library_settings.lua:1089
 msgid "Skip 20 pages"
 msgstr "Přeskočit 20 stránek"
 
@@ -3642,22 +4192,27 @@ msgid "Sort by"
 msgstr "Seřadit podle"
 
 #. Context: { text = "\u{F04BF} " .. _("Sort folder") .. " " .. submenu_arrow, align = "left",
-#: context_menu.lua:2196
+#: context_menu.lua:2231
 msgid "Sort folder"
 msgstr "Seřadit složku"
 
 #. Context: sort_dialog = new_context_menu_dialog{ title = _("Sort folder by"), title_align = "center",
-#: context_menu.lua:2247
+#: context_menu.lua:2282
 msgid "Sort folder by"
 msgstr "Seřadit složku podle"
 
+#. Context: local title = tab_id == "authors" and _("Sort authors") or tab_id == "languages" and _("Sort languages") or _("Sort series")
+#: group_view.lua:631
+msgid "Sort languages"
+msgstr "Seřadit jazyky"
+
 #. Context: { text = "\u{F04BF} " .. _("Sort library") .. " " .. submenu_arrow, align = "left",
-#: context_menu.lua:2137
+#: context_menu.lua:2172
 msgid "Sort library"
 msgstr "Seřadit knihovnu"
 
 #. Context: sort_dialog = new_context_menu_dialog{ title = _("Sort library by"), title_align = "center",
-#: context_menu.lua:2177
+#: context_menu.lua:2212
 msgid "Sort library by"
 msgstr "Seřadit knihovnu podle"
 
@@ -3682,7 +4237,7 @@ msgid "Stable"
 msgstr "Stabilní"
 
 #. Context: { text = _("Stack"), radio = true,
-#: library_settings.lua:413
+#: library_settings.lua:415
 msgid "Stack"
 msgstr "Vrstvení"
 
@@ -3762,7 +4317,7 @@ msgid "Stream from page"
 msgstr "Proud od stránky"
 
 #. Context: { text = _("Strip widgets"), sub_item_table = {
-#: home_settings.lua:2619
+#: home_settings.lua:2594
 msgid "Strip widgets"
 msgstr "Proužkové widgety"
 
@@ -3772,7 +4327,7 @@ msgid "Styling"
 msgstr "Styl"
 
 #. Context: UIManager:show(InfoMessage:new{ text = _("Subfolder flat view was disabled because the home folder is the device storage root."), })
-#: library_settings.lua:1426
+#: library_settings.lua:1428
 msgid "Subfolder flat view was disabled because the home folder is the device storage root."
 msgstr "Plochý pohled na podsložky byl zakázán, protože domovská složka je kořenem úložiště zařízení."
 
@@ -3809,7 +4364,7 @@ msgstr "Synchronizovat všechny katalogy"
 #. Context: IconItem.decorate({ text = _("Tab"), keep_menu_open = true,
 #: home_settings.lua:1359 navbar_settings.lua:1323
 msgid "Tab"
-msgstr "Tab"
+msgstr "Karta"
 
 #. Context: local title_tw = TextWidget:new{ text = _("Table of contents"), face = TitleStyle.getTitleFace(),
 #: zen_toc_widget.lua:460 reader_settings.lua:1183
@@ -3827,7 +4382,7 @@ msgid "Tag"
 msgstr "Štítek"
 
 #. Context: { text = _("Tag strip widget"), sub_item_table_func = function() return build_strip_widget_items("strip_tag") end,
-#: home_settings.lua:2626
+#: home_settings.lua:2601
 msgid "Tag strip widget"
 msgstr "Widget proužku značek"
 
@@ -3871,10 +4426,40 @@ msgstr "Styly textu"
 msgid "The best interface is the one you forget is there.\nNow go get lost in a good book."
 msgstr "Nejlepší rozhraní je to, na které zapomenete.\nA teď se ponořte do dobré knihy."
 
+#. Context: os.remove(path) editor:showError(_("The cover image could not be saved.")) return
+#: metadata_editor.lua:205 metadata_editor.lua:458 metadata_editor.lua:515
+msgid "The cover image could not be saved."
+msgstr "Obrázek obálky nelze uložit."
+
 #. Context: description = _("Swipe up from the bottom while reading to open the Page Browser.\n\nSkim through pages or skip chapters, browse the table of contents, manage bookmarks, adjust fonts and more.") .. "\n\n" .. _("The default KOReader reade...
 #: quickstart_pages.lua:796
 msgid "The default KOReader reader menu is inside the Aa icon."
 msgstr "Výchozí nabídka čtečky KOReader je uvnitř ikony Aa."
+
+#. Context: if not backup_ok then return nil, _("The EPUB backup could not be moved.") end
+#: metadata_editor.lua:478
+msgid "The EPUB backup could not be moved."
+msgstr "Zálohu souboru EPUB nelze přesunout."
+
+#. Context: confirm = _("Clear the saved Google Books API key?"), clear_failed = _("The Google Books API key could not be cleared."), })
+#: metadata_settings.lua:136
+msgid "The Google Books API key could not be cleared."
+msgstr "Klíč API pro Google Books nelze vymazat."
+
+#. Context: UIManager:show(require("ui/widget/infomessage"):new{ text = _("The Hardcover token could not be cleared."), })
+#: metadata_settings.lua:85
+msgid "The Hardcover token could not be cleared."
+msgstr "Token platformy Hardcover nelze vymazat."
+
+#. Context: title = _("Google Books API key"), description = _("The key is stored locally as plain text and is never logged."), invalid = _("Enter a valid Google Books API key without spaces."),
+#: metadata_settings.lua:131
+msgid "The key is stored locally as plain text and is never logged."
+msgstr "Klíč je uložen lokálně jako prostý text a není nikdy protokolován."
+
+#. Context: missing_language = _("An EPUB language is required."), sidecar_write_failed = _("The KOReader metadata override could not be saved."), }
+#: metadata_editor.lua:25
+msgid "The KOReader metadata override could not be saved."
+msgstr "Přepis metadat KOReaderu nelze uložit."
 
 #. Context: title = _("Home Folder"), description = T(_("The place for all your books %1"), books_dir), choice_type = "radio",
 #: quickstart_pages.lua:834
@@ -3901,25 +4486,40 @@ msgstr "Aby se tato změna projevila, je nutný restart."
 msgid "This does not disable ZenOS—it only shows or hides KOReader’s menus."
 msgstr "Toto nezakáže ZenOS – pouze zobrazí nebo skryje nabídky KOReaderu."
 
+#. Context: open_book = _("Close this book before editing its metadata."), invalid_epub = _("This EPUB could not be read."), invalid_series_index = _("Series position must be a number."),
+#: metadata_editor.lua:21
+msgid "This EPUB could not be read."
+msgstr "Tento soubor EPUB nelze přečíst."
+
+#. Context: local error_messages = { invalid_file = _("This file is no longer available."), open_book = _("Close this book before editing its metadata."),
+#: metadata_editor.lua:19
+msgid "This file is no longer available."
+msgstr "Tento soubor již není dostupný."
+
 #. Context: }, "\n\n") local ZEN_SETTINGS_TEXT = _("This is Zen Settings. ZenOS settings/updates and common KOReader settings live here.")
 #: menu_tour.lua:14
 msgid "This is Zen Settings. ZenOS settings/updates and common KOReader settings live here."
 msgstr "Toto je nastavení Zen. Nastavení/aktualizace ZenOS a běžná nastavení KOReader jsou k dispozici zde."
 
-#. Context: this_week = _("This Week"), this_month = _("This Month"), this_year = _("This Year"),
-#: stats_page.lua:62
-msgid "This Month"
-msgstr "Tento měsíc"
+#. Context: if provider.credential and credential == "" then offer_metadata_settings(_("This metadata provider needs an API credential. Open settings?")) return
+#: metadata_editor.lua:503
+msgid "This metadata provider needs an API credential. Open settings?"
+msgstr "Tento poskytovatel metadat vyžaduje přihlašovací údaje pro API. Otevřít nastavení?"
 
 #. Context: this_week = _("This week"), this_month = _("This month"), this_year = _("This year"),
 #: stats_settings.lua:29
 msgid "This month"
 msgstr "Tento měsíc"
 
+#. Context: this_week = _("This Week"), this_month = _("This Month"), this_year = _("This Year"),
+#: stats_page.lua:62
+msgid "This Month"
+msgstr "Tento měsíc"
+
 #. Context: UIManager:show(InfoMessage:new{ text = _("This option is disabled when a home folder is the device storage root. Set home folders to narrower books folders first."), })
-#: library_settings.lua:1142
+#: library_settings.lua:1144
 msgid "This option is disabled when a home folder is the device storage root. Set home folders to narrower books folders first."
-msgstr "Tato možnost je zakázána, pokud je domovská složka kořenem úložiště zařízení. Nejprve nastavte užší složky s knihami jako domovské složky."
+msgstr "Tato možnost je zakázána, pokud je domovská složka kořen úložiště zařízení. Nejprve nastavte domovské složky pro vymezení složek knih."
 
 #. Context: today = _("Today"), this_week = _("This Week"), this_month = _("This Month"),
 #: stats_page.lua:61
@@ -3951,6 +4551,11 @@ msgstr "Čas"
 msgid "Time Format"
 msgstr "Formát času"
 
+#. Context: read_time = _("Read time"), time_remaining = _("Time remaining"), pages_today = _("Pages today"),
+#: app_launcher_settings.lua:76
+msgid "Time remaining"
+msgstr "Zbývající čas"
+
 #. Context: week_pages = { id = "week_pages", label = _("Pages this week"), get = function(s) return tostring(s.week_pages or 0) end }, week_duration = { id = "week_duration", label = _("Time this week"), get = function(s) return fmt_time(s.week_dur...
 #: stats_triplet.lua:55 home_settings.lua:2123
 msgid "Time this week"
@@ -3965,6 +4570,11 @@ msgstr "Čas do konce knihy"
 #: app_launcher_settings.lua:78 home_settings.lua:2120
 msgid "Time today"
 msgstr "Dnešní čas"
+
+#. Context: table.insert(items, IconItem.decorate({ text = _("Time until chapter end"), sub_item_table = chapter_time_format_items,
+#: reader_settings.lua:1121
+msgid "Time until chapter end"
+msgstr "Čas do konce kapitoly"
 
 #. Context: blockCard{ width = c4_w, height = card_h, value = tostring(stats.lifetime_pages or 0), label = _("Total pages") }, blockCard{ width = c4_w, height = card_h, value = formatTime(stats.avg_time_per_book), label = _("Time/book") }, blockCard...
 #: stats_page.lua:941
@@ -3991,23 +4601,23 @@ msgstr "Časový limit"
 msgid "Timer: %1 s"
 msgstr "Časovač: %1 s"
 
-#. Context: local SORT_OPTIONS = { { key = "title", text = "\u{F04BB} " .. _("Title") }, { key = "title_natural", text = "\u{F04BB} " .. _("Title natural") },
-#: context_menu.lua:2124 group_view.lua:564 group_view.lua:791 home_settings.lua:823
+#. Context: local FIELD_SPECS = { title = { label = _("Title") }, authors = { label = _("Authors"), list = true },
+#: metadata_editor.lua:36 context_menu.lua:2159 group_view.lua:564 group_view.lua:791 metadata_editor.lua:375 home_settings.lua:823
 msgid "Title"
 msgstr "Název"
 
 #. Context: BookList.collates.title_natural = { text = _("Title natural"), menu_order = 100,
-#: add_sort_title_natural.lua:138 context_menu.lua:2125 group_view.lua:565 group_view.lua:792
+#: add_sort_title_natural.lua:138 context_menu.lua:2160 group_view.lua:565 group_view.lua:792
 msgid "Title natural"
 msgstr "Přirozený název"
 
 #. Context: { id = "favorites", label = _("Favorites"), source = true }, { id = "to_be_read", label = _("To Be Read"), source = true }, { id = "authors", label = _("Authors"), source = true },
-#: nav_button_model.lua:8 quickstart_pages.lua:689 browser_list_item_layout.lua:454 context_menu.lua:713 context_menu.lua:2023 context_menu.lua:2278 group_view.lua:1240 group_view.lua:1513 navbar.lua:292 home_settings.lua:945 home_settings.lua:985 home_settings.lua:1061 navbar_settings.lua:177
+#: nav_button_model.lua:8 quickstart_pages.lua:689 browser_list_item_layout.lua:454 context_menu.lua:713 context_menu.lua:2058 context_menu.lua:2313 group_view.lua:1240 group_view.lua:1513 navbar.lua:292 home_settings.lua:945 home_settings.lua:985 home_settings.lua:1061 navbar_settings.lua:177
 msgid "To Be Read"
 msgstr "K přečtení"
 
 #. Context: { text = _("To Be Read strip widget"), sub_item_table_func = function() return build_strip_widget_items("strip_tbr") end,
-#: home_settings.lua:2630
+#: home_settings.lua:2605
 msgid "To Be Read strip widget"
 msgstr "Proužkový widget K přečtení"
 
@@ -4092,24 +4702,29 @@ msgid "Underline above icon"
 msgstr "Podtržení nad ikonou"
 
 #. Context: { text = _("Uniform covers"), sub_item_table = {
-#: library_settings.lua:669 library_settings.lua:672
+#: library_settings.lua:671 library_settings.lua:674
 msgid "Uniform covers"
 msgstr "Jednotné obálky"
-
-#. Context: local function render_release_text(entry) local label = entry.version ~= "" and ("v" .. entry.version) or (entry.tag or _("unknown")) local lines = {}
-#: zen_updater.lua:237
-msgid "unknown"
-msgstr "neznámý"
 
 #. Context: elseif not no_fallback then if title == "" then title = _("Unknown") end if authors == "" then authors = _("Unknown Author") end
 #: cover_utils.lua:238
 msgid "Unknown"
 msgstr "Neznámý"
 
+#. Context: local function render_release_text(entry) local label = entry.version ~= "" and ("v" .. entry.version) or (entry.tag or _("unknown")) local lines = {}
+#: zen_updater.lua:237
+msgid "unknown"
+msgstr "neznámý"
+
 #. Context: if title == "" then title = _("Unknown") end if authors == "" then authors = _("Unknown Author") end elseif bookinfo_found and authors == "" then
 #: cover_utils.lua:239 cover_utils.lua:241
 msgid "Unknown Author"
 msgstr "Neznámý autor"
+
+#. Context: function MetadataEditor:showError(text) UIManager:show(InfoMessage:new{ text = tostring(text or _("Unknown error")) }) end
+#: metadata_editor.lua:885
+msgid "Unknown error"
+msgstr "Neznámá chyba"
 
 #. Context: else screen:update{ subtitle = _("Download failed: ") .. (err or _("unknown error")), button = _("OK"), dismissable = true } end
 #: zen_updater.lua:1378
@@ -4122,7 +4737,7 @@ msgid "Unnamed preset"
 msgstr "Nepojmenovaná předvolba"
 
 #. Context: local STATUS_OPTS = { { key = "new", icon = icons.status, label = _("Unread") }, { key = "reading", icon = icons.reading, label = _("Reading") },
-#: context_menu.lua:711 context_menu.lua:2021 context_menu.lua:2276
+#: context_menu.lua:711 context_menu.lua:2056 context_menu.lua:2311
 msgid "Unread"
 msgstr "Nečteno"
 
@@ -4247,7 +4862,7 @@ msgid "Updated to %1"
 msgstr "Aktualizováno na %1"
 
 #. Context: IconItem.decorate({ text = _("Extras"), sub_item_table = extras_items }, icons.fav_add), IconItem.decorate({ text = _("Updates"), sub_item_table = updates_items }, icons.update), IconItem.decorate({
-#: zen_settings.lua:147
+#: zen_settings.lua:153
 msgid "Updates"
 msgstr "Aktualizace"
 
@@ -4257,9 +4872,14 @@ msgid "USB"
 msgstr "USB"
 
 #. Context: UIManager:show(InfoMessage:new{ text = _("Use a narrower books folder instead of the device storage root."), })
-#: library_settings.lua:1367
+#: library_settings.lua:1369
 msgid "Use a narrower books folder instead of the device storage root."
 msgstr "Použijte užší složku s knihami namísto kořene úložiště zařízení."
+
+#. Context: title = _("Hardcover API token"), description = _("Use a token limited to read:catalog. It is stored locally as plain text and is never logged."), input = TokenStore.get(),
+#: metadata_settings.lua:22
+msgid "Use a token limited to read:catalog. It is stored locally as plain text and is never logged."
+msgstr "Použijte token omezený na read:catalog. Je uložen lokálně jako prostý text a není nikdy protokolován."
 
 #. Context: { text = _("Use border as progress bar"), checked_func = function()
 #: reader_settings.lua:492
@@ -4296,9 +4916,6 @@ msgstr "Použít poslední složku"
 msgid "username"
 msgstr "jméno uživatele"
 
-msgid "Verbose time to chapter end"
-msgstr "Čas do konce kapitoly"
-
 #. Context: -- local icons = require("common/inline_icon_map") -- text = icons.eye .. " " .. _("View")
 #: inline_icon_map.lua:9 countdown_screenshot.lua:111
 msgid "View"
@@ -4308,6 +4925,11 @@ msgstr "Zobrazit"
 #: context_menu.lua:1250
 msgid "Virtual folder"
 msgstr "Virtuální složka"
+
+#. Context: {{ text = inline_icons.vocabulary .. " " .. _("Vocabulary builder"), align = "left",
+#: page_browser.lua:1032
+msgid "Vocabulary builder"
+msgstr "Tvůrce slovníku"
 
 #. Context: -- never shifts when the number changes width (e.g. 9 → 10). local nl_prefix_text = _("Warmth") .. ": " local nl_drag_prefix = TextWidget:new{ text = nl_prefix_text, face = medium_font }
 #: warmth_slider.lua:47 global_settings.lua:559 global_settings.lua:579 global_settings.lua:626 global_settings.lua:639 global_settings.lua:682 global_settings.lua:695
@@ -4342,7 +4964,7 @@ msgstr "Novinky"
 #. Context: text = _("Enable custom icons"), help_text = _("When enabled, loose icons or a selected ZenOS icon pack override supported icons. Missing icons fall back to ZenOS, then KOReader."), checked_func = function()
 #: extras_settings.lua:139
 msgid "When enabled, loose icons or a selected ZenOS icon pack override supported icons. Missing icons fall back to ZenOS, then KOReader."
-msgstr "Pokud je povoleno, uvolněné ikony nebo vybraný balíček ikon ZenOS přepíší podporované ikony. Chybějící ikony se vrátí do uživatelského rozhraní Zen a poté do KOReaderu."
+msgstr "Pokud je povoleno, volné ikony nebo vybraný balíček ikon ZenOS nahradí podporované ikony. Chybějící ikony půjdou ze ZenOS a pak případně z KOReaderu."
 
 #. Context: text = _("Match whole words"), help_text = _("When enabled, search matches whole words only. When disabled, substring matching is used (e.g., 'fish' matches 'fishing')."), checked_func = function()
 #: global_settings.lua:318
@@ -4360,7 +4982,7 @@ msgid "Which time format do you prefer?"
 msgstr "Jaký formát času upřednostňujete?"
 
 #. Context: { text = _("Black"), r = 0, g = 0, b = 0 }, { text = _("White"), r = 255, g = 255, b = 255 }, { text = _("Gray"), r = 204, g = 204, b = 204 },
-#: library_settings.lua:562
+#: library_settings.lua:564
 msgid "White"
 msgstr "Bílá"
 
@@ -4370,12 +4992,12 @@ msgid "Wi-Fi"
 msgstr "Wi-Fi"
 
 #. Context: { text = icons.settings .. " " .. _("Widget settings"), align = "left",
-#: context_menu.lua:2397 stats_page.lua:1445
+#: context_menu.lua:2432 stats_page.lua:1445
 msgid "Widget settings"
 msgstr "Nastavení widgetů"
 
 #. Context: require("common/ui/zen_arrange_list").show{ title = _("Widgets"), item_table = sort_items,
-#: stats_settings.lua:239 stats_settings.lua:305 stats_settings.lua:329 stats_settings.lua:361 home_settings.lua:1429 home_settings.lua:1877 home_settings.lua:2535 home_settings.lua:2551 home_settings.lua:2564
+#: stats_settings.lua:239 stats_settings.lua:305 stats_settings.lua:329 stats_settings.lua:361 home_settings.lua:1429 home_settings.lua:1877 home_settings.lua:2510 home_settings.lua:2526 home_settings.lua:2539
 msgid "Widgets"
 msgstr "Widgety"
 
@@ -4388,6 +5010,21 @@ msgstr "Zalomit text popisu"
 #: reading_goals.lua:24 reading_goals.lua:228
 msgid "Yearly"
 msgstr "Roční"
+
+#. Context: { key = "orange", text = _("Orange") }, { key = "yellow", text = _("Yellow") }, { key = "green", text = _("Green") },
+#: reader_settings.lua:61
+msgid "Yellow"
+msgstr "Žlutá"
+
+#. Context: UIManager:show(MultiConfirmBox:new{ text = _("You have unsaved changes."), cancel_text = _("Keep editing"),
+#: metadata_editor.lua:630
+msgid "You have unsaved changes."
+msgstr "Máte neuložené změny."
+
+#. Context: UIManager:show(MultiConfirmBox:new{ text = _("You have unsaved metadata changes."), cancel_text = _("Keep editing"),
+#: metadata_editor.lua:807
+msgid "You have unsaved metadata changes."
+msgstr "Máte neuložené změny metadat."
 
 #. Context: { title = _("You're All Set"), icon = "_zen_quickstart",
 #: quickstart_pages.lua:809
@@ -4427,7 +5064,7 @@ msgstr "Režim Zen"
 #. Context: local ZEN_MODE_TEXT = table.concat({ _("Zen Mode is enabled. KOReader menus are hidden."), _("Disable Zen Mode with this icon to adjust KOReader settings that aren’t available in Zen Settings."),
 #: menu_tour.lua:10
 msgid "Zen Mode is enabled. KOReader menus are hidden."
-msgstr "Režim Zen je povolen. Nabídky KOReader jsou skryté."
+msgstr "Režim Zen je zapnutý. Nabídky KOReaderu jsou skryté."
 
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = features.zen_mode and _("Zen Mode: Enabled") or _("Zen Mode: Disabled"), timeout = 2,
 #: dispatch_action.lua:557
@@ -4437,7 +5074,7 @@ msgstr "Režim Zen: Vypnuto"
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = features.zen_mode and _("Zen Mode: Enabled") or _("Zen Mode: Disabled"), timeout = 2,
 #: dispatch_action.lua:557
 msgid "Zen Mode: Enabled"
-msgstr "Režim Zen: Povoleno"
+msgstr "Režim Zen: Zapnuto"
 
 #. Context: table.insert(items, { text = _("Zen OPDS"), help_text = _("Enable ZenOS enhancements to the OPDS browser: cover art, list view, hold menu, and navigation improvements."),
 #: extras_settings.lua:66
@@ -4465,7 +5102,7 @@ msgid "ZenFM"
 msgstr "ZenFM"
 
 #. Context: require("ui/uimanager"):show(ZenScreen:new{ title = _("ZenOS"), title_icon = true,
-#: main.lua:502 zen_settings.lua:181 zen_updater.lua:1531 zen_updater.lua:1551 zen_updater.lua:1564 zen_updater.lua:1575
+#: main.lua:502 zen_settings.lua:187 zen_updater.lua:1531 zen_updater.lua:1551 zen_updater.lua:1564 zen_updater.lua:1575
 msgid "ZenOS"
 msgstr "ZenOS"
 
@@ -4502,7 +5139,7 @@ msgstr "ZenOS: Domov"
 #. Context: event = "ShowZenUILibrary", title = _("ZenOS: Library"), general = true,
 #: dispatch_action.lua:496
 msgid "ZenOS: Library"
-msgstr "ZenOS – Knihovna"
+msgstr "ZenOS: Knihovna"
 
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = _("ZenOS: no folder set for this action."), })
 #: dispatch_action.lua:167 navbar.lua:1216 navbar.lua:1230
@@ -4519,15 +5156,20 @@ msgstr "ZenOS: Otevřít složku"
 msgid "ZenOS: Series"
 msgstr "ZenOS: Série"
 
+#. Context: event = "ShowZenUIStats", title = _("ZenOS: Stats"), general = true,
+#: dispatch_action.lua:520
+msgid "ZenOS: Stats"
+msgstr "ZenOS: Statistiky"
+
 #. Context: event = "ZenUIKOSyncSync", title = _("ZenOS: Sync progress (pull + push)"), general = true,
 #: dispatch_action.lua:540
 msgid "ZenOS: Sync progress (pull + push)"
-msgstr "ZenOS – Průběh synchronizace (stažení + odeslání)"
+msgstr "ZenOS: Průběh synchronizace (stažení + odeslání)"
 
 #. Context: event = "ShowZenUIToc", title = _("ZenOS: Table of contents"), reader = true,
 #: dispatch_action.lua:484
 msgid "ZenOS: Table of contents"
-msgstr "ZenOS – Obsah"
+msgstr "ZenOS: Obsah"
 
 #. Context: event = "ShowZenUITags", title = _("ZenOS: Tags"), general = true,
 #: dispatch_action.lua:514
@@ -4542,7 +5184,7 @@ msgstr "ZenOS: Přepnout spodní stavový řádek čtečky"
 #. Context: event = "ToggleIncognitoMode", title = _("ZenOS: Toggle Incognito Mode"), general = true,
 #: dispatch_action.lua:449
 msgid "ZenOS: Toggle Incognito Mode"
-msgstr "ZenOS – Přepnout anonymní režim"
+msgstr "ZenOS: Přepnout anonymní režim"
 
 #. Context: event = "ToggleLockdownMode", title = _("ZenOS: Toggle Lockdown Mode"), general = true,
 #: dispatch_action.lua:442
@@ -4578,3 +5220,16 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:397
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPM byl nainstalován. Chcete-li jej používat, restartujte KOReader."
+
+#. Reader top status bar
+msgid "Battery icon"
+msgstr "Ikona baterie"
+
+msgid "Battery percentage"
+msgstr "Procento baterie"
+
+msgid "Chapter marks"
+msgstr "Značky kapitol"
+
+msgid "Current page"
+msgstr "Aktuální stránka"
