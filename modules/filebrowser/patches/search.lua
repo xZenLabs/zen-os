@@ -154,6 +154,7 @@ local function apply_search()
         if not is_enabled() then
             return orig_isFileMatch(self, filename, fullpath, search_string, is_file)
         end
+        if not is_file then return false end
         if search_string == "*" then
             return true
         end
