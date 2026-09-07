@@ -135,8 +135,15 @@ describe("library settings", function()
             plugin = { saveConfig = function() saves = saves + 1 end },
             save_and_apply = function() end,
         })
-        local details = items[#items]
+        local details
+        for _i, item in ipairs(items) do
+            if item.text == "Book details" then
+                details = item
+                break
+            end
+        end
 
+        assert.is_not_nil(details)
         assert.are.equal("Book details", details.text)
         assert.is_true(details._zen_settings_submenu)
         assert.is_nil(details.sub_item_table)
