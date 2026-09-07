@@ -66,10 +66,11 @@ local function query_value(input, ignore_isbn)
     return #query <= MAX_QUERY_LENGTH and query or nil
 end
 
-local function cover_url(id)
+local function cover_url(id, size)
     id = tonumber(id)
     if not id or id <= 0 or id ~= math.floor(id) then return "" end
-    return "https://" .. COVER_HOST .. "/b/id/" .. id .. "-L.jpg?default=false"
+    return "https://" .. COVER_HOST .. "/b/id/" .. id .. "-"
+        .. (size or "L") .. ".jpg?default=false"
 end
 
 local normalize_edition
@@ -187,6 +188,7 @@ normalize_edition = function(row, work_id)
     end
     if isbn_10 == "" then isbn_10 = trim(first(row.isbn_10)) end
     if isbn_13 == "" then isbn_13 = trim(first(row.isbn_13)) end
+    local cover_id = first(row.covers) or row.cover_i
     return {
         id = id,
         work_id = work_id,
@@ -198,7 +200,8 @@ normalize_edition = function(row, work_id)
         edition_format = format,
         release_year = tonumber(published:match("(%d%d%d%d)")),
         pages = tonumber(row.number_of_pages or row.number_of_pages_median),
-        image_url = cover_url(first(row.covers) or row.cover_i),
+        image_url = cover_url(cover_id),
+        preview_image_url = cover_url(cover_id, "M"),
         is_audio = is_audio(format),
     }
 end

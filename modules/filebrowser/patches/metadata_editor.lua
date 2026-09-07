@@ -363,8 +363,13 @@ local function apply_metadata_editor()
             return
         end
         if edition._cover_path then
-            stage_provider_cover(editor, edition, edition._cover_path)
-            return
+            if trim(edition.preview_image_url) == ""
+                    or edition.preview_image_url == edition.image_url then
+                stage_provider_cover(editor, edition, edition._cover_path)
+                return
+            end
+            os.remove(edition._cover_path)
+            edition._cover_path = nil
         end
         local destination = next_cover_destination()
         run_metadata_request(_("Downloading cover…"), function()
@@ -422,10 +427,12 @@ local function apply_metadata_editor()
         local downloads = {}
         for index, entry in ipairs(entries) do
             local provider = providers_by_id[entry._provider]
-            if provider and trim(entry.image_url) ~= "" then
+            local url = trim(entry.preview_image_url) ~= ""
+                and entry.preview_image_url or entry.image_url
+            if provider and trim(url) ~= "" then
                 downloads[#downloads + 1] = {
                     index = index,
-                    url = entry.image_url,
+                    url = url,
                     destination = next_cover_destination(),
                     module = provider.module,
                 }

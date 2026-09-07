@@ -345,6 +345,7 @@ describe("metadata editor Hardcover controller", function()
     local google_search_calls
     local open_library_search_calls
     local cover_download_calls
+    local cover_download_urls
     local preview_refreshes
     local trapper_wrap_calls
     local scheduled_callbacks
@@ -372,6 +373,7 @@ describe("metadata editor Hardcover controller", function()
         google_search_calls = 0
         open_library_search_calls = 0
         cover_download_calls = 0
+        cover_download_urls = {}
         preview_refreshes = 0
         trapper_wrap_calls = 0
         scheduled_callbacks = {}
@@ -499,8 +501,9 @@ describe("metadata editor Hardcover controller", function()
                 return { free = function() end }
             end,
         })
-        local function download_cover(_url, destination)
+        local function download_cover(url, destination)
             cover_download_calls = cover_download_calls + 1
+            cover_download_urls[#cover_download_urls + 1] = url
             local file = assert(io.open(destination, "wb"))
             assert(file:write("\255\216fixture"))
             file:close()
@@ -665,6 +668,7 @@ describe("metadata editor Hardcover controller", function()
                 id = "/books/OL" .. index .. "M",
                 edition_format = "Paperback " .. index,
                 image_url = "https://covers.openlibrary.org/b/id/" .. index .. "-L.jpg",
+                preview_image_url = "https://covers.openlibrary.org/b/id/" .. index .. "-M.jpg",
             }
         end
         local applied, pending_cover
@@ -698,16 +702,19 @@ describe("metadata editor Hardcover controller", function()
         assert.are.equal(12, preview_refreshes)
         assert.is_truthy(picker.items[1].image_file:match("%.jpg$"))
         assert.is_truthy(picker.items[31].image_file:match("%.jpg$"))
+        assert.matches("-M%.jpg$", cover_download_urls[60])
         assert.matches("Hardcover", picker.items[1].secondary_text, 1, true)
         assert.matches("Open Library", picker.items[31].secondary_text, 1, true)
         picker.on_close(picker.items[31])
         picker.on_select(picker.items[31])
+        assert.are.equal(61, cover_download_calls)
+        assert.matches("-L%.jpg$", cover_download_urls[61])
         assert.are.equal("Open Library result", applied.metadata.title)
         assert.are.equal("open_library", applied.source)
         assert.are.equal("Open Library", applied.label)
         assert.are.equal(0, google_search_calls)
         assert.are.equal(1, open_library_search_calls)
-        assert.are.equal(3, trapper_wrap_calls)
+        assert.are.equal(4, trapper_wrap_calls)
         os.remove(pending_cover)
     end)
 

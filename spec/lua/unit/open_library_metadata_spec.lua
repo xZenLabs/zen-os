@@ -186,6 +186,9 @@ describe("Open Library metadata client", function()
         assert.are.equal(
             "https://covers.openlibrary.org/b/id/200-L.jpg?default=false",
             editions[2].image_url)
+        assert.are.equal(
+            "https://covers.openlibrary.org/b/id/200-M.jpg?default=false",
+            editions[2].preview_image_url)
         assert.is_true(editions[3].is_audio)
         assert.are.equal("/books/OL4M", editions[4].id)
         assert.is_true(editions[4].is_audio)
