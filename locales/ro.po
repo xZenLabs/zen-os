@@ -5208,3 +5208,15 @@ msgstr "Marcatori capitol"
 
 msgid "Current page"
 msgstr "Pagina curentă"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Week reset day"
+msgstr "Prima zi a săptămânii"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Sunday"
+msgstr "Duminică"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Monday"
+msgstr "Luni"

@@ -5208,3 +5208,15 @@ msgstr "Indicateurs de chapitres"
 
 msgid "Current page"
 msgstr "Page en cours"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Week reset day"
+msgstr "Premier jour de la semaine"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Sunday"
+msgstr "Dimanche"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Monday"
+msgstr "Lundi"

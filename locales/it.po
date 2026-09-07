@@ -5208,3 +5208,15 @@ msgstr "Segni di capitolo"
 
 msgid "Current page"
 msgstr "Pagina corrente"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Week reset day"
+msgstr "Giorno di inizio della settimana"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Sunday"
+msgstr "Domenica"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Monday"
+msgstr "Lunedì"

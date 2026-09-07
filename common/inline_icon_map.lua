@@ -109,6 +109,7 @@ return {
     navbar_tabs       = "\u{F0837}",
     navbar_styling    = "\u{F03D8}",
     settings_stats    = "\u{F012A}",
+    calendar          = "\u{F073}",  -- nf-fa-calendar
     settings_opds     = "\u{F0B7D}",
     settings_sleep    = "\u{F04B2}",
     schedule_brightness = "\u{F0599}",

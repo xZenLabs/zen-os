@@ -32,9 +32,21 @@ local function flush_pending_stats()
     pcall(stats_plugin.insertDB, stats_plugin)
 end
 
+function StatsDB.weekStart(now_t)
+    now_t = now_t or os.date("*t")
+    local settings = require("config/preset_store").getSettings("stats")
+    local start_day = settings.week_start_day == 2 and 2 or 1
+    return os.time({
+        year = now_t.year, month = now_t.month,
+        day = now_t.day - (now_t.wday - start_day) % 7,
+        hour = 0, min = 0, sec = 0,
+    }), start_day
+end
+
 local function period_starts(now_t)
     local one_day = 86400
     now_t = now_t or os.date("*t")
+    local week_start, week_start_day = StatsDB.weekStart(now_t)
     local start_today = os.time({
         year = now_t.year, month = now_t.month, day = now_t.day,
         hour = 0, min = 0, sec = 0,
@@ -42,11 +54,8 @@ local function period_starts(now_t)
     return {
         one_day = one_day,
         start_today = start_today,
-        period_begin = os.time({
-            year = now_t.year, month = now_t.month,
-            day = now_t.day - now_t.wday + 1,
-            hour = 0, min = 0, sec = 0,
-        }),
+        period_begin = week_start,
+        week_start_day = week_start_day,
         start_month = os.time({
             year = now_t.year, month = now_t.month, day = 1,
             hour = 0, min = 0, sec = 0,
@@ -594,12 +603,12 @@ function StatsDB.queryStats()
                 (SELECT week_total FROM (
                     SELECT SUM(day_total) AS week_total, MIN(rep_ts) AS rep_ts
                     FROM daily
-                    GROUP BY strftime('%Y-%W', rep_ts, 'unixepoch', 'localtime')
+                    GROUP BY date(day, '-' || ((strftime('%w', day) - WEEK_START_DAY + 7) % 7) || ' days')
                 ) ORDER BY week_total DESC LIMIT 1),
                 (SELECT rep_ts FROM (
                     SELECT SUM(day_total) AS week_total, MIN(rep_ts) AS rep_ts
                     FROM daily
-                    GROUP BY strftime('%Y-%W', rep_ts, 'unixepoch', 'localtime')
+                    GROUP BY date(day, '-' || ((strftime('%w', day) - WEEK_START_DAY + 7) % 7) || ' days')
                 ) ORDER BY week_total DESC LIMIT 1),
                 (SELECT month_total FROM (
                     SELECT SUM(day_total) AS month_total, MIN(rep_ts) AS rep_ts
@@ -613,7 +622,7 @@ function StatsDB.queryStats()
                 ) ORDER BY month_total DESC LIMIT 1);
         ]]
         local ok_pk, pd_dur, pd_ts, pw_dur, pw_ts, pm_dur, pm_ts =
-            pcall(conn.rowexec, conn, sql_peaks)
+            pcall(conn.rowexec, conn, (sql_peaks:gsub("WEEK_START_DAY", tostring(starts.week_start_day - 1))))
         stats.peak_day_duration = ok_pk and (tonumber(pd_dur) or 0) or 0
         stats.peak_day_ts       = ok_pk and tonumber(pd_ts) or nil
         stats.peak_week_duration = ok_pk and (tonumber(pw_dur) or 0) or 0

@@ -5208,3 +5208,15 @@ msgstr "Hoofdstukmarkeringen"
 
 msgid "Current page"
 msgstr "Huidige pagina"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Week reset day"
+msgstr "Eerste dag van de week"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Sunday"
+msgstr "Zondag"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Monday"
+msgstr "Maandag"

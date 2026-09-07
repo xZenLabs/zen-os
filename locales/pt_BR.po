@@ -5208,3 +5208,15 @@ msgstr "Marcas de capítulo"
 
 msgid "Current page"
 msgstr "Página atual"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Week reset day"
+msgstr "Dia de início da semana"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Sunday"
+msgstr "Domingo"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Monday"
+msgstr "Segunda-feira"

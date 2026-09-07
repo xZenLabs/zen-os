@@ -5208,3 +5208,15 @@ msgstr "章节标记"
 
 msgid "Current page"
 msgstr "当前页"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Week reset day"
+msgstr "每周重置日"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Sunday"
+msgstr "星期日"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Monday"
+msgstr "星期一"

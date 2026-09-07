@@ -3,9 +3,12 @@ describe("statistics database", function()
     local row_values
     local sqls
     local flushes
+    local week_settings
     local bound_values
 
     before_each(function()
+        week_settings = {}
+        ZenSpec.replace("config/preset_store", { getSettings = function() return week_settings end })
         row_values = {}
         sqls = {}
         flushes = 0
@@ -31,7 +34,7 @@ describe("statistics database", function()
         }
         ZenSpec.replace("common/zen_logger", {
             new = function()
-                return { warn = function() end }
+                return { warn = function() end, info = function() end }
             end,
         })
         ZenSpec.replace("common/db_connection", {
@@ -94,21 +97,25 @@ describe("statistics database", function()
         assert.are.equal("book-hash", bound_values[3])
     end)
 
-    it("starts weekly home stats at local Sunday midnight", function()
+    it("starts weeks on the selected day across month and year boundaries", function()
         local StatsDB = require("common/db_stats")
-        local period_starts
-        for i = 1, 20 do
-            local name, value = debug.getupvalue(StatsDB.queryHomeStats, i)
-            if not name then break end
-            if name == "period_starts" then period_starts = value end
+        for _i, case in ipairs({
+            { 2026, 8, 31, 2, 2026, 8, 30, 2026, 8, 31 },
+            { 2026, 8, 30, 1, 2026, 8, 30, 2026, 8, 24 },
+            { 2026, 1, 1, 5, 2025, 12, 28, 2025, 12, 29 },
+            { 2026, 3, 9, 2, 2026, 3, 8, 2026, 3, 9 },
+        }) do
+            for day = 1, 2 do
+                week_settings.week_start_day = day == 2 and 2 or nil
+                local offset = day == 1 and 4 or 7
+                local expected = os.time({
+                    year = case[offset + 1], month = case[offset + 2], day = case[offset + 3],
+                    hour = 0, min = 0, sec = 0,
+                })
+                assert.are.equal(expected, StatsDB.weekStart({
+                    year = case[1], month = case[2], day = case[3], wday = case[4],
+                }))
+            end
         end
-        local expected = os.time({
-            year = 2026, month = 8, day = 30,
-            hour = 0, min = 0, sec = 0,
-        })
-
-        assert.are.equal(expected, period_starts({
-            year = 2026, month = 8, day = 31, wday = 2,
-        }).period_begin)
     end)
 end)

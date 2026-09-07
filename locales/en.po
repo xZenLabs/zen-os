@@ -5238,3 +5238,15 @@ msgstr "Chapter marks"
 
 msgid "Current page"
 msgstr "Current page"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Week reset day"
+msgstr "Week reset day"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Sunday"
+msgstr "Sunday"
+
+#: modules/settings/sections/stats_settings.lua
+msgid "Monday"
+msgstr "Monday"
