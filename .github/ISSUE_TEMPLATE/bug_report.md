@@ -7,6 +7,12 @@ assignees: ''
 
 ---
 
+**Before reporting**
+Disable other plugins and patches related to the affected feature, restart KOReader, and try to reproduce the issue.
+
+- [ ] The issue still happens with other related plugins disabled.
+- [ ] The issue still happens with other related user patches disabled.
+
 **Describe the bug**
 A clear and concise description of what the bug is.
 

@@ -5250,3 +5250,7 @@ msgstr "Sunday"
 #: modules/settings/sections/stats_settings.lua
 msgid "Monday"
 msgstr "Monday"
+
+#: modules/settings/zen_bugreporter.lua
+msgid "Before reporting, disable other plugins and user patches related to the affected feature, restart KOReader, and reproduce the issue. Keep ZenOS and its required dependencies enabled."
+msgstr "Before reporting, disable other plugins and user patches related to the affected feature, restart KOReader, and reproduce the issue. Keep ZenOS and its required dependencies enabled."

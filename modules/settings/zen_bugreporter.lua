@@ -141,6 +141,7 @@ end
 -- ---------------------------------------------------------------------------
 
 function M.show_dialog(ctx)
+    local isolation_notice = _("Before reporting, please disable other plugins and patches to see if this is actually a ZenOS issue.")
     -- Require debug logging to be on so crash.log is useful.
     if not (G_reader_settings
             and G_reader_settings:isTrue("debug")
@@ -149,7 +150,8 @@ function M.show_dialog(ctx)
         UIManager:show(ConfirmBox:new{
             text        = _("Debug logging must be enabled to submit bug reports.")
                        .. "\n\n"
-                       .. _("Enabling debug logging, restart required. Please reproduce the issue, then submit the report."),
+                       .. _("Enabling debug logging, restart required. Please reproduce the issue, then submit the report.")
+                       .. "\n\n" .. isolation_notice,
             ok_text     = _("Restart now"),
             cancel_text = _("Cancel"),
             ok_callback = function()
@@ -176,7 +178,8 @@ function M.show_dialog(ctx)
 
     local ConfirmBox = require("ui/widget/confirmbox")
     UIManager:show(ConfirmBox:new{
-        text    = _("crash.log will be embedded in a public GitHub issue. It may contain file paths and book titles.") .. ("\n\n") .. ("Continue?"),
+        text    = isolation_notice .. "\n\n"
+               .. _("crash.log will be embedded in a public GitHub issue. It may contain file paths and book titles.") .. ("\n\n") .. ("Continue?"),
         ok_text = _("Continue"),
         ok_callback = function()
             M._ask_title(ctx)
