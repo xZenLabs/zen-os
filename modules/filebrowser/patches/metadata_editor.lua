@@ -163,6 +163,8 @@ local function apply_metadata_editor()
                     }
                 else
                     missing_credential = true
+                    logger.dbg("Metadata provider skipped provider=", provider.id,
+                        " reason=missing_credential")
                 end
             end
         end
@@ -463,13 +465,19 @@ local function apply_metadata_editor()
             local completed, result = require("ui/trapper")
                 :dismissableRunInSubprocess(fetch_previews, trap_widget)
             trap_widget.dismiss_callback = nil
-            if completed and result then finish(result) end
+            if completed and result then
+                finish(result)
+            else
+                for _i, download in ipairs(downloads) do
+                    os.remove(download.destination)
+                end
+            end
             return
         end
         run_metadata_request(_("Searching metadata…"), fetch_previews, finish)
     end
 
-    local function present_edition_picker(editor, draft, work, editions, cover_only)
+    local function edition_picker_items(work, editions)
         local items = {}
         for _i, edition in ipairs(editions) do
             items[#items + 1] = {
@@ -480,6 +488,11 @@ local function apply_metadata_editor()
                 work = work,
             }
         end
+        return items
+    end
+
+    local function present_edition_picker(editor, draft, work, editions, cover_only)
+        local items = edition_picker_items(work, editions)
         local picker
         picker = require("common/ui/zen_menu_picker"){
             title = _("Choose an edition"),
@@ -537,6 +550,7 @@ local function apply_metadata_editor()
                         break
                     end
                 end
+
                 if best then
                     apply_provider_selection(editor, work, best, cover_only)
                 elseif #editions > 0 then
@@ -584,7 +598,8 @@ local function apply_metadata_editor()
             _("Metadata results"), remaining, total)
     end
 
-    local function show_work_picker(editor, draft, works, cover_only, title)
+    local function show_results_picker(
+            editor, draft, items, cover_only, title, on_select, preview_traps)
         local picker
         local function dismiss_loading()
             if not picker then return end
@@ -592,35 +607,83 @@ local function apply_metadata_editor()
             picker.dismiss_callback = nil
             if type(dismiss_callback) == "function" then dismiss_callback() end
         end
-        prepare_cover_previews(works, function(ready)
-            local items = work_picker_items(ready)
-            picker = require("common/ui/zen_menu_picker"){
-                title = title or _("Metadata results"),
-                items = items,
-                rows_per_page = 5,
-                black_text = true,
-                title_action_icon = search_icon,
-                title_action_keep_open = true,
-                title_action_callback = function()
-                    dismiss_loading()
-                    picker:addItems({}, _("Metadata results"))
-                    show_search_dialog(editor, draft, cover_only, function()
-                        picker:onCancelOrClose()
-                    end)
-                end,
-                back_hold_callback = function() return true end,
-                on_close = function()
-                    dismiss_loading()
-                    for _i, item in ipairs(items) do
-                        cleanup_cover_previews({ item.work })
+        picker = require("common/ui/zen_menu_picker"){
+            title = title or _("Metadata results"),
+            items = items,
+            rows_per_page = 5,
+            black_text = true,
+            title_action_icon = search_icon,
+            title_action_keep_open = true,
+            title_action_callback = function()
+                dismiss_loading()
+                picker:addItems({}, _("Metadata results"))
+                show_search_dialog(editor, draft, cover_only, function()
+                    picker:onCancelOrClose()
+                end)
+            end,
+            back_hold_callback = function() return true end,
+            on_close = function(item)
+                dismiss_loading()
+                for _i, trap in ipairs(preview_traps) do
+                    trap.cancelled = true
+                    local cancel = trap.dismiss_callback
+                    if type(cancel) == "function" then cancel() end
+                    trap.dismiss_callback = nil
+                end
+                local keep = item and item.edition and item.edition._cover_path
+                for _i, result_item in ipairs(items) do
+                    local edition = result_item.edition
+                    if edition and edition._cover_path
+                            and edition._cover_path ~= keep then
+                        os.remove(edition._cover_path)
+                        edition._cover_path = nil
                     end
-                end,
-                on_select = function(item)
-                    select_work(editor, draft, item.work, cover_only)
-                end,
-            }
-        end)
+                end
+            end,
+            on_select = on_select,
+        }
         return picker
+    end
+
+    local function load_result_previews(picker, items, trap, provider_id)
+        local previews = {}
+        for _i, item in ipairs(items) do
+            local edition = item.edition
+            if edition and trim(edition.image_url) ~= "" then
+                previews[#previews + 1] = { item = item, edition = edition }
+            end
+        end
+        local total = #previews
+        if total == 0 or trap.cancelled then return end
+        require("ui/trapper"):wrap(function()
+            logger.dbg("Metadata preview loading start provider=", provider_id,
+                " total=", total)
+            local loaded = 0
+            for first = 1, total, 5 do
+                local batch = {}
+                local last = math.min(first + 4, total)
+                for index = first, last do
+                    batch[#batch + 1] = previews[index].edition
+                end
+                local refreshed = false
+                prepare_cover_previews(batch, function(ready)
+                    for index, edition in ipairs(ready) do
+                        previews[first + index - 1].item.image_file = edition._cover_path
+                        if edition._cover_path then loaded = loaded + 1 end
+                    end
+                    if picker:addItems({}) then
+                        refreshed = true
+                        logger.dbg("Metadata preview loading progress provider=", provider_id,
+                            " loaded=", loaded, " processed=", last, " total=", total)
+                    else
+                        cleanup_cover_previews(ready)
+                    end
+                end, trap)
+                if trap.cancelled or not refreshed then return end
+            end
+            logger.dbg("Metadata preview loading complete provider=", provider_id,
+                " loaded=", loaded, " total=", total)
+        end)
     end
 
     start_hardcover_search = function(editor, draft, query, cover_only, replace_callback)
@@ -644,8 +707,13 @@ local function apply_metadata_editor()
                 limit = query.limit,
             }
         end
-        logger.dbg("Metadata search requested providers=", #active,
+        local provider_ids = {}
+        for _i, provider in ipairs(active) do
+            provider_ids[#provider_ids + 1] = provider.id
+        end
+        logger.dbg("Metadata search requested providers=", table.concat(provider_ids, ","),
             " cover_only=", tostring(cover_only == true),
+            " mode=", auto_pick and "auto" or "progressive",
             " auto_pick=", tostring(auto_pick),
             " isbn=", trim(query.isbn) ~= "" and "yes" or "no")
         if not auto_pick then
@@ -666,30 +734,71 @@ local function apply_metadata_editor()
                 end
 
                 local picker, first_error
+                local result_items = {}
+                local preview_traps = {}
                 for provider_index, provider in ipairs(active) do
+                    logger.dbg("Metadata provider search start provider=", provider.id,
+                        " index=", provider_index, " total=", #active)
                     local trap_widget = picker or active_metadata_notice
-                    local completed, found, err = Trapper:dismissableRunInSubprocess(
+                    local completed, result, err = Trapper:dismissableRunInSubprocess(
                         function()
-                            return require(provider.module)
-                                .search(provider.credential, query)
+                            local Client = require(provider.module)
+                            local works, search_err = Client.search(provider.credential, query)
+                            if cover_only or not works then return works, search_err end
+                            local work
+                            for _i, candidate in ipairs(works) do
+                                if candidate.exact_edition then
+                                    work = candidate
+                                    break
+                                end
+                            end
+                            -- ponytail: expand the top work only; batch lookups if ambiguity matters.
+                            work = work or works[1]
+                            local editions, editions_err = Client.editions(
+                                provider.credential, work)
+                            if not editions then return nil, editions_err end
+                            return { work = work, editions = editions, works = #works }
                         end,
                         trap_widget
                     )
                     if trap_widget then trap_widget.dismiss_callback = nil end
                     if not completed then
+                        logger.dbg("Metadata provider search cancelled provider=", provider.id,
+                            " index=", provider_index, " total=", #active)
                         close_notice()
                         return
                     end
 
-                    local had_picker = picker ~= nil
-                    if found then
-                        for _i, work in ipairs(found) do
-                            work._provider = provider.id
-                            if type(work.exact_edition) == "table" then
-                                work.exact_edition._provider = provider.id
+                    local works = cover_only and result or nil
+                    local work = not cover_only and type(result) == "table"
+                        and result.work or nil
+                    local editions = work and result.editions or nil
+                    local batch = {}
+                    if works then
+                        for _i, found_work in ipairs(works) do
+                            found_work._provider = provider.id
+                            if type(found_work.exact_edition) == "table" then
+                                found_work.exact_edition._provider = provider.id
                             end
                         end
-                    elseif type(err) == "table" and err.kind ~= "no_match"
+                        batch = work_picker_items(works)
+                    elseif work and editions then
+                        work._provider = provider.id
+                        for _i, edition in ipairs(editions) do
+                            edition._provider = provider.id
+                        end
+                        batch = edition_picker_items(work, editions)
+                    end
+
+                    logger.dbg("Metadata provider search complete provider=", provider.id,
+                        " works=", cover_only and #batch
+                            or type(result) == "table" and result.works or 0,
+                        " results=", #batch,
+                        " status=", result and "ok"
+                            or tostring(type(err) == "table" and err.kind or "error"))
+
+                    local had_picker = picker ~= nil
+                    if not result and type(err) == "table" and err.kind ~= "no_match"
                             and not first_error then
                         err.provider = provider.id
                         first_error = err
@@ -697,27 +806,52 @@ local function apply_metadata_editor()
 
                     local title = work_picker_title(#active - provider_index, #active)
                     if had_picker then
-                        local added
-                        prepare_cover_previews(found or {}, function(ready)
-                            added = picker:addItems(work_picker_items(ready), title)
-                            if not added then cleanup_cover_previews(ready) end
-                        end, picker)
+                        logger.dbg("Metadata results append start provider=", provider.id,
+                            " items=", #batch)
+                        local added = picker:addItems(batch, title)
                         if not added then
+                            logger.dbg("Metadata results closed while loading provider=",
+                                provider.id)
                             return
                         end
-                    elseif found and #found > 0 then
+                        logger.dbg("Metadata results appended provider=", provider.id,
+                            " added=", #batch, " total=", #result_items)
+                    elseif #batch > 0 then
                         if replace_callback then
                             replace_callback()
                             replace_callback = nil
                         end
-                        if #active == 1 and found[1].exact_edition then
-                            select_work(editor, draft, found[1], cover_only, false)
+                        if cover_only and #active == 1 and works[1].exact_edition then
+                            select_work(editor, draft, works[1], true, false)
                             close_notice()
                             return
                         end
-                        picker = show_work_picker(
-                            editor, draft, found, cover_only, title)
+                        for _i, item in ipairs(batch) do
+                            result_items[#result_items + 1] = item
+                        end
+                        picker = show_results_picker(
+                            editor, draft, result_items, cover_only, title,
+                            cover_only and function(item)
+                                select_work(editor, draft, item.work, true)
+                            end or function(item)
+                                apply_provider_selection(
+                                    editor, item.work, item.edition, false)
+                            end,
+                            preview_traps)
+                        logger.dbg("Metadata results opened provider=", provider.id,
+                            " results=", #result_items,
+                            " remaining_providers=", #active - provider_index)
                         close_notice()
+                    end
+                    if picker and not cover_only and #batch > 0 then
+                        local trap = {}
+                        local preview_items = batch
+                        local preview_provider = provider.id
+                        preview_traps[#preview_traps + 1] = trap
+                        UIManager:scheduleIn(0, function()
+                            load_result_previews(
+                                picker, preview_items, trap, preview_provider)
+                        end)
                     end
                 end
                 close_notice()
@@ -731,9 +865,15 @@ local function apply_metadata_editor()
 
         run_metadata_request(_("Searching metadata…"), function()
             local works, first_error = {}, nil
-            for _i, provider in ipairs(active) do
+            for provider_index, provider in ipairs(active) do
+                logger.dbg("Metadata provider search start provider=", provider.id,
+                    " index=", provider_index, " total=", #active)
                 local found, err = require(provider.module)
                     .search(provider.credential, query)
+                logger.dbg("Metadata provider search complete provider=", provider.id,
+                    " results=", type(found) == "table" and #found or 0,
+                    " status=", found and "ok"
+                        or tostring(type(err) == "table" and err.kind or "error"))
                 if found then
                     local found_exact = false
                     for _j, work in ipairs(found) do

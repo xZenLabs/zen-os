@@ -44,7 +44,13 @@ the English source string.
 
 ## Maintenance
 
-Synchronize every catalog with the Lua source in one command:
+Put the Cloud Translation key in the ignored project `.env` file:
+
+```dotenv
+GOOGLE_TRANSLATE_API_KEY=your-cloud-translation-api-key
+```
+
+Then synchronize every catalog with the Lua source:
 
 ```sh
 python3 translation_utils.py --sync
@@ -52,6 +58,10 @@ python3 translation_utils.py --sync
 
 This removes dead entries, adds missing entries, translates empty `msgstr`
 values, and alphabetizes each catalog. Untranslated English strings are sent to
-Google Translate; existing translations are preserved. Use `--locale LOCALE`
+Google Cloud Translation Basic; existing translations are preserved. Enable the
+Cloud Translation API for the key first. Use `--locale LOCALE`
 to process only one catalog. Generated entries include nearby Lua context and
 `filename.lua:line` references for translators.
+
+The project `.env` file is ignored by Git. An exported
+`GOOGLE_TRANSLATE_API_KEY` takes precedence when both are present.

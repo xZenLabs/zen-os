@@ -339,12 +339,21 @@ describe("metadata editor Hardcover controller", function()
     local google_key
     local google_search_result
     local open_library_search_result
+    local open_library_editions_result
     local google_search_hook
     local open_library_search_hook
     local google_search_calls
     local open_library_search_calls
     local cover_download_calls
+    local preview_refreshes
     local trapper_wrap_calls
+    local scheduled_callbacks
+
+    local function run_scheduled()
+        while #scheduled_callbacks > 0 do
+            table.remove(scheduled_callbacks, 1)()
+        end
+    end
 
     before_each(function()
         shown = nil
@@ -357,12 +366,15 @@ describe("metadata editor Hardcover controller", function()
         google_key = "google-key"
         google_search_result = {}
         open_library_search_result = {}
+        open_library_editions_result = {}
         google_search_hook = nil
         open_library_search_hook = nil
         google_search_calls = 0
         open_library_search_calls = 0
         cover_download_calls = 0
+        preview_refreshes = 0
         trapper_wrap_calls = 0
+        scheduled_callbacks = {}
         search_result = {{
             id = 7,
             title = "Remote title",
@@ -419,14 +431,18 @@ describe("metadata editor Hardcover controller", function()
             close = function(_self, widget) widget.closed = true end,
             forceRePaint = function() end,
             nextTick = function(_self, callback) callback() end,
+            scheduleIn = function(_self, _delay, callback)
+                scheduled_callbacks[#scheduled_callbacks + 1] = callback
+            end,
         })
         local trapper_wrapped = false
         ZenSpec.replace("ui/trapper", {
             wrap = function(_self, callback)
                 trapper_wrap_calls = trapper_wrap_calls + 1
+                local was_wrapped = trapper_wrapped
                 trapper_wrapped = true
                 callback()
-                trapper_wrapped = false
+                trapper_wrapped = was_wrapped
             end,
             isWrapped = function() return trapper_wrapped end,
             dismissableRunInSubprocess = function(_self, task, trap_widget)
@@ -446,6 +462,9 @@ describe("metadata editor Hardcover controller", function()
         ZenSpec.replace("common/ui/zen_menu_picker", function(options)
             options.addItems = function(self, batch, title)
                 if self.closed then return false end
+                if #batch == 0 and title == nil then
+                    preview_refreshes = preview_refreshes + 1
+                end
                 for _i, item in ipairs(batch) do self.items[#self.items + 1] = item end
                 if title ~= nil then self.title = title end
                 return true
@@ -480,6 +499,13 @@ describe("metadata editor Hardcover controller", function()
                 return { free = function() end }
             end,
         })
+        local function download_cover(_url, destination)
+            cover_download_calls = cover_download_calls + 1
+            local file = assert(io.open(destination, "wb"))
+            assert(file:write("\255\216fixture"))
+            file:close()
+            return destination
+        end
         ZenSpec.replace("modules/filebrowser/metadata/hardcover", {
             search = function(_token, query)
                 search_query = query
@@ -494,13 +520,7 @@ describe("metadata editor Hardcover controller", function()
                     publisher = edition.publisher,
                 }
             end,
-            downloadCover = function(_url, destination)
-                cover_download_calls = cover_download_calls + 1
-                local file = assert(io.open(destination, "wb"))
-                assert(file:write("\255\216fixture"))
-                file:close()
-                return destination
-            end,
+            downloadCover = download_cover,
         })
         ZenSpec.replace("modules/filebrowser/metadata/google_books", {
             search = function()
@@ -508,11 +528,11 @@ describe("metadata editor Hardcover controller", function()
                 if google_search_hook then google_search_hook() end
                 return google_search_result
             end,
-            editions = function(_key, work) return { work.exact_edition or work.edition } end,
+            editions = function(_key, work) return { work.exact_edition or work._edition } end,
             draft = function(work, edition)
                 return { title = work.title, publisher = edition.publisher }
             end,
-            downloadCover = function() end,
+            downloadCover = download_cover,
         })
         ZenSpec.replace("modules/filebrowser/metadata/open_library", {
             search = function()
@@ -520,9 +540,11 @@ describe("metadata editor Hardcover controller", function()
                 if open_library_search_hook then open_library_search_hook() end
                 return open_library_search_result
             end,
-            editions = function() return {} end,
-            draft = function() return {} end,
-            downloadCover = function() end,
+            editions = function() return open_library_editions_result end,
+            draft = function(work, edition)
+                return { title = work.title, publisher = edition.publisher }
+            end,
+            downloadCover = download_cover,
         })
         ZenSpec.unload("modules/filebrowser/patches/metadata_editor")
         require("modules/filebrowser/patches/metadata_editor")()
@@ -575,6 +597,11 @@ describe("metadata editor Hardcover controller", function()
             title = "Remote title",
             authors = { "Remote author" },
         }}
+        editions_result = {{
+            id = 9,
+            edition_format = "Paperback",
+            release_year = 2024,
+        }}
         local editor = {
             applyHardcover = function() error("must wait for a selection") end,
         }
@@ -583,12 +610,12 @@ describe("metadata editor Hardcover controller", function()
 
         assert.are.equal("Metadata results", picker.title)
         assert.are.equal(1, #picker.items)
-        assert.are.equal("Remote title", picker.items[1].text)
+        assert.are.equal("Paperback, 2024", picker.items[1].text)
+        assert.matches("Hardcover", picker.items[1].secondary_text, 1, true)
         assert.are.equal("Local title", search_query.title)
         assert.is_nil(search_query.author)
         assert.are.equal("123", search_query.isbn)
         assert.is_nil(search_query.include_title_results)
-        assert.is_false(picker.items[1].bold)
         assert.is_true(picker.black_text)
         assert.matches("icons/quick_search.svg$",
             picker.title_action_icon)
@@ -596,74 +623,99 @@ describe("metadata editor Hardcover controller", function()
         assert.is_function(picker.title_action_callback)
     end)
 
-    it("preserves every returned work in the manual results list", function()
-        search_result = {}
+    it("preserves every returned edition in the manual results list", function()
+        search_result = {{ id = 1, title = "Remote title" }}
+        editions_result = {}
         for item_index = 1, 10 do
-            search_result[item_index] = {
+            editions_result[item_index] = {
                 id = item_index,
-                title = "Result " .. tostring(item_index),
-                authors = { "Author" },
+                edition_format = "Edition " .. tostring(item_index),
             }
         end
 
         shown.on_hardcover(shown.metadata, {})
 
         assert.are.equal(10, #picker.items)
-        assert.are.equal("Result 10", picker.items[10].text)
+        assert.are.equal("Edition 10", picker.items[10].text)
     end)
 
-    it("merges enabled providers into one results list and dispatches selections", function()
-        _G.__ZEN_UI_PLUGIN.config.metadata.google_books_enabled = true
+    it("merges provider editions into one progressive results list", function()
         _G.__ZEN_UI_PLUGIN.config.metadata.open_library_enabled = true
-        search_result = {{ id = 1, title = "Hardcover result", authors = { "A" } }}
-        google_search_result = {{
-            id = "google-1",
-            title = "Google result",
-            authors = { "B" },
-            _edition = { id = "google-1", publisher = "Google publisher" },
+        search_result = {{
+            id = 1,
+            title = "Hardcover result",
+            authors = { "A" },
+            image_url = "https://assets.hardcover.app/book/1/cover.jpg",
         }}
         open_library_search_result = {{
             id = "/works/OL1W",
             title = "Open Library result",
             authors = { "C" },
+            image_url = "https://covers.openlibrary.org/cover.jpg",
         }}
-        local applied
+        editions_result = {}
+        open_library_editions_result = {}
+        for index = 1, 30 do
+            editions_result[index] = {
+                id = index,
+                edition_format = "Hardcover " .. index,
+                image_url = "https://assets.hardcover.app/edition/" .. index .. "/cover.jpg",
+            }
+            open_library_editions_result[index] = {
+                id = "/books/OL" .. index .. "M",
+                edition_format = "Paperback " .. index,
+                image_url = "https://covers.openlibrary.org/b/id/" .. index .. "-L.jpg",
+            }
+        end
+        local applied, pending_cover
         local editor = {
             applyHardcover = function(_self, metadata, _summary, source, source_label)
                 applied = { metadata = metadata, source = source, label = source_label }
                 return 0
             end,
             getPendingCoverSource = function() end,
+            setPendingCover = function(_self, path) pending_cover = path end,
         }
-        google_search_hook = function()
-            assert.are.equal(1, #picker.items)
-            assert.are.equal("Metadata results · 2 / 3 still loading", picker.title)
-        end
         open_library_search_hook = function()
-            assert.are.equal(2, #picker.items)
-            assert.are.equal("Metadata results · 1 / 3 still loading", picker.title)
+            assert.are.equal(30, #picker.items)
+            assert.are.equal("Metadata results · 1 / 2 still loading", picker.title)
+            assert.are.equal(0, cover_download_calls)
+            run_scheduled()
+            assert.are.equal(30, cover_download_calls)
+            assert.are.equal(6, preview_refreshes)
+            assert.is_truthy(picker.items[1].image_file:match("%.jpg$"))
         end
 
         shown.on_hardcover(shown.metadata, editor)
 
         assert.are.equal("Metadata results", picker.title)
-        assert.are.equal(3, #picker.items)
+        assert.are.equal(5, picker.rows_per_page)
+        assert.are.equal(60, #picker.items)
+        assert.are.equal(30, cover_download_calls)
+        assert.is_nil(picker.items[31].image_file)
+        run_scheduled()
+        assert.are.equal(60, cover_download_calls)
+        assert.are.equal(12, preview_refreshes)
+        assert.is_truthy(picker.items[1].image_file:match("%.jpg$"))
+        assert.is_truthy(picker.items[31].image_file:match("%.jpg$"))
         assert.matches("Hardcover", picker.items[1].secondary_text, 1, true)
-        assert.matches("Google Books", picker.items[2].secondary_text, 1, true)
-        assert.matches("Open Library", picker.items[3].secondary_text, 1, true)
-        picker.on_select(picker.items[2])
-        assert.are.equal("Google result", applied.metadata.title)
-        assert.are.equal("google_books", applied.source)
-        assert.are.equal("Google Books", applied.label)
-        assert.are.equal(1, google_search_calls)
+        assert.matches("Open Library", picker.items[31].secondary_text, 1, true)
+        picker.on_close(picker.items[31])
+        picker.on_select(picker.items[31])
+        assert.are.equal("Open Library result", applied.metadata.title)
+        assert.are.equal("open_library", applied.source)
+        assert.are.equal("Open Library", applied.label)
+        assert.are.equal(0, google_search_calls)
         assert.are.equal(1, open_library_search_calls)
-        assert.are.equal(1, trapper_wrap_calls)
+        assert.are.equal(3, trapper_wrap_calls)
+        os.remove(pending_cover)
     end)
 
     it("stops progressive loading when the results picker closes", function()
         _G.__ZEN_UI_PLUGIN.config.metadata.google_books_enabled = true
         _G.__ZEN_UI_PLUGIN.config.metadata.open_library_enabled = true
         search_result = {{ id = 1, title = "Hardcover result" }}
+        editions_result = {{ id = 11, edition_format = "Hardcover" }}
         google_search_result = {{ id = "google-1", title = "Google result" }}
         google_search_hook = function() picker:onCancelOrClose() end
 
@@ -712,11 +764,16 @@ describe("metadata editor Hardcover controller", function()
             title = "Open Library result",
             authors = { "Author" },
         }}
+        open_library_editions_result = {{
+            id = "/books/OL1M",
+            edition_format = "Paperback",
+        }}
 
         shown.on_hardcover(shown.metadata, {})
 
         assert.are.equal(1, #picker.items)
-        assert.are.equal("Open Library result", picker.items[1].text)
+        assert.are.equal("Paperback", picker.items[1].text)
+        assert.matches("Open Library", picker.items[1].secondary_text, 1, true)
         assert.are.equal(0, google_search_calls)
         assert.are.equal(1, open_library_search_calls)
     end)
@@ -800,24 +857,14 @@ describe("metadata editor Hardcover controller", function()
         assert.are.equal("Open settings", shown_widgets[#shown_widgets].ok_text)
     end)
 
-    it("renders two-line work and edition choices", function()
-        search_result = {
-            {
-                id = 1,
-                title = "First",
-                authors = { "A" },
-                series_name = "Saga",
-                series_index = 2,
-                image_url = "https://assets.hardcover.app/book/1/cover.jpg",
-            },
-            {
-                id = 2,
-                title = "Second",
-                authors = { "B" },
-                release_year = 2021,
-                image_url = "https://assets.hardcover.app/book/2/cover.jpg",
-            },
-        }
+    it("renders edition choices directly in manual results", function()
+        search_result = {{
+            id = 1,
+            title = "First",
+            authors = { "A" },
+            series_name = "Saga",
+            series_index = 2,
+        }}
         editions_result = {
             {
                 id = 10,
@@ -832,52 +879,50 @@ describe("metadata editor Hardcover controller", function()
         }
 
         shown.on_hardcover(shown.metadata, {})
-        local work_picker = picker
         assert.are.equal(1, #shown_widgets)
         assert.are.equal("Searching metadata…", shown_widgets[1].text)
-        assert.are.equal(5, work_picker.rows_per_page)
-        assert.are.equal(2, #work_picker.items)
-        assert.is_truthy(work_picker.items[1].image_file:match("%.jpg$"))
-        assert.are.equal(2, cover_download_calls)
-        assert.are.equal("First", picker.items[1].text)
-        assert.matches("A", picker.items[1].secondary_text, 1, true)
-        assert.matches("Saga #2", picker.items[1].secondary_text, 1, true)
-        local selected_work = picker.items[1]
-        work_picker.on_close(selected_work)
-        work_picker.on_select(selected_work)
-        assert.are.equal(2, #shown_widgets)
-        assert.are.equal("Searching metadata…", shown_widgets[2].text)
-        assert.are.equal(2, trapper_wrap_calls)
+        assert.are.equal("Metadata results", picker.title)
         assert.are.equal(5, picker.rows_per_page)
         assert.are.equal(2, #picker.items)
+        assert.is_nil(picker.items[1].image_file)
+        assert.are.equal(0, cover_download_calls)
+        run_scheduled()
         assert.is_truthy(picker.items[1].image_file:match("%.jpg$"))
-        assert.are.equal(3, cover_download_calls)
+        assert.are.equal(1, cover_download_calls)
+        assert.are.equal(1, preview_refreshes)
         assert.are.equal("Hardcover, 2022", picker.items[1].text)
+        assert.matches("Hardcover", picker.items[1].secondary_text, 1, true)
         assert.matches("Orbit", picker.items[1].secondary_text, 1, true)
         assert.matches("500 pages", picker.items[1].secondary_text, 1, true)
+        assert.are.equal(2, trapper_wrap_calls)
+        local preview = picker.items[1].image_file
         picker.on_close()
+        assert.is_nil(require("libs/libkoreader-lfs").attributes(preview, "mode"))
     end)
 
-    it("downloads cover previews for metadata results", function()
-        search_result = {}
+    it("loads cover previews after opening metadata results", function()
+        search_result = {{ id = 1, title = "Remote title" }}
+        editions_result = {}
         for index = 1, 7 do
-            search_result[index] = {
+            editions_result[index] = {
                 id = index,
-                title = "Result " .. index,
+                edition_format = "Edition " .. index,
                 image_url = "https://assets.hardcover.app/book/" .. index .. "/cover.jpg",
             }
         end
-
         shown.on_hardcover(shown.metadata, {})
 
         assert.are.equal(7, #picker.items)
+        assert.are.equal(0, cover_download_calls)
+        assert.is_nil(picker.items[1].image_file)
+        run_scheduled()
         assert.are.equal(7, cover_download_calls)
+        assert.are.equal(2, preview_refreshes)
         assert.is_truthy(picker.items[1].image_file:match("%.jpg$"))
         assert.is_truthy(picker.items[7].image_file:match("%.jpg$"))
-        local first_preview = picker.items[1].image_file
-        picker.items = nil
+        local preview = picker.items[1].image_file
         picker.on_close()
-        assert.is_nil(require("libs/libkoreader-lfs").attributes(first_preview, "mode"))
+        assert.is_nil(require("libs/libkoreader-lfs").attributes(preview, "mode"))
     end)
 
     it("auto-picks the highest-ranked non-audio match", function()

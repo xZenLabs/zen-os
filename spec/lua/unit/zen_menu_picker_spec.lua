@@ -491,6 +491,29 @@ describe("Zen menu picker", function()
         assert.are.equal("Metadata results · 1 / 3 still loading", text_widgets[1].text)
     end)
 
+    it("keeps the current emulator page during a live row refresh", function()
+        device_is_touch = true
+        device_has_dpad = true
+        local items = {}
+        for item_index = 1, 11 do
+            items[item_index] = { text = "Item " .. tostring(item_index) }
+        end
+        local picker = require("common/ui/zen_menu_picker"){
+            items = items,
+            rows_per_page = 5,
+        }
+
+        picker:paintTo({ paintRect = function() end }, 0, 0)
+        picker.touch_zones[1].handler({ pos = { x = 580, y = pager_y + 1 } })
+        picker:paintTo({ paintRect = function() end }, 0, 0)
+        assert.are.equal(2, pager_page)
+
+        items[1].image_file = "/covers/1.jpg"
+        assert.is_true(picker:addItems({}))
+        picker:paintTo({ paintRect = function() end }, 0, 0)
+        assert.are.equal(2, pager_page)
+    end)
+
     it("expands requested cover rows to fill the page", function()
         local items = {}
         for item_index = 1, 5 do

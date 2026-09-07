@@ -18,14 +18,12 @@ Flags:
 
 import argparse
 import ast
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 import re
 import sys
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 
 # Directories relative to this script
@@ -39,28 +37,31 @@ LUA_DIRS = [
 LUA_EXCLUDE_DIRS = {"node_modules", ".git", "dist", "spec"}
 LUA_EXCLUDE_FILES = {"extract_translatable_strings.py"}
 
-GOOGLE_TRANSLATE_URL = "https://translate.googleapis.com/translate_a/single"
+GOOGLE_TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2"
+GOOGLE_TRANSLATE_BATCH_SIZE = 128
 GOOGLE_LOCALES = {
     "pt_BR": "pt",
     "pt_PT": "pt-PT",
     "zh_CN": "zh-CN",
+    "zh_HK": "zh-TW",
+    "zh_MO": "zh-TW",
     "zh_TW": "zh-TW",
 }
-TRANSLATION_WORKERS = 6
 
 # ---------------------------------------------------------------------------
 # Patterns for extractable string calls
 # ---------------------------------------------------------------------------
-# _("...") and _('...')
-_RE_GETTEXT_DQ = re.compile(r'_\(\s*"((?:[^"\\]|\\.)*)"\s*\)', re.DOTALL)
-_RE_GETTEXT_SQ = re.compile(r"_\(\s*'((?:[^'\\]|\\.)*)'\s*\)", re.DOTALL)
+# _("..."), __("..."), and gettext("...")
+_GETTEXT_CALL = r"(?<![\w_])(?:_|__|gettext)"
+_RE_GETTEXT_DQ = re.compile(_GETTEXT_CALL + r'\(\s*"((?:[^"\\]|\\.)*)"\s*\)', re.DOTALL)
+_RE_GETTEXT_SQ = re.compile(_GETTEXT_CALL + r"\(\s*'((?:[^'\\]|\\.)*)'\s*\)", re.DOTALL)
 
 # C_("context", "string") — context-aware gettext; we extract the string part
-_RE_CGETTEXT_DQ = re.compile(r'C_\(\s*"[^"]*"\s*,\s*"((?:[^"\\]|\\.)*)"\s*\)', re.DOTALL)
-_RE_CGETTEXT_SQ = re.compile(r"C_\(\s*'[^']*'\s*,\s*'((?:[^'\\]|\\.)*)'\s*\)", re.DOTALL)
+_RE_CGETTEXT_DQ = re.compile(r'(?<![\w_])C_\(\s*"[^"]*"\s*,\s*"((?:[^"\\]|\\.)*)"\s*\)', re.DOTALL)
+_RE_CGETTEXT_SQ = re.compile(r"(?<![\w_])C_\(\s*'[^']*'\s*,\s*'((?:[^'\\]|\\.)*)'\s*\)", re.DOTALL)
 
 # Multiline Lua long strings inside _([[...]]) — uncommon but possible
-_RE_GETTEXT_LS = re.compile(r'_\(\s*\[\[(.*?)\]\]\s*\)', re.DOTALL)
+_RE_GETTEXT_LS = re.compile(_GETTEXT_CALL + r'\(\s*\[\[(.*?)\]\]\s*\)', re.DOTALL)
 
 ALL_PATTERNS = [
     _RE_GETTEXT_DQ,
@@ -83,6 +84,44 @@ def unescape_lua(s: str) -> str:
     )
 
 
+def blank_lua_comments(src: str) -> str:
+    """Blank Lua comments while preserving offsets and line numbers."""
+    chars = list(src)
+    i = 0
+    while i < len(src):
+        if src[i] in "\"'":
+            quote = src[i]
+            i += 1
+            while i < len(src) and src[i] != quote:
+                i += 2 if src[i] == "\\" else 1
+            i += 1
+            continue
+
+        long_string = re.match(r"\[(=*)\[", src[i:])
+        if long_string:
+            end = src.find("]" + long_string.group(1) + "]", i + len(long_string.group(0)))
+            i = len(src) if end < 0 else end + len(long_string.group(0))
+            continue
+
+        if not src.startswith("--", i):
+            i += 1
+            continue
+
+        comment_start = i
+        long_comment = re.match(r"--\[(=*)\[", src[i:])
+        if long_comment:
+            end_marker = "]" + long_comment.group(1) + "]"
+            end = src.find(end_marker, i + len(long_comment.group(0)))
+            i = len(src) if end < 0 else end + len(end_marker)
+        else:
+            end = src.find("\n", i)
+            i = len(src) if end < 0 else end
+        for index in range(comment_start, i):
+            if chars[index] != "\n":
+                chars[index] = " "
+    return "".join(chars)
+
+
 def extract_from_file(path: str) -> list[tuple[str, int, str]]:
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
@@ -91,8 +130,9 @@ def extract_from_file(path: str) -> list[tuple[str, int, str]]:
         return []
 
     matches = []
+    scan_src = blank_lua_comments(src)
     for pat in ALL_PATTERNS:
-        for m in pat.finditer(src):
+        for m in pat.finditer(scan_src):
             matches.append((m.start(), m.end(), unescape_lua(m.group(1))))
 
     found = []
@@ -300,7 +340,7 @@ def apply_translations(locale: str, translations: dict[str, str]) -> int:
     return sum(1 for v in translations.values() if v)
 
 
-_FORMAT_TOKEN_RE = re.compile(r"%(?:\d+\$)?[-+ #0]*\d*(?:\.\d+)?[A-Za-z%]|%\d+")
+_FORMAT_TOKEN_RE = re.compile(r"%\d+(?=[hm]\b)|%(?:\d+\$)?[-+ #0]*\d*(?:\.\d+)?[A-Za-z%]|%\d+")
 
 
 def _protect_format_tokens(text: str) -> tuple[str, list[str]]:
@@ -324,61 +364,93 @@ def _restore_format_tokens(text: str, tokens: list[str]) -> str:
     return text
 
 
-def google_translate(text: str, locale: str, timeout: int = 20) -> str:
-    """Translate English text with Google Translate's keyless web endpoint."""
-    if locale == "en":
-        return text
+def google_api_key() -> str | None:
+    """Return the API key from the environment or the ignored project .env file."""
+    if key := os.environ.get("GOOGLE_TRANSLATE_API_KEY"):
+        return key
+    try:
+        with open(os.path.join(SCRIPT_DIR, ".env"), encoding="utf-8") as env_file:
+            for line in env_file:
+                name, separator, value = line.partition("=")
+                if separator and name.strip() == "GOOGLE_TRANSLATE_API_KEY":
+                    value = value.strip()
+                    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                        value = value[1:-1]
+                    return value or None
+    except OSError:
+        pass
+    return None
 
-    protected_text, format_tokens = _protect_format_tokens(text)
-    query = urllib.parse.urlencode({
-        "client": "gtx",
-        "sl": "en",
-        "tl": GOOGLE_LOCALES.get(locale, locale),
-        "dt": "t",
-        "q": protected_text,
-    })
+
+def google_translate_batch(texts: list[str], locale: str, api_key: str, timeout: int = 30) -> list[str]:
+    """Translate up to 128 English strings with Google Cloud Translation Basic."""
+    protected = [_protect_format_tokens(text) for text in texts]
+    body = json.dumps({
+        "q": [text for text, _tokens in protected],
+        "source": "en",
+        "target": GOOGLE_LOCALES.get(locale, locale),
+        "format": "text",
+    }).encode("utf-8")
     request = urllib.request.Request(
-        f"{GOOGLE_TRANSLATE_URL}?{query}",
-        headers={"User-Agent": "Mozilla/5.0"},
+        GOOGLE_TRANSLATE_URL,
+        data=body,
+        headers={
+            "Content-Type": "application/json; charset=utf-8",
+            "X-goog-api-key": api_key,
+        },
+        method="POST",
     )
     last_error = None
     for attempt in range(3):
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 data = json.load(response)
-            translated = "".join(part[0] for part in data[0] if part and part[0])
-            if not translated:
+            translations = data["data"]["translations"]
+            if len(translations) != len(texts):
+                raise ValueError("Google returned the wrong number of translations")
+            if any(not item.get("translatedText") for item in translations):
                 raise ValueError("Google returned an empty translation")
-            return _restore_format_tokens(translated, format_tokens)
+            return [
+                _restore_format_tokens(item["translatedText"], tokens)
+                for item, (_text, tokens) in zip(translations, protected)
+            ]
         except (OSError, ValueError, KeyError, IndexError, TypeError, urllib.error.URLError) as exc:
             last_error = exc
             if attempt < 2:
-                time.sleep(2 ** attempt)
-    raise RuntimeError(f"Google translation failed for {locale}: {text!r}: {last_error}")
+                time.sleep(5 * 2 ** attempt)
+    raise RuntimeError(f"Google translation failed for {locale}: {last_error}")
+
+
+def google_translate(text: str, locale: str, timeout: int = 30) -> str:
+    """Translate one string with Google Cloud Translation Basic."""
+    if locale == "en":
+        return text
+    api_key = google_api_key()
+    if not api_key:
+        raise RuntimeError("set GOOGLE_TRANSLATE_API_KEY in .env to use --sync translation")
+    return google_translate_batch([text], locale, api_key, timeout)[0]
 
 
 def translate_strings(locale: str, msgids: list[str]) -> dict[str, str]:
-    """Translate msgids concurrently, returning {msgid: translated string}."""
+    """Translate msgids in Cloud Translation's maximum batch size."""
     if locale == "en":
         return {msgid: msgid for msgid in msgids}
-    if not msgids:
-        return {}
-
-    translated = {}
-    worker_count = min(TRANSLATION_WORKERS, len(msgids))
-    with ThreadPoolExecutor(max_workers=worker_count) as pool:
-        jobs = {pool.submit(google_translate, msgid, locale): msgid for msgid in msgids}
-        for job in as_completed(jobs):
-            msgid = jobs[job]
-            translated[msgid] = job.result()
-    return translated
+    api_key = google_api_key()
+    if not api_key:
+        raise RuntimeError("set GOOGLE_TRANSLATE_API_KEY in .env to use --sync translation")
+    translated = []
+    for start in range(0, len(msgids), GOOGLE_TRANSLATE_BATCH_SIZE):
+        translated.extend(google_translate_batch(
+            msgids[start:start + GOOGLE_TRANSLATE_BATCH_SIZE], locale, api_key,
+        ))
+    return dict(zip(msgids, translated))
 
 
 def sync_catalogs(po_files: list[str], lua_strings: dict[str, list[tuple[str, int, str]]]) -> None:
-    """Fully synchronize catalogs, translating blanks before writing any files."""
+    """Fully synchronize catalogs, keeping each catalog atomic."""
     msgids = set(lua_strings)
-    plans = []
-    for po_file in po_files:
+    translation_error = None
+    for po_file in sorted(po_files, key=lambda name: (name != "en.po", name)):
         locale = po_file[:-3]
         po_path = os.path.join(LOCALES_DIR, po_file)
         existing = parse_po(po_path)
@@ -392,16 +464,23 @@ def sync_catalogs(po_files: list[str], lua_strings: dict[str, list[tuple[str, in
             f"untranslated={len(untranslated)}"
         )
         if untranslated:
-            print(f"  -> translating {len(untranslated)} entries")
-            synced.update(translate_strings(locale, untranslated))
-        plans.append((po_path, synced, len(dead), len(missing), len(untranslated)))
-
-    # Do not modify any catalog unless every translation succeeded.
-    for po_path, synced, removed, added, translated in plans:
+            if translation_error is None:
+                print(f"  -> translating {len(untranslated)} entries")
+                try:
+                    synced.update(translate_strings(locale, untranslated))
+                except RuntimeError as exc:
+                    translation_error = exc
+                    print(f"  -> translation stopped; leaving empty entries", file=sys.stderr)
+            else:
+                print(f"  -> translation skipped after earlier failure")
         rewrite_po(po_path, synced, lua_strings, [], remove_dead=False, alphabetize=True)
         print(
-            f"  -> {os.path.basename(po_path)}: removed={removed} added={added} "
-            f"translated={translated} alphabetized=yes"
+            f"  -> {po_file}: removed={len(dead)} added={len(missing)} "
+            f"untranslated={sum(not value for value in synced.values())} alphabetized=yes"
+        )
+    if translation_error:
+        raise RuntimeError(
+            f"catalogs were synchronized, but translation failed; rerun --sync. {translation_error}"
         )
 
 

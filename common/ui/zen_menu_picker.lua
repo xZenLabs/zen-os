@@ -521,9 +521,10 @@ local function showMenuPicker(opts)
         if closed or type(batch) ~= "table" then return false end
         for _i, item in ipairs(batch) do items[#items + 1] = item end
         updateGeometry()
-        if selected_idx and not back_focused and not title_action_focused
-                and not footer_selected_idx then
-            cur_page = math.ceil(selected_idx / rows_per_page)
+        if selected_idx and not back_focused then
+            local first = (cur_page - 1) * rows_per_page + 1
+            local last = math.min(#items, first + rows_per_page - 1)
+            if selected_idx < first or selected_idx > last then selected_idx = first end
         end
         if next_title ~= nil then title_tw:setText(next_title) end
         title_tw:setMaxWidth(title_text_w)

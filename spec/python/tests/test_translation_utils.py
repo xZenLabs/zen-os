@@ -1,13 +1,61 @@
+import io
+import json
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import mock_open, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 import translation_utils
 
 
 class TranslationUtilsTest(unittest.TestCase):
+    def test_google_api_key_reads_env_file_without_overriding_environment(self):
+        with patch.dict(os.environ, {}, clear=True), \
+                patch("builtins.open", mock_open(read_data='GOOGLE_TRANSLATE_API_KEY="file-key"\n')):
+            self.assertEqual("file-key", translation_utils.google_api_key())
+        with patch.dict(os.environ, {"GOOGLE_TRANSLATE_API_KEY": "environment-key"}):
+            self.assertEqual("environment-key", translation_utils.google_api_key())
+
+    def test_google_cloud_translation_batches_and_restores_placeholders(self):
+        response = io.BytesIO(json.dumps({
+            "data": {"translations": [
+                {"translatedText": "⟪ZENFMT0⟫ Std."},
+                {"translatedText": "Hallo"},
+            ]},
+        }).encode())
+        with patch.dict(os.environ, {"GOOGLE_TRANSLATE_API_KEY": "test-key"}), \
+                patch("urllib.request.urlopen", return_value=response) as urlopen:
+            self.assertEqual(
+                {"%1h": "%1 Std.", "Hello": "Hallo"},
+                translation_utils.translate_strings("de", ["%1h", "Hello"]),
+            )
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(translation_utils.GOOGLE_TRANSLATE_URL, request.full_url)
+        self.assertEqual("test-key", request.get_header("X-goog-api-key"))
+        self.assertEqual(["⟪ZENFMT0⟫h", "Hello"], json.loads(request.data)["q"])
+
+    def test_extraction_ignores_comments_and_supports_gettext_aliases(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lua_path = Path(tmp) / "menu.lua"
+            lua_path.write_text(
+                '-- _("Dead")\nlocal live = _("Live")\n'
+                '--[[ gettext("Also dead") ]]\n'
+                'local labels = { gettext("First name"), __("p.") }\n',
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                ["Live", "First name", "p."],
+                [msgid for msgid, _line, _context in translation_utils.extract_from_file(str(lua_path))],
+            )
+            self.assertEqual(("⟪ZENFMT0⟫h", ["%1"]), translation_utils._protect_format_tokens("%1h"))
+            self.assertEqual("zh-TW", translation_utils.GOOGLE_LOCALES["zh_HK"])
+            self.assertEqual("zh-TW", translation_utils.GOOGLE_LOCALES["zh_MO"])
+
     def test_context_comments_are_complete_and_idempotent(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
