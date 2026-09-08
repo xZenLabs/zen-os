@@ -110,13 +110,22 @@ describe("page browser entry", function()
 
         require("modules/reader/patches/page_browser")()
 
-        local inserted, generated
-        local thumbnail = {
-            ui = {
-                view = { footer_visible = true, state = { page = 2, zoom = 3, rotation = 4 } },
+        local inserted, generated, save_calls
+        local statistics = {}
+        local ui = setmetatable({
+            statistics = statistics,
+            view = { footer_visible = true, state = { page = 2, zoom = 3, rotation = 4 } },
+        }, {
+            __index = {
+                saveSettings = function() save_calls = (save_calls or 0) + 1 end,
             },
+        })
+        local thumbnail = {
+            ui = ui,
             tile_cache = { insert = function(_, hash, tile) inserted = { hash, tile } end },
             _getPageImage = function(self)
+                self.ui.saveSettings = function() end
+                self.ui.statistics = nil
                 self.ui.view.footer_visible = false
                 self.ui.view.state.page = 99
                 return {
@@ -137,6 +146,10 @@ describe("page browser entry", function()
         expect(thumbnail.ui.view.state.page == 2)
         expect(thumbnail.ui.view.state.zoom == 3)
         expect(thumbnail.ui.view.state.rotation == 4)
+        expect(rawget(ui, "saveSettings") == nil)
+        ui:saveSettings()
+        expect(save_calls == 1)
+        expect(ui.statistics == statistics)
         expect(ReaderThumbnail.checkTileGeneration(thumbnail, request) == false)
         expect(inserted[1] == "page-7")
         expect(generated[1] == inserted[2])

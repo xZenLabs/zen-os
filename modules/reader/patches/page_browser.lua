@@ -29,8 +29,11 @@ local function apply_page_browser()
             local orig_check_tile_generation = ReaderThumbnail.checkTileGeneration
 
             ReaderThumbnail.startTileGeneration = function(self, request)
-                local view = self.ui and self.ui.view
+                local ui = self.ui
+                local view = ui and ui.view
                 local state = view and view.state
+                local saved_save_settings = ui and rawget(ui, "saveSettings")
+                local saved_statistics = ui and rawget(ui, "statistics")
                 local saved_footer = view and view.footer_visible
                 local saved_page = state and state.page
                 local saved_zoom = state and state.zoom
@@ -49,6 +52,10 @@ local function apply_page_browser()
                     request._zen_sync_tile = tile
                 end)
 
+                if ui then
+                    rawset(ui, "saveSettings", saved_save_settings)
+                    rawset(ui, "statistics", saved_statistics)
+                end
                 if view then
                     view.footer_visible = saved_footer
                     if state then
