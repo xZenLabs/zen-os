@@ -133,6 +133,30 @@ local function apply_context_menu()
         return align_button_dialog_icons(ButtonDialog:new(options))
     end
 
+    -- Keep every PathChooser navigable above a locked home folder.
+    if not PathChooser._zen_navigation_patched
+            and type(PathChooser.genItemTableFromPath) == "function" then
+        PathChooser._zen_navigation_patched = true
+        local orig_pathchooser_gen_items = PathChooser.genItemTableFromPath
+
+        function PathChooser:genItemTableFromPath(path)
+            local items = orig_pathchooser_gen_items(self, path)
+            local parent = type(path) == "string" and require("ffi/util").dirname(path)
+            if type(parent) ~= "string" or parent == path then
+                return items
+            end
+            for _i, item in ipairs(items) do
+                if item.is_go_up then return items end
+            end
+            table.insert(items, self.show_current_dir_for_hold and 2 or 1, {
+                text = BD.mirroredUILayout() and BD.ltr("../ \u{2B06}") or "\u{2B06} ../",
+                path = path .. "/..",
+                is_go_up = true,
+            })
+            return items
+        end
+    end
+
     -- Keep path-keyed settings and cover references aligned with successful moves.
     local orig_FileManager_moveFile = FileManager.moveFile
     FileManager.moveFile = function(self, from, to, ...)

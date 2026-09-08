@@ -46,6 +46,8 @@ describe("folder cover context-menu integration", function()
             directory = function(value) return value end,
             filename = function(value) return value end,
             filepath = function(value) return value end,
+            ltr = function(value) return value end,
+            mirroredUILayout = function() return false end,
         }
 
         replace("ui/bidi", deps.bidi or bidi)
@@ -214,6 +216,76 @@ describe("folder cover context-menu integration", function()
         assert.are.equal("cover.jpeg", stock_calls[1].filename)
         assert.are.equal("book.epub", stock_calls[5].filename)
         assert.are.equal("pathchooser", stock_calls[6].name)
+    end)
+
+    it("keeps every path chooser traversable without changing its title bar", function()
+        local PathChooser = widget_class()
+        function PathChooser:init()
+            self.title_bar_left_icon = "home"
+            self.title_bar = {
+                has_left_icon = true,
+                left_icon = "home",
+                left_button = { icon = "home" },
+                right_icon = "close",
+                right_button = { icon = "close" },
+                clear = function() end,
+                init = function(title_bar)
+                    title_bar.has_left_icon = title_bar.left_icon ~= nil
+                    title_bar.left_button = title_bar.has_left_icon
+                        and { icon = title_bar.left_icon } or nil
+                    title_bar.right_button = { icon = title_bar.right_icon }
+                end,
+            }
+        end
+        function PathChooser:genItemTableFromPath()
+            return self.stock_items or {}
+        end
+
+        local FileChooser = {
+            show_filter = {},
+            show_file = function() return true end,
+        }
+        local FileManager = {
+            moveFile = function() return true end,
+            setupLayout = function() end,
+        }
+        install_stubs({
+            FileChooser = FileChooser,
+            FileManager = FileManager,
+            PathChooser = PathChooser,
+            Files = { isManaged = function() return false end },
+            ffiUtil = {
+                realpath = function(path) return path end,
+                dirname = function(path)
+                    if path == "/" then return path end
+                    return path:match("^(.*)/[^/]+$") or "."
+                end,
+            },
+        })
+        apply_patch()
+
+        local chooser = { show_current_dir_for_hold = false }
+        PathChooser.init(chooser)
+        assert.are.equal("home", chooser.title_bar_left_icon)
+        assert.is_true(chooser.title_bar.has_left_icon)
+        assert.are.equal("home", chooser.title_bar.left_button.icon)
+        assert.are.equal("close", chooser.title_bar.right_button.icon)
+
+        local items = PathChooser.genItemTableFromPath(chooser, "/library")
+        assert.is_true(items[1].is_go_up)
+        assert.are.equal("/library/..", items[1].path)
+
+        chooser.show_current_dir_for_hold = true
+        chooser.stock_items = { { path = "/library/." } }
+        items = PathChooser.genItemTableFromPath(chooser, "/library")
+        assert.are.equal("/library/.", items[1].path)
+        assert.is_true(items[2].is_go_up)
+
+        chooser.stock_items = { { is_go_up = true, path = "/library/.." } }
+        items = PathChooser.genItemTableFromPath(chooser, "/library")
+        assert.are.equal(1, #items)
+        chooser.stock_items = {}
+        assert.are.equal(0, #PathChooser.genItemTableFromPath(chooser, "/"))
     end)
 
     it("keeps a configured cover reference aligned when its image moves", function()
