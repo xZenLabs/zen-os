@@ -8,6 +8,8 @@ describe("incompatible plugin and patch check", function()
     local original_sui_core
     local original_vos
     local original_quickmenu
+    local original_burrow_util
+    local original_qui_utils
     local original_readermenuredesign_installer
     local original_suntime
     local original_appearance_setting
@@ -74,6 +76,8 @@ describe("incompatible plugin and patch check", function()
         original_sui_core = package.loaded["sui_core"]
         original_vos = package.loaded["modules/vos"]
         original_quickmenu = package.loaded["quickmenu"]
+        original_burrow_util = package.loaded["burrow_util"]
+        original_qui_utils = package.loaded["qui_utils"]
         original_readermenuredesign_installer = package.loaded["readermenuredesign_installer"]
         original_suntime = package.loaded["suntime"]
         original_appearance_setting = package.loaded["lib/setting"]
@@ -81,6 +85,8 @@ describe("incompatible plugin and patch check", function()
         package.loaded["sui_core"] = nil
         package.loaded["modules/vos"] = nil
         package.loaded["quickmenu"] = nil
+        package.loaded["burrow_util"] = nil
+        package.loaded["qui_utils"] = nil
         package.loaded["readermenuredesign_installer"] = nil
         package.loaded["suntime"] = nil
         package.loaded["lib/setting"] = nil
@@ -150,6 +156,8 @@ describe("incompatible plugin and patch check", function()
         package.loaded["sui_core"] = original_sui_core
         package.loaded["modules/vos"] = original_vos
         package.loaded["quickmenu"] = original_quickmenu
+        package.loaded["burrow_util"] = original_burrow_util
+        package.loaded["qui_utils"] = original_qui_utils
         package.loaded["readermenuredesign_installer"] = original_readermenuredesign_installer
         package.loaded["suntime"] = original_suntime
         package.loaded["lib/setting"] = original_appearance_setting
@@ -267,11 +275,17 @@ describe("incompatible plugin and patch check", function()
         local simpleui_dir = plugins_dir .. "/simpleui.koplugin"
         local vos_dir = plugins_dir .. "/vos.koplugin"
         local quickmenu_dir = plugins_dir .. "/quickmenu.koplugin"
+        local appearance_dir = plugins_dir .. "/appearance.koplugin"
+        local burrow_dir = plugins_dir .. "/burrow.koplugin"
+        local quickui_dir = plugins_dir .. "/quickui.koplugin"
         local reader_menu_dir = plugins_dir .. "/zzz-readermenuredesign.koplugin"
         assert.is_true(lfs.mkdir(plugins_dir))
         assert.is_true(lfs.mkdir(simpleui_dir))
         assert.is_true(lfs.mkdir(vos_dir))
         assert.is_true(lfs.mkdir(quickmenu_dir))
+        assert.is_true(lfs.mkdir(appearance_dir))
+        assert.is_true(lfs.mkdir(burrow_dir))
+        assert.is_true(lfs.mkdir(quickui_dir))
         assert.is_true(lfs.mkdir(reader_menu_dir))
         settings.extra_plugin_paths = { plugins_dir }
         ZenSpec.replace("userpatch", { execution_status = {} })
@@ -280,18 +294,25 @@ describe("incompatible plugin and patch check", function()
         assert.is_true(settings.disabled.simpleui)
         assert.is_true(settings.disabled.vos)
         assert.is_true(settings.disabled.quickmenu)
+        assert.is_true(settings.disabled.appearance)
+        assert.is_true(settings.disabled.burrow)
+        assert.is_true(settings.disabled.quickui)
         assert.is_true(settings.disabled["zzz-readermenuredesign"])
         assert.are.equal(1, settings.flushes)
 
         UIManager.scheduled[1].callback()
         assert.are.equal(
             "Incompatible plugins and patches have been disabled:\n"
-                .. "Simple UI\nVisual Overhaul Suite (VOS)\nQuickMenu\nReader Menu Redesign",
+                .. "Simple UI\nVisual Overhaul Suite (VOS)\nQuickMenu\nAppearance\n"
+                .. "Burrow\nQuickUI\nReader Menu Redesign",
             UIManager.shown[1].text)
 
         lfs.rmdir(simpleui_dir)
         lfs.rmdir(vos_dir)
         lfs.rmdir(quickmenu_dir)
+        lfs.rmdir(appearance_dir)
+        lfs.rmdir(burrow_dir)
+        lfs.rmdir(quickui_dir)
         lfs.rmdir(reader_menu_dir)
         lfs.rmdir(plugins_dir)
     end)

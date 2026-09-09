@@ -35,17 +35,10 @@ function M.build(ctx)
         return type(cb) == "table" and type(cb._zen_draft_commit) == "function"
     end
 
-    -- Resolve UI instance once for plugin-availability checks (fail-open if nil).
-    local _ui
-    do
-        local ok_f, FM = pcall(require, "apps/filemanager/filemanager")
-        local ok_r, RU = pcall(require, "apps/reader/readerui")
-        _ui = (ok_f and FM.instance) or (ok_r and RU.instance)
-    end
-    -- Returns true when the plugin slot exists on the UI, or when the UI is
-    -- unavailable (fail-open so we never silently hide a reachable button).
-    local function hasPlugin(slot)
-        return _ui == nil or _ui[slot] ~= nil
+    local function hasPlugin(name)
+        local meta = type(config) == "table" and config._meta
+        local installed = type(meta) == "table" and meta.installed_plugins
+        return type(installed) ~= "table" or installed[name:lower()] == true
     end
 
     local function hasAnyPlugin(slots)

@@ -9,6 +9,7 @@ local FontLanguage = require("common/font_language")
 local LibraryFontPath = require("common/library_font_path")
 local plugin_root = require("common/plugin_root") or ""
 local BrandMigration = require("common/brand_migration")
+local PluginScan = require("modules/menu/app_launcher/plugin_scan")
 
 local LEGACY_KEY = "zen_ui_config"  -- legacy G_reader_settings key; cleanup only
 local HYPERREADABLE_LIBRARY_FONT = LibraryFontPath.BUNDLED_DEFAULT
@@ -17,6 +18,17 @@ local _zen_settings_file = nil  -- cached LuaSettings instance
 local _current_config    = nil  -- in-memory cache for M.get()
 
 local M = {}
+
+local function same_table(left, right)
+    if type(left) ~= "table" or type(right) ~= "table" then return false end
+    for key, value in pairs(left) do
+        if right[key] ~= value then return false end
+    end
+    for key, value in pairs(right) do
+        if left[key] ~= value then return false end
+    end
+    return true
+end
 
 local function get_settings_path()
     return PresetStore.rootDir() .. "/config.lua"
@@ -1205,6 +1217,10 @@ function M.load()
     stored, migrated_group = migrate_legacy_group_view_keys(stored)
     stored, migrated_owned = migrate_legacy_owned_keys(stored)
     local cfg = merged_with_defaults(stored)
+    local installed_plugins = PluginScan.installed()
+    local installed_plugins_changed = installed_plugins ~= nil
+        and not same_table(cfg._meta.installed_plugins, installed_plugins)
+    if installed_plugins then cfg._meta.installed_plugins = installed_plugins end
     local migrated_renamed
     cfg, migrated_renamed = normalize_renamed_keys(cfg)
     local migrated_substring, migrated_updater, migrated_folder_paths, migrated_fbc, migrated_bim
@@ -1229,7 +1245,7 @@ function M.load()
             or migrated_changed_defaults or migrated_home_lock
             or migrated_folder_paths or migrated_rakuyomi or migrated_page_browser
             or migrated_brand_paths or migrated_owned or initialized_brand_marker
-            or recovered_fresh_config then
+            or recovered_fresh_config or installed_plugins_changed then
         M.save(cfg)
     end
     if migrated_file_config then

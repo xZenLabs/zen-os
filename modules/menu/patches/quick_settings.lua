@@ -294,12 +294,10 @@ local function apply_quick_settings()
         return Screen.DEVICE_ROTATED_CLOCKWISE
     end
 
-    -- Returns true if a plugin slot is loaded in the active UI; fails open if no UI yet.
-    local function hasPlugin(slot)
-        local ok_f, FM = pcall(require, "apps/filemanager/filemanager")
-        local ok_r, RU = pcall(require, "apps/reader/readerui")
-        local ui = (ok_f and FM.instance) or (ok_r and RU.instance)
-        return ui == nil or ui[slot] ~= nil
+    local function hasPlugin(name)
+        local meta = zen_plugin.config and zen_plugin.config._meta
+        local installed = type(meta) == "table" and meta.installed_plugins
+        return type(installed) ~= "table" or installed[name:lower()] == true
     end
 
     local function hasAnyPlugin(slots)

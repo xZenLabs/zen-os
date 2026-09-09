@@ -330,6 +330,15 @@ describe("quick settings plugin controls", function()
         assert.is_true(found)
     end)
 
+    it("uses the startup plugin directory list for visibility", function()
+        _G.__ZEN_UI_PLUGIN.config._meta = {
+            installed_plugins = { localsend = true },
+        }
+
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.has("localsend"))
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.has("notion"))
+    end)
+
     it("opens ZenFM settings on hold with a toggle and timeout submenu", function()
         local closes = 0
         local touch_menu = {

@@ -101,7 +101,20 @@ local AUTO_DISABLE = {
         sentinel = "lib/setting",
         label = "Appearance",
         fallback_key = "appearance",
+        folder_key = "appearance",
         expected_folder_key = "appearance",
+    },
+    {
+        sentinel = "burrow_util",
+        label = "Burrow",
+        fallback_key = "burrow",
+        folder_key = "burrow",
+    },
+    {
+        sentinel = "qui_utils",
+        label = "QuickUI",
+        fallback_key = "quickui",
+        folder_key = "quickui",
     },
     {
         sentinel = "readermenuredesign_installer",
@@ -182,7 +195,7 @@ local function apply_incompatible_plugins_check()
         local folder_enabled = folder_installed and disabled_list[entry.folder_key] == nil
         if sentinel_loaded or folder_enabled then
             local dir = get_dir_from_loaded(entry.sentinel)
-            local folder_key = get_folder_key(dir)
+            local folder_key = folder_enabled and entry.folder_key or get_folder_key(dir)
             if entry.expected_folder_key and folder_key ~= entry.expected_folder_key then
                 logger.dbg("Compatibility state", entry.label,
                     "| loaded=false | source=" .. tostring(dir))
