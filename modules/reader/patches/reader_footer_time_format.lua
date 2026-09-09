@@ -89,6 +89,9 @@ local function apply_reader_footer_time_format()
             local left = footer.ui.toc:getChapterPagesLeft(footer.pageno, true)
                        or footer.ui.document:getTotalPagesLeft(footer.pageno)
             if left and left > 0 then
+                if type(stats._zenPagesInStatisticsUnits) == "function" then
+                    left = stats:_zenPagesInStatisticsUnits(left)
+                end
                 local total_minutes = math.floor(left * stats.avg_time / 60)
                 -- Use non-breaking spaces (\u{00A0}) so compact mode's
                 -- gsub("%s", hair-space) in genAllFooterText doesn't convert

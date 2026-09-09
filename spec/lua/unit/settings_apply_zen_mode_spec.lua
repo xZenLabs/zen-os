@@ -84,9 +84,14 @@ describe("Zen mode settings apply", function()
     it("disables KOReader's alt status bar when enabling the Zen reader bar", function()
         local applied = 0
         local handled_event
+        local margin_applies = 0
         local reader = {
             document = { configurable = { status_line = 0 } },
             rolling = {},
+            typeset = {
+                unscaled_margins = { 1, 2, 3, 4 },
+                onSetPageMargins = function() margin_applies = margin_applies + 1 end,
+            },
             handleEvent = function(_self, event) handled_event = event end,
         }
         package.loaded["apps/reader/readerui"].instance = reader
@@ -106,6 +111,7 @@ describe("Zen mode settings apply", function()
         assert.are.equal(1, reader.document.configurable.status_line)
         assert.are.equal("onSetStatusLine", handled_event.handler)
         assert.are.equal(1, handled_event.args[1])
+        assert.are.equal(1, margin_applies)
     end)
 
     it("defers navbar reinjection until the Zen settings page closes", function()

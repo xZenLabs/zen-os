@@ -79,7 +79,8 @@ Icons must be `.svg` or `.png` files at the pack root. SVG is preferred when
 both formats exist. Use a transparent background and artwork that remains
 legible in black and white on e-ink screens. Every safely named root icon is
 loaded: it can replace a matching ZenOS or KOReader icon, or be selected for
-a Navbar or Launcher icon.
+a Navbar or Launcher icon. Use `large_chevron_up.svg` to replace the large
+up chevron in the top-menu footer.
 
 The sample ZIP also includes `ICON-LIST.md`, a human-readable catalog of every
 included icon, its exact replacement filename, and the Navbar, top-menu,

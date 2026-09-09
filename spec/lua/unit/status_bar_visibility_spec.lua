@@ -4,6 +4,7 @@ describe("file manager status bar visibility", function()
     local NetworkMgr
     local original_modules
     local original_plugin
+    local original_status_builder
     local created_text_widgets
 
     local function replace(name, module)
@@ -36,6 +37,7 @@ describe("file manager status bar visibility", function()
         UIManager = { _window_stack = {} }
         original_modules = {}
         original_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
+        original_status_builder = rawget(_G, "__ZENOS_BUILD_STATUS_ROW")
         created_text_widgets = {}
 
         replace("ui/bidi", {})
@@ -116,6 +118,10 @@ describe("file manager status bar visibility", function()
         })
         replace("ui/widget/menu", {})
         replace("ui/widget/touchmenu", {})
+        original_modules["common/ui/color_text_widget"] = {
+            value = package.loaded["common/ui/color_text_widget"],
+        }
+        ZenSpec.unload("common/ui/color_text_widget")
         original_modules["modules/filebrowser/patches/status_bar"] = {
             value = package.loaded["modules/filebrowser/patches/status_bar"],
         }
@@ -133,6 +139,7 @@ describe("file manager status bar visibility", function()
             package.loaded[name] = saved.value
         end
         _G.__ZEN_UI_PLUGIN = original_plugin
+        _G.__ZENOS_BUILD_STATUS_ROW = original_status_builder
     end)
 
     it("renders the configured date item", function()
@@ -147,6 +154,21 @@ describe("file manager status bar visibility", function()
         assert.are.equal(1, #group)
         assert.are.equal("August 8th", group[1].text)
         assert.are.equal("August 8th", created_text_widgets[1].text)
+    end)
+
+    it("keeps the patch active with empty status items", function()
+        _G.__ZEN_UI_PLUGIN.config.status_bar = {
+            left_order = {}, center_order = {}, right_order = {},
+        }
+
+        require("modules/filebrowser/patches/status_bar")()
+
+        assert.is_true(_G.__ZEN_UI_PLUGIN.config.features.status_bar)
+        assert.are.same({}, _G.__ZEN_UI_PLUGIN.config.status_bar.left_order)
+        assert.are.same({}, _G.__ZEN_UI_PLUGIN.config.status_bar.center_order)
+        assert.are.same({}, _G.__ZEN_UI_PLUGIN.config.status_bar.right_order)
+        assert.is_function(FileManager._updateStatusBar)
+        assert.is_function(_G.__ZENOS_BUILD_STATUS_ROW)
     end)
 
     it("only hides Wi-Fi when it is fully off", function()
@@ -227,6 +249,49 @@ describe("file manager status bar visibility", function()
         assert.are.equal(1, repaint_count)
 
         UIManager._window_stack[#UIManager._window_stack + 1] = { widget = {} }
+        FileManager:_updateStatusBar()
+        assert.are.equal(1, repaint_count)
+    end)
+
+    it("builds the setup row without an extra titlebar repaint", function()
+        local next_tick
+        local repaint_count = 0
+        _G.__ZEN_UI_PLUGIN.config.status_bar.hide_browser_bar = false
+        FileManager.setupLayout = function() end
+        FileManager.updateTitleBarPath = function(self, path) self.updated_path = path end
+        UIManager.nextTick = function(_self, callback) next_tick = callback end
+        require("common/clock_timer").subscribe = function() end
+        require("modules/filebrowser/patches/status_bar")()
+
+        local next_row = { getSize = function() return { h = 1 } end }
+        assert.is_true(replace_upvalue(FileManager._updateStatusBar,
+            "createStatusRow", function() return next_row end))
+        assert.is_true(replace_upvalue(FileManager._updateStatusBar,
+            "repaintTitleBar", function() repaint_count = repaint_count + 1 end))
+
+        local function item()
+            return { getSize = function() return { h = 1 } end }
+        end
+        local title_group = { item(), item(), item(), item() }
+        function title_group:resetLayout() end
+        FileManager.title_bar = {
+            title_group = title_group,
+            titlebar_height = 4,
+            width = 600,
+            button_padding = 0,
+        }
+        FileManager.file_chooser = { path = "/library" }
+        FileManager.instance = FileManager
+        UIManager._window_stack = { { widget = FileManager } }
+
+        FileManager:setupLayout()
+        assert.are.equal(next_row, title_group[2])
+        assert.are.equal(0, repaint_count)
+
+        next_tick()
+        assert.are.equal("/library", FileManager.updated_path)
+        assert.are.equal(0, repaint_count)
+
         FileManager:_updateStatusBar()
         assert.are.equal(1, repaint_count)
     end)

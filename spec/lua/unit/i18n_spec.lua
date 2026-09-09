@@ -108,4 +108,17 @@ describe("ZenOS translations", function()
         methods.changeLang("pt_BR")
         assert.are.equal("Biblioteca", package.loaded["gettext"]("Library"))
     end)
+
+    it("forwards another plugin's gettext state restoration", function()
+        local I18n = require("common/i18n")
+        I18n.install()
+        local wrapper = package.loaded["gettext"]
+        GetText.translation["External label"] = "Rótulo externo"
+        local original_translation = wrapper.translation
+
+        wrapper.changeLang("pt_BR")
+        wrapper.translation = original_translation
+
+        assert.are.equal("Rótulo externo", wrapper("External label"))
+    end)
 end)

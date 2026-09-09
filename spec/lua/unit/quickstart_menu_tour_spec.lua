@@ -72,6 +72,9 @@ describe("Quickstart menu tour", function()
         local quicksettings_tab_dimen = { x = 500, y = 10, w = 48, h = 48 }
 
         touch_menu = {
+            updateItems = function(self, page)
+                self.updated_page = page
+            end,
             _zen_panel_refs = {
                 buttons = {
                     { id = "sleep", widget = { dimen = other_button_dimen } },
@@ -179,6 +182,7 @@ describe("Quickstart menu tour", function()
 
         assert.is_false(plugin.config._meta.quickstart_menu_tour_pending)
         assert.are.equal(1, plugin.save_calls)
+        assert.are.equal(1, touch_menu.updated_page)
 
         local scheduled_before = #scheduled
         local shown_before = #shown

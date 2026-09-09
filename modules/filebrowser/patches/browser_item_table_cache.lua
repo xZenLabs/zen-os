@@ -268,18 +268,6 @@ local function apply_browser_item_table_cache()
         return restored
     end
 
-    local function list_item_key(dirpath, filename, fullpath, attributes, collate, filter_status)
-        return table.concat({
-            tostring(dirpath), tostring(filename), tostring(fullpath),
-            stable_table_key(attributes), tostring(collate), tostring(filter_status),
-        }, "\30")
-    end
-
-    local function list_cache(self)
-        if not self._zen_list_item_cache then self._zen_list_item_cache = {} end
-        return self._zen_list_item_cache
-    end
-
     local function folder_aggregate_cache(self)
         if not self._zen_folder_aggregate_cache then
             self._zen_folder_aggregate_cache = { values = {}, order = {} }
@@ -370,13 +358,6 @@ local function apply_browser_item_table_cache()
         return index
     end
 
-    -- Resolves a path against the history once per call; the precomputed
-    -- canonical path is passed in so no realpath() runs here.
-    local function history_time(map, item, canonical)
-        if not (map and item and item.path) then return nil end
-        return HistoryIndex.fileTime(map, item.path, function() return canonical end)
-    end
-
     local function is_special_item(item)
         return item.is_go_up or (item.path and item.path:sub(-2) == "/.")
     end
@@ -389,12 +370,9 @@ local function apply_browser_item_table_cache()
         local mixed = collate.can_collate_mixed and G_reader_settings:isTrue("collate_mixed")
         local directory_paths = {}
         for _i, item in ipairs(item_table) do
-            if not is_special_item(item) then
-                -- One realpath() per item; both passes below reuse it.
+            if not is_special_item(item) and item.attr and item.attr.mode == "directory" then
                 item._zen_canonical_path = canonical_path(item.path)
-                if item.attr and item.attr.mode == "directory" then
-                    directory_paths[#directory_paths + 1] = item._zen_canonical_path
-                end
+                directory_paths[#directory_paths + 1] = item._zen_canonical_path
             end
         end
         local directory_times = HistoryIndex.maxDescendantTimes(map, directory_paths)
@@ -406,7 +384,7 @@ local function apply_browser_item_table_cache()
                 if is_directory then
                     read_time = directory_times[item._zen_canonical_path]
                 else
-                    read_time = history_time(map, item, item._zen_canonical_path)
+                    read_time = HistoryIndex.fileTime(map, item.path, canonical_path)
                 end
                 if read_time then
                     item.attr = item.attr or {}
@@ -502,13 +480,7 @@ local function apply_browser_item_table_cache()
             return item
         end
 
-        local filter = self.show_filter and self.show_filter.status
-        local key = list_item_key(dirpath, filename, fullpath, attributes, collate, filter)
-        local cache = list_cache(self)
-        if not cache[key] then
-            cache[key] = original_getListItem(self, dirpath, filename, fullpath, attributes, collate)
-        end
-        return cache[key]
+        return original_getListItem(self, dirpath, filename, fullpath, attributes, collate)
     end
 
     local function status_filter(self)
@@ -765,7 +737,6 @@ local function apply_browser_item_table_cache()
         shared_cache = { values = {}, order = {} }
         self._zen_prepared_item_table = nil
         clear_persisted_cache()
-        self._zen_list_item_cache = {}
         self._zen_folder_aggregate_cache = nil
         local FolderCover = package.loaded["modules/filebrowser/folder_cover"]
         if FolderCover and type(FolderCover.clear) == "function" then
@@ -784,7 +755,6 @@ local function apply_browser_item_table_cache()
         for index = #shared_cache.order, 1, -1 do
             if shared_cache.order[index] == path then table.remove(shared_cache.order, index) end
         end
-        self._zen_list_item_cache = {}
         self._zen_folder_aggregate_cache = nil
         local FolderCover = package.loaded["modules/filebrowser/folder_cover"]
         if FolderCover and type(FolderCover.clear) == "function" then
@@ -917,7 +887,6 @@ local function apply_browser_item_table_cache()
             return stale.table
         end
 
-        self._zen_list_item_cache = {}
         local result = original_genItemTableFromPath(self, path)
         if collate_mode == "access" then
             result = apply_history_order(self, result, collate, reverse)
@@ -977,7 +946,6 @@ local function apply_browser_item_table_cache()
                 shared_cache = { values = {}, order = {} }
                 clear_persisted_cache()
                 if chooser then
-                    chooser._zen_list_item_cache = {}
                     chooser._zen_prepared_item_table = nil
                 end
             end

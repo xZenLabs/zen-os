@@ -33,6 +33,12 @@ local function quotes_path()
     return root .. "/quotes.lua"
 end
 
+local function quotes_dir()
+    local path = PresetStore.rootDir() .. "/quotes"
+    ensure_dir(path)
+    return path
+end
+
 local function state_store()
     if not quote_state then
         local LuaSettings = require("luasettings")
@@ -85,6 +91,41 @@ local function normalize(raw)
         end
     end
     return out
+end
+
+local function is_quote_filename(filename)
+    return type(filename) == "string" and filename ~= ""
+        and not filename:find("/", 1, true)
+        and not filename:find("\\", 1, true)
+        and filename:sub(-4) == ".lua"
+end
+
+local function quote_file_path(filename)
+    return filename == "quotes.lua"
+        and quotes_path() or quotes_dir() .. "/" .. filename
+end
+
+local function sort_filenames(files)
+    table.sort(files)
+    return files
+end
+
+local function selected_custom_files(config)
+    local configured = type(config) == "table" and config.custom_files or nil
+    if type(configured) ~= "table" then return { "quotes.lua" } end
+    local files = {}
+    for filename, selected in pairs(configured) do
+        if selected == true and is_quote_filename(filename) then
+            files[#files + 1] = filename
+        end
+    end
+    return sort_filenames(files)
+end
+
+local function load_quote_file(filename)
+    if not is_quote_filename(filename) then return {} end
+    local ok, raw = pcall(dofile, quote_file_path(filename))
+    return ok and normalize(raw) or {}
 end
 
 local function book_info(data, path)
@@ -281,10 +322,10 @@ function M.getQuotes(config)
     if use_defaults then append(DEFAULT_QUOTES) end
 
     if use_custom then
-        local path = quotes_path()
-        ensure_template(path)
-        local ok, raw = pcall(dofile, path)
-        if ok then append(normalize(raw)) end
+        ensure_template(quotes_path())
+        for _i, filename in ipairs(selected_custom_files(config)) do
+            append(load_quote_file(filename))
+        end
     end
 
     if use_annotations then append(annotation_quotes(perf)) end
@@ -292,11 +333,27 @@ function M.getQuotes(config)
     return quotes, perf
 end
 
-function M.hasCustomQuotes()
-    local path = quotes_path()
-    if lfs.attributes(path, "mode") ~= "file" then return false end
-    local ok, raw = pcall(dofile, path)
-    return ok and #normalize(raw) > 0
+function M.listFiles(config)
+    local root = quotes_dir()
+    ensure_template(quotes_path())
+    local files, seen = {}, {}
+    local function add(filename, allow_empty)
+        if seen[filename] or not is_quote_filename(filename)
+                or lfs.attributes(quote_file_path(filename), "mode") ~= "file"
+                or (not allow_empty and #load_quote_file(filename) == 0) then
+            return
+        end
+        seen[filename] = true
+        files[#files + 1] = filename
+    end
+
+    add("quotes.lua", true)
+    for _i, filename in ipairs(selected_custom_files(config)) do add(filename, true) end
+    local ok, iter, dir_obj = pcall(lfs.dir, root)
+    if ok then
+        for filename in iter, dir_obj do add(filename, false) end
+    end
+    return sort_filenames(files)
 end
 
 local function quotes_signature(quotes)
@@ -422,6 +479,7 @@ function M.invalidateAnnotations()
 end
 
 function M.ensureFile()
+    quotes_dir()
     return ensure_template(quotes_path())
 end
 

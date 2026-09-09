@@ -4,6 +4,7 @@ describe("home featured widget", function()
     local description_split
     local empty_sources
     local cover_ratio
+    local html_content
 
     local function widget_class(kind)
         return {
@@ -60,6 +61,7 @@ describe("home featured widget", function()
         description_split = nil
         empty_sources = {}
         cover_ratio = 2 / 3
+        html_content = nil
         rawset(_G, "__ZEN_UI_SET_OPENING_BANNER_COVER", nil)
         ZenSpec.replace("common/ui/background", { tile_bg = function(color) return color end })
         ZenSpec.replace("ffi/blitbuffer", {
@@ -84,6 +86,15 @@ describe("home featured widget", function()
         }) do
             ZenSpec.replace(name, widget_class(name))
         end
+        ZenSpec.replace("ui/widget/htmlboxwidget", {
+            new = function(_self, values)
+                local widget = widget_class("ui/widget/htmlboxwidget"):new(values)
+                widget.setContent = function(_widget, body, css, font_size)
+                    html_content = { body = body, css = css, font_size = font_size }
+                end
+                return widget
+            end,
+        })
         ZenSpec.replace("ui/gesturerange", widget_class("gesture"))
         ZenSpec.replace("device", {
             screen = {
@@ -453,6 +464,89 @@ describe("home featured widget", function()
         assert.is_table(series)
         assert.equals("SeriesFont", series.face.name)
         assert.is_true(series.bold)
+    end)
+
+    it("hides author and series independently", function()
+        local Featured = require("modules/filebrowser/patches/home/widgets/featured_common")
+        Featured.build({
+            width = 600,
+            height = 220,
+            module_cfg = { show_author = false, show_series = false },
+            data = {
+                getFeaturedBook = function()
+                    return {
+                        path = "/library/alpha.epub",
+                        title = "Alpha",
+                        authors = "Zen Author",
+                        series = "Zen Chronicles",
+                        series_index = 3,
+                        status = "new",
+                    }
+                end,
+            },
+        }, "recently_read")
+
+        assert.is_false(has_text("Zen Author"))
+        assert.is_false(has_text("Zen Chronicles #3"))
+    end)
+
+    it("justifies plain descriptions", function()
+        local Featured = require("modules/filebrowser/patches/home/widgets/featured_common")
+        Featured.build({
+            width = 600,
+            height = 220,
+            module_cfg = { justify_description_text = true },
+            data = {
+                getFeaturedBook = function()
+                    return {
+                        path = "/library/alpha.epub",
+                        title = "Alpha",
+                        description = "A justified description.",
+                        status = "new",
+                    }
+                end,
+            },
+        }, "recently_read")
+
+        assert.is_true(text_widget("A justified description.").justified)
+    end)
+
+    it("renders wrapped description HTML intact when enabled", function()
+        description_split = {
+            text = "A formatted description.",
+            width = 342,
+            upper_end = 5,
+            lower_start = 7,
+        }
+        local Featured = require("modules/filebrowser/patches/home/widgets/featured_common")
+        Featured.build({
+            width = 600,
+            height = 600,
+            module_cfg = {
+                format_description_html = true,
+                justify_description_text = true,
+                wrap_description_text = true,
+                text_styles = {
+                    description = { font_face = "/fonts/Description.ttf", font_size = 16 },
+                },
+            },
+            data = {
+                getFeaturedBook = function()
+                    return {
+                        path = "/library/alpha.epub",
+                        title = "Alpha",
+                        description = "<p>A <strong>formatted</strong> description.</p>",
+                        status = "new",
+                    }
+                end,
+            },
+        }, "recently_read")
+
+        assert.is_true(description_split.used)
+        assert.are.equal("<p>A <strong>formatted</strong> description.</p>", html_content.body)
+        assert.matches("/fonts/Description%.ttf", html_content.css)
+        assert.matches("text%-align: justify", html_content.css)
+        assert.are.equal(16, html_content.font_size)
     end)
 
     it("uses the configured unified source", function()

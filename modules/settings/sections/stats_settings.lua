@@ -378,6 +378,23 @@ function M.build(ctx)
                 text = _("Stat separators"),
                 sub_item_table_func = style_items,
             }, icons.divider),
+            IconItem.decorate({
+                text = _("Week reset day"),
+                sub_item_table_func = function()
+                    local settings = StatsSettings.load()
+                    local items = {}
+                    for day, label in ipairs({ _("Sunday"), _("Monday") }) do
+                        local start_day = day
+                        items[#items + 1] = {
+                            text = label,
+                            radio = true,
+                            checked_func = function() return settings.week_start_day == start_day end,
+                            callback = function() settings.week_start_day = start_day; save(settings) end,
+                        }
+                    end
+                    return items
+                end,
+            }, icons.calendar),
         },
     }, icons.settings_stats)
 end

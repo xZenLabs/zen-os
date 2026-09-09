@@ -772,6 +772,12 @@ describe("Zen renderer", function()
         assert.are.equal(entry, selected_entry)
 
         captured_cover = nil
+        item.menu.select_file = true
+        item.menu.select_directory = false
+        assert.is_true(item:onTapSelect())
+        assert.is_nil(captured_cover)
+
+        captured_cover = nil
         item._zen_is_book = false
         assert.is_true(item:onTapSelect())
         assert.is_nil(captured_cover)

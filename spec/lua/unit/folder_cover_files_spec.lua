@@ -98,7 +98,7 @@ describe("managed folder cover files", function()
 
     it("matches only exact managed image names case-insensitively", function()
         local managed = {
-            "cover.jpg", ".cover.JPG", "COVER1.jpg", "cover2.JPG",
+            "cover.jpg", ".cover.JPEG", "COVER1.jpg", "cover2.jpeg",
             "Cover3.jpg", "COVER4.JPG",
         }
         for _i, name in ipairs(managed) do
@@ -108,7 +108,7 @@ describe("managed folder cover files", function()
         local unmanaged = {
             "cover5.jpg", "cover10.jpg", "mycover.jpg", "cover-old.jpg",
             "cover.svg", "cover.epub", "cover", "/folder/cover.jpg",
-            "cover.jpeg", ".cover.JPEG", "COVER1.png", "cover2.WEBP",
+            "COVER1.png", "cover2.WEBP",
             "Cover3.gif",
         }
         for _i, name in ipairs(unmanaged) do
@@ -123,10 +123,11 @@ describe("managed folder cover files", function()
         assert.are.equal(0, FolderCoverFiles.slotCount("none"))
     end)
 
-    it("accepts only the JPG extension case-insensitively", function()
+    it("accepts JPG and JPEG extensions case-insensitively", function()
         assert.is_true(FolderCoverFiles.isSupportedImage("poster.jpg"))
         assert.is_true(FolderCoverFiles.isSupportedImage("poster.JPG"))
-        assert.is_false(FolderCoverFiles.isSupportedImage("poster.jpeg"))
+        assert.is_true(FolderCoverFiles.isSupportedImage("poster.jpeg"))
+        assert.is_true(FolderCoverFiles.isSupportedImage("poster.JPEG"))
         assert.is_false(FolderCoverFiles.isSupportedImage("poster.png"))
         assert.is_false(FolderCoverFiles.isSupportedImage("poster.webp"))
         assert.is_false(FolderCoverFiles.isSupportedImage("poster.gif"))
@@ -152,10 +153,10 @@ describe("managed folder cover files", function()
         assert.are.equal("/library/folder/cover.jpg", normal[1])
     end)
 
-    it("finds an uppercase JPG extension", function()
-        add_file("/library/folder/COVER.JPG")
+    it("finds an uppercase JPEG extension", function()
+        add_file("/library/folder/COVER.JPEG")
 
-        assert.are.equal("/library/folder/COVER.JPG",
+        assert.are.equal("/library/folder/COVER.JPEG",
             FolderCoverFiles.find("/library/folder", "normal")[1])
     end)
 
@@ -389,7 +390,7 @@ describe("managed folder cover files", function()
         assert.are.same({ nil, "unsupported_source" }, {
             FolderCoverFiles.set("/library/folder", "normal", 1, "/source/chosen.bmp"),
         })
-        for _i, extension in ipairs({ "jpeg", "png", "webp", "gif" }) do
+        for _i, extension in ipairs({ "png", "webp", "gif" }) do
             assert.are.same({ nil, "unsupported_source" }, {
                 FolderCoverFiles.set("/library/folder", "normal", 1,
                     "/source/chosen." .. extension),

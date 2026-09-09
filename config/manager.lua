@@ -1,6 +1,8 @@
 local defaults = require("config/defaults")
 local HomePresets = require("modules/filebrowser/patches/home/home_presets")
 local PresetStore = require("config/preset_store")
+local HardcoverToken = require("config/hardcover_token")
+local GoogleBooksKey = require("config/google_books_key")
 local HomeQuotes = require("modules/filebrowser/patches/home/home_quotes")
 local utils = require("common/utils")
 local FontLanguage = require("common/font_language")
@@ -54,11 +56,7 @@ local function migrate_brand_plugin_paths(stored)
 end
 
 local function merged_with_defaults(stored)
-    local cfg = utils.deepcopy(defaults)
-    if type(stored) == "table" then
-        utils.deepmerge(stored, cfg)
-        cfg = stored
-    end
+    local cfg = type(stored) == "table" and stored or {}
     utils.deepmerge(cfg, defaults)
     return cfg
 end
@@ -94,6 +92,13 @@ local function normalize_renamed_keys(cfg)
     if cfg.features.browser_hide_up_folder == nil
        and cfg.features.browser_up_folder ~= nil then
         cfg.features.browser_hide_up_folder = cfg.features.browser_up_folder
+        changed = true
+    end
+
+    if cfg.features.status_bar == false then
+        cfg.features.status_bar = true
+        cfg.status_bar = type(cfg.status_bar) == "table" and cfg.status_bar or {}
+        cfg.status_bar.left_order, cfg.status_bar.center_order, cfg.status_bar.right_order = {}, {}, {}
         changed = true
     end
 
@@ -604,7 +609,7 @@ local function migrate_folder_path_settings(cfg)
             for slot, cover_path in pairs(slots) do
                 local extension = type(cover_path) == "string"
                     and cover_path:lower():match("%.([^./]+)$") or nil
-                if extension ~= "jpg" then
+                if extension ~= "jpg" and extension ~= "jpeg" then
                     slots[slot] = nil
                     changed = true
                 end
@@ -1026,6 +1031,12 @@ local function migrate_settings_files()
         screensaver = capture_screensaver_settings(),
     })
     if HomeQuotes.ensureFile() then
+        changed = true
+    end
+    if HardcoverToken.ensureFile() then
+        changed = true
+    end
+    if GoogleBooksKey.ensureFile() then
         changed = true
     end
     if migrate_home_quote_font_size() then

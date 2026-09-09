@@ -411,14 +411,14 @@ def test_three_widget_home_evenly_spaces_rows_to_the_bottom(
             visual_gaps = home["visual_gaps"]
             assert len(visual_gaps) == 2
             assert max(visual_gaps) - min(visual_gaps) <= 1, home
-            assert abs(
-                int(home["bottom_visual_inset"])
-                - int(home["top_visual_inset"])
-            ) <= 2, home
             if last_widget == "quotes":
-                quote_bottom = int(home["quote_content_bounds"]["bottom"])
-                bottom_inset = int(home["body_height"]) - quote_bottom
-                assert abs(bottom_inset - int(home["top_visual_inset"])) <= 2, home
+                assert int(home["bottom_visual_inset"]) \
+                    == int(home["page_padding"]), home
+            else:
+                assert abs(
+                    int(home["bottom_visual_inset"])
+                    - int(home["top_visual_inset"])
+                ) <= 2, home
             if first_widget == "datetime":
                 heights = home["widget_heights"]
                 assert int(heights["featured"]) \
@@ -459,7 +459,11 @@ def test_home_renders_all_core_widgets_with_and_without_history(with_history: bo
             assert home["page_padding"] > 0
             visual_gaps = home["visual_gaps"]
             assert len(visual_gaps) == 4
-            assert max(visual_gaps) - min(visual_gaps) <= 3, visual_gaps
+            # The fixed quote row splits spacing into two constrained groups.
+            assert all(
+                max(gaps) - min(gaps) <= 1
+                for gaps in (visual_gaps[:2], visual_gaps[2:])
+            ), visual_gaps
             screenshot = root / "home.png"
             driver.screenshot(screenshot)
             assert screenshot.stat().st_size > 0

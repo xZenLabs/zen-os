@@ -96,6 +96,8 @@ if _plugin_root then
             FontList:getFontList()  -- ensure fontlist + fontinfo initialized
             -- Scan bundled fonts dir into fontlist/fontinfo for FontChooser.
             local mark = {}
+            -- this will show an error about the symbols not being able to register for reader
+            -- this is normal and can be ignored
             pcall(FontList._readList, FontList, _plugin_root .. "/fonts", mark)
             if next(mark) then
                 -- Rebuild fontnames so FontChooser groups by family.
@@ -498,7 +500,9 @@ function ZenUI:init()
                 end
                 logger.info("showing ZenScreen")
                 local T = require("ffi/util").template
-                require("ui/uimanager"):show(ZenScreen:new{
+                local UIManager = require("ui/uimanager")
+                UIManager:forceRePaint()
+                UIManager:show(ZenScreen:new{
                     title       = _("ZenOS"),
                     title_icon  = true,
                     subtitle    = T(_("Updated to %1"), "v" .. current_ver),

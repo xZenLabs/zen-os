@@ -60,4 +60,34 @@ describe("Advanced settings", function()
         assert.is_true(double_tap_item.checked_func())
         assert.are.equal(1, saved)
     end)
+
+    it("applies verbose debug logging immediately", function()
+        local calls = {}
+        G_reader_settings.makeTrue = function(self, key) self:saveSetting(key, true) end
+        G_reader_settings.makeFalse = function(self, key) self:saveSetting(key, false) end
+        ZenSpec.replace("dbg", {
+            turnOn = function() calls[#calls + 1] = "on" end,
+            turnOff = function() calls[#calls + 1] = "off" end,
+            setVerbose = function(_self, enabled)
+                calls[#calls + 1] = enabled and "verbose" or "quiet"
+            end,
+        })
+        local items = require("modules/settings/sections/advanced_settings").build({
+            config = { features = {}, developer = {} },
+            plugin = { saveConfig = function() end },
+            settings_apply = { prompt_restart = function() end },
+        })
+        local debug_item
+        for _i, item in ipairs(items) do
+            if item.text == "Debug logging" then debug_item = item end
+        end
+
+        debug_item.callback()
+        assert.is_true(debug_item.checked_func())
+        assert.same({ "on", "verbose" }, calls)
+
+        debug_item.callback()
+        assert.is_false(debug_item.checked_func())
+        assert.same({ "on", "verbose", "quiet", "off" }, calls)
+    end)
 end)

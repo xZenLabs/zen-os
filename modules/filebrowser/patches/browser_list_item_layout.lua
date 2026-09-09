@@ -429,11 +429,8 @@ local function apply_browser_list_item_layout()
             local series_str
             if series then
                 series = BD.auto(series)
-                if series_index then
-                    series_str = string.format("#%.4g – %s", series_index, series)
-                else
-                    series_str = series
-                end
+                series_index = tonumber(series_index)
+                series_str = series_index and string.format("#%.4g – %s", series_index, series) or series
             end
 
             -- ── Progress / right widget ───────────────────────────────────────
@@ -887,9 +884,7 @@ local function apply_browser_list_item_layout()
             end
             -- setupLayout already called updateItems before our wrapper was installed,
             -- so strip the current item_group now (covers return-from-reader).
-            local UIManager = require("ui/uimanager")
             stripListBorders(fc)
-            UIManager:setDirty(fc, "ui")
         end
     end
 

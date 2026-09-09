@@ -113,6 +113,9 @@ function M.start(plugin)
                     meta.quickstart_menu_tour_pending = false
                     plugin:saveConfig()
                     active = false
+                    if type(touch_menu.updateItems) == "function" then
+                        touch_menu:updateItems(1)
+                    end
                 end,
                 on_cancel = function()
                     active = false

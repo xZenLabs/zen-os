@@ -70,7 +70,12 @@ describe("home data and book caches", function()
             register = function() return {} end,
             registerLoader = function() end,
         })
-        ZenSpec.replace("common/title_sort", { key = function(value) return tostring(value) end })
+        ZenSpec.replace("common/title_sort", {
+            key = function(value) return tostring(value) end,
+            less = function(first, second)
+                return tostring(first) < tostring(second)
+            end,
+        })
         ZenSpec.replace("common/widget_resources", {})
         ZenSpec.replace("common/ui/background", { tile_bg = function(color) return color end })
         ZenSpec.replace("common/cover_decode_cache", {
@@ -562,9 +567,88 @@ describe("home data and book caches", function()
         assert.are.same({ path = "/library/alpha.epub", bb = rendered.source }, released)
     end)
 
+    for _i, fetched in ipairs({ false, true }) do
+        it("hydrates a " .. (fetched and "cached" or "new") .. " landscape cover after one size upgrade", function()
+            local scheduled, extracted, rendered = {}, {}, {}
+            local busy = true
+            local cover_w, cover_h = 100, 150
+            local cover_fetched = fetched
+            local screen = require("device").screen
+            screen.getWidth = function() return 900 end
+            screen.getHeight = function() return 600 end
+            local UIManager = require("ui/uimanager")
+            UIManager.scheduleIn = function(_self, delay, callback)
+                scheduled[#scheduled + 1] = { delay = delay, callback = callback }
+            end
+            local function fitted_size(specs)
+                local scale = math.min(specs.max_cover_w / 600, specs.max_cover_h / 900)
+                return math.floor(600 * scale + 0.5), math.floor(900 * scale + 0.5)
+            end
+            local BookInfoManager = require("bookinfomanager")
+            BookInfoManager.getBookInfo = function(_self, _path, get_cover)
+                return {
+                    title = "Alpha", cover_fetched = cover_fetched, has_cover = true,
+                    cover_w = cover_w, cover_h = cover_h, cover_sizetag = "600x900",
+                    cover_bb = get_cover and { free = function() end } or nil,
+                }
+            end
+            BookInfoManager.isCachedCoverInvalid = function(info, specs)
+                local width, height = fitted_size(specs)
+                return width > info.cover_w or height > info.cover_h
+            end
+            BookInfoManager.isExtractingInBackground = function() return busy end
+            BookInfoManager.extractInBackground = function(_self, files)
+                extracted[#extracted + 1] = files
+                cover_w, cover_h = fitted_size(files[1].cover_specs)
+                cover_fetched = true
+                return true
+            end
+            require("common/cover_render_cache").renderShared = function(_self, _path, source, width, height)
+                rendered[#rendered + 1] = { width, height }
+                return source, true
+            end
+            local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+            local notified = {}
+            local menu = {
+                _zen_home_notify_strip_cover = function(_self, path)
+                    notified[#notified + 1] = path
+                end,
+            }
+            set_home_menu(Home, menu)
+            UIManager._window_stack = { { widget = menu } }
+            local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+                rows = { enabled = { strip = true } }, modules = {},
+            })
+            local book = provider:getBooksForStrip("recently_read", 4, "default", "strip")[1]
+
+            assert.are.equal("pending", provider:warmStripCover(book, 200, 360))
+            assert.are.equal(1, #scheduled)
+            table.remove(scheduled, 1).callback()
+            assert.are.equal(0, #extracted)
+            assert.are.equal(1, #scheduled)
+
+            -- A second consumer needs more width while extraction is deferred.
+            assert.are.equal("pending", provider:warmStripCover(book, 240, 320))
+            busy = false
+            table.remove(scheduled, 1).callback()
+            table.remove(scheduled, 1).callback()
+
+            assert.are.same({ "/library/alpha.epub" }, notified)
+            assert.are.equal("warmed", provider:warmStripCover(book, 204, 307))
+            assert.are.equal("warmed", provider:warmStripCover(book, 200, 360))
+            assert.are.equal("warmed", provider:warmStripCover(book, 240, 320))
+            assert.are.same({ { 204, 307 }, { 200, 360 }, { 240, 320 } }, rendered)
+            assert.are.equal(1, #extracted)
+            assert.are.equal(0, #scheduled)
+        end)
+    end
+
     it("notifies strip listeners without rebuilding Home for each extracted cover", function()
         local scheduled = {}
         local extraction_started = false
+        local screen = require("device").screen
+        screen.getWidth = function() return 900 end
+        screen.getHeight = function() return 600 end
         local UIManager = require("ui/uimanager")
         UIManager.scheduleIn = function(_self, delay, callback)
             scheduled[#scheduled + 1] = { delay = delay, callback = callback }
@@ -583,6 +667,7 @@ describe("home data and book caches", function()
         end
         require("bookinfomanager").extractInBackground = function(_self, files)
             assert.are.equal("/library/alpha.epub", files[1].filepath)
+            assert.are.same({ max_cover_w = 200, max_cover_h = 300 }, files[1].cover_specs)
             extraction_started = true
             return true
         end
@@ -930,6 +1015,13 @@ describe("home data and book caches", function()
 
         assert.are.same({ true, "reused" }, { Home.resumeActive() })
         assert.are.equal(1, resumes)
+    end)
+
+    it("declines tag-strip navigation when Home has no book strip", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        set_home_menu(Home, { _zen_home_has_strip = false })
+
+        assert.is_false(Home.showTagInStrip("Science"))
     end)
 
     it("refreshes a stale retained navbar before resuming Home", function()
@@ -1355,6 +1447,45 @@ describe("home data and book caches", function()
 
         assert.are.equal(2, #books)
         assert.are.equal("/library/alpha.epub", books[1].path)
+    end)
+
+    it("sorts Authors strip stacks like the Authors page", function()
+        ZenSpec.replace("common/db_bookinfo", {
+            getGroupedByAuthor = function()
+                return {
+                    { author = "Aaron Zulu", files = { "/library/alpha.epub" } },
+                    { author = "Zoe Alpha", files = { "/library/beta.epub" } },
+                }
+            end,
+        })
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local cfg = {
+            browser_cover_badges = {},
+            group_view = {
+                authors_collate = "authors_last",
+                group_reverse = { authors = false },
+            },
+        }
+        local provider = get_build_data_provider(Home)(cfg, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+
+        local groups = provider:getStripItemsForPage(
+            { kind = "authors" }, 4, "default", "strip", 0)
+
+        assert.are.same({ "Zoe Alpha", "Aaron Zulu" }, {
+            groups[1].group_label,
+            groups[2].group_label,
+        })
+
+        cfg.group_view.group_reverse.authors = true
+        groups = provider:getStripItemsForPage(
+            { kind = "authors" }, 4, "default", "strip", 0)
+        assert.are.same({ "Aaron Zulu", "Zoe Alpha" }, {
+            groups[1].group_label,
+            groups[2].group_label,
+        })
     end)
 
     it("returns tag stacks and drills into their books", function()

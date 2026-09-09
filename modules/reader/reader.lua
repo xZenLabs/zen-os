@@ -14,6 +14,7 @@ local PATCH_MODULES = {
     margin_hold_guard = "modules/reader/patches/margin_hold_guard",
     bookmarks = "modules/reader/patches/bookmarks",
     page_browser = "modules/reader/patches/page_browser",
+    stable_page_statistics = "modules/reader/patches/stable_page_statistics",
     highlight_names = "modules/reader/patches/highlight_names",
     highlight_menu = "modules/reader/patches/highlight_menu",
     dict_quick_lookup = "modules/reader/patches/dict_quick_lookup",
@@ -65,6 +66,12 @@ function M.init(logger, plugin)
     local page_browser_fn = load_patch("page_browser")
     if page_browser_fn then
         run_feature(logger, plugin, "page_browser", page_browser_fn)
+    end
+
+    -- Make page-based reading statistics follow active stable page labels.
+    local stable_page_statistics_fn = load_patch("stable_page_statistics")
+    if stable_page_statistics_fn then
+        run_feature(logger, plugin, "stable_page_statistics", stable_page_statistics_fn)
     end
 
     -- Always apply: replaces the "Opening file..." popup with a bottom banner

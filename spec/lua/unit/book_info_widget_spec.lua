@@ -14,6 +14,8 @@ describe("book details", function()
     local progress_specs
     local progress_frees
     local full_text_message
+    local zen_button_calls
+    local horizontal_swipes
 
     local dependency_names = {
         "gettext",
@@ -24,6 +26,7 @@ describe("book details", function()
         "ui/geometry",
         "ui/uimanager",
         "ui/widget/container/inputcontainer",
+        "ui/widget/container/scrollablecontainer",
         "ui/widget/iconwidget",
         "ui/widget/imagewidget",
         "ui/widget/scrolltextwidget",
@@ -32,6 +35,7 @@ describe("book details", function()
         "common/cover_utils",
         "common/ui/book_progress",
         "common/ui/truncated_text_message",
+        "common/ui/zen_button",
         "common/ui/zen_title_style",
         "common/utils",
         "modules/global/patches/menu_top_swipe",
@@ -78,6 +82,8 @@ describe("book details", function()
         progress_specs = {}
         progress_frees = 0
         full_text_message = nil
+        zen_button_calls = {}
+        horizontal_swipes = 0
 
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("device", {
@@ -105,6 +111,36 @@ describe("book details", function()
             setDirty = function() end,
         })
         ZenSpec.replace("ui/widget/container/inputcontainer", input_container())
+        ZenSpec.replace("ui/widget/container/scrollablecontainer", {
+            new = function(_self, values)
+                local content = values[1]
+                values.getSize = function(self) return self.dimen end
+                values.paintTo = function(self, bb, x, y)
+                    self.dimen.x, self.dimen.y = x, y
+                    content:paintTo(bb, x - (self._scroll_offset_x or 0), y)
+                end
+                values.onScrollableSwipe = function(self, _arg, _ges)
+                    if content.dimen.w <= self.dimen.w then return false end
+                    horizontal_swipes = horizontal_swipes + 1
+                    self._scroll_offset_x = 20
+                    return true
+                end
+                values.onScrollablePan = function(self)
+                    self._scrolling = true
+                    return true
+                end
+                values.onScrollablePanRelease = function(self)
+                    self._scrolling = false
+                    return true
+                end
+                values.initState = function(self)
+                    self._h_scroll_bar = { enable = true }
+                end
+                values.onCloseWidget = function() end
+                values.free = function() end
+                return values
+            end,
+        })
         ZenSpec.replace("ui/widget/iconwidget", {
             new = function(_self, values)
                 icon_specs[#icon_specs + 1] = values
@@ -187,12 +223,29 @@ describe("book details", function()
                 full_text_message = { text = text, anchor = anchor }
             end,
         })
+        ZenSpec.replace("common/ui/zen_button", {
+            paintFilled = function(_bb, x, y, w, h, text, font_size)
+                zen_button_calls[#zen_button_calls + 1] = {
+                    kind = "filled", x = x, y = y, w = w, h = h,
+                    text = text, font_size = font_size,
+                }
+            end,
+            paintOutlined = function(_bb, x, y, w, h, text, font_size)
+                zen_button_calls[#zen_button_calls + 1] = {
+                    kind = "outlined", x = x, y = y, w = w, h = h,
+                    text = text, font_size = font_size,
+                }
+            end,
+        })
         ZenSpec.replace("common/ui/zen_title_style", {
             ICON_BASE_SIZE = 28,
             ICON_SIZE = 28,
             BUTTON_SIZE = 44,
-            LEFT_PADDING = 4,
+            LEFT_PADDING = 22,
             RIGHT_PADDING = 20,
+            ACTION_FONT_SIZE = 18,
+            ACTION_PADDING_H = 8,
+            TRAILING_GAP = 4,
             ROW_HEIGHT = 44,
             VERTICAL_PADDING = 6,
             DIVIDER_HEIGHT = 2,
@@ -201,8 +254,8 @@ describe("book details", function()
             HEADER_HEIGHT = 58,
             BUTTON_PADDING = 8,
             getTitleFace = function() return { name = "settings_title" } end,
-            getLeadingIconX = function(origin) return (origin or 0) + 12 end,
-            getTitleX = function(origin) return (origin or 0) + 54 end,
+            getLeadingIconX = function(origin) return (origin or 0) + 39 end,
+            getTitleX = function(origin) return (origin or 0) + 92 end,
             getTrailingIconX = function(width, origin)
                 return (origin or 0) + width - 20 - 8 - 28
             end,
@@ -281,7 +334,52 @@ describe("book details", function()
         assert.are.equal(4, #widget._detail_widgets)
     end)
 
-    it("shows the full value when holding truncated metadata only", function()
+    it("renders every tag as an outlined button on one scrollable row and opens it", function()
+        local opened_tag
+        local widget = BookInfoWidget:new{
+            description = "Description",
+            details = {
+                { text = "Title", style = "title", bold = true },
+                {
+                    style = "tag_buttons",
+                    tags = {
+                        "First", "Second", "Third", "Fourth", "Fifth", "Sixth",
+                        "Seventh", "Eighth", "Ninth", "Tenth", "Eleventh",
+                    },
+                    gap_before = 3,
+                },
+            },
+            tag_callback = function(tag) opened_tag = tag end,
+        }
+        widget:paintTo({
+            paintRect = function() end,
+            paintBorder = function() end,
+        }, 0, 0)
+
+        assert.are.equal(11, #zen_button_calls)
+        for _i, call in ipairs(zen_button_calls) do
+            assert.are.equal("outlined", call.kind)
+        end
+        assert.are.equal(31, widget._detail_widgets[2].h)
+        assert.is_false(widget._tag_scroll._h_scroll_bar.enable)
+        assert.are.equal(zen_button_calls[1].y, zen_button_calls[2].y)
+        assert.are.equal(zen_button_calls[1].y, zen_button_calls[11].y)
+
+        assert.is_true(widget:_onSwipe({
+            direction = "west",
+            pos = { x = widget._tag_scroll.dimen.x, y = widget._tag_scroll.dimen.y },
+        }))
+        assert.are.equal(1, horizontal_swipes)
+
+        widget:paintTo({ paintRect = function() end, paintBorder = function() end }, 0, 0)
+        local second = widget._tag_buttons[2].dimen
+        assert.is_true(widget:_onTap({ pos = { x = second.x, y = second.y } }))
+        assert.are.equal("Second", opened_tag)
+        assert.are.equal(1, close_calls)
+        assert.are.equal(0, top_taps)
+    end)
+
+    it("shows the full value when tapping truncated metadata only", function()
         local full_text = "A metadata value long enough to be truncated on one line"
         local widget = BookInfoWidget:new{
             description = "Description",
@@ -295,22 +393,23 @@ describe("book details", function()
             paintBorder = function() end,
         }, 0, 0)
 
-        local hold_zone
+        local tap_zone
         for _i, zone in ipairs(widget.touch_zones) do
-            if zone.id == "zen_book_info_hold" then hold_zone = zone end
+            if zone.id == "zen_book_info_tap" then tap_zone = zone end
+            assert.is_not.equal("zen_book_info_hold", zone.id)
         end
-        assert.is_table(hold_zone)
-        assert.are.equal("hold", hold_zone.ges)
+        assert.is_table(tap_zone)
+        assert.are.equal("tap", tap_zone.ges)
         local short = widget._detail_widgets[1]
         assert.is_false(short.truncated)
-        assert.is_false(hold_zone.handler({
+        assert.is_true(tap_zone.handler({
             pos = { x = widget._L.details_x, y = short.widget.paint_y },
         }))
         assert.is_nil(full_text_message)
 
         local truncated = widget._detail_widgets[2]
         assert.is_true(truncated.truncated)
-        assert.is_true(hold_zone.handler({
+        assert.is_true(tap_zone.handler({
             pos = { x = truncated.dimen.x, y = truncated.dimen.y },
         }))
         assert.are.equal(full_text, full_text_message.text)
@@ -318,11 +417,10 @@ describe("book details", function()
     end)
 
     it("reserves half the screen without dropping page number or progress", function()
-        local details = {}
+        local details = { { text = "Page 128 of 300", style = "page" } }
         for index = 1, 12 do
-            details[index] = { text = "Metadata " .. index, style = "secondary" }
+            details[#details + 1] = { text = "Metadata " .. index, style = "secondary" }
         end
-        details[#details + 1] = { text = "Page 128 of 300", style = "page" }
         local widget = BookInfoWidget:new{
             cover = {},
             cover_width = 120,
@@ -354,7 +452,7 @@ describe("book details", function()
             <= widget._L.description_divider_y)
     end)
 
-    it("pins page and progress below the top-aligned metadata", function()
+    it("renders page and progress in their configured order", function()
         local widget = BookInfoWidget:new{
             cover = {},
             cover_width = 120,
@@ -362,11 +460,15 @@ describe("book details", function()
             description = "Description",
             details = {
                 { text = "Title", style = "title", bold = true },
+                {
+                    style = "progress",
+                    progress = 0.425,
+                    pages = 300,
+                    right_text = "",
+                    gap_before = 3,
+                },
                 { text = "Page 128 of 300", style = "page" },
             },
-            progress = 0.425,
-            progress_pages = 300,
-            progress_right_text = "",
             text_faces = { secondary = { name = "secondary" } },
         }
         widget:paintTo({
@@ -378,12 +480,12 @@ describe("book details", function()
         assert.are.equal(300, progress_specs[1].pages)
         assert.are.equal("", progress_specs[1].right_text)
         assert.are.equal("secondary", progress_specs[1].face.name)
-        assert.are.equal(widget._L.details_x, widget._progress_widget.paint_x)
+        assert.is_nil(widget._progress_widget)
         assert.are.equal(widget._L.body_y, widget._detail_widgets[1].widget.paint_y)
         assert.is_true(widget._detail_widgets[2].widget.paint_y
             > widget._detail_widgets[1].widget.paint_y)
-        assert.are.equal(widget._L.body_y + widget._L.header_h,
-            widget._progress_widget.paint_y + widget._progress_h)
+        assert.is_true(widget._detail_widgets[3].widget.paint_y
+            > widget._detail_widgets[2].widget.paint_y)
         widget:onClose()
         assert.are.equal(1, progress_frees)
     end)
@@ -400,9 +502,9 @@ describe("book details", function()
             if spec.face and spec.face.name == "settings_title" then title_spec = spec end
         end
         assert.are.equal("settings_title", title_spec.face.name)
-        assert.are.equal(54, title_spec.paint_x)
+        assert.are.equal(92, title_spec.paint_x)
         assert.are.equal(28, icon_specs[1].width)
-        assert.are.equal(12, icon_specs[1].paint_x)
+        assert.are.equal(39, icon_specs[1].paint_x)
         assert.are.equal("/icons/close.svg", icon_specs[2].file)
         assert.are.equal(544, icon_specs[2].paint_x)
     end)
@@ -423,22 +525,25 @@ describe("book details", function()
         }, 0, 0)
 
         assert.are.equal("edit-icon  Edit", widget._edit_widget.text)
-        assert.are.equal("smallinfofont", widget._edit_widget.face.name)
-        assert.are.equal(28, widget._edit_widget.face.orig_size)
-        assert.are.equal("black", widget._edit_widget.fgcolor)
+        assert.are.equal("cfont", widget._edit_widget.face.name)
+        assert.are.equal(22, widget._edit_widget.face.orig_size)
+        assert.is_true(widget._edit_widget.bold)
+        assert.are.equal("outlined", zen_button_calls[1].kind)
+        assert.are.equal(32, zen_button_calls[1].h)
+        assert.are.equal(22, zen_button_calls[1].font_size)
         widget._zen_focus_enabled = true
         widget._zen_focus_area = "edit"
         widget:paintTo({
             paintRect = function() end,
             paintBorder = function() end,
         }, 0, 0)
-        assert.are.equal("white", widget._edit_widget.fgcolor)
+        assert.are.equal("filled", zen_button_calls[2].kind)
         widget._zen_focus_area = "back"
         widget:paintTo({
             paintRect = function() end,
             paintBorder = function() end,
         }, 0, 0)
-        assert.are.equal("black", widget._edit_widget.fgcolor)
+        assert.are.equal("outlined", zen_button_calls[3].kind)
         assert.are.equal(widget._L.close_all_x,
             widget._L.edit_x + widget._L.edit_w + widget._L.edit_close_gap)
         assert.is_true(widget:_onTap({

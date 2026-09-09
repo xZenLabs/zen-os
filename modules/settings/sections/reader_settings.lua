@@ -153,6 +153,8 @@ function M.build(ctx)
     local header_all_items = {
         { key = "time",        text = _("Time")          },
         { key = "battery",     text = _("Battery")       },
+        { key = "battery_icon", text = _("Battery icon") },
+        { key = "battery_percent", text = _("Battery percentage") },
         { key = "incognito",   text = _("Incognito")     },
         { key = "wifi",        text = _("Wi-Fi")         },
         { key = "frontlight",  text = _("Brightness")    },
@@ -163,16 +165,90 @@ function M.build(ctx)
         { key = "author",      text = _("Author")        },
         { key = "chapter",     text = _("Chapter")       },
         { key = "progress_percent", text = _("Progress %") },
+        { key = "current_page",     text = _("Current page") },
+        { key = "total_pages",      text = _("Total pages") },
         { key = "page_progress",    text = _("Current / total pages") },
     }
 
     local HEADER_CANONICAL = {
         left   = { "time", "custom_text" },
         center = { "time" },
-        right  = { "progress_percent", "page_progress", "custom_text", "frontlight", "incognito", "wifi", "battery" },
+        right  = {
+            "progress_percent", "current_page", "total_pages", "page_progress",
+            "custom_text", "frontlight", "incognito", "wifi", "battery",
+            "battery_icon", "battery_percent",
+        },
     }
 
     local function save_clock() save_and_apply("reader_top_status_bar") end
+
+    local function make_custom_text_items()
+        return {
+            {
+                text_func = function()
+                    local name = type(config.reader_top_status_bar) == "table"
+                        and config.reader_top_status_bar.custom_text or ""
+                    local Device = require("device")
+                    if name == nil or name == "" then name = Device.model or "" end
+                    return _("Custom text: ") .. name
+                end,
+                keep_menu_open = true,
+                callback = function(touchmenu_instance)
+                    local InputDialog = require("ui/widget/inputdialog")
+                    local Device = require("device")
+                    local dlg
+                    dlg = InputDialog:new{
+                        title = _("Custom text"),
+                        input = type(config.reader_top_status_bar) == "table"
+                            and config.reader_top_status_bar.custom_text or "",
+                        hint = Device.model or "",
+                        buttons = {{
+                            {
+                                text = _("Cancel"),
+                                id = "close",
+                                callback = function() UIManager:close(dlg) end,
+                            },
+                            {
+                                text = _("Set"),
+                                is_enter_default = true,
+                                callback = function()
+                                    if type(config.reader_top_status_bar) ~= "table" then
+                                        config.reader_top_status_bar = {}
+                                    end
+                                    config.reader_top_status_bar.custom_text = dlg:getInputText()
+                                    UIManager:close(dlg)
+                                    save_clock()
+                                    if touchmenu_instance then touchmenu_instance:updateItems() end
+                                end,
+                            },
+                        }},
+                    }
+                    UIManager:show(dlg)
+                    dlg:onShowKeyboard()
+                end,
+            },
+        }
+    end
+
+    local function make_header_wifi_items()
+        return {
+            {
+                text = _("Hide when off"),
+                checked_func = function()
+                    return type(config.reader_top_status_bar) == "table"
+                        and config.reader_top_status_bar.wifi_hide_when_off == true
+                end,
+                callback = function()
+                    if type(config.reader_top_status_bar) ~= "table" then
+                        config.reader_top_status_bar = {}
+                    end
+                    config.reader_top_status_bar.wifi_hide_when_off =
+                        config.reader_top_status_bar.wifi_hide_when_off ~= true
+                    save_clock()
+                end,
+            },
+        }
+    end
 
     local function make_header_slot_items(slot_name, arrange_title)
         local order_key = slot_name .. "_order"
@@ -232,7 +308,7 @@ function M.build(ctx)
 
         for _i, def in ipairs(header_all_items) do
             local key = def.key
-            table.insert(t, {
+            local item = {
                 text = def.text,
                 keep_menu_open = true,
                 enabled_func = function()
@@ -286,7 +362,17 @@ function M.build(ctx)
                     if touchmenu_instance then touchmenu_instance:updateItems() end
                     save_clock()
                 end,
-            })
+            }
+            if key == "custom_text" then
+                item.checkmark_callback = item.callback
+                item.callback = nil
+                item.sub_item_table = make_custom_text_items()
+            elseif key == "wifi" then
+                item.checkmark_callback = item.callback
+                item.callback = nil
+                item.sub_item_table = make_header_wifi_items()
+            end
+            table.insert(t, item)
         end
         return t
     end
@@ -313,45 +399,6 @@ function M.build(ctx)
             {
                 text = _("Right items"),
                 sub_item_table = make_header_slot_items("right", _("Arrange right items")),
-            },
-            {
-                text_func = function()
-                    local name = type(config.reader_top_status_bar) == "table" and config.reader_top_status_bar.custom_text or ""
-                    local Device = require("device")
-                    if name == nil or name == "" then name = Device.model or "" end
-                    return _("Custom text: ") .. name
-                end,
-                keep_menu_open = true,
-                callback = function(touchmenu_instance)
-                    local InputDialog = require("ui/widget/inputdialog")
-                    local Device = require("device")
-                    local dlg
-                    dlg = InputDialog:new{
-                        title = _("Custom text"),
-                        input = type(config.reader_top_status_bar) == "table" and config.reader_top_status_bar.custom_text or "",
-                        hint = Device.model or "",
-                        buttons = {{
-                            {
-                                text = _("Cancel"),
-                                id = "close",
-                                callback = function() UIManager:close(dlg) end,
-                            },
-                            {
-                                text = _("Set"),
-                                is_enter_default = true,
-                                callback = function()
-                                    if type(config.reader_top_status_bar) ~= "table" then config.reader_top_status_bar = {} end
-                                    config.reader_top_status_bar.custom_text = dlg:getInputText()
-                                    UIManager:close(dlg)
-                                    save_clock()
-                                    if touchmenu_instance then touchmenu_instance:updateItems() end
-                                end,
-                            },
-                        }},
-                    }
-                    UIManager:show(dlg)
-                    dlg:onShowKeyboard()
-                end,
             },
             {
                 text_func = function()
@@ -501,6 +548,35 @@ function M.build(ctx)
                     if enabled then
                         config.reader_top_status_bar.show_bottom_border = true
                     end
+                    save_clock()
+                end,
+            },
+            {
+                text = _("Chapter marks"),
+                checked_func = function()
+                    return type(config.reader_top_status_bar) == "table"
+                        and config.reader_top_status_bar.show_chapter_marks == true
+                end,
+                callback = function()
+                    if type(config.reader_top_status_bar) ~= "table" then config.reader_top_status_bar = {} end
+                    local enabled = config.reader_top_status_bar.show_chapter_marks ~= true
+                    config.reader_top_status_bar.show_chapter_marks = enabled
+                    if enabled then
+                        config.reader_top_status_bar.show_bottom_border = true
+                        config.reader_top_status_bar.bottom_border_progress = true
+                    end
+                    save_clock()
+                end,
+            },
+            {
+                text = _("Colored status icons"),
+                checked_func = function()
+                    return type(config.reader_top_status_bar) == "table"
+                        and config.reader_top_status_bar.colored == true
+                end,
+                callback = function()
+                    if type(config.reader_top_status_bar) ~= "table" then config.reader_top_status_bar = {} end
+                    config.reader_top_status_bar.colored = config.reader_top_status_bar.colored ~= true
                     save_clock()
                 end,
             },

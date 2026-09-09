@@ -1301,6 +1301,10 @@ local function apply_quick_settings()
         local padding = Screen:scaleBySize(10)
         local inner_width = panel_width - padding * 2
         local powerd = Device:getPowerDevice()
+        local meta = zen_plugin.config and zen_plugin.config._meta
+        local panel_config = type(meta) == "table"
+                and meta.quickstart_menu_tour_pending == true
+            and config_default or config
 
         local refs = {
             buttons = {},
@@ -1315,8 +1319,8 @@ local function apply_quick_settings()
         install_custom_button_defs()
 
         local visible_buttons = {}
-        for _i, id in ipairs(config.button_order) do
-            if config.show_buttons[id] and button_defs[id] then
+        for _i, id in ipairs(panel_config.button_order) do
+            if panel_config.show_buttons[id] and button_defs[id] then
                 local def = button_defs[id]
                 if not def.visible_func or def.visible_func() then
                     table.insert(visible_buttons, { id = id, def = def })
@@ -1397,7 +1401,7 @@ local function apply_quick_settings()
                 align = "center",
                 circle,
             }
-            if config.show_labels ~= false then
+            if panel_config.show_labels ~= false then
                 local label_max_width = ButtonLabelWidth.maxWidth(action_cell_width, label_side_padding)
                 group[#group + 1] = VerticalSpan:new{ width = Screen:scaleBySize(2) }
                 group[#group + 1] = TextWidget:new{
@@ -1469,12 +1473,12 @@ local function apply_quick_settings()
         }
 
         local fl_group = VerticalGroup:new{ align = "center" }
-        if config.show_frontlight and Device:hasFrontlight() then
+        if panel_config.show_frontlight and Device:hasFrontlight() then
             fl_group = build_brightness_slider(touch_menu, slider_opts)
         end
 
         local warmth_group = VerticalGroup:new{ align = "center" }
-        if config.show_warmth and Device:hasNaturalLight() then
+        if panel_config.show_warmth and Device:hasNaturalLight() then
             warmth_group = build_warmth_slider(touch_menu, slider_opts)
         end
 

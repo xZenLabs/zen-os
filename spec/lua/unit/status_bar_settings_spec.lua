@@ -101,9 +101,19 @@ describe("status bar settings", function()
 
         page.checkmark_callback()
 
-        assert.is_false(config.features.status_bar)
+        assert.is_true(config.features.status_bar)
+        assert.are.same({}, config.status_bar.left_order)
+        assert.are.same({}, config.status_bar.center_order)
+        assert.are.same({}, config.status_bar.right_order)
         assert.is_false(page.checked_func())
         assert.are.same({ "status_bar" }, saves)
+
+        page.checkmark_callback()
+
+        assert.are.same({ "time" }, config.status_bar.left_order)
+        assert.are.same({}, config.status_bar.center_order)
+        assert.are.same({ "wifi", "battery" }, config.status_bar.right_order)
+        assert.is_true(page.checked_func())
     end)
 
     it("adds a persisted hide-when-off option to the Wi-Fi submenu", function()

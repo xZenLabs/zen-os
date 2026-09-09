@@ -31,8 +31,13 @@ describe("Unified Zen title style", function()
         ZenSpec.replace("device", {
             screen = { scaleBySize = function(_self, value) return value end },
         })
-        ZenSpec.replace("ui/size", { padding = { small = 4, large = 20 } })
+        ZenSpec.replace("ui/size", {
+            padding = { default = 8, fullscreen = 2, large = 20 },
+        })
         ZenSpec.replace("common/ui/icon_menu_item", {
+            SETTINGS_ICON_WIDTH = 62,
+            getSettingsIconGap = function() return 8 end,
+            getSettingsLeftPadding = function() return 22 end,
             getSettingsFace = function() return { name = "settings_title" } end,
         })
         _G.G_defaults = {
@@ -46,8 +51,8 @@ describe("Unified Zen title style", function()
         assert.are.equal(28, style.ICON_SIZE)
         assert.are.equal(44, style.BUTTON_SIZE)
         assert.are.equal(58, style.HEADER_HEIGHT)
-        assert.are.equal(12, style.getLeadingIconX(0))
-        assert.are.equal(54, style.getTitleX(0))
+        assert.are.equal(39, style.getLeadingIconX(0))
+        assert.are.equal(92, style.getTitleX(0))
         assert.are.equal(544, style.getTrailingIconX(600, 0))
         assert.are.equal(0.7, style.getStockIconSizeRatio())
         assert.are.equal("settings_title", style.getTitleFace().name)

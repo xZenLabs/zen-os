@@ -33,6 +33,19 @@ function M.rootTapAction(item, toggle_tap)
     return "consume"
 end
 
+function M.toggleItem(item)
+    if type(item) ~= "table" then return false end
+    if type(item.checkmark_callback) == "function" then
+        item.checkmark_callback()
+        return true
+    end
+    if type(item.callback) == "function" then
+        item:callback()
+        return true
+    end
+    return false
+end
+
 function M.confirmKeyName(key)
     for _i, name in ipairs({ "Press", "Return" }) do
         if key == name then return name end
@@ -74,9 +87,14 @@ function M.moveTableItem(items, from, target)
             or type(items[from]) ~= "table" then
         return false
     end
+    if items[from].arrange_pinned_last then return false end
+    while target > 1 and items[target] and items[target].arrange_pinned_last do
+        target = target - 1
+    end
+    if target == from then return false end
     local item = table.remove(items, from)
     table.insert(items, target, item)
-    return true
+    return true, target
 end
 
 function M.stripSubmenuCaret(text)

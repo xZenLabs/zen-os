@@ -123,6 +123,69 @@ describe("library settings", function()
         assert.are.equal(3, refreshes)
     end)
 
+    it("uses one arrange list for Book details ordering and toggles", function()
+        local saves = 0
+        local arranged
+        ZenSpec.replace("common/ui/zen_arrange_list", {
+            show = function(opts) arranged = opts end,
+        })
+        local config = { browser_hide_up_folder = {}, features = {} }
+        local items = require("modules/settings/sections/library_settings").build({
+            config = config,
+            plugin = { saveConfig = function() saves = saves + 1 end },
+            save_and_apply = function() end,
+        })
+        local details
+        for _i, item in ipairs(items) do
+            if item.text == "Book details" then
+                details = item
+                break
+            end
+        end
+
+        assert.is_not_nil(details)
+        assert.are.equal("Book details", details.text)
+        assert.is_true(details._zen_settings_submenu)
+        assert.is_nil(details.sub_item_table)
+        details.callback()
+        assert.are.same({
+            "Authors", "Series", "Tags", "Language", "Rating", "Annotations",
+            "Note", "Pages", "Progress", "Read time", "Time remaining", "Description",
+        }, (function()
+            local labels = {}
+            for _i, item in ipairs(arranged.item_table) do
+                labels[#labels + 1] = item.text
+            end
+            return labels
+        end)())
+        for index = 1, 9 do
+            assert.is_true(arranged.item_table[index].checked_func())
+        end
+        assert.is_true(arranged.item_table[12].checked_func())
+        assert.are.equal("Navigate to tag",
+            arranged.item_table[3].sub_item_table[1].text)
+        assert.is_false(arranged.item_table[3].sub_item_table[1].checked_func())
+        assert.is_false(arranged.item_table[10].checked_func())
+        assert.is_false(arranged.item_table[11].checked_func())
+        assert.is_true(arranged.item_table[12].arrange_pinned_last)
+        assert.is_nil(arranged.add_title)
+        assert.is_nil(arranged.add_item_table)
+
+        arranged.item_table[3].callback()
+        assert.is_false(config.book_details.tags)
+        assert.is_false(arranged.item_table[3].checked_func())
+        assert.are.equal(1, saves)
+
+        arranged.item_table[1], arranged.item_table[9]
+            = arranged.item_table[9], arranged.item_table[1]
+        arranged.callback()
+        assert.are.same({
+            "progress", "series", "tags", "language", "rating", "annotations",
+            "note", "pages", "authors", "read_time", "time_remaining",
+        }, config.book_details.order)
+        assert.are.equal(2, saves)
+    end)
+
     it("rebuilds the library when mosaic title strips change", function()
         local saves = 0
         local refreshes = 0

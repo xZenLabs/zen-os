@@ -91,6 +91,7 @@ rsync -a \
   --exclude '*.zip' \
   --exclude '*.sh' \
   --include 'LICENSE.md' \
+  --include '/modules/filebrowser/metadata/LICENSES.md' \
   --exclude '*.md' \
   --exclude '*_includes/' \
   --exclude '_config.yml' \

@@ -9,6 +9,7 @@ describe("Home widget content settings", function()
     local tbr_order_options
     local choose_folder
     local choose_tag
+    local quote_files
 
     local function item_text(item)
         return item.text or (item.text_func and item.text_func())
@@ -30,6 +31,15 @@ describe("Home widget content settings", function()
         return false
     end
 
+    local function find_item_prefix(items, prefix)
+        for _i, item in ipairs(items) do
+            local text = item_text(item)
+            if type(text) == "string" and text:sub(1, #prefix) == prefix then
+                return item
+            end
+        end
+    end
+
     before_each(function()
         arrange_options = nil
         arrange_history = {}
@@ -40,6 +50,7 @@ describe("Home widget content settings", function()
         tbr_order_options = nil
         choose_folder = nil
         choose_tag = nil
+        quote_files = { "quotes.lua" }
         home_page = {
             strip_memory = {
                 active_id = "recent",
@@ -140,7 +151,7 @@ describe("Home widget content settings", function()
             end,
         })
         ZenSpec.replace("modules/filebrowser/patches/home/home_quotes", {
-            hasCustomQuotes = function() return false end,
+            listFiles = function() return quote_files end,
         })
         ZenSpec.replace("modules/filebrowser/patches/home/components/registry", {
             CAPACITY_UNITS = 10,
@@ -179,6 +190,7 @@ describe("Home widget content settings", function()
                     { id = "recent", label = "Recent", source = true },
                     { id = "favorites", label = "Favorites", source = true },
                     { id = "to_be_read", label = "To Be Read", source = true },
+                    { id = "authors", label = "Authors", source = true },
                 }
             end,
             find = function(controls, id)
@@ -271,7 +283,9 @@ describe("Home widget content settings", function()
         local settings = require("modules/settings/sections/library_settings/home_settings")
         assert.is_true(settings.openWidgetSettings("featured"))
 
-        local item = find_item(arrange_options.item_table, "Wrap description text")
+        local styles = find_item(arrange_options.item_table, "Text styles").sub_item_table_func()
+        local description = find_item_prefix(styles, "Description:")
+        local item = find_item(description.sub_item_table, "Wrap description text")
         assert.is_table(item)
         assert.is_false(item.checked_func())
 
@@ -286,12 +300,10 @@ describe("Home widget content settings", function()
         local home_status = find_item(section.sub_item_table, "Show top status bar")
 
         assert.is_true(settings.openWidgetSettings("featured"))
-        local featured_status = find_item(
-            find_item(arrange_options.item_table, "Top status bar").sub_item_table,
-            "Show top status bar"
-        )
+        local featured_status = find_item(arrange_options.item_table, "Top status bar")
+        assert.is_nil(find_item(featured_status.sub_item_table, "Show top status bar"))
 
-        featured_status.callback()
+        featured_status.checkmark_callback()
         assert.is_false(home_status.checked_func())
         assert.is_true(featured_status.checked_func())
 
@@ -300,18 +312,50 @@ describe("Home widget content settings", function()
         assert.is_false(featured_status.checked_func())
     end)
 
-    it("shows an enabled-by-default progress toggle before its label settings", function()
+    it("puts the progress toggle on its settings entry", function()
         local settings = require("modules/settings/sections/library_settings/home_settings")
         assert.is_true(settings.openWidgetSettings("featured"))
 
         local progress = find_item(arrange_options.item_table, "Progress")
         assert.is_table(progress)
-        assert.are.equal("Enable", item_text(progress.sub_item_table[1]))
-        assert.is_true(progress.sub_item_table[1].checked_func())
+        assert.is_nil(find_item(progress.sub_item_table, "Enable"))
+        assert.is_true(progress.checked_func())
 
-        progress.sub_item_table[1].callback()
+        progress.checkmark_callback()
         assert.is_false(home_page.modules.featured.show_progress)
-        assert.is_false(progress.sub_item_table[1].checked_func())
+        assert.is_false(progress.checked_func())
+    end)
+
+    it("puts featured metadata toggles and description options on their style entries", function()
+        local settings = require("modules/settings/sections/library_settings/home_settings")
+        assert.is_true(settings.openWidgetSettings("featured"))
+
+        local items = arrange_options.item_table
+        local styles = find_item(items, "Text styles").sub_item_table_func()
+        local author = find_item_prefix(styles, "Author:")
+        local series = find_item_prefix(styles, "Series:")
+        local description = find_item_prefix(styles, "Description:")
+
+        assert.is_nil(find_item(items, "Show description"))
+        assert.is_true(author.checked_func())
+        assert.is_true(series.checked_func())
+        assert.is_true(description.checked_func())
+
+        author.checkmark_callback()
+        series.checkmark_callback()
+        description.checkmark_callback()
+        assert.is_false(home_page.modules.featured.show_author)
+        assert.is_false(home_page.modules.featured.show_series)
+        assert.is_false(home_page.modules.featured.show_description)
+
+        local justify = find_item(description.sub_item_table, "Justify text")
+        local html = find_item(description.sub_item_table, "HTML")
+        assert.is_false(justify.checked_func())
+        assert.is_false(html.checked_func())
+        justify.callback()
+        html.callback()
+        assert.is_true(home_page.modules.featured.justify_description_text)
+        assert.is_true(home_page.modules.featured.format_description_html)
     end)
 
     it("keeps the plugin when Widgets is opened from the settings page", function()
@@ -435,6 +479,37 @@ describe("Home widget content settings", function()
         assert.is_function(tbr_order_options.on_change)
 
         assert.are.equal(2, tbr_order_calls)
+    end)
+
+    it("exposes author name sorting from the Authors control tab", function()
+        local strip = home_page.modules.strip
+        strip.controls.enabled = true
+        strip.controls.order = { "recent", "authors" }
+        strip.controls.show_buttons.authors = true
+        local config = { group_view = { authors_collate = "authors" } }
+        local saves = 0
+        local settings = require("modules/settings/sections/library_settings/home_settings")
+        settings.build({
+            config = config,
+            plugin = { saveConfig = function() saves = saves + 1 end },
+            settings_apply = {},
+        })
+        assert.is_true(settings.openWidgetSettings("strip"))
+
+        local controls = find_item(arrange_options.item_table, "Controls")
+        find_item(controls.sub_item_table_func(), "Tabs").callback({})
+        local authors = find_item(arrange_options.item_table, "Authors")
+        local sort = find_item(authors.sub_item_table, "Sort by: First name")
+        local first = find_item(sort.sub_item_table, "First name")
+        local last = find_item(sort.sub_item_table, "Last name")
+
+        assert.is_true(first.radio)
+        assert.is_true(first.checked_func())
+        assert.is_false(last.checked_func())
+        last.callback()
+        assert.are.equal("authors_last", config.group_view.authors_collate)
+        assert.are.equal("Sort by: Last name", item_text(sort))
+        assert.are.equal(1, saves)
     end)
 
     it("exposes strip control font face, size, and weight settings", function()
@@ -576,6 +651,45 @@ describe("Home widget content settings", function()
         assert.is_false(automatic.checked_func())
         assert.is_false(maximum.enabled_func())
         assert.is_true(size.enabled_func())
+    end)
+
+    it("selects and combines named custom quote files", function()
+        quote_files = { "quotes.lua", "wisdom.lua" }
+
+        local settings = require("modules/settings/sections/library_settings/home_settings")
+        assert.is_true(settings.openWidgetSettings("quotes"))
+
+        local sources = find_item(arrange_options.item_table, "Quote sources")
+        local custom = find_item(sources.sub_item_table, "Custom quotes")
+        local custom_items = custom.sub_item_table_func()
+        local default_file = find_item(custom_items, "quotes.lua")
+        local wisdom_file = find_item(custom_items, "wisdom.lua")
+        assert.is_nil(find_item(custom_items, "Enable"))
+        assert.is_false(default_file.checked_func())
+        assert.is_false(wisdom_file.checked_func())
+
+        default_file.callback()
+        wisdom_file.callback()
+        default_file.callback()
+
+        assert.are.same({ ["wisdom.lua"] = true }, home_page.quotes.custom_files)
+        assert.is_true(home_page.quotes.sources.custom)
+
+        wisdom_file.callback()
+        assert.is_false(home_page.quotes.sources.custom)
+        assert.is_true(home_page.quotes.sources.default)
+    end)
+
+    it("keeps quotes.lua selected for legacy custom quote settings", function()
+        home_page.quotes.sources = { custom = true }
+
+        local settings = require("modules/settings/sections/library_settings/home_settings")
+        assert.is_true(settings.openWidgetSettings("quotes"))
+
+        local sources = find_item(arrange_options.item_table, "Quote sources")
+        local custom = find_item(sources.sub_item_table, "Custom quotes")
+        local quotes_file = find_item(custom.sub_item_table_func(), "quotes.lua")
+        assert.is_true(quotes_file.checked_func())
     end)
 
     it("confirms before deleting a Strip control tab and returns to Tabs", function()

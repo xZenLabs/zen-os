@@ -228,13 +228,26 @@ function M.build(ctx)
     -- Status bar item
     -- -------------------------------------------------------------------------
 
+    local function has_status_items()
+        return #(config.status_bar.left_order or {}) > 0
+            or #(config.status_bar.center_order or {}) > 0
+            or #(config.status_bar.right_order or {}) > 0
+    end
+
     return IconItem.decorate({
         text = _("Status bar"),
-        checked_func = function()
-            return config.features["status_bar"] == true
-        end,
+        checked_func = has_status_items,
         checkmark_callback = function()
-            config.features["status_bar"] = config.features["status_bar"] ~= true
+            if has_status_items() then
+                config.status_bar.left_order = {}
+                config.status_bar.center_order = {}
+                config.status_bar.right_order = {}
+            else
+                config.status_bar.left_order = { "time" }
+                config.status_bar.center_order = {}
+                config.status_bar.right_order = { "wifi", "battery" }
+            end
+            config.features.status_bar = true
             save_and_apply("status_bar")
         end,
         sub_item_table = {

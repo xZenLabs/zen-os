@@ -8,10 +8,6 @@ describe("reader interaction patches", function()
         ZenSpec.replace("common/utils", {
             resolveLocalIcon = function(_dir, name) return "/icons/" .. name .. ".svg" end,
         })
-        ZenSpec.replace("apps/reader/modules/readerdogear", {
-            setupDogear = function() end,
-        })
-        ZenSpec.replace("apps/reader/readerui", {})
         ZenSpec.replace("common/ui/zen_icon_button", {
             new = function(_self, spec)
                 spec.image = { dimen = { x = 12, y = 14, w = 24, h = 24 } }
@@ -422,96 +418,6 @@ describe("reader interaction patches", function()
         menu:updateItems()
         assert.is_nil(menu.item_table[1].mandatory_dim)
         assert.are.equal(2, update_calls)
-    end)
-
-    it("uses the bundled bookmark icon for the reader bookmark indicator", function()
-        install_bookmark_button_stub()
-        local free_calls = 0
-        local function stock_icon()
-            return {
-                file = "/stock/dogear.alpha.svg",
-                icon = "dogear.alpha",
-                rotation_angle = 90,
-                free = function() free_calls = free_calls + 1 end,
-            }
-        end
-        local ReaderDogear = {
-            setupDogear = function(self, size)
-                self.dogear_size = size or 32
-                self.icon = stock_icon()
-                self[1] = { dimen = { w = 600 } }
-            end,
-            resetLayout = function(self) self[1].dimen.w = 600 end,
-        }
-        local current_dogear = {
-            dogear_size = 24,
-            icon = stock_icon(),
-            [1] = { dimen = { w = 600 } },
-        }
-        ZenSpec.replace("device", {
-            screen = {
-                getWidth = function() return 600 end,
-                scaleBySize = function(_self, value) return value end,
-            },
-        })
-        ZenSpec.replace("apps/reader/modules/readerdogear", ReaderDogear)
-        ZenSpec.replace("apps/reader/readerui", {
-            instance = { view = { dogear = current_dogear } },
-        })
-        ZenSpec.replace("apps/reader/modules/readerbookmark", {
-            onShowBookmark = function() end,
-        })
-
-        apply_patch("modules/reader/patches/bookmarks")
-
-        assert.are.equal("/icons/bookmark.svg", current_dogear.icon.file)
-        assert.is_nil(current_dogear.icon.icon)
-        assert.are.equal(0, current_dogear.icon.rotation_angle)
-        assert.are.equal(592, current_dogear[1].dimen.w)
-
-        local new_dogear = {}
-        ReaderDogear.setupDogear(new_dogear, 28)
-        assert.are.equal(28, new_dogear.dogear_size)
-        assert.are.equal("/icons/bookmark.svg", new_dogear.icon.file)
-        assert.is_nil(new_dogear.icon.icon)
-        assert.are.equal(0, new_dogear.icon.rotation_angle)
-        assert.are.equal(592, new_dogear[1].dimen.w)
-        ReaderDogear.resetLayout(new_dogear)
-        assert.are.equal(592, new_dogear[1].dimen.w)
-        assert.are.equal(2, free_calls)
-    end)
-
-    it("preserves a bookmark indicator supplied by another plugin", function()
-        install_bookmark_button_stub()
-        local free_calls = 0
-        local function custom_icon()
-            return {
-                file = "/booknook/ribbon.svg",
-                rotation_angle = 0,
-                free = function() free_calls = free_calls + 1 end,
-            }
-        end
-        local ReaderDogear = {
-            setupDogear = function(self)
-                self.icon = custom_icon()
-            end,
-        }
-        local current_dogear = { icon = custom_icon() }
-        ZenSpec.replace("apps/reader/modules/readerdogear", ReaderDogear)
-        ZenSpec.replace("apps/reader/readerui", {
-            instance = { view = { dogear = current_dogear } },
-        })
-        ZenSpec.replace("apps/reader/modules/readerbookmark", {
-            onShowBookmark = function() end,
-        })
-
-        apply_patch("modules/reader/patches/bookmarks")
-
-        assert.are.equal("/booknook/ribbon.svg", current_dogear.icon.file)
-        local new_dogear = {}
-        ReaderDogear.setupDogear(new_dogear)
-        assert.are.equal("/booknook/ribbon.svg", new_dogear.icon.file)
-        assert.are.equal(0, free_calls)
     end)
 
     it("closes a page browser parent before jumping to a bookmark", function()

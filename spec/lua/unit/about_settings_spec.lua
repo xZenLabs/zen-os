@@ -1,11 +1,13 @@
 describe("About settings", function()
     local quickstart_spec
     local scheduled
+    local time_setting
     local tour_starts
 
     before_each(function()
         quickstart_spec = nil
         scheduled = {}
+        time_setting = { text = "Time and date", sub_item_table = {} }
         tour_starts = 0
 
         ZenSpec.replace("gettext", function(text) return text end)
@@ -33,6 +35,9 @@ describe("About settings", function()
         })
         ZenSpec.replace("modules/settings/sections/advanced_settings", {
             build = function() return {} end,
+        })
+        ZenSpec.replace("ui/elements/common_settings_menu_table", {
+            time = time_setting,
         })
         ZenSpec.replace("common/inline_icon_map", setmetatable({}, {
             __index = function(_self, key) return key end,
@@ -80,5 +85,14 @@ describe("About settings", function()
 
         scheduled[1].callback()
         assert.are.equal(1, tour_starts)
+    end)
+
+    it("reuses KOReader's time and date menu", function()
+        local items = require("modules/settings/sections/about_settings").build({
+            config = {},
+            plugin = {},
+        })
+
+        assert.are.equal(time_setting, items[5])
     end)
 end)

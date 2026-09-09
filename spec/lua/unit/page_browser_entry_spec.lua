@@ -40,7 +40,10 @@ describe("page browser entry", function()
         _G.__ZEN_UI_PLUGIN = nil
         G_reader_settings = ZenSpec.memorySettings()
         ZenSpec.replace("common/plugin_root", "/tmp/zen-ui")
-        ZenSpec.replace("common/utils", { resolveLocalIcon = function() return nil end })
+        ZenSpec.replace("common/utils", {
+            resolveIcon = function() return nil end,
+            resolveLocalIcon = function() return nil end,
+        })
         ZenSpec.replace("common/zen_logger", { new = logger_stub })
         ZenSpec.replace("config/preset_store", {
             getSettings = function() return reader_store.settings end,
@@ -80,6 +83,78 @@ describe("page browser entry", function()
         ZenSpec.unload("modules/reader/patches/page_browser")
         ZenSpec.unload("modules/filebrowser/patches/library_font")
         ZenSpec.unload("common/reader_font")
+    end)
+
+    it("renders Android thumbnails without a subprocess", function()
+        local PageBrowserWidget = {}
+        install_widget_dependencies(PageBrowserWidget)
+        ZenSpec.replace("apps/reader/modules/readermenu", {})
+        ZenSpec.replace("apps/reader/modules/readerconfig", {})
+
+        local Device = require("device")
+        Device.isAndroid = function() return true end
+        local stock_check_calls = 0
+        local ReaderThumbnail = {
+            checkTileGeneration = function() stock_check_calls = stock_check_calls + 1 end,
+        }
+        ZenSpec.replace("apps/reader/modules/readerthumbnail", ReaderThumbnail)
+        ZenSpec.replace("ui/renderimage", {
+            scaleBlitBuffer = function(_, _bb, width, height)
+                return { stride = width, h = height }
+            end,
+        })
+        ZenSpec.replace("document/tilecacheitem", {
+            new = function(_, spec) return spec end,
+        })
+        ZenSpec.replace("logger", logger_stub())
+
+        require("modules/reader/patches/page_browser")()
+
+        local inserted, generated, save_calls
+        local statistics = {}
+        local ui = setmetatable({
+            statistics = statistics,
+            view = { footer_visible = true, state = { page = 2, zoom = 3, rotation = 4 } },
+        }, {
+            __index = {
+                saveSettings = function() save_calls = (save_calls or 0) + 1 end,
+            },
+        })
+        local thumbnail = {
+            ui = ui,
+            tile_cache = { insert = function(_, hash, tile) inserted = { hash, tile } end },
+            _getPageImage = function(self)
+                self.ui.saveSettings = function() end
+                self.ui.statistics = nil
+                self.ui.view.footer_visible = false
+                self.ui.view.state.page = 99
+                return {
+                    getWidth = function() return 600 end,
+                    getHeight = function() return 800 end,
+                }
+            end,
+        }
+        local request = {
+            page = 7, width = 300, height = 200, hash = "page-7", batch_id = 5,
+            when_generated_callback = function(tile, batch_id, delayed)
+                generated = { tile, batch_id, delayed }
+            end,
+        }
+
+        expect(ReaderThumbnail.startTileGeneration(thumbnail, request) == true)
+        expect(thumbnail.ui.view.footer_visible == true)
+        expect(thumbnail.ui.view.state.page == 2)
+        expect(thumbnail.ui.view.state.zoom == 3)
+        expect(thumbnail.ui.view.state.rotation == 4)
+        expect(rawget(ui, "saveSettings") == nil)
+        ui:saveSettings()
+        expect(save_calls == 1)
+        expect(ui.statistics == statistics)
+        expect(ReaderThumbnail.checkTileGeneration(thumbnail, request) == false)
+        expect(inserted[1] == "page-7")
+        expect(generated[1] == inserted[2])
+        expect(generated[2] == 5 and generated[3] == true)
+        expect(stock_check_calls == 0)
     end)
 
     it("registers the bottom gesture and opens the patched browser only when enabled", function()
@@ -614,7 +689,8 @@ describe("page browser entry", function()
         ZenSpec.replace("ui/gesturerange", button_class())
         ZenSpec.replace("ui/geometry", button_class())
         ZenSpec.replace("common/utils", {
-            resolveLocalIcon = function(_, name) return "/icons/" .. name .. ".svg" end,
+            resolveIcon = function(_, name) return "/icons/" .. name .. ".svg" end,
+            resolveLocalIcon = function(_, name) return "/local-icons/" .. name .. ".svg" end,
         })
         reader_store.settings.page_browser_layout = "grid"
         _G.__ZEN_UI_PLUGIN = { config = { features = { page_browser = true } } }
@@ -796,7 +872,8 @@ describe("page browser entry", function()
             end,
         })
         ZenSpec.replace("common/utils", {
-            resolveLocalIcon = function(_, name) return "/icons/" .. name .. ".svg" end,
+            resolveIcon = function(_, name) return "/icons/" .. name .. ".svg" end,
+            resolveLocalIcon = function(_, name) return "/local-icons/" .. name .. ".svg" end,
         })
         local shown_widgets, closed_widgets = {}, {}
         ZenSpec.replace("ui/uimanager", {
@@ -1054,7 +1131,8 @@ describe("page browser entry", function()
             unschedule = function() end,
         })
         ZenSpec.replace("common/utils", {
-            resolveLocalIcon = function(_, name) return "/icons/" .. name .. ".svg" end,
+            resolveIcon = function(_, name) return "/icons/" .. name .. ".svg" end,
+            resolveLocalIcon = function(_, name) return "/local-icons/" .. name .. ".svg" end,
         })
         ZenSpec.replace("common/ui/zen_modal_close", {
             installDialog = function(target, callback)

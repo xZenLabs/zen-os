@@ -1664,7 +1664,14 @@ local function apply_navbar()
             return
         end
         if shouldTrackActiveTab(tab_id) then
+            local fm = FileManager.instance
+            local flash_library_home = fm and (
+                (tab_id == "home" and fm._zen_library_to_home_started_at)
+                or (tab_id == "books" and fm._zen_home_to_library_started_at))
             cb()
+            if flash_library_home then
+                UIManager:nextTick(function() UIManager:setDirty(nil, "flashui") end)
+            end
             if tab_id ~= "home" and not tabStaysInFileManager(tab_id) then
                 refreshAfterNavbarPageSwitch()
             end
@@ -3440,11 +3447,6 @@ local function apply_navbar()
         else
             injectNavbar(self)
         end
-        -- On reinit (FM already in the window stack), dirty-mark so the updated navbar
-        -- is painted. On fresh init, UIManager:show(fm) inside showFiles handles it.
-        if FileManager.instance == self and not self.invisible then
-            UIManager:setDirty(self, "ui")
-        end
     end
 
     -- Restore the view state (group tab + optional detail) when returning from the reader.
@@ -3528,7 +3530,7 @@ local function apply_navbar()
                 or FileManager.instance ~= fm then
             return false
         end
-        if resolve_default_tab() == "books" then
+        if resolve_default_tab() == "books" and active_tab == "books" then
             fm._zen_default_tab_bootstrapped = true
             return false
         end

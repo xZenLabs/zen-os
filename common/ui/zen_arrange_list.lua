@@ -85,11 +85,11 @@ local function item_is_enabled(item)
 end
 
 local function toggle_sort_item(sort_widget, item)
-    if not (sort_widget and item and item.checked_func and item.callback) then
+    if not (sort_widget and item and item.checked_func) then
         return false
     end
     if not item_is_enabled(item) then return false end
-    item:callback()
+    if not ArrangeState.toggleItem(item) then return false end
     if sort_widget.marked and sort_widget.marked > 0 then
         sort_widget.marked = 0
     end
@@ -309,6 +309,7 @@ local function rebuild_icon_row(row)
     local right_padding = Size.padding.default
     local icon_w = IconItem.SETTINGS_ICON_WIDTH
     local arrange_enabled = row.show_parent._zen_arrange_enabled == true
+        and item.arrange_pinned_last ~= true
     local content_w = row.width - left_padding - right_padding
     local item_has_submenu = type(item.sub_item_table) == "table"
         or type(item.sub_item_table_func) == "function"
@@ -1010,15 +1011,15 @@ local function activate_keyboard_target(sort_widget)
 end
 
 local function move_arrange_item(sort_widget, target)
-    if not (sort_widget and type(target) == "number"
-            and ArrangeState.moveTableItem(
-                sort_widget.item_table, sort_widget.marked, target
-            )) then
+    if not (sort_widget and type(target) == "number") then return false end
+    local moved, actual_target = ArrangeState.moveTableItem(
+        sort_widget.item_table, sort_widget.marked, target)
+    if not moved then
         return false
     end
-    sort_widget.marked = target
+    sort_widget.marked = actual_target
     sort_widget._zen_arrange_order_dirty = true
-    sort_widget.show_page = math.ceil(target / sort_widget.items_per_page)
+    sort_widget.show_page = math.ceil(actual_target / sort_widget.items_per_page)
     sort_widget:_populateItems()
     return true
 end
@@ -1240,7 +1241,7 @@ local function start_touch_drag(sort_widget, pos, handle_only)
     for _row_i, row in ipairs(sort_widget.main_content or {}) do
         local matches = handle_only and is_arrange_handle_tap(row, pos)
             or not handle_only and is_arrange_row_tap(row, pos)
-        if row.index and matches then
+        if row.index and row.item and row.item.arrange_pinned_last ~= true and matches then
             cancel_item_drag_hold(sort_widget)
             cancel_drag_unfocus(sort_widget)
             local first = (sort_widget.show_page - 1) * sort_widget.items_per_page + 1
@@ -1621,9 +1622,7 @@ install_submenu_tap_handlers = function(sort_widget)
                     return true
                 end
                 if item.checked_func and ges and is_toggle_tap(row, ges.pos) then
-                    if item.callback then
-                        item:callback()
-                    end
+                    ArrangeState.toggleItem(item)
                     if not row.show_parent._zen_menu_mode then
                         repopulate(row.show_parent)
                     end
@@ -1658,9 +1657,7 @@ install_root_tap_handlers = function(sort_widget)
                     ges and is_toggle_tap(row, ges.pos)
                 )
                 if action == "toggle" then
-                    if item.callback then
-                        item:callback()
-                    end
+                    ArrangeState.toggleItem(item)
                     if not row.show_parent._zen_menu_mode then
                         repopulate(row.show_parent)
                     end

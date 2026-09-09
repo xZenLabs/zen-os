@@ -322,7 +322,11 @@ local function parse_release_entries(body)
 end
 
 --- Filter installable entries by channel. Stable: releases only.
---- Beta: releases + prereleases, preferring stable for the same M.m.p base.
+--- Beta: releases + beta prereleases, preferring stable for the same M.m.p base.
+local function is_beta_release(entry)
+    return not entry.prerelease or entry.version:match("%-beta%d*$") ~= nil
+end
+
 local function filter_entries_for_channel(entries, channel)
     local filtered = {}
     if channel == "stable" then
@@ -348,16 +352,18 @@ local function filter_entries_for_channel(entries, channel)
     local base_index = {}
     local replaced_with_stable = 0
     for _i, entry in ipairs(entries) do
-        local base = semver_base(entry.tag)
-        local idx = base_index[base]
-        if not idx then
-            table.insert(filtered, entry)
-            base_index[base] = #filtered
-        else
-            local existing = filtered[idx]
-            if existing.prerelease and not entry.prerelease then
-                filtered[idx] = entry
-                replaced_with_stable = replaced_with_stable + 1
+        if is_beta_release(entry) then
+            local base = semver_base(entry.tag)
+            local idx = base_index[base]
+            if not idx then
+                table.insert(filtered, entry)
+                base_index[base] = #filtered
+            else
+                local existing = filtered[idx]
+                if existing.prerelease and not entry.prerelease then
+                    filtered[idx] = entry
+                    replaced_with_stable = replaced_with_stable + 1
+                end
             end
         end
     end
@@ -391,13 +397,14 @@ local function filter_changelog_entries_for_channel(entries, channel)
         return stable
     end
 
-    logger.dbg(
-        "changelog beta filter in=",
-        #entries,
-        "out=",
-        #entries
-    )
-    return entries
+    local beta = {}
+    for _i, entry in ipairs(entries) do
+        if is_beta_release(entry) then
+            table.insert(beta, entry)
+        end
+    end
+    logger.dbg("changelog beta filter in=", #entries, "out=", #beta)
+    return beta
 end
 
 --- Best-effort HTTPS GET; returns the response body string or nil.

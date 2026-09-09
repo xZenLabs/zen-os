@@ -3,6 +3,8 @@ describe("home quotes", function()
     local HomeQuotes
     local state
     local book_mode
+    local directory_entries
+    local directory_path
     local sidecar_stat
     local flushes
 
@@ -11,16 +13,26 @@ describe("home quotes", function()
         flushes = 0
         state.flush = function() flushes = flushes + 1 end
         book_mode = "directory"
+        directory_entries = { ".", ".." }
+        directory_path = nil
         sidecar_stat = nil
         ZenSpec.replace("libs/libkoreader-lfs", {
             attributes = function(path, field)
-                if path:match("quotes%.lua$") and field == "mode" then return "file" end
+                if path:match("%.lua$") and field == "mode" then return "file" end
                 if path:match("%.sdr/") then
                     if sidecar_stat then return sidecar_stat end
                     return "directory"
                 end
                 if path:match("^/books/") and field == "mode" then return book_mode end
                 return "directory"
+            end,
+            dir = function(path)
+                directory_path = path
+                local index = 0
+                return function()
+                    index = index + 1
+                    return directory_entries[index]
+                end
             end,
             mkdir = function() return true end,
         })
@@ -80,6 +92,34 @@ describe("home quotes", function()
                 attribution = "Enhanced author,  Enhanced title",
             },
         }, HomeQuotes.getQuotes({ sources = { custom = true } }))
+    end)
+
+    it("discovers named quote files and combines selected lists", function()
+        directory_entries = {
+            ".", "..", "quotes.lua", "wisdom.lua", "home.lua", "notes.txt",
+        }
+        dofile_stub.invokes(function(path)
+            if path == "/tmp/zen-ui-spec/quotes/home.lua" then
+                return { settings = {} }
+            end
+            return { path:match("([^/]+)%.lua$") }
+        end)
+
+        assert.are.same({ "quotes.lua", "wisdom.lua" }, HomeQuotes.listFiles())
+        assert.are.equal("/tmp/zen-ui-spec/quotes", directory_path)
+        assert.are.same({
+            { text = "quotes", author = "", title = "", attribution = "" },
+            { text = "wisdom", author = "", title = "", attribution = "" },
+        }, HomeQuotes.getQuotes({
+            sources = { custom = true },
+            custom_files = {
+                ["../outside.lua"] = true,
+                ["quotes.lua"] = true,
+                ["wisdom.lua"] = true,
+            },
+        }))
+        assert.stub(dofile_stub).was_called_with(
+            "/tmp/zen-ui-spec/quotes/wisdom.lua")
     end)
 
     it("combines selected sources", function()

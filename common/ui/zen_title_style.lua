@@ -9,9 +9,13 @@ M.ICON_BASE_SIZE = 28
 M.ICON_SIZE = Screen:scaleBySize(M.ICON_BASE_SIZE)
 M.BUTTON_PADDING = Screen:scaleBySize(8)
 M.BUTTON_SIZE = M.ICON_SIZE + 2 * M.BUTTON_PADDING
-M.TITLE_LEADING_PADDING = Screen:scaleBySize(6)
-M.LEFT_PADDING = Size.padding.small
+M.LEADING_WIDTH = IconItem.SETTINGS_ICON_WIDTH
+M.TITLE_LEADING_PADDING = IconItem.getSettingsIconGap()
+M.LEFT_PADDING = IconItem.getSettingsLeftPadding()
 M.RIGHT_PADDING = Size.padding.large
+M.ACTION_FONT_SIZE = 18
+M.ACTION_PADDING_H = Size.padding.default
+M.TRAILING_GAP = Screen:scaleBySize(4)
 M.ROW_HEIGHT = math.max(M.BUTTON_SIZE, Screen:scaleBySize(42))
 M.VERTICAL_PADDING = Screen:scaleBySize(6)
 M.DIVIDER_HEIGHT = Screen:scaleBySize(2)
@@ -24,11 +28,12 @@ function M.getTitleFace()
 end
 
 function M.getLeadingIconX(origin_x)
-    return (origin_x or 0) + M.LEFT_PADDING + M.BUTTON_PADDING
+    return (origin_x or 0) + M.LEFT_PADDING
+        + math.floor((M.LEADING_WIDTH - M.BUTTON_SIZE) / 2) + M.BUTTON_PADDING
 end
 
 function M.getTitleX(origin_x)
-    return (origin_x or 0) + M.LEFT_PADDING + M.BUTTON_SIZE
+    return (origin_x or 0) + M.LEFT_PADDING + M.LEADING_WIDTH
         + M.TITLE_LEADING_PADDING
 end
 

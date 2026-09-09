@@ -70,7 +70,8 @@ Build a personal Home page from date and time, featured book, reading stats, rea
 | Widgets > Reading stats > Stat separators | Selects dividing lines, outlined boxes, or no stat separators. |
 | Widgets > Reading stats > Automatic font size | Fits the three stat slots to the available height, up to the configured maximum. Disable it to set a fixed font size. |
 | Widgets > Reading stats > Stat slot 1–3 | Selects pages today, time today, day streak, pages this week, or time this week for each slot. |
-| Widgets > Quotes > Quote sources | Selects any combination of default quotes, custom quotes, and annotations. |
+| Widgets > Quotes > Quote sources | Selects any combination of default quotes, custom quote files, and annotations. |
+| Widgets > Quotes > Quote sources > Custom quotes | Turns individual quote files on or off. Select multiple files to combine them. |
 | Widgets > Quotes > New quote | Changes the quote daily or whenever Home refreshes. |
 | Widgets > Quotes > Automatic font size | Fits quote text to the available area up to the configured maximum. Disable it to use a fixed size. |
 | Widgets > Quotes > Show author | Shows the quote author when available. |
@@ -84,7 +85,26 @@ Home featured widgets use KOReader page-map data when it is available. That mean
 
 ## Custom quotes
 
-Add personal quotes by editing `settings/ZenOS/quotes.lua`, then enable **Custom quotes** under **Zen Settings > Home > Widgets > Quotes > Quote sources**. Custom quotes can be combined with the default list and annotations. Each entry can be a `{ text, author, title }` table, the older `{ text, author }` form, or a plain string without attribution.
+Add personal quotes to `settings/ZenOS/quotes.lua`. Put additional `.lua` quote
+files in `settings/ZenOS/quotes/`; ZenOS creates this folder automatically and
+does not scan other settings files. Under **Zen Settings > Home > Widgets >
+Quotes > Quote sources > Custom quotes**, turn on each file you want to use.
+Selected files are combined and can still be mixed with the default list and
+annotations. Turning off the last file disables custom quotes. Each entry can
+be a `{ text, author, title }` table, the older `{ text, author }` form, or a
+plain string without attribution.
+
+```text
+settings/ZenOS/
+├── quotes.lua
+└── quotes/
+    ├── philosophy.lua
+    └── favorites.lua
+```
+
+`quotes.lua` remains the primary file for existing installations. Additional
+files can use any other `.lua` filename and must be placed directly in the
+`quotes/` folder. Every file uses the same format:
 
 ```lua
 return {

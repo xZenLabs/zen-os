@@ -89,6 +89,15 @@ function M.build(ctx)
         end,
     })
 
+    local language_setting = require("ui/language"):getLangMenuTable()
+    table.insert(items, {
+        text = language_setting.text,
+        sub_item_table = language_setting.sub_item_table,
+    })
+
+    local time_setting = require("ui/elements/common_settings_menu_table").time
+    table.insert(items, time_setting)
+
     table.insert(items, {
         text      = _("Report a Bug"),
         callback  = function()
@@ -105,8 +114,10 @@ function M.build(ctx)
     IconItem.decorate(items[1], icons.details)
     IconItem.decorate(items[2], icons.settings_device)
     IconItem.decorate(items[3], icons.settings_setup)
-    IconItem.decorate(items[4], icons.settings_bug)
-    IconItem.decorate(items[5], icons.settings_advanced)
+    IconItem.decorate(items[4], icons.language)
+    IconItem.decorate(items[5], icons.tbr)
+    IconItem.decorate(items[6], icons.settings_bug)
+    IconItem.decorate(items[7], icons.settings_advanced)
 
     return items
 end

@@ -304,6 +304,7 @@ local function rebuild_settings_menu_item(row)
         max_width = text_w,
         fgcolor = visual_enabled and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_DARK_GRAY,
         face = face,
+        bold = item._zen_primary_bold == true,
         padding = has_breadcrumb and 0 or nil,
     }
     row.text_truncated = text_widget:isTruncated()
@@ -325,7 +326,8 @@ local function rebuild_settings_menu_item(row)
         table.insert(text_group, TextWidget:new{
             text = item._zen_settings_breadcrumb,
             max_width = text_w,
-            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+            fgcolor = visual_enabled and item._zen_value_black == true
+                and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_DARK_GRAY,
             face = Font:getFace("xx_smallinfofont"),
             padding = 0,
         })
@@ -338,9 +340,13 @@ local function rebuild_settings_menu_item(row)
     table.insert(left_items, icon_widget or HorizontalSpan:new{ width = M.SETTINGS_ICON_WIDTH })
     table.insert(left_items, HorizontalSpan:new{ width = icon_gap })
     table.insert(left_items, text_group)
+    local custom_content = type(item._zen_settings_content_func) == "function"
+        and item._zen_settings_content_func(
+            row.dimen.w - right_controls_w, row.dimen.h, face, visual_enabled)
+    if custom_content and type(text_group.free) == "function" then text_group:free() end
     local left = LeftContainer:new{
         dimen = Geom:new{ w = row.dimen.w, h = row.dimen.h },
-        HorizontalGroup:new(left_items),
+        custom_content or HorizontalGroup:new(left_items),
     }
     local content = OverlapGroup:new{
         dimen = Geom:new{ w = row.dimen.w, h = row.dimen.h },
@@ -363,7 +369,9 @@ local function rebuild_settings_menu_item(row)
         focus_inner_border = true,
         content,
     }
-    M.enableFullRowFocus(row.item_frame)
+    if item._zen_focus_border_only ~= true then
+        M.enableFullRowFocus(row.item_frame)
+    end
     row._zen_settings_divider = LineWidget:new{
         dimen = Geom:new{ w = row.dimen.w, h = Size.line.thin },
         background = Blitbuffer.COLOR_LIGHT_GRAY,

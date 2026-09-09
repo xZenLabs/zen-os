@@ -119,7 +119,7 @@ local function format_series(book)
     return series .. " #" .. index_text
 end
 
-local function split_text_for_box(text, face, bold, width, height)
+local function split_text_for_box(text, face, bold, justified, width, height)
     if text == "" or height <= 0 then return "", text end
     local probe = TextBoxWidget:new{
         text = text,
@@ -127,6 +127,7 @@ local function split_text_for_box(text, face, bold, width, height)
         height = height,
         face = face,
         bold = bold,
+        justified = justified,
         alignment = "left",
         alignment_strict = true,
     }
@@ -196,6 +197,8 @@ function M.build(ctx, source_key)
     local source = source_key or HomePresets.featuredSourceKey(module_cfg.default_source)
     local book = ctx.data:getFeaturedBook(source, "default")
     local show_description = module_cfg.show_description ~= false
+    local format_description_html = module_cfg.format_description_html == true
+    local justify_description_text = module_cfg.justify_description_text == true
     local show_status_bar = module_cfg.show_status_bar == true and type(ctx.buildStatusRow) == "function"
     local cover_widget, cover_w, cover_actual_h
 
@@ -279,8 +282,8 @@ function M.build(ctx, source_key)
     local stats_face = get_text_face(progress_style,
         Screen:scaleBySize(math.floor(progress_style.font_size * scale + 0.5)), "smallinfofont")
     local desc_face = get_text_face(description_style, description_style.font_size)
-    local desc_text = type(book.description) == "string"
-        and util.htmlToPlainTextIfHtml(book.description) or ""
+    local raw_description = type(book.description) == "string" and book.description or ""
+    local desc_text = util.htmlToPlainTextIfHtml(raw_description)
     desc_text = desc_text:gsub("^%s+", ""):gsub("%s+$", "")
     local desc_line_h_probe = TextBoxWidget:new{
         text = "A\nA",
@@ -363,9 +366,9 @@ function M.build(ctx, source_key)
     local title_h = title_line_h * (title_needs_2_lines and 2 or 1)
 
     local author_text = (book.authors or ""):gsub("%s*\n%s*", ", "):gsub("%s+", " ")
-    local has_author = author_text ~= ""
+    local has_author = module_cfg.show_author ~= false and author_text ~= ""
     local series_text = format_series(book)
-    local has_series = series_text ~= ""
+    local has_series = module_cfg.show_series ~= false and series_text ~= ""
     local author_h = 0
     if has_author then
         local author_probe = TextWidget:new{ text = author_text, face = meta_face, bold = author_style.bold == true }
@@ -498,7 +501,7 @@ function M.build(ctx, source_key)
         if compact_side_desc_h > 0 then
             flow_upper_text, overflow_text = split_text_for_box(
                 desc_text, desc_face, description_style.bold == true,
-                text_w, compact_side_desc_h)
+                justify_description_text, text_w, compact_side_desc_h)
         end
         flow_description = overflow_text:gsub("^%s+", "") ~= ""
         if flow_description then
@@ -508,11 +511,14 @@ function M.build(ctx, source_key)
             if side_desc_h > 0 then
                 flow_upper_text, flow_lower_text = split_text_for_box(
                     desc_text, desc_face, description_style.bold == true,
-                    text_w, side_desc_h)
+                    justify_description_text, text_w, side_desc_h)
             else
                 flow_lower_text = desc_text
             end
             flow_lower_text = flow_lower_text:gsub("^%s+", "")
+            if format_description_html then
+                flow_upper_text, flow_lower_text, side_desc_h = "", desc_text, 0
+            end
         end
     end
     local progress_w = flow_description and width or text_w
@@ -522,12 +528,39 @@ function M.build(ctx, source_key)
     local spacer_h = math.max(0, cover_h - actual_top_h - detail_bottom_h)
 
     local function description_widget(text, box_w, box_h, ellipsis)
+        if format_description_html then
+            local ok_html, HtmlBoxWidget = pcall(require, "ui/widget/htmlboxwidget")
+            if ok_html then
+                local html_widget = HtmlBoxWidget:new{
+                    dimen = Geom:new{ w = box_w, h = box_h },
+                }
+                local align = justify_description_text and "justify" or "left"
+                local bold = description_style.bold == true and "font-weight: bold;" or ""
+                local font_file = description_style.font_face == "default"
+                    and library_font.getFontName() or description_style.font_face
+                local page_css = "@page { margin: 0; }"
+                if font_file:find("/", 1, true) then
+                    font_file = font_file:gsub("'", "\\'")
+                    page_css = string.format([[
+@font-face { font-family: 'ZenDescription'; src: url('%s'); }
+@page { margin: 0; font-family: 'ZenDescription'; }
+]], font_file)
+                end
+                html_widget:setContent(raw_description, string.format([[
+%s
+body { margin: 0; padding: 0; color: #000; line-height: 1.3; text-align: %s !important; %s }
+p { margin: 0; }
+]], page_css, align, bold), Screen:scaleBySize(description_style.font_size))
+                return html_widget
+            end
+        end
         return TextBoxWidget:new{
             text = text,
             width = box_w,
             height = box_h,
             face = desc_face,
             bold = description_style.bold == true,
+            justified = justify_description_text,
             alignment = "left",
             alignment_strict = true,
             fgcolor = Blitbuffer.COLOR_BLACK,

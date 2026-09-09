@@ -7,7 +7,6 @@ local Device = require("device")
 local T = require("ffi/util").template
 local IconPacks = require("common/icon_packs")
 local Rakuyomi = require("modules/filebrowser/patches/rakuyomi")
-local SharedState = require("common/shared_state")
 local global_settings = require("modules/settings/sections/global_settings")
 local stats_settings = require("modules/settings/sections/stats_settings")
 local zenpm_installer = require("modules/settings/zenpm_installer")
@@ -241,26 +240,6 @@ function M.build(ctx)
             custom_icon_pack_item,
         },
     }, icons.icon))
-
-    table.insert(items, IconItem.decorate({
-        text = _("Include new books in TBR"),
-        help_text = _("New includes unread books and books modified since they were last opened."),
-        checked_func = function()
-            return type(config.group_view) == "table"
-                and config.group_view.include_new_in_tbr == true
-        end,
-        callback = function(touchmenu_instance)
-            if type(config.group_view) ~= "table" then config.group_view = {} end
-            config.group_view.include_new_in_tbr =
-                config.group_view.include_new_in_tbr ~= true
-            plugin:saveConfig()
-            local home = SharedState.get(plugin, "home")
-            if home and home.rebuildActive then
-                home.rebuildActive()
-            end
-            if touchmenu_instance then touchmenu_instance:updateItems() end
-        end,
-    }, icons.tbr))
 
     return items
 end

@@ -13,6 +13,7 @@ describe("updater repository redirects", function()
     local config
     local logs
     local network_up
+    local release_body
     local requests
     local scheduled
     local asset_name
@@ -32,6 +33,7 @@ describe("updater repository redirects", function()
         original_uimanager = package.loaded["ui/uimanager"]
         logs = {}
         network_up = true
+        release_body = nil
         requests = {}
         scheduled = {}
         asset_name = "zenos.koplugin.zip"
@@ -115,7 +117,7 @@ describe("updater repository redirects", function()
                         location = "https://api.github.com/repositories/1194031944/releases?per_page=100",
                     }, "HTTP/1.1 301 Moved Permanently"
                 end
-                request.sink(string.format([[
+                request.sink(release_body or string.format([[
                     [{
                         "url":"https://api.github.com/repos/xZenLabs/zen-os-renamed/releases/12345",
                         "tag_name":"v999.0.0",
@@ -177,6 +179,35 @@ describe("updater repository redirects", function()
         assert.are.equal("ok", updater.check_for_update())
         assert.are.equal("999.0.0", updater.latest_version())
         assert.is_true(updater.has_update())
+    end)
+
+    it("ignores alpha releases on the beta channel", function()
+        config.updater.update_channel = "beta"
+        release_body = string.format([[
+            [{
+                "tag_name":"v3.3.0-alpha1",
+                "prerelease":true,
+                "published_at":"2026-09-03T00:00:00Z",
+                "assets":[{
+                    "name":"%s",
+                    "browser_download_url":"https://github.com/xZenLabs/zen-os/releases/download/v3.3.0-alpha1/%s",
+                    "digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }]
+            },{
+                "tag_name":"v3.3.0-beta7",
+                "prerelease":true,
+                "published_at":"2026-09-02T00:00:00Z",
+                "assets":[{
+                    "name":"%s",
+                    "browser_download_url":"https://github.com/xZenLabs/zen-os/releases/download/v3.3.0-beta7/%s",
+                    "digest":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                }]
+            }]
+        ]], asset_name, asset_name, asset_name, asset_name)
+        local updater = require("modules/settings/zen_updater")
+
+        assert.are.equal("ok", updater.check_for_update())
+        assert.are.equal("3.3.0-beta7", updater.latest_version())
     end)
 
     it("clears the update marker after a version change is acknowledged", function()

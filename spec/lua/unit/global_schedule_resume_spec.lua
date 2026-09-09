@@ -1,5 +1,6 @@
 describe("global schedule resume hook", function()
     local global
+    local device
     local ui_manager
     local scheduled
     local original_reader_settings
@@ -47,9 +48,10 @@ describe("global schedule resume hook", function()
             end,
         }
         ZenSpec.replace("ui/uimanager", ui_manager)
-        ZenSpec.replace("device", {
+        device = {
             canHWInvert = function() return false end,
-        })
+        }
+        ZenSpec.replace("device", device)
         for _i, name in ipairs(patched_modules) do
             ZenSpec.replace(name, function() end)
         end
@@ -96,6 +98,21 @@ describe("global schedule resume hook", function()
         assert.is_nil(_G.night_reschedules)
         assert.is_nil(_G.brightness_reschedules)
         assert.is_nil(_G.warmth_reschedules)
+    end)
+
+    it("preserves KOReader's original hardware night mode for exit", function()
+        local applied
+        device.orig_hw_nightmode = true
+        device.canHWInvert = function() return true end
+        device.screen = {
+            getHWNightmode = function() return true end,
+            setHWNightmode = function(_, enabled) applied = enabled end,
+        }
+
+        assert.is_true(global.init(nil, { config = { features = {} } }))
+
+        assert.is_false(applied)
+        assert.is_true(device.orig_hw_nightmode)
     end)
 
     it("disables Zen OPDS when KOReader OPDS is disabled", function()

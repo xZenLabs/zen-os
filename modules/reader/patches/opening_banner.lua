@@ -110,6 +110,11 @@ local function apply_opening_banner()
         return ok and FileManager.instance and FileManager.instance.selected_files ~= nil
     end
 
+    local function is_chooser_item(item)
+        local menu = item and item.menu
+        return menu and (menu.select_directory ~= nil or menu.select_file ~= nil)
+    end
+
     local function should_prepare_for_tap(item, ...)
         local ges = select(2, ...)
         if not ges or ges.time == nil then return true end
@@ -286,6 +291,7 @@ local function apply_opening_banner()
 
         local orig_tap = MosaicMenuItem.onTapSelect
         MosaicMenuItem.onTapSelect = function(self_item, ...)
+            if is_chooser_item(self_item) then return orig_tap(self_item, ...) end
             _tap_seq = _tap_seq + 1
             if is_select_mode(self_item) then
                 _last_cover_dimen = nil
@@ -333,6 +339,7 @@ local function apply_opening_banner()
 
         local orig_tap = ListMenuItem.onTapSelect
         ListMenuItem.onTapSelect = function(self_item, ...)
+            if is_chooser_item(self_item) then return orig_tap(self_item, ...) end
             _tap_seq = _tap_seq + 1
             if is_select_mode(self_item) then
                 _last_cover_dimen = nil
@@ -487,9 +494,11 @@ local function apply_opening_banner()
                 bw = cover.w - 2 * border
             end
         else
+            local bottom_margin = Screen:isColorScreen() and Screen:scaleBySize(8) or 0
             bx = 0
-            by = Screen:getHeight() - banner_h
+            by = Screen:getHeight() - banner_h - bottom_margin
             bw = Screen:getWidth()
+            banner_h = banner_h + bottom_margin
         end
 
         local plug = _plugin or rawget(_G, "__ZEN_UI_PLUGIN")
@@ -564,6 +573,12 @@ local function apply_opening_banner()
 
     -- Home and Zen Mosaic book widgets bypass KOReader's stock item hooks.
     rawset(_G, "__ZEN_UI_SET_OPENING_BANNER_COVER", set_opening_banner_cover)
+
+    local orig_show_reader = ReaderUI.showReader
+    ReaderUI.showReader = function(self, ...)
+        if not _last_cover_dimen then _tap_seq = _tap_seq + 1 end
+        return orig_show_reader(self, ...)
+    end
 
     -- Patch showReaderCoroutine.
     -- Do not show the stock opening message on duplicate opens, but preserve

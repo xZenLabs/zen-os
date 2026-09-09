@@ -32,6 +32,10 @@ ZenOS is built to be lightweight and efficient. Its dedicated renderer and intel
 
 Build a personal Home page for your e-reader with responsive widgets: date and time, featured book, reading stats, reading goals, book strip, and quotes. Arrange them within the screen's space budget, edit widgets directly from Home, or apply and save presets.
 
+The Quotes widget can combine built-in quotes, annotations, and any selection
+of custom quote files stored in `settings/ZenOS/quotes/`, while the existing
+`settings/ZenOS/quotes.lua` remains the primary custom file.
+
 The unified book strip can switch between recent books, favorites, To Be Read, authors, series, tags, collections, a folder, or a custom list. Optional strip controls can also launch actions, Controls, plugin menus, and KOReader menus. Featured books support recent, To Be Read, or a hand-picked title, with configurable metadata and progress labels.
 
 See the [Home guide](docs/home.md).
@@ -234,6 +238,11 @@ ZenOS is original work, but it wouldn't exist without the broader KOReader commu
 - **[sebdelsol/KOReader.patches](https://github.com/sebdelsol/KOReader.patches)** — Patches and UI techniques that informed several of ZenOS's features.
 - **[doctorhetfield-cmd/simpleui.koplugin](https://github.com/doctorhetfield-cmd/simpleui.koplugin)** — A fellow KOReader UI plugin that served as an inspiration as well as a model for how to apply language translations throughout the plugin.
 - **[kristianpennacchia/zzz-readermenuredesign.koplugin](https://github.com/kristianpennacchia/zzz-readermenuredesign.koplugin)** — Inspiration for the reader search menu redesign
+- **[rameezk/rebind.koplugin](https://github.com/rameezk/rebind.koplugin)** — The EPUB metadata mutation code is adapted from Rebind under the MIT License.
+- **[Phrogz/SLAXML](https://github.com/Phrogz/SLAXML)** — ZenOS vendors SLAXML's parser and DOM serializer under the MIT License.
+- **[certifi](https://github.com/certifi/python-certifi)** — The bundled Mozilla CA certificate data is distributed under the Mozilla Public License 2.0.
+
+The complete copyright and license texts for these embedded metadata components are in [modules/filebrowser/metadata/LICENSES.md](modules/filebrowser/metadata/LICENSES.md).
 
 Thank you to everyone who published their KOReader work openly.
 
@@ -255,6 +264,10 @@ Feel free to join the [Discord Community](https://discord.gg/Tv2PhrCPQ8) if you 
 ## Security
 
 See [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
+
+Metadata lookup can combine Hardcover, Google Books, and Open Library results in one chooser. Providers can be enabled independently under **Zen UI Settings → Library → Metadata**.
+
+ZenOS creates empty `settings/ZenOS/hardcover_token.txt` and `settings/ZenOS/google_books_api_key.txt` placeholders for the optional Hardcover token and Google Books API key. Each file contains only its credential and can be edited directly. Open Library does not require a token.
 
 ## License
 

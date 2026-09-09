@@ -4,7 +4,7 @@ local paths = require("common/paths")
 
 local M = {}
 
-local EXTENSIONS = { "jpg" }
+local EXTENSIONS = { "jpg", "jpeg" }
 local SUPPORTED_EXTENSIONS = {}
 for _i, extension in ipairs(EXTENSIONS) do
     SUPPORTED_EXTENSIONS[extension] = true

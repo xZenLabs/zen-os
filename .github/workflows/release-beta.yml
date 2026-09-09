@@ -1,10 +1,19 @@
-name: Release Beta
+name: Release Alpha / Beta
 
 on:
   push:
     branches:
       - dev
   workflow_dispatch:
+    inputs:
+      channel:
+        description: Prerelease channel
+        required: true
+        default: beta
+        type: choice
+        options:
+          - beta
+          - alpha
 
 jobs:
   tests:
@@ -50,17 +59,18 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve beta tag
+      - name: Resolve prerelease tag
         id: version_check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_CHANNEL: ${{ github.event_name == 'push' && 'alpha' || inputs.channel }}
         run: |
           META_VERSION="${{ steps.meta.outputs.version }}"
           BASE="v${META_VERSION}"
 
           # Get the latest release tag (including pre-releases)
           LATEST=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName \
-            --jq '.[0].tagName' 2>/dev/null | sed 's/^v//' | sed 's/-beta[0-9]*$//')
+            --jq '.[0].tagName' 2>/dev/null | sed 's/^v//' | sed -E 's/-(alpha|beta)[0-9]*$//')
 
           if [[ -n "$LATEST" ]]; then
             LOWER=$(printf '%s\n%s' "$META_VERSION" "$LATEST" | sort -V | head -1)
@@ -72,20 +82,20 @@ jobs:
           fi
 
           N=1
-          while gh release view "${BASE}-beta${N}" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; do
+          while gh release view "${BASE}-${RELEASE_CHANNEL}${N}" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; do
             N=$((N + 1))
           done
-          BETA_TAG="${BASE}-beta${N}"
-          BETA_VERSION="${META_VERSION}-beta${N}"
-          echo "tag=$BETA_TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$BETA_VERSION" >> "$GITHUB_OUTPUT"
+          PRERELEASE_TAG="${BASE}-${RELEASE_CHANNEL}${N}"
+          PRERELEASE_VERSION="${META_VERSION}-${RELEASE_CHANNEL}${N}"
+          echo "tag=$PRERELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$PRERELEASE_VERSION" >> "$GITHUB_OUTPUT"
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
-      - name: Stamp beta version in _meta.lua
+      - name: Stamp prerelease version in _meta.lua
         if: steps.version_check.outputs.skip == 'false'
         run: |
-          BETA_VERSION="${{ steps.version_check.outputs.version }}"
-          sed -i "s/version = \"[^\"]*\"/version = \"${BETA_VERSION}\"/" _meta.lua
+          PRERELEASE_VERSION="${{ steps.version_check.outputs.version }}"
+          sed -i "s/version = \"[^\"]*\"/version = \"${PRERELEASE_VERSION}\"/" _meta.lua
 
       - name: Install fonttools
         if: steps.version_check.outputs.skip == 'false'

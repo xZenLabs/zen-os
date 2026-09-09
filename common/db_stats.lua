@@ -32,15 +32,30 @@ local function flush_pending_stats()
     pcall(stats_plugin.insertDB, stats_plugin)
 end
 
-local function period_starts()
+function StatsDB.weekStart(now_t)
+    now_t = now_t or os.date("*t")
+    local settings = require("config/preset_store").getSettings("stats")
+    local start_day = settings.week_start_day == 2 and 2 or 1
+    return os.time({
+        year = now_t.year, month = now_t.month,
+        day = now_t.day - (now_t.wday - start_day) % 7,
+        hour = 0, min = 0, sec = 0,
+    }), start_day
+end
+
+local function period_starts(now_t)
     local one_day = 86400
-    local now_t = os.date("*t")
-    local from_begin_day = now_t.hour * 3600 + now_t.min * 60 + now_t.sec
-    local now_ts = os.time()
+    now_t = now_t or os.date("*t")
+    local week_start, week_start_day = StatsDB.weekStart(now_t)
+    local start_today = os.time({
+        year = now_t.year, month = now_t.month, day = now_t.day,
+        hour = 0, min = 0, sec = 0,
+    })
     return {
         one_day = one_day,
-        start_today = now_ts - from_begin_day,
-        period_begin = now_ts - 6 * one_day - from_begin_day,
+        start_today = start_today,
+        period_begin = week_start,
+        week_start_day = week_start_day,
         start_month = os.time({
             year = now_t.year, month = now_t.month, day = 1,
             hour = 0, min = 0, sec = 0,
@@ -203,14 +218,15 @@ function StatsDB.queryBookAveragePageTime(path, md5)
     local stmt
     local ok, result = pcall(function()
         stmt = conn:prepare([[
-            SELECT count(*), sum(page_duration), (
+            SELECT count(*), sum(page_duration), sum(read_duration), (
                 SELECT pages FROM book
                 WHERE md5 = ?
                 ORDER BY last_open DESC
                 LIMIT 1
             )
             FROM (
-                SELECT min(sum(duration), ?) AS page_duration
+                SELECT min(sum(duration), ?) AS page_duration,
+                       sum(duration) AS read_duration
                 FROM page_stat
                 WHERE id_book = (
                     SELECT id FROM book
@@ -232,9 +248,10 @@ function StatsDB.queryBookAveragePageTime(path, md5)
     end
     local pages = result and tonumber(result[1]) or 0
     local duration = result and tonumber(result[2]) or 0
-    local total_pages = result and tonumber(result[3]) or nil
-    if pages <= 0 or duration <= 0 then return nil, total_pages end
-    return duration / pages, total_pages
+    local read_time = result and tonumber(result[3]) or nil
+    local total_pages = result and tonumber(result[4]) or nil
+    if pages <= 0 or duration <= 0 then return nil, total_pages, read_time end
+    return duration / pages, total_pages, read_time
 end
 
 function StatsDB.queryBookDetails(stats_plugin, fields)
@@ -422,23 +439,14 @@ function StatsDB.queryStats()
         return stats
     end
 
-    local one_day = 86400
-
     local ok, query_err = pcall(function()
         -- Time boundaries
-        local now_t = os.date("*t")
-        local from_begin_day = now_t.hour * 3600 + now_t.min * 60 + now_t.sec
-        local now_ts = os.time()
-        local start_today = now_ts - from_begin_day
-        local period_begin = now_ts - 6 * one_day - from_begin_day
-        local start_month = os.time({
-            year = now_t.year, month = now_t.month, day = 1,
-            hour = 0, min = 0, sec = 0,
-        })
-        local start_year = os.time({
-            year = now_t.year, month = 1, day = 1,
-            hour = 0, min = 0, sec = 0,
-        })
+        local starts = period_starts()
+        local one_day = starts.one_day
+        local start_today = starts.start_today
+        local period_begin = starts.period_begin
+        local start_month = starts.start_month
+        local start_year = starts.start_year
 
         -- Today
         local sql_today = [[
@@ -456,7 +464,7 @@ function StatsDB.queryStats()
         logger.info("today pages=", stats.today_pages,
                     "duration=", stats.today_duration)
 
-        -- Last 7 days (totals)
+        -- This week (totals)
         local sql_week = [[
             SELECT count(*), sum(sum_duration)
             FROM (
@@ -472,7 +480,7 @@ function StatsDB.queryStats()
         logger.info("week pages=", stats.week_pages,
                     "duration=", stats.week_duration)
 
-        -- Last 7 days (daily breakdown)
+        -- This week (daily breakdown)
         -- NOTE: %% in the format string becomes % after string.format(); SQLite
         -- then receives strftime('%Y-%m-%d', …) which is what it expects.
         local sql_daily = [[
@@ -595,12 +603,12 @@ function StatsDB.queryStats()
                 (SELECT week_total FROM (
                     SELECT SUM(day_total) AS week_total, MIN(rep_ts) AS rep_ts
                     FROM daily
-                    GROUP BY strftime('%Y-%W', rep_ts, 'unixepoch', 'localtime')
+                    GROUP BY date(day, '-' || ((strftime('%w', day) - WEEK_START_DAY + 7) % 7) || ' days')
                 ) ORDER BY week_total DESC LIMIT 1),
                 (SELECT rep_ts FROM (
                     SELECT SUM(day_total) AS week_total, MIN(rep_ts) AS rep_ts
                     FROM daily
-                    GROUP BY strftime('%Y-%W', rep_ts, 'unixepoch', 'localtime')
+                    GROUP BY date(day, '-' || ((strftime('%w', day) - WEEK_START_DAY + 7) % 7) || ' days')
                 ) ORDER BY week_total DESC LIMIT 1),
                 (SELECT month_total FROM (
                     SELECT SUM(day_total) AS month_total, MIN(rep_ts) AS rep_ts
@@ -614,7 +622,7 @@ function StatsDB.queryStats()
                 ) ORDER BY month_total DESC LIMIT 1);
         ]]
         local ok_pk, pd_dur, pd_ts, pw_dur, pw_ts, pm_dur, pm_ts =
-            pcall(conn.rowexec, conn, sql_peaks)
+            pcall(conn.rowexec, conn, (sql_peaks:gsub("WEEK_START_DAY", tostring(starts.week_start_day - 1))))
         stats.peak_day_duration = ok_pk and (tonumber(pd_dur) or 0) or 0
         stats.peak_day_ts       = ok_pk and tonumber(pd_ts) or nil
         stats.peak_week_duration = ok_pk and (tonumber(pw_dur) or 0) or 0

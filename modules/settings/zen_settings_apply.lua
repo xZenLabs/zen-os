@@ -167,6 +167,11 @@ local function apply_reader_refresh()
     local ok, ReaderUI = pcall(require, "apps/reader/readerui")
     local reader = ok and ReaderUI and ReaderUI.instance
     if reader then
+        local typeset = reader.typeset
+        if typeset and typeset.unscaled_margins
+                and type(typeset.onSetPageMargins) == "function" then
+            typeset:onSetPageMargins(typeset.unscaled_margins)
+        end
         UIManager:setDirty(reader, "ui")
     end
 end

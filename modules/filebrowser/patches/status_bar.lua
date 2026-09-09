@@ -13,6 +13,7 @@ local function apply_status_bar()
     local OverlapGroup = require("ui/widget/overlapgroup")
     local RightContainer = require("ui/widget/container/rightcontainer")
     local TextWidget = require("ui/widget/textwidget")
+    local ColorTextWidget = require("common/ui/color_text_widget")
     local UIManager = require("ui/uimanager")
     local Screen = Device.screen
     local Blitbuffer = require("ffi/blitbuffer")
@@ -37,8 +38,7 @@ local function apply_status_bar()
     end
 
     local function is_enabled()
-        local features = zen_plugin.config and zen_plugin.config.features
-        return type(features) == "table" and features.status_bar == true
+        return true
     end
 
     -- === Persistent config ===
@@ -280,54 +280,6 @@ local function apply_status_bar()
     -- RAM usage cache
     local cached_ram_text = nil
     local cached_ram_time = 0
-
-    -- === Color text support ===
-    -- TextWidget.colorblitFrom is grayscale; colorblitFromRGB32 needed for color.
-
-    local RenderText = require("ui/rendertext")
-
-    local ColorTextWidget = TextWidget:extend{}
-
-    function ColorTextWidget:paintTo(bb, x, y)
-        self:updateSize()
-        if self._is_empty then return end
-
-        if not self.fgcolor or Blitbuffer.isColor8(self.fgcolor) or not Screen:isColorScreen() then
-            TextWidget.paintTo(self, bb, x, y)
-            return
-        end
-
-        if not self.use_xtext then
-            -- Fallback path: render normally (no RGB support here)
-            TextWidget.paintTo(self, bb, x, y)
-            return
-        end
-
-        if not self._xshaping then
-            self._xshaping = self._xtext:shapeLine(self._shape_start, self._shape_end,
-                                                self._shape_idx_to_substitute_with_ellipsis)
-        end
-
-        local text_width = bb:getWidth() - x
-        if self.max_width and self.max_width < text_width then
-            text_width = self.max_width
-        end
-        local pen_x = 0
-        local baseline = self.forced_baseline or self._baseline_h
-        for _i, xglyph in ipairs(self._xshaping) do
-            if pen_x >= text_width then break end
-            local face = self.face.getFallbackFont(xglyph.font_num)
-            local glyph = RenderText:getGlyphByIndex(face, xglyph.glyph, self.bold)
-            bb:colorblitFromRGB32(
-                glyph.bb,
-                x + pen_x + glyph.l + xglyph.x_offset,
-                y + baseline - glyph.t - xglyph.y_offset,
-                0, 0,
-                glyph.bb:getWidth(), glyph.bb:getHeight(),
-                self.fgcolor)
-            pen_x = pen_x + xglyph.x_advance
-        end
-    end
 
     -- === Color definitions ===
 
@@ -872,6 +824,14 @@ local function apply_status_bar()
         return vg
     end
 
+    rawset(_G, "__ZENOS_BUILD_STATUS_ROW", function(width, opts)
+        opts = opts or {}
+        if opts.show_bottom_border == nil then
+            opts.show_bottom_border = config.show_bottom_border ~= false
+        end
+        return buildStatusRow(width, opts)
+    end)
+
     local function topmost_non_toast_widget()
         local stack = UIManager._window_stack
         if type(stack) ~= "table" then return end
@@ -1091,7 +1051,7 @@ local function apply_status_bar()
         return widget and widget._zen_home_show_status_bar == false
     end
 
-    function FileManager:_updateStatusBar()
+    function FileManager:_updateStatusBar(no_repaint)
         if not is_enabled() or home_without_status_bar_is_on_top() then
             return
         end
@@ -1156,7 +1116,7 @@ local function apply_status_bar()
         end
 
         local top_widget = topmost_non_toast_widget()
-        if FileManager.instance == self and self.invisible ~= true
+        if not no_repaint and FileManager.instance == self and self.invisible ~= true
                 and (top_widget == self or top_widget == self.show_parent) then
             -- Clear the full titlebar region so stale pixels from a previously
             -- wider right-side group don't leave ghosts.
@@ -1288,14 +1248,12 @@ local function apply_status_bar()
             orig_setupLayout(self)
         end
 
-        -- Build immediately so the first paint shows our custom row rather
-        -- than the placeholder title. Hidden instances do not repaint it.
-        self:_updateStatusBar()
+        -- Build immediately so KOReader's queued layout paint shows our custom row.
+        self:_updateStatusBar(true)
 
-        -- Defer again after all plugins (coverbrowser etc.) finish init
+        -- Finish titlebar setup after all plugins (coverbrowser etc.) initialize.
         local fm = self
         UIManager:nextTick(function()
-            refreshVisibleStatusBar(fm, false)
             -- Restore subtitle path only when subtitle widget exists
             if not config.hide_browser_bar and fm.file_chooser
                     and fm.file_chooser.path then

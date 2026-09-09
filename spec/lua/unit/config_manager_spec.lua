@@ -4,6 +4,7 @@ describe("config manager folder-path migration", function()
     local stores
     local written_settings
     local write_error
+    local google_key_ensures
 
     local function reload_manager(language)
         _G.G_reader_settings = ZenSpec.memorySettings(language and { language = language } or {})
@@ -16,6 +17,7 @@ describe("config manager folder-path migration", function()
         settings_file = { data = {}, flush = function() end }
         written_settings = nil
         write_error = nil
+        google_key_ensures = 0
         stores = {
             home = { settings = {}, presets = {} },
             reader = { settings = {}, presets = {} },
@@ -43,6 +45,15 @@ describe("config manager folder-path migration", function()
             end,
             migrateStores = function() return false end,
         })
+        ZenSpec.replace("config/hardcover_token", {
+            ensureFile = function() return false end,
+        })
+        ZenSpec.replace("config/google_books_key", {
+            ensureFile = function()
+                google_key_ensures = google_key_ensures + 1
+                return false
+            end,
+        })
         ZenSpec.replace("modules/filebrowser/patches/home/home_presets", {
             DEFAULT_PRESET_NAME = "Zen Default",
             BOOKSHELF_PRESET_NAME = "Bookshelf",
@@ -68,11 +79,31 @@ describe("config manager folder-path migration", function()
         assert.are.equal("", config.quick_settings.gyro_label)
         assert.are.equal("quick_rotate", config.quick_settings.gyro_icon)
         assert.are.equal("number", config.reader_footer.chapter_time_format)
+        assert.is_false(config.reader_top_status_bar.wifi_hide_when_off)
         assert.are.equal(18, config.page_browser.toc_font_size)
         assert.are.equal(18, config.page_browser.bookmarks_font_size)
         assert.are.same({}, config.folder_cover_paths)
         assert.is_true(config.search.substring)
+        assert.is_true(config.metadata.hardcover_enabled)
+        assert.is_true(config.metadata.google_books_enabled)
+        assert.is_true(config.metadata.open_library_enabled)
+        assert.is_true(config.metadata.hardcover_auto_match)
+        assert.is_false(config.metadata.epub_backup)
+        assert.are.equal(1, google_key_ensures)
         assert.is_false(config._meta.quickstart_shown_for_version)
+    end)
+
+    it("fills missing defaults without sharing them or replacing saved arrays", function()
+        settings_file.data = { navbar = { order = { "home" } }, folder_cover_paths = {} }
+        local defaults = require("config/defaults")
+        local config = Manager.load()
+        assert.are.same({ "home" }, config.navbar.order)
+        assert.are.same({}, config.folder_cover_paths)
+        assert.is_true(config.features.navbar)
+        config.features.navbar = false
+        assert.is_true(defaults.features.navbar)
+        assert.are.equal(config, Manager.load())
+        assert.is_false(config.features.navbar)
     end)
 
     it("reports a verified settings write failure", function()
@@ -140,6 +171,24 @@ describe("config manager folder-path migration", function()
         assert.are.equal("cycle", config.quick_settings.rotate_action)
     end)
 
+    it("migrates a disabled status bar to empty item lists", function()
+        settings_file.data = {
+            features = { status_bar = false },
+            status_bar = {
+                left_order = { "time" },
+                center_order = { "date" },
+                right_order = { "wifi", "battery" },
+            },
+        }
+
+        local config = Manager.load()
+
+        assert.is_true(config.features.status_bar)
+        assert.are.same({}, config.status_bar.left_order)
+        assert.are.same({}, config.status_bar.center_order)
+        assert.are.same({}, config.status_bar.right_order)
+    end)
+
     it("recovers the sparse config created by the fresh-install merge bug", function()
         settings_file.data = {
             _meta = {
@@ -166,7 +215,7 @@ describe("config manager folder-path migration", function()
         assert.is_false(config._meta.quickstart_completed)
     end)
 
-    it("keeps only JPG folder-cover references while preserving clear tombstones", function()
+    it("keeps JPG and JPEG folder-cover references while preserving clear tombstones", function()
         settings_file.data = {
             folder_cover_paths = {
                 ["/library/mixed"] = {
@@ -188,6 +237,7 @@ describe("config manager folder-path migration", function()
         assert.are.same({
             [1] = "/images/first.jpg",
             [2] = "/images/second.JPG",
+            [3] = "/images/legacy.jpeg",
         }, config.folder_cover_paths["/library/mixed"])
         assert.is_nil(config.folder_cover_paths["/library/unsupported"])
         assert.are.same({}, config.folder_cover_paths["/library/cleared"])

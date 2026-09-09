@@ -10,6 +10,24 @@ local T = require("ffi/util").template
 local _ = require("gettext")
 
 local M = {}
+local BOOK_DETAIL_ORDER = {
+    "authors", "series", "tags", "language", "rating", "annotations", "note",
+    "pages", "progress", "read_time", "time_remaining",
+}
+
+local function normalize_detail_order(order)
+    local normalized, seen, valid = {}, {}, {}
+    for _i, id in ipairs(BOOK_DETAIL_ORDER) do valid[id] = true end
+    for _i, id in ipairs(type(order) == "table" and order or {}) do
+        if valid[id] and not seen[id] then
+            normalized[#normalized + 1], seen[id] = id, true
+        end
+    end
+    for _i, id in ipairs(BOOK_DETAIL_ORDER) do
+        if not seen[id] then normalized[#normalized + 1] = id end
+    end
+    return normalized
+end
 
 local function read_setting(settings, key)
     if not (settings and type(settings.readSetting) == "function") then return nil end
@@ -90,6 +108,21 @@ local function format_genres(keywords)
         :gsub("^,%s*", ""):gsub(",%s*$", "")
 end
 
+local function split_tags(keywords)
+    local formatted = format_genres(keywords)
+    if not formatted then return {} end
+    local tags = {}
+    local seen = {}
+    for tag in formatted:gmatch("[^,]+") do
+        tag = tag:match("^%s*(.-)%s*$")
+        if tag ~= "" and not seen[tag] then
+            tags[#tags + 1] = tag
+            seen[tag] = true
+        end
+    end
+    return tags
+end
+
 function M.formatPageText(current, total)
     if not (is_present(current) and is_present(total)) then return nil end
     return T(_("Page %1 of %2"), tostring(current), tostring(total))
@@ -140,26 +173,59 @@ function M.getReadingTimes(ui, requested)
     requested = type(requested) == "table" and requested
         or { read_time = true, time_remaining = true }
     local stats = ui and ui.statistics
-    if type(stats) ~= "table" then
-        return nil, nil, nil, nil
-    end
     local ok_db, StatsDB = pcall(require, "common/db_stats")
     if not ok_db or type(StatsDB.queryBookDetails) ~= "function" then
         return nil, nil, nil, nil
     end
-    local ok, result = pcall(StatsDB.queryBookDetails, stats, requested)
-    if not ok or type(result) ~= "table" then return nil, nil, nil, nil end
+    local result
+    if type(stats) == "table" then
+        local ok, queried = pcall(StatsDB.queryBookDetails, stats, requested)
+        if ok and type(queried) == "table" then result = queried end
+    end
+    result = result or {}
 
     local read_time = requested.read_time == true
         and nonnegative_number(result.read_time) or nil
+    local avg_time = type(stats) == "table" and tonumber(stats.avg_time) or nil
+    local db_pages
+    if (requested.read_time == true and read_time == nil)
+            or (requested.time_remaining == true
+                and not (avg_time and avg_time > 0 and avg_time < math.huge)) then
+        local file = ui and ui.document and ui.document.file
+        if file and type(StatsDB.queryBookAveragePageTime) == "function" then
+            local ok, fallback_avg, fallback_pages, fallback_read = pcall(
+                StatsDB.queryBookAveragePageTime, file)
+            if ok then
+                avg_time = tonumber(fallback_avg) or avg_time
+                db_pages = positive_number(fallback_pages)
+                if requested.read_time == true and read_time == nil then
+                    read_time = nonnegative_number(fallback_read)
+                end
+            end
+        end
+    end
 
     local time_left
-    local avg_time = tonumber(stats.avg_time)
     local current_page, total_pages = current_page_info(ui)
+    if not (current_page and total_pages) then
+        local ratio, pages, derived_current, derived_total = M.getProgress(ui)
+        total_pages = total_pages or derived_total or db_pages or pages
+        current_page = current_page or derived_current
+        if not current_page and ratio and total_pages then
+            current_page = math.floor(total_pages * ratio + 0.5)
+        end
+    end
     if requested.time_remaining == true
             and avg_time and avg_time > 0 and avg_time < math.huge
             and current_page and total_pages and current_page <= total_pages then
-        time_left = math.floor((total_pages - current_page) * avg_time + 0.5)
+        local pages_left = total_pages - current_page
+        if db_pages and total_pages > 0 then
+            pages_left = pages_left * db_pages / total_pages
+        elseif type(stats) == "table"
+                and type(stats._zenPagesInStatisticsUnits) == "function" then
+            pages_left = stats:_zenPagesInStatisticsUnits(pages_left)
+        end
+        time_left = math.floor(pages_left * avg_time + 0.5)
     end
 
     local today_duration = requested.time_today == true
@@ -167,6 +233,24 @@ function M.getReadingTimes(ui, requested)
     local today_pages = requested.pages_today == true
         and nonnegative_number(result.pages_today) or nil
     return time_left, read_time, today_duration, today_pages
+end
+
+local function time_unit(unit)
+    if type(_) == "table" and type(_.pgettext) == "function" then
+        return _.pgettext("Time", unit)
+    end
+    return _(unit)
+end
+
+function M.formatDuration(seconds)
+    seconds = math.floor(tonumber(seconds) or 0)
+    if seconds <= 0 then return "0" .. time_unit("m") end
+    local hours = math.floor(seconds / 3600)
+    local minutes = math.floor((seconds % 3600) / 60)
+    if hours > 0 then
+        return hours .. time_unit("h") .. " " .. minutes .. time_unit("m")
+    end
+    return math.max(1, minutes) .. time_unit("m")
 end
 
 function M.getSummary(ui)
@@ -180,6 +264,7 @@ function M.getSummary(ui)
         authors = is_present(props.authors) and props.authors or "",
         series = format_series(props.series, props.series_index),
         genres = format_genres(props.keywords),
+        tags = split_tags(props.keywords),
         pages = pages,
         current_page = current_page,
         page_total = page_total,
@@ -201,6 +286,14 @@ function M.buildSpec(ui, opts)
     local summary = M.getSummary(ui)
     if not summary then return nil end
 
+    local config = type(opts.config) == "table" and opts.config or {}
+    local visibility = type(config.book_details) == "table" and config.book_details or {}
+    local navigate_tags = visibility.navigate_to_tag == true
+    local function enabled(id)
+        if type(visibility[id]) == "boolean" then return visibility[id] end
+        return id ~= "read_time" and id ~= "time_remaining"
+    end
+
     local file = summary.path
     local props = type(ui.doc_props) == "table" and ui.doc_props or {}
     local settings = ui.doc_settings
@@ -210,10 +303,12 @@ function M.buildSpec(ui, opts)
     if type(annotations) ~= "table" then
         annotations = read_setting(settings, "annotations")
     end
-    local description = props.description
-    local ok_util, util = pcall(require, "util")
-    if description and ok_util and util.htmlToPlainTextIfHtml then
-        description = util.htmlToPlainTextIfHtml(description)
+    local description = enabled("description") and props.description or nil
+    if description then
+        local ok_util, util = pcall(require, "util")
+        if ok_util and util.htmlToPlainTextIfHtml then
+            description = util.htmlToPlainTextIfHtml(description)
+        end
     end
 
     local details = {}
@@ -228,26 +323,109 @@ function M.buildSpec(ui, opts)
         end
     end
 
-    add_detail(summary.title, "title", true)
-    add_detail(summary.authors, "author", false, 2)
-    add_detail(summary.series, "secondary", false, 2)
-    add_detail(summary.genres, "tags", false, 3)
-    add_detail(LanguageName.get(props.language), "secondary", false, 3)
-    local rating = book_summary.rating
-    local numeric_rating = tonumber(rating)
-    if (not numeric_rating or numeric_rating > 0) and is_present(rating) then
-        local ok_list, BookList = pcall(require, "ui/widget/booklist")
-        local rating_text = ok_list and BookList and BookList.getBookRatingString
-            and BookList.getBookRatingString(rating) or rating
-        add_detail(rating_text, "secondary", false, 3)
+    local function add_rating()
+        if not enabled("rating") then return end
+        local rating = book_summary.rating
+        local numeric_rating = tonumber(rating)
+        if (not numeric_rating or numeric_rating > 0) and is_present(rating) then
+            local ok_list, BookList = pcall(require, "ui/widget/booklist")
+            local rating_text = ok_list and BookList and BookList.getBookRatingString
+                and BookList.getBookRatingString(rating) or rating
+            add_detail(rating_text, "secondary", false, 3)
+        end
     end
     local annotation_count = type(annotations) == "table" and #annotations or 0
-    if annotation_count > 0 then
-        add_detail(tostring(annotation_count) .. " " .. _("Annotations"),
-            "secondary", false, 3)
+    local time_left, read_time
+    if enabled("read_time") or enabled("time_remaining") then
+        time_left, read_time = M.getReadingTimes(ui, {
+            read_time = enabled("read_time"),
+            time_remaining = enabled("time_remaining"),
+        })
     end
-    add_detail(book_summary.note, "secondary", false, 3)
-    add_detail(summary.page_text, "page", false, 3)
+    local detail_builders = {
+        authors = function()
+            if enabled("authors") then add_detail(summary.authors, "author", false, 2) end
+        end,
+        series = function()
+            if enabled("series") then add_detail(summary.series, "secondary", false, 2) end
+        end,
+        tags = function()
+            if not enabled("tags") then return end
+            if navigate_tags and #summary.tags > 0 then
+                details[#details + 1] = {
+                    style = "tag_buttons",
+                    tags = summary.tags,
+                    gap_before = 3,
+                }
+            else
+                add_detail(summary.genres, "tags", false, 3)
+            end
+        end,
+        language = function()
+            if enabled("language") then
+                add_detail(LanguageName.get(props.language), "secondary", false, 3)
+            end
+        end,
+        rating = add_rating,
+        annotations = function()
+            if enabled("annotations") and annotation_count > 0 then
+                add_detail(tostring(annotation_count) .. " " .. _("Annotations"),
+                    "secondary", false, 3)
+            end
+        end,
+        note = function()
+            if enabled("note") then add_detail(book_summary.note, "secondary", false, 3) end
+        end,
+        pages = function()
+            if enabled("pages") then add_detail(summary.page_text, "page", false, 3) end
+        end,
+        progress = function()
+            if enabled("progress") and tonumber(summary.progress) then
+                details[#details + 1] = {
+                    style = "progress",
+                    progress = summary.progress,
+                    pages = summary.pages,
+                    right_text = "",
+                    gap_before = 3,
+                }
+            end
+        end,
+        read_time = function()
+            if enabled("read_time") and read_time ~= nil then
+                add_detail(string.format(_("Read: %s"), M.formatDuration(read_time)),
+                    "secondary", false, 3)
+            end
+        end,
+        time_remaining = function()
+            if enabled("time_remaining") and time_left ~= nil then
+                add_detail(string.format(_("Remaining: %s"), M.formatDuration(time_left)),
+                    "secondary", false, 3)
+            end
+        end,
+    }
+
+    add_detail(summary.title, "title", true)
+    local order = normalize_detail_order(visibility.order)
+    local skip_next = false
+    for index, id in ipairs(order) do
+        if skip_next then
+            skip_next = false
+        else
+            local next_id = order[index + 1]
+            local paired_times = ((id == "read_time" and next_id == "time_remaining")
+                    or (id == "time_remaining" and next_id == "read_time"))
+                and enabled(id) and enabled(next_id)
+                and read_time ~= nil and time_left ~= nil
+            if paired_times then
+                add_detail(string.format(_("Read: %s"), M.formatDuration(read_time))
+                    .. " / " .. string.format(_("Remaining: %s"),
+                        M.formatDuration(time_left)), "secondary", false, 3)
+                skip_next = true
+            else
+                detail_builders[id]()
+            end
+        end
+    end
 
     local reader_font_size = ReaderFont.getInfo(ui,
         (Font.sizemap and Font.sizemap.cfont) or 16).size
@@ -298,10 +476,26 @@ function M.buildSpec(ui, opts)
         UIManager:show(viewer)
     end
 
+    local tag_callback
+    if navigate_tags then
+        tag_callback = function(tag)
+            local plugin = opts.plugin
+            if opts.home_context == true then
+                local ok_shared, SharedState = pcall(require, "common/shared_state")
+                local home = ok_shared and SharedState.get(plugin, "home") or nil
+                if home and type(home.showTagInStrip) == "function"
+                        and home.showTagInStrip(tag) then return true end
+            end
+            return require("common/dispatch_action").onShowZenUITag(plugin, tag)
+        end
+    end
+
     return {
         title = _("Book details"),
         details = details,
         description = description or "",
+        show_description = enabled("description"),
+        tag_callback = tag_callback,
         cover = cover_bb,
         cover_width = cover_w,
         cover_height = cover_h,
@@ -310,9 +504,6 @@ function M.buildSpec(ui, opts)
         text_face = library_face,
         text_size = reader_font_size,
         text_faces = text_faces,
-        progress = summary.progress,
-        progress_pages = summary.pages,
-        progress_right_text = "",
         edit_callback = opts.edit_callback,
         close_all_callback = opts.close_all_callback,
     }

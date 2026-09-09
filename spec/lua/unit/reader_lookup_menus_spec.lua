@@ -10,6 +10,9 @@ describe("reader lookup menus", function()
         _G.__ZEN_UI_PLUGIN = nil
         ZenSpec.replace("common/zen_logger", { new = logger_stub })
         ZenSpec.replace("gettext", function(text) return text end)
+        ZenSpec.replace("ui/widget/iconwidget", {
+            init = function(self) self.file = "resources/icons/icon-not-found.svg" end,
+        })
         ZenSpec.replace("ui/event", {
             new = function(_, name, ...)
                 return { handler = "on" .. name, args = { ... }, name = name }
@@ -104,6 +107,134 @@ describe("reader lookup menus", function()
         _G.__ZEN_UI_PLUGIN.config.features.highlight_lookup = true
         assert.is_nil(ReaderHighlight.onShowHighlightMenu({}))
         assert.is_nil(shown)
+    end)
+
+    it("saves a new highlight without offering Extend", function()
+        ZenSpec.replace("ui/widget/buttondialog", { new = function(_, spec) return spec end })
+        local ReaderHighlight = { onShowHighlightMenu = function() return "stock" end }
+        ZenSpec.replace("apps/reader/modules/readerhighlight", ReaderHighlight)
+        _G.__ZEN_UI_PLUGIN = {
+            config = { features = { highlight_lookup = true }, highlight_lookup = {} },
+        }
+        require("modules/reader/patches/highlight_menu")()
+
+        local saved, selected = false, false
+        local select_callback = function() selected = true end
+        local highlight = {
+            selected_text = { text = "start of a multipage highlight" },
+            hold_pos = { x = 10, y = 20 },
+            saveHighlight = function() saved = true end,
+            onClose = function() end,
+            _highlight_buttons = {
+                ["01_select"] = function(this, index)
+                    assert.are.equal("start of a multipage highlight", this.selected_text.text)
+                    assert.is_nil(index)
+                    return { enabled = true, callback = select_callback }
+                end,
+            },
+        }
+        ReaderHighlight.onShowHighlightMenu(highlight)
+
+        assert.same({ "lookup.highlight", "lookup.dictionary", "lookup.translate", "lookup.search" }, {
+            shown.buttons[1][1].icon, shown.buttons[1][2].icon,
+            shown.buttons[1][3].icon, shown.buttons[1][4].icon,
+        })
+        assert.are.equal(4, #shown.buttons[1])
+        assert.are.equal(1, #shown.buttons)
+        shown.buttons[1][1].callback()
+        assert.is_true(saved)
+        assert.is_false(selected)
+    end)
+
+    it("shows KOReader's extend action for an existing highlight", function()
+        local dialog_spec
+        ZenSpec.replace("ui/widget/buttondialog", {
+            new = function(_, spec)
+                dialog_spec = spec
+                return spec
+            end,
+        })
+        local ReaderHighlight = { onShowHighlightMenu = function() return "stock" end }
+        ZenSpec.replace("apps/reader/modules/readerhighlight", ReaderHighlight)
+        _G.__ZEN_UI_PLUGIN = {
+            config = {
+                features = { highlight_lookup = true },
+                highlight_lookup = { allow_unknown_items = true },
+            },
+        }
+        require("modules/reader/patches/highlight_menu")()
+
+        local extended_index, highlight_text_edited
+        local highlight = {
+            selected_text = { text = "existing highlight" },
+            ui = { handleEvent = function() end },
+            translate = function() end,
+            onHighlightSearch = function() end,
+            _getDialogAnchor = function() return {} end,
+            _highlight_buttons = {
+                ["01_select"] = function(_, index)
+                    return {
+                        enabled = not highlight_text_edited,
+                        callback = function() extended_index = index end,
+                    }
+                end,
+            },
+        }
+        ReaderHighlight.onShowHighlightMenu(highlight, 3)
+
+        assert.are.equal(ZenSpec.root .. "/icons/lookup_extend.svg", dialog_spec.buttons[1][1].icon)
+        local icon_widget = { icon = dialog_spec.buttons[1][1].icon }
+        require("ui/widget/iconwidget").init(icon_widget)
+        assert.are.equal(ZenSpec.root .. "/icons/lookup_extend.svg", icon_widget.file)
+        assert.is_true(dialog_spec.buttons[1][1].enabled)
+        assert.are.equal(1, #dialog_spec.buttons)
+        dialog_spec.buttons[1][1].callback()
+        assert.are.equal(3, extended_index)
+
+        highlight_text_edited = true
+        ReaderHighlight.onShowHighlightMenu(highlight, 3)
+        assert.is_false(dialog_spec.buttons[1][1].enabled)
+    end)
+
+    it("anchors the highlight menu outside the selected text", function()
+        local dialog_spec
+        ZenSpec.replace("ui/size", { padding = { small = 4 } })
+        ZenSpec.replace("ui/widget/buttondialog", {
+            new = function(_, spec)
+                dialog_spec = spec
+                spec.getContentSize = function() return { w = 200 } end
+                return spec
+            end,
+        })
+        local ReaderHighlight = { onShowHighlightMenu = function() end }
+        ZenSpec.replace("apps/reader/modules/readerhighlight", ReaderHighlight)
+        _G.__ZEN_UI_PLUGIN = {
+            config = { features = { highlight_lookup = true }, highlight_lookup = {} },
+        }
+        require("modules/reader/patches/highlight_menu")()
+
+        local highlight = {
+            selected_text = {
+                text = "selected",
+                sboxes = { { y = 300, h = 20 }, { y = 100, h = 20 } },
+            },
+            screen_w = 600,
+            screen_h = 800,
+            ui = { handleEvent = function() end },
+            onClose = function() end,
+            translate = function() end,
+            onHighlightSearch = function() end,
+        }
+        ReaderHighlight.onShowHighlightMenu(highlight)
+
+        local anchor, prefers_below = dialog_spec.anchor()
+        assert.same({ x = 200, y = 96, w = 0, h = 228 }, anchor)
+        assert.is_true(prefers_below)
+
+        highlight.selected_text.sboxes = { { y = 650, h = 20 }, { y = 700, h = 20 } }
+        anchor, prefers_below = dialog_spec.anchor()
+        assert.same({ x = 200, y = 646, w = 0, h = 78 }, anchor)
+        assert.is_false(prefers_below)
     end)
 
     it("shows recognized highlight plugins by default and honors their toggles", function()

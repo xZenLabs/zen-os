@@ -36,8 +36,9 @@ Reader settings control ZenOS features while a book is open. They cover the top 
 
 ## Options
 
-- Configure a reader top status bar with left, center, and right item slots.
-- Use the top bar's border as reading progress and hide the bar in CBZ/PDF files.
+- Configure one reader top status bar with shared left, center, and right item slots across document formats.
+- Reserve the top bar's space in paged reflowable documents, or paint it over CBZ/PDF files.
+- Use the top bar's border as reading progress with optional chapter marks.
 - Apply built-in or custom themes for light and dark reader modes.
 - Apply prebuilt bottom status bars or save your current setup as a preset.
 - Open KOReader's reader font controls from ZenOS.
@@ -52,16 +53,18 @@ Reader settings control ZenOS features while a book is open. They cover the top 
 | Setting | Description |
 | --- | --- |
 | Top status bar > Enable top status bar | Shows ZenOS's top reader status bar. |
-| Top status bar > Left items | Selects and arranges time, battery, Incognito, Wi-Fi, brightness, RAM usage, disk space, custom text, book title, author, chapter, progress percentage, or current/total pages for the left slot. |
+| Top status bar > Left items | Selects and arranges time, combined or separate battery information, Incognito, Wi-Fi, brightness, RAM usage, disk space, custom text, book title, author, chapter, progress percentage, separate current/total pages, or combined current/total pages for the left slot. |
 | Top status bar > Center items | Selects and arranges top-bar items for the center slot. |
 | Top status bar > Right items | Selects and arranges top-bar items for the right slot. |
-| Top status bar > Show separator | Shows separators inside the selected slot. |
-| Top status bar > Custom text | Sets custom top-bar text. Empty text falls back to the device model. |
+| Top status bar > Left/center/right items > Show separator | Shows separators inside the selected slot. |
+| Top status bar > Left/center/right items > Custom text | Enables custom text in that slot and opens its value editor. Empty text falls back to the device model. |
 | Top status bar > Font size | Sets the top-bar font size from 8 to 36. |
 | Top status bar > Font | Sets the top-bar font face or restores the default font. |
 | Top status bar > Separator | Selects a preset separator for top-bar items. |
 | Top status bar > Show bottom border | Draws a separator below the reader top status bar. |
 | Top status bar > Use border as progress bar | Fills the bottom border to show reading progress. Enabling it also enables the border. |
+| Top status bar > Chapter marks | Draws table-of-contents marks on the progress border. Enabling it also enables the progress border. |
+| Top status bar > Colored status icons | Uses the library status-bar colors for Wi-Fi, storage, memory, brightness, and battery icons on supported color screens. |
 | Top status bar > Hide in CBZ/PDF files | Hides the top bar for CBZ and PDF documents. |
 | Reader themes > Enable reader themes | Enables ZenOS reader themes. |
 | Reader themes > Dark mode | Selects the theme used while KOReader night mode is active. |

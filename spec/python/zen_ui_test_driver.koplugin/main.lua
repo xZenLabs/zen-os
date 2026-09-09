@@ -11,6 +11,7 @@ local showcase_timestamp
 local showcase_quote
 local showcase_picker
 local showcase_picker_wrapped
+local metadata_showcase_editor
 
 local function get_zen_plugin()
     local PluginLoader = require("pluginloader")
@@ -120,12 +121,15 @@ local function install_showcase_picker_tracker()
     showcase_picker_wrapped = true
     package.loaded["common/ui/zen_menu_picker"] = function(opts)
         local labels = {}
+        local secondary_labels = {}
         for _i, item in ipairs(type(opts) == "table" and opts.items or {}) do
             labels[#labels + 1] = item.text
+            secondary_labels[#secondary_labels + 1] = item.secondary_text or ""
         end
         showcase_picker = {
             title = type(opts) == "table" and opts.title or nil,
             labels = labels,
+            secondary_labels = secondary_labels,
         }
         return original_picker(opts)
     end
@@ -1272,6 +1276,7 @@ local function reset_showcase_ui(session)
         local open_tab = rawget(_G, "__ZEN_UI_NAVBAR_OPEN_TAB")
         if type(open_tab) == "function" then pcall(open_tab, "books") end
     end
+    metadata_showcase_editor = nil
     return true
 end
 
@@ -1381,6 +1386,168 @@ local function open_file_context(path)
         end
     end
     return false, "context book is not in the current file chooser"
+end
+
+local function set_showcase_orientation(orientation)
+    if orientation ~= "portrait" and orientation ~= "landscape" then
+        return false, "unsupported showcase orientation"
+    end
+    local Screen = require("device").screen
+    local want_landscape = orientation == "landscape"
+    if (Screen:getWidth() > Screen:getHeight()) ~= want_landscape then
+        local current = tonumber(Screen:getRotationMode()) or Screen.DEVICE_ROTATED_UPRIGHT
+        local target = current % 2 == 0
+            and Screen.DEVICE_ROTATED_CLOCKWISE or Screen.DEVICE_ROTATED_UPRIGHT
+        local FileManager = require("apps/filemanager/filemanager")
+        local fm = FileManager.instance
+        if fm and type(fm.onSetRotationMode) == "function" then
+            fm:onSetRotationMode(target)
+        else
+            Screen:setRotationMode(target)
+            UIManager:onRotation()
+        end
+    end
+    if (Screen:getWidth() > Screen:getHeight()) ~= want_landscape then
+        return false, "showcase orientation did not change"
+    end
+    return true
+end
+
+local function metadata_showcase_state()
+    local editor = metadata_showcase_editor
+    if not editor then return nil end
+    local fields = {}
+    for _i, item in ipairs(editor.item_table or {}) do
+        fields[#fields + 1] = item.text
+    end
+    local Screen = require("device").screen
+    return {
+        dirty = editor:isDirty(),
+        title = editor.draft and editor.draft.title,
+        authors = editor.draft and editor.draft.authors,
+        edition_summary = editor.edition_summary,
+        hardcover_text = editor:_hardcoverText(),
+        open_with_text = editor._open_with_button and editor._open_with_button.text,
+        restore_text = editor._restore_button and editor._restore_button.text,
+        hardcover_filled = editor._hardcover_button
+            and editor._hardcover_button._zen_filled == true,
+        has_pending_cover = editor:getPendingCover() ~= nil,
+        title_action = editor.title_bar and editor.title_bar.action
+            and editor.title_bar.action.text or nil,
+        title_action_zen = editor.title_bar and editor.title_bar.action
+            and editor.title_bar.action.zen_button == true,
+        title_action_font_size = editor.title_bar and editor.title_bar.action
+            and editor.title_bar.action.text_font_size or nil,
+        fields = fields,
+        page_count = editor.page_num,
+        width = Screen:getWidth(),
+        height = Screen:getHeight(),
+    }
+end
+
+local function show_metadata_editor_fixture(orientation)
+    reset_showcase_ui("general")
+    local ok_orientation, err = set_showcase_orientation(orientation)
+    if not ok_orientation then return false, err end
+    local plugin_root = require("common/plugin_root")
+    local current_cover = require("ui/renderimage"):renderImageFile(
+        plugin_root .. "/images/quickstart/onboarding/library_covers.png", false)
+    metadata_showcase_editor = require("modules/filebrowser/metadata_editor").show{
+        file = "/fixture/The Strength of the Few.epub",
+        is_epub = true,
+        can_restore = true,
+        current_cover = current_cover,
+        metadata = {
+            title = "The Strength of the Few",
+            authors = { "James Islington" },
+            language = "en",
+            isbn = "9781982141197",
+        },
+        on_hardcover = function() end,
+        on_open_with = function() end,
+        on_cover = function(editor)
+            require("common/ui/zen_menu_picker"){
+                title = "Cover",
+                items = {
+                    { text = "Discard" },
+                },
+                footer_buttons = {
+                    { text = "Choose image" },
+                    { text = "Find metadata", filled = true },
+                },
+                footer_buttons_under_header = true,
+                hide_header_divider = true,
+                header_height = editor:getCoverComparisonHeight(),
+                paint_header = function(bb, x, y, width, height)
+                    editor:paintCoverComparison(bb, x, y, width, height)
+                end,
+                on_select = function() end,
+            }
+        end,
+        on_rename = function() end,
+        on_save = function() end,
+        on_restore = function() end,
+    }
+    metadata_showcase_editor:applyHardcover({
+        title = "The Strength of the Few",
+        authors = { "James Islington" },
+        series_name = "Hierarchy",
+        series_index = "2",
+        genres = { "Fantasy", "Epic fantasy" },
+        language = "en",
+        publisher = "Orbit",
+        description = "The hierarchy is changing, and the cost of power has never been higher.",
+    }, "Paperback, 2024 · Orbit")
+    metadata_showcase_editor:setPendingCover(
+        plugin_root .. "/images/quickstart/onboarding/library_list_full.png", false)
+    metadata_showcase_editor.page = 1
+    metadata_showcase_editor.itemnumber = 1
+    metadata_showcase_editor:updateItems(nil, false)
+    UIManager:forceRePaint()
+    return true
+end
+
+local function show_metadata_cover_fixture()
+    local ok, err = show_metadata_editor_fixture("portrait")
+    if not ok then return false, err end
+    metadata_showcase_editor:_editCover()
+    UIManager:forceRePaint()
+    return true
+end
+
+local function show_metadata_picker_fixture()
+    reset_showcase_ui("general")
+    local ok_orientation, err = set_showcase_orientation("portrait")
+    if not ok_orientation then return false, err end
+    if not install_showcase_picker_tracker() then
+        return false, "showcase picker unavailable"
+    end
+    local plugin_root = require("common/plugin_root")
+    require("common/ui/zen_menu_picker"){
+        title = "Choose an edition",
+        rows_per_page = 5,
+        items = {
+            {
+                text = "Search again",
+                secondary_text = "The Strength of the Few · James Islington",
+            },
+            {
+                text = "Hardcover, 2025",
+                secondary_text = "Orbit · English · 720 pages",
+                image_file = plugin_root
+                    .. "/images/quickstart/onboarding/library_covers.png",
+            },
+            {
+                text = "Paperback, 2026",
+                secondary_text = "Orbit · English · 736 pages",
+                image_file = plugin_root
+                    .. "/images/quickstart/onboarding/library_list_full.png",
+            },
+        },
+        on_select = function() end,
+    }
+    UIManager:forceRePaint()
+    return true
 end
 
 local function open_quickstart()
@@ -1517,6 +1684,25 @@ function Driver:handleCommand(command)
     if kind == "open_file_context" and type(params.path) == "string" then
         local ok, err = open_file_context(params.path)
         return { ok = ok == true, error = err }
+    end
+    if kind == "show_metadata_editor_fixture" then
+        local ok, err = show_metadata_editor_fixture(params.orientation)
+        return { ok = ok == true, error = err, metadata = metadata_showcase_state() }
+    end
+    if kind == "show_metadata_cover_fixture" then
+        local ok, err = show_metadata_cover_fixture()
+        return { ok = ok == true, error = err }
+    end
+    if kind == "show_metadata_picker_fixture" then
+        local ok, err = show_metadata_picker_fixture()
+        local Screen = require("device").screen
+        return {
+            ok = ok == true,
+            error = err,
+            picker = showcase_picker,
+            width = Screen:getWidth(),
+            height = Screen:getHeight(),
+        }
     end
     if kind == "open_quickstart" then
         local ok, err = open_quickstart()

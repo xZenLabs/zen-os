@@ -69,7 +69,7 @@ local M = {}
 
 --- Paint a filled black rounded-rect button with centered white bold label.
 --- Returns { x, y, w, h } for hit-testing.
-function M.paintFilled(bb, bx, by, bw, bh, label, font_size, corner_r)
+function M.paintFilled(bb, bx, by, bw, bh, label, font_size, corner_r, max_text_width)
     corner_r  = corner_r  or Screen:scaleBySize(10)
     font_size = font_size or 22
     paintRoundedRect(bb, bx, by, bw, bh, Blitbuffer.COLOR_BLACK, corner_r, Blitbuffer.COLOR_WHITE)
@@ -78,6 +78,7 @@ function M.paintFilled(bb, bx, by, bw, bh, label, font_size, corner_r)
         face    = Font:getFace("cfont", font_size),
         bold    = true,
         fgcolor = Blitbuffer.COLOR_WHITE,
+        max_width = max_text_width,
         padding = 0,
     }
     local tsz = tw:getSize()
@@ -90,7 +91,8 @@ end
 
 --- Paint an outlined (hollow border) rounded-rect button with centered black bold label.
 --- Returns { x, y, w, h } for hit-testing.
-function M.paintOutlined(bb, bx, by, bw, bh, label, font_size, corner_r, border_w)
+function M.paintOutlined(bb, bx, by, bw, bh, label, font_size, corner_r, border_w,
+        max_text_width)
     corner_r  = corner_r  or Screen:scaleBySize(10)
     border_w  = border_w  or Screen:scaleBySize(2)
     font_size = font_size or 22
@@ -101,6 +103,7 @@ function M.paintOutlined(bb, bx, by, bw, bh, label, font_size, corner_r, border_
         face    = Font:getFace("cfont", font_size),
         bold    = true,
         fgcolor = Blitbuffer.COLOR_BLACK,
+        max_width = max_text_width,
         padding = 0,
     }
     local tsz = tw:getSize()

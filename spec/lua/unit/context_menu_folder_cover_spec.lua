@@ -46,6 +46,8 @@ describe("folder cover context-menu integration", function()
             directory = function(value) return value end,
             filename = function(value) return value end,
             filepath = function(value) return value end,
+            ltr = function(value) return value end,
+            mirroredUILayout = function() return false end,
         }
 
         replace("ui/bidi", deps.bidi or bidi)
@@ -72,6 +74,10 @@ describe("folder cover context-menu integration", function()
             settings_covers = "covers-icon",
             check = "check-icon",
             filename = "filename-icon",
+            details = "details-icon",
+            edit = "edit-icon",
+            read_status = "status-icon",
+            refresh = "refresh-icon",
         })
         replace("common/cover_utils", deps.Cover or {})
         replace("common/zen_logger", deps.zen_logger or {
@@ -87,6 +93,17 @@ describe("folder cover context-menu integration", function()
             attributes = function() end,
         })
         replace("document/documentregistry", deps.DocumentRegistry or {})
+        replace("readcollection", deps.ReadCollection or {
+            coll = {},
+            default_collection_name = "Favorites",
+        })
+        if deps.BookInfoManager then replace("bookinfomanager", deps.BookInfoManager) end
+        if deps.BookDetails then
+            replace("modules/reader/book_details", deps.BookDetails)
+        end
+        if deps.MetadataService then
+            replace("modules/filebrowser/metadata/service", deps.MetadataService)
+        end
         replace("ui/size", {
             border = { window = 1 },
             padding = { button = 1, default = 1 },
@@ -99,6 +116,9 @@ describe("folder cover context-menu integration", function()
         replace("ui/widget/container/framecontainer", Widget)
         replace("ui/widget/horizontalgroup", Widget)
         replace("ui/widget/horizontalspan", Widget)
+        replace("ui/widget/imagewidget", Widget)
+        replace("ui/widget/container/inputcontainer", Widget)
+        replace("ui/gesturerange", Widget)
         replace("ui/widget/textwidget", Widget)
         replace("ui/geometry", Widget)
         replace("ffi/blitbuffer", {
@@ -196,6 +216,76 @@ describe("folder cover context-menu integration", function()
         assert.are.equal("cover.jpeg", stock_calls[1].filename)
         assert.are.equal("book.epub", stock_calls[5].filename)
         assert.are.equal("pathchooser", stock_calls[6].name)
+    end)
+
+    it("keeps every path chooser traversable without changing its title bar", function()
+        local PathChooser = widget_class()
+        function PathChooser:init()
+            self.title_bar_left_icon = "home"
+            self.title_bar = {
+                has_left_icon = true,
+                left_icon = "home",
+                left_button = { icon = "home" },
+                right_icon = "close",
+                right_button = { icon = "close" },
+                clear = function() end,
+                init = function(title_bar)
+                    title_bar.has_left_icon = title_bar.left_icon ~= nil
+                    title_bar.left_button = title_bar.has_left_icon
+                        and { icon = title_bar.left_icon } or nil
+                    title_bar.right_button = { icon = title_bar.right_icon }
+                end,
+            }
+        end
+        function PathChooser:genItemTableFromPath()
+            return self.stock_items or {}
+        end
+
+        local FileChooser = {
+            show_filter = {},
+            show_file = function() return true end,
+        }
+        local FileManager = {
+            moveFile = function() return true end,
+            setupLayout = function() end,
+        }
+        install_stubs({
+            FileChooser = FileChooser,
+            FileManager = FileManager,
+            PathChooser = PathChooser,
+            Files = { isManaged = function() return false end },
+            ffiUtil = {
+                realpath = function(path) return path end,
+                dirname = function(path)
+                    if path == "/" then return path end
+                    return path:match("^(.*)/[^/]+$") or "."
+                end,
+            },
+        })
+        apply_patch()
+
+        local chooser = { show_current_dir_for_hold = false }
+        PathChooser.init(chooser)
+        assert.are.equal("home", chooser.title_bar_left_icon)
+        assert.is_true(chooser.title_bar.has_left_icon)
+        assert.are.equal("home", chooser.title_bar.left_button.icon)
+        assert.are.equal("close", chooser.title_bar.right_button.icon)
+
+        local items = PathChooser.genItemTableFromPath(chooser, "/library")
+        assert.is_true(items[1].is_go_up)
+        assert.are.equal("/library/..", items[1].path)
+
+        chooser.show_current_dir_for_hold = true
+        chooser.stock_items = { { path = "/library/." } }
+        items = PathChooser.genItemTableFromPath(chooser, "/library")
+        assert.are.equal("/library/.", items[1].path)
+        assert.is_true(items[2].is_go_up)
+
+        chooser.stock_items = { { is_go_up = true, path = "/library/.." } }
+        items = PathChooser.genItemTableFromPath(chooser, "/library")
+        assert.are.equal(1, #items)
+        chooser.stock_items = {}
+        assert.are.equal(0, #PathChooser.genItemTableFromPath(chooser, "/"))
     end)
 
     it("keeps a configured cover reference aligned when its image moves", function()
@@ -518,5 +608,107 @@ describe("folder cover context-menu integration", function()
         assert.are.equal(0, refreshes)
         assert.are.equal(6, library_invalidations)
         assert.are.equal(6, home_rebuilds)
+    end)
+
+    it("places metadata editing above Delete in the Edit submenu", function()
+        local shown = {}
+        local details_options
+        local editor_options
+        local refreshed = {}
+        local FileChooser = {
+            show_filter = {},
+            show_file = function() return true end,
+        }
+        local file_chooser = {
+            name = "filemanager",
+            path = "/library",
+            showFileDialog = function() return "stock" end,
+            refreshPath = function() end,
+        }
+        local FileManager = {
+            moveFile = function() return true end,
+            setupLayout = function() end,
+        }
+        local bookinfo = {
+            showFromBookDetails = function(_self, file, _props, options)
+                assert.are.equal("/library/book.epub", file)
+                editor_options = options
+            end,
+        }
+        local file_manager = {
+            file_chooser = file_chooser,
+            bookinfo = bookinfo,
+        }
+        FileManager.instance = file_manager
+        _G.__ZEN_UI_PLUGIN = {
+            config = { context_menu = { allow_delete = true } },
+        }
+
+        install_stubs({
+            FileChooser = FileChooser,
+            FileManager = FileManager,
+            Files = { isManaged = function() return false end },
+            UIManager = {
+                show = function(_self, widget) shown[#shown + 1] = widget end,
+                close = function() end,
+                nextTick = function(_self, callback) callback() end,
+            },
+            Cover = {
+                BORDER_SIZE = 1,
+                getRatio = function() return 2 / 3 end,
+                makeCover = function()
+                    return { free = function() end }, 80, 120
+                end,
+            },
+            BookInfoManager = {
+                getBookInfo = function()
+                    return { title = "Book", authors = "Author" }
+                end,
+            },
+            BookDetails = {
+                showFile = function(_file, options) details_options = options end,
+            },
+            MetadataService = {
+                refreshLibrary = function(_file_manager, file)
+                    refreshed[#refreshed + 1] = file
+                end,
+            },
+            paths = {
+                getHomeDir = function() return "/library" end,
+                isInHomeDir = function() return true end,
+                isHomeRoot = function() return false end,
+                isPrimaryHomeRoot = function() return false end,
+            },
+        })
+        apply_patch()
+        FileManager.setupLayout(file_manager)
+
+        file_chooser:showFileDialog({
+            path = "/library/book.epub",
+            is_file = true,
+            _zen_collection_name = "Test",
+        })
+        local dialog = shown[#shown]
+        assert(find_button(dialog, "Details")).callback()
+        assert.is_nil(details_options.edit_callback)
+        assert.is_false(details_options.home_context)
+        assert.are.equal(_G.__ZEN_UI_PLUGIN, details_options.plugin)
+        assert.is_nil(find_button(dialog, "Edit metadata"))
+
+        assert(find_button(dialog, "Edit")).callback()
+        local edit_dialog = shown[#shown]
+        assert.matches("Edit metadata", edit_dialog.buttons[#edit_dialog.buttons - 1][1].text,
+            1, true)
+        assert.matches("Delete", edit_dialog.buttons[#edit_dialog.buttons][1].text, 1, true)
+        assert(find_button(edit_dialog, "Edit metadata")).callback()
+        assert.is_table(editor_options)
+        editor_options.on_renamed("/library/renamed.epub")
+        editor_options.on_saved("/library/renamed.epub")
+        editor_options.on_restored("/library/renamed.epub")
+        assert.are.same({
+            "/library/renamed.epub",
+            "/library/renamed.epub",
+            "/library/renamed.epub",
+        }, refreshed)
     end)
 end)

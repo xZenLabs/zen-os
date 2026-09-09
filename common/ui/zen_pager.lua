@@ -153,7 +153,7 @@ end
 --   cur_page,
 --   total_pages : pagination state
 -- No-ops silently when total_pages <= 1.
-function M.paint(bb, x, y, w, h, cur_page, total_pages, force_style)
+function M.paint(bb, x, y, w, h, cur_page, total_pages, force_style, mirrored)
     if total_pages <= 1 then return end
     local style = force_style or M.getStyle()
 
@@ -186,6 +186,7 @@ function M.paint(bb, x, y, w, h, cur_page, total_pages, force_style)
         RenderText:renderUtf8Text(bb, text_x, base_y, pn_face, text_str, false, false, THUMB_COLOR)
         local icon_y = y + math.floor((h - M.PN_ICON_SZ) / 2)
         local il, ir = get_pn_icons()
+        if mirrored then il, ir = ir, il end
         il:paintTo(bb, x + math.floor((M.CHEV_W - M.PN_ICON_SZ) / 2), icon_y)
         ir:paintTo(bb, x + w - M.CHEV_W + math.floor((M.CHEV_W - M.PN_ICON_SZ) / 2), icon_y)
 

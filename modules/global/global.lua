@@ -207,13 +207,6 @@ function M.init(logger, plugin)
                 pcall(Screen.setHWNightmode, Screen, want)
                 require("ui/uimanager"):setDirty("all", "full")
             end
-            -- KOReader restores Device.orig_hw_nightmode on exit (the HW flag it
-            -- believes the OS had before launch). After a crash the persisted
-            -- inversion is KOReader's own, but boot mistakes it for the native
-            -- state, so on exit it re-inverts the Kindle home screen and covers.
-            -- The Kindle native state is never inverted (the flag is KOReader's),
-            -- so pin orig back to false to hand the OS a clean screen on exit.
-            Device.orig_hw_nightmode = false
         end
     end
 

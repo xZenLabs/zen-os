@@ -326,14 +326,14 @@ return {
         end
         local available_h = math.max(0, height - content_h)
         local content_top = math.floor(available_h / 2)
-        local visual_shift = 0
         if type(ctx.setContentBounds) == "function" then
             ctx.setContentBounds{
-                top = content_top,
-                bottom = content_top + content_h,
-                min_shift = -content_top,
-                max_shift = height - content_top - content_h,
-                set_shift = function(shift) visual_shift = shift end,
+                top = 0,
+                bottom = height,
+                min_shift = 0,
+                max_shift = 0,
+                lock_shift = true,
+                set_shift = function() end,
             }
         end
         local content = WidgetResources.managedPaintWidget{
@@ -341,7 +341,7 @@ return {
             resources = { quote_widget, author_widget },
             paintTo = function(_self, bb, x, y)
                 local quote_x = x + math.floor((width - content_w) / 2)
-                local quote_y = y + content_top + visual_shift
+                local quote_y = y + content_top
                 quote_widget:paintTo(bb, quote_x, quote_y)
                 if author_widget then
                     local author_x = x + math.floor((width - content_w) / 2)

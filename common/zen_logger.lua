@@ -100,9 +100,20 @@ function M.install()
             return _original[level](...)
         end
     end
-    for _i, level in ipairs(LEVELS) do
-        _original[level] = _logger[level]
-        _logger[level] = wrap(level)
+    local function wrap_levels()
+        for _i, level in ipairs(LEVELS) do
+            _original[level] = _logger[level]
+            _logger[level] = wrap(level)
+        end
+    end
+    wrap_levels()
+    if type(_logger.setLevel) == "function" then
+        local original_set_level = _logger.setLevel
+        _logger.setLevel = function(self, ...)
+            local result = original_set_level(self, ...)
+            wrap_levels()
+            return result
+        end
     end
     _installed = true
     return _logger

@@ -9,6 +9,13 @@ local function apply()
     local Event = require("ui/event")
     local logger = require("common/zen_logger").new("highlight_menu")
     local LookupPluginItems = require("modules/reader/lookup_plugin_items")
+    local utils = require("common/utils")
+    local plugin_root = require("common/plugin_root")
+    local _icons_dir = plugin_root and plugin_root .. "/icons/"
+    local extend_icon = utils.resolveLocalIcon(_icons_dir, "lookup_extend")
+    if extend_icon then
+        utils.overrideIcons({ [extend_icon] = extend_icon }, false)
+    end
 
     local _plugin_ref = rawget(_G, "__ZEN_UI_PLUGIN")
 
@@ -43,12 +50,11 @@ local function apply()
         return type(cfg) == "table" and cfg.show_ai_assistant ~= false
     end
 
-    -- Find the main button registered by assistant.koplugin (AI helper).
-    local function find_ai_button(self, index)
+    local function find_highlight_button(self, index, name)
         if not self._highlight_buttons then return nil end
         for key, fn_button in pairs(self._highlight_buttons) do
             local key_name = key:match("^%d+_(.*)$") or key
-            if key_name == "ai_assistant" then
+            if key_name == name then
                 local ok, btn = pcall(fn_button, self, index)
                 if ok and type(btn) == "table" and btn.callback then
                     return btn
@@ -62,10 +68,37 @@ local function apply()
     -- Only the keys we explicitly convert to icons; everything else is "other".
     -- ai_assistant is the main button registered by assistant.koplugin.
     local KNOWN_KEYS = {
-        highlight = true, search = true, translate = true,
+        select = true, highlight = true, search = true, translate = true,
         wikipedia = true, dictionary = true,
         ai_assistant = true,
     }
+
+    local function get_selection_anchor(self, dialog, index)
+        local boxes = index and self:getHighlightVisibleBoxes(index)
+            or (self.selected_text.sboxes or self.selected_text.pboxes)
+        if not boxes or #boxes == 0 then
+            return self:_getDialogAnchor(dialog, index)
+        end
+
+        local page = self.ui.paging and (index
+            and self.ui.annotation.annotations[index].pos0.page
+            or self.selected_text.pos0.page)
+        local y0, y1
+        for _i, box in ipairs(boxes) do
+            if page then box = self.view:pageToScreenTransform(page, box) end
+            if box then
+                y0 = math.min(y0 or box.y, box.y)
+                y1 = math.max(y1 or box.y + box.h, box.y + box.h)
+            end
+        end
+        if not y0 then return self:_getDialogAnchor(dialog, index) end
+
+        local padding = require("ui/size").padding.small
+        local above = y0 - padding
+        local below = self.screen_h - y1 - padding
+        local x = math.floor((self.screen_w - dialog:getContentSize().w) / 2)
+        return { x = x, y = above, w = 0, h = y1 - y0 + 2 * padding }, below >= above
+    end
 
     -- -------------------------------------------------------------------------
     -- Override: onShowHighlightMenu  (new text-selection popup)
@@ -87,8 +120,13 @@ local function apply()
             return
         end
 
+        local extend_btn = index and find_highlight_button(self, index, "select")
         local buttons = {{
-            {
+            extend_btn and {
+                icon = extend_icon,
+                enabled = extend_btn.enabled,
+                callback = extend_btn.callback,
+            } or {
                 icon = "lookup.highlight",
                 enabled = self.hold_pos ~= nil,
                 callback = function()
@@ -124,7 +162,7 @@ local function apply()
         })
 
         if show_ai_assistant() then
-            local ai_btn = find_ai_button(self, index)
+            local ai_btn = find_highlight_button(self, index, "ai_assistant")
             if ai_btn then
                 table.insert(buttons[1], {
                     icon = "lookup.ai",
@@ -174,7 +212,7 @@ local function apply()
         self.highlight_dialog = ButtonDialog:new{
             buttons = buttons,
             anchor = function()
-                return self:_getDialogAnchor(self.highlight_dialog, index)
+                return get_selection_anchor(self, self.highlight_dialog, index)
             end,
             tap_close_callback = function()
                 if self.hold_pos then

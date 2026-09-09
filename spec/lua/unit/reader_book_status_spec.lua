@@ -19,6 +19,7 @@ describe("reader book status", function()
         "ui/geometry",
         "ui/widget/horizontalgroup",
         "ui/widget/horizontalspan",
+        "ui/widget/textboxwidget",
         "ui/widget/verticalgroup",
         "ui/widget/verticalspan",
     }
@@ -38,18 +39,29 @@ describe("reader book status", function()
     local rate_widths
     local screen_mode
     local screen_width
+    local screen_height
     local saved_default_tab_icon
+    local top_widget
+    local broadcast_events
+    local close_widget_calls
 
     local function widget_class()
         return {
             new = function(_, values)
                 values = values or {}
                 values.getSize = values.getSize or function(self)
-                    return { w = self.width or 0, h = self.height or 20 }
+                    return {
+                        w = self.dimen and self.dimen.w or self.width or 0,
+                        h = self.dimen and self.dimen.h or self.height or 20,
+                    }
                 end
                 return values
             end,
         }
+    end
+
+    local function sized_widget(height)
+        return { getSize = function() return { w = 0, h = height } end }
     end
 
     local function make_status()
@@ -68,7 +80,13 @@ describe("reader book status", function()
                 },
             },
             genHeader = function()
-                return { {} }
+                return {
+                    { width = 30 },
+                    getSize = function(self)
+                        return { w = 0, h = self[1].width + 20 }
+                    end,
+                    resetLayout = function() end,
+                }
             end,
             generateRateGroup = function()
                 return {}
@@ -76,16 +94,45 @@ describe("reader book status", function()
             genBookInfoGroup = function(self)
                 local group = self:generateRateGroup(screen_width, 60, 0)
                 self.generated_rate_group = group
-                return group
+                return sized_widget(276)
             end,
-            genSummaryGroup = function()
-                return {}
+            genSummaryGroup = function(self)
+                self.note_widget = {
+                    text = "note",
+                    width = 100,
+                    height = 120,
+                    line_height_px = 20,
+                    getSize = function(note)
+                        return { w = note.width, h = note.height }
+                    end,
+                    free = function(note) note.freed = true end,
+                }
+                self.original_note_widget = self.note_widget
+                self.note_frame = {
+                    self.note_widget,
+                    getSize = function(frame)
+                        return { w = 120, h = frame[1]:getSize().h + 20 }
+                    end,
+                }
+                return {
+                    { getSize = function() return { w = 0, h = 5 } end },
+                    {
+                        dimen = { h = 160 },
+                        getSize = function(container)
+                            return { w = 0, h = container.dimen.h }
+                        end,
+                    },
+                    getSize = function(summary)
+                        return { w = 0, h = summary[1]:getSize().h + summary[2]:getSize().h }
+                    end,
+                    resetLayout = function() end,
+                }
             end,
             genStatisticsGroup = function()
-                return {}
+                return sized_widget(60)
             end,
             generateSwitchGroup = function()
-                return {}
+                return sized_widget(105)
             end,
         }
     end
@@ -107,7 +154,11 @@ describe("reader book status", function()
         rate_widths = {}
         screen_mode = "portrait"
         screen_width = 400
+        screen_height = 800
         invalidated = {}
+        top_widget = nil
+        broadcast_events = {}
+        close_widget_calls = 0
         saved_default_tab_icon = rawget(_G, "__ZEN_UI_NAVBAR_DEFAULT_TAB_ICON")
 
         BookStatusWidget = {
@@ -120,10 +171,21 @@ describe("reader book status", function()
                 self.changed_status = true
                 return true
             end,
+            onCloseWidget = function()
+                close_widget_calls = close_widget_calls + 1
+            end,
         }
+        BookStatusWidget.__index = BookStatusWidget
         ReaderStatus = {
             markBook = function(self)
                 self.marked = true
+                return true
+            end,
+            onEndOfBook = function(self)
+                top_widget = setmetatable({
+                    ui = self.ui,
+                    summary = self.summary,
+                }, BookStatusWidget)
                 return true
             end,
         }
@@ -163,7 +225,8 @@ describe("reader book status", function()
             screen = {
                 getScreenMode = function() return screen_mode end,
                 getWidth = function() return screen_width end,
-                scaleBySize = function(_, value) return value end,
+                getHeight = function() return screen_height end,
+                scaleBySize = function(_, value) return math.ceil(value) end,
             },
             input = { group = { PgFwd = { "PgFwd" } } },
             hasKeys = function() return true end,
@@ -171,6 +234,10 @@ describe("reader book status", function()
         ZenSpec.replace("ui/uimanager", {
             close = function() closed = closed + 1 end,
             scheduleIn = function(_, _, callback) callback() end,
+            getTopmostVisibleWidget = function() return top_widget end,
+            broadcastEvent = function(_, event)
+                broadcast_events[#broadcast_events + 1] = event.name
+            end,
         })
         ZenSpec.replace("common/ui/zen_icon_button", {
             new = function(_, values)
@@ -215,8 +282,36 @@ describe("reader book status", function()
                 return values
             end,
         })
-        ZenSpec.replace("ui/widget/verticalgroup", widget_class())
-        ZenSpec.replace("ui/widget/verticalspan", widget_class())
+        ZenSpec.replace("ui/widget/textboxwidget", {
+            new = function(_, values)
+                values.line_height_px = 20
+                values.getSize = function(note)
+                    return { w = note.width, h = note.height }
+                end
+                values.free = function(note) note.freed = true end
+                return values
+            end,
+        })
+        ZenSpec.replace("ui/widget/verticalgroup", {
+            new = function(_, values)
+                values = values or {}
+                values.getSize = function(group)
+                    local height = 0
+                    for _i, child in ipairs(group) do
+                        if child.getSize then height = height + child:getSize().h end
+                    end
+                    return { w = 0, h = height }
+                end
+                values.resetLayout = function() end
+                return values
+            end,
+        })
+        ZenSpec.replace("ui/widget/verticalspan", {
+            new = function(_, values)
+                values.getSize = function(span) return { w = 0, h = span.width } end
+                return values
+            end,
+        })
         ZenSpec.replace("ui/event", { new = function(_, name) return { name = name } end })
         ZenSpec.replace("ui/geometry", { new = function(_, values) return values end })
 
@@ -247,6 +342,29 @@ describe("reader book status", function()
         assert.same({ buttons[1] }, status.layout[2])
         assert.are.equal("Restart Book", buttons[1].text)
         assert.are.equal(3, status.selected.y)
+    end)
+
+    it("fits the content to the screen and shrinks the review only when needed", function()
+        require("modules/reader/patches/book_status")()
+        local status = make_status()
+
+        local content = BookStatusWidget.getStatusContent(status, 400)
+
+        assert.are.equal(800, content:getSize().h)
+        assert.same({ 29, 29, 29 }, {
+            content[3][1].width,
+            content[5][1].width,
+            content[7][1].width,
+        })
+        assert.is_nil(status.original_note_widget.freed)
+
+        screen_height = 650
+        status = make_status()
+        content = BookStatusWidget.getStatusContent(status, 400)
+
+        assert.are.equal(650, content:getSize().h)
+        assert.are.equal(57, status.note_widget.height)
+        assert.is_true(status.original_note_widget.freed)
     end)
 
     it("opens the next sequential file on page-forward from book status", function()
@@ -291,7 +409,7 @@ describe("reader book status", function()
         assert.are.equal(345, buttons[1].width)
         assert.are.equal(275, rate_widths[1])
         assert.same(buttons[1], horizontal_groups[2][1])
-        assert.are.equal(699.2, horizontal_spans[1].width)
+        assert.are.equal(698, horizontal_spans[1].width)
         assert.are.equal(-6, status.generated_rate_group[1].width)
         assert.are.equal(6, status.generated_rate_group[3].width)
     end)
@@ -308,5 +426,33 @@ describe("reader book status", function()
         assert.is_true(reader_status.marked)
         assert.is_true(status_widget.changed_status)
         assert.same({ "/books/end.epub", "/books/manual.epub" }, invalidated)
+    end)
+
+    it("pushes finished end-of-book progress only when automatic KOSync is configured", function()
+        require("modules/reader/patches/book_status")()
+        local settings = {
+            auto_sync = true,
+            username = "reader",
+            userkey = "key",
+        }
+        local reader_status = {
+            ui = { kosync = { settings = settings } },
+            summary = { status = "complete" },
+        }
+
+        assert.is_true(ReaderStatus.onEndOfBook(reader_status))
+        top_widget:onCloseWidget()
+        assert.same({ "KOSyncPushProgress" }, broadcast_events)
+
+        reader_status.summary = { status = "reading" }
+        ReaderStatus.onEndOfBook(reader_status)
+        top_widget:onCloseWidget()
+        settings.auto_sync = false
+        reader_status.summary = { status = "complete" }
+        ReaderStatus.onEndOfBook(reader_status)
+        top_widget:onCloseWidget()
+
+        assert.same({ "KOSyncPushProgress" }, broadcast_events)
+        assert.are.equal(3, close_widget_calls)
     end)
 end)

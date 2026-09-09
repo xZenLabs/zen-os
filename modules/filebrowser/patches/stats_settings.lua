@@ -79,6 +79,7 @@ function M.defaultSettings()
         },
         font_size = 15,
         stat_style = "divider",
+        week_start_day = 1,
     }
 end
 
@@ -116,6 +117,7 @@ function M.normalize(settings)
         or 15
     settings.font_size_override = settings.font_size_override == true
     settings.edit_mode = settings.edit_mode == true
+    settings.week_start_day = settings.week_start_day == 2 and 2 or 1
     local options = {}
     for _i, id in ipairs(M.ALL_WIDGET_IDS) do
         options[id] = normalize_options(id, type(widgets.options) == "table" and widgets.options[id])

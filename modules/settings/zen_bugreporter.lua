@@ -112,9 +112,9 @@ end
 -- Network submission
 -- ---------------------------------------------------------------------------
 
-local function submit_issue(title, body)
+local function submit_issue(title, body, version)
     local labels = { "bug" }
-    if updater.get_channel() == "beta" then
+    if updater.get_channel() == "beta" or version:find("-alpha", 1, true) then
         labels[#labels + 1] = "beta"
     end
     local payload = JSON.encode({ title = title, body = body, labels = labels })
@@ -141,16 +141,21 @@ end
 -- ---------------------------------------------------------------------------
 
 function M.show_dialog(ctx)
+    local isolation_notice = _("Before reporting, please disable other plugins and patches to see if this is actually a ZenOS issue.")
     -- Require debug logging to be on so crash.log is useful.
-    if not (G_reader_settings and G_reader_settings:isTrue("debug_verbose")) then
+    if not (G_reader_settings
+            and G_reader_settings:isTrue("debug")
+            and G_reader_settings:isTrue("debug_verbose")) then
         local ConfirmBox = require("ui/widget/confirmbox")
         UIManager:show(ConfirmBox:new{
             text        = _("Debug logging must be enabled to submit bug reports.")
                        .. "\n\n"
-                       .. _("Enabling debug logging, restart required. Please reproduce the issue, then submit the report."),
+                       .. _("Enabling debug logging, restart required. Please reproduce the issue, then submit the report.")
+                       .. "\n\n" .. isolation_notice,
             ok_text     = _("Restart now"),
             cancel_text = _("Cancel"),
             ok_callback = function()
+                G_reader_settings:saveSetting("debug", true)
                 G_reader_settings:saveSetting("debug_verbose", true)
                 G_reader_settings:flush()
                 restart.request()
@@ -173,7 +178,8 @@ function M.show_dialog(ctx)
 
     local ConfirmBox = require("ui/widget/confirmbox")
     UIManager:show(ConfirmBox:new{
-        text    = _("crash.log will be embedded in a public GitHub issue. It may contain file paths and book titles.") .. ("\n\n") .. ("Continue?"),
+        text    = isolation_notice .. "\n\n"
+               .. _("crash.log will be embedded in a public GitHub issue. It may contain file paths and book titles.") .. ("\n\n") .. ("Continue?"),
         ok_text = _("Continue"),
         ok_callback = function()
             M._ask_title(ctx)
@@ -330,7 +336,7 @@ function M._do_submit(ctx, bug_title, description, github_username)
             issue_body = zen_utils.truncateUtf8Bytes(issue_body, MAX_BODY, "\n...[truncated]")
         end
 
-        local issue_url, err = submit_issue(issue_title, issue_body)
+        local issue_url, err = submit_issue(issue_title, issue_body, zen_ver)
 
         UIManager:close(spinner)
 

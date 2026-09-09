@@ -1,16 +1,25 @@
 describe("Zen logger branding", function()
+    local backend
     local original_backend
     local captured
 
     before_each(function()
         package.loaded["common/zen_logger"] = nil
         original_backend = package.loaded.logger
-        local backend = {}
+        captured = nil
+        backend = { levels = { dbg = 1, info = 2, warn = 3, err = 4 } }
+        local writers = {}
         for _i, level in ipairs({ "dbg", "info", "warn", "err" }) do
-            backend[level] = function(...)
+            writers[level] = function(...)
                 captured = { ... }
             end
         end
+        function backend:setLevel(new_level)
+            for level, value in pairs(self.levels) do
+                self[level] = value >= new_level and writers[level] or function() end
+            end
+        end
+        backend:setLevel(backend.levels.info)
         package.loaded.logger = backend
     end)
 
@@ -27,5 +36,16 @@ describe("Zen logger branding", function()
 
         logger.info("ZenOS: current message")
         assert.are.equal("ZenOS: [zen_logger_spec] current message", captured[1])
+    end)
+
+    it("follows KOReader log-level changes made after installation", function()
+        local logger = require("common/zen_logger").new("test")
+
+        logger.dbg("hidden")
+        assert.is_nil(captured)
+
+        backend:setLevel(backend.levels.dbg)
+        logger.dbg("visible")
+        assert.are.equal("ZenOS: [zen_logger_spec] visible", captured[1])
     end)
 end)

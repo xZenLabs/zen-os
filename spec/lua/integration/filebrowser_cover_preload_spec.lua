@@ -2742,6 +2742,73 @@ describe("filebrowser cover preloading", function()
         assert.are.equal("Cover hydration refresh submitted", measurements[#measurements][1])
     end)
 
+    it("does not refresh hydrated covers beneath a fullscreen overlay", function()
+        local CoverMenu = require("covermenu")
+        local Geom = require("ui/geometry")
+        local UIManager = require("ui/uimanager")
+        local parent = {}
+        local hydrated = false
+        update_items = function(menu)
+            menu._zen_cover_hydration_items[1] = {
+                menu = menu,
+                _zen_cover_hydration_queued = true,
+                dimen = Geom:new{ x = 10, y = 20, w = 90, h = 120 },
+                update = function(self)
+                    hydrated = true
+                    self._has_cover_image = true
+                end,
+            }
+            menu:_zen_request_cover_hydration()
+        end
+        require("modules/filebrowser/patches/cover_preload")()
+        local menu = {
+            item_table = { { is_file = true, path = "/book.epub" } },
+            page = 1, page_num = 1, perpage = 1,
+            display_mode_type = "mosaic", show_parent = parent,
+            cover_specs = { max_cover_w = 100, max_cover_h = 150 },
+        }
+
+        CoverMenu.updateItems(menu)
+        UIManager._window_stack = {
+            { widget = parent },
+            { widget = { covers_fullscreen = true } },
+        }
+        table.remove(scheduled, 1)()
+
+        assert.is_true(hydrated)
+        assert.are.same({}, dirty)
+    end)
+
+    it("refreshes the full color screen after cover hydration", function()
+        local CoverMenu = require("covermenu")
+        local Geom = require("ui/geometry")
+        device.hasColorScreen = function() return true end
+        update_items = function(menu)
+            menu._zen_cover_hydration_items[1] = {
+                menu = menu,
+                _zen_cover_hydration_queued = true,
+                dimen = Geom:new{ x = 10, y = 20, w = 90, h = 120 },
+                update = function(self) self._has_cover_image = true end,
+            }
+            menu:_zen_request_cover_hydration()
+        end
+        require("modules/filebrowser/patches/cover_preload")()
+        local menu = {
+            item_table = { { is_file = true, path = "/book.epub" } },
+            page = 1, page_num = 1, perpage = 1,
+            display_mode_type = "mosaic", show_parent = {},
+            dimen = Geom:new{ x = 0, y = 0, w = 600, h = 800 },
+            cover_specs = { max_cover_w = 100, max_cover_h = 150 },
+        }
+
+        CoverMenu.updateItems(menu)
+        table.remove(scheduled, 1)()
+
+        assert.is_nil(dirty[1].region)
+        assert.is_true(dirty[1].dither)
+        assert.are.equal(100, metric_value(measurements[#measurements], "region_pct="))
+    end)
+
     it("restarts extracted-cover polling after returning from Home", function()
         local CoverMenu = require("covermenu")
         local Geom = require("ui/geometry")

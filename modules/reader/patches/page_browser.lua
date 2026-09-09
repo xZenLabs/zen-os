@@ -17,6 +17,77 @@ local function apply_page_browser()
     local lfs          = require("libs/libkoreader-lfs")
     local _stock_icons_dir = lfs.currentdir() .. "/resources/icons/mdlight/"
 
+    -- Boox Android aborts forked thumbnail workers inside ART; render in-process.
+    if Device.isAndroid and Device:isAndroid() then
+        local ReaderThumbnail = require("apps/reader/modules/readerthumbnail")
+        local RenderImage = require("ui/renderimage")
+        local TileCacheItem = require("document/tilecacheitem")
+        local logger = require("logger")
+
+        if not ReaderThumbnail._zen_android_sync_thumbnail_patch then
+            ReaderThumbnail._zen_android_sync_thumbnail_patch = true
+            local orig_check_tile_generation = ReaderThumbnail.checkTileGeneration
+
+            ReaderThumbnail.startTileGeneration = function(self, request)
+                local ui = self.ui
+                local view = ui and ui.view
+                local state = view and view.state
+                local saved_save_settings = ui and rawget(ui, "saveSettings")
+                local saved_statistics = ui and rawget(ui, "statistics")
+                local saved_footer = view and view.footer_visible
+                local saved_page = state and state.page
+                local saved_zoom = state and state.zoom
+                local saved_rotation = state and state.rotation
+
+                local ok, err = pcall(function()
+                    local bb = self:_getPageImage(request.page)
+                    local scale = math.min(request.width / bb:getWidth(), request.height / bb:getHeight())
+                    local tile = TileCacheItem:new{
+                        bb = RenderImage:scaleBlitBuffer(bb,
+                            math.floor(bb:getWidth() * scale),
+                            math.floor(bb:getHeight() * scale), true),
+                        pageno = request.page,
+                    }
+                    tile.size = tonumber(tile.bb.stride) * tile.bb.h
+                    request._zen_sync_tile = tile
+                end)
+
+                if ui then
+                    rawset(ui, "saveSettings", saved_save_settings)
+                    rawset(ui, "statistics", saved_statistics)
+                end
+                if view then
+                    view.footer_visible = saved_footer
+                    if state then
+                        state.page = saved_page
+                        state.zoom = saved_zoom
+                        state.rotation = saved_rotation
+                    end
+                end
+                if not ok then
+                    logger.warn("ZenOS Android synchronous thumbnail generation failed:", err)
+                    return false
+                end
+                return true
+            end
+
+            ReaderThumbnail.checkTileGeneration = function(self, request)
+                local tile = request._zen_sync_tile
+                if not tile then
+                    return orig_check_tile_generation(self, request)
+                end
+                request._zen_sync_tile = nil
+                if self.tile_cache then
+                    self.tile_cache:insert(request.hash, tile)
+                end
+                if request.when_generated_callback then
+                    request.when_generated_callback(tile, request.batch_id, true)
+                end
+                return false
+            end
+        end
+    end
+
     local function key_matches_menu(key)
         if not key then return false end
         if type(key.match) ~= "function" then return key == "Menu" end
@@ -142,7 +213,7 @@ local function apply_page_browser()
         }
         for i, icon in ipairs(left_icons) do
             local icon_path = icon[3]
-                or (icon[2] and utils.resolveLocalIcon(icon[2], icon[1]))
+                or (icon[2] and utils.resolveIcon(icon[2], icon[1]))
             paint_icon(nil, icon_path, (slot_btn_w + header_gap) * (i - 1) + btn_pad, title_y, btn_sz)
         end
         local center_icons = {
@@ -153,15 +224,15 @@ local function apply_page_browser()
         local center_group_w = slot_btn_w * #center_icons + header_gap * (#center_icons - 1)
         local header_center_x = math.floor((slot_w - center_group_w) / 2)
         for i, icon in ipairs(center_icons) do
-            local icon_path = utils.resolveLocalIcon(icon[2], icon[1])
+            local icon_path = utils.resolveIcon(icon[2], icon[1])
             paint_icon(nil, icon_path,
                 header_center_x + (slot_btn_w + header_gap) * (i - 1) + btn_pad, title_y, btn_sz)
         end
         if package.loaded["db"] then
-            local more_path = _icons_dir and utils.resolveLocalIcon(_icons_dir, "more_vertical")
+            local more_path = _icons_dir and utils.resolveIcon(_icons_dir, "more_vertical")
             paint_icon(nil, more_path, slot_w - 2 * slot_btn_w + btn_pad, title_y, btn_sz)
         end
-        local close_icon_path = _icons_dir and utils.resolveLocalIcon(_icons_dir, "close_light")
+        local close_icon_path = _icons_dir and utils.resolveIcon(_icons_dir, "close_light")
         paint_icon(nil, close_icon_path, slot_w - slot_btn_w + btn_pad, title_y, btn_sz)
 
         local icon_size            = Screen:scaleBySize(24)
@@ -282,11 +353,11 @@ local function apply_page_browser()
             value_max = 240,
         }
 
-        local grid_slide_path = _icons_dir and utils.resolveLocalIcon(_icons_dir, "grid_slide")
-        local carousel_path   = utils.resolveLocalIcon(_icons_dir, "coverflow")
-        local grid_path       = _icons_dir and utils.resolveLocalIcon(_icons_dir, "grid")
-        local chevron_left_path  = utils.resolveLocalIcon(stock_icons_dir, "chevron.left")
-        local chevron_right_path = utils.resolveLocalIcon(stock_icons_dir, "chevron.right")
+        local grid_slide_path = _icons_dir and utils.resolveIcon(_icons_dir, "grid_slide")
+        local carousel_path   = utils.resolveIcon(_icons_dir, "coverflow")
+        local grid_path       = _icons_dir and utils.resolveIcon(_icons_dir, "grid")
+        local chevron_left_path  = utils.resolveIcon(stock_icons_dir, "chevron.left")
+        local chevron_right_path = utils.resolveIcon(stock_icons_dir, "chevron.right")
         local is_single_page = layout == "single"
         local is_carousel = layout == "carousel"
 
@@ -588,7 +659,7 @@ local function apply_page_browser()
         PageBrowserWidget.onPhysicalKeyboardConnected = PageBrowserWidget.registerKeyEvents
 
         local function resolve_stock_icon(name)
-            return utils.resolveLocalIcon(_stock_icons_dir, name)
+            return utils.resolveIcon(_stock_icons_dir, name)
         end
 
         local function get_page_display_text(pbw, page_num)
@@ -895,7 +966,7 @@ local function apply_page_browser()
                     end
                 end
                 self.title_bar.right_button = make_header_btn(
-                    utils.resolveLocalIcon(_icons_dir, "close_light"), nil,
+                    utils.resolveIcon(_icons_dir, "close_light"), nil,
                     old_right_button.callback, old_right_button.hold_callback,
                     "right", old_right_button.allow_flash)
                 table.insert(self.title_bar, self.title_bar.right_button)
@@ -923,6 +994,7 @@ local function apply_page_browser()
             local function open_book_info()
                 require("modules/reader/book_details").show(pbw_ref.ui, {
                     config = _plugin_ref and _plugin_ref.config,
+                    plugin = _plugin_ref,
                     close_all_callback = function() pbw_ref:onClose() end,
                 })
             end
@@ -992,7 +1064,7 @@ local function apply_page_browser()
 
             local function add_header_action(action, x_pos)
                 local icon_path = action[4] or (action[3] and resolve_stock_icon(action[1]))
-                    or (_icons_dir and utils.resolveLocalIcon(_icons_dir, action[1]))
+                    or (_icons_dir and utils.resolveIcon(_icons_dir, action[1]))
                 local button = make_header_btn(icon_path, x_pos, action[2])
                 table.insert(self.title_bar, button)
                 table.insert(header_buttons, button)
@@ -1020,7 +1092,7 @@ local function apply_page_browser()
             end
 
             local vocab_icon_path = package.loaded["db"]
-                and _icons_dir and utils.resolveLocalIcon(_icons_dir, "tab_vocab")
+                and _icons_dir and utils.resolveIcon(_icons_dir, "tab_vocab")
             if vocab_icon_path then
                 local overflow_button
                 local function show_overflow_menu()
@@ -1546,9 +1618,9 @@ local function apply_page_browser()
 
             local layout_mode = self._zen_layout_mode or "grid"
 
-            local grid_slide_path = _icons_dir and utils.resolveLocalIcon(_icons_dir, "grid_slide")
-            local carousel_path   = utils.resolveLocalIcon(_icons_dir, "coverflow")
-            local grid_path       = _icons_dir and utils.resolveLocalIcon(_icons_dir, "grid")
+            local grid_slide_path = _icons_dir and utils.resolveIcon(_icons_dir, "grid_slide")
+            local carousel_path   = utils.resolveIcon(_icons_dir, "coverflow")
+            local grid_path       = _icons_dir and utils.resolveIcon(_icons_dir, "grid")
             local chevron_left_path  = resolve_stock_icon("chevron.left")
             local chevron_right_path = resolve_stock_icon("chevron.right")
 

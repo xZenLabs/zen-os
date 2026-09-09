@@ -54,7 +54,12 @@ describe("file browser item-table cache", function()
             getMenuItemMandatory = function(_self, item, collate)
                 return collate.mandatory_func(item)
             end,
-            getListItem = function() end,
+            getListItem = function(self, _dirpath, filename, fullpath, attributes)
+                return {
+                    text = filename, path = fullpath, attr = attributes,
+                    dim = self.ui and self.ui.selected_files[fullpath],
+                }
+            end,
             genItemTableFromPath = function(_self, path)
                 generated[path] = (generated[path] or 0) + 1
                 return source_items[path] or { { path = path } }
@@ -231,6 +236,20 @@ describe("file browser item-table cache", function()
         end
         _G.G_reader_settings = saved_settings
         _G.__ZEN_UI_PLUGIN = saved_plugin
+    end)
+
+    it("rebuilds item selection state when scanning an unchanged file", function()
+        local chooser = setmetatable({
+            name = "filemanager", ui = { selected_files = {} },
+        }, { __index = FileChooser })
+        local attr = { mode = "file", modification = 1 }
+        local first = chooser:getListItem("/library", "a.epub", "/library/a.epub", attr,
+            FileChooser.collates.title)
+        chooser.ui.selected_files["/library/a.epub"] = true
+        local second = chooser:getListItem("/library", "a.epub", "/library/a.epub", attr,
+            FileChooser.collates.title)
+        assert.is_nil(first.dim)
+        assert.is_true(second.dim)
     end)
 
     it("keeps the library root cached while a child folder is open", function()

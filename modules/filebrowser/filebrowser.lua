@@ -223,7 +223,7 @@ function M.init(logger, plugin)
     end
 
     for _i, feature in ipairs(FEATURES) do
-        if is_feature_enabled(plugin, feature) then
+        if feature == "status_bar" or is_feature_enabled(plugin, feature) then
             local fn, err = load_patch(feature)
             if fn then
                 local ok = run_feature(logger, plugin, feature, fn)

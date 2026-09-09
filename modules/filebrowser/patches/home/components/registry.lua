@@ -428,6 +428,10 @@ function M.equalSpacingShifts(items, options)
         end
         if not changed then break end
     end
+    local overlap = score()
+    if overlap > 0 and pinned_last_shift ~= nil then
+        return M.equalSpacingShifts(items)
+    end
     return shifts
 end
 

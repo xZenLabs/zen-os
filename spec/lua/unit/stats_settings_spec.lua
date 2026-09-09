@@ -2,6 +2,7 @@ describe("stats settings", function()
     local saved_settings
     local saved_default_font_size
     local saved_font_size
+    local saved_week_start_day
     local saved_edit_mode
     local arrange_options
     local shown_widget
@@ -10,6 +11,7 @@ describe("stats settings", function()
     before_each(function()
         remembered_routes = {}
         local settings = {
+            week_start_day = 1,
             widgets = {
                 order = { "today", "this_week", "trend_graph", "goal_progress" },
                 enabled = { today = false, this_week = false, goal_progress = false },
@@ -24,6 +26,7 @@ describe("stats settings", function()
             MAX_WIDGET_SLOTS = 6,
             load = function() return settings end,
             save = function(current)
+                saved_week_start_day = current.week_start_day
                 saved_edit_mode = current.edit_mode
                 local widgets = current.widgets
                 local order, enabled = {}, {}
@@ -190,6 +193,18 @@ describe("stats settings", function()
         shown_widget.callback({ value = 19 })
 
         assert.are.equal(19, saved_default_font_size)
+    end)
+
+    it("persists Sunday and Monday as the week reset day", function()
+        local section = require("modules/settings/sections/stats_settings").build({})
+        local days = section.sub_item_table[5].sub_item_table_func()
+        assert.is_true(days[1].checked_func())
+        days[2].callback()
+        assert.are.equal(2, saved_week_start_day)
+        assert.is_true(days[2].checked_func())
+        assert.is_false(days[1].checked_func())
+        days[1].callback()
+        assert.are.equal(1, saved_week_start_day)
     end)
 
     it("persists edit mode", function()

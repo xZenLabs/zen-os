@@ -166,17 +166,18 @@ end
 
 local function fmtPeakWeek(ts)
     if not ts then return "" end
-    local t = os.date("*t", ts)
-    local days_to_mon = (t.wday - 2) % 7
-    local mon_ts = ts - days_to_mon * 86400
-    local sun_ts = mon_ts + 6 * 86400
-    local mon_month = datetime.shortMonthTranslation[os.date("%b", mon_ts)] or os.date("%b", mon_ts)
-    local sun_month = datetime.shortMonthTranslation[os.date("%b", sun_ts)] or os.date("%b", sun_ts)
-    local mon_str = mon_month .. " " .. tostring(os.date("*t", mon_ts).day)
-    if os.date("%m", mon_ts) == os.date("%m", sun_ts) then
-        return mon_str .. "-" .. tostring(os.date("*t", sun_ts).day)
+    local start_ts = StatsDB.weekStart(os.date("*t", ts))
+    local end_date = os.date("*t", start_ts)
+    end_date.day = end_date.day + 6
+    end_date.isdst = nil
+    local end_ts = os.time(end_date)
+    local start_month = datetime.shortMonthTranslation[os.date("%b", start_ts)] or os.date("%b", start_ts)
+    local end_month = datetime.shortMonthTranslation[os.date("%b", end_ts)] or os.date("%b", end_ts)
+    local start_str = start_month .. " " .. tostring(os.date("*t", start_ts).day)
+    if os.date("%m", start_ts) == os.date("%m", end_ts) then
+        return start_str .. "-" .. tostring(os.date("*t", end_ts).day)
     end
-    return mon_str .. "-" .. sun_month .. " " .. tostring(os.date("*t", sun_ts).day)
+    return start_str .. "-" .. end_month .. " " .. tostring(os.date("*t", end_ts).day)
 end
 
 local function fmtPeakMonth(ts)

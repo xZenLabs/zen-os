@@ -363,7 +363,7 @@
         SettingsTransition.close()
         UIManager:nextTick(function()
             require("modules/reader/book_details").show(
-                reader, { config = zen_plugin.config })
+                reader, { config = zen_plugin.config, plugin = zen_plugin })
         end)
     end
 

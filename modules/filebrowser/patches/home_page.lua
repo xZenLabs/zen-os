@@ -1,4 +1,6 @@
 local logger = require("common/zen_logger").new("home_page")
+local author_sort = require("common/author_sort")
+local title_sort = require("common/title_sort")
 local ConfigManager = require("config/manager")
 local book_status = require("common/book_status")
 local Blitbuffer = require("ffi/blitbuffer")
@@ -310,18 +312,12 @@ local function cache_home_book(key, book)
     trim_home_book_cache()
 end
 
--- Home-screen widgets (featured/strip) can render covers much larger than the
--- file browser's list/mosaic cells. BookInfoManager's cache only ever grows a
--- cached cover, never shrinks it, so a cover first cached for a small list row
--- stays small (and gets pixelated when upscaled here) until something asks for
--- bigger. A third of the screen's linear size comfortably covers the largest
--- home-screen cover (the featured widget); extraction is still bounded by the
--- source cover's own resolution, so this never costs more than the book has.
--- Returns the {max_cover_w, max_cover_h} spec table to extract/cache covers at
--- for home-screen display, derived from the current screen size.
+-- Default extraction bounds before layout supplies a cover's actual size.
 local function home_cover_specs()
     local Screen = require("device").screen
-    return { max_cover_w = math.floor(Screen:getWidth() / 3), max_cover_h = math.floor(Screen:getHeight() / 3) }
+    local short_side = math.min(Screen:getWidth(), Screen:getHeight())
+    local long_side = math.max(Screen:getWidth(), Screen:getHeight())
+    return { max_cover_w = math.floor(short_side / 3), max_cover_h = math.floor(long_side / 3) }
 end
 
 -- cover_sizetag stores the native (original) image dimensions, e.g. "600x900".
@@ -359,14 +355,15 @@ local _cover_upgrade_consumers = {}
 local _inflight_cover_upgrade_paths = {}
 
 -- Takes everything queued in _pending_cover_upgrade_paths and launches a
--- single extractInBackground() batch for them at home-screen cover size, then
+-- single extractInBackground() batch at each path's requested cover size, then
 -- polls until each path's extraction completes (or the subprocess dies),
 -- invalidating that book's home-cache entry and notifying the consumers as
 -- results land.
 local function flush_cover_upgrade_queue()
     _cover_upgrade_scheduled = false
+    local pending = _pending_cover_upgrade_paths
     local paths = {}
-    for path in pairs(_pending_cover_upgrade_paths) do
+    for path in pairs(pending) do
         paths[#paths + 1] = path
     end
     _pending_cover_upgrade_paths = {}
@@ -393,17 +390,16 @@ local function flush_cover_upgrade_queue()
     end
     if BookInfoManager:isExtractingInBackground() then
         for _i, path in ipairs(paths) do
-            _pending_cover_upgrade_paths[path] = true
+            _pending_cover_upgrade_paths[path] = pending[path]
         end
         _cover_upgrade_scheduled = true
         require("ui/uimanager"):scheduleIn(1, flush_cover_upgrade_queue)
         return
     end
 
-    local specs = home_cover_specs()
     local files = {}
     for _i, path in ipairs(paths) do
-        files[#files + 1] = { filepath = path, cover_specs = specs }
+        files[#files + 1] = { filepath = path, cover_specs = pending[path] }
         _inflight_cover_upgrade_paths[path] = true
     end
 
@@ -469,11 +465,8 @@ local function flush_cover_upgrade_queue()
     UIManager:scheduleIn(1, poll)
 end
 
--- Adds `path` to the pending cover-upgrade queue (unless it's already
--- pending or mid-extraction) and schedules a debounced
--- flush_cover_upgrade_queue() call so several books queued in quick
--- succession are batched into one extraction run.
-local function queue_cover_upgrade(path, consumer)
+-- Merge queued size requests without restarting an in-flight extraction.
+local function queue_cover_upgrade(path, consumer, specs)
     if type(path) ~= "string" or path == "" then return end
     local consumers = _cover_upgrade_consumers[path]
     if not consumers then
@@ -481,8 +474,15 @@ local function queue_cover_upgrade(path, consumer)
         _cover_upgrade_consumers[path] = consumers
     end
     consumers[consumer == "strip" and "strip" or "full"] = true
-    if _pending_cover_upgrade_paths[path] or _inflight_cover_upgrade_paths[path] then return end
-    _pending_cover_upgrade_paths[path] = true
+    if _inflight_cover_upgrade_paths[path] then return end
+    specs = specs or home_cover_specs()
+    local queued = _pending_cover_upgrade_paths[path]
+    if queued then
+        queued.max_cover_w = math.max(queued.max_cover_w, specs.max_cover_w)
+        queued.max_cover_h = math.max(queued.max_cover_h, specs.max_cover_h)
+    else
+        _pending_cover_upgrade_paths[path] = specs
+    end
     if not _cover_upgrade_scheduled then
         _cover_upgrade_scheduled = true
         require("ui/uimanager"):scheduleIn(0.3, flush_cover_upgrade_queue)
@@ -570,8 +570,13 @@ end
 local function ensure_featured_module_cfg(dcfg, module_id)
     local mcfg = ensure_module_cfg(dcfg, module_id)
     mcfg.order = normalize_order(mcfg.order)
+    if mcfg.show_author == nil then mcfg.show_author = true end
+    if mcfg.show_series == nil then mcfg.show_series = true end
     if mcfg.show_description == nil then mcfg.show_description = true end
+    if mcfg.show_progress == nil then mcfg.show_progress = true end
     if mcfg.wrap_description_text == nil then mcfg.wrap_description_text = false end
+    if mcfg.justify_description_text == nil then mcfg.justify_description_text = false end
+    if mcfg.format_description_html == nil then mcfg.format_description_html = false end
     if mcfg.interactive == nil then mcfg.interactive = true end
     if mcfg.show_status_bar == nil then mcfg.show_status_bar = false end
     if mcfg.status_bar_show_bottom_border == nil then mcfg.status_bar_show_bottom_border = true end
@@ -1778,6 +1783,27 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
                 groups[#groups + 1] = { label = label, files = files }
             end
         end
+        local group_view = type(cfg.group_view) == "table" and cfg.group_view or {}
+        if kind == "authors" and #groups > 1 then
+            local collate = author_sort.normalize(group_view.authors_collate)
+            table.sort(groups, function(a, b)
+                return author_sort.less(a.label, b.label, collate)
+            end)
+            local reverse = type(group_view.group_reverse) == "table"
+                and group_view.group_reverse.authors == true
+            if reverse then groups = reverse_copy(groups) end
+        elseif (kind == "series" or kind == "languages" or kind == "tags")
+                and #groups > 1 then
+            local collate = type(group_view.group_collate) == "table"
+                and group_view.group_collate[kind] or "title"
+            local natural = collate == "title_natural"
+            table.sort(groups, function(a, b)
+                return title_sort.less(a.label, b.label, natural)
+            end)
+            local reverse = type(group_view.group_reverse) == "table"
+                and group_view.group_reverse[kind] == true
+            if reverse then groups = reverse_copy(groups) end
+        end
         return groups
     end
 
@@ -1974,18 +2000,18 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             and DecodeCache:getFreshMetadata(path, now(), 30) or nil
         metadata = metadata or BookInfoManager:getBookInfo(path, false)
         if not metadata then return "failed" end
+        local specs = { max_cover_w = width, max_cover_h = height }
         if not metadata.cover_fetched then
-            queue_cover_upgrade(path, "strip")
+            queue_cover_upgrade(path, "strip", specs)
             return "pending"
         end
         if not metadata.has_cover or metadata.ignore_cover then
             invalidate_home_book_cache(path)
             return "ready"
         end
-        local specs = { max_cover_w = width, max_cover_h = height }
         if type(BookInfoManager.isCachedCoverInvalid) == "function"
                 and BookInfoManager.isCachedCoverInvalid(metadata, specs) then
-            queue_cover_upgrade(path, "strip")
+            queue_cover_upgrade(path, "strip", specs)
             return "pending"
         end
 
@@ -1995,7 +2021,7 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         info.cover_bb = nil
         if not info.cover_fetched then
             if source and source.free then pcall(source.free, source) end
-            queue_cover_upgrade(path, "strip")
+            queue_cover_upgrade(path, "strip", specs)
             return "pending"
         end
         if not info.has_cover or info.ignore_cover then
@@ -3185,6 +3211,7 @@ function M.showHomeView(injectNavbar)
     menu._zen_home_screen_height = Screen:getHeight()
 
     local rows = resolve_rows(dcfg)
+    menu._zen_home_has_strip = rows_have_component(rows, "strip")
     local data_provider = build_data_provider(cfg, dcfg, _home_strip_page_state)
     local function remember_strip_pages()
         if data_provider and type(data_provider.getStripPageState) == "function" then
@@ -3423,6 +3450,7 @@ function M.showHomeView(injectNavbar)
             end
         end
         rows = resolve_rows(dcfg)
+        self._zen_home_has_strip = rows_have_component(rows, "strip")
         has_clock_refreshers = rows_have_clock_refreshers(rows, dcfg)
         has_date_dependent = rows_have_date_dependent(rows)
         self._zen_home_has_clock_refreshers = has_clock_refreshers
@@ -3698,6 +3726,16 @@ function M.rebuildActive()
         return true
     end
     return false
+end
+
+function M.showTagInStrip(tag)
+    if type(tag) ~= "string" or tag == "" or not _home_menu
+            or _home_menu._zen_home_has_strip ~= true then return false end
+    local state = { source = { kind = "tag", value = tag } }
+    _home_menu._zen_home_strip_runtime = state
+    _home_strip_page_state = nil
+    save_home_strip_state(ensure_home_cfg(), state)
+    return M.rebuildActive()
 end
 
 function M.resetStripPages()

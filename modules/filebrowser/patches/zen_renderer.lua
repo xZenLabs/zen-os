@@ -545,7 +545,8 @@ local function apply_zen_renderer()
     end
 
     function ZenMosaicItem:onTapSelect()
-        if self._zen_is_book and not is_file_manager_select_mode() then
+        if self._zen_is_book and not is_file_manager_select_mode()
+                and self.menu.select_directory == nil and self.menu.select_file == nil then
             local set_cover = rawget(_G, "__ZEN_UI_SET_OPENING_BANNER_COVER")
             if type(set_cover) == "function" then set_cover(self._zen_cover_frame) end
         end

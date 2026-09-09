@@ -94,4 +94,18 @@ describe("file browser search", function()
         assert.is_true(closed == dialog)
         assert.are.equal(1, close_count)
     end)
+
+    it("matches books but not folders with the same search text", function()
+        local FileManagerFileSearcher = require("apps/filemanager/filemanagerfilesearcher")
+
+        assert.is_true(FileManagerFileSearcher:isFileMatch(
+            "Invincible Presents - Atom Eve 03.cbz",
+            "/library/Invincible Presents - Atom Eve 03.cbz",
+            "atom",
+            true))
+        assert.is_false(FileManagerFileSearcher:isFileMatch(
+            "Invincible Presents - Atom Eve & Rex Splode",
+            "/library/Invincible Presents - Atom Eve & Rex Splode",
+            "atom"))
+    end)
 end)

@@ -8,11 +8,14 @@ describe("opening banner", function()
         require("modules/reader/patches/opening_banner")()
     end
 
-    local function install_stubs()
+    local function install_stubs(is_color)
         local next_tick
         local shown, closed, scheduled, refresh_hints = {}, {}, {}, {}
         local ReaderUI = {
             showReaderCoroutine = function() end,
+            showReader = function(self, ...)
+                return self:showReaderCoroutine(...)
+            end,
         }
         local ReaderHighlight = {
             onTap = function()
@@ -99,6 +102,7 @@ describe("opening banner", function()
                 getWidth = function() return 600 end,
                 getHeight = function() return 800 end,
                 scaleBySize = function(_, value) return value end,
+                isColorScreen = function() return is_color == true end,
             },
             setIgnoreInput = function() end,
         })
@@ -133,6 +137,28 @@ describe("opening banner", function()
             next_tick()
         end, ListMenuItem, MosaicMenuItem, scheduled, ConfirmBox, refresh_hints
     end
+
+    it("extends color-screen banners to the bottom edge", function()
+        local ReaderUI, _, shown = install_stubs(true)
+        apply_patch()
+
+        ReaderUI.showReaderCoroutine({ doShowReader = function() end }, "book.epub", {})
+
+        assert.are.same({ x = 0, y = 764, w = 600, h = 36 }, shown[1].dimen)
+    end)
+
+    it("shows a bottom fallback for each coverless open", function()
+        local ReaderUI, _, shown, _, run_next_tick = install_stubs()
+        ReaderUI.doShowReader = function() end
+        apply_patch()
+
+        ReaderUI:showReader("book.epub", {})
+        run_next_tick()
+        ReaderUI:showReader("book.epub", {})
+
+        assert.are.equal(2, #shown)
+        assert.are.same({ x = 0, y = 772, w = 600, h = 28 }, shown[2].dimen)
+    end)
 
     it("defers no-banner opens while retaining a silent UI window", function()
         local ReaderUI, _, shown, closed, run_next_tick = install_stubs()
@@ -350,6 +376,27 @@ describe("opening banner", function()
             filepath = "/book.epub",
             dimen = dimen,
         }))
+        assert.are.equal(1, #shown)
+    end)
+
+    it("ignores file and directory chooser taps", function()
+        local ReaderUI, _, shown, _, _, ListMenuItem, MosaicMenuItem = install_stubs()
+        apply_patch()
+
+        local item = {
+            entry = { path = "/book.epub", is_file = true },
+            filepath = "/book.epub",
+            dimen = { x = 10, y = 20, w = 300, h = 60 },
+        }
+        item.menu = { select_file = true, select_directory = false }
+        assert.are.equal("selected", ListMenuItem.onTapSelect(item))
+
+        item.menu = { select_file = false, select_directory = true }
+        item._zen_cover_dimen = item.dimen
+        assert.are.equal("mosaic selected", MosaicMenuItem.onTapSelect(item))
+        assert.are.equal(0, #shown)
+
+        ReaderUI.showReaderCoroutine({ doShowReader = function() end }, "book.epub", {})
         assert.are.equal(1, #shown)
     end)
 

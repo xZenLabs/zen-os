@@ -523,4 +523,74 @@ describe("reader themes settings", function()
         assert.are.equal(3, saved)
         assert.are.equal("reader_themes", applied[4])
     end)
+
+    it("offers shared granular items, custom text, and chapter marks for the reader top bar", function()
+        local applies = 0
+        local config = {
+            features = {
+                reader_themes = false,
+                reader_top_status_bar = true,
+                dict_quick_lookup = false,
+                highlight_lookup = false,
+                reader_bottom_menu = false,
+                page_browser = false,
+                restore_library_view = false,
+            },
+            reader_top_status_bar = {
+                left_order = {}, center_order = { "time" }, right_order = {},
+            },
+            reader_footer = {},
+            reader_themes = { dark_mode = "dark_warm_gray", light_mode = "default" },
+        }
+        local built = ReaderSettings.build({
+            config = config,
+            plugin = { config = config, saveConfig = function() end },
+            save_and_apply = function(feature)
+                assert.are.equal("reader_top_status_bar", feature)
+                applies = applies + 1
+            end,
+        })
+        local top
+        for _i, item in ipairs(built) do
+            if item.text == "Top status bar" then top = item end
+        end
+
+        local center_items = top.sub_item_table[2].sub_item_table
+        local item_labels = {}
+        for _i, item in ipairs(center_items) do item_labels[item.text] = item end
+        assert.is_not_nil(item_labels["Battery icon"])
+        assert.is_not_nil(item_labels["Battery percentage"])
+        assert.is_not_nil(item_labels["Current page"])
+        assert.is_not_nil(item_labels["Total pages"])
+        assert.is_function(item_labels["Custom text"].checkmark_callback)
+        assert.is_function(item_labels["Custom text"].sub_item_table[1].text_func)
+        local wifi = item_labels["Wi-Fi"]
+        local hide_wifi = wifi.sub_item_table[1]
+        assert.is_function(wifi.checkmark_callback)
+        assert.are.equal("Hide when off", hide_wifi.text)
+        assert.is_false(hide_wifi.checked_func())
+        hide_wifi.callback()
+        assert.is_true(config.reader_top_status_bar.wifi_hide_when_off)
+
+        local top_items = {}
+        for _i, item in ipairs(top.sub_item_table) do
+            if item.text then top_items[item.text] = item end
+        end
+        assert.is_nil(top_items["Items"])
+        assert.is_nil(top_items["Display"])
+        assert.is_nil(top_items["Settings"])
+        assert.is_nil(top_items["Auto refresh"])
+
+        local chapter_marks = top_items["Chapter marks"]
+        chapter_marks.callback()
+        assert.is_true(config.reader_top_status_bar.show_chapter_marks)
+        assert.is_true(config.reader_top_status_bar.show_bottom_border)
+        assert.is_true(config.reader_top_status_bar.bottom_border_progress)
+
+        local colored = top_items["Colored status icons"]
+        assert.is_false(colored.checked_func())
+        colored.callback()
+        assert.is_true(colored.checked_func())
+        assert.are.equal(3, applies)
+    end)
 end)

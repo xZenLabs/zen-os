@@ -152,6 +152,23 @@ local function apply_cover_preload()
         return false
     end
 
+    local function fullscreen_overlay_covers_filemanager(menu)
+        local parent = menu and menu.show_parent
+        local stack = UIManager._window_stack
+        if not parent or type(stack) ~= "table" then return false end
+        local parent_index
+        for index = 1, #stack do
+            local widget = stack[index] and stack[index].widget
+            if widget == parent or widget == menu then parent_index = index end
+        end
+        if not parent_index then return false end
+        for index = parent_index + 1, #stack do
+            local widget = stack[index] and stack[index].widget
+            if widget and widget.covers_fullscreen then return true end
+        end
+        return false
+    end
+
     local function cover_work_block_reason(menu)
         if hidden_home_bootstrap(menu) then return "hidden_home_startup" end
         if rawget(_G, "__ZEN_UI_SUPPRESS_FILEMANAGER_COVERS") == true then
@@ -638,6 +655,7 @@ local function apply_cover_preload()
             refresh_dither = refresh_dither or dither == true
         end
         local combined_refresh = #reveal.dirty_calls > 0 and menu.show_parent ~= nil
+            and not fullscreen_overlay_covers_filemanager(menu)
         if combined_refresh then
             if hydrated > 0 then menu.show_parent.dithered = true end
             local final_region = copy_region(reveal.refresh_region)
@@ -696,7 +714,8 @@ local function apply_cover_preload()
     local function submit_hydration_refresh(menu, generation, region, hydrated, failed)
         if not (region and menu.show_parent)
                 or menu._zen_cover_hydration_generation ~= generation
-                or cover_work_block_reason(menu) then
+                or cover_work_block_reason(menu)
+                or fullscreen_overlay_covers_filemanager(menu) then
             return false
         end
         -- Extraction waves are accumulated before this point; never add a
@@ -710,14 +729,18 @@ local function apply_cover_preload()
         end
         menu._zen_cover_refresh_submitted_generation = generation
         if hydrated > 0 then menu.show_parent.dithered = true end
+        local full_color_refresh = hydrated > 0
+            and Device.hasColorScreen and Device:hasColorScreen()
+        local refresh_region = region
+        if full_color_refresh then refresh_region = nil end
         UIManager:setDirty(menu.show_parent, function()
             local refreshtype = BookInfoManager:getSetting("flash_ui_cover_images")
                 and "flashui" or "ui"
-            return refreshtype, region, hydrated > 0
+            return refreshtype, refresh_region, hydrated > 0
         end)
         local full_area = menu.dimen and menu.dimen.w and menu.dimen.h
             and menu.dimen.w * menu.dimen.h or 0
-        local region_pct = full_area > 0
+        local region_pct = full_color_refresh and 100 or full_area > 0
             and math.floor(region.w * region.h * 1000 / full_area + 0.5) / 10 or 100
         local revealed_at = menu._zen_cover_initial_reveal_generation == generation
             and menu._zen_cover_initial_reveal_at or nil

@@ -6,6 +6,7 @@ describe("quick settings plugin controls", function()
     local zenfm
     local destination_entries
     local hosted_menu
+    local FileManagerMenu
 
     local module_names = {
         "ffi/blitbuffer",
@@ -31,6 +32,7 @@ describe("quick settings plugin controls", function()
         "common/restart",
         "common/shared_state",
         "common/settings_transition",
+        "common/ui/button_label_width",
         "common/bluetooth",
         "modules/menu/patches/brightness_slider",
         "modules/menu/patches/warmth_slider",
@@ -59,31 +61,55 @@ describe("quick settings plugin controls", function()
         original_quick_settings = rawget(_G, "__ZEN_UI_QUICK_SETTINGS")
 
         local no_op = {}
+        local function widget_class()
+            local class = {}
+            function class:new(values)
+                local widget = values or {}
+                function widget:getSize()
+                    local dimen = self.dimen or {}
+                    return {
+                        w = self.width or dimen.w or 64,
+                        h = self.height or dimen.h or 64,
+                    }
+                end
+                function widget:_render() end
+                return widget
+            end
+            return class
+        end
+        local Widget = widget_class()
         ZenSpec.replace("ffi/blitbuffer", no_op)
         ZenSpec.replace("ffi/util", { template = function(text) return text end, strcoll = function(a, b) return a < b end })
-        ZenSpec.replace("ui/widget/container/centercontainer", no_op)
+        ZenSpec.replace("ui/widget/container/centercontainer", Widget)
         ZenSpec.replace("device", {
-            screen = {},
+            screen = { scaleBySize = function(_self, value) return value end },
             hasFrontlight = function() return false end,
+            hasNaturalLight = function() return false end,
             hasGSensor = function() return true end,
+            getPowerDevice = function() end,
         })
         ZenSpec.replace("ui/event", { new = function(_self, name) return { name = name } end })
-        ZenSpec.replace("ui/font", no_op)
-        ZenSpec.replace("ui/widget/container/framecontainer", no_op)
-        ZenSpec.replace("ui/geometry", no_op)
-        ZenSpec.replace("ui/widget/horizontalgroup", no_op)
-        ZenSpec.replace("ui/widget/horizontalspan", no_op)
-        ZenSpec.replace("ui/widget/iconwidget", no_op)
-        ZenSpec.replace("ui/network/manager", no_op)
+        ZenSpec.replace("ui/font", { sizemap = { xx_smallinfofont = 18, ffont = 24 } })
+        ZenSpec.replace("ui/widget/container/framecontainer", Widget)
+        ZenSpec.replace("ui/geometry", Widget)
+        ZenSpec.replace("ui/widget/horizontalgroup", Widget)
+        ZenSpec.replace("ui/widget/horizontalspan", Widget)
+        ZenSpec.replace("ui/widget/iconwidget", Widget)
+        ZenSpec.replace("ui/network/manager", {
+            isWifiOn = function() return false end,
+            isConnected = function() return false end,
+        })
         ZenSpec.replace("ui/widget/confirmbox", no_op)
-        ZenSpec.replace("ui/widget/textwidget", no_op)
+        ZenSpec.replace("ui/widget/textwidget", Widget)
         ZenSpec.replace("ui/uimanager", {
             broadcastEvent = function() end,
             nextTick = function(_self, callback) callback() end,
         })
-        ZenSpec.replace("modules/filebrowser/patches/library_font", no_op)
-        ZenSpec.replace("ui/widget/verticalgroup", no_op)
-        ZenSpec.replace("ui/widget/verticalspan", no_op)
+        ZenSpec.replace("modules/filebrowser/patches/library_font", {
+            getFace = function() return {} end,
+        })
+        ZenSpec.replace("ui/widget/verticalgroup", Widget)
+        ZenSpec.replace("ui/widget/verticalspan", Widget)
         ZenSpec.replace("common/utils", {
             deepcopy = function(value)
                 if type(value) ~= "table" then return value end
@@ -97,12 +123,18 @@ describe("quick settings plugin controls", function()
             resolveIcon = function(icons_dir, name)
                 return icons_dir .. name .. ".svg"
             end,
+            iconOpticalScale = function() return 1 end,
             getIconPickerList = function() return {} end,
         })
         ZenSpec.replace("common/shutdown", no_op)
         ZenSpec.replace("common/restart", no_op)
         ZenSpec.replace("common/shared_state", { get = function() end })
         ZenSpec.replace("common/settings_transition", { close = function() end })
+        ZenSpec.replace("common/ui/button_label_width", {
+            equalCellWidth = function(width, count) return width / count end,
+            maxWidth = function(width) return width end,
+            SIDE_PADDING = 0,
+        })
         ZenSpec.replace("common/bluetooth", {
             isAvailable = function() return false end,
         })
@@ -130,7 +162,10 @@ describe("quick settings plugin controls", function()
             init = function() end,
             switchMenuTab = function() end,
         })
-        ZenSpec.replace("apps/filemanager/filemanagermenu", { setUpdateItemTable = function() end })
+        FileManagerMenu = {
+            setUpdateItemTable = function(self) self.tab_item_table = {} end,
+        }
+        ZenSpec.replace("apps/filemanager/filemanagermenu", FileManagerMenu)
         ZenSpec.replace("apps/reader/modules/readermenu", { setUpdateItemTable = function() end })
         ZenSpec.replace("apps/filemanager/filemanager", {})
         ZenSpec.replace("apps/reader/readerui", {})
@@ -222,6 +257,27 @@ describe("quick settings plugin controls", function()
         assert.are.equal("Autorotate", controls.gyro.label)
         assert.are.equal("/tmp/zen-ui/icons/quick_rotate.svg", controls.gyro.icon)
         assert.are.equal("/tmp/zen-ui/icons/quick_zen.svg", controls.zen.icon)
+    end)
+
+    it("renders default controls while the setup tour is pending", function()
+        _G.__ZEN_UI_PLUGIN.config._meta = { quickstart_menu_tour_pending = true }
+        local menu = {}
+        FileManagerMenu.setUpdateItemTable(menu)
+        local function rendered_ids()
+            local touch_menu = { item_width = 600 }
+            menu.tab_item_table[1].panel(touch_menu)
+            local ids = {}
+            for _i, ref in ipairs(touch_menu._zen_panel_refs.buttons) do
+                ids[#ids + 1] = ref.id
+            end
+            return ids
+        end
+
+        assert.are.same({ "wifi", "night", "rotate", "zen", "restart", "sleep" }, rendered_ids())
+        assert.are.same({ "tailscale" }, _G.__ZEN_UI_PLUGIN.config.quick_settings.button_order)
+
+        _G.__ZEN_UI_PLUGIN.config._meta.quickstart_menu_tour_pending = false
+        assert.are.same({ "tailscale" }, rendered_ids())
     end)
 
     it("uses the configured autorotate label and icon", function()

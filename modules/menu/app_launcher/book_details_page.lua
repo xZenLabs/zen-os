@@ -151,14 +151,14 @@ function M.build(opts)
         local size = self[1]:getSize()
         self.dimen = Geom:new{ w = size.w, h = size.h }
         self.ges_events = {
-            HoldFullText = { GestureRange:new{ ges = "hold", range = self.dimen } },
+            TapFullText = { GestureRange:new{ ges = "tap", range = self.dimen } },
         }
     end
     function FullText:paintTo(bb, x, y)
         self.dimen.x, self.dimen.y = x, y
         self[1]:paintTo(bb, x, y)
     end
-    function FullText:onHoldFullText()
+    function FullText:onTapFullText()
         TruncatedTextMessage.showMetadata(self.full_text, self.dimen)
         return true
     end

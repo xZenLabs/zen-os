@@ -67,6 +67,13 @@ describe("reader footer patches", function()
         assert.are.equal(hair .. "4" .. nbsp .. "min" .. nbsp .. "left" .. nbsp
             .. "in" .. nbsp .. "chapter",
             ReaderFooter.textGeneratorMap.chapter_time_to_read(footer))
+
+        footer.ui.statistics._zenPagesInStatisticsUnits = function(_stats, pages)
+            return pages / 2
+        end
+        assert.are.equal(hair .. "2" .. nbsp .. "min" .. nbsp .. "left" .. nbsp
+            .. "in" .. nbsp .. "chapter",
+            ReaderFooter.textGeneratorMap.chapter_time_to_read(footer))
     end)
 
     it("formats compact and abbreviated chapter times", function()

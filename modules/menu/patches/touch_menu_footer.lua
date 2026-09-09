@@ -8,6 +8,7 @@
 -- Applies to every TouchMenu instance (reader, file manager, all tabs).
 
 local function apply_touch_menu_footer()
+    local utils          = require("common/utils")
     local Device         = require("device")
     local Geom           = require("ui/geometry")
     local GestureRange   = require("ui/gesturerange")
@@ -18,12 +19,12 @@ local function apply_touch_menu_footer()
 
     local DGENERIC_ICON_SIZE = G_defaults:readSetting("DGENERIC_ICON_SIZE")
 
-    -- Resolve this file's plugin root to locate icons/large_chevron_up.svg
+    -- Resolve the bundled icon through the active custom pack when available.
     local _icon_file
     do
         local root = require("common/plugin_root")
         if root then
-            _icon_file = root .. "/icons/large_chevron_up.svg"
+            _icon_file = utils.resolveIcon(root .. "/icons/", "large_chevron_up")
         end
     end
 

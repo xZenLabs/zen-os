@@ -198,6 +198,7 @@ local function installWrapper(GetText)
             return _translations[msgid] or GetText(msgid)
         end,
         __index = GetText,
+        __newindex = GetText,
     })
     _wrapped_gettext = GetText
     _gettext_wrapper = wrapper

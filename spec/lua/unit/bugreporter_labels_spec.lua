@@ -3,8 +3,10 @@ local JSON = require("json")
 describe("bug reporter labels", function()
     local channel
     local original_modules
+    local original_reader_settings
     local payloads
     local UIManager
+    local version
 
     local module_names = {
         "android",
@@ -24,12 +26,14 @@ describe("bug reporter labels", function()
     }
 
     before_each(function()
+        original_reader_settings = _G.G_reader_settings
         original_modules = {}
         for _i, name in ipairs(module_names) do
             original_modules[name] = package.loaded[name]
         end
 
         channel = "stable"
+        version = "1.0.0"
         payloads = {}
         UIManager = {
             show = function(self, widget) self.widget = widget end,
@@ -57,7 +61,7 @@ describe("bug reporter labels", function()
             new = function(_, props) return props end,
         })
         ZenSpec.replace("modules/settings/zen_settings_utils", {
-            get_plugin_version = function() return "1.0.0" end,
+            get_plugin_version = function() return version end,
             get_koreader_version = function() return "2026.01" end,
             get_device_model_name = function() return "Test device" end,
             get_device_firmware_display = function() return "n/a" end,
@@ -95,6 +99,7 @@ describe("bug reporter labels", function()
             package.loaded[name] = original_modules[name]
         end
         ZenSpec.unload("modules/settings/zen_bugreporter")
+        _G.G_reader_settings = original_reader_settings
     end)
 
     local function submit()
@@ -123,7 +128,29 @@ describe("bug reporter labels", function()
         assert.are.same({ "bug", "beta" }, submit().labels)
     end)
 
+    it("adds the beta label for an alpha version on the stable update channel", function()
+        version = "1.0.0-alpha1"
+        assert.are.same({ "bug", "beta" }, submit().labels)
+    end)
+
     it("keeps stable-channel reports labeled only as bugs", function()
         assert.are.same({ "bug" }, submit().labels)
+    end)
+
+    it("enables both KOReader debug flags before restarting", function()
+        local flushed = false
+        local restarted = false
+        local settings = ZenSpec.memorySettings()
+        settings.flush = function() flushed = true end
+        _G.G_reader_settings = settings
+        package.loaded["common/restart"].request = function() restarted = true end
+
+        require("modules/settings/zen_bugreporter").show_dialog({})
+        UIManager.widget.ok_callback()
+
+        assert.is_true(settings:isTrue("debug"))
+        assert.is_true(settings:isTrue("debug_verbose"))
+        assert.is_true(flushed)
+        assert.is_true(restarted)
     end)
 end)

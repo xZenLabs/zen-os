@@ -36,9 +36,10 @@ end
 
 function M.fileTime(index, path, normalize_path)
     if not (index and type(path) == "string") then return nil end
+    local time = index.by_raw_path[path]
+    if time or next(index.by_normalized_path) == nil then return time end
     local normalized_path = normalize_path(path)
-    return index.by_raw_path[path]
-        or (normalized_path and index.by_normalized_path[normalized_path])
+    return normalized_path and index.by_normalized_path[normalized_path]
 end
 
 -- Returns the maximum history timestamp for each requested directory.  Walking
@@ -50,6 +51,7 @@ function M.maxDescendantTimes(index, directories)
     for _i, path in ipairs(directories or {}) do
         if type(path) == "string" and path ~= "" then wanted[path] = true end
     end
+    if next(wanted) == nil then return result end
 
     for _i, entry in ipairs(index and index.entries or {}) do
         local path = parent_path(entry.path)
