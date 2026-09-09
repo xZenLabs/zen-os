@@ -4,6 +4,7 @@ describe("library settings", function()
     local dependencies = {
         "gettext",
         "ui/uimanager",
+        "datastorage",
         "common/paths",
         "common/library_font_path",
         "common/shared_state",
@@ -18,6 +19,7 @@ describe("library settings", function()
         "ui/widget/confirmbox",
         "ui/widget/fontchooser",
         "ui/widget/infomessage",
+        "ui/widget/pathchooser",
         "common/ui/background",
     }
 
@@ -28,6 +30,9 @@ describe("library settings", function()
         end
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("ui/uimanager", {})
+        ZenSpec.replace("datastorage", {
+            getFullDataDir = function() return "/koreader" end,
+        })
         ZenSpec.replace("common/paths", {})
         ZenSpec.replace("common/shared_state", {})
         ZenSpec.replace("common/inline_icon_map", {})
@@ -658,5 +663,35 @@ describe("library settings", function()
         assert.are.equal(1, cache_clears)
         assert.are.equal(1, reinitializations)
         assert.are.equal(1, scheduled)
+    end)
+
+    it("uses the wallpapers directory as the background picker default and Home", function()
+        local chooser
+        local home_path
+        package.loaded["ui/uimanager"].show = function(_, widget) chooser = widget end
+        ZenSpec.replace("ui/widget/pathchooser", {
+            new = function(_self, values) return values end,
+        })
+
+        local items = require("modules/settings/sections/library_settings").build({
+            config = {
+                browser_hide_up_folder = {},
+                features = {},
+                library_background = { path = "" },
+            },
+            plugin = { saveConfig = function() end },
+            save_and_apply = function() end,
+        })
+        local background
+        for _i, item in ipairs(items) do
+            if item.text == "Background" then background = item; break end
+        end
+
+        background.sub_item_table[1].callback()
+        assert.are.equal("/koreader/resources/wallpapers", chooser.path)
+        assert.is_true(chooser.goHome({
+            changeToPath = function(_, path) home_path = path end,
+        }))
+        assert.are.equal("/koreader/resources/wallpapers", home_path)
     end)
 end)

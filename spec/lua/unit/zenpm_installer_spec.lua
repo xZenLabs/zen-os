@@ -5,7 +5,6 @@ describe("ZenPM installer asset selection", function()
     local original_archiver
     local original_network_manager
     local original_confirmbox
-    local original_device
     local original_trapper
     local original_uimanager
     local original_zen_screen
@@ -16,7 +15,6 @@ describe("ZenPM installer asset selection", function()
         original_archiver = package.loaded["ffi/archiver"]
         original_network_manager = package.loaded["ui/network/manager"]
         original_confirmbox = package.loaded["ui/widget/confirmbox"]
-        original_device = package.loaded["device"]
         original_trapper = package.loaded["ui/trapper"]
         original_uimanager = package.loaded["ui/uimanager"]
         original_zen_screen = package.loaded["common/ui/zen_screen"]
@@ -33,7 +31,6 @@ describe("ZenPM installer asset selection", function()
         package.loaded["ffi/archiver"] = original_archiver
         package.loaded["ui/network/manager"] = original_network_manager
         package.loaded["ui/widget/confirmbox"] = original_confirmbox
-        package.loaded["device"] = original_device
         package.loaded["ui/trapper"] = original_trapper
         package.loaded["ui/uimanager"] = original_uimanager
         package.loaded["common/ui/zen_screen"] = original_zen_screen
@@ -46,9 +43,6 @@ describe("ZenPM installer asset selection", function()
         local scheduled
 
         ZenSpec.replace("ui/network/manager", { isWifiOn = function() return true end })
-        ZenSpec.replace("device", {
-            hasEinkScreen = function() return true end,
-        })
         ZenSpec.replace("ui/widget/confirmbox", {
             new = function(_self, values)
                 prompt = values
@@ -89,38 +83,29 @@ describe("ZenPM installer asset selection", function()
         return screen, scheduled
     end
 
-    it("selects desktop assets before e-reader ABI assets", function()
-        assert.are.equal("ZenPM-koreader-macos-%s.zip", Installer.select_assets({}, "OSX"))
-        assert.are.equal("ZenPM-koreader-macos-%s.zip", Installer.select_assets({}, "Darwin"))
-        assert.are.equal("ZenPM-koreader-linux-%s.zip", Installer.select_assets({}, "Linux"))
-    end)
-
     it("selects the 32-bit e-reader asset for reMarkable 2", function()
-        local eink = { hasEinkScreen = function() return true end }
-        assert.are.equal("ZenPM-koreader-ereader-%s.zip", Installer.select_assets(eink, "Linux", "arm"))
-        assert.are.equal("ZenPM-koreader-linux-%s.zip", Installer.select_assets({}, "Linux"))
+        assert.are.equal("ZenPM-koreader-ereader-%s.zip", Installer.select_assets("Linux", "arm"))
+        assert.are.equal("ZenPM-koreader-ereader-%s.zip", Installer.select_assets("Linux", "arm32"))
+        assert.are.equal("ZenPM-koreader-ereader-%s.zip", Installer.select_assets("Linux", "armv7l"))
     end)
 
     it("selects the ARM64 Linux asset for newer reMarkable models", function()
-        local eink = { hasEinkScreen = function() return true end }
-        assert.are.equal("ZenPM-koreader-linux-%s.zip", Installer.select_assets(eink, "Linux", "arm64"))
-        assert.are.equal("ZenPM-koreader-linux-%s.zip", Installer.select_assets(eink, "Linux", "aarch64"))
+        assert.are.equal("ZenPM-koreader-linux-%s.zip", Installer.select_assets("Linux", "arm64"))
+        assert.are.equal("ZenPM-koreader-linux-%s.zip", Installer.select_assets("Linux", "aarch64"))
     end)
 
-    it("tries an e-reader package whenever KOReader reports an e-ink screen", function()
-        local eink_sdl = {
-            hasEinkScreen = function() return true end,
-            isSDL = function() return true end,
-        }
-        assert.are.equal("ZenPM-koreader-ereader-%s.zip", Installer.select_assets(eink_sdl, "Linux"))
+    it("does not select an asset for unsupported architectures", function()
+        assert.is_nil(Installer.select_assets("Linux", "x64"))
+        assert.is_nil(Installer.select_assets("OSX", "arm64"))
+        assert.is_nil(Installer.select_assets(nil, nil))
     end)
 
     it("matches release assets with the filename portion before the version", function()
-        assert.are.equal("ZenPM-koreader-macos-", Installer.asset_prefix("ZenPM-koreader-macos-%s.zip"))
+        assert.are.equal("ZenPM-koreader-linux-", Installer.asset_prefix("ZenPM-koreader-linux-%s.zip"))
     end)
 
-    it("accepts the official macOS release asset URL", function()
-        local name = "ZenPM-koreader-macos-1.0.0-beta120.zip"
+    it("accepts the official Linux release asset URL", function()
+        local name = "ZenPM-koreader-linux-1.0.0-beta120.zip"
         assert.is_true(Installer.is_valid_asset_url(
             "https://github.com/xZenLabs/zen-pm/releases/download/v1.0.0-beta120/" .. name,
             name

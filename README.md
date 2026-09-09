@@ -102,7 +102,7 @@ Night mode, brightness, and warmth each have independent schedules. Brightness a
 
 ### Integrations and Customization
 
-ZenOS themes the OPDS browser, integrates with Rakuyomi, can install ZenPM on non-Android devices, and adds a ZenFM Control when the plugin is present. Custom icon packs can replace ZenOS and KOReader artwork. Plugins can also contribute Home widgets and status-bar items through public integration APIs.
+ZenOS themes the OPDS browser, integrates with Rakuyomi, can install ZenPM on supported non-Android ARM devices, and adds a ZenFM Control when the plugin is present. Custom icon packs can replace ZenOS and KOReader artwork. Plugins can also contribute Home widgets and status-bar items through public integration APIs.
 
 See the [Extras](docs/extras.md), [Custom Icon Packs](docs/icon-packs.md), and [Actions](docs/actions.md) guides.
 

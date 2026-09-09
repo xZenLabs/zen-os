@@ -22,7 +22,7 @@ function M.build(ctx)
     local items = {}
 
     table.insert(items, stats_settings.build(ctx))
-    if not (Device.isAndroid and Device:isAndroid()) then
+    if not (Device.isAndroid and Device:isAndroid()) and zenpm_installer.detect_assets() then
         table.insert(items, IconItem.decorate(zenpm_installer.build_item(plugin), icons.download))
     end
 

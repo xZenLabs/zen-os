@@ -54,6 +54,52 @@ end
 
 local M = {}
 
+local function choose_sleep_screen_image()
+    local images_dir = require("datastorage"):getFullDataDir() .. "/resources/screensavers"
+    local current_path = G_reader_settings:readSetting("screensaver_document_cover")
+    local path = images_dir
+    if type(current_path) == "string" and current_path ~= "" then
+        local current_dir = select(1, require("util").splitFilePathName(current_path))
+        if current_dir ~= "" then path = current_dir end
+    end
+    local PathChooser = require("ui/widget/pathchooser")
+    UIManager:show(PathChooser:new{
+        select_directory = false,
+        select_file = true,
+        show_files = true,
+        file_filter = function(filename)
+            return require("document/documentregistry"):hasProvider(filename)
+        end,
+        path = path,
+        goHome = function(chooser)
+            chooser:changeToPath(images_dir)
+            return true
+        end,
+        onConfirm = function(file_path)
+            G_reader_settings:saveSetting("screensaver_document_cover", file_path)
+        end,
+    })
+end
+
+local function install_sleep_screen_image_picker(items)
+    local stock_callback = require("ui/screensaver").chooseFile
+    local function replace(item_table)
+        for _i, item in ipairs(item_table) do
+            if type(item) == "table" then
+                if item.callback == stock_callback then
+                    item.callback = choose_sleep_screen_image
+                    return true
+                end
+                if type(item.sub_item_table) == "table" and replace(item.sub_item_table) then
+                    return true
+                end
+            end
+        end
+        return false
+    end
+    replace(items)
+end
+
 function M.build(ctx)
     local config = ctx.config
     local plugin = ctx.plugin
@@ -719,6 +765,7 @@ function M.build(ctx)
         sub_item_table_func = function()
             local ok, screen_items = pcall(dofile, "frontend/ui/elements/screensaver_menu.lua")
             local sub = (ok and type(screen_items) == "table") and screen_items or {}
+            if ok then install_sleep_screen_image_picker(sub) end
             table.insert(sub, {
                 text = _("Presets"),
                 sub_item_table_func = build_preset_items,

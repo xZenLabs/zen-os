@@ -14,7 +14,7 @@ Extras collects optional additions that fall outside of the Library/Reader. It i
 
 ## ZenPM
 
-On non-Android devices, choose **Zen Settings > Extras > Install ZenPM** to install the Zen plugin manager directly from ZenOS.
+On supported non-Android ARM32 and ARM64 devices, choose **Zen Settings > Extras > Install ZenPM** to install the Zen plugin manager directly from ZenOS.
 
 ## Stats
 
@@ -84,7 +84,7 @@ Use **Zen Settings > Extras > Lockdown mode** to configure library, Controls, an
 | Extras > Stats > Default font size | Sets the default text size for Stats widgets. Individual supported widgets can override it. |
 | Extras > Stats > Stat separators | Selects divider lines, outlines, or no separators for Stats widgets. |
 | Extras > Stats > Week reset day | Starts weekly statistics on Sunday or Monday. |
-| Extras > Install ZenPM | Installs the Zen plugin manager on non-Android devices. |
+| Extras > Install ZenPM | Installs the Zen plugin manager on supported non-Android ARM devices. |
 | Extras > Zen OPDS | Enables ZenOS OPDS enhancements, including cover art, list/mosaic view, hold menu, and navigation changes. |
 | Extras > Zen OPDS > Display mode | Selects mosaic, list, or classic OPDS display mode. |
 | Library > Include new books in TBR | Adds books with the New status to the To Be Read tab and Home widgets. New includes unread books and books modified since they were last opened. |

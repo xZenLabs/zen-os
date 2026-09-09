@@ -18,30 +18,14 @@ local DOWNLOAD_HOSTS = {
     ["github-releases.githubusercontent.com"] = true,
 }
 
-local function call_device_bool(device, name)
-    if not device or type(device[name]) ~= "function" then return false end
-    local ok, value = pcall(device[name], device)
-    if ok then return value == true end
-    ok, value = pcall(device[name])
-    return ok and value == true
-end
-
---- Return the ZenPM asset filename templates for the supplied platform facts.
-function M.select_assets(device, jit_os, jit_arch)
-    local plugin_template
-    local is_eink_reader = call_device_bool(device, "hasEinkScreen")
-    if is_eink_reader and (jit_arch == "arm64" or jit_arch == "aarch64") then
-        plugin_template = "ZenPM-koreader-linux-%s.zip"
-    elseif is_eink_reader then
-        plugin_template = "ZenPM-koreader-ereader-%s.zip"
-    elseif jit_os == "OSX" or jit_os == "Darwin" then
-        plugin_template = "ZenPM-koreader-macos-%s.zip"
-    elseif jit_os == "Linux" then
-        plugin_template = "ZenPM-koreader-linux-%s.zip"
-    else
-        plugin_template = "ZenPM-koreader-ereader-%s.zip"
+--- Return the ZenPM asset filename template for a supported ARM architecture.
+function M.select_assets(jit_os, jit_arch)
+    if jit_os ~= "Linux" then return end
+    if jit_arch == "arm64" or jit_arch == "aarch64" then
+        return "ZenPM-koreader-linux-%s.zip"
+    elseif jit_arch == "arm" or jit_arch == "arm32" or jit_arch == "armv7l" then
+        return "ZenPM-koreader-ereader-%s.zip"
     end
-    return plugin_template
 end
 
 function M.asset_prefix(template)
@@ -50,9 +34,7 @@ function M.asset_prefix(template)
 end
 
 function M.detect_assets()
-    local device = require("device")
     return M.select_assets(
-        device,
         type(jit) == "table" and jit.os or nil,
         type(jit) == "table" and jit.arch or nil
     )

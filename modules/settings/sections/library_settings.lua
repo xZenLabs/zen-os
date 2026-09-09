@@ -4,6 +4,7 @@
 
 local _ = require("gettext")
 local UIManager = require("ui/uimanager")
+local DataStorage = require("datastorage")
 local paths = require("common/paths")
 local SharedState = require("common/shared_state")
 local icons = require("common/inline_icon_map")
@@ -17,6 +18,7 @@ local settings_apply      = require("modules/settings/zen_settings_apply")
 local zen_settings_utils  = require("modules/settings/zen_settings_utils")
 
 local M = {}
+local LIBRARY_WALLPAPERS_DIR = DataStorage:getFullDataDir() .. "/resources/wallpapers"
 local DEFAULT_LIBRARY_FONT = defaults.library_font.font_face
 local BOOK_DETAIL_ORDER = defaults.book_details.order
 local home_rebuild_pending = false
@@ -1249,7 +1251,7 @@ function M.build(ctx)
                 return dir
             end
         end
-        return paths.getHomeDir() or G_reader_settings:readSetting("lastdir") or "/"
+        return LIBRARY_WALLPAPERS_DIR
     end
 
     table.insert(items, {
@@ -1296,6 +1298,10 @@ function M.build(ctx)
                         select_directory = false,
                         show_files = true,
                         path = lib_bg_start_path(),
+                        goHome = function(chooser)
+                            chooser:changeToPath(LIBRARY_WALLPAPERS_DIR)
+                            return true
+                        end,
                         onConfirm = function(file_path)
                             local bg_mod = require("common/ui/background")
                             local ok_img, reason = bg_mod.validateImage(file_path)
