@@ -6,7 +6,7 @@ settingsPath: Zen Settings > Extras
 order: 60
 ---
 
-<!-- Documentation current through ZenOS v3.0.0. -->
+<!-- Documentation current through ZenOS v3.3.0. -->
 
 ## Overview
 
@@ -24,7 +24,7 @@ Open the **Stats** tab from the Navbar to view reading activity. Use **Zen Setti
 
 Choose from Today, This week, This month, This year, All time, Personal records, Library, Current book, Reading trend, Reading goals, and Reading calendar widgets. Enable the widgets you want and hold an item in **Zen Settings > Extras > Stats > Widgets** to arrange its position. The dashboard has six slots; the Reading calendar uses two.
 
-The Reading trend widget can show pages or time for the past 7, 14, 30, or 90 days. Text-based widgets can use the default Stats font size or an individual override. Enable **Edit mode** to open a widget's settings directly from the Stats page, and use **Stat separators** to choose dividers, outlines, or no separation.
+The Reading trend widget can show pages or time for the past 7, 14, 30, or 90 days. Page totals use stable pages when a book provides them. Text-based widgets can use the default Stats font size or an individual override. Enable **Edit mode** to open a widget's settings directly from the Stats page, use **Stat separators** to choose dividers, outlines, or no separation, and set **Week reset day** to Sunday or Monday.
 
 ## OPDS
 
@@ -40,7 +40,7 @@ Tap and hold any item to open the OPDS context menu for per-item actions.
 
 To add one book to your To Be Read list, tap and hold it in the Library, choose **Read status**, then choose **To Be Read**. The book appears in the To Be Read Navbar tab and anywhere the Home Featured or unified Strip widget uses To Be Read as its source.
 
-To include every new book automatically, enable **Zen Settings > Extras > Include new books in TBR**. This adds books with the New status to the To Be Read Navbar tab and Home widgets without changing their saved read status. New includes unread books and books modified since they were last opened.
+To include every new book automatically, enable **Zen Settings > Library > Include new books in TBR**. This adds books with the New status to the To Be Read Navbar tab and Home widgets without changing their saved read status. New includes unread books and books modified since they were last opened.
 
 ## Custom Icons
 
@@ -83,10 +83,11 @@ Use **Zen Settings > Extras > Lockdown mode** to configure library, Controls, an
 | Extras > Stats > Edit mode | Enables editing supported Stats and Home widgets directly from their pages. |
 | Extras > Stats > Default font size | Sets the default text size for Stats widgets. Individual supported widgets can override it. |
 | Extras > Stats > Stat separators | Selects divider lines, outlines, or no separators for Stats widgets. |
+| Extras > Stats > Week reset day | Starts weekly statistics on Sunday or Monday. |
 | Extras > Install ZenPM | Installs the Zen plugin manager on non-Android devices. |
 | Extras > Zen OPDS | Enables ZenOS OPDS enhancements, including cover art, list/mosaic view, hold menu, and navigation changes. |
 | Extras > Zen OPDS > Display mode | Selects mosaic, list, or classic OPDS display mode. |
-| Extras > Include new books in TBR | Adds books with the New status to the To Be Read tab and Home widgets. New includes unread books and books modified since they were last opened. |
+| Library > Include new books in TBR | Adds books with the New status to the To Be Read tab and Home widgets. New includes unread books and books modified since they were last opened. |
 | Extras > Enable custom icons | Enables loose icon overrides or the selected ZenOS icon pack. |
 | Extras > Custom icon pack | Installs ZIPs from `/koreader/icons/zen` and selects an unpacked pack. |
 | Extras > Rakuyomi > Return to chapter list on exit | Returns Rakuyomi-owned books to their manga chapter list when exiting the reader. Disable this to return to Rakuyomi library view. |

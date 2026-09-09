@@ -6,6 +6,7 @@
   {"id": "library_covers_full", "group": "library", "session": "general", "action": "library", "mode": "mosaic_image", "navbar": "regular", "docs": ["docs/library.md"]},
   {"id": "library_list_full", "group": "library", "session": "general", "action": "library", "mode": "list_image_meta", "navbar": "icons_only", "visible_books": ["Project Hail Mary: A Novel", "Never Split the Difference", "The Creative Habit", "Atomic Habits: An Easy and Proven Way to Build Good Habits and Break Bad Ones", "Clean Coder"], "docs": ["docs/library.md"]},
   {"id": "context_menu", "group": "library", "session": "general", "action": "context", "book_role": "featured", "navbar": "few_items", "docs": ["docs/library.md"]},
+  {"id": "metadata_editor", "group": "library", "session": "general", "action": "metadata_editor", "book_title": "Deep Work", "docs": ["docs/library.md"]},
   {"id": "stats", "group": "library", "session": "general", "action": "stats", "navbar": "library_home_text", "docs": []},
 
   {"id": "launcher", "group": "menus", "session": "general", "action": "menu_tab", "tab": "app_launcher", "background": "home_simple", "navbar": "library_home_icons", "docs": ["docs/launcher.md"]},

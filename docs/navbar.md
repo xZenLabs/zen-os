@@ -6,7 +6,7 @@ settingsPath: Zen Settings > Navbar
 order: 35
 ---
 
-<!-- Documentation current through ZenOS v3.0.0. -->
+<!-- Documentation current through ZenOS v3.3.0. -->
 
 ![Navbar](/images/zen_os/navbar.webp)
 
@@ -54,7 +54,7 @@ Adjust a grouped view's display and sort from its context menu while that tab is
 | Setting | Description |
 | --- | --- |
 | Tabs | Opens the tab arranger. At least 1 tab must remain visible and no more than 7 tabs can be visible. |
-| Tabs > Built-in tabs | Includes Library, Folder, Manga, News, Continue, History, Favorites, Collections, Authors, Series, Home, Single tag, All tags, To Be Read, Search, Calibre Search, Stats, Exit, Previous page, Next page, and Menu. |
+| Tabs > Built-in tabs | Includes Library, Folder, Manga, News, Continue, History, Favorites, Collections, Authors, Series, Languages, Home, Single tag, All tags, To Be Read, Search, Calibre Search, Stats, Exit, Previous page, Next page, and Menu. |
 | Tabs > Add > Control | Adds a Navbar tab that runs a selected Controls control. |
 | Tabs > Add > Folder | Adds an independently configured folder tab. |
 | Tabs > Add > Specific tag | Adds a tab that opens one selected tag. |

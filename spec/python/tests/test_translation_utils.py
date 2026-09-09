@@ -50,7 +50,7 @@ class TranslationUtilsTest(unittest.TestCase):
 
             self.assertEqual(
                 ["Live", "First name", "p."],
-                [msgid for msgid, _line, _context in translation_utils.extract_from_file(str(lua_path))],
+                [msgid for msgid, _line, _context, _kind in translation_utils.extract_from_file(str(lua_path))],
             )
             self.assertEqual(("⟪ZENFMT0⟫h", ["%1"]), translation_utils._protect_format_tokens("%1h"))
             self.assertEqual("zh-TW", translation_utils.GOOGLE_LOCALES["zh_HK"])
@@ -66,8 +66,8 @@ class TranslationUtilsTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sources = {}
-            for msgid, line, context in translation_utils.extract_from_file(str(lua_path)):
-                sources.setdefault(msgid, []).append((lua_path.name, line, context))
+            for msgid, line, context, kind in translation_utils.extract_from_file(str(lua_path)):
+                sources.setdefault(msgid, []).append((lua_path.name, line, context, kind))
 
             po_path = root / "fr.po"
             po_path.write_text(
@@ -84,6 +84,7 @@ class TranslationUtilsTest(unittest.TestCase):
             )
             first = po_path.read_text(encoding="utf-8")
 
+            self.assertIn("#. Type: button", first)
             self.assertIn('#. Context: text = _("Open"), cancel = _("Cancel"),', first)
             self.assertIn("#: menu.lua:3 menu.lua:4", first)
             self.assertIn('msgstr "Annuler"', first)
@@ -101,6 +102,28 @@ class TranslationUtilsTest(unittest.TestCase):
                     translation_utils.format_entry("Cancel", escaped)
                 )["Cancel"],
             )
+
+    def test_type_labels_prioritize_specific_uses(self):
+        back = [("modules/menu/patches/app_launcher.lua", 1, 'id = "__back", label = _("Back")', "button")]
+        settings = [
+            ("modules/menu/app_launcher/native_menu.lua", 1, 'setting = _("Settings")', "menu"),
+            ("modules/settings/zen_settings_page.lua", 2, 'title = _("Settings")', "title"),
+        ]
+        self.assertTrue(translation_utils.format_entry("Back", sources=back).startswith("#. Type: button\n"))
+        settings_entry = translation_utils.format_entry("Settings", sources=settings)
+        self.assertTrue(settings_entry.startswith("#. Type: title\n"))
+        self.assertIn('#. Context: title = _("Settings")', settings_entry)
+        self.assertEqual("setting", translation_utils.translation_type(
+            "modules/settings/reader_settings.lua", 'text = _("Show clock")', "", "Show clock",
+        ))
+        self.assertEqual("description", translation_utils.translation_type(
+            "quickstart.lua", 'description = _("Choose a layout")', "", "Choose a layout",
+        ))
+        self.assertEqual("unit", translation_utils.translation_type("stats.lua", '_(" days")', "", " days"))
+        self.assertEqual("format", translation_utils.translation_type("date.lua", '_("%1, %2")', "", "%1, %2"))
+        self.assertEqual("message", translation_utils.translation_type(
+            "library.lua", 'return _("No books found")', "", "No books found",
+        ))
 
 
 if __name__ == "__main__":

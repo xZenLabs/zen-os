@@ -6,7 +6,7 @@ settingsPath: Zen Settings > Reader
 order: 50
 ---
 
-<!-- Documentation current through ZenOS v3.0.0. -->
+<!-- Documentation current through ZenOS v3.3.0. -->
 
 ![Page browser grid](/images/zen_os/page_browser_grid.webp)
 
@@ -103,7 +103,7 @@ Tap and hold a word while reading to open the Zen quick lookup menu. It shows th
 
 ![Highlight menu](/images/zen_os/reader_highlight.webp)
 
-Tap + hold and drag to highlight a selection of text and open the Zen highlight menu. It collects highlight, lookup, and annotation actions for the selected text in a single Zen-styled menu. Enable it with **Zen Settings > Reader > Highlight / Lookup > Zen highlight menu**.
+Tap + hold and drag to highlight a selection of text and open the Zen highlight menu. It collects highlight, lookup, and annotation actions for the selected text in a single Zen-styled menu. When you reopen the menu for an existing highlight, its first action extends or adjusts the selected text. Enable the menu with **Zen Settings > Reader > Highlight / Lookup > Zen highlight menu**.
 
 ## Stable Page Labels
 

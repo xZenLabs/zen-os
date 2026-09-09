@@ -122,7 +122,56 @@ def blank_lua_comments(src: str) -> str:
     return "".join(chars)
 
 
-def extract_from_file(path: str) -> list[tuple[str, int, str]]:
+# ponytail: lexical classification; add a targeted rule only when a source pattern is misclassified.
+def translation_type(path: str, usage: str, context: str, msgid: str) -> str:
+    """Return a short translator-facing label for one Lua string usage."""
+    if msgid[:1].isspace():
+        return "unit"
+    if (re.search(r"\b(?:\w+_)?(?:title|heading|header)s?(?:_text)?\s*=", usage, re.IGNORECASE)
+            or re.search(r"\blocal titles\s*=|\bgenHeader\s*\(", context)):
+        return "title"
+    if re.search(r"\bdescription\s*=", usage, re.IGNORECASE):
+        return "description"
+    if re.search(r"\bsubtitle\s*=", usage, re.IGNORECASE):
+        return "subtitle"
+    if re.search(r"\b(?:hint|placeholder)(?:_text)?\s*=", usage, re.IGNORECASE):
+        return "placeholder"
+    if os.path.basename(path) == "app_launcher.lua" or re.search(r"\b(?:button|ok|cancel|close|confirm)(?:_text)?\s*=", usage, re.IGNORECASE):
+        return "button"
+    if re.search(r"\btext\s*=", usage) and re.search(r"\bbuttons?\s*=|\bButton:new", context):
+        return "button"
+    if re.search(r"\b(?:showError|fail_with|error_text|_last_error)\b", context):
+        return "error"
+    if re.search(r"\b(?:ConfirmBox|InfoMessage|InputDialog|MultiConfirmBox|TextViewer)\b", context, re.IGNORECASE):
+        return "dialog"
+    if re.search(r"\b(?:status|notice|message)(?:_[a-z]+)?\s*=", usage, re.IGNORECASE):
+        return "status"
+    if re.search(r"\b(?:Notification:notify|notify)\s*\(", context):
+        return "notification"
+    if re.search(r"\btext\s*=", usage) and re.search(r"\btimeout\s*=", context):
+        return "notification"
+    if (re.search(r"\bunit\s*=", usage)
+            or re.fullmatch(r"(?:<?\s*%\d+[hm]|%\d+h\s+%\d+m|min|pages?|days?|hours?|minutes?)", msgid, re.IGNORECASE)):
+        return "unit"
+    if (len(msgid) > 60 or "\n" in msgid or msgid.endswith((".", "?", "!", "…"))
+            or re.match(r"^(?:No |Unknown |Could not |Failed |Unable |Please )", msgid)):
+        return "message"
+    if re.search(r"(?:^|/)modules/settings/|_settings\.lua$", path):
+        return "setting"
+    if re.search(r"\b(?:sub_item_table(?:_func)?|menu_items?|checked_func)\b", context) or "native_menu" in path:
+        return "menu"
+    if re.search(r"\b(?:text|label)\s*=", usage) and re.search(r"\b(?:callback|hold_callback)\s*=", context):
+        return "action"
+    if re.search(r"\b(?:choices?|checked|radio)\s*=", context):
+        return "option"
+    if re.search(r"\b(?:label|caption)(?:_text)?\s*=", usage, re.IGNORECASE) or "TextWidget:new" in context:
+        return "label"
+    if "%" in msgid:
+        return "format"
+    return "label"
+
+
+def extract_from_file(path: str) -> list[tuple[str, int, str, str]]:
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
             src = f.read()
@@ -150,14 +199,15 @@ def extract_from_file(path: str) -> list[tuple[str, int, str]]:
         context = re.sub(r"\s+", " ", context)
         if len(context) > 240:
             context = context[:237].rstrip() + "..."
-        found.append((msgid, line, context))
+        usage = " ".join(part.strip() for part in lines[line - 1:end_line])
+        found.append((msgid, line, context, translation_type(path, usage, context, msgid)))
         cursor = start
     return found
 
 
-def collect_lua_strings() -> dict[str, list[tuple[str, int, str]]]:
+def collect_lua_strings() -> dict[str, list[tuple[str, int, str, str]]]:
     """Return source locations and nearby code for every translatable string."""
-    result: dict[str, list[tuple[str, int, str]]] = {}
+    result: dict[str, list[tuple[str, int, str, str]]] = {}
 
     for root, dirs, files in os.walk(SCRIPT_DIR):
         # Prune excluded directories in-place
@@ -167,8 +217,8 @@ def collect_lua_strings() -> dict[str, list[tuple[str, int, str]]]:
                 continue
             fpath = os.path.join(root, fname)
             rel = os.path.relpath(fpath, SCRIPT_DIR)
-            for msgid, line, context in extract_from_file(fpath):
-                result.setdefault(msgid, []).append((rel, line, context))
+            for msgid, line, context, kind in extract_from_file(fpath):
+                result.setdefault(msgid, []).append((rel, line, context, kind))
 
     return result
 
@@ -238,11 +288,18 @@ def msgid_to_po_line(s: str) -> str:
     return escaped
 
 
-def format_entry(msgid: str, msgstr: str = "", sources: list[tuple[str, int, str]] | None = None) -> str:
-    lines = []
+def format_entry(msgid: str, msgstr: str = "", sources: list[tuple[str, int, str, str]] | None = None) -> str:
+    lines = ["#. Type: message"]
     if sources:
-        lines.append(f"#. Context: {sources[0][2]}")
-        refs = dict.fromkeys(f"{os.path.basename(path)}:{line}" for path, line, _context in sources)
+        kinds = {kind for _path, _line, _context, kind in sources}
+        kind = next(name for name in (
+            "title", "button", "setting", "menu", "dialog", "action", "status", "placeholder",
+            "description", "subtitle", "notification", "error", "option", "unit", "format", "message", "label",
+        ) if name in kinds)
+        source = next(source for source in sources if source[3] == kind)
+        lines[0] = f"#. Type: {kind}"
+        lines.append(f"#. Context: {source[2]}")
+        refs = dict.fromkeys(f"{os.path.basename(path)}:{line}" for path, line, _context, _kind in sources)
         lines.append("#: " + " ".join(refs))
     lines.extend((
         f'msgid "{msgid_to_po_line(msgid)}"',
@@ -251,7 +308,7 @@ def format_entry(msgid: str, msgstr: str = "", sources: list[tuple[str, int, str
     return "\n".join(lines) + "\n"
 
 
-def rewrite_po(po_path: str, existing: dict[str, str], lua_strings: dict[str, list[tuple[str, int, str]]], to_add: list[str], remove_dead: bool, alphabetize: bool = False) -> tuple[int, int]:
+def rewrite_po(po_path: str, existing: dict[str, str], lua_strings: dict[str, list[tuple[str, int, str, str]]], to_add: list[str], remove_dead: bool, alphabetize: bool = False) -> tuple[int, int]:
     """Rewrite a .po file, removing dead entries and/or appending new ones. Returns (removed, added)."""
     header = po_header(po_path)
     parts = [header.rstrip("\n")]
@@ -279,7 +336,7 @@ def rewrite_po(po_path: str, existing: dict[str, str], lua_strings: dict[str, li
     return removed, added
 
 
-def write_updated_po(po_path: str, existing: dict[str, str], to_add: list[str], lua_strings: dict[str, list[tuple[str, int, str]]]) -> None:
+def write_updated_po(po_path: str, existing: dict[str, str], to_add: list[str], lua_strings: dict[str, list[tuple[str, int, str, str]]]) -> None:
     """Append missing msgids (with empty msgstr) to a .po file."""
     with open(po_path, encoding="utf-8", errors="replace") as f:
         content = f.read()
@@ -446,7 +503,7 @@ def translate_strings(locale: str, msgids: list[str]) -> dict[str, str]:
     return dict(zip(msgids, translated))
 
 
-def sync_catalogs(po_files: list[str], lua_strings: dict[str, list[tuple[str, int, str]]]) -> None:
+def sync_catalogs(po_files: list[str], lua_strings: dict[str, list[tuple[str, int, str, str]]]) -> None:
     """Fully synchronize catalogs, keeping each catalog atomic."""
     msgids = set(lua_strings)
     translation_error = None
@@ -560,7 +617,7 @@ def main() -> None:
             print("  MISSING (in Lua, not in .po):")
             for s in missing:
                 preview = repr(s)
-                locations = [f"{path}:{line}" for path, line, _context in lua_strings[s]]
+                locations = [f"{path}:{line}" for path, line, _context, _kind in lua_strings[s]]
                 print(f"    {preview}  <- {', '.join(locations[:2])}{'...' if len(locations) > 2 else ''}")
 
         if dead:

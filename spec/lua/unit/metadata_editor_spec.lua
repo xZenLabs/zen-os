@@ -1065,10 +1065,12 @@ describe("metadata editor Hardcover merge", function()
     local Editor
     local uniform_covers
     local cover_ratio
+    local rounded_covers
 
     before_each(function()
         uniform_covers = true
         cover_ratio = 2 / 3
+        rounded_covers = true
         local function widget_stub()
             return { new = function(_self, options)
                 options = options or {}
@@ -1199,6 +1201,7 @@ describe("metadata editor Hardcover merge", function()
         end
         ZenSpec.replace("common/cover_utils", CoverUtils)
         ZenSpec.replace("modules/filebrowser/patches/home/widgets/cover_common", {
+            rounded_enabled = function() return rounded_covers end,
             decorate_cover_frame = function(frame)
                 frame.decorated = true
                 frame.getSize = function(self)
@@ -1375,10 +1378,17 @@ describe("metadata editor Hardcover merge", function()
         local cover = content[1][2]
         local focus_rects = 0
         local focus_bounds
+        local focus_radius
+        local focus_border_width
         local bb = {
             invertRect = function(_self, x, y, width, height)
                 focus_rects = focus_rects + 1
                 focus_bounds = focus_bounds or { x = x, y = y, w = width, h = height }
+            end,
+            paintBorder = function(_self, _x, _y, _width, _height,
+                    line, _color, radius)
+                focus_border_width = line
+                focus_radius = radius
             end,
         }
 
@@ -1397,6 +1407,11 @@ describe("metadata editor Hardcover merge", function()
         assert.are.same({ x = -2, y = -2, w = title.dimen.w + 4, h = 2 }, focus_bounds)
         widget.getFocusItem = function() return cover end
         assert.is_true(cover:onFocus())
+        cover:paintTo(bb, 0, 0)
+        assert.are.equal(4, focus_rects)
+        assert.are.equal(10, focus_radius)
+        assert.are.equal(2, focus_border_width)
+        rounded_covers = false
         cover:paintTo(bb, 0, 0)
         assert.are.equal(8, focus_rects)
         title:onTapField()

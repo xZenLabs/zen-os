@@ -6,13 +6,13 @@ settingsPath: ''
 order: 95
 ---
 
-<!-- Documentation current through ZenOS v3.0.0. -->
+<!-- Documentation current through ZenOS v3.3.0. -->
 
 ZenOS is translated through gettext `.po` files in the `locales/` folder. No programming knowledge is needed — you only edit text.
 
 > **Open translation pull requests against the `dev` branch.** Changes are reviewed on `dev` before release.
 
-The `en.po` file is the source catalog. All other locales are translated from it. Any string left as `msgstr ""` falls back to English at runtime — KOReader handles this automatically.
+The `en.po` file is the source catalog. All other locales are translated from it. Generated entries include a role-specific type label, a nearby Lua source excerpt, and `filename.lua:line` references to clarify where each string appears. Any string left as `msgstr ""` falls back to English at runtime — KOReader handles this automatically.
 
 ## Supported languages
 
@@ -26,6 +26,7 @@ The `en.po` file is the source catalog. All other locales are translated from it
 | `de` | German |
 | `bg` | Bulgarian |
 | `cs` | Czech |
+| `hu` | Hungarian |
 | `pt_BR` | Brazilian Portuguese |
 | `pt_PT` | European Portuguese |
 | `ro` | Romanian |
@@ -61,6 +62,7 @@ Open the `.po` file for your language, correct or complete the `msgstr` values, 
 ## Guidelines
 
 - Never modify the `msgid` — only edit `msgstr`.
+- Keep generated context comments and source references intact.
 - Keep placeholders intact: `%d`, `%s`, `%%`, and `\n` must appear in `msgstr` exactly as they do in `msgid`.
 - Leave `msgstr ""` empty for any string you are unsure about — the English original is shown as a fallback.
 - If your language has different plural forms, set `Plural-Forms` in the header accordingly.

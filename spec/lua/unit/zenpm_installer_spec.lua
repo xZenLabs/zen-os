@@ -48,7 +48,6 @@ describe("ZenPM installer asset selection", function()
         ZenSpec.replace("ui/network/manager", { isWifiOn = function() return true end })
         ZenSpec.replace("device", {
             hasEinkScreen = function() return true end,
-            isAndroid = function() return false end,
         })
         ZenSpec.replace("ui/widget/confirmbox", {
             new = function(_self, values)
@@ -90,22 +89,22 @@ describe("ZenPM installer asset selection", function()
         return screen, scheduled
     end
 
-    it("selects Android plugin and companion APK", function()
-        local plugin, apk = Installer.select_assets({ isAndroid = function() return true end }, "Linux")
-        assert.are.equal("ZenPM-koreader-android-%s.zip", plugin)
-        assert.are.equal("ZenPM-android-%s.apk", apk)
-    end)
-
     it("selects desktop assets before e-reader ABI assets", function()
         assert.are.equal("ZenPM-koreader-macos-%s.zip", Installer.select_assets({}, "OSX"))
         assert.are.equal("ZenPM-koreader-macos-%s.zip", Installer.select_assets({}, "Darwin"))
         assert.are.equal("ZenPM-koreader-linux-%s.zip", Installer.select_assets({}, "Linux"))
     end)
 
-    it("selects e-reader assets before Linux desktop assets", function()
+    it("selects the 32-bit e-reader asset for reMarkable 2", function()
         local eink = { hasEinkScreen = function() return true end }
-        assert.are.equal("ZenPM-koreader-ereader-%s.zip", Installer.select_assets(eink, "Linux"))
+        assert.are.equal("ZenPM-koreader-ereader-%s.zip", Installer.select_assets(eink, "Linux", "arm"))
         assert.are.equal("ZenPM-koreader-linux-%s.zip", Installer.select_assets({}, "Linux"))
+    end)
+
+    it("selects the ARM64 Linux asset for newer reMarkable models", function()
+        local eink = { hasEinkScreen = function() return true end }
+        assert.are.equal("ZenPM-koreader-linux-%s.zip", Installer.select_assets(eink, "Linux", "arm64"))
+        assert.are.equal("ZenPM-koreader-linux-%s.zip", Installer.select_assets(eink, "Linux", "aarch64"))
     end)
 
     it("tries an e-reader package whenever KOReader reports an e-ink screen", function()

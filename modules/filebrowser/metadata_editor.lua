@@ -141,11 +141,16 @@ local function file_extension(file)
     return file_name(file):match("(%.[^.]*)$") or ""
 end
 
-local function paint_focus_rectangle(bb, x, y, width, height, outset)
+local function paint_focus_rectangle(bb, x, y, width, height, outset, radius)
     outset = outset or 0
     x, y = x - outset, y - outset
     width, height = width + outset * 2, height + outset * 2
     local line = math.max(1, Screen:scaleBySize(2))
+    if radius and radius > 0 then
+        bb:paintBorder(x, y, width, height, line,
+            Blitbuffer.COLOR_BLACK, radius, false)
+        return
+    end
     bb:invertRect(x, y, width, line)
     bb:invertRect(x, y + height - line, width, line)
     if height > line * 2 then
@@ -170,8 +175,10 @@ function CoverTap:paintTo(bb, x, y)
     self.dimen.x, self.dimen.y = x, y
     self[1]:paintTo(bb, x, y)
     if self.focused then
+        local outset = Screen:scaleBySize(2)
         paint_focus_rectangle(bb, x, y, self.dimen.w, self.dimen.h,
-            Screen:scaleBySize(2))
+            outset, CoverWidget.rounded_enabled()
+                and Screen:scaleBySize(8) + outset or 0)
     end
 end
 

@@ -50,7 +50,7 @@ Swipe down from anywhere for up to nine configurable controls plus brightness an
 
 Choose classic, mosaic, or detailed list layouts, then customize fonts, backgrounds, cover ratios, badges, progress, rounded corners, folder covers, and automatic series grouping. Display mode, sorting, and status filters can be saved per folder.
 
-The streamlined context menu handles read status, collections, file operations, and full-screen book details. From Details you can open KOReader metadata, rename a book by holding its filename, or choose another document provider with **Open with…**.
+The streamlined context menu handles read status, collections, file operations, and full-screen book details. Its native metadata editor changes book details, filenames, and covers, or fills them from Hardcover, Google Books, and Open Library.
 
 <img src="./images/quickstart/onboarding/library_covers_full.png" width="350" height="auto" alt="Library Covers">
       
@@ -62,7 +62,7 @@ See the [Library guide](docs/library.md).
 
 ### Navbar
 
-Keep up to seven tabs at the bottom of the Library. Built-in destinations include Library, a chosen Folder, Home, Continue, Favorites, Collections, Authors, Series, Tags, To Be Read, Stats, Manga, and News. Custom tabs can run a Control or dispatcher action, open a plugin or KOReader menu, and use a custom label and icon. Choose any supported tab as the default destination.
+Keep up to seven tabs at the bottom of the Library. Built-in destinations include Library, a chosen Folder, Home, Continue, Favorites, Collections, Authors, Series, Languages, Tags, To Be Read, Stats, Manga, and News. Custom tabs can run a Control or dispatcher action, open a plugin or KOReader menu, and use a custom label and icon. Choose any supported tab as the default destination.
 
 
 <img src="./images/quickstart/onboarding/navbar.png" width="500" alt="Navigation Bar">
@@ -264,10 +264,6 @@ Feel free to join the [Discord Community](https://discord.gg/Tv2PhrCPQ8) if you 
 ## Security
 
 See [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
-
-Metadata lookup can combine Hardcover, Google Books, and Open Library results in one chooser. Providers can be enabled independently under **Zen UI Settings → Library → Metadata**.
-
-ZenOS creates empty `settings/ZenOS/hardcover_token.txt` and `settings/ZenOS/google_books_api_key.txt` placeholders for the optional Hardcover token and Google Books API key. Each file contains only its credential and can be edited directly. Open Library does not require a token.
 
 ## License
 

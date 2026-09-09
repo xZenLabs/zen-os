@@ -6,7 +6,7 @@ settingsPath: Zen Settings > Home
 order: 10
 ---
 
-<!-- Documentation current through ZenOS v3.0.0. -->
+<!-- Documentation current through ZenOS v3.3.0. -->
 
 ![ZenOS bookshelf home](/images/zen_os/home_bookshelf.webp)
 

@@ -1422,6 +1422,7 @@ local function metadata_showcase_state()
     end
     local Screen = require("device").screen
     return {
+        file = editor.file,
         dirty = editor:isDirty(),
         title = editor.draft and editor.draft.title,
         authors = editor.draft and editor.draft.authors,
@@ -1431,6 +1432,7 @@ local function metadata_showcase_state()
         restore_text = editor._restore_button and editor._restore_button.text,
         hardcover_filled = editor._hardcover_button
             and editor._hardcover_button._zen_filled == true,
+        has_current_cover = editor.current_cover ~= nil,
         has_pending_cover = editor:getPendingCover() ~= nil,
         title_action = editor.title_bar and editor.title_bar.action
             and editor.title_bar.action.text or nil,
@@ -1445,24 +1447,35 @@ local function metadata_showcase_state()
     }
 end
 
-local function show_metadata_editor_fixture(orientation)
+local function show_metadata_editor_fixture(options)
+    if type(options) ~= "table" then options = { orientation = options } end
     reset_showcase_ui("general")
-    local ok_orientation, err = set_showcase_orientation(orientation)
+    local ok_orientation, err = set_showcase_orientation(options.orientation)
     if not ok_orientation then return false, err end
     local plugin_root = require("common/plugin_root")
-    local current_cover = require("ui/renderimage"):renderImageFile(
-        plugin_root .. "/images/quickstart/onboarding/library_covers.png", false)
-    metadata_showcase_editor = require("modules/filebrowser/metadata_editor").show{
-        file = "/fixture/The Strength of the Few.epub",
-        is_epub = true,
-        can_restore = true,
-        current_cover = current_cover,
+    local file = options.file or "/fixture/The Strength of the Few.epub"
+    local metadata, current_cover
+    if options.file then
+        metadata, err = require("modules/filebrowser/metadata/service").load(file)
+        if not metadata then return false, err end
+        local info = require("bookinfomanager"):getBookInfo(file, true)
+        current_cover = info and info.cover_bb
+    else
         metadata = {
             title = "The Strength of the Few",
             authors = { "James Islington" },
             language = "en",
             isbn = "9781982141197",
-        },
+        }
+        current_cover = require("ui/renderimage"):renderImageFile(
+            plugin_root .. "/images/quickstart/onboarding/library_covers.png", false)
+    end
+    metadata_showcase_editor = require("modules/filebrowser/metadata_editor").show{
+        file = file,
+        is_epub = true,
+        can_restore = options.file == nil,
+        current_cover = current_cover,
+        metadata = metadata,
         on_hardcover = function() end,
         on_open_with = function() end,
         on_cover = function(editor)
@@ -1488,21 +1501,26 @@ local function show_metadata_editor_fixture(orientation)
         on_save = function() end,
         on_restore = function() end,
     }
-    metadata_showcase_editor:applyHardcover({
-        title = "The Strength of the Few",
-        authors = { "James Islington" },
-        series_name = "Hierarchy",
-        series_index = "2",
-        genres = { "Fantasy", "Epic fantasy" },
-        language = "en",
-        publisher = "Orbit",
-        description = "The hierarchy is changing, and the cost of power has never been higher.",
-    }, "Paperback, 2024 · Orbit")
-    metadata_showcase_editor:setPendingCover(
-        plugin_root .. "/images/quickstart/onboarding/library_list_full.png", false)
+    if not options.file then
+        metadata_showcase_editor:applyHardcover({
+            title = "The Strength of the Few",
+            authors = { "James Islington" },
+            series_name = "Hierarchy",
+            series_index = "2",
+            genres = { "Fantasy", "Epic fantasy" },
+            language = "en",
+            publisher = "Orbit",
+            description = "The hierarchy is changing, and the cost of power has never been higher.",
+        }, "Paperback, 2024 · Orbit")
+        metadata_showcase_editor:setPendingCover(
+            plugin_root .. "/images/quickstart/onboarding/library_list_full.png", false)
+    end
     metadata_showcase_editor.page = 1
     metadata_showcase_editor.itemnumber = 1
     metadata_showcase_editor:updateItems(nil, false)
+    if metadata_showcase_editor._cover_focus then
+        metadata_showcase_editor._cover_focus:onUnfocus()
+    end
     UIManager:forceRePaint()
     return true
 end
@@ -1686,7 +1704,7 @@ function Driver:handleCommand(command)
         return { ok = ok == true, error = err }
     end
     if kind == "show_metadata_editor_fixture" then
-        local ok, err = show_metadata_editor_fixture(params.orientation)
+        local ok, err = show_metadata_editor_fixture(params)
         return { ok = ok == true, error = err, metadata = metadata_showcase_state() }
     end
     if kind == "show_metadata_cover_fixture" then

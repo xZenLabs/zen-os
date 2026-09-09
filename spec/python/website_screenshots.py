@@ -49,7 +49,7 @@ GROUPS = frozenset(("home", "library", "menus", "reader"))
 SESSIONS = frozenset(("general", "reader"))
 EXPECTED_IDS = frozenset((
     "zen_home", "home_bookshelf", "home_simple",
-    "library_covers_full", "library_list_full", "context_menu", "stats",
+    "library_covers_full", "library_list_full", "context_menu", "metadata_editor", "stats",
     "launcher", "quicksettings", "quickstart", "zen_settings",
     "launcher_add_plugin_menu", "launcher_add_koreader_menu",
     "controls_buttons_settings", "navbar_buttons_settings",
@@ -1503,6 +1503,26 @@ class CaptureWorkflow:
             book = self._role(books, str(options["book_role"]))
             _require_ok(driver.command("set_library_display_mode", mode="mosaic_image"), action)
             _require_ok(driver.command("open_file_context", path=str(book.path.resolve())), action)
+            return
+        if action == "metadata_editor":
+            title = str(options["book_title"])
+            book = next((book for book in books if book.title == title), None)
+            if book is None:
+                raise CaptureError(f"metadata editor book was not staged: {title}")
+            response = _require_ok(
+                driver.command(
+                    "show_metadata_editor_fixture",
+                    orientation="portrait",
+                    file=str(book.path.resolve()),
+                ),
+                action,
+            )
+            metadata = response.get("metadata", {})
+            if (metadata.get("file") != str(book.path.resolve())
+                    or metadata.get("title") != book.title
+                    or metadata.get("dirty") is not False
+                    or metadata.get("has_current_cover") is not True):
+                raise CaptureError(f"metadata editor fixture mismatch: {metadata}")
             return
         if action == "navbar":
             _require_ok(driver.command("set_library_display_mode", mode="mosaic_image"), action)

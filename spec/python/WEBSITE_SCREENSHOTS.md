@@ -28,7 +28,7 @@ Each book record has four required fields and optional metadata overrides:
 The profile contains exactly twelve books in newest-to-oldest recent order. That order drives
 the Home recent widgets; a scenario may pin a specific Library list showcase order.
 
-Use `--list` to inspect the tracked 23-screen catalog, `--audit` to check documentation and
+Use `--list` to inspect the tracked 24-screen catalog, `--audit` to check documentation and
 carousel references, or capture with `--screen ID`, `--group GROUP`, or `--all`. OPDS and
 `update_available.png` are intentionally outside the automated catalog.
 

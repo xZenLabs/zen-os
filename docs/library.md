@@ -6,7 +6,7 @@ settingsPath: Zen Settings > Library
 order: 30
 ---
 
-<!-- Documentation current through ZenOS v3.0.0. -->
+<!-- Documentation current through ZenOS v3.3.0. -->
 
 ![Library cover view](/images/zen_os/library_covers_full.webp)
 
@@ -14,9 +14,11 @@ order: 30
 
 ![Context menu](/images/zen_os/context_menu.webp)
 
+![Metadata editor](/images/zen_os/metadata_editor.webp)
+
 ## Overview
 
-Library settings control the KOReader library. Customize the top status bar, layout, folder display, background image, and cover metadata. Tap and hold on any item in the Library or the Navbar and it will bring up the Context Menu. This is a detailed menu of actions for the currently selected item.
+Library settings control the KOReader library. Customize the top status bar, layout, folder display, background image, book details, and metadata tools. Tap and hold on any item in the Library or the Navbar and it will bring up the Context Menu. This is a detailed menu of actions for the currently selected item.
 
 ## Options
 
@@ -29,6 +31,9 @@ Library settings control the KOReader library. Customize the top status bar, lay
 - Configure the scroll bar as a bar, dots, or page number.
 - Set a custom Library background image.
 - Set and lock the home folder, add extra home folders, and control delete access.
+- Edit book metadata and covers manually or fill them from online providers.
+- Choose and arrange the information shown on Book details pages.
+- Optionally include new and updated books in To Be Read views.
 
 ## Setting reference
 
@@ -43,6 +48,11 @@ Library settings control the KOReader library. Customize the top status bar, lay
 | Status bar > Center items | Selects and arranges status items for the center slot. |
 | Status bar > Right items | Selects and arranges status items for the right slot. |
 | Status bar > Separator | Selects dot, bar, dash, bullet, space, small space, none, or a custom separator. |
+| Metadata > Hardcover | Enables Hardcover lookup. A read-only catalog token is required. |
+| Metadata > Google Books | Enables Google Books lookup. An API key is required. |
+| Metadata > Open Library | Enables Open Library lookup without an API credential. |
+| Metadata > Match selection | Automatically picks the best result or always opens the match chooser. |
+| Metadata > Keep an EPUB metadata backup | Keeps one restorable copy before ZenOS writes metadata into an EPUB. |
 | Font > Font | Sets the global ZenOS font family, or restores the default font. Applies everywhere except the reader. |
 | Font > Font size | Sets the global base text size from 10 to 40. |
 | Layout > Display mode | Selects classic, mosaic with covers, mosaic with text, detailed list with covers and metadata, detailed list with metadata, or detailed list with covers and filenames. |
@@ -79,6 +89,8 @@ Library settings control the KOReader library. Customize the top status bar, lay
 | Home folder > Set home folder | Opens a folder chooser for the primary library root. |
 | Home folder > Lock home folder | Selects Off, Only in Zen Mode, or Always for navigation outside the home folder. |
 | Home folder > Additional home folders | Adds or removes extra library roots. |
+| Book details | Chooses and arranges the metadata, reading progress, and timing fields shown in full-screen Book details. Tags can optionally open their Library view. |
+| Include new books in TBR | Includes unread books and books modified since they were last opened in To Be Read views without changing their saved read status. |
 | Library > Allow delete | Enables or disables delete actions in the library context menu. |
 
 ## Fonts
@@ -87,11 +99,21 @@ The library **Font** settings set the global ZenOS font. You can change the font
 
 The reader has its own separate font controls, so you can give the reading view a different font, size, and bold setting from the rest of the UI.
 
+## Metadata editor
+
+![Metadata editor](/images/zen_os/metadata_editor.webp)
+
+Open **Edit > Edit metadata** from a book's context menu, or choose **Edit** on a ZenOS Book details page. The editor can change the filename, cover, title, authors, series and position, genres, language, publisher, and description. Close a book before editing its metadata.
+
+**Find metadata** searches every enabled provider and can use the book's ISBN or a title and author query. Hardcover and Google Books require credentials; enter them under **Zen Settings > Library > Metadata**. They are stored locally as plain text and never logged. Open Library requires no credential. Search results show available editions with their format, publisher, language, page count, and cover so you can choose the correct match.
+
+For EPUB files, ZenOS writes supported metadata into the book after confirmation. Enable **Keep an EPUB metadata backup** if you want a **Restore** action; the editor keeps one backup beside the EPUB. Other formats, including PDF, keep the original document unchanged and save KOReader metadata overrides in the book's sidecar data. Cover changes use KOReader's custom-cover file.
+
 ## Custom folder covers
 
 Long-press a folder and open **Edit > Set folder cover** to see a full-screen vertical mosaic of cover slots and their current previews. Each row places the preview on the left, **Cover N** vertically centered, and a Zen **Clear** button at the far right. Tap a cover or press OK/Enter on its focused row to choose an image; press and hold it or tap **Clear** to remove the reference. Single-cover mode offers one slot; gallery and stack modes show all four slots together on one page without pagination. Previews scale to fit the page while using the same aspect ratio, crop mode, and rounded-corner styling as the Library file picker. A gallery or stack with only one chosen or automatic cover is displayed as one full-size cover, and chosen covers are not filled out with automatic book covers.
 
-ZenOS stores only a reference to each chosen image: it does not copy the image into the folder or modify the source file, so the source must remain available at the selected location. Folder covers accept only the case-insensitive `.jpg` extension. You can also manage them manually as `cover.jpg`, `cover1.jpg`, `cover2.jpg`, `cover3.jpg`, or `cover4.jpg`; these managed JPG files stay hidden in the Library file list and override covers generated from the folder's contents. Files ending in `.jpeg`, `.png`, `.webp`, `.gif`, or any other extension are not treated as folder covers and remain visible.
+ZenOS stores only a reference to each chosen image: it does not copy the image into the folder or modify the source file, so the source must remain available at the selected location. Folder covers accept case-insensitive `.jpg` and `.jpeg` files. You can also manage them manually as `cover.jpg`, `cover.jpeg`, `cover1.jpg`, `cover1.jpeg`, and the equivalent names through `cover4`; these managed images stay hidden in the Library file list and override covers generated from the folder's contents. PNG, WebP, GIF, and other formats are not treated as folder covers and remain visible.
 
 ## Library Background
 
@@ -113,7 +135,7 @@ To navigate the complete filesystem, set **Zen Settings > Library > Home folder 
 
 | Action | Description |
 | --- | --- |
-| Details | Shows the book's cover, metadata, description, progress, and actions in a fullscreen view. Choose **Edit** to open KOReader's Book information screen; there you can hold **Filename** to rename the file or choose **Open with…** beside Format to select a document provider. |
+| Details | Shows the book's cover, selected metadata, description, progress, and actions in a fullscreen view. Choose **Edit** to open the ZenOS metadata editor. |
 | Read status | Sets the book to Unread, Reading, To Be Read, On hold, or Finished. Setting Unread also clears reading progress (percent, last page, and position). |
 | Add to collection | Adds the book to a chosen collection, including Favorites. |
 | Remove from collection | Removes the book from the collection when viewed inside one. |
@@ -121,6 +143,7 @@ To navigate the complete filesystem, set **Zen Settings > Library > Home folder 
 | Edit > Cut | Cuts the book to the clipboard for moving. |
 | Edit > Copy | Copies the book to the clipboard. |
 | Edit > Paste | Pastes a clipboard item into the current location. |
+| Edit > Edit metadata | Opens the native metadata editor for manual changes or online lookup. |
 | Edit > Refresh | Clears and rebuilds the book's cached metadata and cover. |
 | Edit > Delete | Deletes the book after confirmation. Only shown when Allow delete is enabled. |
 

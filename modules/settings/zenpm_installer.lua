@@ -27,13 +27,11 @@ local function call_device_bool(device, name)
 end
 
 --- Return the ZenPM asset filename templates for the supplied platform facts.
-function M.select_assets(device, jit_os)
+function M.select_assets(device, jit_os, jit_arch)
     local plugin_template
-    local apk_template
     local is_eink_reader = call_device_bool(device, "hasEinkScreen")
-    if call_device_bool(device, "isAndroid") then
-        plugin_template = "ZenPM-koreader-android-%s.zip"
-        apk_template = "ZenPM-android-%s.apk"
+    if is_eink_reader and (jit_arch == "arm64" or jit_arch == "aarch64") then
+        plugin_template = "ZenPM-koreader-linux-%s.zip"
     elseif is_eink_reader then
         plugin_template = "ZenPM-koreader-ereader-%s.zip"
     elseif jit_os == "OSX" or jit_os == "Darwin" then
@@ -43,7 +41,7 @@ function M.select_assets(device, jit_os)
     else
         plugin_template = "ZenPM-koreader-ereader-%s.zip"
     end
-    return plugin_template, apk_template
+    return plugin_template
 end
 
 function M.asset_prefix(template)
@@ -53,7 +51,11 @@ end
 
 function M.detect_assets()
     local device = require("device")
-    return M.select_assets(device, type(jit) == "table" and jit.os or nil)
+    return M.select_assets(
+        device,
+        type(jit) == "table" and jit.os or nil,
+        type(jit) == "table" and jit.arch or nil
+    )
 end
 
 local function parse_url(url)
@@ -313,7 +315,7 @@ end
 local function show_install_prompt(plugin)
     local ConfirmBox = require("ui/widget/confirmbox")
     local UIManager = require("ui/uimanager")
-    local plugin_template, apk_template = M.detect_assets()
+    local plugin_template = M.detect_assets()
     logger.info("install requested asset_template=", plugin_template)
     UIManager:show(ConfirmBox:new{
         text = _("Are you sure you want to install the ZenPM plugin?"),
@@ -396,13 +398,6 @@ local function show_install_prompt(plugin)
                     end
                     local subtitle = _("ZenPM has been installed. Restart KOReader to use it.")
                         .. "\n\n" .. _("A launcher button has been added for ZenPM.")
-                    if apk_template then
-                        local version = asset.name:sub(#asset_prefix + 1, -5)
-                        subtitle = subtitle .. "\n\n" .. string.format(
-                            _("Manually download and sideload %1 from the same ZenPM release."),
-                            string.format(apk_template, version)
-                        )
-                    end
                     screen:update{
                         subtitle = subtitle,
                         button = _("Restart now"),

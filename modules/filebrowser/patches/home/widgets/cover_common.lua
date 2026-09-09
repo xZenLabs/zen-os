@@ -48,6 +48,7 @@ local function rounded_enabled()
         and type(cfg.features) == "table"
         and cfg.features.browser_cover_rounded_corners == true
 end
+M.rounded_enabled = rounded_enabled
 
 -- The four r-by-r corners are packed side-by-side in one small snapshot.
 local function paint_corner_masks(bb, tx, ty, tw, th, r, snap, snap_r)

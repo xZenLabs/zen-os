@@ -106,9 +106,9 @@ def _color_cover_epub(
         archive.writestr("OPS/cover.png", cover.getvalue())
 
 
-def test_catalog_is_the_canonical_23_image_inventory() -> None:
+def test_catalog_is_the_canonical_24_image_inventory() -> None:
     catalog = load_catalog()
-    assert len(catalog) == 23
+    assert len(catalog) == 24
     assert {scenario.id for scenario in catalog} == EXPECTED_IDS
     assert [scenario.id for scenario in catalog if scenario.id.startswith("page_browser")] == [
         "page_browser_grid", "page_browser_carousel"
@@ -154,6 +154,12 @@ def test_catalog_is_the_canonical_23_image_inventory() -> None:
     ]
     context_menu = next(scenario for scenario in catalog if scenario.id == "context_menu")
     assert context_menu.options["navbar"] == "few_items"
+    metadata_editor = next(
+        scenario for scenario in catalog if scenario.id == "metadata_editor"
+    )
+    assert metadata_editor.action == "metadata_editor"
+    assert metadata_editor.options["book_title"] == "Deep Work"
+    assert metadata_editor.docs == ("docs/library.md",)
     launcher_add = next(
         scenario for scenario in catalog if scenario.id == "launcher_add_plugin_menu"
     )
