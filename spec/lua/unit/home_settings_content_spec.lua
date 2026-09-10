@@ -792,9 +792,12 @@ describe("Home widget content settings", function()
         assert.is_true(settings.openWidgetSettings("strip"))
         local controls_item = find_item(arrange_options.item_table, "Controls")
         find_item(controls_item.sub_item_table_func(), "Tabs").callback({})
+        local backs = 0
 
         assert.is_nil(find_item(arrange_options.add_item_table, "Finished"))
-        find_item(arrange_options.add_item_table, "Tab").callback()
+        find_item(arrange_options.add_item_table, "Tab").callback({
+            backToUpperMenu = function() backs = backs + 1 end,
+        })
         for _i, label in ipairs({
             "Unread", "Reading", "To Be Read", "On hold", "Finished",
         }) do assert.is_table(find_item(picker_options.items, label)) end
@@ -804,6 +807,7 @@ describe("Home widget content settings", function()
         assert.same({
             id = "hs_1", type = "status", status = "complete", label = "Finished",
         }, home_page.modules.strip.controls.custom_buttons[1])
+        assert.are.equal(1, backs)
     end)
 
     it("resets Strip control tabs without changing control display settings", function()

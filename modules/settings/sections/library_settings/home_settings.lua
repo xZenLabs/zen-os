@@ -1303,11 +1303,13 @@ function M.build(ctx)
             items = items,
             on_select = function(item)
                 if item and item.status then
-                    commit_strip_button(controls, {
+                    if commit_strip_button(controls, {
                         type = "status",
                         status = item.status.key,
                         label = item.status.label,
-                    })
+                    }) and touchmenu_instance and touchmenu_instance.backToUpperMenu then
+                        touchmenu_instance:backToUpperMenu()
+                    end
                     return
                 end
                 local entry = item and item.entry
