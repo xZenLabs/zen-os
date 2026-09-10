@@ -472,6 +472,18 @@ describe("Home widget content settings", function()
         assert.is_not_nil(find_item(items, "Recent filters"))
     end)
 
+    it("toggles Strip controls from the Controls submenu row", function()
+        local settings = require("modules/settings/sections/library_settings/home_settings")
+        assert.is_true(settings.openWidgetSettings("strip"))
+
+        local controls = find_item(arrange_options.item_table, "Controls")
+        assert.is_false(controls.checked_func())
+        assert.is_nil(find_item(controls.sub_item_table_func(), "Show controls"))
+
+        controls.checkmark_callback()
+        assert.is_true(controls.checked_func())
+    end)
+
     it("exposes the shared TBR order from Strip content and controls", function()
         local strip = home_page.modules.strip
         strip.default_source = { kind = "to_be_read" }

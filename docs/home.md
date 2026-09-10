@@ -53,7 +53,7 @@ Build a personal Home page from date and time, featured book, reading stats, rea
 | Widgets > Featured book > Text styles | Sets title, author, series, and description font face, size, and bold style. |
 | Widgets > Featured book > Progress labels | Selects left and right progress labels: off, percent, time to book end, current/total pages, or total pages. Current/total and total pages use stable page labels when the book provides a page map. |
 | Widgets > Book strip > Content | Selects Recent, Favorites, To Be Read, Authors, Series, Tags, Collections, a specific tag, a folder, or custom books when Strip controls are hidden. |
-| Widgets > Book strip > Controls > Show controls | Adds source and action tabs above the strip. The first visible source tab becomes the active content source. |
+| Widgets > Book strip > Controls | Adds source and action tabs above the strip. The first visible source tab becomes the active content source. |
 | Widgets > Book strip > Controls > Tabs | Shows and arranges up to seven tabs. Add a built-in source, specific tag, folder, dispatcher action, Control, plugin menu, or KOReader menu. |
 | Widgets > Book strip > Controls > Font | Sets the strip-control label font, size, and weight. |
 | Widgets > Book strip > Show book titles | Shows titles below strip covers. |

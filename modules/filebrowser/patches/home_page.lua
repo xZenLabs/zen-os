@@ -1142,12 +1142,21 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         local status_data
         local partial_md5_checksum = nil
         if metadata_only then
-            status_data = dataset.status_data[path]
-            if not status_data then
+            local badges = cfg and cfg.browser_cover_badges
+            if type(badges) == "table" and badges.dim_finished_books == true then
                 status_data = compact_status_data(
                     book_status.getFileStatusData(path, book_info))
-                dataset.status_data[path] = status_data
+            else
+                status_data = dataset.status_data[path]
             end
+            if not status_data then
+                local BookList = package.loaded["ui/widget/booklist"]
+                if BookList and type(BookList.hasBookInfoCache) == "function"
+                        and BookList.hasBookInfoCache(path) then
+                    status_data = compact_status_data(BookList.getBookInfo(path))
+                end
+            end
+            dataset.status_data[path] = status_data
             if status_data then
                 pct = status_data.percent_finished
                 status = status_data.status

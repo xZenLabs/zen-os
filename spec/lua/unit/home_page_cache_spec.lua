@@ -1332,13 +1332,18 @@ describe("home data and book caches", function()
         assert.are.equal("/library/alpha.epub", books[1].path)
     end)
 
-    it("resolves strip status when cover and BookList metadata are cold", function()
+    it("prefers authoritative status for dimming over cached metadata", function()
         resolved_status = "complete"
         ZenSpec.replace("ui/widget/booklist", {
-            hasBookInfoCache = function() return false end,
+            hasBookInfoCache = function() return true end,
+            getBookInfo = function()
+                return { status = "reading", percent_finished = 0.25 }
+            end,
         })
         local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
-        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+        local provider = get_build_data_provider(Home)({
+            browser_cover_badges = { dim_finished_books = true },
+        }, {
             rows = { order = { "strip" }, enabled = { strip = true } },
             modules = { strip = {} },
         })
@@ -1348,7 +1353,7 @@ describe("home data and book caches", function()
         }, 4, "default", "strip", 0)
 
         assert.are.equal("complete", books[1].status)
-        assert.are.equal(1, status_lookup_count)
+        assert.are.equal(1, doc_open_count)
     end)
 
     it("keeps the final strip page partial before wrapping", function()

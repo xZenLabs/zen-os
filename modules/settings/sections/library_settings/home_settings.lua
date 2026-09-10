@@ -1712,18 +1712,15 @@ function M.build(ctx)
         local items = {
             {
                 text = _("Controls"),
+                checked_func = function()
+                    return mcfg.controls.enabled == true
+                end,
+                checkmark_callback = function()
+                    mcfg.controls.enabled = mcfg.controls.enabled ~= true
+                    save_home("reinit")
+                end,
                 sub_item_table_func = function()
                     return {
-                        {
-                            text = _("Show controls"),
-                            checked_func = function()
-                                return mcfg.controls.enabled == true
-                            end,
-                            callback = function()
-                                mcfg.controls.enabled = mcfg.controls.enabled ~= true
-                                save_home("reinit")
-                            end,
-                        },
                         IconItem.decorate({
                             text = _("Tabs"),
                             _zen_settings_submenu = true,
@@ -1732,14 +1729,14 @@ function M.build(ctx)
                                 show_strip_buttons(mcfg, touchmenu_instance)
                             end,
                         }, icons.navbar_tabs),
-                        {
+                        IconItem.decorate({
                             text_func = function()
                                 return _("Font") .. ": " .. strip_control_style_summary(mcfg)
                             end,
                             sub_item_table_func = function()
                                 return build_strip_control_font_items(mcfg)
                             end,
-                        },
+                        }, icons.title),
                         IconItem.decorate({
                             text = _("Reset to defaults"),
                             separator = true,

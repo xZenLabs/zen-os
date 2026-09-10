@@ -28,6 +28,8 @@ local db
 local status_rows
 local inventory
 local result_cache = {}
+local status_buckets
+local status_bucket_mode
 local revision = 0
 local audit
 local reconciled_scope
@@ -136,6 +138,8 @@ end
 
 local function clear_results(bump_revision)
     result_cache = {}
+    status_buckets = nil
+    status_bucket_mode = nil
     if bump_revision then revision = revision + 1 end
 end
 
@@ -652,13 +656,28 @@ local function result_key(options, scope_key)
     }, "\30")
 end
 
+local function get_status_buckets(books, mode)
+    if status_buckets and status_bucket_mode == mode then return status_buckets end
+    local buckets = {}
+    status_transaction(function()
+        for _i, book in ipairs(books) do
+            local status = status_for(book.path, book.attr)
+            local display = BookStatus.getDisplayStatus(
+                book.path, status.effective_status)
+            buckets[display] = buckets[display] or {}
+            buckets[display][#buckets[display] + 1] = book.path
+        end
+    end)
+    status_buckets = buckets
+    status_bucket_mode = mode
+    return buckets
+end
+
 local function build_status_result(statuses, options)
     options = type(options) == "table" and options or {}
-    local wanted = {}
     local keys = {}
     for status, enabled in pairs(type(statuses) == "table" and statuses or {}) do
         if enabled == true and type(status) == "string" then
-            wanted[status] = true
             keys[#keys + 1] = status
         end
     end
@@ -667,9 +686,11 @@ local function build_status_result(statuses, options)
 
     local books, scope = ensure_inventory()
     explicit_paths()
+    local status_mode = BookStatus.includeNewInTBREnabled()
+        and "new-is-tbr" or "new-is-unread"
     local key = table.concat({
         "status", scope.key, table.concat(keys, "\31"),
-        BookStatus.includeNewInTBREnabled() and "new-is-tbr" or "new-is-unread",
+        status_mode,
         tostring(options.collate or "title"),
         options.reverse == true and "reverse" or "forward",
         tostring(options.exclude_path or ""),
@@ -677,16 +698,12 @@ local function build_status_result(statuses, options)
     if result_cache[key] then return result_cache[key] end
 
     local files = {}
-    status_transaction(function()
-        for _i, book in ipairs(books) do
-            if book.path ~= options.exclude_path then
-                local status = status_for(book.path, book.attr)
-                local display = BookStatus.getDisplayStatus(
-                    book.path, status.effective_status)
-                if wanted[display] then files[#files + 1] = book.path end
-            end
+    local buckets = get_status_buckets(books, status_mode)
+    for _i, status in ipairs(keys) do
+        for _j, path in ipairs(buckets[status] or {}) do
+            if path ~= options.exclude_path then files[#files + 1] = path end
         end
-    end)
+    end
     files = sort_paths(files, options.collate, options.reverse == true)
     result_cache[key] = files
     return files

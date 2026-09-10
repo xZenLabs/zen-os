@@ -3,6 +3,7 @@ describe("TBR path inventory", function()
     local attrs
     local entries
     local sidecars
+    local sidecar_lookups
     local docs
     local opens
     local open_fail
@@ -52,6 +53,7 @@ describe("TBR path inventory", function()
         }
         entries = { ["/books"] = { ".", ".." } }
         sidecars = {}
+        sidecar_lookups = 0
         docs = {}
         opens = 0
         open_fail = nil
@@ -149,7 +151,10 @@ describe("TBR path inventory", function()
         })
         ZenSpec.replace("readcollection", ReadCollection)
         ZenSpec.replace("docsettings", {
-            findSidecarFile = function(_self, path) return sidecars[path] end,
+            findSidecarFile = function(_self, path)
+                sidecar_lookups = sidecar_lookups + 1
+                return sidecars[path]
+            end,
             open = function(_self, path)
                 opens = opens + 1
                 if open_fail == path then return nil end
@@ -292,6 +297,7 @@ describe("TBR path inventory", function()
         assert.same({ "/books/b.epub" }, Index.getByStatuses({ tbr = true }))
         assert.same({ "/books/d.epub" }, Index.getByStatuses({ reading = true }))
         assert.same({ "/books/e.epub" }, Index.getByStatuses({ new = true }))
+        assert.are.equal(5, sidecar_lookups)
     end)
 
     it("uses the ordinary collection for explicit TBR membership", function()

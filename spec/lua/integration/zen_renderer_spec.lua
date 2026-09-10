@@ -397,7 +397,7 @@ describe("Zen renderer", function()
             name = "filemanager",
             item_table = { { title = "Finished", is_file = true, path = "/finished.epub" } },
             item_group = {}, layout = {}, items_to_update = {}, page = 1,
-            perpage = 1, nb_cols = 1, item_margin = 1, item_width = 100,
+            perpage = 1, nb_cols = 2, item_margin = 1, item_width = 100,
             item_height = 150, item_dimen = { copy = function() return {} end },
             inner_dimen = { w = 110 }, _do_cover_images = true,
         }
