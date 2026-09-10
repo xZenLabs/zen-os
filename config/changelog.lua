@@ -332,6 +332,8 @@ return {
         "Updates to Reader top status bar (including colored icons)",
         "Reserve space in reflowable books (EPUB) for Reader top status bar",
         "Reset weekly stats on Sunday/Monday (Extras > Stats)",
+        "Move update available button in settings",
+        "Add option to toggle wifi with tailscale",
         "Fix articles sorting in other languages",
         "Fix highlight menu overlap",
         "Fix guided tour bug when Zen mode toggle removed from controls",

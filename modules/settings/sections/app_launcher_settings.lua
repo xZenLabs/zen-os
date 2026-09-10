@@ -195,7 +195,7 @@ function M.build(ctx)
                         local label = trim(dialog:getInputText())
                         if label ~= "" then
                             entry.label = label
-                            entry.label_auto = false
+                            if entry.type ~= "break" then entry.label_auto = false end
                             if not is_draft_entry(entry) then
                                 save_app_launcher()
                             end
@@ -205,6 +205,9 @@ function M.build(ctx)
                             if not is_draft_entry(entry) then
                                 save_app_launcher()
                             end
+                        elseif entry.type == "break" then
+                            entry.label = nil
+                            save_app_launcher()
                         end
                         UIManager:close(dialog)
                         if touch_menu and touch_menu.updateItems then
@@ -824,6 +827,18 @@ function M.build(ctx)
             }, icons.koreader_menu)
             add_label_item()
             add_icon_item()
+        elseif entry.type == "break" then
+            items[#items + 1] = IconItem.decorate({
+                text_func = function()
+                    local title = type(entry.label) == "string" and entry.label:match("%S")
+                        and entry.label or _("(none)")
+                    return _("Title") .. ": " .. title
+                end,
+                keep_menu_open = true,
+                callback = function(touch_menu)
+                    prompt_label(entry, _("Title"), touch_menu)
+                end,
+            }, icons.label)
         elseif entry.type ~= "break" then
             items[#items + 1] = IconItem.decorate({
                 text_func = function()

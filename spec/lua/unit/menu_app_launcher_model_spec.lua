@@ -132,6 +132,15 @@ describe("app launcher model", function()
             Model.enabled_entries({ first, disabled, default_enabled }))
     end)
 
+    it("uses an optional row-break title in its settings label", function()
+        local Model = require("modules/menu/app_launcher/model")
+
+        assert.are.equal("\u{2014} Reading \u{2014}",
+            Model.display_label({ type = "break", label = "Reading" }))
+        assert.are.equal("\u{2014} Row break \u{2014}",
+            Model.display_label({ type = "break" }))
+    end)
+
     it("adds enabled ZenPM once without replacing an existing launcher entry", function()
         ZenSpec.replace("pluginloader", {
             loadPlugins = function()

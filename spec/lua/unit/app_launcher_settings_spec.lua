@@ -85,7 +85,7 @@ describe("app launcher settings", function()
             ensure = function()
                 return launcher_cfg
             end,
-            display_label = function(item) return item.label end,
+            display_label = function(item) return item.label or "Row break" end,
             next_id = function() return "al_2" end,
             save = function() saves = saves + 1 end,
         })
@@ -371,5 +371,38 @@ describe("app launcher settings", function()
             { id = "al_4", type = "tag", tag = "Science",
                 label = "Science", label_auto = true, icon = "approved_zenfm" },
         }, { launcher_cfg.entries[2], launcher_cfg.entries[3], launcher_cfg.entries[4] })
+    end)
+
+    it("edits and clears an optional row-break title", function()
+        entry.type = "break"
+        entry.label = "Reading"
+        entry.icon = nil
+        entry.plugin = nil
+        local dialog
+        ZenSpec.replace("ui/widget/inputdialog", {
+            new = function(_self, opts)
+                opts.getInputText = function() return "" end
+                opts.onShowKeyboard = function() end
+                dialog = opts
+                return opts
+            end,
+        })
+        local UIManager = require("ui/uimanager")
+        UIManager.show = function() end
+        UIManager.close = function() end
+        local section = require(
+            "modules/settings/sections/app_launcher_settings").build({
+                config = { features = { app_launcher = true } },
+                save_and_apply = function() end,
+        })
+
+        assert.is_true(section._zen_search_items_func()[1]._zen_search_open())
+        local title_item = shown_options.item_table[1]
+        assert.are.equal("Title: Reading", title_item.text_func())
+        title_item.callback()
+        dialog.buttons[1][2].callback()
+
+        assert.is_nil(entry.label)
+        assert.are.equal(1, saves)
     end)
 end)

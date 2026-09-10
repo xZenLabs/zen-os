@@ -329,7 +329,11 @@ end
 
 function M.display_label(entry)
     if not entry then return _("App") end
-    if entry.type == "break" then return "\u{2014} " .. _("Row break") .. " \u{2014}" end
+    if entry.type == "break" then
+        local label = type(entry.label) == "string" and entry.label:match("%S")
+            and entry.label or _("Row break")
+        return "\u{2014} " .. label .. " \u{2014}"
+    end
     return entry.label or _("App")
 end
 

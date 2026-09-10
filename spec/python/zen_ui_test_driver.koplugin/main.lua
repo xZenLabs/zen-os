@@ -1865,6 +1865,8 @@ function Driver:handleCommand(command)
         end
 
         local active_tab = touch_menu and tabs[touch_menu.cur_tab]
+        local visible_texts = {}
+        if touch_menu then collect_texts(touch_menu, visible_texts, {}, 0) end
         local empty_segment = bar and bar.bar_sep and bar.bar_sep.empty_segments
             and bar.bar_sep.empty_segments[1]
         local solid_separator_positions = {}
@@ -1883,6 +1885,7 @@ function Driver:handleCommand(command)
             group_positions = group_positions,
             tab_segments = tab_segments,
             active_tab = active_tab,
+            visible_texts = visible_texts,
             empty_segment = empty_segment,
             solid_separator_positions = solid_separator_positions,
         }

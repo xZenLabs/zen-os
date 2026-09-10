@@ -418,10 +418,17 @@
         local circle_border = Screen:scaleBySize(2)
         local label_size = Font.sizemap and Font.sizemap["xx_smallinfofont"] or 18
         local label_face = library_font.getFace(label_size)
+        local title_gap = Screen:scaleBySize(4)
+        local title_probe = TextWidget:new{
+            text = "Ag", face = label_face, bold = true, padding = 0,
+        }
+        local title_h = title_probe:getSize().h
+        title_probe:free()
         local label_side_padding = Screen:scaleBySize(ButtonLabelWidth.SIDE_PADDING)
         local rows = {}
         local row_counts = {}
         local row_widths = {}
+        local row_titles = {}
         local layout_rows = {}
         local refs = { buttons = {}, layout_rows = layout_rows }
         local visible = {}
@@ -440,23 +447,27 @@
             end
         end
 
-        -- Group visible entries into rows, honoring row-break marker entries
-        -- as well as the column count. A break entry doesn't render a cell
-        -- itself -- it just forces the next entry to start a new row.
+        -- Group visible entries into rows. A break forces a new row and may
+        -- give it a title, but never renders a launcher cell itself.
         local all_rows = {}
         do
             local current_row
             local force_break = false
+            local break_title
             for _i, entry in ipairs(visible) do
                 if entry.type == "break" then
                     force_break = true
+                    break_title = type(entry.label) == "string" and entry.label:match("%S")
+                        and entry.label or nil
                 else
                     if not current_row or #current_row >= cols or force_break then
                         current_row = {}
+                        current_row._break_title = break_title
                         all_rows[#all_rows + 1] = current_row
                     end
                     current_row[#current_row + 1] = entry
                     force_break = false
+                    break_title = nil
                 end
             end
         end
@@ -483,7 +494,24 @@
         local panel_height = math.max(1, menu_height - bar_h - footer_h - footer_margin_h)
         local items_height = math.max(1, panel_height - pad * 2)
         local rows_per_page = math.max(1, math.floor(items_height / cell_total_h) - 1)
-        local button_page_num = math.ceil(#all_rows / rows_per_page)
+        local button_pages = {}
+        local page_height = 0
+        for _i, row in ipairs(all_rows) do
+            local row_height = cell_h
+                + (row._break_title and title_h + title_gap or 0)
+                + (page_height > 0 and row_gap or 0)
+            local page_rows = button_pages[#button_pages]
+            if not page_rows or #page_rows >= rows_per_page
+                    or page_height > 0 and page_height + row_height > items_height then
+                page_rows = {}
+                button_pages[#button_pages + 1] = page_rows
+                page_height = 0
+                row_height = cell_h + (row._break_title and title_h + title_gap or 0)
+            end
+            page_rows[#page_rows + 1] = row
+            page_height = page_height + row_height
+        end
+        local button_page_num = #button_pages
         local page_plan = folder and PagePlan.build(math.max(1, button_page_num), {}, true)
             or PagePlan.build(button_page_num, cfg, is_library_launcher(touch_menu))
         local page_num = #page_plan
@@ -511,14 +539,7 @@
         local is_book_details_page = page_spec.kind == "book_details"
         local button_page = page_spec.index or 1
 
-        local page_rows = {}
-        if page_spec.kind == "buttons" and #all_rows > 0 then
-            local start_idx = (button_page - 1) * rows_per_page + 1
-            local end_idx = math.min(start_idx + rows_per_page - 1, #all_rows)
-            for i = start_idx, end_idx do
-                page_rows[#page_rows + 1] = all_rows[i]
-            end
-        end
+        local page_rows = page_spec.kind == "buttons" and button_pages[button_page] or {}
 
         if is_switcher_page then
             local panel, switcher_refs = BookSwitcherPage.build{
@@ -601,6 +622,7 @@
             rows[#rows + 1] = HorizontalGroup:new{ align = "top" }
             row_counts[#rows] = 0
             row_widths[#rows] = uniform_cell_w
+            row_titles[#rows] = row_entries._break_title
             layout_rows[#layout_rows + 1] = {}
             for _j, entry in ipairs(row_entries) do
                 row_counts[#rows] = row_counts[#rows] + 1
@@ -644,6 +666,20 @@
         end
 
         for _i, row in ipairs(rows) do
+            if row_titles[_i] then
+                panel[#panel + 1] = CenterContainer:new{
+                    dimen = Geom:new{ w = panel_width, h = title_h },
+                    TextWidget:new{
+                        text = row_titles[_i],
+                        face = label_face,
+                        bold = true,
+                        padding = 0,
+                        max_width = inner_w,
+                        truncate_with_ellipsis = true,
+                    },
+                }
+                panel[#panel + 1] = VerticalSpan:new{ width = title_gap }
+            end
             local used = (row_counts[_i] or 0) * (row_widths[_i] or uniform_cell_w)
             local lead = math.max(pad, math.floor((panel_width - used) / 2))
             local trail = panel_width - used - lead

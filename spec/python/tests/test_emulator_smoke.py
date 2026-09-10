@@ -240,6 +240,7 @@ def test_native_koreader_menu_shortcuts_open_in_library_and_reader() -> None:
         launcher_settings.joinpath("app_launcher.lua").write_text(
             """return {
   entries = {
+    { id = "native_title", type = "break", label = "Native menus" },
     {
       id = "native_tools", type = "koreader_menu", label = "Tools",
       koreader_menu = { id = "tools", title = "Tools" },
@@ -321,6 +322,7 @@ def test_native_koreader_menu_shortcuts_open_in_library_and_reader() -> None:
 
             layout = driver.command("menu_tab_layout", tab_id="app_launcher")
             assert layout["active_tab"] == "app_launcher"
+            assert "Native menus" in layout["visible_texts"]
             assert driver.command("activate_launcher_entry", index=1)["ok"] is True
             tools = _wait_command(
                 driver,
