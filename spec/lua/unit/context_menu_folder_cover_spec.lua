@@ -710,5 +710,23 @@ describe("folder cover context-menu integration", function()
             "/library/renamed.epub",
             "/library/renamed.epub",
         }, refreshed)
+
+        local kindle_refreshes = 0
+        file_chooser:showFileDialog({
+            path = "/cache/kindle.epub",
+            is_file = true,
+            _zen_home_context = true,
+            _zen_kindle_book = true,
+            _zen_refresh = function() kindle_refreshes = kindle_refreshes + 1 end,
+            _zen_extra_buttons = { {{ text = "Clear cache" }} },
+        })
+        local kindle_dialog = shown[#shown]
+        assert.is_truthy(find_button(kindle_dialog, "Details"))
+        assert.is_truthy(find_button(kindle_dialog, "Read status"))
+        assert.is_truthy(find_button(kindle_dialog, "Clear cache"))
+        assert.is_nil(find_button(kindle_dialog, "Add to collection"))
+        assert.is_nil(find_button(kindle_dialog, "Edit"))
+        find_button(kindle_dialog, "Refresh").callback()
+        assert.are.equal(1, kindle_refreshes)
     end)
 end)

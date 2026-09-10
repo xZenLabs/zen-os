@@ -821,6 +821,7 @@ local function apply_context_menu()
 
             local file               = item.path
             local is_file            = item.is_file
+            local is_kindle_book     = item._zen_kindle_book == true
             local is_not_parent_folder = not item.is_go_up
             local is_home_dir = (not is_file) and paths.isHomeRoot(file)
             -- Only the primary library root uses global sort/display; additional
@@ -1866,7 +1867,7 @@ local function apply_context_menu()
             end
 
 
-            if is_file then
+            if is_file and not is_kindle_book then
                 local ReadCollection = require("readcollection")
 
                 if item._zen_collection_name then
@@ -2073,7 +2074,11 @@ local function apply_context_menu()
                         align = "left",
                         callback = function()
                             close_dialog()
-                            refresh_book_info()
+                            if type(item._zen_refresh) == "function" then
+                                item._zen_refresh(file)
+                            else
+                                refresh_book_info()
+                            end
                         end,
                     },
                 })
@@ -2378,7 +2383,7 @@ local function apply_context_menu()
                 })
             end
 
-            if not is_virtual_folder then
+            if not is_virtual_folder and not is_kindle_book then
                 table.insert(buttons, {
                     {
                         text = "\u{F090C}  " .. _("Edit") .. "  " .. submenu_arrow,

@@ -2801,7 +2801,10 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
 
     local function show_book_context_menu(path, source, component_id)
         if type(path) ~= "string" or path == "" then return false end
-        if source == "kindle" then return false end
+        if source == "kindle" then
+            return require("modules/filebrowser/patches/kindle_virtual_library")
+                .showBookContextMenu(nil, { file = path, path = path }, M.rebuildActive)
+        end
         local fm = FileManager.instance
         local fc = fm and fm.file_chooser
         if not (fc and type(fc.showFileDialog) == "function") then return false end

@@ -13,6 +13,11 @@ local function dispatcher_has_action()
     return listed and type(items) == "table" and #items > 0, Dispatcher
 end
 
+local function loaded_manager()
+    local extension = package.loaded["lua/filechooser_ext"]
+    return type(extension) == "table" and extension.kindle_library or nil
+end
+
 function M.isAvailable()
     if dispatcher_has_action() then return true end
     if type(PluginScan.exists) == "function" then
@@ -27,8 +32,7 @@ function M.isAvailable()
 end
 
 function M.open()
-    local extension = package.loaded["lua/filechooser_ext"]
-    local library = type(extension) == "table" and extension.kindle_library
+    local library = loaded_manager()
     local FileManager = package.loaded["apps/filemanager/filemanager"]
     local filemanager = FileManager and FileManager.instance
     if type(library) == "table" and type(library.show) == "function" and filemanager then
@@ -132,7 +136,9 @@ M._thumbnailPath = thumbnail_path
 
 local function virtual_library()
     local OpenFileExt = package.loaded["lua/open_file_ext"]
-    return type(OpenFileExt) == "table" and OpenFileExt.virtual_library or nil
+    local manager = loaded_manager()
+    return type(OpenFileExt) == "table" and OpenFileExt.virtual_library
+        or manager and manager.virtual_library or nil
 end
 
 local function kindle_book(filepath)
@@ -254,6 +260,75 @@ function M.showContextMenu(menu)
     return M.isLibraryView(menu) and show_display_mode(menu) or false
 end
 
+function M.showBookContextMenu(menu, item, after_change)
+    local manager = menu and menu._manager or loaded_manager()
+    local library = manager and manager.virtual_library or virtual_library()
+    if type(item) ~= "table" or type(library) ~= "table"
+            or type(library.getBook) ~= "function" then return false end
+
+    local ok_book, book = pcall(library.getBook, library,
+        item.kindle_book_id or item.file or item.path)
+    if not ok_book or type(book) ~= "table" then return false end
+
+    local cache_manager = manager and manager.cache_manager
+    local file = book.source_path or item.file or item.path
+    if book.open_mode ~= "direct" and cache_manager
+            and type(cache_manager.getCachePaths) == "function" then
+        file = cache_manager:getCachePaths(book) or file
+    end
+    if type(file) ~= "string" or file == "" then return false end
+
+    local FileManager = package.loaded["apps/filemanager/filemanager"]
+    local filemanager = FileManager and FileManager.instance
+    local file_chooser = filemanager and filemanager.file_chooser
+    if not file_chooser or type(file_chooser.showFileDialog) ~= "function" then
+        return false
+    end
+
+    local function refresh_view()
+        if type(after_change) == "function" then
+            after_change(file)
+        elseif manager and type(manager.show) == "function" then
+            manager:show(manager.ui, false)
+        end
+    end
+
+    local icons = require("common/inline_icon_map")
+    local _ = require("gettext")
+    local clear_cache = {{
+        text = icons.delete .. "  " .. _("Clear cache"),
+        align = "left",
+        enabled = book.open_mode ~= "direct" and cache_manager ~= nil,
+        callback = function()
+            require("ui/uimanager"):close(file_chooser.file_dialog)
+            local ok, err = cache_manager:clearBookCache(book)
+            if not ok then
+                local InfoMessage = require("ui/widget/infomessage")
+                require("ui/uimanager"):show(InfoMessage:new{
+                    text = _("Failed to clear cache:") .. "\n" .. (err or _("Unknown error")),
+                })
+                return
+            end
+            refresh_view()
+        end,
+    }}
+
+    file_chooser:showFileDialog({
+        path = file,
+        is_file = true,
+        _zen_home_context = true,
+        _zen_disable_select = true,
+        _zen_kindle_book = true,
+        _zen_extra_buttons = { clear_cache },
+        _zen_refresh = function()
+            if type(library.refresh) == "function" then library:refresh(true) end
+            refresh_view()
+        end,
+        _zen_after_status_change = refresh_view,
+    })
+    return true
+end
+
 function M._decorateLibraryView(menu, plugin)
     if not M.isLibraryView(menu) or menu._zen_kindle_decorated then return false end
     menu._zen_kindle_decorated = true
@@ -271,6 +346,10 @@ function M._decorateLibraryView(menu, plugin)
         repaintTitleBar = SharedState.get(plugin, "repaintTitleBar"),
         label = require("gettext")("Kindle Library"),
     })
+
+    menu.onMenuHold = function(self, item)
+        return M.showBookContextMenu(self, item)
+    end
 
     local Device = require("device")
     if Device:isTouchDevice() then

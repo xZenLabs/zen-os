@@ -203,6 +203,7 @@ describe("file browser guard patches", function()
             end,
         }
         local source = "/mnt/us/documents/book.kfx"
+        local cached = "/cache/book.epub"
         ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
         ZenSpec.replace("bookinfomanager", BookInfoManager)
         ZenSpec.replace("util", {
@@ -225,7 +226,7 @@ describe("file browser guard patches", function()
         ZenSpec.replace("lua/open_file_ext", {
             virtual_library = {
                 getBook = function(_, path)
-                    if path == source then
+                    if path == source or path == cached then
                         return {
                             source_path = source,
                             source_size = 42,
@@ -254,12 +255,13 @@ describe("file browser guard patches", function()
         local with_cover = BookInfoManager:getBookInfo(source, true)
         assert.are.equal(cover, with_cover.cover_bb)
         assert.are.equal(1, render_calls)
+        assert.is_true(BookInfoManager:getBookInfo(cached, false).stock)
         assert.is_true(BookInfoManager:getBookInfo("/library/normal.epub", true).stock)
-        assert.are.equal(1, stock_calls)
+        assert.are.equal(2, stock_calls)
     end)
 
     it("decorates Kindle Library like a regular folder view", function()
-        local shown, saved_mode, reopened, updated, status_options
+        local shown, saved_mode, reopened, updated, status_options, file_dialog_args
         ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
         ZenSpec.replace("common/ui/background", {
             applyToMenu = function(menu) menu.background_applied = true end,
@@ -284,6 +286,7 @@ describe("file browser guard patches", function()
             show = function(_, widget) shown = widget end,
             close = function() end,
         })
+        ZenSpec.replace("common/inline_icon_map", { delete = "delete-icon" })
         ZenSpec.replace("bookinfomanager", {
             getSetting = function(_, key)
                 if key == "filemanager_display_mode" then return "mosaic_image" end
@@ -292,20 +295,46 @@ describe("file browser guard patches", function()
         })
         ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
         local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
+        local catalog_book = {
+            id = "cc:1",
+            source_path = "/mnt/us/documents/book.kfx",
+            open_mode = "convert",
+        }
+        local refreshed, cache_cleared = 0, 0
         local manager = {
             close = function() end,
             show = function(_, _, force)
                 reopened = force == false
             end,
+            virtual_library = {
+                getBook = function(_, key)
+                    if key == catalog_book.id then return catalog_book end
+                end,
+                refresh = function(_, force)
+                    assert.is_true(force)
+                    refreshed = refreshed + 1
+                end,
+            },
+            cache_manager = {
+                getCachePaths = function() return "/cache/book.epub", "/cache/book.json" end,
+                clearBookCache = function(_, book)
+                    assert.are.equal(catalog_book, book)
+                    cache_cleared = cache_cleared + 1
+                    return true
+                end,
+            },
         }
-        local held
+        ZenSpec.replace("lua/filechooser_ext", { kindle_library = manager })
+        ZenSpec.replace("apps/filemanager/filemanager", {
+            instance = {
+                file_chooser = {
+                    showFileDialog = function(_, args) file_dialog_args = args end,
+                },
+            },
+        })
         local menu = {
             name = "kindle_library",
             _manager = manager,
-            onMenuHold = function(_, item)
-                held = item
-                return true
-            end,
             updateItems = function(_, page, no_resize)
                 updated = { page, no_resize }
             end,
@@ -320,7 +349,12 @@ describe("file browser guard patches", function()
         assert.is_nil(status_options.createStatusRowCustomBack)
         local book = { kindle_book_id = "cc:1" }
         assert.is_true(menu:onMenuHold(book))
-        assert.are.equal(book, held)
+        assert.are.equal("/cache/book.epub", file_dialog_args.path)
+        assert.is_true(file_dialog_args._zen_kindle_book)
+        file_dialog_args._zen_refresh()
+        assert.are.equal(1, refreshed)
+        file_dialog_args._zen_extra_buttons[1][1].callback()
+        assert.are.equal(1, cache_cleared)
 
         assert.is_true(menu.onZenKindleBlankHold())
         assert.are.equal("Display mode", shown.title)
