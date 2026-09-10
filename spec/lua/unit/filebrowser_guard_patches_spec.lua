@@ -83,7 +83,11 @@ describe("file browser guard patches", function()
             { text = "Books", path = "/library/Books" },
         }
         local FileChooser = {
-            genItemTableFromPath = function() return source end,
+            _zen_kindle_library_patched = true,
+            switchItemTable = function(self, _, items)
+                self.item_table = items
+                return items
+            end,
         }
         ZenSpec.replace("ui/widget/filechooser", FileChooser)
         local plugin = { config = { kindle = { hide_library_folder = true } } }
@@ -93,13 +97,13 @@ describe("file browser guard patches", function()
         local chooser = { name = "filemanager" }
         setmetatable(chooser, { __index = FileChooser })
 
-        local filtered = chooser:genItemTableFromPath("/library")
+        local filtered = chooser:switchItemTable(nil, source)
         assert.are.equal(1, #filtered)
         assert.are.equal("Books", filtered[1].text)
         assert.are.equal(2, #source)
 
         plugin.config.kindle.hide_library_folder = false
-        assert.are.equal(source, chooser:genItemTableFromPath("/library"))
+        assert.are.equal(source, chooser:switchItemTable(nil, source))
     end)
 
     it("opens Kindle Library through its registered dispatcher action", function()
@@ -294,9 +298,14 @@ describe("file browser guard patches", function()
                 reopened = force == false
             end,
         }
+        local held
         local menu = {
             name = "kindle_library",
             _manager = manager,
+            onMenuHold = function(_, item)
+                held = item
+                return true
+            end,
             updateItems = function(_, page, no_resize)
                 updated = { page, no_resize }
             end,
@@ -309,7 +318,9 @@ describe("file browser guard patches", function()
         assert.are.equal("Kindle Library", status_options.label)
         assert.is_nil(status_options.back_callback)
         assert.is_nil(status_options.createStatusRowCustomBack)
-        assert.is_function(menu.onZenKindleBlankHold)
+        local book = { kindle_book_id = "cc:1" }
+        assert.is_true(menu:onMenuHold(book))
+        assert.are.equal(book, held)
 
         assert.is_true(menu.onZenKindleBlankHold())
         assert.are.equal("Display mode", shown.title)

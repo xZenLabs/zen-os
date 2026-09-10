@@ -353,17 +353,16 @@ end
 function M.apply(plugin)
     local FileChooser = require("ui/widget/filechooser")
     apply_view_integration(plugin)
-    if FileChooser._zen_kindle_library_patched then return end
-    FileChooser._zen_kindle_library_patched = true
+    if FileChooser._zen_kindle_virtual_folder_filter_patched then return end
+    FileChooser._zen_kindle_virtual_folder_filter_patched = true
 
-    local original = FileChooser.genItemTableFromPath
-    function FileChooser:genItemTableFromPath(path)
-        local items = original(self, path)
+    local original = FileChooser.switchItemTable
+    function FileChooser:switchItemTable(title, items, ...)
         local config = plugin and plugin.config
         if self.name ~= "filemanager" or type(items) ~= "table"
                 or not (config and config.kindle
                     and config.kindle.hide_library_folder == true) then
-            return items
+            return original(self, title, items, ...)
         end
 
         local filtered
@@ -373,14 +372,14 @@ function M.apply(plugin)
                 break
             end
         end
-        if not filtered then return items end
+        if not filtered then return original(self, title, items, ...) end
         for key, value in pairs(items) do
             if type(key) ~= "number" then filtered[key] = value end
         end
         for _i, item in ipairs(items) do
             if not item.is_kindle_library_folder then filtered[#filtered + 1] = item end
         end
-        return filtered
+        return original(self, title, filtered, ...)
     end
 end
 
