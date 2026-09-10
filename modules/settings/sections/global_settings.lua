@@ -225,6 +225,22 @@ function M.build(ctx)
         }
     end
 
+    local function sleep_screen_state_matches(expected)
+        local current = capture_sleep_screen_state()
+        for _i, key in ipairs({
+            "screensaver_type",
+            "screensaver_message",
+            "screensaver_show_message",
+            "screensaver_img_background",
+            "screensaver_document_cover",
+            "screensaver_stretch_images",
+            "screensaver_stretch_limit_percentage",
+        }) do
+            if current[key] ~= expected[key] then return false end
+        end
+        return true
+    end
+
     local function apply_sleep_screen_preset(preset)
         if type(preset) ~= "table" then return end
         if preset.screensaver_type then
@@ -268,6 +284,10 @@ function M.build(ctx)
     local function build_preset_items()
         local all = get_all_presets()
         local preset_items = {}
+        if PresetStore.getActivePreset("screensaver")
+                and not sleep_screen_state_matches(PresetStore.getSettings("screensaver")) then
+            PresetStore.setActivePreset("screensaver", nil)
+        end
 
         table.insert(preset_items, {
             text = _("Save current settings as preset"),
@@ -315,10 +335,10 @@ function M.build(ctx)
             local is_builtin = preset.builtin == true
             local is_last = (i == #all)
             table.insert(preset_items, {
-                text_func = function()
-                    local active = PresetStore.getActivePreset("screensaver")
-                    local prefix = (active == pname) and "\u{2713} " or ""
-                    return prefix .. pname
+                text = pname,
+                radio = true,
+                checked_func = function()
+                    return PresetStore.getActivePreset("screensaver") == pname
                 end,
                 callback = function(touchmenu_instance)
                     apply_sleep_screen_preset(preset)

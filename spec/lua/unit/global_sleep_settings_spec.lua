@@ -99,4 +99,48 @@ describe("global sleep settings", function()
         assert.are.equal("/koreader/resources/screensavers/cover.png",
             G_reader_settings:readSetting("screensaver_document_cover"))
     end)
+
+    it("deselects a sleep preset when its settings change and uses radio buttons", function()
+        local preset_name = "Book cover - Black Fill"
+        local active = preset_name
+        local expected = {
+            name = preset_name,
+            builtin = true,
+            screensaver_type = "cover",
+            screensaver_show_message = false,
+            screensaver_img_background = "black",
+            screensaver_stretch_images = false,
+            screensaver_stretch_limit_percentage = 8,
+        }
+        ZenSpec.replace("config/preset_store", {
+            list = function() return {{ name = preset_name, builtin = true }} end,
+            getSettings = function() return expected end,
+            getActivePreset = function() return active end,
+            setActivePreset = function(_, name) active = name end,
+        })
+        ZenSpec.replace("ui/screensaver", { chooseFile = function() end })
+        _G.dofile = function() return {} end
+        G_reader_settings:reset({
+            screensaver_type = "cover",
+            screensaver_show_message = false,
+            screensaver_img_background = "black",
+            screensaver_stretch_images = false,
+            screensaver_stretch_limit_percentage = 8,
+        })
+
+        local items = require("modules/settings/sections/global_settings").build({
+            config = {},
+            plugin = {},
+        })
+        local sleep_items = items[5].sub_item_table_func()
+        local presets = sleep_items[#sleep_items].sub_item_table_func()
+        assert.is_true(presets[2].radio)
+        assert.are.equal(preset_name, presets[2].text)
+        assert.is_true(presets[2].checked_func())
+
+        G_reader_settings:saveSetting("screensaver_img_background", "white")
+        presets = sleep_items[#sleep_items].sub_item_table_func()
+        assert.is_nil(active)
+        assert.is_false(presets[2].checked_func())
+    end)
 end)

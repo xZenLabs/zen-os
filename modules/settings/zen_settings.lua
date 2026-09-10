@@ -150,7 +150,7 @@ function M.build(plugin)
         IconItem.decorate(navbar_item, icons.settings_navbar),
         IconItem.decorate({ text = _("Reader"), sub_item_table = reader_items }, icons.settings_reader),
         IconItem.decorate({ text = _("Extras"), sub_item_table = extras_items }, icons.fav_add),
-        IconItem.decorate({ text = _("Updates"), sub_item_table = updates_items }, icons.update),
+        IconItem.decorate({ text = _("Updates"), sub_item_table = updates_items }, icons.upgrade),
         IconItem.decorate({
             text = _("About"),
             sub_item_table = general_items,
