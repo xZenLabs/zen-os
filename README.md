@@ -149,7 +149,7 @@ Registering an existing external ID replaces its builder and options.
 ## Prerequisites
 
 - KOReader 2026.03 or newer must be installed first. ZenOS is tested against KOReader 2026.07 and compatibility-tested against 2026.03. [Install KOReader](https://github.com/koreader/koreader#installation)
-- Disable or remove **Project: Title** before starting ZenOS. ZenOS automatically disables Simple UI, QuickMenu, Appearance, Reader Menu Redesign, and known conflicting user patches, then asks you to restart KOReader.
+- Disable or remove **Project: Title** before starting ZenOS. ZenOS automatically disables Simple UI, Visual Overhaul Suite (VOS), QuickMenu, Appearance, Burrow, QuickUI, Reader Menu Redesign, Shortcuts Toolbar, and known conflicting user patches, then asks you to restart KOReader.
 
 
 ## Installation
