@@ -173,7 +173,7 @@ describe("app launcher book switcher page", function()
         assert.is_nil(cfg.book_switcher_first)
     end)
 
-    it("loads four non-image home alternatives with cover metadata", function()
+    it("loads four non-image library and Kindle alternatives with cover metadata", function()
         local reload_args
         local freed = 0
         local copied = 0
@@ -190,6 +190,7 @@ describe("app launcher book switcher page", function()
             hist = {
                 { file = "/downloads/outside.epub" },
                 { file = "/books/cover.JPEG" },
+                { file = "/kindle/cache.epub" },
                 { file = "/books/one.epub" },
                 { file = "/books/missing.epub" },
                 { file = "/books/one.epub" },
@@ -202,7 +203,9 @@ describe("app launcher book switcher page", function()
         })
         replace("libs/libkoreader-lfs", {
             attributes = function(path)
-                if path == "/books/missing.epub" then return nil end
+                if path == "/books/missing.epub" or path == "/kindle/cache.epub" then
+                    return nil
+                end
                 return "file"
             end,
         })
@@ -231,15 +234,18 @@ describe("app launcher book switcher page", function()
                 if path == "/additional/two.cbz" then return { title = "Chapter Two" } end
             end,
         })
+        replace("modules/filebrowser/patches/kindle_virtual_library", {
+            isBookPath = function(path) return path == "/kindle/cache.epub" end,
+        })
 
         local Page = require("modules/menu/app_launcher/book_switcher_page")
         local books = Page.loadBooks(4, "/books/one.epub")
 
         assert.is_false(reload_args)
         assert.are.same({
-            "/additional/two.cbz", "/books/three.pdf", "/books/four.epub", "/books/five.epub",
+            "/kindle/cache.epub", "/additional/two.cbz", "/books/three.pdf", "/books/four.epub",
         }, { books[1].path, books[2].path, books[3].path, books[4].path })
-        assert.are.equal("Chapter Two", books[1].title)
+        assert.are.equal("Chapter Two", books[2].title)
         assert.are.same({ copied = true }, books[1].cover_bb)
         assert.are.equal(4, copied)
         assert.are.equal(4, freed)

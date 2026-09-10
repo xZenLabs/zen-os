@@ -172,14 +172,22 @@ function M.loadBooks(limit, exclude_path)
     local ok_lfs, lfs = pcall(require, "libs/libkoreader-lfs")
     local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
     if not ok_bim then BookInfoManager = nil end
+    local ok_kindle, Kindle = pcall(
+        require, "modules/filebrowser/patches/kindle_virtual_library")
     local books = {}
     local seen = {}
     for _i, entry in ipairs(ReadHistory.hist or {}) do
         local path = entry and entry.file
+        local in_library = type(path) == "string" and paths.isInHomeDir(path)
+        local is_kindle = false
+        if not in_library and ok_kindle and type(Kindle.isBookPath) == "function" then
+            is_kindle = Kindle.isBookPath(path)
+            in_library = is_kindle
+        end
         local is_file = type(path) == "string" and path ~= ""
-            and paths.isInHomeDir(path)
+            and in_library
             and not BookStatus.isImageFile(path)
-            and (not ok_lfs or lfs.attributes(path, "mode") == "file")
+            and (is_kindle or not ok_lfs or lfs.attributes(path, "mode") == "file")
         if is_file and path ~= exclude_path and not seen[path] then
             seen[path] = true
             books[#books + 1] = load_book(path, BookInfoManager)

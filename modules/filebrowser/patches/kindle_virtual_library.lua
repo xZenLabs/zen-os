@@ -148,6 +148,10 @@ local function kindle_book(filepath)
     return ok and type(book) == "table" and book or nil
 end
 
+function M.isBookPath(filepath)
+    return kindle_book(filepath) ~= nil
+end
+
 function M.getBookPaths()
     local library = virtual_library()
     if type(library) ~= "table" or type(library.getBookEntries) ~= "function" then
