@@ -10,6 +10,7 @@ describe("Home widget content settings", function()
     local choose_folder
     local choose_tag
     local quote_files
+    local picker_options
 
     local function item_text(item)
         return item.text or (item.text_func and item.text_func())
@@ -51,6 +52,7 @@ describe("Home widget content settings", function()
         choose_folder = nil
         choose_tag = nil
         quote_files = { "quotes.lua" }
+        picker_options = nil
         home_page = {
             strip_memory = {
                 active_id = "recent",
@@ -213,6 +215,18 @@ describe("Home widget content settings", function()
                 end
             end,
             label = function(_controls, entry) return entry.label end,
+            statuses = function()
+                return {
+                    { key = "new", label = "Unread" },
+                    { key = "reading", label = "Reading" },
+                    { key = "tbr", label = "To Be Read" },
+                    { key = "abandoned", label = "On hold" },
+                    { key = "complete", label = "Finished" },
+                }
+            end,
+            statusLabel = function(status)
+                return status == "complete" and "Finished" or "Unread"
+            end,
         })
         ZenSpec.replace("common/library_destination", {
             chooseFolder = function(callback) choose_folder = callback end,
@@ -233,6 +247,9 @@ describe("Home widget content settings", function()
                 arrange_history[#arrange_history + 1] = opts
             end,
         })
+        ZenSpec.replace("common/ui/zen_menu_picker", function(opts)
+            picker_options = opts
+        end)
         ZenSpec.replace("modules/settings/zen_settings_page", {
             rememberStandaloneArrangeRoute = function(path, opener, arrange_path)
                 remembered_routes[#remembered_routes + 1] = {
@@ -756,6 +773,25 @@ describe("Home widget content settings", function()
                 label = "Nonfiction" },
             { id = "hs_3", type = "tag", tag = "Science", label = "Science" },
         }, home_page.modules.strip.controls.custom_buttons)
+    end)
+
+    it("adds a status source to Strip controls", function()
+        local settings = require("modules/settings/sections/library_settings/home_settings")
+        assert.is_true(settings.openWidgetSettings("strip"))
+        local controls_item = find_item(arrange_options.item_table, "Controls")
+        find_item(controls_item.sub_item_table_func(), "Tabs").callback({})
+
+        assert.is_nil(find_item(arrange_options.add_item_table, "Finished"))
+        find_item(arrange_options.add_item_table, "Tab").callback()
+        for _i, label in ipairs({
+            "Unread", "Reading", "To Be Read", "On hold", "Finished",
+        }) do assert.is_table(find_item(picker_options.items, label)) end
+        assert.is_nil(find_item(picker_options.items, "Filter by status"))
+        picker_options.on_select(find_item(picker_options.items, "Finished"))
+
+        assert.same({
+            id = "hs_1", type = "status", status = "complete", label = "Finished",
+        }, home_page.modules.strip.controls.custom_buttons[1])
     end)
 
     it("resets Strip control tabs without changing control display settings", function()

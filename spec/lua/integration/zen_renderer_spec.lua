@@ -17,6 +17,7 @@ describe("Zen renderer", function()
     local calc_dimensions
     local folder_name_labels
     local textbox_line_height
+    local resolved_status
 
     local function class(base)
         local out = {}
@@ -55,6 +56,7 @@ describe("Zen renderer", function()
         background_menus = {}
         folder_name_labels = {}
         textbox_line_height = 8
+        resolved_status = "new"
         calc_dimensions = function(width, height) return width, height end
         local MosaicMenuItem = class()
         function MosaicMenuItem:new(values)
@@ -206,7 +208,7 @@ describe("Zen renderer", function()
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("common/book_status", {
             getFileStatusData = function()
-                return { effective_status = "new", sidecar_checked = true }
+                return { effective_status = resolved_status, sidecar_checked = true }
             end,
             getEffectiveStatus = function(status) return status end,
         })
@@ -384,6 +386,33 @@ describe("Zen renderer", function()
         assert.are.equal("complete", finished._zen_effective_status)
         assert.are.equal(6, finished._zen_cover_frame._zen_cover_border_color)
         assert.is_nil(mixed._zen_cover_frame._zen_cover_border_color)
+        assert.are.equal(1, dimmed)
+    end)
+
+    it("dims a finished book without cached cover metadata", function()
+        resolved_status = "complete"
+        _G.__ZEN_UI_PLUGIN.config.browser_cover_badges = { dim_finished_books = true }
+        require("modules/filebrowser/patches/zen_renderer")()
+        local menu = {
+            name = "filemanager",
+            item_table = { { title = "Finished", is_file = true, path = "/finished.epub" } },
+            item_group = {}, layout = {}, items_to_update = {}, page = 1,
+            perpage = 1, nb_cols = 1, item_margin = 1, item_width = 100,
+            item_height = 150, item_dimen = { copy = function() return {} end },
+            inner_dimen = { w = 110 }, _do_cover_images = true,
+        }
+
+        MosaicMenu._updateItemsBuildUI(menu)
+        local item = menu.layout[1][1]
+        item._zen_cover_frame.dimen.x = 0
+        item._zen_cover_frame.dimen.y = 0
+        local dimmed = 0
+        item:paintTo({
+            paintRect = function() end,
+            lightenRect = function() dimmed = dimmed + 1 end,
+        }, 0, 0)
+
+        assert.are.equal("complete", item._zen_effective_status)
         assert.are.equal(1, dimmed)
     end)
 

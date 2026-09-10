@@ -46,4 +46,21 @@ describe("navigation button model", function()
         assert.are.equal("Nonfiction", Model.label(nil, nonfiction))
         assert.are.equal("Science", Model.label(nil, science))
     end)
+
+    it("exposes filter statuses as strip sources with their status names", function()
+        local Model = require("common/nav_button_model")
+        assert.same({
+            { key = "new", label = "Unread" },
+            { key = "reading", label = "Reading" },
+            { key = "tbr", label = "To Be Read" },
+            { key = "abandoned", label = "On hold" },
+            { key = "complete", label = "Finished" },
+        }, Model.statuses())
+
+        local finished = { type = "status", status = "complete" }
+        assert.is_true(Model.isSource(finished))
+        assert.same({ kind = "status", value = "complete" },
+            Model.sourceDescriptor(finished))
+        assert.are.equal("Finished", Model.label(nil, finished))
+    end)
 end)

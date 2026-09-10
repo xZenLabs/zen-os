@@ -26,17 +26,36 @@ local BUILTINS = {
     { id = "menu", label = _("Menu") },
 }
 
+local STATUSES = {
+    { key = "new", label = _("Unread") },
+    { key = "reading", label = _("Reading") },
+    { key = "tbr", label = _("To Be Read") },
+    { key = "abandoned", label = _("On hold") },
+    { key = "complete", label = _("Finished") },
+}
+
 local by_id = {}
 for _i, item in ipairs(BUILTINS) do by_id[item.id] = item end
+local status_by_key = {}
+for _i, item in ipairs(STATUSES) do status_by_key[item.key] = item end
 
 function M.builtins()
     return BUILTINS
 end
 
+function M.statuses()
+    return STATUSES
+end
+
+function M.statusLabel(status)
+    local item = status_by_key[status]
+    return item and item.label or nil
+end
+
 function M.isSource(entry)
     if type(entry) == "string" then entry = by_id[entry] end
     if type(entry) ~= "table" then return false end
-    return entry.source == true or entry.type == "tag"
+    return entry.source == true or entry.type == "tag" or entry.type == "status"
         or entry.type == "folder" or entry.type == "custom_source"
 end
 
@@ -50,6 +69,9 @@ function M.sourceDescriptor(entry)
         return { kind = entry.id }
     end
     if entry.type == "tag" then return { kind = "tag", value = entry.tag } end
+    if entry.type == "status" and status_by_key[entry.status] then
+        return { kind = "status", value = entry.status }
+    end
     if entry.type == "folder" then return { kind = "folder", value = entry.folder } end
     if entry.type == "custom_source" then
         return { kind = "custom", paths = entry.paths }
@@ -105,6 +127,9 @@ function M.label(controls, entry)
     if type(override) == "string" and override ~= "" then return override end
     if type(entry.label) == "string" and entry.label ~= "" then return entry.label end
     if entry.type == "tag" then return entry.tag or _("Tag") end
+    if entry.type == "status" then
+        return M.statusLabel(entry.status) or _("Custom")
+    end
     if entry.type == "folder" or entry.type == "folder_shortcut" then
         return require("common/library_destination").folderLabel(entry.folder)
     end

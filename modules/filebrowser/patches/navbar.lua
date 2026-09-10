@@ -373,6 +373,16 @@ local function apply_navbar()
         end
     end
 
+    local function getCustomStatusTab(tab_id)
+        if type(config.custom_tabs) ~= "table" then return nil end
+        for _i, tab in ipairs(config.custom_tabs) do
+            if type(tab) == "table" and tab.id == tab_id and tab.type == "status"
+                    and ButtonModel.statusLabel(tab.status) then
+                return tab
+            end
+        end
+    end
+
     local function getCustomFolderTab(tab_id)
         if type(config.custom_tabs) ~= "table" then return nil end
         for _i, tab in ipairs(config.custom_tabs) do
@@ -396,10 +406,13 @@ local function apply_navbar()
 
     local function isGroupViewTab(tab_id)
         return group_view_tabs[tab_id] == true or getCustomTagTab(tab_id) ~= nil
+            or getCustomStatusTab(tab_id) ~= nil
     end
 
     local function getGroupViewTab(tab_id)
-        return getCustomTagTab(tab_id) and "tags" or tab_id
+        if getCustomTagTab(tab_id) then return "tags" end
+        if getCustomStatusTab(tab_id) then return "status" end
+        return tab_id
     end
 
     -- Forward declarations; defined later
@@ -1244,6 +1257,17 @@ local function apply_navbar()
         return true
     end
 
+    local function openStatus(status, label, tab_id)
+        local GroupView = get_shared("group_view")
+        if not (ButtonModel.statusLabel(status) and GroupView
+                and type(GroupView.showStatusView) == "function") then
+            return false
+        end
+        setActiveTab(tab_id)
+        GroupView.showStatusView(status, label, injectStandaloneNavbar, tab_id)
+        return true
+    end
+
     local function onTabNews()
         local fm = FileManager.instance
         if not fm then return end
@@ -1583,6 +1607,7 @@ local function apply_navbar()
     local function shouldTrackActiveTab(tab_id)
         return active_tab_whitelist[tab_id] == true
             or getCustomTagTab(tab_id) ~= nil
+            or getCustomStatusTab(tab_id) ~= nil
             or getCustomFolderTab(tab_id) ~= nil
     end
 
@@ -2032,6 +2057,7 @@ local function apply_navbar()
                     end
                     entry.label = (ct.label ~= nil and ct.label ~= "") and ct.label
                         or ct.tag
+                        or (ct.type == "status" and ButtonModel.statusLabel(ct.status))
                         or (ct.type == "folder" and ButtonModel.label(nil, ct))
                         or ct.plugin_title
                         or (ct.koreader_menu and ct.koreader_menu.title)
@@ -2066,6 +2092,13 @@ local function apply_navbar()
                         local tab_id = ct.id
                         tab_callbacks[ct.id] = function()
                             openTag(tag_name, tab_id)
+                        end
+                    elseif ct.type == "status" and ButtonModel.statusLabel(ct.status) then
+                        local status = ct.status
+                        local label = entry.label
+                        local tab_id = ct.id
+                        tab_callbacks[tab_id] = function()
+                            openStatus(status, label, tab_id)
                         end
                     elseif ct.type == "folder" and type(ct.folder) == "string"
                             and ct.folder ~= "" then
@@ -2261,6 +2294,7 @@ local function apply_navbar()
         series_detail = true,
         languages_detail = true,
         tags_detail = true,
+        status_detail = true,
         stats = true,
     }
 
@@ -3005,6 +3039,7 @@ local function apply_navbar()
                 or menu.name == "series_detail"
                 or menu.name == "languages_detail"
                 or menu.name == "tags_detail"
+                or menu.name == "status_detail"
             local is_booklist_view = view_tab_id == "history"
                 or view_tab_id == "favorites"
                 or view_tab_id == "collections"
@@ -3794,7 +3829,9 @@ local function apply_navbar()
         end
         -- If a detail view was open, open it synchronously too (stack: [fm, group_menu, detail_menu]).
         -- _repaint will then start from detail_menu and never show the intermediate views.
-        if state.detail_group and gv and gv.restoreDetail and not getCustomTagTab(state.tab) then
+        if state.detail_group and gv and gv.restoreDetail
+                and not getCustomTagTab(state.tab)
+                and not getCustomStatusTab(state.tab) then
             gv.restoreDetail(state.detail_group, state.tab, injectStandaloneNavbar)
         end
     end

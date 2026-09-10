@@ -170,6 +170,15 @@ describe("TBR path inventory", function()
                 if status then return status end
                 return percent == nil and "new" or "reading"
             end,
+            getDisplayStatus = function(path, status)
+                for name, settings in pairs(ReadCollection.coll_settings) do
+                    if settings.zenos_tbr == true
+                            and ReadCollection:isFileInCollection(path, name) then
+                        return "tbr"
+                    end
+                end
+                return status
+            end,
             includeNewInTBREnabled = function()
                 return config.group_view
                     and config.group_view.include_new_in_tbr == true
@@ -265,6 +274,24 @@ describe("TBR path inventory", function()
 
         assert.same({ "/books/current.epub", "/extra/already-read.epub" },
             require("common/tbr_index").getInventoryPaths())
+    end)
+
+    it("filters the inventory by display status", function()
+        add_book("/books/a.epub", "complete", 1)
+        add_book("/books/b.epub", "reading", 1)
+        add_book("/books/c.epub", "abandoned", 1)
+        add_book("/books/d.epub", "reading", 1)
+        add_book("/books/e.epub")
+        local Index = require("common/tbr_index")
+        assert.is_true(Index.setExplicit("/books/b.epub", true))
+
+        assert.same({ "/books/c.epub", "/books/a.epub" }, Index.getByStatuses({
+            complete = true,
+            abandoned = true,
+        }))
+        assert.same({ "/books/b.epub" }, Index.getByStatuses({ tbr = true }))
+        assert.same({ "/books/d.epub" }, Index.getByStatuses({ reading = true }))
+        assert.same({ "/books/e.epub" }, Index.getByStatuses({ new = true }))
     end)
 
     it("uses the ordinary collection for explicit TBR membership", function()

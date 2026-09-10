@@ -8,6 +8,7 @@ describe("home data and book caches", function()
     local book_info_reads
     local stats_query_count
     local top_menu_count
+    local resolved_status
 
     before_each(function()
         _G.__ZEN_UI_LAST_READ_FILE = nil
@@ -19,6 +20,7 @@ describe("home data and book caches", function()
         book_info_reads = 0
         stats_query_count = 0
         top_menu_count = 0
+        resolved_status = "reading"
         history_items = { { file = "/library/alpha.epub" } }
 
         ZenSpec.replace("config/manager", { get = function() return {} end })
@@ -149,9 +151,9 @@ describe("home data and book caches", function()
                 status_lookup_count = status_lookup_count + 1
                 local doc_settings = require("docsettings"):open(path)
                 return {
-                    status = "reading",
+                    status = resolved_status,
                     percent_finished = 0.25,
-                    effective_status = "reading",
+                    effective_status = resolved_status,
                     doc_settings = doc_settings,
                 }
             end,
@@ -1308,6 +1310,45 @@ describe("home data and book caches", function()
             { kind = "favorites" }, 1, "default", "strip", 0)
         assert.are.equal("/library/beta.epub", books[1].path)
         assert.is_true(adjacent)
+    end)
+
+    it("loads a named status as a first-class strip source", function()
+        local requested
+        ZenSpec.replace("common/tbr_index", {
+            getByStatuses = function(statuses)
+                requested = statuses
+                return { "/library/alpha.epub" }
+            end,
+        })
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+
+        local books = provider:getStripItemsForPage(
+            { kind = "status", value = "complete" }, 4, "default", "strip", 0)
+        assert.same({ complete = true }, requested)
+        assert.are.equal("/library/alpha.epub", books[1].path)
+    end)
+
+    it("resolves strip status when cover and BookList metadata are cold", function()
+        resolved_status = "complete"
+        ZenSpec.replace("ui/widget/booklist", {
+            hasBookInfoCache = function() return false end,
+        })
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+
+        local books = provider:getStripItemsForPage({
+            kind = "custom", paths = { "/library/alpha.epub" },
+        }, 4, "default", "strip", 0)
+
+        assert.are.equal("complete", books[1].status)
+        assert.are.equal(1, status_lookup_count)
     end)
 
     it("keeps the final strip page partial before wrapping", function()

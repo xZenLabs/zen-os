@@ -390,6 +390,36 @@ describe("navbar settings", function()
         assert.is_true(config.navbar.show_tabs.ct_3)
     end)
 
+    it("adds a status tab using the status name", function()
+        local navbar = build_navbar()
+        navbar.sub_item_table[1].callback()
+        local add_types = {}
+        for _i, item in ipairs(arrange_options.add_item_table) do
+            add_types[item.text] = item
+        end
+        assert.is_nil(add_types.Finished)
+        add_types.Tab.callback(touch_menu)
+
+        local add_tabs = {}
+        for _i, item in ipairs(picker_options.items) do add_tabs[item.text] = item end
+        for _i, label in ipairs({
+            "Unread", "Reading", "To Be Read", "On hold", "Finished",
+        }) do assert.is_table(add_tabs[label]) end
+        assert.is_nil(add_tabs["Filter by status"])
+
+        picker_options.on_select(add_tabs.Finished)
+
+        assert.same({
+            id = "ct_1", type = "status", status = "complete",
+            label = "Finished", label_auto = true, icon = "library",
+        }, config.navbar.custom_tabs[1])
+        assert.is_true(config.navbar.show_tabs.ct_1)
+        assert.are.equal(3, #touch_menu.item_table)
+        assert.are.equal("Icon: library", touch_menu.item_table[1].text_func())
+        assert.are.equal("Label: Finished", touch_menu.item_table[2].text_func())
+        assert.are.equal("Delete", touch_menu.item_table[3].text)
+    end)
+
     it("changes labels and icons for folder and specific-tag tabs", function()
         local navbar = build_navbar()
         navbar.sub_item_table[1].callback()

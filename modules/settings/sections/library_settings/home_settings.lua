@@ -1075,6 +1075,9 @@ function M.build(ctx)
             collections = _("Collections"), custom = _("Custom books"),
         }
         if source.kind == "tag" then return source.value or _("Specific tag") end
+        if source.kind == "status" then
+            return ButtonModel.statusLabel(source.value) or _("Recent")
+        end
         if source.kind == "folder" then return path_label(source.value) end
         return labels[source.kind] or _("Recent")
     end
@@ -1263,6 +1266,8 @@ function M.build(ctx)
         save_home("reinit")
     end
 
+    local commit_strip_button
+
     local function add_strip_builtin(controls, touchmenu_instance)
         if count_strip_buttons(controls) >= 7 then
             local InfoMessage = require("ui/widget/infomessage")
@@ -1280,12 +1285,31 @@ function M.build(ctx)
                 }
             end
         end
+        local selected_status = {}
+        for _i, entry in ipairs(controls.custom_buttons) do
+            if selected[entry.id] and entry.type == "status" then
+                selected_status[entry.status] = true
+            end
+        end
+        for _i, status in ipairs(ButtonModel.statuses()) do
+            if not selected_status[status.key] then
+                items[#items + 1] = { text = status.label, status = status }
+            end
+        end
         table.sort(items, function(a, b) return a.text < b.text end)
         if #items == 0 then return end
         require("common/ui/zen_menu_picker"){
             title = _("Choose tab"),
             items = items,
             on_select = function(item)
+                if item and item.status then
+                    commit_strip_button(controls, {
+                        type = "status",
+                        status = item.status.key,
+                        label = item.status.label,
+                    })
+                    return
+                end
                 local entry = item and item.entry
                 if not entry or count_strip_buttons(controls) >= 7 then return end
                 controls.order[#controls.order + 1] = entry.id
@@ -1298,7 +1322,7 @@ function M.build(ctx)
         }
     end
 
-    local function commit_strip_button(controls, entry)
+    commit_strip_button = function(controls, entry)
         if count_strip_buttons(controls) >= 7 then
             local InfoMessage = require("ui/widget/infomessage")
             UIManager:show(InfoMessage:new{ text = _("Maximum 7 tabs allowed") })
@@ -1393,7 +1417,7 @@ function M.build(ctx)
 
     local function build_add_strip_button_items(mcfg)
         local controls = mcfg.controls
-        return {
+        local items = {
             IconItem.decorate({
                 text = _("Tab"),
                 keep_menu_open = true,
@@ -1445,6 +1469,7 @@ function M.build(ctx)
                 callback = function() add_strip_menu(controls) end,
             }, icons.open_menu),
         }
+        return items
     end
 
     local function show_strip_buttons(mcfg, parent_touchmenu)

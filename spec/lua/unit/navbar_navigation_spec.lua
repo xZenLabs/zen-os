@@ -89,6 +89,11 @@ describe("file browser navbar navigation", function()
                 showTagDetail = function(tag, _inject, tab_id)
                     calls[#calls + 1] = "tag:" .. tag .. ":" .. tab_id
                 end,
+                showStatusView = function(status, label, _inject, tab_id)
+                    calls[#calls + 1] = table.concat({
+                        "status", status, label, tab_id,
+                    }, ":")
+                end,
                 showTBRView = function() calls[#calls + 1] = "to_be_read" end,
                 closeAll = function() calls[#calls + 1] = "close_groups" end,
             },
@@ -1530,6 +1535,51 @@ describe("file browser navbar navigation", function()
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("ct_tag"))
         assert.are.same({ "tag:Science:ct_tag" }, calls)
         assert.are.equal("Science", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
+    end)
+
+    it("opens a custom status tab directly in that status view", function()
+        local navbar = _G.__ZEN_UI_PLUGIN.config.navbar
+        navbar.custom_tabs = {
+            { id = "ct_finished", type = "status", status = "complete",
+                label = "Finished" },
+        }
+        navbar.show_tabs.ct_finished = true
+        table.insert(navbar.tab_order, "ct_finished")
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+        local status_menu = {
+            name = "status_detail",
+            page = 3,
+            dimen = { w = 800, h = 600 },
+            inner_dimen = { w = 800, h = 600 },
+            border_size = 0,
+            close_callback = function() calls[#calls + 1] = "status_closed" end,
+            updateItems = function() calls[#calls + 1] = "status_reset" end,
+            [1] = {
+                dimen = { w = 800, h = 560 },
+                inner_dimen = { w = 800, h = 560 },
+                resetLayout = function() end,
+            },
+        }
+        shared.group_view.showStatusView = function(status, label, inject, tab_id)
+            calls[#calls + 1] = table.concat({
+                "status", status, label, tab_id,
+            }, ":")
+            inject(status_menu, tab_id)
+        end
+        _G.__ZEN_UI_REINJECT_FM_NAVBAR()
+        calls = {}
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("ct_finished"))
+        assert.same({ "status:complete:Finished:ct_finished" }, calls)
+        assert.are.equal("Finished", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
+
+        local status_navbar = status_menu[1][1][2]
+        status_navbar.getTappedTabId = function() return "ct_finished" end
+        calls = {}
+        assert.is_true(status_navbar:onTapNavBar(nil, { pos = { x = 400, y = 1 } }))
+        assert.are.equal(1, status_menu.page)
+        assert.are.same({ "status_reset" }, calls)
     end)
 
     it("launches available native menu tabs and retains unavailable ones", function()

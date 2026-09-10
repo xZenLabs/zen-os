@@ -546,9 +546,11 @@ local function ensure_strip_shape(strip)
     local valid_sources = {
         recent = true, favorites = true, to_be_read = true, authors = true,
         series = true, languages = true, tags = true, collections = true, tag = true,
-        folder = true, custom = true,
+        status = true, folder = true, custom = true,
     }
-    if not valid_sources[strip.default_source.kind] then
+    if not valid_sources[strip.default_source.kind]
+            or strip.default_source.kind == "status"
+                and not ButtonModel.statusLabel(strip.default_source.value) then
         strip.default_source = { kind = "recent" }
         changed = true
     end

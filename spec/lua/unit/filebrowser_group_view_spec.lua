@@ -15,6 +15,7 @@ describe("file browser group views", function()
     local legacy_tbr_calls
     local tbr_collection_changes
     local tbr_get_options
+    local status_get
     local select_menu_calls
     local home_rebuilds
     local saved_modules
@@ -66,6 +67,7 @@ describe("file browser group views", function()
         legacy_tbr_calls = 0
         tbr_collection_changes = 0
         tbr_get_options = nil
+        status_get = nil
         select_menu_calls = 0
         home_rebuilds = 0
 
@@ -141,6 +143,10 @@ describe("file browser group views", function()
             getAll = function(options)
                 tbr_get_options = options
                 return groups.tbr or {}
+            end,
+            getByStatuses = function(status_filter)
+                status_get = status_filter
+                return groups.status or {}
             end,
             collectionChanged = function() tbr_collection_changes = tbr_collection_changes + 1 end,
             collectionName = function() return "To Be Read" end,
@@ -427,6 +433,23 @@ describe("file browser group views", function()
 
         assert.are_not.equal(first, reopened)
         assert.are.equal(2, #shown)
+    end)
+
+    it("opens a named status as a direct detail view", function()
+        install_group_view({ status = { "/done.epub" } })
+        metadata["/done.epub"] = { title = "Done", size = 10 }
+        local injected
+
+        api.showStatusView("complete", "Finished", function(menu, tab_id)
+            injected = { menu = menu, tab_id = tab_id }
+        end, "ct_finished")
+
+        local detail = assert(find_menu("status_detail"))
+        assert.same({ complete = true }, status_get)
+        assert.are.equal("Finished", detail.title)
+        assert.are.equal("/done.epub", detail.item_table[1].path)
+        assert.are.equal(detail, injected.menu)
+        assert.are.equal("ct_finished", injected.tab_id)
     end)
 
     it("refreshes an open TBR page with the current shared order", function()

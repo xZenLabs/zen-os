@@ -407,12 +407,19 @@ local function apply_zen_renderer()
             end
         end
         local cover
-        if metadata and not preserve_metadata_state then
+        local status_data
+        if not preserve_metadata_state then
             local status_started_at = build_measure and now()
-            local status_data = book_status.getFileStatusData(self.filepath)
+            status_data = book_status.getFileStatusData(self.filepath)
             self.status = status_data.status
             self.percent_finished = status_data.percent_finished
             self._zen_effective_status = status_data.display_status or status_data.effective_status
+            if build_measure then
+                build_measure.status_ms = (build_measure.status_ms or 0)
+                    + (now() - status_started_at) * 1000
+            end
+        end
+        if metadata and not preserve_metadata_state then
             local config = plugin_config()
             local badge = config.browser_cover_badges or {}
             local is_collection = self.menu.name == "collections" or self.menu._zen_coll_list
@@ -449,10 +456,6 @@ local function apply_zen_renderer()
                 end
             end
             self._zen_metadata_ready = true
-            if build_measure then
-                build_measure.status_ms = (build_measure.status_ms or 0)
-                    + (now() - status_started_at) * 1000
-            end
         end
         if info then
             self.bookinfo_found = true

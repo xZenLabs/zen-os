@@ -199,6 +199,17 @@ describe("unified Home strip configuration", function()
         assert.are.same({ kind = "tags" }, page.modules.strip.default_source)
     end)
 
+    it("keeps a valid status as a strip source", function()
+        local Presets = require("modules/filebrowser/patches/home/home_presets")
+        local page = Presets.defaultHomePage()
+        page.modules.strip.default_source = { kind = "status", value = "complete" }
+        page.modules.strip.controls.enabled = false
+
+        assert.is_false(Presets.normalizeStripConfig(page))
+        assert.same({ kind = "status", value = "complete" },
+            page.modules.strip.default_source)
+    end)
+
     it("keeps at least one valid tab visible", function()
         local Presets = require("modules/filebrowser/patches/home/home_presets")
         local page = Presets.defaultHomePage()

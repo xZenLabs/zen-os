@@ -837,7 +837,9 @@ local function showDetailSortDialog(group_name, tab_id, menu, files, reload_file
 
         local sorted_files = reload_files and reload_files(collate, reverse)
             or sortDetailFiles(files, collate, reverse)
-        sorted_files = apply_status_filter(sorted_files)
+        if tab_id ~= "status" then
+            sorted_files = apply_status_filter(sorted_files)
+        end
 
         local lfs_mod  = require("libs/libkoreader-lfs")
         local util_mod = require("util")
@@ -998,7 +1000,8 @@ local function showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
     local _ = require("gettext")
     local UIManager = require("ui/uimanager")
 
-    local files      = group_item._zen_files or {}
+    local files      = type(group_item._zen_load_files) == "function"
+        and group_item._zen_load_files() or group_item._zen_files or {}
     local group_name = group_item.text or ""
     local detail_name
     if tab_id == "authors" then
@@ -1007,8 +1010,10 @@ local function showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
         detail_name = "languages_detail"
     elseif tab_id == "tags" then
         detail_name = "tags_detail"
-    else
+    elseif tab_id == "series" then
         detail_name = "series_detail"
+    else
+        detail_name = tab_id .. "_detail"
     end
     for _i, active_menu in ipairs(_detail_menus) do
         if active_menu.name == detail_name then
@@ -1033,7 +1038,9 @@ local function showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
 
     -- Sort files based on current settings
     local sorted_files = sortDetailFiles(files, cur_collate, cur_reverse)
-    sorted_files = apply_status_filter(sorted_files)
+    if tab_id ~= "status" then
+        sorted_files = apply_status_filter(sorted_files)
+    end
 
     -- Build menu items from sorted files
     local lfs_mod  = require("libs/libkoreader-lfs")
@@ -1064,7 +1071,8 @@ local function showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
         table.insert(book_items, 1, { text = "\u{2B06} ..", is_go_up = true, mandatory = "" })
     end
 
-    local detail_menu = StandalonePage.create_menu{
+    local detail_menu
+    detail_menu = StandalonePage.create_menu{
         name = detail_name,
         title = group_name,
         item_table = book_items,
@@ -1097,6 +1105,11 @@ local function showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
                     _zen_select_cb = function()
                         return toggle_file_selection(menu_self, item)
                     end,
+                    _zen_after_status_change = group_item._zen_load_files and function(path)
+                        fm.file_chooser:refreshPath(path)
+                        detail_menu.close_callback()
+                        showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
+                    end or nil,
                 })
             end
         end,
@@ -1135,7 +1148,7 @@ local function showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
             parent = _languages_menu
         elseif tab_id == "tags" then
             parent = _tags_menu
-        else
+        elseif tab_id == "series" then
             parent = _series_menu
         end
         if parent then
@@ -1143,7 +1156,7 @@ local function showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
             if tab_id == "authors" then _authors_menu = nil
             elseif tab_id == "languages" then _languages_menu = nil
             elseif tab_id == "tags" then _tags_menu = nil
-            else _series_menu = nil end
+            elseif tab_id == "series" then _series_menu = nil end
         end
     end
 
@@ -1185,7 +1198,7 @@ local function showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
                 fm.file_chooser:showFileDialog({
                     _zen_group_files       = sorted_files,
                     _zen_group_name        = group_name,
-                    _zen_is_folder_view    = true,
+                    _zen_is_folder_view    = tab_id ~= "status",
                     _zen_sort_cb           = function()
                         showDetailSortDialog(group_name, tab_id, self, files)
                     end,
@@ -1532,6 +1545,19 @@ function M.showTagDetail(tag_name, injectNavbar, navbar_tab_id)
     local files = type(db.getTagBooks) == "function" and db.getTagBooks(tag_name) or {}
     return showDetailView(
         { text = tag_name, _zen_files = files }, injectNavbar, "tags", navbar_tab_id)
+end
+
+function M.showStatusView(status, label, injectNavbar, navbar_tab_id)
+    if type(status) ~= "string" or status == "" then return end
+    refresh_shared_state()
+    local ok, index = pcall(require, "common/tbr_index")
+    if not ok or type(index.getByStatuses) ~= "function" then return end
+    return showDetailView({
+        text = label or status,
+        _zen_load_files = function()
+            return index.getByStatuses({ [status] = true })
+        end,
+    }, injectNavbar, "status", navbar_tab_id)
 end
 
 -------------------------------------------------------------------------------

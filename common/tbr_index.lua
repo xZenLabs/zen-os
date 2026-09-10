@@ -643,12 +643,53 @@ end
 
 local function result_key(options, scope_key)
     return table.concat({
+        "tbr",
         scope_key or "",
         options.include_new == true and "new" or "explicit",
         tostring(options.collate or "title"),
         options.reverse == true and "reverse" or "forward",
         tostring(options.exclude_path or ""),
     }, "\30")
+end
+
+local function build_status_result(statuses, options)
+    options = type(options) == "table" and options or {}
+    local wanted = {}
+    local keys = {}
+    for status, enabled in pairs(type(statuses) == "table" and statuses or {}) do
+        if enabled == true and type(status) == "string" then
+            wanted[status] = true
+            keys[#keys + 1] = status
+        end
+    end
+    if #keys == 0 then return {} end
+    table.sort(keys)
+
+    local books, scope = ensure_inventory()
+    explicit_paths()
+    local key = table.concat({
+        "status", scope.key, table.concat(keys, "\31"),
+        BookStatus.includeNewInTBREnabled() and "new-is-tbr" or "new-is-unread",
+        tostring(options.collate or "title"),
+        options.reverse == true and "reverse" or "forward",
+        tostring(options.exclude_path or ""),
+    }, "\30")
+    if result_cache[key] then return result_cache[key] end
+
+    local files = {}
+    status_transaction(function()
+        for _i, book in ipairs(books) do
+            if book.path ~= options.exclude_path then
+                local status = status_for(book.path, book.attr)
+                local display = BookStatus.getDisplayStatus(
+                    book.path, status.effective_status)
+                if wanted[display] then files[#files + 1] = book.path end
+            end
+        end
+    end)
+    files = sort_paths(files, options.collate, options.reverse == true)
+    result_cache[key] = files
+    return files
 end
 
 local function build_result(options)
@@ -884,6 +925,13 @@ end
 
 function M.getAll(options)
     local all = build_result(options)
+    local copy = {}
+    for index = 1, #all do copy[index] = all[index] end
+    return copy
+end
+
+function M.getByStatuses(statuses, options)
+    local all = build_status_result(statuses, options)
     local copy = {}
     for index = 1, #all do copy[index] = all[index] end
     return copy

@@ -290,6 +290,7 @@ function M.build(ctx)
     local build_ct_sub_items
     local build_builtin_tab_items
     local addTagTab
+    local addStatusTab
 
     local function is_draft_tab(ct)
         return type(ct) == "table" and type(ct._zen_draft_commit) == "function"
@@ -299,6 +300,9 @@ function M.build(ctx)
         if ct.label and ct.label ~= "" then return ct.label end
         if ct.type == "tag" then
             return ct.tag or _("Tag")
+        end
+        if ct.type == "status" then
+            return ButtonModel.statusLabel(ct.status) or _("Custom")
         end
         if ct.type == "folder" then
             return Destination.folderLabel(ct.folder)
@@ -370,6 +374,20 @@ function M.build(ctx)
                 }
             end
         end
+        local selected_status = {}
+        for _i, tab in ipairs(config.navbar.custom_tabs or {}) do
+            if selected[tab.id] and tab.type == "status" then
+                selected_status[tab.status] = true
+            end
+        end
+        for _i, status in ipairs(ButtonModel.statuses()) do
+            if not selected_status[status.key] then
+                picker_items[#picker_items + 1] = {
+                    text = status.label,
+                    status = status,
+                }
+            end
+        end
         table.sort(picker_items, function(a, b) return a.text < b.text end)
         if #picker_items == 0 then return end
         require("common/ui/zen_menu_picker"){
@@ -377,6 +395,10 @@ function M.build(ctx)
             items = picker_items,
             back_hold_callback = touch_menu and touch_menu.backToSettingsRoot,
             on_select = function(item)
+                if item.status then
+                    addStatusTab(touch_menu, item.status)
+                    return
+                end
                 ensureTabOrder(item.id)
                 config.navbar.show_tabs[item.id] = countEnabledTabs() < navbar_max_tabs
                 save_and_defer_navbar_refresh()
@@ -575,6 +597,19 @@ function M.build(ctx)
         end, touch_menu)
     end
 
+    addStatusTab = function(touch_menu, item)
+        if not item then return end
+        local ct = {
+            type = "status",
+            status = item.key,
+            label = item.label,
+            label_auto = true,
+            icon = "library",
+        }
+        commitCustomTab(ct)
+        openCustomTabSettings(touch_menu, ct)
+    end
+
     local function addFolderTab(touch_menu)
         Destination.chooseFolder(function(path)
             local ct = {
@@ -744,7 +779,7 @@ function M.build(ctx)
                     chooseKoreaderMenuTab(ct, touch_menu)
                 end,
             }, icons.open_menu))
-        elseif ok_disp then
+        elseif ct.type == "action" and ok_disp then
             local dispatch_items = {}
             local caller = {}
             Dispatcher:addSubMenu(caller, dispatch_items, ct, "action")
@@ -812,8 +847,11 @@ function M.build(ctx)
                                 if txt and txt ~= "" then
                                     ct.label = txt
                                     ct.label_auto = false
-                                elseif ct.type == "tag" or ct.type == "folder" then
+                                elseif ct.type == "tag" or ct.type == "status"
+                                        or ct.type == "folder" then
                                     ct.label = ct.type == "tag" and ct.tag
+                                        or ct.type == "status"
+                                            and ButtonModel.statusLabel(ct.status)
                                         or Destination.folderLabel(ct.folder)
                                     ct.label_auto = true
                                 else
@@ -1313,48 +1351,49 @@ function M.build(ctx)
         end
         sort_items = build_sort_items()
 
+        local add_items = {
+            IconItem.decorate({
+                text = _("Tab"),
+                keep_menu_open = true,
+                callback = addBuiltinTab,
+            }, icons.settings_navbar),
+            IconItem.decorate({
+                text = _("Action"),
+                keep_menu_open = true,
+                callback = addActionTab,
+            }, icons.action),
+            IconItem.decorate({
+                text = _("Folder"),
+                keep_menu_open = true,
+                callback = addFolderTab,
+            }, icons.settings_folders),
+            IconItem.decorate({
+                text = _("Specific tag"),
+                keep_menu_open = true,
+                callback = addTagTab,
+            }, icons.keywords),
+            IconItem.decorate({
+                text = _("Control"),
+                keep_menu_open = true,
+                callback = addQuickSettingTab,
+            }, icons.settings_quick),
+            IconItem.decorate({
+                text = _("Plugin Menu"),
+                keep_menu_open = true,
+                callback = addPluginTab,
+            }, icons.plugin),
+            IconItem.decorate({
+                text = _("KOReader menu"),
+                keep_menu_open = true,
+                callback = addKoreaderMenuTab,
+            }, icons.open_menu),
+        }
         ZenArrangeList.show{
             title = _("Tabs"),
             item_table = sort_items,
             add_title = _("Add"),
             hide_footer_cancel = true,
-            add_item_table = {
-                IconItem.decorate({
-                    text = _("Tab"),
-                    keep_menu_open = true,
-                    callback = addBuiltinTab,
-                }, icons.settings_navbar),
-                IconItem.decorate({
-                    text = _("Action"),
-                    keep_menu_open = true,
-                    callback = addActionTab,
-                }, icons.action),
-                IconItem.decorate({
-                    text = _("Folder"),
-                    keep_menu_open = true,
-                    callback = addFolderTab,
-                }, icons.settings_folders),
-                IconItem.decorate({
-                    text = _("Specific tag"),
-                    keep_menu_open = true,
-                    callback = addTagTab,
-                }, icons.keywords),
-                IconItem.decorate({
-                    text = _("Control"),
-                    keep_menu_open = true,
-                    callback = addQuickSettingTab,
-                }, icons.settings_quick),
-                IconItem.decorate({
-                    text = _("Plugin Menu"),
-                    keep_menu_open = true,
-                    callback = addPluginTab,
-                }, icons.plugin),
-                IconItem.decorate({
-                    text = _("KOReader menu"),
-                    keep_menu_open = true,
-                    callback = addKoreaderMenuTab,
-                }, icons.open_menu),
-            },
+            add_item_table = add_items,
             callback = function()
                 local new_order = {}
                 local ordered = {}

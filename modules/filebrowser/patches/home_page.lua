@@ -1144,12 +1144,9 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         if metadata_only then
             status_data = dataset.status_data[path]
             if not status_data then
-                local BookList = package.loaded["ui/widget/booklist"]
-                if BookList and type(BookList.hasBookInfoCache) == "function"
-                        and BookList.hasBookInfoCache(path) then
-                    status_data = compact_status_data(BookList.getBookInfo(path))
-                    dataset.status_data[path] = status_data
-                end
+                status_data = compact_status_data(
+                    book_status.getFileStatusData(path, book_info))
+                dataset.status_data[path] = status_data
             end
             if status_data then
                 pct = status_data.percent_finished
@@ -1851,6 +1848,12 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             return ok_db and db and type(db.getTagBooks) == "function"
                 and db.getTagBooks(request.value) or {}
         end
+        if request.kind == "status" then
+            if type(request.value) ~= "string" or request.value == "" then return {} end
+            local index = get_tbr_index()
+            return index and type(index.getByStatuses) == "function"
+                and index.getByStatuses({ [request.value] = true }) or {}
+        end
         if request.kind == "custom" then
             if type(request.paths) == "table" then return copy_paths(request.paths) end
             local strip = dcfg and dcfg.modules and dcfg.modules.strip or {}
@@ -1907,7 +1910,8 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             end
             return books, adjacent
         end
-        if kind == "favorites" or kind == "tag" or kind == "custom" then
+        if kind == "favorites" or kind == "tag" or kind == "status"
+                or kind == "custom" then
             local paths = descriptor_paths(request)
             if normalize_order(order_key) == "reverse" then paths = reverse_copy(paths) end
             local page, adjacent = paginate(
