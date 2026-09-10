@@ -11,6 +11,7 @@ describe("incompatible plugin and patch check", function()
     local original_burrow_util
     local original_qui_utils
     local original_readermenuredesign_installer
+    local original_custom_shortcut_manager
     local original_suntime
     local original_appearance_setting
     local UIManager
@@ -79,6 +80,7 @@ describe("incompatible plugin and patch check", function()
         original_burrow_util = package.loaded["burrow_util"]
         original_qui_utils = package.loaded["qui_utils"]
         original_readermenuredesign_installer = package.loaded["readermenuredesign_installer"]
+        original_custom_shortcut_manager = package.loaded["custom_shortcut_manager"]
         original_suntime = package.loaded["suntime"]
         original_appearance_setting = package.loaded["lib/setting"]
         package.loaded["ptutil"] = nil
@@ -88,6 +90,7 @@ describe("incompatible plugin and patch check", function()
         package.loaded["burrow_util"] = nil
         package.loaded["qui_utils"] = nil
         package.loaded["readermenuredesign_installer"] = nil
+        package.loaded["custom_shortcut_manager"] = nil
         package.loaded["suntime"] = nil
         package.loaded["lib/setting"] = nil
         _G.__ZEN_UI_PLUGIN = nil
@@ -159,6 +162,7 @@ describe("incompatible plugin and patch check", function()
         package.loaded["burrow_util"] = original_burrow_util
         package.loaded["qui_utils"] = original_qui_utils
         package.loaded["readermenuredesign_installer"] = original_readermenuredesign_installer
+        package.loaded["custom_shortcut_manager"] = original_custom_shortcut_manager
         package.loaded["suntime"] = original_suntime
         package.loaded["lib/setting"] = original_appearance_setting
         _G.__ZEN_UI_PLUGIN = original_plugin
@@ -279,6 +283,7 @@ describe("incompatible plugin and patch check", function()
         local burrow_dir = plugins_dir .. "/burrow.koplugin"
         local quickui_dir = plugins_dir .. "/quickui.koplugin"
         local reader_menu_dir = plugins_dir .. "/zzz-readermenuredesign.koplugin"
+        local shortcuts_toolbar_dir = plugins_dir .. "/shortcutstoolbar.koplugin"
         assert.is_true(lfs.mkdir(plugins_dir))
         assert.is_true(lfs.mkdir(simpleui_dir))
         assert.is_true(lfs.mkdir(vos_dir))
@@ -287,6 +292,7 @@ describe("incompatible plugin and patch check", function()
         assert.is_true(lfs.mkdir(burrow_dir))
         assert.is_true(lfs.mkdir(quickui_dir))
         assert.is_true(lfs.mkdir(reader_menu_dir))
+        assert.is_true(lfs.mkdir(shortcuts_toolbar_dir))
         settings.extra_plugin_paths = { plugins_dir }
         ZenSpec.replace("userpatch", { execution_status = {} })
 
@@ -298,13 +304,14 @@ describe("incompatible plugin and patch check", function()
         assert.is_true(settings.disabled.burrow)
         assert.is_true(settings.disabled.quickui)
         assert.is_true(settings.disabled["zzz-readermenuredesign"])
+        assert.is_true(settings.disabled.shortcutstoolbar)
         assert.are.equal(1, settings.flushes)
 
         UIManager.scheduled[1].callback()
         assert.are.equal(
             "Incompatible plugins and patches have been disabled:\n"
                 .. "Simple UI\nVisual Overhaul Suite (VOS)\nQuickMenu\nAppearance\n"
-                .. "Burrow\nQuickUI\nReader Menu Redesign",
+                .. "Burrow\nQuickUI\nReader Menu Redesign\nShortcuts Toolbar",
             UIManager.shown[1].text)
 
         lfs.rmdir(simpleui_dir)
@@ -314,6 +321,7 @@ describe("incompatible plugin and patch check", function()
         lfs.rmdir(burrow_dir)
         lfs.rmdir(quickui_dir)
         lfs.rmdir(reader_menu_dir)
+        lfs.rmdir(shortcuts_toolbar_dir)
         lfs.rmdir(plugins_dir)
     end)
 

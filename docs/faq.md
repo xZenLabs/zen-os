@@ -46,6 +46,7 @@ Disable each item before using ZenOS unless its action is **Remove**; those plug
 | QuickMenu | Remove |
 | Appearance | Disable |
 | Reader Menu Redesign | Disable |
+| Shortcuts Toolbar| Disable |
 
 ## How do I navigate the entire filesystem?
 Set **Zen Settings > Library > Home folder > Lock home folder** to **Off**.

@@ -122,6 +122,12 @@ local AUTO_DISABLE = {
         fallback_key = "zzz-readermenuredesign",
         folder_key = "zzz-readermenuredesign",
     },
+    {
+        sentinel = "custom_shortcut_manager",
+        label = "Shortcuts Toolbar",
+        fallback_key = "shortcutstoolbar",
+        folder_key = "shortcutstoolbar",
+    },
 }
 
 local AUTO_DISABLE_PATCHES = {
