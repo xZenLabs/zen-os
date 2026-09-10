@@ -175,6 +175,7 @@ local defaults = {
         gyro_icon = "quick_rotate",
         rotate_action = "90",
         screenshot_timer_seconds = 3,
+        tailscale_toggle_wifi = false,
     },
     status_bar = {
         custom_text = " ",

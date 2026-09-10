@@ -223,6 +223,21 @@ describe("updater repository redirects", function()
         assert.is_false(config.updater.update_available)
     end)
 
+    it("builds an outlined settings-header action for an available update", function()
+        local updater = require("modules/settings/zen_updater")
+        local plugin = {}
+        assert.is_nil(updater.build_update_available_action(plugin))
+        assert.are.equal("ok", updater.check_for_update())
+
+        local action = updater.build_update_available_action(plugin)
+        assert.is_true(action.zen_button)
+        assert.are.equal("\u{F01B}  Update available", action.text)
+        local received
+        updater.run_update = function(value) received = value end
+        action.callback()
+        assert.are.equal(plugin, received)
+    end)
+
     it("builds the changelog from the bundled file without a network request", function()
         local updater = require("modules/settings/zen_updater")
 

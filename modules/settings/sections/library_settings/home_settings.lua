@@ -1555,6 +1555,17 @@ function M.build(ctx)
                             },
                         },
                     }
+                    if button_entry.type == "quick_setting" then
+                        local quick = rawget(_G, "__ZEN_UI_QUICK_SETTINGS")
+                        local settings_items = quick and quick.getSettingsItems
+                            and quick.getSettingsItems(button_entry.quick_setting_id)
+                        if settings_items and #settings_items > 0 then
+                            table.insert(sort_item.sub_item_table, 2, {
+                                text = _("Control settings"),
+                                sub_item_table = settings_items,
+                            })
+                        end
+                    end
                     if button_id == "to_be_read" then
                         table.insert(sort_item.sub_item_table, 2, tbr_order_item())
                     elseif button_id == "authors" then

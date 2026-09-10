@@ -137,6 +137,7 @@ local function apply_quick_settings()
         gyro_icon = "quick_rotate",
         rotate_action = "cycle",
         screenshot_timer_seconds = 3,
+        tailscale_toggle_wifi = false,
         custom_buttons = {},  -- array of { id, label, icon, action }
         next_custom_id = 0,
         layout_version = 2,
@@ -383,6 +384,12 @@ local function apply_quick_settings()
         if plugin and isCallable(plugin[tailscale_plugin.toggle]) then
             return plugin
         end
+    end
+
+    local function isTailscaleRunning(plugin)
+        if not (plugin and isCallable(plugin.isRunning)) then return false end
+        local ok, running = pcall(plugin.isRunning, plugin)
+        return ok and running == true
     end
 
     local zenfm_plugin = {
@@ -820,10 +827,7 @@ local function apply_quick_settings()
             label = _("Tailscale"),
             visible_func = function() return getTailscalePlugin() ~= nil end,
             active_func = function()
-                local plugin = getTailscalePlugin()
-                if not (plugin and isCallable(plugin.isRunning)) then return false end
-                local ok, running = pcall(plugin.isRunning, plugin)
-                return ok and running == true
+                return isTailscaleRunning(getTailscalePlugin())
             end,
             callback = function(touch_menu)
                 local plugin = getTailscalePlugin()
@@ -831,9 +835,25 @@ local function apply_quick_settings()
                     showUnavailable()
                     return
                 end
-                plugin:onToggleTailscale(function()
-                    refreshQuickSettings(touch_menu)
-                end)
+                local was_running = isTailscaleRunning(plugin)
+                local function refresh() refreshQuickSettings(touch_menu) end
+                local function toggle()
+                    plugin:onToggleTailscale(function()
+                        if was_running and config.tailscale_toggle_wifi == true
+                                and NetworkMgr:isWifiOn() then
+                            NetworkMgr:toggleWifiOff(refresh, true)
+                        else
+                            refresh()
+                        end
+                    end)
+                end
+                if was_running or isWifiConnected() then
+                    toggle()
+                elseif config.tailscale_toggle_wifi == true then
+                    NetworkMgr:toggleWifiOn(toggle, false, true)
+                else
+                    NetworkMgr:runWhenConnected(toggle)
+                end
             end,
         },
         zenfm = {
@@ -1207,6 +1227,16 @@ local function apply_quick_settings()
         end
         if id == "incognito" then
             return require("modules/global/patches/incognito_mode").timeoutMenuItems(zen_plugin)
+        end
+        if id == "tailscale" then
+            return {{
+                text = _("Toggle Wi-Fi with Tailscale"),
+                checked_func = function() return config.tailscale_toggle_wifi == true end,
+                callback = function()
+                    config.tailscale_toggle_wifi = config.tailscale_toggle_wifi ~= true
+                    zen_plugin:saveConfig()
+                end,
+            }}
         end
         if id == "zenfm" then
             local plugin = getCandidatePlugin(zenfm_plugin)

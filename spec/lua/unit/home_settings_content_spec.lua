@@ -763,6 +763,32 @@ describe("Home widget content settings", function()
         assert.are.equal(1, backs)
     end)
 
+    it("shows settings for embedded Strip controls", function()
+        local strip = home_page.modules.strip
+        strip.controls.order = { "recent", "hs_1" }
+        strip.controls.show_buttons.hs_1 = true
+        strip.controls.custom_buttons = {{
+            id = "hs_1", type = "quick_setting", label = "Tailscale",
+            quick_setting_id = "tailscale",
+        }}
+        local previous = rawget(_G, "__ZEN_UI_QUICK_SETTINGS")
+        rawset(_G, "__ZEN_UI_QUICK_SETTINGS", {
+            getSettingsItems = function()
+                return {{ text = "Toggle Wi-Fi with Tailscale" }}
+            end,
+        })
+
+        local settings = require("modules/settings/sections/library_settings/home_settings")
+        assert.is_true(settings.openWidgetSettings("strip"))
+        local controls = find_item(arrange_options.item_table, "Controls")
+        find_item(controls.sub_item_table_func(), "Tabs").callback({})
+        local tailscale = find_item(arrange_options.item_table, "Tailscale")
+        local submenu = find_item(tailscale.sub_item_table, "Control settings")
+
+        assert.are.equal("Toggle Wi-Fi with Tailscale", submenu.sub_item_table[1].text)
+        rawset(_G, "__ZEN_UI_QUICK_SETTINGS", previous)
+    end)
+
     it("adds multiple folder sources and a specific-tag source to Strip controls", function()
         local settings = require("modules/settings/sections/library_settings/home_settings")
         assert.is_true(settings.openWidgetSettings("strip"))

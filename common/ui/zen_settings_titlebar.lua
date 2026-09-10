@@ -198,11 +198,12 @@ function ZenSettingsTitleBar:init()
     local back_width = leading_width
     local show_search = self.search_expanded == true and self.search_visible ~= false
     local show_search_button = self.search_visible ~= false and not show_search
+    local show_action = self.action and not show_search
     local title_cap = math.min(Screen:scaleBySize(150), math.floor(self.width * 0.25))
     local title_width = title_cap
     self.action_button = nil
     local action_width = 0
-    if self.action then
+    if show_action then
         if self.action.text then
             self.action_button = Button:new{
                 text = self.action.text,
@@ -265,7 +266,7 @@ function ZenSettingsTitleBar:init()
         end
         action_width = self.action_button:getSize().w
     end
-    local trailing_controls = 1 + (self.action and 1 or 0)
+    local trailing_controls = 1 + (show_action and 1 or 0)
         + (show_search_button and 1 or 0)
     local trailing_gap = TitleStyle.TRAILING_GAP or Screen:scaleBySize(4)
     local trailing_width = button_size + action_width
@@ -689,6 +690,7 @@ function ZenSettingsTitleBar:setAction(action)
     local old_key = self.action and (self.action.text or self.action.file or self.action.icon)
     local new_key = action and (action.text or action.file or action.icon)
     self.action = action
+    if self.search_expanded then return end
     if old_key == new_key and (self.action_button or action == nil) then
         if self.action_button then self.action_button.callback = action.callback end
         return
@@ -722,8 +724,8 @@ local function focus_controls(title_bar)
     end
     append(title_bar.back_button)
     append(title_bar.search_input)
-    append(title_bar.search_button)
     append(title_bar.action_button)
+    append(title_bar.search_button)
     append(title_bar.close_button)
     return controls
 end

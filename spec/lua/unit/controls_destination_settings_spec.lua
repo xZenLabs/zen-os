@@ -32,6 +32,7 @@ describe("Controls destination settings", function()
                 next_custom_id = 0,
                 gyro_label = "",
                 gyro_icon = "quick_rotate",
+                tailscale_toggle_wifi = false,
             },
         }
         ZenSpec.replace("gettext", function(text) return text end)
@@ -55,6 +56,7 @@ describe("Controls destination settings", function()
         ZenSpec.replace("config/defaults", { quick_settings = {
             button_order = {}, show_buttons = {},
             gyro_label = "", gyro_icon = "quick_rotate",
+            tailscale_toggle_wifi = false,
         } })
         ZenSpec.replace("common/inline_icon_map", setmetatable({}, {
             __index = function(_self, key) return key end,
@@ -198,5 +200,30 @@ describe("Controls destination settings", function()
         assert.are.equal("", config.quick_settings.gyro_label)
         assert.are.equal("Autorotate", autorotate.text_func())
         assert.are.equal(3, saves)
+    end)
+
+    it("configures linked Wi-Fi from the Tailscale control submenu", function()
+        config.quick_settings.button_order = { "tailscale" }
+        config.quick_settings.show_buttons.tailscale = true
+        local saves = 0
+        local section = require("modules/settings/sections/menu_settings").build({
+            config = config,
+            plugin = {},
+            save_and_apply = function() saves = saves + 1 end,
+        })
+        section.sub_item_table[1].callback()
+
+        local tailscale
+        for _i, item in ipairs(arrange_options.item_table) do
+            if item.orig_item == "tailscale" then tailscale = item end
+        end
+        local setting = tailscale.sub_item_table_func()[1]
+
+        assert.are.equal("Tailscale \u{25B8}", tailscale.text_func())
+        assert.are.equal("Toggle Wi-Fi with Tailscale", setting.text)
+        assert.is_false(setting.checked_func())
+        setting.callback()
+        assert.is_true(setting.checked_func())
+        assert.are.equal(1, saves)
     end)
 end)

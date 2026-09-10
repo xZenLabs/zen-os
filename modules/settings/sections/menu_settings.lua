@@ -208,6 +208,20 @@ function M.build(ctx)
         return items
     end
 
+    local function buildTailscaleButtonSubItems()
+        return {{
+            text = _("Toggle Wi-Fi with Tailscale"),
+            checked_func = function()
+                return config.quick_settings.tailscale_toggle_wifi == true
+            end,
+            callback = function()
+                config.quick_settings.tailscale_toggle_wifi =
+                    config.quick_settings.tailscale_toggle_wifi ~= true
+                save_and_apply_quick_settings()
+            end,
+        }}
+    end
+
     local function buildScreenshotButtonSubItems()
         return {
             {
@@ -595,6 +609,14 @@ function M.build(ctx)
                             return T(_("Rotate: %1"), getRotateActionLabel()) .. " \u{25B8}"
                         end
                         item.sub_title = _("Rotate")
+                        item.sub_item_table_func = function()
+                            return build_control_sub_items(id)
+                        end
+                    elseif id == "tailscale" then
+                        item.text_func = function()
+                            return _("Tailscale") .. " \u{25B8}"
+                        end
+                        item.sub_title = _("Tailscale")
                         item.sub_item_table_func = function()
                             return build_control_sub_items(id)
                         end
@@ -1003,6 +1025,8 @@ function M.build(ctx)
             items = buildScreenshotButtonSubItems()
         elseif id == "incognito" then
             items = require("modules/global/patches/incognito_mode").timeoutMenuItems(zen_plugin)
+        elseif id == "tailscale" then
+            items = buildTailscaleButtonSubItems()
         end
         items[#items + 1] = IconItem.decorate({
             text = _("Delete"),
@@ -1055,6 +1079,7 @@ function M.build(ctx)
         config.quick_settings.gyro_icon = def.gyro_icon
         quick_button_label_by_id.gyro = getAutorotateLabel()
         config.quick_settings.screenshot_timer_seconds = def.screenshot_timer_seconds
+        config.quick_settings.tailscale_toggle_wifi = def.tailscale_toggle_wifi
         save_and_apply_quick_settings()
     end
 

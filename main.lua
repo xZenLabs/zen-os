@@ -848,9 +848,8 @@ function ZenUI:init()
         self.ui.menu:registerToMainMenu(self)
     end
 
-    -- When the background check finds a new update, refresh the zen-tab icon
-    -- on every known menu instance. We update the icon in place rather than
-    -- forcing setUpdateItemTable to re-run, because KOReader's MenuSorter
+    -- Refresh any open settings page and all known zen-tab icons when an update
+    -- is found. Keep icon updates in place because KOReader's MenuSorter
     -- mutates self.menu_items during sorting (it nils out KOMenu:menu_buttons
     -- and every consumed leaf), so a second pass crashes in menusorter.lua at
     -- `ipairs(menu_table["KOMenu:menu_buttons"])`. The onShowMenu patch above
@@ -862,6 +861,10 @@ function ZenUI:init()
             if m_instance._zen_tab_item then
                 m_instance._zen_tab_item.icon = icon
             end
+        end
+        local settings_page = rawget(_G, "__ZEN_UI_SETTINGS_PAGE")
+        if settings_page and type(settings_page.updateItems) == "function" then
+            settings_page:updateItems()
         end
     end
     zen_updater._on_update_found = update_icon

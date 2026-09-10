@@ -212,6 +212,11 @@ function ZenSettingsPage:_syncHeader()
     if not self.title_bar then return end
     local at_root = #self.item_table_stack == 0
     self.title_bar:setState(self:_currentTitle(), not at_root, true)
+    local action_func = self._root_items and self._root_items._zen_header_action_func
+    if type(self.title_bar.setAction) == "function" then
+        self.title_bar:setAction(at_root and type(action_func) == "function"
+            and action_func() or nil)
+    end
 end
 
 function ZenSettingsPage:_focusSearchInput()

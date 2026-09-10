@@ -7,6 +7,9 @@ describe("quick settings plugin controls", function()
     local destination_entries
     local hosted_menu
     local FileManagerMenu
+    local NetworkMgr
+    local actions
+    local save_calls
 
     local module_names = {
         "ffi/blitbuffer",
@@ -59,6 +62,8 @@ describe("quick settings plugin controls", function()
         end
         original_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
         original_quick_settings = rawget(_G, "__ZEN_UI_QUICK_SETTINGS")
+        actions = {}
+        save_calls = 0
 
         local no_op = {}
         local function widget_class()
@@ -95,10 +100,33 @@ describe("quick settings plugin controls", function()
         ZenSpec.replace("ui/widget/horizontalgroup", Widget)
         ZenSpec.replace("ui/widget/horizontalspan", Widget)
         ZenSpec.replace("ui/widget/iconwidget", Widget)
-        ZenSpec.replace("ui/network/manager", {
-            isWifiOn = function() return false end,
-            isConnected = function() return false end,
-        })
+        NetworkMgr = {
+            wifi_on = true,
+            connected = true,
+            run_when_connected_calls = 0,
+            toggle_on_calls = 0,
+            toggle_off_calls = 0,
+            isWifiOn = function(self) return self.wifi_on end,
+            isConnected = function(self) return self.connected end,
+            runWhenConnected = function(self, callback)
+                self.run_when_connected_calls = self.run_when_connected_calls + 1
+                self.connected_callback = callback
+            end,
+            toggleWifiOn = function(self, callback)
+                self.toggle_on_calls = self.toggle_on_calls + 1
+                self.wifi_on = true
+                self.wifi_on_callback = callback
+                actions[#actions + 1] = "wifi_on"
+            end,
+            toggleWifiOff = function(self, callback)
+                self.toggle_off_calls = self.toggle_off_calls + 1
+                self.wifi_on = false
+                self.connected = false
+                actions[#actions + 1] = "wifi_off"
+                if callback then callback() end
+            end,
+        }
+        ZenSpec.replace("ui/network/manager", NetworkMgr)
         ZenSpec.replace("ui/widget/confirmbox", no_op)
         ZenSpec.replace("ui/widget/textwidget", Widget)
         ZenSpec.replace("ui/uimanager", {
@@ -176,6 +204,7 @@ describe("quick settings plugin controls", function()
             isRunning = function(self) return self.running end,
             onToggleTailscale = function(self, callback)
                 self.toggle_calls = self.toggle_calls + 1
+                actions[#actions + 1] = self.running and "tailscale_off" or "tailscale_on"
                 self.running = not self.running
                 callback()
             end,
@@ -219,6 +248,7 @@ describe("quick settings plugin controls", function()
                     next_custom_id = 0,
                 },
             },
+            saveConfig = function() save_calls = save_calls + 1 end,
         }
         ZenSpec.unload("modules/menu/patches/quick_settings")
         require("modules/menu/patches/quick_settings")()
@@ -246,6 +276,47 @@ describe("quick settings plugin controls", function()
         assert.is_equal(1, tailscale.toggle_calls)
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isActive("tailscale"))
         assert.is_equal(1, updates)
+    end)
+
+    it("prompts for Wi-Fi and waits for a connection before starting Tailscale", function()
+        NetworkMgr.wifi_on = false
+        NetworkMgr.connected = false
+
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("tailscale"))
+        assert.are.equal(1, NetworkMgr.run_when_connected_calls)
+        assert.are.equal(0, tailscale.toggle_calls)
+
+        NetworkMgr.connected = true
+        NetworkMgr.connected_callback()
+        assert.are.same({ "tailscale_on" }, actions)
+    end)
+
+    it("turns Wi-Fi on before and off after Tailscale when linked", function()
+        _G.__ZEN_UI_PLUGIN.config.quick_settings.tailscale_toggle_wifi = true
+        NetworkMgr.wifi_on = false
+        NetworkMgr.connected = false
+
+        _G.__ZEN_UI_QUICK_SETTINGS.activate("tailscale")
+        assert.are.same({ "wifi_on" }, actions)
+        assert.are.equal(0, tailscale.toggle_calls)
+
+        NetworkMgr.connected = true
+        NetworkMgr.wifi_on_callback()
+        assert.are.same({ "wifi_on", "tailscale_on" }, actions)
+
+        _G.__ZEN_UI_QUICK_SETTINGS.activate("tailscale")
+        assert.are.same({ "wifi_on", "tailscale_on", "tailscale_off", "wifi_off" }, actions)
+    end)
+
+    it("offers the off-by-default linked Wi-Fi setting without a hold action", function()
+        local items = _G.__ZEN_UI_QUICK_SETTINGS.getSettingsItems("tailscale")
+        assert.are.equal("Toggle Wi-Fi with Tailscale", items[1].text)
+        assert.is_false(items[1].checked_func())
+
+        items[1].callback()
+        assert.is_true(items[1].checked_func())
+        assert.are.equal(1, save_calls)
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.hold("tailscale"))
     end)
 
     it("labels autorotate and resolves bundled control icons", function()

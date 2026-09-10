@@ -145,6 +145,7 @@ describe("Zen settings page", function()
                     self.search_visible = search_visible
                 end
                 opts.setQuery = function(self, query) self.query = query end
+                opts.setAction = function(self, action) self.action = action end
                 opts.collapseSearch = function(self)
                     self.search_collapsed = true
                 end
@@ -228,6 +229,20 @@ describe("Zen settings page", function()
         assert.are.equal("Settings", settings.title_bar.title)
         assert.is_false(settings.title_bar.back_visible)
         assert.is_true(settings.title_bar.search_visible)
+    end)
+
+    it("shows a header action only at the settings root", function()
+        local action = { text = "Update available" }
+        local child = { text = "Child" }
+        local root = {{ text = "Section", sub_item_table = { child } }}
+        root._zen_header_action_func = function() return action end
+        local settings = make_page(root)
+
+        assert.are.equal(action, settings.title_bar.action)
+        settings:onMenuSelect(root[1])
+        assert.is_nil(settings.title_bar.action)
+        settings:backToUpperMenu()
+        assert.are.equal(action, settings.title_bar.action)
     end)
 
     it("toggles configurable submenu rows only from their outer switch", function()
