@@ -132,6 +132,37 @@ describe("shared folder cover provider", function()
         assert.is_false(FolderCover.isSupported({ text = "Unrelated" }, {}))
     end)
 
+    it("uses Kindle books for the virtual folder count and covers", function()
+        local scans = 0
+        install_lfs(function()
+            return { { name = "koreader-book.epub" } }
+        end, function() scans = scans + 1 end)
+        ZenSpec.replace("modules/filebrowser/patches/kindle_virtual_library", {
+            getBookPaths = function()
+                return { "/kindle/one.kfx", "/kindle/two.azw3" }
+            end,
+        })
+        local FolderCover = require("modules/filebrowser/folder_cover")
+        local entry = {
+            path = "/library",
+            attr = { mode = "directory" },
+            is_kindle_library_folder = true,
+        }
+        local entries, physical, count = FolderCover.previewEntries(
+            { name = "filemanager" }, entry, 4)
+
+        assert.are.same({ "/kindle/one.kfx", "/kindle/two.azw3" }, {
+            entries[1].path, entries[2].path,
+        })
+        assert.is_false(physical)
+        assert.are.equal(2, count)
+        local result = FolderCover.build(
+            { name = "filemanager" }, entry, "Kindle Library/", 120, 180)
+        assert.are.equal(2, result.count)
+        assert.are.equal(1, result.cover_count)
+        assert.are.equal(0, scans)
+    end)
+
     it("keeps adaptive folder labels at a fixed overlay height", function()
         local created = {}
         local label_font_sizes = {}

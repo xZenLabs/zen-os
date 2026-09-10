@@ -30,7 +30,7 @@ local function visible_entries(controls)
         if #entries >= 7 then break end
         local entry = not seen[id] and controls.show_buttons[id] == true
             and ButtonModel.find(controls, id) or nil
-        if entry then
+        if entry and ButtonModel.isAvailable(entry) then
             entries[#entries + 1] = entry
             seen[id] = true
         end

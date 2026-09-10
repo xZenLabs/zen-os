@@ -454,7 +454,7 @@ local STRIP_COMMON_KEYS = {
 local VALID_CONTROL_IDS = {
     recent = true, favorites = true, to_be_read = true, authors = true,
     series = true, languages = true, tags = true, collections = true,
-    books = true, manga = true,
+    books = true, kindle = true, manga = true,
     news = true, continue = true, history = true, home = true,
     search = true, calibre_search = true, stats = true, exit = true, page_left = true,
     page_right = true, menu = true,
@@ -546,7 +546,7 @@ local function ensure_strip_shape(strip)
     local valid_sources = {
         recent = true, favorites = true, to_be_read = true, authors = true,
         series = true, languages = true, tags = true, collections = true, tag = true,
-        status = true, folder = true, custom = true,
+        status = true, folder = true, custom = true, kindle = true,
     }
     if not valid_sources[strip.default_source.kind]
             or strip.default_source.kind == "status"

@@ -11,6 +11,7 @@ describe("Home widget content settings", function()
     local choose_tag
     local quote_files
     local picker_options
+    local kindle_available
 
     local function item_text(item)
         return item.text or (item.text_func and item.text_func())
@@ -53,6 +54,7 @@ describe("Home widget content settings", function()
         choose_tag = nil
         quote_files = { "quotes.lua" }
         picker_options = nil
+        kindle_available = false
         home_page = {
             strip_memory = {
                 active_id = "recent",
@@ -193,6 +195,7 @@ describe("Home widget content settings", function()
                     { id = "favorites", label = "Favorites", source = true },
                     { id = "to_be_read", label = "To Be Read", source = true },
                     { id = "authors", label = "Authors", source = true },
+                    { id = "kindle", label = "Kindle Library", source = true },
                 }
             end,
             find = function(controls, id)
@@ -215,6 +218,9 @@ describe("Home widget content settings", function()
                 end
             end,
             label = function(_controls, entry) return entry.label end,
+            isAvailable = function(entry)
+                return entry.id ~= "kindle" or kindle_available
+            end,
             statuses = function()
                 return {
                     { key = "new", label = "Unread" },
@@ -234,7 +240,12 @@ describe("Home widget content settings", function()
         })
         ZenSpec.replace("common/dispatcher_menu", {})
         ZenSpec.replace("modules/menu/app_launcher/native_menu", {})
-        ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
+        ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {
+            exists = function() return false end,
+            installed = function()
+                return kindle_available and { kindle = true } or {}
+            end,
+        })
         ZenSpec.replace("common/tbr_index", {
             showOrder = function(options)
                 tbr_order_calls = tbr_order_calls + 1
@@ -834,6 +845,42 @@ describe("Home widget content settings", function()
             id = "hs_1", type = "status", status = "complete", label = "Finished",
         }, home_page.modules.strip.controls.custom_buttons[1])
         assert.are.equal(1, backs)
+    end)
+
+    it("offers Kindle controls only when installed and can hide its folder", function()
+        local settings = require("modules/settings/sections/library_settings/home_settings")
+        local config = {}
+        local saves, reinits = 0, 0
+        settings.build({
+            config = config,
+            plugin = { saveConfig = function() saves = saves + 1 end },
+            settings_apply = {
+                reinit_filemanager_on_menu_close = function() reinits = reinits + 1 end,
+            },
+        })
+        assert.is_true(settings.openWidgetSettings("strip"))
+        local controls = find_item(arrange_options.item_table, "Controls")
+        find_item(controls.sub_item_table_func(), "Tabs").callback({})
+        local add_tab = find_item(arrange_options.add_item_table, "Tab")
+
+        add_tab.callback({})
+        assert.is_nil(find_item(picker_options.items, "Kindle Library"))
+
+        kindle_available = true
+        add_tab.callback({})
+        picker_options.on_select(find_item(picker_options.items, "Kindle Library"))
+        assert.are.equal("kindle", home_page.modules.strip.controls.order[#home_page.modules.strip.controls.order])
+
+        assert.is_true(settings.openWidgetSettings("strip"))
+        controls = find_item(arrange_options.item_table, "Controls")
+        find_item(controls.sub_item_table_func(), "Tabs").callback({})
+        local kindle = find_item(arrange_options.item_table, "Kindle Library")
+        local hide = find_item(kindle.sub_item_table, "Hide Kindle Library folder")
+        assert.is_false(hide.checked_func())
+        hide.callback()
+        assert.is_true(config.kindle.hide_library_folder)
+        assert.are.equal(1, saves)
+        assert.are.equal(1, reinits)
     end)
 
     it("resets Strip control tabs without changing control display settings", function()

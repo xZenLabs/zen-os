@@ -16,6 +16,7 @@ local PluginScan = require("modules/menu/app_launcher/plugin_scan")
 local DispatcherMenu = require("common/dispatcher_menu")
 local ButtonModel = require("common/nav_button_model")
 local Destination = require("common/library_destination")
+local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
 
 local M = {}
 
@@ -163,6 +164,7 @@ function M.build(ctx)
     local navbar_tab_items = {
         { id = "books",       text = _("Library")      },
         { id = "folder",      text_func = get_folder_tab_label },
+        { id = "kindle",      text = _("Kindle Library") },
         { id = "manga",       text = _("Manga")         },
         { id = "news",        text = _("News")          },
         { id = "continue",    text = _("Continue")      },
@@ -199,7 +201,7 @@ function M.build(ctx)
     end
 
     local default_tab_ids = {
-        "books", "folder", "manga", "news", "history", "favorites",
+        "books", "folder", "kindle", "manga", "news", "history", "favorites",
         "collections", "authors", "series", "languages", "home", "tags", "to_be_read",
     }
 
@@ -236,10 +238,15 @@ function M.build(ctx)
         return tab_item_by_id[id] ~= nil or is_known_custom_tab(id)
     end
 
+    local function is_tab_available(id)
+        return id ~= "kindle" or Kindle.isAvailable()
+    end
+
     local function countEnabledTabs()
         local count = 0
         for _i, id in ipairs(config.navbar.tab_order) do
-            if config.navbar.show_tabs[id] == true and is_known_tab(id) then
+            if config.navbar.show_tabs[id] == true and is_known_tab(id)
+                    and is_tab_available(id) then
                 count = count + 1
             end
         end
@@ -367,7 +374,7 @@ function M.build(ctx)
         end
         local picker_items = {}
         for _i, tab in ipairs(navbar_tab_items) do
-            if not selected[tab.id] then
+            if not selected[tab.id] and is_tab_available(tab.id) then
                 picker_items[#picker_items + 1] = {
                     id = tab.id,
                     text = tab.id == "tags" and _("All tags") or get_tab_item_text(tab),
@@ -915,19 +922,21 @@ function M.build(ctx)
     local function build_default_tab_items()
         local items = {}
         for _i, tab_id in ipairs(default_tab_ids) do
-            local tid = tab_id
-            local label = get_default_tab_label(tid)
-            items[#items + 1] = {
-                text = label,
-                radio = true,
-                checked_func = function()
-                    return (config.navbar.default_tab or "books") == tid
-                end,
-                callback = function()
-                    config.navbar.default_tab = tid
-                    save_and_apply_navbar()
-                end,
-            }
+            if is_tab_available(tab_id) then
+                local tid = tab_id
+                local label = get_default_tab_label(tid)
+                items[#items + 1] = {
+                    text = label,
+                    radio = true,
+                    checked_func = function()
+                        return (config.navbar.default_tab or "books") == tid
+                    end,
+                    callback = function()
+                        config.navbar.default_tab = tid
+                        save_and_apply_navbar()
+                    end,
+                }
+            end
         end
         if type(config.navbar.custom_tabs) == "table" then
             for _i, ct in ipairs(config.navbar.custom_tabs) do
@@ -1210,6 +1219,22 @@ function M.build(ctx)
         }
     end
 
+    local function build_kindle_tab_items()
+        return {{
+            text = _("Hide Kindle Library folder"),
+            checked_func = function()
+                return type(config.kindle) == "table"
+                    and config.kindle.hide_library_folder == true
+            end,
+            callback = function()
+                if type(config.kindle) ~= "table" then config.kindle = {} end
+                config.kindle.hide_library_folder =
+                    config.kindle.hide_library_folder ~= true
+                save_and_reflow_navbar()
+            end,
+        }}
+    end
+
     local function build_news_tab_items()
         return {
             {
@@ -1261,6 +1286,8 @@ function M.build(ctx)
             items = build_books_tab_items()
         elseif id == "folder" then
             items = build_folder_tab_items()
+        elseif id == "kindle" then
+            items = build_kindle_tab_items()
         elseif id == "manga" then
             items = build_manga_tab_items()
         elseif id == "news" then

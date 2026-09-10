@@ -2395,6 +2395,12 @@ msgid "Hide grouped series"
 msgstr "Hide grouped series"
 
 #. Type: setting
+#. Context: text = _("Hide Kindle Library folder"),
+#: home_settings.lua:1242 navbar_settings.lua:1224
+msgid "Hide Kindle Library folder"
+msgstr "Hide Kindle Library folder"
+
+#. Type: setting
 #. Context: { text = _("Hide in CBZ/PDF files"), checked_func = function()
 #: reader_settings.lua:584 reader_settings.lua:1394
 msgid "Hide in CBZ/PDF files"
@@ -2669,6 +2675,12 @@ msgstr "Keep existing settings"
 #: metadata_editor.lua:948
 msgid "Keep the current file extension."
 msgstr "Keep the current file extension."
+
+#. Type: setting
+#. Context: { id = "kindle", label = _("Kindle Library") }, label = _("Kindle Library"), { id = "kindle", text = _("Kindle Library") },
+#: nav_button_model.lua:15 navbar.lua:244 navbar_settings.lua:167
+msgid "Kindle Library"
+msgstr "Kindle Library"
 
 #. Type: setting
 #. Context: or target.title or _("KOReader menu"), disabled_func = function()

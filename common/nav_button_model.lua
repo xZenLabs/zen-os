@@ -12,6 +12,7 @@ local BUILTINS = {
     { id = "tags", label = _("Tags"), source = true },
     { id = "collections", label = _("Collections"), source = true },
     { id = "books", label = _("Library") },
+    { id = "kindle", label = _("Kindle Library"), source = true },
     { id = "manga", label = _("Manga") },
     { id = "news", label = _("News") },
     { id = "continue", label = _("Continue") },
@@ -50,6 +51,12 @@ end
 function M.statusLabel(status)
     local item = status_by_key[status]
     return item and item.label or nil
+end
+
+function M.isAvailable(entry)
+    if type(entry) == "string" then entry = by_id[entry] end
+    return type(entry) == "table" and (entry.id ~= "kindle"
+        or require("modules/filebrowser/patches/kindle_virtual_library").isAvailable())
 end
 
 function M.isSource(entry)
@@ -111,10 +118,13 @@ function M.firstVisibleSource(controls)
     for _i, id in ipairs(type(controls.order) == "table" and controls.order or {}) do
         if type(id) == "string" and not seen[id] and show_buttons[id] == true then
             seen[id] = true
-            visible_count = visible_count + 1
-            local source = M.sourceDescriptor(M.find(controls, id))
-            if source then return source, id end
-            if visible_count >= 7 then return end
+            local entry = M.find(controls, id)
+            if entry and M.isAvailable(entry) then
+                visible_count = visible_count + 1
+                local source = M.sourceDescriptor(entry)
+                if source then return source, id end
+                if visible_count >= 7 then return end
+            end
         end
     end
 end

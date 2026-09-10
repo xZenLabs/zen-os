@@ -317,6 +317,7 @@ end
 
 local function is_virtual(entry, menu)
     return type(entry) == "table" and (entry.is_series_group
+        or entry.is_kindle_library_folder
         or type(entry.series_items) == "table"
         or type(entry._zen_files) == "table"
         or (menu and menu._zen_coll_list and entry.name
@@ -386,7 +387,15 @@ function M.entries(menu, entry, load_members, limit)
         return ok and paths_to_entries(files, limit) or {}, false,
             ok and type(files) == "table" and #files or 0
     end
-    if entry.is_go_up or entry._zen_empty_placeholder then return {}, false end
+    if entry.is_kindle_library_folder then
+        entry._zen_files = require(
+            "modules/filebrowser/patches/kindle_virtual_library").getBookPaths()
+        if load_members == false then return nil, false, #entry._zen_files end
+        return paths_to_entries(entry._zen_files, limit), false, #entry._zen_files
+    end
+    if entry.is_go_up or entry._zen_empty_placeholder then
+        return {}, false
+    end
     if is_directory(entry) then
         if load_members == false then return nil, true end
         local descriptor = scan_descriptor(menu, entry.path, limit or 4)

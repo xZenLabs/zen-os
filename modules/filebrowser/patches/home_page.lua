@@ -178,6 +178,7 @@ local function clear_home_dataset_derived(dataset)
     if not dataset then return end
     dataset.ordered_paths = {}
     dataset.strip_paths = {}
+    dataset.kindle_paths = nil
     dataset.tbr = nil
 end
 
@@ -1847,6 +1848,13 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
     end
 
     local function descriptor_paths(request)
+        if request.kind == "kindle" then
+            if not dataset.kindle_paths then
+                dataset.kindle_paths = require(
+                    "modules/filebrowser/patches/kindle_virtual_library").getBookPaths()
+            end
+            return copy_paths(dataset.kindle_paths)
+        end
         if request.kind == "favorites" then
             local ok_collection, ReadCollection = pcall(require, "readcollection")
             return ok_collection and ReadCollection
@@ -1919,7 +1927,7 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             end
             return books, adjacent
         end
-        if kind == "favorites" or kind == "tag" or kind == "status"
+        if kind == "kindle" or kind == "favorites" or kind == "tag" or kind == "status"
                 or kind == "custom" then
             local paths = descriptor_paths(request)
             if normalize_order(order_key) == "reverse" then paths = reverse_copy(paths) end
@@ -2793,6 +2801,7 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
 
     local function show_book_context_menu(path, source, component_id)
         if type(path) ~= "string" or path == "" then return false end
+        if source == "kindle" then return false end
         local fm = FileManager.instance
         local fc = fm and fm.file_chooser
         if not (fc and type(fc.showFileDialog) == "function") then return false end

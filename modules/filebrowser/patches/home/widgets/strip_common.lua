@@ -484,8 +484,12 @@ function M.build_strip(ctx, source_key)
             local first_source = ButtonModel.firstVisibleSource(controls_cfg)
             if first_source then return utils.deepcopy(first_source) end
         end
-        return type(module_cfg.default_source) == "table"
-            and utils.deepcopy(module_cfg.default_source) or { kind = "recent" }
+        local configured = type(module_cfg.default_source) == "table"
+            and module_cfg.default_source or { kind = "recent" }
+        if configured.kind == "kindle" and not ButtonModel.isAvailable("kindle") then
+            return { kind = "recent" }
+        end
+        return utils.deepcopy(configured)
     end
     if type(runtime) ~= "table" then
         runtime = { source = default_source() }
@@ -566,8 +570,9 @@ function M.build_strip(ctx, source_key)
     end
 
     local function visible_source_entry(id)
-        return controls_cfg.show_buttons and controls_cfg.show_buttons[id]
+        local entry = controls_cfg.show_buttons and controls_cfg.show_buttons[id]
             and ButtonModel.find(controls_cfg, id) or nil
+        return entry and ButtonModel.isAvailable(entry) and entry or nil
     end
 
     local function find_source_control(parent_match)

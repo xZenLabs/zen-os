@@ -25,6 +25,7 @@ local function apply_book_status()
         .. "/resources/icons/mdlight/"
 
     local function resolve_icon(name)
+        if type(name) == "string" and name:sub(1, 1) == "/" then return name end
         return utils.resolveIcon(_icons_dir, name)
             or utils.resolveLocalIcon(utils.getUserIconsDir(), name)
             or utils.resolveLocalIcon(_stock_icons_dir, name)

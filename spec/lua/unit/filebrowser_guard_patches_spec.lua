@@ -77,6 +77,247 @@ describe("file browser guard patches", function()
         assert.is_false(FileChooser.show_unsupported)
     end)
 
+    it("hides only the synthetic Kindle Library folder without mutating cached items", function()
+        local source = {
+            { text = "Kindle Library/", is_kindle_library_folder = true },
+            { text = "Books", path = "/library/Books" },
+        }
+        local FileChooser = {
+            genItemTableFromPath = function() return source end,
+        }
+        ZenSpec.replace("ui/widget/filechooser", FileChooser)
+        local plugin = { config = { kindle = { hide_library_folder = true } } }
+
+        ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
+        require("modules/filebrowser/patches/kindle_virtual_library").apply(plugin)
+        local chooser = { name = "filemanager" }
+        setmetatable(chooser, { __index = FileChooser })
+
+        local filtered = chooser:genItemTableFromPath("/library")
+        assert.are.equal(1, #filtered)
+        assert.are.equal("Books", filtered[1].text)
+        assert.are.equal(2, #source)
+
+        plugin.config.kindle.hide_library_folder = false
+        assert.are.equal(source, chooser:genItemTableFromPath("/library"))
+    end)
+
+    it("opens Kindle Library through its registered dispatcher action", function()
+        local dispatched, fallback = 0, 0
+        local Dispatcher = {}
+        function Dispatcher.getDisplayList(settings)
+            assert.is_true(settings.kindle_library)
+            return { { key = "kindle_library" } }
+        end
+        function Dispatcher:execute(settings)
+            assert.is_true(settings.kindle_library)
+            dispatched = dispatched + 1
+        end
+        ZenSpec.replace("dispatcher", Dispatcher)
+        ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {
+            exists = function() return false end,
+            installed = function() return { kindle = true } end,
+            resolve = function(key, method)
+                if key == "kindle" and method == "onShowKindleLibrary" then
+                    return function() fallback = fallback + 1; return true end
+                end
+            end,
+        })
+        ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
+        local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
+
+        assert.is_true(Kindle.isAvailable())
+        assert.is_true(Kindle.open())
+        assert.are.equal(1, dispatched)
+        assert.are.equal(0, fallback)
+    end)
+
+    it("opens the loaded Kindle library manager directly", function()
+        local filemanager = {}
+        local shown
+        ZenSpec.replace("apps/filemanager/filemanager", { instance = filemanager })
+        ZenSpec.replace("lua/filechooser_ext", {
+            kindle_library = {
+                show = function(_, ui, force)
+                    shown = { ui, force }
+                    return true
+                end,
+            },
+        })
+        ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
+        ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
+        local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
+
+        assert.is_true(Kindle.open())
+        assert.are.same({ filemanager, true }, shown)
+    end)
+
+    it("reads Kindle thumbnail dimensions without decoding the image", function()
+        ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
+        ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
+        local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
+        local jpeg = string.char(
+            0xFF, 0xD8, 0xFF, 0xE0, 0, 2,
+            0xFF, 0xC0, 0, 7, 8, 3, 32, 2, 88)
+        local png = "\137PNG\r\n\26\n" .. string.char(
+            0, 0, 0, 13) .. "IHDR" .. string.char(0, 0, 2, 88, 0, 0, 3, 32)
+
+        assert.are.same({ 600, 800 }, { Kindle._imageSizeFromData(jpeg) })
+        assert.are.same({ 600, 800 }, { Kindle._imageSizeFromData(png) })
+        assert.is_nil(Kindle._imageSizeFromData("GIF89a"))
+    end)
+
+    it("lists the real paths exposed by the Kindle virtual library", function()
+        ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
+        ZenSpec.replace("lua/open_file_ext", {
+            virtual_library = {
+                getBookEntries = function(_, force)
+                    assert.is_false(force)
+                    return {
+                        { file = "/cache/converted.epub" },
+                        { file = "/mnt/us/documents/native.kfx" },
+                        { file = "" },
+                    }
+                end,
+            },
+        })
+        ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
+        local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
+
+        assert.are.same({
+            "/cache/converted.epub",
+            "/mnt/us/documents/native.kfx",
+        }, Kindle.getBookPaths())
+    end)
+
+    it("uses the Kindle catalog metadata and native thumbnail before first open", function()
+        local stock_calls, render_calls = 0, 0
+        local BookInfoManager = {
+            getBookInfo = function()
+                stock_calls = stock_calls + 1
+                return { stock = true }
+            end,
+        }
+        local source = "/mnt/us/documents/book.kfx"
+        ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
+        ZenSpec.replace("bookinfomanager", BookInfoManager)
+        ZenSpec.replace("util", {
+            splitFilePathName = function() return "/mnt/us/documents/", "book.kfx" end,
+        })
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function() return { size = 42, modification = 7 } end,
+        })
+        local cover = {
+            getWidth = function() return 600 end,
+            getHeight = function() return 800 end,
+        }
+        ZenSpec.replace("ui/renderimage", {
+            renderImageFile = function(_, path)
+                assert.are.equal("/native-cover.jpg", path)
+                render_calls = render_calls + 1
+                return cover
+            end,
+        })
+        ZenSpec.replace("lua/open_file_ext", {
+            virtual_library = {
+                getBook = function(_, path)
+                    if path == source then
+                        return {
+                            source_path = source,
+                            source_size = 42,
+                            cde_key = "B012345678",
+                            title = "Catalog Title",
+                            authors = { "First Author", "Second Author" },
+                        }
+                    end
+                end,
+            },
+        })
+        ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
+        local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
+        Kindle._thumbnailPath = function()
+            return "/native-cover.jpg", 600, 800
+        end
+
+        assert.is_true(Kindle.installMetadataIntegration())
+        local metadata = BookInfoManager:getBookInfo(source, false)
+        assert.are.equal("Catalog Title", metadata.title)
+        assert.are.equal("First Author\nSecond Author", metadata.authors)
+        assert.are.equal("Y", metadata.has_cover)
+        assert.are.same({ 600, 800 }, { metadata.cover_w, metadata.cover_h })
+        assert.are.equal(0, render_calls)
+
+        local with_cover = BookInfoManager:getBookInfo(source, true)
+        assert.are.equal(cover, with_cover.cover_bb)
+        assert.are.equal(1, render_calls)
+        assert.is_true(BookInfoManager:getBookInfo("/library/normal.epub", true).stock)
+        assert.are.equal(1, stock_calls)
+    end)
+
+    it("decorates Kindle Library like a regular folder view", function()
+        local shown, saved_mode, reopened, updated, status_options
+        ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
+        ZenSpec.replace("common/ui/background", {
+            applyToMenu = function(menu) menu.background_applied = true end,
+        })
+        ZenSpec.replace("modules/filebrowser/patches/standalone_page", {
+            hide_page_arrow = function(menu) menu.arrow_hidden = true end,
+            suppress_page_info_tap = function(menu) menu.page_info_suppressed = true end,
+            apply_status_row = function(_, options) status_options = options end,
+        })
+        ZenSpec.replace("common/shared_state", {
+            get = function(_, key) return key end,
+        })
+        ZenSpec.replace("device", {
+            isTouchDevice = function() return true end,
+            screen = { getWidth = function() return 600 end, getHeight = function() return 800 end },
+        })
+        ZenSpec.replace("ui/geometry", { new = function(_, spec) return spec end })
+        ZenSpec.replace("ui/gesturerange", { new = function(_, spec) return spec end })
+        ZenSpec.replace("gettext", function(text) return text end)
+        ZenSpec.replace("ui/widget/buttondialog", { new = function(_, spec) return spec end })
+        ZenSpec.replace("ui/uimanager", {
+            show = function(_, widget) shown = widget end,
+            close = function() end,
+        })
+        ZenSpec.replace("bookinfomanager", {
+            getSetting = function(_, key)
+                if key == "filemanager_display_mode" then return "mosaic_image" end
+            end,
+            saveSetting = function(_, _, mode) saved_mode = mode end,
+        })
+        ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
+        local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
+        local manager = {
+            close = function() end,
+            show = function(_, _, force)
+                reopened = force == false
+            end,
+        }
+        local menu = {
+            name = "kindle_library",
+            _manager = manager,
+            updateItems = function(_, page, no_resize)
+                updated = { page, no_resize }
+            end,
+        }
+
+        assert.is_true(Kindle._decorateLibraryView(menu, {}))
+        assert.is_true(menu.background_applied)
+        assert.is_false(menu._do_center_partial_rows)
+        assert.are.same({ 1, true }, updated)
+        assert.are.equal("Kindle Library", status_options.label)
+        assert.is_nil(status_options.back_callback)
+        assert.is_nil(status_options.createStatusRowCustomBack)
+        assert.is_function(menu.onZenKindleBlankHold)
+
+        assert.is_true(menu.onZenKindleBlankHold())
+        assert.are.equal("Display mode", shown.title)
+        shown.buttons[3][1].callback()
+        assert.are.equal("list_image_filename", saved_mode)
+        assert.is_true(reopened)
+    end)
+
     it("hides the up-folder row and turns the title action into folder-up", function()
         local home_locked = false
         local FileChooser = {

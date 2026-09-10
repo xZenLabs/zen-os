@@ -1312,6 +1312,36 @@ describe("home data and book caches", function()
         assert.is_true(adjacent)
     end)
 
+    it("loads Kindle books as a cached first-class strip source", function()
+        local list_calls = 0
+        ZenSpec.replace("modules/filebrowser/patches/kindle_virtual_library", {
+            getBookPaths = function()
+                list_calls = list_calls + 1
+                return {
+                    "/mnt/us/documents/alpha.kfx",
+                    "/mnt/us/documents/beta.kfx",
+                }
+            end,
+        })
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+
+        local books, adjacent = provider:getStripItemsForPage(
+            { kind = "kindle" }, 1, "default", "strip", 0)
+        assert.are.equal("/mnt/us/documents/alpha.kfx", books[1].path)
+        assert.is_true(adjacent)
+
+        assert.is_true(provider:shiftStripItems(
+            { kind = "kindle" }, 1, "default", "next", "strip"))
+        books = provider:getStripItemsForPage(
+            { kind = "kindle" }, 1, "default", "strip", 0)
+        assert.are.equal("/mnt/us/documents/beta.kfx", books[1].path)
+        assert.are.equal(1, list_calls)
+    end)
+
     it("loads a named status as a first-class strip source", function()
         local requested
         ZenSpec.replace("common/tbr_index", {

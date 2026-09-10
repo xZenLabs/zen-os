@@ -16,6 +16,7 @@ local Destination = require("common/library_destination")
 local DispatcherMenu = require("common/dispatcher_menu")
 local NativeMenu = require("modules/menu/app_launcher/native_menu")
 local PluginScan = require("modules/menu/app_launcher/plugin_scan")
+local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
 
 local M = {}
 local DEFAULT_GOALS_FONT_SIZE = 11
@@ -1236,6 +1237,29 @@ function M.build(ctx)
         if memory and memory.active_id == id then dcfg.strip_memory = nil end
     end
 
+    local function kindle_folder_item()
+        return {
+            text = _("Hide Kindle Library folder"),
+            checked_func = function()
+                return type(config.kindle) == "table"
+                    and config.kindle.hide_library_folder == true
+            end,
+            callback = function()
+                if type(config.kindle) ~= "table" then config.kindle = {} end
+                config.kindle.hide_library_folder =
+                    config.kindle.hide_library_folder ~= true
+                local plugin = ctx.plugin or rawget(_G, "__ZEN_UI_PLUGIN")
+                if plugin and type(plugin.saveConfig) == "function" then
+                    plugin:saveConfig()
+                end
+                if ctx.settings_apply
+                        and ctx.settings_apply.reinit_filemanager_on_menu_close then
+                    ctx.settings_apply.reinit_filemanager_on_menu_close()
+                end
+            end,
+        }
+    end
+
     local function remove_strip_button(controls, id)
         for i, entry in ipairs(controls.custom_buttons) do
             if entry.id == id then table.remove(controls.custom_buttons, i); break end
@@ -1278,7 +1302,9 @@ function M.build(ctx)
         for _i, id in ipairs(controls.order) do selected[id] = true end
         local items = {}
         for _i, entry in ipairs(ButtonModel.builtins()) do
-            if not selected[entry.id] then
+            if not selected[entry.id]
+                    and (type(ButtonModel.isAvailable) ~= "function"
+                        or ButtonModel.isAvailable(entry)) then
                 items[#items + 1] = {
                     text = entry.id == "tags" and _("All tags") or entry.label,
                     entry = entry,
@@ -1570,6 +1596,8 @@ function M.build(ctx)
                         table.insert(sort_item.sub_item_table, 2, tbr_order_item())
                     elseif button_id == "authors" then
                         table.insert(sort_item.sub_item_table, 2, authors_sort_item())
+                    elseif button_id == "kindle" and Kindle.isAvailable() then
+                        table.insert(sort_item.sub_item_table, 2, kindle_folder_item())
                     end
                     sort_items[#sort_items + 1] = sort_item
                 end

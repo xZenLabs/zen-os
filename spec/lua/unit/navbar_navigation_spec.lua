@@ -171,6 +171,9 @@ describe("file browser navbar navigation", function()
             realpath = function(path) return real_paths[path] or path end,
         })
         ZenSpec.replace("dispatcher", {
+            getDisplayList = function(settings)
+                return settings.kindle_library and { { key = "kindle_library" } } or {}
+            end,
             execute = function(_self, action)
                 dispatcher_executions[#dispatcher_executions + 1] = action
             end,
@@ -2063,6 +2066,33 @@ describe("file browser navbar navigation", function()
 
         assert.is_true(navbar:onTapNavBar(nil, { pos = { x = 620, y = 1 } }))
         assert.are.same({ "to_be_read" }, calls)
+    end)
+
+    it("opens Kindle as a standalone tab and resets it to page one", function()
+        local navbar_config = _G.__ZEN_UI_PLUGIN.config.navbar
+        navbar_config.show_tabs.kindle = true
+        navbar_config.tab_order = { "kindle" }
+
+        make_instance()
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("kindle"))
+        assert.are.same({ { kindle_library = true } }, dispatcher_executions)
+
+        local updates = 0
+        local menu = {
+            name = "kindle_library",
+            page = 3,
+            dimen = { w = 800, h = 600 },
+            inner_dimen = { w = 800, h = 600 },
+            updateItems = function() updates = updates + 1 end,
+            { dimen = { w = 800, h = 580 } },
+        }
+        require("ui/widget/menu").init(menu)
+        local navbar = menu[1][1][2]
+
+        assert.is_true(menu._zen_standalone_navbar_injected)
+        assert.is_true(navbar:onTapNavBar(nil, { pos = { x = 400, y = 1 } }))
+        assert.are.equal(1, menu.page)
+        assert.are.equal(1, updates)
     end)
 
     it("dispatches books and stock file-browser tabs to their intended actions", function()

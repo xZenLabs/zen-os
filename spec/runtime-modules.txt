@@ -140,6 +140,7 @@ modules/filebrowser/patches/home/widgets/strip_controls.lua|integration
 modules/filebrowser/patches/home/widgets/strip_common.lua|integration
 modules/filebrowser/patches/home_page.lua|integration
 modules/filebrowser/patches/incompatible_plugins_check.lua|integration
+modules/filebrowser/patches/kindle_virtual_library.lua|integration
 modules/filebrowser/patches/library_background.lua|integration
 modules/filebrowser/patches/library_font.lua|integration
 modules/filebrowser/patches/menu_single_page_scroll_guard.lua|integration

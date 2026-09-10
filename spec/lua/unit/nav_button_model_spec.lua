@@ -1,11 +1,15 @@
 describe("navigation button model", function()
     local original_plugin
+    local original_open_tab
     local calls
+    local kindle_available
 
     before_each(function()
         original_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
+        original_open_tab = rawget(_G, "__ZEN_UI_NAVBAR_OPEN_TAB")
         _G.__ZEN_UI_PLUGIN = { marker = "zen" }
         calls = {}
+        kindle_available = false
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("common/library_destination", {
             folderLabel = function(path) return path:match("([^/]+)$") or path end,
@@ -20,11 +24,15 @@ describe("navigation button model", function()
                 return true
             end,
         })
+        ZenSpec.replace("modules/filebrowser/patches/kindle_virtual_library", {
+            isAvailable = function() return kindle_available end,
+        })
         ZenSpec.unload("common/nav_button_model")
     end)
 
     after_each(function()
         _G.__ZEN_UI_PLUGIN = original_plugin
+        _G.__ZEN_UI_NAVBAR_OPEN_TAB = original_open_tab
     end)
 
     it("executes independent folder and tag destinations", function()
@@ -62,5 +70,22 @@ describe("navigation button model", function()
         assert.same({ kind = "status", value = "complete" },
             Model.sourceDescriptor(finished))
         assert.are.equal("Finished", Model.label(nil, finished))
+    end)
+
+    it("exposes Kindle as a strip source and navbar action only when available", function()
+        local Model = require("common/nav_button_model")
+        local kindle = Model.find(nil, "kindle")
+        assert.is_table(kindle)
+        assert.are.equal("Kindle Library", kindle.label)
+        assert.is_true(Model.isSource(kindle))
+        assert.same({ kind = "kindle" }, Model.sourceDescriptor(kindle))
+        assert.is_false(Model.isAvailable(kindle))
+
+        kindle_available = true
+        local opened
+        _G.__ZEN_UI_NAVBAR_OPEN_TAB = function(id) opened = id; return true end
+        assert.is_true(Model.isAvailable(kindle))
+        assert.is_true(Model.execute(kindle))
+        assert.are.equal("kindle", opened)
     end)
 end)

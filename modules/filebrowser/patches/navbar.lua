@@ -23,6 +23,7 @@ local function apply_navbar()
     local MemoryPolicy = require("common/memory_policy")
     local SharedState = require("common/shared_state")
     local ButtonModel = require("common/nav_button_model")
+    local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
     local StandalonePage = require("modules/filebrowser/patches/standalone_page")
     local NativeMenu = require("modules/menu/app_launcher/native_menu")
     local PluginScan = require("modules/menu/app_launcher/plugin_scan")
@@ -97,6 +98,7 @@ local function apply_navbar()
         show_tabs = {
             books = true,
             folder = false,
+            kindle = false,
             manga = true,
             news = true,
             continue = true,
@@ -238,6 +240,11 @@ local function apply_navbar()
             icon = getFolderIcon(),
         },
         {
+            id = "kindle",
+            label = _("Kindle Library"),
+            icon = utils.resolveLocalIcon(_icons_dir, "library"),
+        },
+        {
             id = "manga",
             label = _("Manga"),
             icon = "tab_manga",
@@ -355,7 +362,7 @@ local function apply_navbar()
     end
 
     local skip_tabs_for_state = {
-        books = true, manga = true, news = true,
+        books = true, kindle = true, manga = true, news = true,
         folder = true, continue = true, search = true, stats = true, exit = true,
     }
     local group_view_tabs = {
@@ -1200,6 +1207,10 @@ local function apply_navbar()
         onTabBooks()
     end
 
+    local function onTabKindle()
+        return Kindle.open()
+    end
+
     local function onTabManga()
         if config.manga_action == "folder" and config.manga_folder ~= "" then
             local opened, folder_path = openFileManagerFolder(config.manga_folder, "manga")
@@ -1528,6 +1539,9 @@ local function apply_navbar()
     end
 
     local function onTabMenu()
+        local stack = UIManager._window_stack
+        local top = type(stack) == "table" and stack[#stack]
+        if Kindle.showContextMenu(top and top.widget) then return end
         local fm = FileManager.instance
         if not fm or not fm.file_chooser then return end
         local fc = fm.file_chooser
@@ -1551,6 +1565,7 @@ local function apply_navbar()
     local tab_callbacks = {
         books = onTabBooks,
         folder = onTabFolder,
+        kindle = onTabKindle,
         manga = onTabManga,
         news = onTabNews,
         continue = onTabContinue,
@@ -1575,6 +1590,7 @@ local function apply_navbar()
     local default_tab_whitelist = {
         books = true,
         folder = true,
+        kindle = true,
         manga = true,
         news = true,
         history = true,
@@ -1591,6 +1607,7 @@ local function apply_navbar()
     local active_tab_whitelist = {
         books = true,
         folder = true,
+        kindle = true,
         manga = true,
         news = true,
         authors = true,
@@ -1612,10 +1629,8 @@ local function apply_navbar()
     end
 
     local function is_tab_enabled(tab_id)
-        if tab_id:sub(1, 3) == "ct_" then
-            return config.show_tabs[tab_id] == true
-        end
         return config.show_tabs[tab_id] == true
+            and (tab_id ~= "kindle" or Kindle.isAvailable())
     end
 
     local function first_enabled_default_tab()
@@ -1889,7 +1904,8 @@ local function apply_navbar()
 
         local icon
         if show_icon then
-            local icon_path = utils.resolveIcon(_icons_dir, tab.icon)
+            local icon_path = tab.icon:sub(1, 1) == "/" and tab.icon
+                or utils.resolveIcon(_icons_dir, tab.icon)
             if active_color then
                 icon = ColorIconWidget:new{
                     icon   = icon_path and nil or tab.icon,
@@ -2009,7 +2025,7 @@ local function apply_navbar()
     local function getVisibleTabs()
         local visible = {}
         for _i, id in ipairs(config.tab_order) do
-            if config.show_tabs[id] and tabs_by_id[id] then
+            if is_tab_enabled(id) and tabs_by_id[id] then
                 table.insert(visible, tabs_by_id[id])
                 if #visible >= navbar_max_tabs then break end
             end
@@ -2330,11 +2346,13 @@ local function apply_navbar()
             return true
         end
         return standalone_view_names[widget.name] == true
+            or Kindle.isLibraryView(widget)
             or isRakuyomiView(widget)
             or widget._zen_standalone_navbar_injected == true
     end
 
     local function getStandaloneNextTickTabId(menu)
+        if Kindle.isLibraryView(menu) then return "kindle" end
         local Rakuyomi = getRakuyomi()
         if type(Rakuyomi.getStandaloneTabId) == "function" then
             return Rakuyomi.getStandaloneTabId(menu)
@@ -2362,6 +2380,7 @@ local function apply_navbar()
 
     local function isStandaloneNavbarView(menu)
         if standalone_view_names[menu.name] then return true end
+        if Kindle.isLibraryView(menu) then return true end
         if isRakuyomiView(menu) then return true end
         -- Collections list has no name but has these flags. PathChooser also
         -- has them, so exclude its explicit selection contract.
@@ -3043,6 +3062,7 @@ local function apply_navbar()
             local is_booklist_view = view_tab_id == "history"
                 or view_tab_id == "favorites"
                 or view_tab_id == "collections"
+                or view_tab_id == "kindle"
             if new_h ~= old_h
                     and (is_group_view or is_booklist_view)
                     and reopenStandaloneAfterResize then

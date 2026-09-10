@@ -31,6 +31,9 @@ local defaults = {
     rakuyomi = {
         return_to_chapter_list_on_exit = false,
     },
+    kindle = {
+        hide_library_folder = false,
+    },
     custom_icons = {
         active_pack = "",
     },
@@ -100,6 +103,7 @@ local defaults = {
         show_tabs = {
             books = true,
             folder = false,
+            kindle = false,
             manga = false,
             news = false,
             continue = true,

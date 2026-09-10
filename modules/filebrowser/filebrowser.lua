@@ -1,4 +1,5 @@
 local M = {}
+local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
 local Rakuyomi = require("modules/filebrowser/patches/rakuyomi")
 local initialized = false
 
@@ -96,6 +97,11 @@ function M.init(logger, plugin)
         return true
     end
 
+    local ok_kindle_metadata, kindle_metadata_err = pcall(Kindle.installMetadataIntegration)
+    if not ok_kindle_metadata and logger then
+        logger.warn("Kindle metadata integration failed", kindle_metadata_err)
+    end
+
     local ok_metadata, metadata_err = pcall(Rakuyomi.installMetadataIntegration)
     if not ok_metadata and logger then
         logger.warn("Rakuyomi metadata integration failed", metadata_err)
@@ -146,6 +152,8 @@ function M.init(logger, plugin)
     if browser_item_table_cache_fn then
         run_feature(logger, plugin, "browser_item_table_cache", browser_item_table_cache_fn)
     end
+
+    run_feature(logger, plugin, "kindle", function() Kindle.apply(plugin) end)
 
     local metadata_editor_fn = load_patch("metadata_editor")
     if metadata_editor_fn then
