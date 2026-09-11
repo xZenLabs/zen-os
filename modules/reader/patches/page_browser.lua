@@ -1087,8 +1087,10 @@ local function apply_page_browser()
             local title_w = self.title_bar.width or Screen:getWidth()
             local center_group_w = slot_w * #center_actions + header_gap * (#center_actions - 1)
             local center_x = math.floor((title_w - center_group_w) / 2)
+            self._zen_reader_tour_targets = {}
             for i, action in ipairs(center_actions) do
-                add_header_action(action, center_x + (slot_w + header_gap) * (i - 1))
+                self._zen_reader_tour_targets[i] = add_header_action(
+                    action, center_x + (slot_w + header_gap) * (i - 1))
             end
 
             local vocab_icon_path = package.loaded["db"]
@@ -2579,18 +2581,43 @@ local function apply_page_browser()
     -- -----------------------------------------------------------------------
     -- Open KOReader's native PageBrowserWidget (with ZenOS tweaks)
     -- -----------------------------------------------------------------------
-    local function open_page_browser(ui, from_menu_hold)
+    local function open_page_browser(ui, from_menu_hold, layout)
         local PageBrowserWidget = require("ui/widget/pagebrowserwidget")
+        local previous_layout = layout and get_page_browser_layout()
+        if layout then set_page_browser_layout(layout) end
         zen_patch_page_browser_widget()
         local browser = PageBrowserWidget:new{ ui = ui }
         browser._zen_ignore_opening_menu_key = from_menu_hold or nil
         UIManager:show(browser)
+        if layout then
+            return browser, function()
+                set_page_browser_layout(previous_layout)
+                browser:onClose()
+            end
+        end
+        return browser
+    end
+
+    local function start_reader_tour(ui)
+        local ok, tour = pcall(require, "common/quickstart/reader_tour")
+        if ok then
+            tour.start(_plugin_ref, ui, function(layout)
+                return open_page_browser(ui, nil, layout)
+            end)
+        end
     end
 
     -- Patch ReaderMenu.initGesListener to register the swipe-up zone
     -- -----------------------------------------------------------------------
     local ReaderMenu = require("apps/reader/modules/readermenu")
     local _orig_initGesListener = ReaderMenu.initGesListener
+
+    ReaderMenu._zen_start_reader_tour = function(self_rm)
+        if type(self_rm.onCloseReaderMenu) == "function" then
+            self_rm:onCloseReaderMenu()
+        end
+        UIManager:scheduleIn(0, function() start_reader_tour(self_rm.ui) end)
+    end
 
     local _orig_reader_menu_onKeyPress = ReaderMenu.onKeyPress
     local _orig_reader_menu_onKeyRepeat = ReaderMenu.onKeyRepeat
@@ -2668,6 +2695,7 @@ local function apply_page_browser()
             _orig_initGesListener(self_rm)
         end
         register_page_browser_zone(self_rm.ui)
+        UIManager:scheduleIn(0.5, function() start_reader_tour(self_rm.ui) end)
     end
 
     -- onReaderReady is aliased to initGesListener in KOReader; keep in sync

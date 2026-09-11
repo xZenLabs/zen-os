@@ -263,6 +263,71 @@ describe("page browser entry", function()
         expect(page_down == 2 and page_up == 2)
     end)
 
+    it("starts the pending reader tour even when the page browser is disabled", function()
+        local ReaderMenu = { initGesListener = function() end }
+        local ReaderConfig = { onSwipeShowConfigMenu = function() end }
+        local browser_closes = 0
+        local PageBrowserWidget = {
+            new = function(_, spec)
+                return {
+                    ui = spec.ui,
+                    zen_page_browser = true,
+                    onClose = function() browser_closes = browser_closes + 1 end,
+                }
+            end,
+        }
+        install_widget_dependencies(PageBrowserWidget)
+        ZenSpec.replace("apps/reader/modules/readermenu", ReaderMenu)
+        ZenSpec.replace("apps/reader/modules/readerconfig", ReaderConfig)
+
+        local scheduled, tour_args
+        ZenSpec.replace("ui/uimanager", {
+            show = function(_, widget) shown = widget end,
+            scheduleIn = function(_, delay, callback)
+                scheduled = { delay = delay, callback = callback }
+            end,
+            setDirty = function() end,
+            unschedule = function() end,
+        })
+        ZenSpec.replace("common/quickstart/reader_tour", {
+            start = function(...) tour_args = { ... } end,
+        })
+        local plugin = {
+            config = {
+                _meta = { quickstart_reader_tour_pending = true },
+                features = { page_browser = false },
+            },
+        }
+        _G.__ZEN_UI_PLUGIN = plugin
+        require("modules/reader/patches/page_browser")()
+
+        local ui = { registerTouchZones = function() end }
+        ReaderMenu.onReaderReady({ ui = ui })
+        expect(scheduled.delay == 0.5)
+        scheduled.callback()
+        expect(tour_args[1] == plugin and tour_args[2] == ui)
+
+        local menu_closes = 0
+        local reader_menu = {
+            ui = ui,
+            onCloseReaderMenu = function() menu_closes = menu_closes + 1 end,
+        }
+        setmetatable(reader_menu, { __index = ReaderMenu })
+        reader_menu:_zen_start_reader_tour()
+        expect(menu_closes == 1)
+        expect(scheduled.delay == 0)
+        scheduled.callback()
+        expect(tour_args[1] == plugin and tour_args[2] == ui)
+
+        reader_store.settings.page_browser_layout = "single"
+        local browser, finish_tour = tour_args[3]("carousel")
+        expect(browser == shown and browser.zen_page_browser == true)
+        expect(reader_store.settings.page_browser_layout == "carousel")
+        finish_tour()
+        expect(reader_store.settings.page_browser_layout == "single")
+        expect(browser_closes == 1)
+    end)
+
     it("opens from a non-touch Menu hold and preserves the short Menu action", function()
         local scheduled_fn, scheduled_delay, short_menu_calls = nil, nil, 0
         local ReaderMenu = {
@@ -1017,6 +1082,9 @@ describe("page browser entry", function()
         expect(positions["/icons/bookmark.svg"] == 273)
         expect(positions["/icons/toc.svg"] == 331)
         expect(positions["/icons/more_vertical.svg"] == 492)
+        expect(browser._zen_reader_tour_targets[1].file == "/icons/appbar.textsize.svg")
+        expect(browser._zen_reader_tour_targets[2].file == "/icons/bookmark.svg")
+        expect(browser._zen_reader_tour_targets[3].file == "/icons/toc.svg")
         expect(browser._zen_orig_nb_cols == 3 and browser._zen_orig_nb_rows == 3)
         local close_button = browser.title_bar.right_button
         expect(close_button.file == "/icons/close_light.svg")

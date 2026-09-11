@@ -4,6 +4,7 @@ describe("Quickstart menu coachmark", function()
     local close_calls
     local dirty_hints
     local frame_paints
+    local next_tick_callbacks
 
     local module_names = {
         "ffi/blitbuffer",
@@ -16,6 +17,7 @@ describe("Quickstart menu coachmark", function()
         "ui/widget/container/framecontainer",
         "ui/widget/container/inputcontainer",
         "ui/widget/textboxwidget",
+        "ui/widget/textwidget",
         "common/ui/hatching",
         "common/quickstart/menu_coachmark",
     }
@@ -102,6 +104,7 @@ describe("Quickstart menu coachmark", function()
         close_calls = 0
         dirty_hints = {}
         frame_paints = {}
+        next_tick_callbacks = {}
 
         ZenSpec.replace("ffi/blitbuffer", {
             COLOR_WHITE = "white",
@@ -146,6 +149,18 @@ describe("Quickstart menu coachmark", function()
                 return values
             end,
         })
+        ZenSpec.replace("ui/widget/textwidget", {
+            new = function(_self, values)
+                local widths = {
+                    ["Zen Mode"] = 80,
+                    ["Zen Settings"] = 110,
+                    ["Swipe up"] = 70,
+                }
+                values.getWidth = function() return widths[values.text] or 1000 end
+                values.free = function() end
+                return values
+            end,
+        })
         ZenSpec.replace("ui/widget/container/framecontainer", {
             new = function(_self, values)
                 local child_size = values[1]:getSize()
@@ -178,6 +193,9 @@ describe("Quickstart menu coachmark", function()
                     region = copy_dimen(region),
                 }
             end,
+            nextTick = function(_self, callback)
+                next_tick_callbacks[#next_tick_callbacks + 1] = callback
+            end,
         })
         ZenSpec.replace("ui/widget/container/inputcontainer", InputContainer)
         ZenSpec.unload("common/ui/hatching")
@@ -204,6 +222,8 @@ describe("Quickstart menu coachmark", function()
 
         assert.is_true(coachmark:onTapAdvance())
         assert.are.equal(1, close_calls)
+        assert.are.equal(0, completions)
+        table.remove(next_tick_callbacks, 1)()
         assert.are.equal(1, completions)
 
         coachmark:onCloseWidget()
@@ -222,7 +242,7 @@ describe("Quickstart menu coachmark", function()
         end
     end)
 
-    it("anchors each callout close to its target while keeping it on-screen", function()
+    it("centers compact callouts while keeping them close to their targets", function()
         local coachmark = new_coachmark()
         local first_callout = copy_dimen(coachmark._callout_dimen)
         local first_target = coachmark.steps[1].target
@@ -231,7 +251,8 @@ describe("Quickstart menu coachmark", function()
         assert.is_true(contains(coachmark.dimen, first_callout))
         assert.is_false(intersects(first_callout, first_target))
         assert.are.equal(first_highlight.y, first_callout.y + first_callout.h + 4)
-        assert.are.equal(36, first_callout.x)
+        assert.are.equal(108, first_callout.w)
+        assert.are.equal(math.floor((600 - first_callout.w) / 2), first_callout.x)
 
         coachmark:onTapAdvance()
         local second_callout = coachmark._callout_dimen
@@ -242,7 +263,37 @@ describe("Quickstart menu coachmark", function()
         assert.is_true(contains(coachmark.dimen, second_callout))
         assert.is_false(intersects(second_callout, second_target))
         assert.are.equal(second_highlight.y + second_highlight.h + 4, second_callout.y)
-        assert.are.equal(85, second_callout.x)
+        assert.are.equal(138, second_callout.w)
+        assert.are.equal(math.floor((600 - second_callout.w) / 2), second_callout.x)
+    end)
+
+    it("can place an untargeted callout at the bottom center", function()
+        local coachmark = MenuCoachmark:new{
+            steps = {{ text = "Swipe up", position = "bottom" }},
+        }
+
+        assert.are.same({ x = 251, y = 648, w = 98, h = 128 }, coachmark._callout_dimen)
+        assert.is_nil(coachmark:_targetDimen())
+    end)
+
+    it("leaves an additional content area unhatched", function()
+        local coachmark = new_coachmark()
+        local highlight = coachmark:_highlightDimen()
+        local unhatched = { x = 0, y = 100, w = 600, h = 300 }
+        local hatch_rects = {}
+        local bb = {
+            hatchRect = function(_self, x, y, w, h)
+                hatch_rects[#hatch_rects + 1] = { x = x, y = y, w = w, h = h }
+            end,
+        }
+
+        coachmark:_paintBackdrop(bb, highlight, unhatched)
+
+        assert.is_true(#hatch_rects > 0)
+        for _i, rect in ipairs(hatch_rects) do
+            assert.is_false(intersects(rect, highlight))
+            assert.is_false(intersects(rect, unhatched))
+        end
     end)
 
     it("cancels once on resize without marking the tour complete", function()
@@ -255,6 +306,8 @@ describe("Quickstart menu coachmark", function()
         assert.is_true(coachmark:onSetDimensions())
         assert.are.equal(1, close_calls)
         assert.are.equal(0, completions)
+        assert.are.equal(0, cancellations)
+        table.remove(next_tick_callbacks, 1)()
         assert.are.equal(1, cancellations)
 
         assert.is_true(coachmark:onScreenResize())
@@ -322,6 +375,16 @@ describe("Quickstart menu coachmark", function()
         assert.are.equal("black", paint_borders[2].color)
         assert.are.equal(4, paint_borders[1].width)
         assert.are.equal(6, paint_borders[2].width)
+        assert.are.same({ x = 446, y = 336, w = 92, h = 92 }, {
+            x = paint_borders[1].x, y = paint_borders[1].y,
+            w = paint_borders[1].w, h = paint_borders[1].h,
+        })
+        assert.are.same({ x = 450, y = 340, w = 84, h = 84 }, {
+            x = paint_borders[2].x, y = paint_borders[2].y,
+            w = paint_borders[2].w, h = paint_borders[2].h,
+        })
+        assert.are.equal(492, paint_borders[1].x + paint_borders[1].w / 2)
+        assert.are.equal(382, paint_borders[1].y + paint_borders[1].h / 2)
         assert.is_nil(paint_borders[1].radius)
         assert.is_nil(paint_borders[2].radius)
         assert.are.equal(1, #frame_paints)

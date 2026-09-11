@@ -439,6 +439,7 @@ function ZenUI:init()
                     on_close = function()
                         self.config._meta.quickstart_completed = true
                         self.config._meta.quickstart_menu_tour_pending = true
+                        self.config._meta.quickstart_reader_tour_pending = true
                         self:saveConfig()
                         -- scheduleIn(0) lets UIManager finish the close-frame before
                         -- we force a full repaint and navbar reinject.

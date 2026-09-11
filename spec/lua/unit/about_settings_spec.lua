@@ -79,6 +79,7 @@ describe("About settings", function()
 
         assert.is_true(config._meta.quickstart_completed)
         assert.is_true(config._meta.quickstart_menu_tour_pending)
+        assert.is_true(config._meta.quickstart_reader_tour_pending)
         assert.are.equal(1, saves)
         assert.are.equal(1, #scheduled)
         assert.are.equal(0.35, scheduled[1].delay)

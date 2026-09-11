@@ -978,6 +978,12 @@ msgstr "Itens centrais"
 msgid "Change folder"
 msgstr "Mudar pasta"
 
+#. Type: message
+#. Context: text = _("Change page browser view to single, coverflow, or grid"), target = target,
+#: reader_tour.lua:98
+msgid "Change page browser view to single, coverflow, or grid"
+msgstr "Altere a visualização do Navegador de Páginas para página única, coverflow ou grelha"
+
 #. Type: title
 #. Context: screen = ZenScreen:new{ title = _("Changelog"), title_icon = true,
 #: zen_updater.lua:1729 zen_updater.lua:1758
@@ -4120,6 +4126,12 @@ msgstr "Leitura: %s"
 msgid "Reader"
 msgstr "Leitor"
 
+#. Type: label
+#. Context: { text = _("Reader menu"), target = targets[1] },
+#: reader_tour.lua:76
+msgid "Reader menu"
+msgstr "Menu de leitura"
+
 #. Type: setting
 #. Context: table.insert(items, { text = _("Reader themes"), checked_func = function()
 #: reader_settings.lua:902
@@ -5205,6 +5217,12 @@ msgstr "Deslize para baixo a partir do topo para aceder a definições rápidas 
 #: quickstart_pages.lua:795
 msgid "Swipe up from the bottom while reading to open the Page Browser.\n\nSkim through pages or skip chapters, browse the table of contents, manage bookmarks, adjust fonts and more."
 msgstr "Deslize para cima na parte inferior enquanto lê para abrir o Navegador de Páginas.\n\nNavegue pelas páginas ou salte capítulos, consulte o índice, gira marcadores, ajuste tipos de letra e mais."
+
+#. Type: message
+#. Context: text = _("Swipe up to open the Page Browser"), position = "bottom",
+#: reader_tour.lua:113
+msgid "Swipe up to open the Page Browser"
+msgstr "Deslize para cima para abrir o Navegador de Páginas"
 
 #. Type: button
 #. Context: buttons = { {{ text = "\u{F04E6} " .. _("Sync"), align = "left", callback = function()

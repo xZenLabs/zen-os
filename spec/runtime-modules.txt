@@ -44,6 +44,7 @@ common/restart.lua|unit
 common/quickstart/quickstart_pages.lua|unit
 common/quickstart/quickstart_screen.lua|unit
 common/quickstart/menu_coachmark.lua|unit
+common/quickstart/reader_tour.lua|unit
 common/quickstart/menu_tour.lua|unit
 common/shared_state.lua|unit
 common/settings_transition.lua|unit

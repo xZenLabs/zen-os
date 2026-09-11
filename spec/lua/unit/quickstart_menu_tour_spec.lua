@@ -195,6 +195,22 @@ describe("Quickstart menu tour", function()
         assert.are.equal(1, plugin.save_calls)
     end)
 
+    it("starts the reader tour after the menu tour when a book is open", function()
+        local reader_tour_starts = 0
+        menu._zen_start_reader_tour = function()
+            reader_tour_starts = reader_tour_starts + 1
+        end
+        plugin.config._meta.quickstart_reader_tour_pending = true
+        zen_dimen.x, zen_dimen.y = 94, 90
+        zen_settings_dimen.x, zen_settings_dimen.y = 418, 10
+
+        require("common/quickstart/menu_tour").start(plugin)
+        run_until_shown()
+        shown[1].on_complete()
+
+        assert.are.equal(1, reader_tour_starts)
+    end)
+
     it("reuses an already-open menu instead of stacking another container", function()
         menu:setUpdateItemTable()
         menu.menu_container = { touch_menu }

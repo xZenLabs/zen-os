@@ -329,6 +329,7 @@ return {
         "Add highlight extend option in 3 dot highlight menu",
         "Add background hatching to top menu (Controls > Background hatching)",
         "Add status bar to ZenPM",
+        "Add guided Reader tour/OOBE",
         "Use stable pages for page stats",
         "Update Book details (order, items, open tags from book) in Library > Book details",
         "Updates to Reader top status bar (including colored icons)",

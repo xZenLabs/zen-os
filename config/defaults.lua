@@ -12,6 +12,7 @@ local defaults = {
         quickstart_shown_for_version = false,
         quickstart_completed = false,
         quickstart_menu_tour_pending = false,
+        quickstart_reader_tour_pending = false,
         reader_defaults_apply_on_next_open = false,
         sort_defaults_applied = false,
         bim_fbc_migrated = false,

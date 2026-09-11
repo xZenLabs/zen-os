@@ -70,6 +70,7 @@ function M.build(ctx)
                     if type(ctx.config._meta) ~= "table" then ctx.config._meta = {} end
                     ctx.config._meta.quickstart_completed = true
                     ctx.config._meta.quickstart_menu_tour_pending = true
+                    ctx.config._meta.quickstart_reader_tour_pending = true
                     plugin:saveConfig()
                     UIManager:nextTick(function()
                         local reinject = _G.__ZEN_UI_REINJECT_FM_NAVBAR

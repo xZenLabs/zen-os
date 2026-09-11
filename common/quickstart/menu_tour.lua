@@ -116,6 +116,10 @@ function M.start(plugin)
                     if type(touch_menu.updateItems) == "function" then
                         touch_menu:updateItems(1)
                     end
+                    if meta.quickstart_reader_tour_pending == true
+                            and type(menu._zen_start_reader_tour) == "function" then
+                        menu:_zen_start_reader_tour()
+                    end
                 end,
                 on_cancel = function()
                     active = false

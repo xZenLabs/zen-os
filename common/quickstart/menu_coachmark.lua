@@ -8,6 +8,7 @@ local Hatching = require("common/ui/hatching")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local Size = require("ui/size")
 local TextBoxWidget = require("ui/widget/textboxwidget")
+local TextWidget = require("ui/widget/textwidget")
 local UIManager = require("ui/uimanager")
 
 local Screen = Device.screen
@@ -24,6 +25,12 @@ local function valid_dimen(dimen)
         and type(dimen.x) == "number" and type(dimen.y) == "number"
         and type(dimen.w) == "number" and dimen.w > 0
         and type(dimen.h) == "number" and dimen.h > 0
+end
+
+local function resolve_dimen(dimen)
+    if type(dimen) == "function" then dimen = dimen() end
+    if type(dimen) == "table" and dimen.dimen then dimen = dimen.dimen end
+    return valid_dimen(dimen) and dimen or nil
 end
 
 function MenuCoachmark:init()
@@ -49,9 +56,12 @@ end
 
 function MenuCoachmark:_targetDimen()
     local target = self.steps[self._step] and self.steps[self._step].target
-    if type(target) == "function" then target = target() end
-    if type(target) == "table" and target.dimen then target = target.dimen end
-    return valid_dimen(target) and target or nil
+    return resolve_dimen(target)
+end
+
+function MenuCoachmark:_unhatchedDimen()
+    local unhatched = self.steps[self._step] and self.steps[self._step].unhatched
+    return resolve_dimen(unhatched)
 end
 
 function MenuCoachmark:_buildCallout()
@@ -62,9 +72,13 @@ function MenuCoachmark:_buildCallout()
     local margin = Screen:scaleBySize(24)
     local padding = Size.padding.large
     local border = Size.border.window
-    local outer_width = math.min(math.floor(sw * 0.82), sw - margin * 2)
-    local text_width = math.max(1, outer_width - (padding + border) * 2)
     local text = self.steps[self._step].text or ""
+    local face = Font:getFace("infofont")
+    local max_text_width = math.max(1,
+        math.min(math.floor(sw * 0.82), sw - margin * 2) - (padding + border) * 2)
+    local probe = TextWidget:new{ text = text, face = face }
+    local text_width = math.max(1, math.min(probe:getWidth(), max_text_width))
+    probe:free()
 
     self._callout = FrameContainer:new{
         background = Blitbuffer.COLOR_WHITE,
@@ -74,19 +88,16 @@ function MenuCoachmark:_buildCallout()
         padding = padding,
         TextBoxWidget:new{
             text = text,
-            face = Font:getFace("infofont"),
+            face = face,
             width = text_width,
             alignment = "left",
         },
     }
 
     local size = self._callout:getSize()
-    local target = self:_targetDimen()
-    local highlight = target and self:_highlightDimen(target)
+    local highlight = self:_highlightDimen()
     local target_gap = Screen:scaleBySize(4)
-    local x = highlight
-        and math.floor(highlight.x + (highlight.w - size.w) / 2)
-        or math.floor((sw - size.w) / 2)
+    local x = math.floor((sw - size.w) / 2)
     x = math.max(margin, math.min(x, sw - size.w - margin))
     local y = math.floor((sh - size.h) / 2)
     if highlight then
@@ -101,6 +112,8 @@ function MenuCoachmark:_buildCallout()
         else
             y = math.max(margin, above)
         end
+    elseif self.steps[self._step].position == "bottom" then
+        y = sh - size.h - margin
     end
     y = math.max(margin, math.min(y, sh - size.h - margin))
 
@@ -127,28 +140,49 @@ function MenuCoachmark:getVisibleArea()
     return self:_visibleArea()
 end
 
-function MenuCoachmark:_paintBackdrop(bb, cutout)
+function MenuCoachmark:_paintBackdrop(bb, cutout, unhatched)
     local function hatch(x, y, w, h)
         Hatching.paint(bb, x, y, w, h)
     end
 
-    if not cutout then
-        hatch(self.dimen.x, self.dimen.y, self.dimen.w, self.dimen.h)
-        return
+    local regions = { self.dimen }
+    local holes = {}
+    if cutout then table.insert(holes, cutout) end
+    if unhatched then table.insert(holes, unhatched) end
+    for _i, hole in ipairs(holes) do
+        if hole then
+            local remaining = {}
+            for _j, region in ipairs(regions) do
+                local left = math.max(region.x, hole.x)
+                local top = math.max(region.y, hole.y)
+                local right = math.min(region.x + region.w, hole.x + hole.w)
+                local bottom = math.min(region.y + region.h, hole.y + hole.h)
+                if left < right and top < bottom then
+                    table.insert(remaining, { x = region.x, y = region.y,
+                        w = region.w, h = top - region.y })
+                    table.insert(remaining, { x = region.x, y = bottom,
+                        w = region.w, h = region.y + region.h - bottom })
+                    table.insert(remaining, { x = region.x, y = top,
+                        w = left - region.x, h = bottom - top })
+                    table.insert(remaining, { x = right, y = top,
+                        w = region.x + region.w - right, h = bottom - top })
+                else
+                    table.insert(remaining, region)
+                end
+            end
+            regions = remaining
+        end
     end
 
-    local right = cutout.x + cutout.w
-    local bottom = cutout.y + cutout.h
-    hatch(self.dimen.x, self.dimen.y, self.dimen.w, cutout.y - self.dimen.y)
-    hatch(self.dimen.x, bottom, self.dimen.w, self.dimen.y + self.dimen.h - bottom)
-    hatch(self.dimen.x, cutout.y, cutout.x - self.dimen.x, cutout.h)
-    hatch(right, cutout.y, self.dimen.x + self.dimen.w - right, cutout.h)
+    for _i, region in ipairs(regions) do
+        hatch(region.x, region.y, region.w, region.h)
+    end
 end
 
 function MenuCoachmark:paintTo(bb)
     local target = self:_targetDimen()
     local highlight = self:_highlightDimen()
-    self:_paintBackdrop(bb, highlight)
+    self:_paintBackdrop(bb, highlight, self:_unhatchedDimen())
     if target then
         local pad = Screen:scaleBySize(10)
         local halo = math.max(3, Screen:scaleBySize(4))
@@ -200,7 +234,7 @@ function MenuCoachmark:onCloseWidget()
     self.on_complete = nil
     self.on_cancel = nil
     if callback then
-        callback()
+        UIManager:nextTick(callback)
     end
 end
 
