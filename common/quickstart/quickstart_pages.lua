@@ -10,6 +10,7 @@ local M = {}
 
 local _ = require("gettext")
 local T = require("ffi/util").template
+local icons = require("common/inline_icon_map")
 local ConfigManager = require("config/manager")
 local CoverUtils = require("common/cover_utils")
 local paths = require("common/paths")
@@ -301,9 +302,9 @@ local function buildContextMenuBB(slot_w, slot_h, cover_info)
     local buttons = {
         {{ text = "\u{F02FD}  " .. _("Details"),                              align = "left", callback = function() end }},
         {{ text = "\u{F01BE}  " .. _("Move"),                                 align = "left", callback = function() end }},
-        {{ text = "\u{F04CE}  " .. _("Add to collection") .. "  \u{25B6}",   align = "left", callback = function() end }},
-        {{ text = "\u{F0B64}  " .. _("Read status") .. "  \u{25B6}",         align = "left", callback = function() end }},
-        {{ text = "\u{F090C}  " .. _("Edit") .. "  \u{25B6}",                align = "left", callback = function() end }},
+        {{ text = "\u{F04CE}  " .. _("Add to collection") .. "  " .. icons.arrow_right, align = "left", callback = function() end }},
+        {{ text = "\u{F0B64}  " .. _("Read status") .. "  " .. icons.arrow_right,       align = "left", callback = function() end }},
+        {{ text = "\u{F090C}  " .. _("Edit") .. "  " .. icons.arrow_right,              align = "left", callback = function() end }},
     }
 
     local dialog = ButtonDialog:new{

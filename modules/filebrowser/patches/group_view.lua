@@ -3,6 +3,7 @@ local author_sort = require("common/author_sort")
 local book_status = require("common/book_status")
 local HistoryIndex = require("common/history_index")
 local icons = require("common/inline_icon_map")
+local submenu_arrow = icons.arrow_right
 local LanguageName = require("common/language_name")
 local paths = require("common/paths")
 local StandalonePage = require("modules/filebrowser/patches/standalone_page")
@@ -627,7 +628,7 @@ local function showGroupSortDialog(tab_id, menu)
             rebuild()
         end)
         buttons[#buttons + 1] = {{
-            text = "\u{F0DC}  " .. _("Order") .. "  \u{25B6}",
+            text = "\u{F0DC}  " .. _("Order") .. "  " .. submenu_arrow,
             align = "left",
             callback = function()
                 UIManager:close(sort_dialog)
@@ -672,7 +673,7 @@ local function showGroupSortDialog(tab_id, menu)
         }}
     end
     buttons[#buttons + 1] = {{
-        text = "\u{F0DC}  " .. _("Order") .. "  \u{25B6}",
+        text = "\u{F0DC}  " .. _("Order") .. "  " .. submenu_arrow,
         align = "left",
         callback = function()
             UIManager:close(sort_dialog)
@@ -886,7 +887,7 @@ local function showDetailSortDialog(group_name, tab_id, menu, files, reload_file
 
     -- Order submenu
     table.insert(sort_buttons, {{
-        text     = "\u{F0DC}  " .. _("Order") .. "  ▶",
+        text     = "\u{F0DC}  " .. _("Order") .. "  " .. submenu_arrow,
         align    = "left",
         callback = function()
             UIManager:close(sort_dialog)

@@ -1,5 +1,6 @@
 local logger = require("common/zen_logger").new("collections")
 local icons  = require("common/inline_icon_map")
+local submenu_arrow = icons.arrow_right
 local Cover  = require("common/cover_utils")
 local library_font = require("modules/filebrowser/patches/library_font")
 local Background = require("common/ui/background")
@@ -291,7 +292,7 @@ local function apply_collections()
             }})
         end
         table.insert(sort_buttons, {{
-            text     = "\u{F04BF}  " .. _g("Order") .. "  \u{25B6}",
+            text     = "\u{F04BF}  " .. _g("Order") .. "  " .. submenu_arrow,
             align    = "left",
             enabled  = current ~= nil,
             callback = function()
@@ -450,7 +451,7 @@ local function apply_collections()
             local buttons = {}
             for _i, row in ipairs(prepend_buttons) do table.insert(buttons, row) end
             table.insert(buttons, {{
-                text     = "\u{F06D0}  " .. _("Display") .. "  \u{25B8}",
+                text     = "\u{F06D0}  " .. _("Display") .. "  " .. submenu_arrow,
                 align    = "left",
                 callback = function()
                     UIManager_cm:close(button_dialog)
@@ -458,7 +459,7 @@ local function apply_collections()
                 end,
             }})
             table.insert(buttons, {{
-                text     = "\u{F04BF}  " .. _("Sort") .. "  \u{25B8}",
+                text     = "\u{F04BF}  " .. _("Sort") .. "  " .. submenu_arrow,
                 align    = "left",
                 callback = function()
                     show_coll_sort_submenu(coll_name,
@@ -550,7 +551,7 @@ local function apply_collections()
             local button_dialog
             local buttons = {
                 {{
-                    text     = "\u{F04BF}  " .. _("Sort") .. "  \u{25B8}",
+                    text     = "\u{F04BF}  " .. _("Sort") .. "  " .. submenu_arrow,
                     align    = "left",
                     callback = function()
                         show_coll_sort_submenu(raw_coll_name,
@@ -559,7 +560,7 @@ local function apply_collections()
                     end,
                 }},
                 {{
-                    text     = "\u{F06D0}  " .. _("Display") .. "  \u{25B8}",
+                    text     = "\u{F06D0}  " .. _("Display") .. "  " .. submenu_arrow,
                     align    = "left",
                     callback = function()
                         UIManager_nb:close(button_dialog)
@@ -632,7 +633,7 @@ local function apply_collections()
                 end,
             }},
             {{
-                text     = "\u{F06D0}  " .. _("Display") .. "  \u{25B8}",
+                text     = "\u{F06D0}  " .. _("Display") .. "  " .. submenu_arrow,
                 align    = "left",
                 callback = showDisplaySubmenu,
             }},

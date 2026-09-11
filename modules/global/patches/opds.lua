@@ -38,6 +38,7 @@ local function apply_opds()
     local Device          = require("device")
     local OPDSParser      = require("opdsparser")
     local CoverUtils      = require("common/cover_utils")
+    local icons           = require("common/inline_icon_map")
     local lfs             = require("libs/libkoreader-lfs")
     local utils           = require("common/utils")
     local Screen          = Device.screen
@@ -1681,7 +1682,7 @@ local function apply_opds()
                     end,
                 }})
                 if acq.last_read then
-                    table.insert(buttons, {{ text = "\u{25B6}  " .. _("Resume from page") .. " " .. acq.last_read, align = "left", bold = true,
+                    table.insert(buttons, {{ text = icons.arrow_right .. "  " .. _("Resume from page") .. " " .. acq.last_read, align = "left", bold = true,
                         callback = function()
                             UIManager:close(self.download_dialog)
                             OPDSPSE:streamPages(a.href, a.count, false,

@@ -65,6 +65,7 @@ describe("ZenOS collection actions", function()
             rename = "rename",
             delete = "delete",
             filename = "filename",
+            arrow_right = ">",
         })
         ZenSpec.replace("common/cover_utils", {})
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
@@ -201,6 +202,7 @@ describe("ZenOS collection actions", function()
         file_dialog_args._zen_sort_cb()
 
         assert.are.equal("Sort collection by", shown_dialog.title)
+        assert.are.equal(">", shown_dialog.buttons[8][1].text:sub(-1))
         local filename_button
         for _i, row in ipairs(shown_dialog.buttons) do
             local button = row[1]

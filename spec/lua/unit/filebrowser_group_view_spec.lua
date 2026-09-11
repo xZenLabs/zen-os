@@ -91,7 +91,7 @@ describe("file browser group views", function()
             load = function() return groups.history or {} end,
             fileTime = function(index, path) return index[path] end,
         })
-        ZenSpec.replace("common/inline_icon_map", { filename = "filename" })
+        ZenSpec.replace("common/inline_icon_map", { filename = "filename", arrow_right = ">" })
         ZenSpec.replace("common/language_name", {
             get = function(language)
                 return language == "en" and "English" or language
@@ -512,6 +512,7 @@ describe("file browser group views", function()
         assert.is_truthy(author_dialog.buttons[1][1].text:find("\u{F04BB}", 1, true))
         assert.is_truthy(author_dialog.buttons[1][1].text:find("First name", 1, true))
         assert.is_truthy(author_dialog.buttons[2][1].text:find("Last name", 1, true))
+        assert.are.equal(">", author_dialog.buttons[3][1].text:sub(-1))
         author_dialog.buttons[2][1].callback()
 
         assert.are.equal("authors_last", config.group_view.authors_collate)
@@ -694,6 +695,7 @@ describe("file browser group views", function()
         detail:onZenDetailBlankHold()
         file_dialog_args._zen_sort_cb()
         local sort_dialog = dialogs[#dialogs]
+        assert.are.equal(">", sort_dialog.buttons[6][1].text:sub(-1))
         sort_dialog.buttons[2][1].callback()
 
         assert.are.equal("title", config.group_view.detail_collate.series.Saga)
