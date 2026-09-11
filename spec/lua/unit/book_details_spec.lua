@@ -37,6 +37,9 @@ describe("reader book details", function()
         })
         ZenSpec.replace("ui/font", {
             sizemap = { cfont = 20 },
+            getFace = function(_self, name, size)
+                return { name = name, size = size }
+            end,
         })
         ZenSpec.replace("ui/uimanager", {
             show = function(_, widget) shown = widget end,
@@ -49,12 +52,15 @@ describe("reader book details", function()
                 return {}, 120, 180, "single", "real_cover"
             end,
         })
+        ZenSpec.replace("common/ui/icon_menu_item", {
+            getSettingsFontSize = function() return 23 end,
+        })
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
             getFace = function(size) return { name = "LibraryFont", size = size } end,
             getBaseSize = function() return 24 end,
         })
-        ZenSpec.replace("common/reader_font", {
-            getInfo = function() return { size = 21 } end,
+        ZenSpec.replace("common/library_font_path", {
+            resolve = function(path) return "/resolved/" .. path end,
         })
         ZenSpec.replace("common/utils", {
             formatPageCount = function(pages) return pages .. " pages" end,
@@ -158,7 +164,9 @@ describe("reader book details", function()
         assert.are.equal("Test series #2", spec.details[3].text)
         assert.are.equal("First tag, Second tag", spec.details[4].text)
         assert.are.equal("title", spec.details[1].style)
+        assert.is_true(spec.details[1].bold)
         assert.are.equal("author", spec.details[2].style)
+        assert.is_false(spec.details[2].bold)
         assert.are.equal("tags", spec.details[4].style)
         assert.are.equal("page", spec.details[8].style)
         assert.are.equal("English", spec.details[5].text)
@@ -172,13 +180,27 @@ describe("reader book details", function()
         assert.are.equal(120, spec.cover_width)
         assert.are.equal(180, spec.cover_height)
         assert.is_true(spec.rounded_cover)
-        assert.are.equal(21, spec.text_face.size)
-        assert.are.equal(19, spec.text_faces.author.size)
-        assert.are.equal(19, spec.text_faces.tags.size)
-        assert.are.equal(19, spec.text_faces.page.size)
-        assert.are.equal(19, spec.text_faces.secondary.size)
+        assert.are.equal(23, spec.text_face.size)
+        assert.are.equal(23, spec.text_faces.author.size)
+        assert.are.equal(23, spec.text_faces.tags.size)
+        assert.are.equal(23, spec.text_faces.page.size)
+        assert.are.equal(23, spec.text_faces.secondary.size)
         assert.are.equal(24, spec.text_faces.description.size)
         assert.are.equal(0, #queried_fields)
+    end)
+
+    it("applies the description text style without changing other details", function()
+        local BookDetails = require("modules/reader/book_details")
+        local spec = BookDetails.buildSpec(reader_ui(), {
+            config = { book_details = { text_styles = {
+                description = { font_face = "Description.ttf", font_size = 12 },
+            } } },
+        })
+
+        assert.are.same({ name = "LibraryFont", size = 23 }, spec.text_faces.title)
+        assert.are.same({ name = "LibraryFont", size = 23 }, spec.text_faces.secondary)
+        assert.are.same({ name = "/resolved/Description.ttf", size = 12 },
+            spec.text_faces.description)
     end)
 
     it("applies every optional fullscreen visibility setting", function()

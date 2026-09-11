@@ -8,13 +8,16 @@
 -- Applies to every TouchMenu instance (reader, file manager, all tabs).
 
 local function apply_touch_menu_footer()
+    local zen_plugin     = rawget(_G, "__ZEN_UI_PLUGIN")
     local utils          = require("common/utils")
     local Device         = require("device")
     local Geom           = require("ui/geometry")
     local GestureRange   = require("ui/gesturerange")
+    local Hatching       = require("common/ui/hatching")
     local HorizontalGroup = require("ui/widget/horizontalgroup")
     local IconWidget     = require("ui/widget/iconwidget")
     local InputContainer = require("ui/widget/container/inputcontainer")
+    local UIManager      = require("ui/uimanager")
     local Screen         = Device.screen
 
     local DGENERIC_ICON_SIZE = G_defaults:readSetting("DGENERIC_ICON_SIZE")
@@ -58,6 +61,30 @@ local function apply_touch_menu_footer()
 
     local TouchMenu = require("ui/widget/touchmenu")
     local orig_init = TouchMenu.init
+    local orig_onShow = TouchMenu.onShow
+    local orig_paintTo = TouchMenu.paintTo
+
+    local function hatching_enabled()
+        local quick_settings = zen_plugin and zen_plugin.config and zen_plugin.config.quick_settings
+        return quick_settings and quick_settings.background_hatching == true
+    end
+
+    function TouchMenu:onShow(...)
+        local result = orig_onShow and orig_onShow(self, ...)
+        if hatching_enabled() then
+            self.is_fresh = false -- Avoid promoting the backdrop to a fullscreen flash.
+            UIManager:setDirty(nil, "ui")
+        end
+        return result
+    end
+
+    function TouchMenu:paintTo(bb, x, y)
+        if hatching_enabled() then
+            local menu_bottom = y + self.dimen.h
+            Hatching.paint(bb, 0, menu_bottom, self.screen_size.w, self.screen_size.h - menu_bottom)
+        end
+        return orig_paintTo(self, bb, x, y)
+    end
 
     function TouchMenu:init()
         orig_init(self)

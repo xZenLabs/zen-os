@@ -619,6 +619,12 @@ msgid "Background"
 msgstr "Background"
 
 #. Type: setting
+#. Context: IconItem.decorate({ text = _("Background hatching"), checked_func = function()
+#: menu_settings.lua:1171
+msgid "Background hatching"
+msgstr "Background hatching"
+
+#. Type: setting
 #. Context: table.insert(edit_items, { text_func = function() return _("Background color") .. ": " .. editable_theme.background end, keep_menu_open = true,
 #: reader_settings.lua:776 reader_settings.lua:779
 msgid "Background color"

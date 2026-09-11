@@ -21,6 +21,7 @@ local M = {}
 local LIBRARY_WALLPAPERS_DIR = DataStorage:getFullDataDir() .. "/resources/wallpapers"
 local DEFAULT_LIBRARY_FONT = defaults.library_font.font_face
 local BOOK_DETAIL_ORDER = defaults.book_details.order
+local BOOK_DETAIL_TEXT_STYLE_DEFAULTS = defaults.book_details.text_styles
 local home_rebuild_pending = false
 local home_rebuild_poll_active = false
 local bg_surface_refresh_pending = false
@@ -1551,6 +1552,116 @@ function M.build(ctx)
         }
     end
 
+    local function ensure_book_detail_description_style()
+        if type(config.book_details) ~= "table" then config.book_details = {} end
+        local cfg = config.book_details
+        if type(cfg.text_styles) ~= "table" then cfg.text_styles = {} end
+        local style = type(cfg.text_styles.description) == "table"
+            and cfg.text_styles.description or {}
+        cfg.text_styles.description = style
+        local style_defaults = BOOK_DETAIL_TEXT_STYLE_DEFAULTS.description
+        if type(style.font_face) ~= "string" or style.font_face == "" then
+            style.font_face = style_defaults.font_face
+        end
+        local size = tonumber(style.font_size)
+        style.font_size = size and math.max(6, math.min(40,
+            math.floor(size + 0.5))) or nil
+        return style
+    end
+
+    local function description_font_size(style)
+        return style.font_size or ensure_library_font_cfg(config).font_size
+    end
+
+    local function save_book_detail_description_style(touchmenu_instance)
+        plugin:saveConfig()
+        if touchmenu_instance and touchmenu_instance.updateItems then
+            touchmenu_instance:updateItems()
+        end
+    end
+
+    local function book_detail_default_font(FontChooser)
+        local face = resolved_library_font(ensure_library_font_cfg(config).font_face)
+        if type(FontChooser.isFontRegistered) ~= "function"
+                or FontChooser.isFontRegistered(face) then
+            return face
+        end
+        return find_registered_font_file(face) or select(2, picker_default(FontChooser))
+    end
+
+    local function build_book_detail_description_font_items()
+        return {
+            {
+                text_func = function()
+                    local style = ensure_book_detail_description_style()
+                    local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
+                    local face_text = style.font_face == "default" and _("default")
+                        or (ok_fc and font_name_text(style, FontChooser) or style.font_face)
+                    return string.format("%s %s", _("Font:"), face_text)
+                end,
+                keep_menu_open = true,
+                callback = function(touchmenu_instance)
+                    local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
+                    if not ok_fc then return end
+                    local style = ensure_book_detail_description_style()
+                    local default_font = book_detail_default_font(FontChooser)
+                    local display_face = style.font_face == "default"
+                        and default_font or resolved_library_font(style.font_face)
+                    if type(FontChooser.isFontRegistered) == "function"
+                            and not FontChooser.isFontRegistered(display_face) then
+                        display_face = find_registered_font_file(display_face)
+                            or default_font
+                    end
+                    if not display_face then return end
+                    UIManager:show(FontChooser:new{
+                        title = _("Description") .. " " .. _("font"),
+                        font_file = display_face,
+                        default_font_file = default_font,
+                        callback = function(file)
+                            local portable_file = LibraryFontPath.toConfig(file)
+                            if style.font_face ~= portable_file then
+                                style.font_face = portable_file
+                                save_book_detail_description_style(touchmenu_instance)
+                            end
+                        end,
+                    })
+                end,
+            },
+            {
+                text_func = function()
+                    local style = ensure_book_detail_description_style()
+                    return string.format("%s %s", _("Font size:"),
+                        tostring(description_font_size(style)))
+                end,
+                keep_menu_open = true,
+                callback = function(touchmenu_instance)
+                    local SpinWidget = require("ui/widget/spinwidget")
+                    local style = ensure_book_detail_description_style()
+                    UIManager:show(SpinWidget:new{
+                        title_text = _("Description") .. " " .. _("font size"),
+                        value = description_font_size(style),
+                        value_min = 6,
+                        value_max = 40,
+                        default_value = ensure_library_font_cfg(config).font_size,
+                        callback = function(spin)
+                            style.font_size = math.max(6, math.min(40, spin.value))
+                            save_book_detail_description_style(touchmenu_instance)
+                        end,
+                    })
+                end,
+            },
+            {
+                text = _("Use default style"),
+                callback = function(touchmenu_instance)
+                    config.book_details.text_styles.description = {
+                        font_face = BOOK_DETAIL_TEXT_STYLE_DEFAULTS.description.font_face,
+                    }
+                    save_book_detail_description_style(touchmenu_instance)
+                end,
+            },
+        }
+    end
+
     local function show_book_details()
         if type(config.book_details) ~= "table" then config.book_details = {} end
         local cfg = config.book_details
@@ -1566,6 +1677,10 @@ function M.build(ctx)
         end
         local description_item = detail_toggle("description")
         description_item.arrange_pinned_last = true
+        description_item.sub_title = detail_labels.description
+        description_item.checkmark_callback = description_item.callback
+        description_item.callback = nil
+        description_item.sub_item_table_func = build_book_detail_description_font_items
         sort_items[#sort_items + 1] = description_item
         require("common/ui/zen_arrange_list").show{
             title = _("Book details"),

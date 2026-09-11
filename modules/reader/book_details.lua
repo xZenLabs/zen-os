@@ -2,9 +2,10 @@ local Device = require("device")
 local Font = require("ui/font")
 local UIManager = require("ui/uimanager")
 local Cover = require("common/cover_utils")
+local IconItem = require("common/ui/icon_menu_item")
 local LanguageName = require("common/language_name")
 local LibraryFont = require("modules/filebrowser/patches/library_font")
-local ReaderFont = require("common/reader_font")
+local LibraryFontPath = require("common/library_font_path")
 local utils = require("common/utils")
 local T = require("ffi/util").template
 local _ = require("gettext")
@@ -14,6 +15,20 @@ local BOOK_DETAIL_ORDER = {
     "authors", "series", "tags", "language", "rating", "annotations", "note",
     "pages", "progress", "read_time", "time_remaining",
 }
+local function description_face(config)
+    local details = type(config.book_details) == "table" and config.book_details or {}
+    local styles = type(details.text_styles) == "table" and details.text_styles or {}
+    local style = type(styles.description) == "table" and styles.description or {}
+    local size = math.max(6, math.min(40, math.floor(
+        (tonumber(style.font_size) or LibraryFont.getBaseSize()) + 0.5)))
+    if type(style.font_face) ~= "string" or style.font_face == ""
+            or style.font_face == "default" then
+        return LibraryFont.getFace(size)
+    end
+    local ok, face = pcall(Font.getFace, Font,
+        LibraryFontPath.resolve(style.font_face), size)
+    return ok and face or LibraryFont.getFace(size)
+end
 
 local function normalize_detail_order(order)
     local normalized, seen, valid = {}, {}, {}
@@ -427,18 +442,15 @@ function M.buildSpec(ui, opts)
         end
     end
 
-    local reader_font_size = ReaderFont.getInfo(ui,
-        (Font.sizemap and Font.sizemap.cfont) or 16).size
-    local library_face = LibraryFont.getFace(reader_font_size)
-    local metadata_face = LibraryFont.getFace(math.max(1,
-        math.floor(reader_font_size * 18 / 20 + 0.5)))
+    local text_size = IconItem.getSettingsFontSize()
+    local library_face = LibraryFont.getFace(text_size)
     local text_faces = {
         title = library_face,
-        author = metadata_face,
-        tags = metadata_face,
-        page = metadata_face,
-        secondary = metadata_face,
-        description = LibraryFont.getFace(LibraryFont.getBaseSize()),
+        author = library_face,
+        tags = library_face,
+        page = library_face,
+        secondary = library_face,
+        description = description_face(config),
     }
 
     local cover_bb, cover_w, cover_h, cover_kind
@@ -503,7 +515,7 @@ function M.buildSpec(ui, opts)
         cover_tap_callback = show_cover_fullscreen,
         rounded_cover = rounded_covers_enabled(opts.config),
         text_face = library_face,
-        text_size = reader_font_size,
+        text_size = text_size,
         text_faces = text_faces,
         edit_callback = opts.edit_callback,
         close_all_callback = opts.close_all_callback,

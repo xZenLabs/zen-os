@@ -4,6 +4,7 @@ local Font = require("ui/font")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
 local GestureRange = require("ui/gesturerange")
+local Hatching = require("common/ui/hatching")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local Size = require("ui/size")
 local TextBoxWidget = require("ui/widget/textboxwidget")
@@ -127,11 +128,8 @@ function MenuCoachmark:getVisibleArea()
 end
 
 function MenuCoachmark:_paintBackdrop(bb, cutout)
-    local stripe_width = math.max(1, Screen:scaleBySize(2))
     local function hatch(x, y, w, h)
-        if w > 0 and h > 0 then
-            bb:hatchRect(x, y, w, h, stripe_width, Blitbuffer.COLOR_BLACK, 0.3)
-        end
+        Hatching.paint(bb, x, y, w, h)
     end
 
     if not cutout then

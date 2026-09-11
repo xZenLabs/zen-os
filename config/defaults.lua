@@ -171,6 +171,7 @@ local defaults = {
             zenfm = false,
             filebrowser = false,
         },
+        background_hatching = false,
         show_labels = true,
         show_frontlight = true,
         show_warmth = true,
@@ -251,6 +252,9 @@ local defaults = {
         font_size = 18,
     },
     book_details = {
+        text_styles = {
+            description = { font_face = "default" },
+        },
         order = {
             "authors", "series", "tags", "language", "rating", "annotations",
             "note", "pages", "progress", "read_time", "time_remaining",

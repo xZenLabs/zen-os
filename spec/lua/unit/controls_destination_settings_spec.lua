@@ -33,6 +33,7 @@ describe("Controls destination settings", function()
                 gyro_label = "",
                 gyro_icon = "quick_rotate",
                 tailscale_toggle_wifi = false,
+                background_hatching = false,
             },
         }
         ZenSpec.replace("gettext", function(text) return text end)
@@ -57,6 +58,7 @@ describe("Controls destination settings", function()
             button_order = {}, show_buttons = {},
             gyro_label = "", gyro_icon = "quick_rotate",
             tailscale_toggle_wifi = false,
+            background_hatching = false,
         } })
         ZenSpec.replace("common/inline_icon_map", setmetatable({}, {
             __index = function(_self, key) return key end,
@@ -224,6 +226,25 @@ describe("Controls destination settings", function()
         assert.is_false(setting.checked_func())
         setting.callback()
         assert.is_true(setting.checked_func())
+        assert.are.equal(1, saves)
+    end)
+
+    it("toggles background hatching", function()
+        local saves = 0
+        local section = require("modules/settings/sections/menu_settings").build({
+            config = config,
+            plugin = {},
+            save_and_apply = function(feature)
+                assert.are.equal("quick_settings", feature)
+                saves = saves + 1
+            end,
+        })
+        local hatching = section.sub_item_table[#section.sub_item_table - 1]
+
+        assert.are.equal("Background hatching", hatching.text)
+        assert.is_false(hatching.checked_func())
+        hatching.callback()
+        assert.is_true(hatching.checked_func())
         assert.are.equal(1, saves)
     end)
 end)

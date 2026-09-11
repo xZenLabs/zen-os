@@ -20,6 +20,7 @@ describe("library settings", function()
         "ui/widget/fontchooser",
         "ui/widget/infomessage",
         "ui/widget/pathchooser",
+        "ui/widget/spinwidget",
         "common/ui/background",
     }
 
@@ -173,6 +174,17 @@ describe("library settings", function()
         assert.is_false(arranged.item_table[10].checked_func())
         assert.is_false(arranged.item_table[11].checked_func())
         assert.is_true(arranged.item_table[12].arrange_pinned_last)
+        assert.are.equal("Description", arranged.item_table[12].sub_title)
+        assert.is_function(arranged.item_table[12].checkmark_callback)
+        assert.is_nil(arranged.item_table[12].callback)
+        assert.are.same({ "Font: default", "Font size: 18", "Use default style" },
+            (function()
+                local labels = {}
+                for _i, item in ipairs(arranged.item_table[12].sub_item_table_func()) do
+                    labels[#labels + 1] = item.text_func and item.text_func() or item.text
+                end
+                return labels
+            end)())
         assert.is_nil(arranged.add_title)
         assert.is_nil(arranged.add_item_table)
 
@@ -189,6 +201,56 @@ describe("library settings", function()
             "note", "pages", "authors", "read_time", "time_remaining",
         }, config.book_details.order)
         assert.are.equal(2, saves)
+    end)
+
+    it("edits only the Book details description font", function()
+        local arranged
+        local shown
+        local saves = 0
+        local updates = 0
+        package.loaded["ui/uimanager"].show = function(_self, widget) shown = widget end
+        ZenSpec.replace("common/ui/zen_arrange_list", {
+            show = function(opts) arranged = opts end,
+        })
+        ZenSpec.replace("ui/widget/spinwidget", {
+            new = function(_self, opts) return opts end,
+        })
+        ZenSpec.replace("ui/widget/fontchooser", {
+            getFontNameText = function(path) return path:match("([^/]+)$") end,
+            isFontRegistered = function() return true end,
+            new = function(_self, opts) return opts end,
+        })
+        local config = {
+            browser_hide_up_folder = {},
+            features = {},
+            library_font = { font_face = "Library.ttf", font_size = 18 },
+        }
+        local items = require("modules/settings/sections/library_settings").build({
+            config = config,
+            plugin = { saveConfig = function() saves = saves + 1 end },
+            save_and_apply = function() end,
+        })
+        for _i, item in ipairs(items) do
+            if item.text == "Book details" then item.callback() break end
+        end
+
+        local font_items = arranged.item_table[12].sub_item_table_func()
+        local touchmenu = { updateItems = function() updates = updates + 1 end }
+        font_items[1].callback(touchmenu)
+        shown.callback("/fonts/Details.ttf")
+        assert.are.equal("/fonts/Details.ttf",
+            config.book_details.text_styles.description.font_face)
+
+        font_items[2].callback(touchmenu)
+        shown.callback({ value = 28 })
+        assert.are.equal(28, config.book_details.text_styles.description.font_size)
+
+        font_items[3].callback(touchmenu)
+        assert.are.same({ font_face = "default" },
+            config.book_details.text_styles.description)
+        assert.is_nil(config.book_details.text_styles.all)
+        assert.are.equal(3, saves)
+        assert.are.equal(3, updates)
     end)
 
     it("rebuilds the library when mosaic title strips change", function()

@@ -16,6 +16,7 @@ describe("Quickstart menu coachmark", function()
         "ui/widget/container/framecontainer",
         "ui/widget/container/inputcontainer",
         "ui/widget/textboxwidget",
+        "common/ui/hatching",
         "common/quickstart/menu_coachmark",
     }
 
@@ -179,6 +180,7 @@ describe("Quickstart menu coachmark", function()
             end,
         })
         ZenSpec.replace("ui/widget/container/inputcontainer", InputContainer)
+        ZenSpec.unload("common/ui/hatching")
         ZenSpec.unload("common/quickstart/menu_coachmark")
         MenuCoachmark = require("common/quickstart/menu_coachmark")
     end)
@@ -313,7 +315,7 @@ describe("Quickstart menu coachmark", function()
             assert.is_false(intersects(rect, highlight))
             assert.are.equal(2, rect.stripe_width)
             assert.are.equal("black", rect.color)
-            assert.are.equal(0.3, rect.alpha)
+            assert.are.equal(0.4, rect.alpha)
         end
         assert.are.equal(2, #paint_borders)
         assert.are.equal("white", paint_borders[1].color)

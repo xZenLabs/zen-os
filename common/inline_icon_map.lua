@@ -59,7 +59,7 @@ return {
     keywords     = "\u{F12F7}",  -- mdi-tag-multiple
 
     -- details / info (context_menu.lua / opds.lua)
-    details      = "\u{F05A}",  -- mdi-information
+    details      = "\u{F02FD}", -- same information icon as About
     edit         = "\u{F090C}",  -- mdi-pencil
     label        = "\u{F04F9}",
     icon         = "\u{F02F5}",
