@@ -323,7 +323,7 @@ function M.apply_status_row(menu, params)
             return createStatusRowCustomBack(back_callback, label)
         elseif createStatusRow then
             local FileManager = require("apps/filemanager/filemanager")
-            return createStatusRow(nil, FileManager.instance)
+            return createStatusRow(nil, FileManager.instance, label)
         end
     end
 

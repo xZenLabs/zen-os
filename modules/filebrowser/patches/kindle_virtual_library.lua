@@ -6,6 +6,18 @@ local OPEN_METHOD = "onShowKindleLibrary"
 local THUMBNAILS_DIR = "/mnt/us/system/thumbnails"
 local thumbnail_index
 
+local function suppress_reader_menu(plugin)
+    local ui = plugin and plugin.ui
+    local registered = ui and ui.document and ui.menu and ui.menu.registered_widgets
+    if type(registered) ~= "table" then return end
+    for i = #registered, 1, -1 do
+        local widget = registered[i]
+        if widget and (widget.name == "kindle" or widget.name == "kindle_plugin") then
+            table.remove(registered, i)
+        end
+    end
+end
+
 local function dispatcher_has_action()
     local ok, Dispatcher = pcall(require, "dispatcher")
     if not ok or type(Dispatcher.getDisplayList) ~= "function" then return false end
@@ -395,6 +407,7 @@ local function apply_view_integration(plugin)
     function Menu:init()
         local is_kindle = M.isLibraryView(self)
         if is_kindle then
+            self.title = require("gettext")("Kindle Library")
             self._zen_renderer = true
             self._do_center_partial_rows = false
         end
@@ -434,6 +447,7 @@ local function apply_view_integration(plugin)
 end
 
 function M.apply(plugin)
+    suppress_reader_menu(plugin)
     local FileChooser = require("ui/widget/filechooser")
     apply_view_integration(plugin)
     if FileChooser._zen_kindle_virtual_folder_filter_patched then return end

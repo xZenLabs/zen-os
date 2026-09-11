@@ -29,9 +29,11 @@ describe("standalone page gestures", function()
         }
         FileManager = {}
         ZenSpec.replace("apps/filemanager/filemanager", FileManager)
-        ZenSpec.replace("common/clock_timer", {})
+        ZenSpec.replace("common/clock_timer", { bind = function() end })
         ZenSpec.replace("common/ui/background", {})
-        ZenSpec.replace("common/widget_resources", {})
+        ZenSpec.replace("common/widget_resources", {
+            replaceChild = function(group, index, child) group[index] = child end,
+        })
         ZenSpec.replace("ui/geometry", {})
         ZenSpec.replace("ui/uimanager", UIManager)
         ZenSpec.replace("ui/widget/menu", {})
@@ -59,6 +61,26 @@ describe("standalone page gestures", function()
             end,
         }
     end
+
+    it("shows a supplied label in a standalone status row", function()
+        local received_label
+        local title_group = { {}, {} }
+        title_group.resetLayout = function() end
+        FileManager.instance = {}
+        local menu = { title_bar = { title_group = title_group } }
+        local StandalonePage = require("modules/filebrowser/patches/standalone_page")
+
+        StandalonePage.apply_status_row(menu, {
+            label = "Kindle Library",
+            createStatusRow = function(_path, _file_manager, label)
+                received_label = label
+                return { label = label }
+            end,
+        })
+
+        assert.are.equal("Kindle Library", received_label)
+        assert.are.equal("Kindle Library", title_group[2].label)
+    end)
 
     it("gives every Gesture Manager family priority over page handlers", function()
         local StandalonePage = require("modules/filebrowser/patches/standalone_page")

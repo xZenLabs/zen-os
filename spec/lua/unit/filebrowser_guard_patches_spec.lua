@@ -156,6 +156,47 @@ describe("file browser guard patches", function()
         assert.are.same({ filemanager, true }, shown)
     end)
 
+    it("keeps Kindle's own menu out of ReaderUI", function()
+        local kindle = { name = "kindle_plugin" }
+        local other = { name = "other" }
+        local registered = { kindle, other }
+        ZenSpec.replace("ui/widget/menu", { init = function() end })
+        ZenSpec.replace("ui/widget/filechooser", {
+            _zen_kindle_virtual_folder_filter_patched = true,
+        })
+        ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
+        ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
+        require("modules/filebrowser/patches/kindle_virtual_library").apply({
+            config = {},
+            ui = {
+                document = {},
+                menu = { registered_widgets = registered },
+            },
+        })
+
+        assert.are.same({ other }, registered)
+    end)
+
+    it("names the Kindle standalone page like its file-manager folder", function()
+        local initialized_title
+        local Menu = {
+            init = function(self) initialized_title = self.title end,
+        }
+        ZenSpec.replace("ui/widget/menu", Menu)
+        ZenSpec.replace("ui/widget/filechooser", {
+            _zen_kindle_virtual_folder_filter_patched = true,
+        })
+        ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
+        ZenSpec.replace("gettext", function(text) return text end)
+        ZenSpec.replace("ui/uimanager", { nextTick = function() end })
+        ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
+        require("modules/filebrowser/patches/kindle_virtual_library").apply({ config = {} })
+
+        Menu.init({ name = "kindle_library", title = "Folder" })
+
+        assert.are.equal("Kindle Library", initialized_title)
+    end)
+
     it("reads Kindle thumbnail dimensions without decoding the image", function()
         ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
         ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
