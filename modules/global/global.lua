@@ -171,6 +171,9 @@ function M.init(logger, plugin)
         UIManager.broadcastEvent = function(self, event, ...)
             if event and event.handler == "onResume" then
                 schedule_resume_reapply()
+            elseif event and event.handler == "onSuspend" then
+                UIManager:unschedule(reschedule_schedules)
+                UIManager:unschedule(reapply_frontlight_schedules)
             end
             return orig_broadcastEvent(self, event, ...)
         end

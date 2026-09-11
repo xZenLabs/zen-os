@@ -100,6 +100,15 @@ describe("global schedule resume hook", function()
         assert.is_nil(_G.warmth_reschedules)
     end)
 
+    it("cancels pending resume retries on Suspend", function()
+        assert.is_true(global.init(nil, { config = { features = {} } }))
+
+        ui_manager:broadcastEvent({ handler = "onResume" })
+        assert.are.equal(2, #scheduled)
+        ui_manager:broadcastEvent({ handler = "onSuspend" })
+        assert.are.equal(0, #scheduled)
+    end)
+
     it("preserves KOReader's original hardware night mode for exit", function()
         local applied
         device.orig_hw_nightmode = true
