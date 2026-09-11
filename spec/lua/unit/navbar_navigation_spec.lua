@@ -1228,6 +1228,21 @@ describe("file browser navbar navigation", function()
         assert.are.equal("Library", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
     end)
 
+    it("keeps Library active when Folder contains the library root", function()
+        local fm = make_instance()
+        _G.__ZEN_UI_PLUGIN.config.navbar.folder_path = "/"
+        dir_mtimes["/"] = 10
+        fm.file_chooser.changeToPath = function(self, path)
+            self.path = path
+            FileManager.onPathChanged(fm, path)
+        end
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("folder"))
+        assert.are.equal("Folder", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
+        assert.are.equal("Library", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
+    end)
+
     it("builds the configured folder when the hidden Home listing is still deferred", function()
         local fm = make_instance()
         local fc = fm.file_chooser

@@ -2451,6 +2451,12 @@ local function apply_navbar()
     local function tabForFileManagerPath(path)
         if not path then return end
 
+        local home_dir = paths.getHomeDir()
+                         or require("apps/filemanager/filemanagerutil").getDefaultDir()
+        if home_dir and normalizeFolderPath(path) == normalizeFolderPath(home_dir) then
+            return "books"
+        end
+
         local active_custom, active_folder = getCustomFolderTab(active_tab)
         if active_custom and isInFolderPath(path, active_folder) then
             return active_tab
@@ -2475,8 +2481,6 @@ local function apply_navbar()
             end
         end
 
-        local home_dir = paths.getHomeDir()
-                         or require("apps/filemanager/filemanagerutil").getDefaultDir()
         if home_dir and paths.isInHomeDir(path) then return "books" end
     end
 
