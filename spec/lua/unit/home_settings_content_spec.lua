@@ -225,7 +225,6 @@ describe("Home widget content settings", function()
                 return {
                     { key = "new", label = "Unread" },
                     { key = "reading", label = "Reading" },
-                    { key = "tbr", label = "To Be Read" },
                     { key = "abandoned", label = "On hold" },
                     { key = "complete", label = "Finished" },
                 }
@@ -838,6 +837,9 @@ describe("Home widget content settings", function()
         for _i, label in ipairs({
             "Unread", "Reading", "To Be Read", "On hold", "Finished",
         }) do assert.is_table(find_item(picker_options.items, label)) end
+        local tbr = find_item(picker_options.items, "To Be Read")
+        assert.are.equal("to_be_read", tbr.entry.id)
+        assert.is_nil(tbr.status)
         assert.is_nil(find_item(picker_options.items, "Filter by status"))
         picker_options.on_select(find_item(picker_options.items, "Finished"))
 

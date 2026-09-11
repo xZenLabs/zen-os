@@ -38,14 +38,18 @@ local STATUSES = {
 local by_id = {}
 for _i, item in ipairs(BUILTINS) do by_id[item.id] = item end
 local status_by_key = {}
-for _i, item in ipairs(STATUSES) do status_by_key[item.key] = item end
+local addable_statuses = {}
+for _i, item in ipairs(STATUSES) do
+    status_by_key[item.key] = item
+    if item.key ~= "tbr" then addable_statuses[#addable_statuses + 1] = item end
+end
 
 function M.builtins()
     return BUILTINS
 end
 
 function M.statuses()
-    return STATUSES
+    return addable_statuses
 end
 
 function M.statusLabel(status)

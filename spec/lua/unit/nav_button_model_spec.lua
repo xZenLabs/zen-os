@@ -55,15 +55,15 @@ describe("navigation button model", function()
         assert.are.equal("Science", Model.label(nil, science))
     end)
 
-    it("exposes filter statuses as strip sources with their status names", function()
+    it("exposes non-duplicate filter statuses with their status names", function()
         local Model = require("common/nav_button_model")
         assert.same({
             { key = "new", label = "Unread" },
             { key = "reading", label = "Reading" },
-            { key = "tbr", label = "To Be Read" },
             { key = "abandoned", label = "On hold" },
             { key = "complete", label = "Finished" },
         }, Model.statuses())
+        assert.are.equal("To Be Read", Model.statusLabel("tbr"))
 
         local finished = { type = "status", status = "complete" }
         assert.is_true(Model.isSource(finished))

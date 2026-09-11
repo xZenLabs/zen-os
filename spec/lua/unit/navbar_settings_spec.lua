@@ -438,6 +438,8 @@ describe("navbar settings", function()
         for _i, label in ipairs({
             "Unread", "Reading", "To Be Read", "On hold", "Finished",
         }) do assert.is_table(add_tabs[label]) end
+        assert.are.equal("to_be_read", add_tabs["To Be Read"].id)
+        assert.is_nil(add_tabs["To Be Read"].status)
         assert.is_nil(add_tabs["Filter by status"])
 
         picker_options.on_select(add_tabs.Finished)
