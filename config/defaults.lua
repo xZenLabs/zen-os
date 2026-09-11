@@ -87,7 +87,7 @@ local defaults = {
         zen_opds             = true,
     },
     search = {
-        substring = true,
+        substring = not FontLanguage.supportsWholeWordSearch(),
     },
     metadata = {
         hardcover_enabled = true,

@@ -23,6 +23,14 @@ local SUPPORTED_LANGUAGES = {
     ku_tr = true, pap_an = true, pap_aw = true,
 }
 
+local WHOLE_WORD_SEARCH_LANGUAGES = {
+    ca = true, cs = true, da = true, de = true, en = true, eo = true,
+    es = true, eu = true, fi = true, fr = true, ga = true, gl = true,
+    hr = true, hu = true, it = true, lt = true, lv = true, nb = true,
+    nl = true, pl = true, pt = true, ro = true, sk = true, sl = true,
+    sv = true,
+}
+
 local function configured_language(settings)
     settings = settings or rawget(_G, "G_reader_settings")
     if settings and type(settings.readSetting) == "function" then
@@ -33,16 +41,28 @@ local function configured_language(settings)
         or os.getenv("LANG") or os.getenv("LC_ALL") or os.getenv("LC_MESSAGES")
 end
 
-function M.supportsBundledFonts(settings)
+local function normalized_language(settings)
     local language = configured_language(settings)
-    if type(language) ~= "string" or language == "" then return true end
+    if type(language) ~= "string" or language == "" then return nil end
+    return language:lower():gsub("%..*$", ""):gsub("@.*$", ""):gsub("-", "_")
+end
 
-    language = language:lower():gsub("%..*$", ""):gsub("@.*$", ""):gsub("-", "_")
+function M.supportsBundledFonts(settings)
+    local language = normalized_language(settings)
+    if not language then return true end
     if language == "c" or language == "posix" then return true end
 
     if SUPPORTED_LANGUAGES[language] then return true end
     local code = language:match("^([a-z]+)")
     return code ~= nil and SUPPORTED_LANGUAGES[code] == true
+end
+
+function M.supportsWholeWordSearch(settings)
+    local language = normalized_language(settings)
+    if not language or language == "c" or language == "posix" then return true end
+
+    local code = language:match("^([a-z]+)")
+    return WHOLE_WORD_SEARCH_LANGUAGES[code] == true
 end
 
 return M

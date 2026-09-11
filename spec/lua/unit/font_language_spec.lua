@@ -19,4 +19,19 @@ describe("bundled font language support", function()
         assert.is_false(supports("vi_VN"))
         assert.is_false(supports("ga_IE"))
     end)
+
+    it("identifies languages supported by whole-word search", function()
+        local function supports_search(language)
+            return FontLanguage.supportsWholeWordSearch(
+                ZenSpec.memorySettings({ language = language }))
+        end
+
+        assert.is_true(supports_search("en_US"))
+        assert.is_true(supports_search("fr"))
+        assert.is_false(supports_search("vi_VN"))
+        assert.is_false(supports_search("id"))
+        assert.is_false(supports_search("ru_RU"))
+        assert.is_false(supports_search("zh_CN"))
+        assert.is_false(supports_search("ja"))
+    end)
 end)

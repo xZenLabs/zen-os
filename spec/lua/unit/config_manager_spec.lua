@@ -84,7 +84,7 @@ describe("config manager folder-path migration", function()
         assert.are.equal(18, config.page_browser.toc_font_size)
         assert.are.equal(18, config.page_browser.bookmarks_font_size)
         assert.are.same({}, config.folder_cover_paths)
-        assert.is_true(config.search.substring)
+        assert.is_false(config.search.substring)
         assert.is_true(config.metadata.hardcover_enabled)
         assert.is_true(config.metadata.google_books_enabled)
         assert.is_true(config.metadata.open_library_enabled)
@@ -92,6 +92,15 @@ describe("config manager folder-path migration", function()
         assert.is_false(config.metadata.epub_backup)
         assert.are.equal(1, google_key_ensures)
         assert.is_false(config._meta.quickstart_shown_for_version)
+    end)
+
+    it("defaults search matching for the interface script", function()
+        reload_manager("zh_CN")
+        assert.is_true(Manager.load().search.substring)
+
+        settings_file.data = { search = { substring = true } }
+        reload_manager("en_US")
+        assert.is_true(Manager.load().search.substring)
     end)
 
     it("fills missing defaults without sharing them or replacing saved arrays", function()
@@ -472,7 +481,7 @@ describe("config manager folder-path migration", function()
     end)
 
     it("keeps the Library default for locales unsupported by bundled fonts", function()
-        reload_manager("ja_JP")
+        reload_manager("vi_VN")
         settings_file.data = {
             library_font = { font_face = "default", font_size = 20 },
         }
@@ -485,7 +494,7 @@ describe("config manager folder-path migration", function()
     end)
 
     it("resets the bundled Library font after switching to an unsupported locale", function()
-        reload_manager("ja_JP")
+        reload_manager("vi_VN")
         settings_file.data = {
             _meta = { library_font_hyperreadable_default_migrated = true },
             library_font = {
