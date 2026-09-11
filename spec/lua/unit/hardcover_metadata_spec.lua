@@ -70,6 +70,27 @@ describe("Hardcover metadata client", function()
         assert.are.equal(1, #calls)
     end)
 
+    it("normalizes current Typesense search hits", function()
+        local transport = queued({
+            response({ data = { search = {
+                ids = { 446681 },
+                results = { hits = {{ document = {
+                    title = "Dungeon Crawler Carl",
+                    author_names = { "Matt Dinniman" },
+                } }} },
+            } } }),
+        })
+
+        local works = assert(Hardcover.search("secret-token", {
+            title = "Dungeon Crawler Carl",
+        }, transport))
+
+        assert.are.equal(1, #works)
+        assert.are.equal(446681, works[1].id)
+        assert.are.equal("Dungeon Crawler Carl", works[1].title)
+        assert.are.same({ "Matt Dinniman" }, works[1].authors)
+    end)
+
     it("uses an exact ISBN variable before title search", function()
         local transport, calls = queued({
             response({ data = { editions = {

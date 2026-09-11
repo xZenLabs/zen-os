@@ -292,7 +292,12 @@ local function search_results(search)
     if type(search) ~= "table" or type(search.ids) ~= "table"
             or type(search.results) ~= "table" then return nil end
     local works, seen = {}, {}
-    for index, row in ipairs(search.results) do
+    local rows = type(search.results.hits) == "table"
+        and search.results.hits or search.results
+    for index, row in ipairs(rows) do
+        if type(row) == "table" and type(row.document) == "table" then
+            row = row.document
+        end
         local work = normalize_search_work(row, search.ids[index])
         if work and not seen[work.id] then
             seen[work.id] = true
