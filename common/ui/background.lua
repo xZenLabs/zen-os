@@ -119,13 +119,14 @@ function M.setMissingLibraryBackgroundHandler(handler)
     schedule_missing_background_work()
 end
 
-local function is_jpeg_path(path)
+local function is_supported_image_path(path)
     if type(path) ~= "string" then return false end
     local lower = path:lower()
     return lower:sub(-4) == ".jpg" or lower:sub(-5) == ".jpeg"
+        or lower:sub(-4) == ".png"
 end
 
-M.isJpegPath = is_jpeg_path
+M.isSupportedImagePath = is_supported_image_path
 
 -- Native (unscaled) image dimensions, or nil on failure.
 local function native_size(path)
@@ -141,14 +142,14 @@ end
 
 -- Validate that a path can be used as a background image. Returns (true) on
 -- success, or (false, reason_code) on failure. "Can be used" means: it's a
--- JPG/JPEG, the file exists, and the decoder can read its size. The caller
+-- JPG/JPEG/PNG, the file exists, and the decoder can read its size. The caller
 -- maps reason_code to a translated message.
 function M.validateImage(path)
     if type(path) ~= "string" or path == "" then
         return false, "none"
     end
-    if not is_jpeg_path(path) then
-        return false, "not_jpeg"
+    if not is_supported_image_path(path) then
+        return false, "unsupported"
     end
     if not file_exists(path) then
         return false, "missing"
@@ -185,6 +186,7 @@ local function get_widget(path, w, h)
         center_x_ratio = 0.5,
         center_y_ratio = 0.5,
         file_do_cache = false,
+        alpha = true,
     }
     _cache[key] = iw
     return iw
@@ -311,6 +313,7 @@ function M.renderToBuffer(path, w, h)
             center_x_ratio = 0.5,
             center_y_ratio = 0.5,
             file_do_cache = false,
+            alpha = true,
         }
         iw:paintTo(out, 0, 0)
         iw:free()
@@ -350,7 +353,8 @@ function M.library_path(plugin)
     local cfg, resolved_plugin = library_config(plugin)
     local bg = type(cfg) == "table" and cfg.library_background
     local path = type(bg) == "table" and type(bg.path) == "string" and bg.path or ""
-    if type(bg) == "table" and bg.enabled == true and is_jpeg_path(path) then
+    if type(bg) == "table" and bg.enabled == true
+            and is_supported_image_path(path) then
         if not file_exists(path) then
             disable_missing_library_background(resolved_plugin, cfg, bg, path)
             return ""

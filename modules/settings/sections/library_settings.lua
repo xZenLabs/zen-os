@@ -1232,13 +1232,11 @@ function M.build(ctx)
         save_lib_bg()
     end
     local function lib_bg_error_text(code)
-        if code == "not_jpeg" then
-            return _("Background image must be a JPG or JPEG file.")
-        elseif code == "missing" then
+        if code == "missing" then
             return _("Background image file not found.")
         elseif code == "no_decoder" then
             return _("Image support is unavailable on this device.")
-        elseif code == "decode_failed" then
+        elseif code == "unsupported" or code == "decode_failed" then
             return _("Background image could not be loaded. It may be corrupt or unsupported.")
         end
         return _("No background image selected.")

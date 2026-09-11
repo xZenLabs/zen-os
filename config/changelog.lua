@@ -328,6 +328,7 @@ return {
         "Add first/last name sorting for authors",
         "Add highlight extend option in 3 dot highlight menu",
         "Add background hatching to top menu (Controls > Background hatching)",
+        "Add PNG support to Library background",
         "Add status bar to ZenPM",
         "Add guided Reader tour/OOBE",
         "Use stable pages for page stats",

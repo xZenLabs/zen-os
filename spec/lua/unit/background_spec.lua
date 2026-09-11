@@ -32,7 +32,7 @@ describe("library background cleanup", function()
         assert.is_nil(ordinary.background)
     end)
 
-    it("fades cached backgrounds toward the day and night base colors", function()
+    it("accepts PNG backgrounds over white and fades the cached result", function()
         local screen = {
             night_mode = false,
             getWidth = function() return 800 end,
@@ -44,12 +44,14 @@ describe("library background cleanup", function()
             attributes = function() return "file" end,
         })
         ZenSpec.replace("ui/widget/imagewidget", {
-            new = function()
+            new = function(_class, options)
                 return {
                     _img_w = 800,
                     _img_h = 600,
                     getSize = function() return { w = 800, h = 600 } end,
                     paintTo = function(_self, buffer)
+                        assert.is_true(options.alpha)
+                        assert.are.equal("white", buffer.fill_color)
                         buffer.image_paints = buffer.image_paints + 1
                     end,
                     free = function() end,
@@ -80,7 +82,7 @@ describe("library background cleanup", function()
             config = {
                 library_background = {
                     enabled = true,
-                    path = "/library/background.jpg",
+                    path = "/library/background.png",
                     opacity = 40,
                 },
             },
@@ -88,6 +90,10 @@ describe("library background cleanup", function()
         ZenSpec.unload("common/ui/background")
 
         local Background = require("common/ui/background")
+        assert.is_true(Background.isSupportedImagePath("/library/background.PNG"))
+        assert.is_false(Background.isSupportedImagePath("/library/background.webp"))
+        assert.is_true(Background.validateImage("/library/background.png"))
+        assert.are.equal("/library/background.png", Background.library_path())
         local copies = 0
         local destination = {
             getType = function() return "bb8" end,
@@ -95,9 +101,9 @@ describe("library background cleanup", function()
         }
 
         assert.is_true(Background.paintScreenRegion(destination,
-            0, 0, 0, 0, 800, 600, "/library/background.jpg"))
+            0, 0, 0, 0, 800, 600, "/library/background.png"))
         assert.is_true(Background.paintScreenRegion(destination,
-            0, 0, 0, 0, 800, 600, "/library/background.jpg"))
+            0, 0, 0, 0, 800, 600, "/library/background.png"))
         assert.are.equal(1, #buffers)
         assert.are.equal(1, buffers[1].image_paints)
         assert.are.equal(0, buffers[1].inversions)
@@ -107,7 +113,7 @@ describe("library background cleanup", function()
         screen.night_mode = true
         _G.__ZEN_UI_PLUGIN.config.library_background.opacity = 25
         assert.is_true(Background.paintScreenRegion(destination,
-            0, 0, 0, 0, 800, 600, "/library/background.jpg"))
+            0, 0, 0, 0, 800, 600, "/library/background.png"))
         assert.are.equal(2, #buffers)
         assert.are.equal(1, buffers[2].inversions)
         assert.are.equal(0.75, buffers[2].darkened)

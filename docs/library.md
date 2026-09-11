@@ -85,7 +85,7 @@ Library settings control the KOReader library. Customize the top status bar, lay
 | Scroll bar > Page number format | Shows the current page only or page x / y when page-number style is active. |
 | Scroll bar > Hold to skip | Sets page-number long-press behavior to skip 10 pages, skip 20 pages, or jump to beginning/end. |
 | Background > Enable | Shows the selected background image behind Library surfaces. |
-| Background > Image | Opens a file chooser for a JPG or JPEG background image. Hold this row to clear the selected image. |
+| Background > Image | Opens a file chooser for a JPG, JPEG, or PNG background image. PNG transparency is rendered as white. Hold this row to clear the selected image. |
 | Home folder > Set home folder | Opens a folder chooser for the primary library root. |
 | Home folder > Lock home folder | Selects Off, Only in Zen Mode, or Always for navigation outside the home folder. |
 | Home folder > Additional home folders | Adds or removes extra library roots. |
@@ -117,7 +117,7 @@ ZenOS stores only a reference to each chosen image: it does not copy the image i
 
 ## Library Background
 
-Use **Zen Settings > Library > Background > Enable** and **Zen Settings > Library > Background > Image** to add a custom JPG/JPEG background to the Library. Changing or clearing the background refreshes the Library, Home, and Navbar surfaces so the new image is applied without hunting through separate settings.
+Use **Zen Settings > Library > Background > Enable** and **Zen Settings > Library > Background > Image** to add a custom JPG/JPEG or PNG background to the Library. Transparent PNG pixels are rendered as white. Changing or clearing the background refreshes the Library, Home, and Navbar surfaces so the new image is applied without hunting through separate settings.
 
 ## Context menu
 
