@@ -2429,7 +2429,7 @@ function M.build(ctx)
             for _i, filename in ipairs(HomeQuotes.listFiles(dcfg.quotes)) do
                 local quote_file = filename
                 items[#items + 1] = {
-                    text = quote_file,
+                    text = quote_file:sub(1, -5),
                     keep_menu_open = true,
                     checked_func = function()
                         return custom_quote_files()[quote_file] == true
