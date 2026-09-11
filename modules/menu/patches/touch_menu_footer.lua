@@ -81,7 +81,12 @@ local function apply_touch_menu_footer()
     function TouchMenu:paintTo(bb, x, y)
         if hatching_enabled() then
             local menu_bottom = y + self.dimen.h
-            Hatching.paint(bb, 0, menu_bottom, self.screen_size.w, self.screen_size.h - menu_bottom)
+            local ReaderUI = package.loaded["apps/reader/readerui"]
+            local reader_config = ReaderUI and ReaderUI.instance and ReaderUI.instance.config
+            local bottom_menu = reader_config and reader_config.config_dialog
+            local bottom = bottom_menu and bottom_menu[1]
+            local hatch_bottom = bottom and bottom:contentRange().y or self.screen_size.h
+            Hatching.paint(bb, 0, menu_bottom, self.screen_size.w, hatch_bottom - menu_bottom)
         end
         return orig_paintTo(self, bb, x, y)
     end

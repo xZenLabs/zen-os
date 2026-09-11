@@ -5,6 +5,7 @@ describe("TouchMenu footer", function()
     local original_modules
     local original_plugin
     local module_names = {
+        "apps/reader/readerui",
         "common/plugin_root",
         "common/ui/hatching",
         "common/utils",
@@ -122,6 +123,19 @@ describe("TouchMenu footer", function()
         assert.are.equal("painted", result)
         assert.are.same({ "hatch", "menu" }, paint_order)
         assert.are.same({ 0, 300, 600, 500, 2, "black", 0.4 }, hatch_args)
+
+        ZenSpec.replace("apps/reader/readerui", {
+            instance = { config = { config_dialog = {{
+                contentRange = function() return { y = 300 } end,
+            }} } },
+        })
+        hatch_args = nil
+        menu:paintTo({
+            hatchRect = function(_self, ...)
+                hatch_args = { ... }
+            end,
+        }, 0, 0)
+        assert.is_nil(hatch_args)
 
         _G.__ZEN_UI_PLUGIN.config.quick_settings.background_hatching = false
         paint_order = {}
