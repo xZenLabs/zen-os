@@ -318,7 +318,7 @@ function BookInfoWidget:init()
     if show_description then
         self._description_widget = ScrollTextWidget:new{
             text = self.description ~= "" and self.description or _("No description."),
-            face = self._text_face,
+            face = self._text_faces.description or self._text_face,
             fgcolor = Blitbuffer.COLOR_BLACK,
             width = self._L.description_w,
             height = self._L.description_h,

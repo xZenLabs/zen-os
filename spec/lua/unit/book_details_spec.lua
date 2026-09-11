@@ -51,6 +51,7 @@ describe("reader book details", function()
         })
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
             getFace = function(size) return { name = "LibraryFont", size = size } end,
+            getBaseSize = function() return 24 end,
         })
         ZenSpec.replace("common/reader_font", {
             getInfo = function() return { size = 21 } end,
@@ -176,6 +177,7 @@ describe("reader book details", function()
         assert.are.equal(19, spec.text_faces.tags.size)
         assert.are.equal(19, spec.text_faces.page.size)
         assert.are.equal(19, spec.text_faces.secondary.size)
+        assert.are.equal(24, spec.text_faces.description.size)
         assert.are.equal(0, #queried_fields)
     end)
 

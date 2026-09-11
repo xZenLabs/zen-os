@@ -301,10 +301,14 @@ describe("book details", function()
     end)
 
     it("does not render a description heading", function()
-        new_widget()
+        local widget = BookInfoWidget:new{
+            description = "Description",
+            text_faces = { description = { name = "library", size = 24 } },
+        }
 
         assert.are.equal(1, #text_specs)
         assert.are.equal("Book details", text_specs[1].text)
+        assert.are.equal(24, widget._description_widget.face.size)
     end)
 
     it("uses the full metadata row before truncating with ellipses", function()

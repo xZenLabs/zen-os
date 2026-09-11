@@ -438,6 +438,7 @@ function M.buildSpec(ui, opts)
         tags = metadata_face,
         page = metadata_face,
         secondary = metadata_face,
+        description = LibraryFont.getFace(LibraryFont.getBaseSize()),
     }
 
     local cover_bb, cover_w, cover_h, cover_kind
