@@ -2301,7 +2301,7 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
     return provider
 end
 
-local function compute_row_heights(rows, body_h, row_gap, capacity, width, modules, config, data)
+local function compute_row_heights(rows, body_h, row_gap, capacity, width, modules, config, data, page_pad)
     local specs = {}
     local row_count = #rows
     local unit_counts = Registry.layoutUnits and Registry.layoutUnits(rows, capacity) or {}
@@ -2323,6 +2323,44 @@ local function compute_row_heights(rows, body_h, row_gap, capacity, width, modul
                 row_count = row_count,
             })
             if ok and tonumber(preferred) then max_heights[i] = preferred end
+        end
+    end
+    -- When every row can say how tall it wants to be, plan the frames so the
+    -- white space between the widgets' content can come out equal instead of
+    -- pouring the leftover into one row (see Registry.planRowHeights). The
+    -- visual pass below still places the content within those frames.
+    if type(Registry.planRowHeights) == "function" and row_count >= 2 then
+        local plan_rows = {}
+        local pitch = (body_h + row_gap) / math.max(1, capacity)
+        for i, comp in ipairs(rows) do
+            local cap = max_heights[i]
+            if not cap then plan_rows = nil; break end
+            local top, bottom = 0, 0
+            if type(comp.preferredInsets) == "function" then
+                local ok, t, b = pcall(comp.preferredInsets, {
+                    width = width,
+                    module_cfg = modules[comp.id],
+                    config = config,
+                    data = data,
+                })
+                if ok then top, bottom = tonumber(t) or 0, tonumber(b) or 0 end
+            end
+            local min_units = type(Registry.minLayoutUnits) == "function"
+                and Registry.minLayoutUnits(comp) or 1
+            plan_rows[i] = {
+                cap = cap,
+                top = top,
+                bottom = bottom,
+                elastic = comp.elastic == true,
+                min_h = math.floor(min_units * pitch - row_gap),
+            }
+        end
+        local plan = plan_rows and Registry.planRowHeights(plan_rows, body_h, row_gap, page_pad)
+        if plan then
+            for i, height in ipairs(plan.heights) do
+                specs[i] = { units = unit_counts[i], h = height }
+            end
+            return specs
         end
     end
     if row_count >= 3 then
@@ -2819,7 +2857,7 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
         and math.max(0, math.floor((layout_h - capacity) / (capacity - 1))) or 0
     local row_gap = math.min(standard_gap, max_grid_gap)
     local row_heights = compute_row_heights(
-        rows, layout_h, row_gap, capacity, content_w, dcfg.modules, dcfg, data_provider)
+        rows, layout_h, row_gap, capacity, content_w, dcfg.modules, dcfg, data_provider, page_pad)
     menu._zen_home_page_padding = page_pad
     menu._zen_home_row_gap = row_gap
     menu._zen_home_capacity_units = capacity

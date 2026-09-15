@@ -166,11 +166,22 @@ local function preferred_height(ctx)
     return math.max(20, content_h + 12 + border_size * 2)
 end
 
+-- Blank space above and below the reported content box at the preferred
+-- height (content_h + 12): the centered metrics leave 6 px on each side; the
+-- outline style reports the whole card.
+local function preferred_insets(ctx)
+    local module_cfg = type(ctx) == "table" and type(ctx.module_cfg) == "table"
+        and ctx.module_cfg or {}
+    if module_cfg.stat_style == "outline" then return 0, 0 end
+    return 6, 6
+end
+
 return {
     id = "stats_triplet",
     label = _("Reading stats"),
     size = "xs",
     preferredHeight = preferred_height,
+    preferredInsets = preferred_insets,
     build = function(ctx)
         local outer_width = ctx.width
         local height = ctx.height

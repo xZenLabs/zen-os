@@ -128,6 +128,19 @@ local function strip_layout_metrics(outer_width, module_cfg)
     }
 end
 
+-- Blank space above and below the content box the strip reports through
+-- setContentBounds() when it is laid out at its preferred height: with
+-- controls, the box starts at the controls; without, at the first cover row.
+function M.preferred_insets(outer_width, module_cfg)
+    local metrics = strip_layout_metrics(outer_width, module_cfg)
+    if metrics.controls_enabled then
+        return metrics.controls_top_gap,
+            metrics.vertical_padding * 2 + metrics.row_top_pad + metrics.row_bottom_pad
+    end
+    return metrics.vertical_padding + metrics.row_top_pad,
+        metrics.vertical_padding + metrics.row_bottom_pad
+end
+
 function M.preferred_height(outer_width, module_cfg)
     local metrics = strip_layout_metrics(outer_width, module_cfg)
     local Screen = Device.screen
