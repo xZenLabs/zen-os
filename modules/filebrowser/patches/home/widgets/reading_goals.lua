@@ -179,10 +179,47 @@ local function show_goals_summary(rows)
     UIManager:show(dialog)
 end
 
+local VALID_PERIODS = { daily = true, weekly = true, monthly = true, yearly = true }
+
+local function configured_periods(goals)
+    local periods, seen = {}, {}
+    for _i, period in ipairs(type(goals.periods) == "table" and goals.periods or {}) do
+        if VALID_PERIODS[period] and not seen[period] then
+            periods[#periods + 1] = period
+            seen[period] = true
+        end
+    end
+    if #periods == 0 then periods[1] = goals.period == "weekly" and "weekly" or "daily" end
+    return periods
+end
+
+-- Height of the goal rows at the configured font size, as build() lays them
+-- out: one text line per goal with a bar-high span between them. The font
+-- never depends on the row height, so this is exact (build() may still pick
+-- a smaller font when the labels do not fit the width).
+local function preferred_height(ctx)
+    ctx = type(ctx) == "table" and ctx or {}
+    local module_cfg = type(ctx.module_cfg) == "table" and ctx.module_cfg or {}
+    local config = type(ctx.config) == "table" and ctx.config or {}
+    local goals = type(config.goals) == "table" and config.goals or {}
+    local rows = #configured_periods(goals)
+    local font_size = tonumber(module_cfg.font_size) or DEFAULT_FONT_SIZE
+    font_size = math.max(6, math.min(32, font_size))
+    local probe = TextWidget:new{
+        text = "A",
+        face = Font:getFace("smallinfofont", Screen:scaleBySize(font_size)),
+    }
+    local line_h = probe:getSize().h or math.max(10, Screen:scaleBySize(font_size))
+    WidgetResources.free(probe)
+    local bar_h = math.max(6, math.min(12, math.floor(line_h * 0.65)))
+    return rows * line_h + (rows - 1) * bar_h
+end
+
 return {
     id = "reading_goals",
     label = _("Reading goals"),
     size = "xs",
+    preferredHeight = preferred_height,
     build = function(ctx)
         local width = ctx.width
         local height = ctx.height
@@ -190,15 +227,7 @@ return {
         local goals = ctx.config.goals or {}
         local legacy_metric = goals.metric == "time" and "time" or "pages"
         local metrics = type(goals.metrics) == "table" and goals.metrics or {}
-        local valid_periods = { daily = true, weekly = true, monthly = true, yearly = true }
-        local periods, seen = {}, {}
-        for _i, period in ipairs(type(goals.periods) == "table" and goals.periods or {}) do
-            if valid_periods[period] and not seen[period] then
-                periods[#periods + 1] = period
-                seen[period] = true
-            end
-        end
-        if #periods == 0 then periods[1] = goals.period == "weekly" and "weekly" or "daily" end
+        local periods = configured_periods(goals)
         local daily_pages_target = tonumber(goals.daily_pages_target) or 30
         if daily_pages_target < 1 then daily_pages_target = 1 end
         local weekly_pages_target = tonumber(goals.weekly_pages_target) or 210

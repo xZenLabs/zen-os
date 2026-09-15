@@ -294,6 +294,171 @@ function M.gridHeights(unit_counts, body_h, gap, capacity, max_heights)
     return heights
 end
 
+function M.minLayoutUnits(component)
+    local id = type(component) == "table" and component.id or component
+    return MIN_LAYOUT_UNITS[id] or 1
+end
+
+-- Plan row heights so that the white space between the widgets' content
+-- boxes can be equal, with the top and bottom margins mirroring each other
+-- (the rule equalSpacingShifts() then enforces). gridHeights() sizes rows
+-- from the unit grid and hands all leftover height to one flexible row;
+-- equalSpacingShifts() can only move content inside its own row afterwards,
+-- so that leftover shows up as one oversized gap. This plans the frames from
+-- what each widget needs instead:
+--   rows[i].cap       preferred height (content plus the widget's own padding)
+--   rows[i].top       padding above the content inside the preferred height
+--   rows[i].bottom    padding below the content inside the preferred height
+--   rows[i].elastic   true when the widget renders at any height up to its
+--                     preferred one (Featured scales its cover); such a row
+--                     gives height up when the rigid rows and the white space
+--                     need it, and takes spare height when it can use it
+--   rows[i].min_h     smallest height an elastic row may be squeezed to
+-- Returns { heights = {...}, content_top = {...}, gap = G, margin_top = M1,
+-- margin_bottom = M2 } -- content_top is where each content box sits inside
+-- its row when the inner gaps are G and the margins M1/M2 -- or nil when the
+-- rows cannot be planned (the caller then keeps gridHeights()).
+function M.planRowHeights(rows, body_h, gap, page_pad)
+    local n = type(rows) == "table" and #rows or 0
+    if n < 2 then return nil end
+    gap = math.max(0, math.floor(tonumber(gap) or 0))
+    page_pad = math.max(0, math.floor(tonumber(page_pad) or 0))
+    body_h = math.max(1, math.floor(tonumber(body_h) or 1))
+    local full_h = body_h + page_pad * 2
+
+    local caps, pt, pb, est, elastic, min_h = {}, {}, {}, {}, {}, {}
+    local any_elastic = false
+    local rigid_est, elastic_caps, natural, minimum = 0, 0, 0, 0
+    for i, row in ipairs(rows) do
+        local cap = math.floor(tonumber(row.cap) or 0)
+        if cap < 1 then return nil end
+        pt[i] = math.max(0, math.floor(tonumber(row.top) or 0))
+        pb[i] = math.max(0, math.floor(tonumber(row.bottom) or 0))
+        caps[i] = cap
+        est[i] = math.max(1, cap - pt[i] - pb[i])
+        elastic[i] = row.elastic == true
+        min_h[i] = math.max(1, math.floor(tonumber(row.min_h) or 1))
+        if elastic[i] then
+            any_elastic = true
+            elastic_caps = elastic_caps + cap
+            natural = natural + est[i]
+            minimum = minimum + math.max(1, min_h[i] - pt[i] - pb[i])
+        else
+            rigid_est = rigid_est + est[i]
+        end
+    end
+
+    -- A squeezed elastic row fills its frame, so its content sits exactly at
+    -- its own padding: a boundary next to it can only be adjusted from the
+    -- other side, and a margin next to it is fixed at page_pad plus that
+    -- padding. Spare height, when there is any, goes to an elastic row the
+    -- visual pass can still move (not the first row, which it keeps fixed);
+    -- otherwise it widens the inner gaps.
+    local function fills(i) return elastic[i] end
+    local top_fixed = fills(1) and (page_pad + pt[1]) or nil
+    local bottom_fixed = fills(n) and (pb[n] + page_pad) or nil
+    local margin_floor = math.max(page_pad + pt[1], pb[n] + page_pad)
+    local g_min, fixed_inner, free_inner = gap, 0, 0
+    for i = 1, n - 1 do
+        if fills(i) and fills(i + 1) then
+            fixed_inner = fixed_inner + pb[i] + gap + pt[i + 1]
+        else
+            free_inner = free_inner + 1
+            g_min = math.max(g_min, pb[i] + gap + pt[i + 1])
+        end
+    end
+
+    local G, M1, M2
+    if not any_elastic then
+        -- Nothing can grow or shrink: space evenly, margins and inner gaps
+        -- all the same, if the rows fit at full size with that much room.
+        G = math.floor((full_h - rigid_est) / (n + 1))
+        if G < math.max(g_min, margin_floor) then return nil end
+        M1, M2 = G, G
+    else
+        -- White space stays at what the paddings need; the elastic rows take
+        -- what is left (growing into it, or shrinking to make room).
+        G = g_min
+        local mirror = top_fixed or bottom_fixed or math.max(margin_floor, G)
+        M1 = top_fixed or math.max(mirror, page_pad + pt[1])
+        M2 = bottom_fixed or math.max(mirror, pb[n] + page_pad)
+        local budget = full_h - M1 - M2 - fixed_inner - free_inner * G - rigid_est
+        if budget < minimum then return nil end
+        local surplus = math.max(0, budget - natural)
+        local sink_caps = 0
+        for i = 2, n do if elastic[i] then sink_caps = sink_caps + caps[i] end end
+        if surplus > 0 and sink_caps == 0 then
+            -- Only the first row could take it: widen the inner gaps instead.
+            if free_inner == 0 then return nil end
+            local widen = math.floor(surplus / free_inner)
+            G = G + widen
+            budget = budget - widen * free_inner
+            surplus = math.max(0, budget - natural)
+        end
+        local function share(total, weight_of, is_sink)
+            local assigned, last = 0, nil
+            for i = 1, n do if is_sink(i) then last = i end end
+            for i = 1, n do
+                if is_sink(i) then
+                    local e = i == last and (total - assigned) or math.floor(total * weight_of(i))
+                    assigned = assigned + e
+                    est[i] = est[i] + e
+                end
+            end
+        end
+        if surplus > 0 then
+            -- Grow: natural sizes plus the spare height on the movable rows.
+            share(surplus, function(i) return caps[i] / sink_caps end,
+                function(i) return elastic[i] and i > 1 end)
+        else
+            -- Shrink: the elastic rows split what is left by preferred height.
+            for i = 1, n do if elastic[i] then est[i] = 0 end end
+            share(budget, function(i) return caps[i] / elastic_caps end,
+                function(i) return elastic[i] end)
+        end
+    end
+
+    -- Blank space around each content box: margins take M - page_pad, each
+    -- inner boundary shares G - gap, never below the structural paddings.
+    local a, b = {}, {}
+    a[1] = fills(1) and pt[1] or (M1 - page_pad)
+    b[n] = fills(n) and pb[n] or (M2 - page_pad)
+    for i = 1, n - 1 do
+        if fills(i) and fills(i + 1) then
+            b[i], a[i + 1] = pb[i], pt[i + 1]
+        elseif fills(i) then
+            b[i] = pb[i]
+            a[i + 1] = G - gap - pb[i]
+        elseif fills(i + 1) then
+            a[i + 1] = pt[i + 1]
+            b[i] = G - gap - pt[i + 1]
+        else
+            local extra = (G - gap) - pb[i] - pt[i + 1]
+            b[i] = pb[i] + math.floor(extra / 2)
+            a[i + 1] = pt[i + 1] + extra - math.floor(extra / 2)
+        end
+        if b[i] < pb[i] or a[i + 1] < pt[i + 1] then return nil end
+    end
+    if a[1] < pt[1] or b[n] < pb[n] then return nil end
+
+    local heights = {}
+    local used = gap * (n - 1)
+    for i = 1, n do
+        heights[i] = a[i] + est[i] + b[i]
+        used = used + heights[i]
+    end
+    -- Rounding remainder: an elastic row absorbs it, else the bottom margin.
+    local rem = body_h - used
+    if rem ~= 0 then
+        local target
+        for i = 1, n do if elastic[i] then target = i; break end end
+        if not target then target = n; b[n] = b[n] + rem end
+        heights[target] = heights[target] + rem
+        if heights[target] < 1 then return nil end
+    end
+    return { heights = heights, content_top = a, gap = G, margin_top = M1, margin_bottom = M2 }
+end
+
 function M.equalSpacingShifts(items, options)
     local count = #(items or {})
     if count < 2 then return {} end

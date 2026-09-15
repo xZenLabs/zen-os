@@ -273,6 +273,125 @@ describe("home component registry", function()
             { 4, 3 }, 1000, 10, 10))
     end)
 
+    it("widens the inner gaps when only the fixed first row could take the leftover", function()
+        local Registry = require("modules/filebrowser/patches/home/components/registry")
+        -- Featured (elastic, first) cannot be moved by the visual pass, so it
+        -- stays at its preferred height and the leftover becomes equal inner
+        -- white space; both margins are page_pad + its own padding.
+        local plan = Registry.planRowHeights({
+            { cap = 576, top = 23, bottom = 27, elastic = true, min_h = 300 },
+            { cap = 70, top = 6, bottom = 6 },
+            { cap = 99, top = 0, bottom = 0 },
+        }, 1554, 15, 8)
+
+        assert.is_table(plan)
+        assert.are.equal(1554, plan.heights[1] + plan.heights[2] + plan.heights[3] + 30)
+        assert.are.equal(8 + 23, plan.margin_top)
+        assert.are.equal(8 + 23, plan.margin_bottom)
+        assert.is_true(math.abs(plan.heights[1] - 576) <= 1) -- rounding remainder
+        assert.is_true(plan.gap > 27 + 15 + 6)
+        local content = { 526, 58, 99 }
+        local whites = { 8 + plan.content_top[1] }
+        local y = 8
+        for i = 1, 3 do
+            local bottom = y + plan.content_top[i] + content[i]
+            if i < 3 then
+                whites[#whites + 1] = y + plan.heights[i] + 15 + plan.content_top[i + 1] - bottom
+            else
+                whites[#whites + 1] = 1554 + 16 - bottom
+            end
+            y = y + plan.heights[i] + 15
+        end
+        assert.are.equal(31, whites[1])
+        assert.is_true(math.abs(whites[2] - whites[3]) <= 1, table.concat(whites, ","))
+        assert.is_true(math.abs(whites[4] - 31) <= 1)
+    end)
+
+    it("gives the leftover to a movable elastic row", function()
+        local Registry = require("modules/filebrowser/patches/home/components/registry")
+        -- Datetime / Featured / Stats: Featured is the middle row, which the
+        -- visual pass can slide, so it absorbs the spare height.
+        local plan = Registry.planRowHeights({
+            { cap = 60, top = 0, bottom = 0 },
+            { cap = 369, top = 12, bottom = 15, elastic = true, min_h = 150 },
+            { cap = 44, top = 6, bottom = 6 },
+        }, 700, 10, 4)
+
+        assert.is_table(plan)
+        assert.are.equal(700, plan.heights[1] + plan.heights[2] + plan.heights[3] + 20)
+        assert.is_true(plan.heights[2] > 369)
+        assert.is_true(plan.heights[2] > plan.heights[3] * 6)
+        assert.are.equal(plan.margin_top, plan.margin_bottom)
+    end)
+
+    it("squeezes only the elastic row when the preferred heights do not fit", function()
+        local Registry = require("modules/filebrowser/patches/home/components/registry")
+        -- A Featured cover that wants 755 px on a 1554 px body next to a strip
+        -- with 34 px above its controls: rigid rows keep their height, the
+        -- strip's padding sets the equal gap, Featured absorbs the rest.
+        local plan = Registry.planRowHeights({
+            { cap = 755, top = 23, bottom = 27, elastic = true, min_h = 350 },
+            { cap = 70, top = 6, bottom = 6 },
+            { cap = 99, top = 0, bottom = 0 },
+            { cap = 625, top = 34, bottom = 32 },
+        }, 1554, 15, 8)
+
+        assert.is_table(plan)
+        assert.are.equal(1554, plan.heights[1] + plan.heights[2] + plan.heights[3] + plan.heights[4] + 45)
+        assert.is_true(plan.heights[2] >= 70)
+        assert.is_true(plan.heights[3] >= 99)
+        assert.is_true(plan.heights[4] >= 625)
+        assert.is_true(plan.heights[1] < 755 and plan.heights[1] >= 350)
+        assert.are.equal(34 + 15, plan.gap)
+        -- the squeezed Featured fills its frame, so the top margin is fixed at
+        -- page_pad + its own padding; the bottom margin mirrors it but never
+        -- drops below what the strip's own padding needs; inner gaps are equal
+        assert.are.equal(23, plan.content_top[1])
+        assert.are.equal(8 + 23, plan.margin_top)
+        assert.are.equal(32 + 8, plan.margin_bottom)
+        local content = { plan.heights[1] - 50, 58, 99, 625 - 66 }
+        local y = 8
+        for i = 1, 3 do
+            local bottom = y + plan.content_top[i] + content[i]
+            local white = y + plan.heights[i] + 15 + plan.content_top[i + 1] - bottom
+            assert.is_true(math.abs(white - plan.gap) <= 1, "gap " .. i .. " = " .. white)
+            y = y + plan.heights[i] + 15
+        end
+        local bottom_margin = 1554 + 16 - (y + plan.content_top[4] + content[4])
+        assert.is_true(math.abs(bottom_margin - plan.margin_bottom) <= 1, "bottom margin " .. bottom_margin)
+    end)
+
+    it("spaces rows evenly when nothing can grow", function()
+        local Registry = require("modules/filebrowser/patches/home/components/registry")
+        local plan = Registry.planRowHeights({
+            { cap = 200, top = 0, bottom = 0 },
+            { cap = 70, top = 6, bottom = 6 },
+            { cap = 99, top = 0, bottom = 0 },
+        }, 1000, 10, 8)
+        assert.is_table(plan)
+        assert.are.equal(1000, plan.heights[1] + plan.heights[2] + plan.heights[3] + 20)
+        assert.are.equal(plan.gap, plan.margin_top)
+        assert.are.equal(plan.gap, plan.margin_bottom)
+        assert.are.equal(math.floor((1016 - 200 - 58 - 99) / 4), plan.gap)
+    end)
+
+    it("declines to plan rows it cannot place", function()
+        local Registry = require("modules/filebrowser/patches/home/components/registry")
+        assert.is_nil(Registry.planRowHeights({ { cap = 100 } }, 1000, 10, 8))
+        -- rigid rows that overflow the body and no elastic row to give way
+        assert.is_nil(Registry.planRowHeights({
+            { cap = 800, top = 0, bottom = 0 },
+            { cap = 800, top = 0, bottom = 0 },
+        }, 1000, 10, 8))
+        -- the elastic row would have to shrink below its minimum
+        assert.is_nil(Registry.planRowHeights({
+            { cap = 900, top = 0, bottom = 0, elastic = true, min_h = 850 },
+            { cap = 700, top = 0, bottom = 0 },
+        }, 1000, 10, 8))
+        assert.are.equal(2, Registry.minLayoutUnits({ id = "featured" }))
+        assert.are.equal(1, Registry.minLayoutUnits({ id = "weather" }))
+    end)
+
     it("equalizes visible gaps within each widget's available slack", function()
         local Registry = require("modules/filebrowser/patches/home/components/registry")
         local items = {

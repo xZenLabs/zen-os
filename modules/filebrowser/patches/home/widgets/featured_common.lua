@@ -54,6 +54,18 @@ function M.preferred_height(outer_width, module_cfg, data)
     return padding * 2 + base_h + bottom_pad
 end
 
+-- Blank space above and below the content box reported through
+-- setContentBounds(): the outer padding plus the column paddings of build().
+function M.preferred_insets(outer_width, module_cfg, data)
+    local Screen = Device.screen
+    local padding = Screen:scaleBySize(8)
+    local col_top_pad = math.max(1, Screen:scaleBySize(4))
+    local preferred = M.preferred_height(outer_width, module_cfg, data)
+    local height = math.max(1, (tonumber(preferred) or padding * 2 + 1) - padding * 2)
+    local col_bottom_pad = math.max(3, math.floor(height * 0.02))
+    return padding + col_top_pad, padding + col_bottom_pad
+end
+
 local function time_unit(unit)
     if type(_) == "table" and type(_.pgettext) == "function" then
         return _.pgettext("Time", unit)
