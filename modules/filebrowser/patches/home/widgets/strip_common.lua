@@ -227,6 +227,53 @@ end
 
 -- Wraps a cover FrameContainer paintTo to draw library-style decorations.
 -- Metadata and collection state must be resolved before this paint path.
+-- Page dots under the covers, drawn inside the strip's own bottom padding so
+-- the row keeps the same height on every source and the Home layout never
+-- changes when the strip pages or switches source. Shown only when the
+-- source has more than one page; module_cfg.show_page_indicator = false
+-- turns them off. The strip's page buttons and swipes page as before.
+-- HOME_STRIP_MAX_BOOKS (40) at the smallest page size (2, two rows) is 20 pages.
+local MAX_PAGE_DOTS = 20
+
+local function page_info_for(ctx, module_cfg, source, count)
+    local data = type(ctx) == "table" and ctx.data or nil
+    if module_cfg.show_page_indicator == false or type(data) ~= "table"
+            or type(data.getStripPageInfo) ~= "function" or type(source) ~= "table" then
+        return nil
+    end
+    local ok, info = pcall(data.getStripPageInfo, data, source, count,
+        module_cfg.order or "default", ctx.component_id or "strip", 0)
+    if ok and type(info) == "table" and (tonumber(info.total_pages) or 1) > 1 then
+        return info
+    end
+    return nil
+end
+
+-- (x, top): screen position of the left edge / the covers' bottom; limit is
+-- the bottom of the strip frame. Draws nothing when the padding has no room.
+local function paint_page_dots(bb, x, top, limit, width, info)
+    local Screen = Device.screen
+    local pages = math.min(MAX_PAGE_DOTS, math.max(1, math.floor(tonumber(info.total_pages) or 1)))
+    local current = math.max(1, math.min(pages, math.floor(tonumber(info.current_page) or 1)))
+    local diam = math.max(4, Screen:scaleBySize(6))
+    local gap = diam
+    local pad = math.max(2, Screen:scaleBySize(2))
+    if pages * diam + (pages - 1) * gap > width * 0.6 then
+        gap = math.max(2, math.floor((width * 0.6 - pages * diam) / math.max(1, pages - 1)))
+    end
+    -- Sit just under the covers; if the visual pass pushed the covers down
+    -- into the padding, stay inside the frame rather than disappear.
+    local y = math.min(top + pad, limit - diam)
+    if y < top then return end
+    local total_w = pages * diam + (pages - 1) * gap
+    local r = math.floor(diam / 2)
+    local start_x = x + math.floor((width - total_w) / 2) + r
+    for i = 1, pages do
+        local color = i == current and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_DARK_GRAY
+        paintCircle(bb, start_x + (i - 1) * (diam + gap), y + r, r, color)
+    end
+end
+
 local function apply_strip_cover_decorations(frame, book, config, show_badges)
     local orig_paintTo = frame.paintTo
     if type(orig_paintTo) ~= "function" then return end
@@ -523,6 +570,10 @@ function M.build_strip(ctx, source_key)
     local cover_row_width = math.max(1, width - cover_common.BORDER_SIZE * 2)
     local per_row = metrics.per_row
     local count = metrics.count
+    -- Page dots state for the page currently shown. Refreshed whenever the
+    -- strip pages (refresh_strip runs after the offset moved), so it does not
+    -- depend on when a cached page frame happens to be built.
+    local dots_info = page_info_for(ctx, module_cfg, source, count)
     local wants_strip_titles = module_cfg.show_strip_titles == true
     local show_badges = module_cfg.show_badges == true
     local strip_config = type(ctx.zen_config) == "table" and ctx.zen_config
@@ -1196,6 +1247,16 @@ function M.build_strip(ctx, source_key)
             content_container,
         },
     }
+    if not sparse_two_rows then
+        local original_frame_paint = frame.paintTo
+        frame.paintTo = function(self, bb, x, y)
+            original_frame_paint(self, bb, x, y)
+            if dots_info then
+                paint_page_dots(bb, x, y + visual_bottom + content_base_shift + visual_shift,
+                    y + outer_height, outer_width, dots_info)
+            end
+        end
+    end
 
     logger.perf("strip frame built", (os.clock() - started_at) * 1000,
         "component=", ctx.component_id or source,
@@ -1562,6 +1623,7 @@ function M.build_strip(ctx, source_key)
         end
         activate_entry(replacement)
         free_entry(evicted)
+        dots_info = page_info_for(ctx, module_cfg, source, count)
 
         swap_sequence = swap_sequence + 1
         local swapped_at = os.clock()

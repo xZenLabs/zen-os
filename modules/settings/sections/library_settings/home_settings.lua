@@ -197,6 +197,7 @@ local function ensure_strip_cfg(dcfg)
     end
     if mcfg.show_strip_titles == nil then mcfg.show_strip_titles = false end
     if mcfg.show_badges == nil then mcfg.show_badges = false end
+    if mcfg.show_page_indicator == nil then mcfg.show_page_indicator = true end
     if mcfg.center_books == nil then mcfg.center_books = false end
     if type(mcfg.controls) ~= "table" then mcfg.controls = {} end
     if type(mcfg.controls.text_style) ~= "table" then
@@ -1813,6 +1814,14 @@ function M.build(ctx)
                 checked_func = function() return mcfg.show_badges == true end,
                 callback = function()
                     mcfg.show_badges = mcfg.show_badges ~= true
+                    save_home("reinit")
+                end,
+            },
+            {
+                text = _("Show page dots"),
+                checked_func = function() return mcfg.show_page_indicator ~= false end,
+                callback = function()
+                    mcfg.show_page_indicator = mcfg.show_page_indicator == false
                     save_home("reinit")
                 end,
             },
