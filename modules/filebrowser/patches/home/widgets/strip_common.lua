@@ -101,6 +101,16 @@ local function strip_layout_metrics(outer_width, module_cfg)
         title_gap = math.max(1, Screen:scaleBySize(2))
     end
     local row_gap = two_rows and math.max(3, Screen:scaleBySize(10)) or 0
+    -- Page dots band under the covers. Reserved whenever the indicator is
+    -- enabled (whether or not the current source has more than one page), so
+    -- the row keeps one height on every source and the dots always have room.
+    -- Dot size and spacing are the Library pager's "dots" style
+    -- (common/ui/zen_pager DOT_DIAM / DOT_GAP), so both indicators look alike.
+    local show_page_dots = module_cfg.show_page_indicator ~= false
+    local dot_diam = show_page_dots and math.max(6, Screen:scaleBySize(10)) or 0
+    local dot_gap = show_page_dots and math.max(6, Screen:scaleBySize(12)) or 0
+    local dot_gap_above = show_page_dots and math.max(4, Screen:scaleBySize(6)) or 0
+    local dot_gap_below = show_page_dots and math.max(2, Screen:scaleBySize(2)) or 0
     local screen_w = tonumber(Screen:getWidth()) or outer_width
     local screen_h = tonumber(Screen:getHeight()) or outer_width
     local short_side = math.max(1, math.min(screen_w, screen_h))
@@ -125,6 +135,10 @@ local function strip_layout_metrics(outer_width, module_cfg)
         title_h = title_h,
         title_gap = title_gap,
         phone_shaped = phone_shaped,
+        dot_diam = dot_diam,
+        dot_gap = dot_gap,
+        dot_gap_above = dot_gap_above,
+        dots_h = dot_gap_above + dot_diam + dot_gap_below,
     }
 end
 
@@ -142,6 +156,7 @@ function M.preferred_height(outer_width, module_cfg)
         + metrics.rows * (cover_h + metrics.title_gap + metrics.title_h)
         + math.max(0, metrics.rows - 1)
             * (metrics.row_gap + metrics.row_inner_bottom_pad)
+        + metrics.dots_h
 end
 
 local function set_opening_banner_cover(cover)
@@ -209,6 +224,71 @@ local function paintPill(bb, bx, by, bw, bh, color)
         local x1 = math.floor(bx + bw - r + dx)
         local w  = x1 - x0
         if w > 0 then bb:paintRectRGB32(x0, by + row, w, 1, color) end
+    end
+end
+
+-- Page dots under the covers: one dot per page, the current page black, the
+-- others dark gray — the Library pager's "dots" style. The strip reserves a
+-- band for them below the covers (metrics.dots_h) as soon as the indicator
+-- is enabled, so the row keeps one height on every source and the dots
+-- always have room; they are painted only when the source has more than one
+-- page, and are then part of the strip's reported content bounds so Home's
+-- spacing pass measures the gap below the strip from the dots, not from the
+-- covers. module_cfg.show_page_indicator = false drops the band. The strip's
+-- page buttons and swipes page as before.
+-- HOME_STRIP_MAX_BOOKS (40) at the smallest page size (2, two rows) is 20 pages.
+-- common/ui/zen_pager is not required from here: it sizes itself with Screen
+-- and loads icons at module load, which the widget specs cannot host. Its
+-- dot constants and pill formula are mirrored instead (paint_dot below).
+local MAX_PAGE_DOTS = 20
+
+local function page_info_for(ctx, module_cfg, source, count)
+    local data = type(ctx) == "table" and ctx.data or nil
+    if module_cfg.show_page_indicator == false or type(data) ~= "table"
+            or type(data.getStripPageInfo) ~= "function" or type(source) ~= "table" then
+        return nil
+    end
+    local ok, info = pcall(data.getStripPageInfo, data, source, count,
+        module_cfg.order or "default", ctx.component_id or "strip", 0)
+    if ok and type(info) == "table" and (tonumber(info.total_pages) or 1) > 1 then
+        return info
+    end
+    return nil
+end
+
+-- One filled dot, scanline-painted exactly like zen_pager.paintPill does for
+-- a square, so a strip dot and a Library dot are the same pixels.
+local function paint_dot(bb, px, py, d, color)
+    local r = d / 2
+    for row = 0, d - 1 do
+        local dy = (row + 0.5) - r
+        local inset = 0
+        if math.abs(dy) < r then
+            inset = math.ceil(r - math.sqrt(r * r - dy * dy))
+        end
+        local rw = d - 2 * inset
+        if rw > 0 then bb:paintRect(px + inset, py + row, rw, 1, color) end
+    end
+end
+
+-- (x, y): screen position of the strip's left edge / the top of the dots
+-- (metrics.dot_gap_above under the covers). Same layout rule as zen_pager's
+-- "dots" style: fixed step, shrunk only when the row is too narrow.
+local function paint_page_dots(bb, x, y, width, diam, gap, info)
+    local pages = math.min(MAX_PAGE_DOTS, math.max(1, math.floor(tonumber(info.total_pages) or 1)))
+    local current = math.max(1, math.min(pages, math.floor(tonumber(info.current_page) or 1)))
+    local step = diam + gap
+    local dot_d = diam
+    if step * pages - gap > width then
+        step = math.max(2, math.floor(width / pages))
+        dot_d = math.max(1, step - 1)
+    end
+    local dots_w = step * (pages - 1) + dot_d
+    local start_x = x + math.floor((width - dots_w) / 2)
+    local dot_y = y + math.floor((diam - dot_d) / 2)
+    for i = 1, pages do
+        local color = i == current and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_DARK_GRAY
+        paint_dot(bb, start_x + (i - 1) * step, dot_y, dot_d, color)
     end
 end
 
@@ -475,8 +555,11 @@ function M.build_strip(ctx, source_key)
     local controls_and_gap = controls_height + controls_gap
     local outer_height = math.max(1, total_outer_height - controls_and_gap)
     local width = metrics.width
+    -- The covers get the row minus the page dots band; the band stays below
+    -- them whether or not this source has dots to show.
+    local dots_h = metrics.dots_h
     local height = math.max(
-        1, outer_height - metrics.vertical_padding * 2 - controls_top_gap)
+        1, outer_height - metrics.vertical_padding * 2 - controls_top_gap - dots_h)
     local runtime = ctx.menu and ctx.menu._zen_home_strip_runtime
     local runtime_created = false
     local function default_source()
@@ -613,6 +696,12 @@ function M.build_strip(ctx, source_key)
         remember_strip_state()
     end
 
+    -- Page dots state for the source the strip settled on (after any repair
+    -- above) and the page currently shown. Refreshed whenever the strip pages
+    -- (refresh_strip runs after the offset moved), so it does not depend on
+    -- when a cached page frame happens to be built.
+    local dots_info = page_info_for(ctx, module_cfg, source, count)
+
     local active_group = source.drill and source.drill.label or nil
     if active_group == nil and source.kind == "tag" and runtime.active_id == "tags" then
         active_group = source.value
@@ -694,7 +783,11 @@ function M.build_strip(ctx, source_key)
         if page_delta ~= 0 then return base_shift, adjusted_top end
         controls_visual_top = adjusted_top
         if type(ctx.setContentBounds) == "function" then
-            local group_bottom = controls_and_gap + visual_bottom + base_shift
+            -- Painted dots belong to the content: Home's spacing pass then
+            -- measures the gap below the strip from the dots, and the shift
+            -- range keeps them inside the row.
+            local dots_ink_h = dots_info and (metrics.dot_gap_above + metrics.dot_diam) or 0
+            local group_bottom = controls_and_gap + visual_bottom + base_shift + dots_ink_h
             local locked_shift = tonumber(runtime._locked_visual_shift)
             if locked_shift then
                 local natural_max = total_outer_height - group_bottom
@@ -1160,7 +1253,11 @@ function M.build_strip(ctx, source_key)
         return original_content_paint(
             self, bb, x, y + content_base_shift + visual_shift)
     end
-    local outer_top = math.floor(math.max(0, outer_height - height) / 2)
+    -- The covers are centred in the row above the page dots band; the band
+    -- (metrics.dots_h, zero when the indicator is off) is the frame's own
+    -- bottom, so the dots never leave the row.
+    local cover_area_h = math.max(1, outer_height - dots_h)
+    local outer_top = math.floor(math.max(0, cover_area_h - height) / 2)
     local visible_bottom = row_top_pad + total_row_h
         + math.max(0, visible_rows - 1) * (row_gap + row_inner_bottom_pad)
     local visual_top = outer_top + inner_top + row_top_pad
@@ -1179,10 +1276,21 @@ function M.build_strip(ctx, source_key)
         bordersize = 0,
         background = Background.tile_bg(Blitbuffer.COLOR_WHITE),
         CenterContainer:new{
-            dimen = Geom:new{ w = outer_width, h = outer_height },
+            dimen = Geom:new{ w = outer_width, h = cover_area_h },
             content_container,
         },
     }
+    if dots_h > 0 then
+        local original_frame_paint = frame.paintTo
+        frame.paintTo = function(self, bb, x, y)
+            original_frame_paint(self, bb, x, y)
+            if dots_info then
+                paint_page_dots(bb, x,
+                    y + visual_bottom + content_base_shift + visual_shift + metrics.dot_gap_above,
+                    outer_width, metrics.dot_diam, metrics.dot_gap, dots_info)
+            end
+        end
+    end
 
     logger.perf("strip frame built", (os.clock() - started_at) * 1000,
         "component=", ctx.component_id or source,
@@ -1549,6 +1657,7 @@ function M.build_strip(ctx, source_key)
         end
         activate_entry(replacement)
         free_entry(evicted)
+        dots_info = page_info_for(ctx, module_cfg, source, count)
 
         swap_sequence = swap_sequence + 1
         local swapped_at = os.clock()

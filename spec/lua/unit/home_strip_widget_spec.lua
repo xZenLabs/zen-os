@@ -56,7 +56,7 @@ describe("home strip widget", function()
         ZenSpec.replace("common/ui/background", { tile_bg = function(color) return color end })
         ZenSpec.replace("ffi/blitbuffer", {
             COLOR_BLACK = "black", COLOR_WHITE = "white", COLOR_LIGHT_GRAY = "lightgray",
-            COLOR_GRAY_6 = "gray6",
+            COLOR_GRAY_6 = "gray6", COLOR_DARK_GRAY = "darkgray",
         })
         ZenSpec.replace("common/ui/corner_banner", { paint = function() end })
         ZenSpec.replace("ui/geometry", {
@@ -487,7 +487,8 @@ describe("home strip widget", function()
                 cover_heights[#cover_heights + 1] = widget.height
             end
         end
-        assert.are.same({ 160, 160, 160, 160, 160, 160, 160, 160 },
+        -- (400 - 48 controls - 18 controls gap - 18 page dots band - 14 row gaps) / 2
+        assert.are.same({ 151, 151, 151, 151, 151, 151, 151, 151 },
             cover_heights)
     end)
 
@@ -531,9 +532,9 @@ describe("home strip widget", function()
         local partial_covers, partial_gaps, partial_bounds = layout(3)
         local single_covers, single_gaps, single_bounds = layout(1)
 
-        assert.are.same({ 80, 160 }, full_covers[1])
-        assert.are.same({ 80, 160 }, partial_covers[1])
-        assert.are.same({ 80, 160 }, single_covers[1])
+        assert.are.same({ 80, 151 }, full_covers[1])
+        assert.are.same({ 80, 151 }, partial_covers[1])
+        assert.are.same({ 80, 151 }, single_covers[1])
         assert.are.same({ full_gaps[1], full_gaps[2] }, partial_gaps)
         assert.are.same({}, single_gaps)
         assert.are.equal(full_bounds.top, partial_bounds.top)
@@ -618,7 +619,8 @@ describe("home strip widget", function()
                     and widget.height == 30 and widget.bordersize == 2 then
                 controls_width = widget.width
             elseif widget.kind == "ui/widget/container/leftcontainer"
-                    and widget.dimen.w == 580 and widget.dimen.h == 205 then
+                    -- 300 - 48 controls - 18 gap - 8 pads - 18 page dots band - 8 row pads
+                    and widget.dimen.w == 580 and widget.dimen.h == 200 then
                 row_width = widget.dimen.w
             end
         end
@@ -645,7 +647,7 @@ describe("home strip widget", function()
             })
             for i = first_created, #created do
                 local widget = created[i]
-                if widget.dimen.w == 580 and widget.dimen.h == 205 then
+                if widget.dimen.w == 580 and widget.dimen.h == 200 then
                     return widget.kind
                 end
             end
@@ -683,9 +685,10 @@ describe("home strip widget", function()
             return heights
         end
 
-        assert.are.same({ 205, 205, 205, 205 }, cover_heights(4))
-        assert.are.same({ 205, 205 }, cover_heights(2))
-        assert.are.same({ 205 }, cover_heights(1))
+        -- Height-limited once the page dots band is reserved: 300 - 48 - 18 - 8 - 18 - 8.
+        assert.are.same({ 200, 200, 200, 200 }, cover_heights(4))
+        assert.are.same({ 200, 200 }, cover_heights(2))
+        assert.are.same({ 200 }, cover_heights(1))
     end)
 
     it("keeps controls and covers in one fixed-gap visual group", function()
@@ -803,7 +806,9 @@ describe("home strip widget", function()
 
         local safe_bottom_shift = 400 - content_bounds.bottom
         assert.is_true(content_bounds.lock_shift)
-        assert.are.equal(400, content_bounds.bottom)
+        -- A sparse two-row page claims the whole cover area: the row minus
+        -- the page dots band reserved under it.
+        assert.are.equal(400 - 18, content_bounds.bottom)
         assert.are.equal(safe_bottom_shift, content_bounds.min_shift)
         assert.are.equal(safe_bottom_shift, content_bounds.max_shift)
         assert.is_true(safe_bottom_shift < 400)
@@ -1688,14 +1693,88 @@ describe("home strip widget", function()
     it("reports its width-limited preferred height to Home", function()
         local Strip = require("modules/filebrowser/patches/home/widgets/strip")
 
-        assert.are.equal(223, Strip.preferredHeight{
+        -- Covers plus the 18 px page dots band (6 above, 10 tall, 2 below at scale 1).
+        assert.are.equal(223 + 18, Strip.preferredHeight{
             width = 600,
             module_cfg = { count = 4 },
         })
-        assert.are.equal(428, Strip.preferredHeight{
+        assert.are.equal(428 + 18, Strip.preferredHeight{
             width = 600,
             module_cfg = { count = 8, two_rows = true },
         })
+        assert.are.equal(223, Strip.preferredHeight{
+            width = 600,
+            module_cfg = { count = 4, show_page_indicator = false },
+        })
+    end)
+
+    it("reserves a page dots band and paints Library-style dots for a multi-page source", function()
+        local books = {}
+        for i = 1, 4 do
+            books[i] = { path = "/library/" .. tostring(i) .. ".epub" }
+        end
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        local function build(page_info)
+            local content_bounds
+            local first_created = #created + 1
+            Strip.build({
+                width = 600,
+                height = 400,
+                component_id = "strip",
+                module_cfg = { count = 4, interactive = false },
+                data = {
+                    getBooksForStrip = function() return books end,
+                    getStripPageInfo = page_info and function() return page_info end or nil,
+                },
+                setContentBounds = function(bounds) content_bounds = bounds end,
+            })
+            local frame
+            for i = first_created, #created do
+                local widget = created[i]
+                if widget.kind == "ui/widget/container/framecontainer"
+                        and widget.width == 600 and widget.height == 400 then
+                    frame = widget
+                end
+            end
+            return content_bounds, frame
+        end
+
+        local plain_bounds, plain_frame = build(nil)
+        local single_bounds = build({ total = 4, total_pages = 1, current_page = 1 })
+        local paged_bounds, paged_frame = build({ total = 7, total_pages = 2, current_page = 2 })
+
+        -- One page: nothing to paint, the covers alone are the content.
+        assert.are.equal(plain_bounds.bottom, single_bounds.bottom)
+        -- Two pages: the dots (6 px under the covers, 10 px tall) are content too,
+        -- so Home spaces the next widget from the dots and never shifts them out.
+        assert.are.equal(plain_bounds.bottom + 16, paged_bounds.bottom)
+        assert.are.equal(400 - paged_bounds.bottom, paged_bounds.max_shift)
+
+        -- Dots are scanline pills like the Library pager's "dots" style: 10 px,
+        -- 12 px apart, current page black, the others dark gray.
+        local rows = {}
+        local bb = {
+            paintRect = function(_bb, x, y, w, h, color)
+                rows[#rows + 1] = { x = x, y = y, w = w, h = h, color = color }
+            end,
+        }
+        plain_frame:paintTo(bb, 0, 0)
+        assert.are.same({}, rows)
+        paged_frame:paintTo(bb, 0, 0)
+        assert.are.equal(20, #rows)
+        local dot_top = plain_bounds.bottom + 6
+        -- two dots span 10 + 12 + 10 = 32 px centred in 600: x = 284 and 306
+        local extents = { darkgray = { 284, 294 }, black = { 306, 316 } }
+        local per_color = { darkgray = 0, black = 0 }
+        for _i, row in ipairs(rows) do
+            local span = extents[row.color]
+            assert.is_table(span, "unexpected dot color " .. tostring(row.color))
+            per_color[row.color] = per_color[row.color] + 1
+            assert.are.equal(1, row.h)
+            assert.is_true(row.y >= dot_top and row.y < dot_top + 10, "row outside the dot band")
+            assert.is_true(row.x >= span[1] and row.x + row.w <= span[2], "row outside its dot")
+        end
+        assert.are.same({ darkgray = 10, black = 10 }, per_color)
     end)
 
     it("supplies the selected strip cover before opening its book", function()
@@ -1800,7 +1879,8 @@ describe("home strip widget", function()
         assert.are.same({ 0.05 }, scheduled_delays)
         run_scheduled()
 
-        assert.are.same({ book = book, width = 80, height = 144 }, warmed)
+        -- 160 - 8 pads - 18 page dots band - 8 row pads
+        assert.are.same({ book = book, width = 80, height = 126 }, warmed)
         assert.are.equal(2, #cover_books)
         assert.are.equal(1, refreshed)
         assert.are.equal(0, #scheduled)

@@ -4932,6 +4932,12 @@ msgstr "Show author below cover (mosaic)"
 msgid "Show badges"
 msgstr "Show badges"
 
+#. Type: setting
+#. Context: { text = _("Show page dots"), checked_func = function() return mcfg.show_page_indicator ~= false end,
+#: home_settings.lua:1820
+msgid "Show page dots"
+msgstr "Show page dots"
+
 #. Type: option
 #. Context: { id = "keep", text = _("Keep existing settings"), checked = quickstart_completed }, { id = "cover_black", text = _("Show Book cover"), checked = not quickstart_completed }, { id = "zen_white", text = _("Show Zen icon - white background"...
 #: quickstart_pages.lua:728

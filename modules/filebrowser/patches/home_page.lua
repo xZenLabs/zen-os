@@ -2033,6 +2033,49 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         return true
     end
 
+    -- Paging state of a strip source as the strip shows it (current page,
+    -- number of pages, item count), for the same request/source, count and
+    -- order the strip passes to getStripItemsForPage()/getBooksForStripPage().
+    -- Reads the cached path lists only; no book is loaded.
+    function provider:getStripPageInfo(request, count, order_key, component_id, page_delta)
+        local n = math.max(1, math.floor(tonumber(count) or 4))
+        local total, key
+        local kind = type(request) == "table" and (request.kind or "recent") or request
+        if type(request) == "table" and kind ~= "recent" and kind ~= "to_be_read" then
+            local values
+            if type(request.drill) == "table" then
+                values = resolve_drill_files(request)
+            elseif kind == "authors" or kind == "series" or kind == "languages"
+                    or kind == "tags" or kind == "collections" then
+                values = source_groups(kind)
+            elseif kind == "folder" then
+                values = folder_files(request.value)
+            else
+                values = descriptor_paths(request)
+            end
+            total = type(values) == "table" and #values or 0
+            key = tostring(component_id or "strip") .. ":" .. descriptor_key(request, order_key)
+        else
+            local source_key = kind == "to_be_read" and "to_be_read" or "recently_read"
+            local index = source_key == "to_be_read" and get_tbr_index() or nil
+            if index then
+                total = math.min(index.getCount(tbr_sort_options(order_key, true)), HOME_STRIP_MAX_BOOKS)
+                key = tostring(component_id or source_key)
+                    .. ":" .. source_key .. ":" .. normalize_order(order_key)
+            else
+                local source, paths = get_strip_paths(source_key, n, order_key, component_id)
+                total = #paths
+                key = tostring(component_id or source) .. ":" .. source .. ":" .. normalize_order(order_key)
+            end
+        end
+        local offset = strip_page_offset(total, n, strip_offsets[key], page_delta)
+        return {
+            total = total,
+            total_pages = math.max(1, math.ceil(total / n)),
+            current_page = math.floor(offset / n) + 1,
+        }
+    end
+
     function provider:isStripCoverWorkBusy()
         local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
         return ok_bim and BookInfoManager
