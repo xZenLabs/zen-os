@@ -21,8 +21,8 @@ local function invert_color(color)
 end
 
 local function is_night_mode()
-    return G_reader_settings and type(G_reader_settings.isTrue) == "function"
-        and G_reader_settings:isTrue("night_mode") == true
+    local Device = require("device")
+    return Device.screen and Device.screen.night_mode == true
 end
 
 local function apply(plugin)

@@ -66,9 +66,11 @@ describe("reader highlight names", function()
         local Blitbuffer = require("ffi/blitbuffer")
         local original_red = Blitbuffer.HIGHLIGHT_COLORS.red
         local original_reader_settings = G_reader_settings
-        local night_mode = false
+        local original_device = package.loaded["device"]
+        local screen = { night_mode = false }
+        ZenSpec.replace("device", { screen = screen })
         _G.G_reader_settings = {
-            isTrue = function(_self, key) return key == "night_mode" and night_mode end,
+            isTrue = function(_self, key) return key == "night_mode" end,
         }
         local ReaderHighlight = {
             highlight_colors = {
@@ -109,14 +111,18 @@ describe("reader highlight names", function()
         assert.are.equal("#123456", Blitbuffer.HIGHLIGHT_COLORS.red)
         assert.are.equal(0xab, ReaderHighlight:getHighlightColorList()[2][3]:getR())
 
-        night_mode = true
+        screen.night_mode = true
+        G_reader_settings.isTrue = function() return false end
         assert.are.equal("#edcba9", ReaderHighlight:getHighlightColorCode("red", false, true))
+        assert.are.equal(0xed, ReaderHighlight:getHighlightColorList()[1][3]:getR())
+        assert.are.equal(0x12, ReaderHighlight:getHighlightColor("red"):getR())
 
         plugin.config.highlight_lookup.color_codes = {}
         apply(plugin)
         assert.are.equal(original_red, ReaderHighlight:getHighlightColorCode("red"))
         assert.are.equal(original_red, Blitbuffer.HIGHLIGHT_COLORS.red)
         _G.G_reader_settings = original_reader_settings
+        ZenSpec.replace("device", original_device)
     end)
 
     it("keeps legacy color lists unchanged", function()
