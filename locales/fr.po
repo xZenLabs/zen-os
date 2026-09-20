@@ -1516,7 +1516,7 @@ msgstr "Parcourir"
 #. Context: { text = _("Daily"), checked_func = function()
 #: reading_goals.lua:8 reading_goals.lua:225 home_settings.lua:2477
 msgid "Daily"
-msgstr "Tous les jours"
+msgstr "Quotidien"
 
 #. Type: setting
 #. Context: { key = "dark_warm_gray", text = _("Dark warm gray") }, { key = "dark_graphite", text = _("Dark graphite") }, { key = "light_sepia", text = _("Light sepia") },
@@ -1576,7 +1576,7 @@ msgstr "Luminosité diurne : "
 #. Context: { id = "today_duration", text = _("Time today") }, { id = "streak", text = _("Day streak") }, { id = "week_pages", text = _("Pages this week") },
 #: stats_page.lua:911 stats_triplet.lua:53 home_settings.lua:2225
 msgid "Day streak"
-msgstr "Séquence d'une journée"
+msgstr "Jours de suite"
 
 #. Type: setting
 #. Context: local title = config.features.warmth_schedule == true and _("Day warmth") or mode_value_label(_("Light mode"), _("Warmth"))
@@ -4138,7 +4138,7 @@ msgstr "Lire l'heure"
 #. Context: blockCard{ width = c3_w, height = card_h, value = tostring(stats.today_pages or 0), label = _("Pages today") }, blockCard{ width = c3_w, height = card_h, value = formatTime(stats.today_duration), label = _("Read today") }, blockCard{ wid...
 #: stats_page.lua:910 stats_triplet.lua:52 book_details_page.lua:210
 msgid "Read today"
-msgstr "Lire aujourd'hui"
+msgstr "Lu aujourd'hui"
 
 #. Type: format
 #. Context: if id == "read_time" and book.read_time_secs ~= nil then return string.format(_("Read: %s"), format_duration(_, book.read_time_secs)) elseif id == "time_remaining" and book.time_left_secs ~= nil then
