@@ -1352,6 +1352,10 @@ function M.build_strip(ctx, source_key)
             if visible_hydrate_fn ~= step then return end
             visible_hydrate_fn = nil
             if closed or page_cache[0] ~= entry or entry.freed then return end
+            if ctx.menu and ctx.menu._zen_home_suspended == true then
+                ctx.menu._zen_home_needs_rebuild = true
+                return
+            end
             local started_at = os.clock()
             local pending = {}
             local cached, warmed, ready, failed = 0, 0, 0, 0
@@ -1408,7 +1412,10 @@ function M.build_strip(ctx, source_key)
         local step
         step = function()
             if prewarm_fn ~= step then return end
-            if closed then prewarm_fn = nil; return end
+            if closed or ctx.menu and ctx.menu._zen_home_suspended == true then
+                prewarm_fn = nil
+                return
+            end
             if not MemoryPolicy.canPreload(MemoryPolicy.getProfile()) then
                 prewarm_fn = nil
                 logger.perf("strip page prewarm skipped", work_ms,

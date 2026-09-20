@@ -320,7 +320,8 @@ local function apply_status_bar()
     end
 
     local function getBluetoothInfo()
-        local enabled = Bluetooth.getState()
+        local get_state = Bluetooth.getCachedState or Bluetooth.getState
+        local enabled = get_state()
         if enabled == nil then return nil end
         if enabled then
             return inline_icons.bluetooth_on, nil, colors.wifi_on
@@ -1307,8 +1308,8 @@ local function apply_status_bar()
 
     local function chainHook(event_name)
         local orig = FileManager[event_name]
-        FileManager[event_name] = function(self)
-            if orig then orig(self) end
+        FileManager[event_name] = function(self, ...)
+            if orig then orig(self, ...) end
             if not is_enabled() then return end
             -- Only refresh the topmost widget.  If a screensaver, dialog, or
             -- TouchMenu is on top, skip — avoids painting behind overlays
@@ -1319,6 +1320,7 @@ local function apply_status_bar()
 
     chainHook("onNetworkConnected")
     chainHook("onNetworkDisconnected")
+    chainHook("onBluetoothStateChanged")
 
     -- Charging events arrive in pairs during USB negotiation (NotCharging -> Charging)
     -- within a few seconds of each other.  A synchronous rebuild per-event causes
@@ -1406,6 +1408,17 @@ local function apply_status_bar()
                 clock_timer.restart()
             end)
         end
+    end
+
+    local orig_onCloseWidget = FileManager.onCloseWidget
+    FileManager.onCloseWidget = function(self, ...)
+        clock_timer.unsubscribe("filemanager_status_bar")
+        _fm_autoRefresh = nil
+        if _charging_refresh_timer then
+            UIManager:unschedule(_charging_refresh_timer)
+            _charging_refresh_timer = nil
+        end
+        if orig_onCloseWidget then return orig_onCloseWidget(self, ...) end
     end
 end
 

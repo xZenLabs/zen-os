@@ -551,4 +551,43 @@ describe("TBR path inventory", function()
         assert.are.equal(2, completed)
         assert.is_true(Index.isAuditComplete())
     end)
+
+    it("scans a cold nested inventory over multiple UI ticks", function()
+        attrs["/books/shelf"] = { mode = "directory", modification = 1 }
+        entries["/books"][#entries["/books"] + 1] = "shelf"
+        entries["/books/shelf"] = { ".", ".." }
+        add_book("/books/shelf/a.epub")
+        local Index = require("common/tbr_index")
+
+        assert.is_true(Index.scheduleAudit())
+        table.remove(scheduled, 1)()
+        assert.is_true(Index.isAuditRunning())
+        assert.are.equal(1, #scheduled)
+
+        run_scheduled()
+        assert.is_false(Index.isAuditRunning())
+        assert.same({ "/books/shelf/a.epub" }, Index.getInventoryPaths())
+    end)
+
+    it("reuses a count result for the immediately following page", function()
+        add_book("/books/a.epub")
+        local Index = require("common/tbr_index")
+        local library_lfs = require("libs/libkoreader-lfs")
+        local original_attributes = library_lfs.attributes
+        local attribute_calls = 0
+        library_lfs.attributes = function(...)
+            attribute_calls = attribute_calls + 1
+            return original_attributes(...)
+        end
+        local options = { include_new = true, collate = "title" }
+
+        assert.are.equal(1, Index.getCount(options))
+        local after_count = attribute_calls
+        assert.same({ "/books/a.epub" }, Index.getPage(0, 1, {
+            include_new = true,
+            collate = "title",
+        }))
+
+        assert.are.equal(after_count, attribute_calls)
+    end)
 end)

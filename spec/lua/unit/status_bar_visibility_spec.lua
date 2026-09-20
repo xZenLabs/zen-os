@@ -171,6 +171,16 @@ describe("file manager status bar visibility", function()
         assert.is_function(_G.__ZENOS_BUILD_STATUS_ROW)
     end)
 
+    it("unsubscribes its minute callback when FileManager closes", function()
+        local unsubscribed
+        require("common/clock_timer").unsubscribe = function(key) unsubscribed = key end
+        require("modules/filebrowser/patches/status_bar")()
+
+        FileManager:onCloseWidget()
+
+        assert.are.equal("filemanager_status_bar", unsubscribed)
+    end)
+
     it("only hides Wi-Fi when it is fully off", function()
         local status_api
         local SharedState = require("common/shared_state")

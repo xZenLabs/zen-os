@@ -35,6 +35,9 @@ local audit
 local reconciled_scope
 local collection_signature
 local resolved_collection_name
+local count_result_key
+local count_result
+local count_result_revision
 
 local function open_db()
     if db then return db end
@@ -138,6 +141,7 @@ end
 
 local function clear_results(bump_revision)
     result_cache = {}
+    count_result_key, count_result, count_result_revision = nil, nil, nil
     status_buckets = nil
     status_bucket_mode = nil
     if bump_revision then revision = revision + 1 end
@@ -198,21 +202,29 @@ local function is_supported_file(name, path)
     return ok_provider and supported == true
 end
 
-local function scan_scope(scope)
-    local books = {}
-    local dirs = {}
-    local readable_root = false
-    local stack = {}
-    for root_index = #scope.roots, 1, -1 do stack[#stack + 1] = scope.roots[root_index] end
+local function new_scope_scan(scope)
+    local scan = {
+        scope = scope,
+        books = {},
+        dirs = {},
+        readable_root = false,
+        stack = {},
+    }
+    for root_index = #scope.roots, 1, -1 do
+        scan.stack[#scan.stack + 1] = scope.roots[root_index]
+    end
+    return scan
+end
 
-    while #stack > 0 do
-        local directory = table.remove(stack)
+local function scan_scope_step(scan)
+    local directory = table.remove(scan.stack)
+    if directory then
         local dir_attr = lfs.attributes(directory)
         if dir_attr and dir_attr.mode == "directory" then
-            dirs[directory] = dir_attr.modification or 0
+            scan.dirs[directory] = dir_attr.modification or 0
             local ok_dir, iter, dir_obj = pcall(lfs.dir, directory)
             if ok_dir and type(iter) == "function" then
-                readable_root = true
+                scan.readable_root = true
                 while true do
                     local ok_next, name = pcall(iter, dir_obj)
                     if not ok_next or not name then break end
@@ -220,9 +232,9 @@ local function scan_scope(scope)
                         local path = directory .. "/" .. name
                         local attr = lfs.attributes(path)
                         if attr and attr.mode == "directory" and is_visible_dir(name) then
-                            stack[#stack + 1] = path
+                            scan.stack[#scan.stack + 1] = path
                         elseif attr and attr.mode == "file" and is_supported_file(name, path) then
-                            books[#books + 1] = {
+                            scan.books[#scan.books + 1] = {
                                 path = path,
                                 name = name,
                                 attr = attr,
@@ -236,9 +248,18 @@ local function scan_scope(scope)
             end
         end
     end
+    return #scan.stack == 0
+end
 
-    table.sort(books, function(a, b) return a.path < b.path end)
-    return books, dirs, readable_root or #scope.roots == 0
+local function finish_scope_scan(scan)
+    table.sort(scan.books, function(a, b) return a.path < b.path end)
+    return scan.books, scan.dirs, scan.readable_root or #scan.scope.roots == 0
+end
+
+local function scan_scope(scope)
+    local scan = new_scope_scan(scope)
+    while not scan_scope_step(scan) do end
+    return finish_scope_scan(scan)
 end
 
 local function dirs_changed(cached, scope)
@@ -261,6 +282,9 @@ end
 
 local function ensure_inventory(force)
     local scope = configured_scope()
+    if not force and audit and audit.scan and audit.scan.scope.key == scope.key then
+        return inventory and inventory.list or {}, scope, false
+    end
     if not force and not dirs_changed(inventory, scope) then
         reconciled_scope = scope.key
         return inventory.list, scope, inventory.complete == true
@@ -934,13 +958,25 @@ function M.removePath(path)
 end
 
 function M.getCount(options)
-    return #build_result(options)
+    local all = build_result(options)
+    count_result_key = result_key(
+        type(options) == "table" and options or {}, configured_scope().key)
+    count_result = all
+    count_result_revision = revision
+    return #all
 end
 
 function M.getPage(offset, limit, options)
     offset = math.max(0, math.floor(tonumber(offset) or 0))
     limit = math.max(1, math.floor(tonumber(limit) or 1))
-    local all = build_result(options)
+    local all
+    local key = result_key(type(options) == "table" and options or {}, configured_scope().key)
+    if key == count_result_key and count_result_revision == revision then
+        all = count_result
+    else
+        all = build_result(options)
+    end
+    count_result_key, count_result, count_result_revision = nil, nil, nil
     local page = {}
     for index = offset + 1, math.min(#all, offset + limit) do
         page[#page + 1] = all[index]
@@ -983,7 +1019,7 @@ function M.isAuditComplete()
 end
 
 function M.isPreparing()
-    return false
+    return audit ~= nil
 end
 
 function M.invalidateStatusCache()
@@ -1023,11 +1059,33 @@ function M.scheduleAudit(first, second, third)
     audit = { on_change = {}, on_complete = {} }
     add_callback(audit.on_change, on_change)
     add_callback(audit.on_complete, on_complete)
+    local scope = configured_scope()
+    if not inventory or inventory.scope_key ~= scope.key then
+        audit.scan = new_scope_scan(scope)
+    end
     audit.step = function()
         local current = audit
         if not current then return end
+        if current.scan and not scan_scope_step(current.scan) then
+            UIManager:nextTick(current.step)
+            return
+        end
         local before = revision
-        ensure_inventory()
+        if current.scan then
+            local books, dirs, complete = finish_scope_scan(current.scan)
+            local changed = not inventory or inventory.scope_key ~= scope.key
+                or not same_books(inventory.list, books)
+            inventory = {
+                scope_key = scope.key,
+                list = books,
+                dirs = dirs,
+                complete = complete,
+            }
+            reconciled_scope = scope.key
+            clear_results(changed)
+        else
+            ensure_inventory()
+        end
         audit = nil
         if revision ~= before then run_callbacks(current.on_change) end
         run_callbacks(current.on_complete)

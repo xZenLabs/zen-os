@@ -341,7 +341,11 @@ function ZenUI:init()
 
     self:_initModules()
     -- TBR is a normal KOReader collection; create it for standard pickers.
-    pcall(function() require("common/tbr_index").ensureCollection() end)
+    pcall(function()
+        local tbr_index = require("common/tbr_index")
+        tbr_index.ensureCollection()
+        tbr_index.scheduleAudit(function() tbr_index.refreshViews(self) end)
+    end)
     logger.perf("Core initialization completed", (os.clock() - started_at) * 1000)
 
     local function schedule_quickstart_menu_tour(delay)

@@ -9,6 +9,7 @@ local SAGE_RFKILL = "/sys/devices/platform/bt/rfkill/rfkill0/state"
 local SAGE_HCI_LOG = "/tmp/zenos-rtk-hciattach.log"
 local SAGE_BLUEZ_LOG = "/tmp/zenos-bluetoothd.log"
 local owned = false
+local standby_locked = false
 local pending
 local discovery_kind, discovery_poll
 local cached_state, cached_at
@@ -231,9 +232,19 @@ local function reconnect_paired(device_kind, attempted, poll)
         "connects_launched=", launched)
 end
 
+local function release_standby(reason)
+    if not standby_locked then return end
+    require("ui/uimanager"):allowStandby()
+    standby_locked = false
+    logger.info("standby allowed", reason or "reconnect-complete")
+end
+
 local function stop_discovery()
     local device_kind = discovery_kind
-    if not device_kind then return end
+    if not device_kind then
+        release_standby()
+        return
+    end
     local UIManager = require("ui/uimanager")
     local poll = discovery_poll
     discovery_kind, discovery_poll = nil, nil
@@ -243,15 +254,21 @@ local function stop_discovery()
     logger.info("discovery stopped kind=", device_kind, "success=", tostring(success))
     log_adapter(device_kind, "after-discovery-stop")
     if device_kind == "sage" then log_sage_daemons("after-discovery-stop") end
+    release_standby()
 end
 
 local function start_reconnect(device_kind)
     stop_discovery()
+    local UIManager = require("ui/uimanager")
+    UIManager:preventStandby()
+    standby_locked = true
+    logger.info("standby prevented during reconnect")
     local attempted = {}
     if not command_ok(dbus(device_kind, ADAPTER, "org.bluez.Adapter1.StartDiscovery"),
             "discovery-start") then
         logger.warn("Bluetooth discovery failed", device_kind)
         reconnect_paired(device_kind, attempted, 0)
+        release_standby("reconnect-failed")
         return
     end
 
@@ -259,7 +276,6 @@ local function start_reconnect(device_kind)
     log_adapter(device_kind, "after-discovery-start")
     discovery_kind = device_kind
     local polls = 0
-    local UIManager = require("ui/uimanager")
     discovery_poll = function()
         if discovery_kind ~= device_kind then
             logger.info("discovery poll skipped reason=stale kind=", device_kind)
@@ -454,9 +470,8 @@ function M.setEnabled(enabled, complete)
     if state == enabled then
         logger.info("power request no-op reason=already-in-state state=", tostring(state))
         if not enabled and owned then
-            UIManager:allowStandby()
             owned = false
-            logger.info("standby allowed after existing off state")
+            release_standby("already-off")
         end
         return true
     end
@@ -480,22 +495,18 @@ function M.setEnabled(enabled, complete)
         end
         if success then
             if enabled then
-                start_reconnect(device_kind)
-                UIManager:preventStandby()
                 owned = true
-                logger.info("standby prevented owner=zenos")
+                start_reconnect(device_kind)
             elseif owned then
-                UIManager:allowStandby()
                 owned = false
-                logger.info("standby allowed owner=zenos")
+                release_standby("power-off")
             end
             emit(enabled)
         else
             logger.warn("Bluetooth power request failed", device_kind, tostring(enabled))
             if not enabled and owned and read_state(device_kind, true) == false then
-                UIManager:allowStandby()
                 owned = false
-                logger.info("standby allowed after verified fallback shutdown")
+                release_standby("fallback-shutdown")
                 emit(false)
             end
         end

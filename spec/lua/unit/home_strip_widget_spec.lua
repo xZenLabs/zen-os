@@ -1806,6 +1806,39 @@ describe("home strip widget", function()
         assert.are.equal(0, #scheduled)
     end)
 
+    it("stops visible cover hydration while retained Home is suspended", function()
+        local menu = {}
+        local warm_requests = 0
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        local widget = Strip.build({
+            width = 600,
+            height = 160,
+            menu = menu,
+            component_id = "strip",
+            module_cfg = { count = 4, interactive = true },
+            data = {
+                getBooksForStripPage = function()
+                    return {{
+                        path = "/library/pending.epub",
+                        is_cover_pending = true,
+                    }}, false
+                end,
+                warmStripCover = function()
+                    warm_requests = warm_requests + 1
+                    return "pending"
+                end,
+            },
+        })
+
+        widget:paintTo({}, 0, 0)
+        menu._zen_home_suspended = true
+        run_scheduled()
+
+        assert.are.equal(0, warm_requests)
+        assert.are.equal(0, #scheduled)
+        assert.is_true(menu._zen_home_needs_rebuild)
+    end)
+
     it("hydrates grouped folder previews after the first paint", function()
         folder_needs_hydration = true
         local refreshed = 0

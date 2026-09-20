@@ -1,5 +1,6 @@
 describe("OPDS header", function()
     local Browser, closed, existing_files, inventory_paths, menu_opened, returned, saved, searched
+    local scheduled, subprocess_runs, trapper_wraps
     local originals = {}
     local replaced = {
         "opdsbrowser", "ui/bidi", "ffi/blitbuffer",
@@ -12,8 +13,16 @@ describe("OPDS header", function()
         "ui/widget/verticalspan", "common/ui/zen_icon_button",
         "common/ui/zen_modal_close", "common/zen_logger", "device", "opdsparser",
         "common/cover_utils", "common/utils", "common/plugin_root", "common/tbr_index",
-        "libs/libkoreader-lfs",
+        "libs/libkoreader-lfs", "ui/renderimage", "ui/trapper",
     }
+
+    local function get_upvalue(fn, target)
+        for index = 1, 60 do
+            local name, value = debug.getupvalue(fn, index)
+            if not name then break end
+            if name == target then return value end
+        end
+    end
 
     local function widget_class()
         local class = {}
@@ -66,6 +75,7 @@ describe("OPDS header", function()
     before_each(function()
         for _i, name in ipairs(replaced) do originals[name] = package.loaded[name] end
         closed, menu_opened, returned, saved, searched = 0, 0, 0, 0, 0
+        scheduled, subprocess_runs, trapper_wraps = {}, 0, 0
         existing_files = {}
         inventory_paths = {}
 
@@ -128,7 +138,27 @@ describe("OPDS header", function()
         ZenSpec.replace("ui/uimanager", {
             close = function() closed = closed + 1 end,
             nextTick = function(_, callback) callback() end,
+            scheduleIn = function(_, delay, callback)
+                scheduled[#scheduled + 1] = { delay = delay, callback = callback }
+            end,
+            unschedule = function() end,
             setDirty = function() end,
+        })
+        ZenSpec.replace("ui/trapper", {
+            isWrapped = function() return false end,
+            wrap = function(_, callback)
+                trapper_wraps = trapper_wraps + 1
+                callback()
+            end,
+            dismissableRunInSubprocess = function()
+                subprocess_runs = subprocess_runs + 1
+                return true, "image-bytes"
+            end,
+        })
+        ZenSpec.replace("ui/renderimage", {
+            renderImageData = function()
+                return { free = function(self) self.freed = true end }
+            end,
         })
         ZenSpec.replace("common/ui/zen_icon_button", {
             new = function(_, spec)
@@ -282,5 +312,38 @@ describe("OPDS header", function()
         assert.is_true(items[1]._zen_opds_downloaded)
         assert.is_true(_G.__ZEN_UI_PLUGIN.config.opds.downloaded["Author - Book"])
         assert.are.equal(1, saved)
+    end)
+
+    it("loads covers through a subprocess and keeps only the visible page cache", function()
+        local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
+        local prune_cover_cache = get_upvalue(Browser.updateItems, "prune_cover_cache")
+        local cover_cache = get_upvalue(start_cover_queue, "_cover_cache")
+        local updated = 0
+        local entry = { cover_url = "https://example.test/current.jpg" }
+
+        start_cover_queue({{
+            entry = entry,
+            widget = { update = function() updated = updated + 1 end },
+            cover_w = 80,
+            cover_h = 120,
+        }})
+        scheduled[1].callback()
+
+        assert.are.equal(1, trapper_wraps)
+        assert.are.equal(1, subprocess_runs)
+        assert.are.equal(1, updated)
+        assert.is_table(entry.cover_bb)
+
+        local stale = { free = function(self) self.freed = true end }
+        local stale_entry = {
+            cover_url = "https://example.test/stale.jpg",
+            cover_bb = stale,
+        }
+        cover_cache[stale_entry.cover_url] = { bb = stale }
+        prune_cover_cache({ [entry.cover_url] = true }, { entry, stale_entry })
+
+        assert.is_true(stale.freed)
+        assert.is_nil(stale_entry.cover_bb)
+        assert.are.equal(entry.cover_bb, cover_cache[entry.cover_url].bb)
     end)
 end)

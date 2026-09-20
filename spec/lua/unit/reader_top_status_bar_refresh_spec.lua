@@ -161,7 +161,10 @@ describe("reader top status bar refresh", function()
         replace("apps/reader/modules/readertypeset", ReaderTypeset)
         replace("apps/reader/readerui", ReaderUI)
         bluetooth_enabled = false
-        replace("common/bluetooth", { getState = function() return bluetooth_enabled end })
+        replace("common/bluetooth", {
+            getState = function() error("status paint must not query Bluetooth") end,
+            getCachedState = function() return bluetooth_enabled end,
+        })
         replace("common/inline_icon_map", { bluetooth_on = "BT" })
         replace("common/reader_themes", {
             getBackgroundColor = function() end,
@@ -557,6 +560,17 @@ describe("reader top status bar refresh", function()
         _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar.auto_refresh = false
         make_view()
         assert.are.equal(1, #scheduled)
+    end)
+
+    it("does not arm a minute timer for a static header", function()
+        local cfg = _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar
+        cfg.left_order = { "book_title" }
+        cfg.center_order = { "chapter" }
+        cfg.right_order = { "percent_read" }
+
+        make_view()
+
+        assert.are.equal(0, #scheduled)
     end)
 
     it("keeps one hook set and releases old reader views", function()

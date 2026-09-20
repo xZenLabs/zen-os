@@ -3,6 +3,7 @@ local M = {}
 
 local _logger
 local _original = {}
+local _enabled = {}
 local _installed = false
 local _plugin_root
 local _now
@@ -41,6 +42,7 @@ local function strip_legacy_prefix(message)
 end
 
 local function emit(level, feature, args)
+    if not _enabled[level] then return end
     if type(args[1]) == "string" then
         args[1] = string.format("ZenOS: [%s] %s", feature, strip_legacy_prefix(args[1]))
     else
@@ -51,6 +53,8 @@ end
 
 local function emit_performance(feature, message, elapsed_ms, ...)
     elapsed_ms = math.floor((tonumber(elapsed_ms) or 0) + 0.5)
+    local level = elapsed_ms >= M.SLOW_THRESHOLD_MS and "warn" or "dbg"
+    if not _enabled[level] then return end
     local args = { message }
     for i = 1, select("#", ...) do
         args[#args + 1] = select(i, ...)
@@ -61,12 +65,13 @@ local function emit_performance(feature, message, elapsed_ms, ...)
         args[1] = "SLOW: " .. tostring(message)
         args[#args + 1] = "slow_threshold_ms="
         args[#args + 1] = M.SLOW_THRESHOLD_MS
-        return emit("warn", feature, args)
+        return emit(level, feature, args)
     end
-    return emit("dbg", feature, args)
+    return emit(level, feature, args)
 end
 
 local function emit_measurement(feature, message, elapsed_ms, ...)
+    if not _enabled.dbg then return end
     elapsed_ms = math.floor((tonumber(elapsed_ms) or 0) * 10 + 0.5) / 10
     local args = { "PERF: " .. tostring(message) }
     for i = 1, select("#", ...) do
@@ -90,8 +95,24 @@ function M.install()
     if _installed then return _logger end
 
     _logger = require("logger")
+    local levels = _logger.levels or { dbg = 1, info = 2, warn = 3, err = 4 }
+    local function set_enabled(active_level)
+        active_level = levels[active_level] or tonumber(active_level)
+        if not active_level then
+            for _i, level in ipairs(LEVELS) do
+                local info = debug.getinfo(_logger[level], "u")
+                _enabled[level] = not info or info.nups > 0
+            end
+            return
+        end
+        for _i, level in ipairs(LEVELS) do
+            _enabled[level] = (levels[level] or math.huge) >= active_level
+        end
+    end
+    set_enabled(_logger.level)
     local function wrap(level)
         return function(...)
+            if not _enabled[level] then return end
             local source = debug.getinfo(2, "S").source
             local feature = feature_from_source(source)
             if feature then
@@ -100,7 +121,8 @@ function M.install()
             return _original[level](...)
         end
     end
-    local function wrap_levels()
+    local function wrap_levels(active_level)
+        set_enabled(active_level)
         for _i, level in ipairs(LEVELS) do
             _original[level] = _logger[level]
             _logger[level] = wrap(level)
@@ -109,9 +131,9 @@ function M.install()
     wrap_levels()
     if type(_logger.setLevel) == "function" then
         local original_set_level = _logger.setLevel
-        _logger.setLevel = function(self, ...)
-            local result = original_set_level(self, ...)
-            wrap_levels()
+        _logger.setLevel = function(self, active_level, ...)
+            local result = original_set_level(self, active_level, ...)
+            wrap_levels(active_level)
             return result
         end
     end
@@ -125,6 +147,7 @@ function M.new(feature)
     local logger = {}
     local function method(level)
         return function(...)
+            if not _enabled[level] then return end
             local source = debug.getinfo(2, "S").source
             return emit(level, feature_from_source(source) or feature, { ... })
         end
@@ -133,10 +156,14 @@ function M.new(feature)
         logger[level] = method(level)
     end
     logger.perf = function(message, elapsed_ms, ...)
+        local level = (tonumber(elapsed_ms) or 0) >= M.SLOW_THRESHOLD_MS
+            and "warn" or "dbg"
+        if not _enabled[level] then return end
         local source = debug.getinfo(2, "S").source
         return emit_performance(feature_from_source(source) or feature, message, elapsed_ms, ...)
     end
     logger.measure = function(message, elapsed_ms, ...)
+        if not _enabled.dbg then return end
         local source = debug.getinfo(2, "S").source
         return emit_measurement(feature_from_source(source) or feature, message, elapsed_ms, ...)
     end

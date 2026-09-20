@@ -55,10 +55,25 @@ local function apply_opds()
         close = utils.resolveLocalIcon(_icons_dir, "close"),
     }
 
-    -- Cover cache: [url] → { bb } | { failed = true }  (session-scoped)
+    -- Cover cache: [url] → { bb } | { failed = true }  (visible-page scoped)
     local _cover_cache = {}
 
-    -- Synchronous HTTP fetch; runs inside a UIManager-scheduled callback.
+    local function prune_cover_cache(keep, entries)
+        for _i, entry in ipairs(entries or {}) do
+            local cached = entry.cover_url and _cover_cache[entry.cover_url]
+            if cached and cached.bb == entry.cover_bb and not (keep and keep[entry.cover_url]) then
+                entry.cover_bb = nil
+            end
+        end
+        for url, cached in pairs(_cover_cache) do
+            if not (keep and keep[url]) then
+                if cached.bb then cached.bb:free() end
+                _cover_cache[url] = nil
+            end
+        end
+    end
+
+    -- HTTP fetch body; callers run it in a subprocess.
     local function fetch_bytes(cover_url, creds)
         local ok_h, http        = pcall(require, "socket.http")
         local ok_l, ltn12       = pcall(require, "ltn12")
@@ -105,36 +120,46 @@ local function apply_opds()
                 return
             end
             _cover_cache[u] = { loading = true }
-            local bytes = fetch_bytes(u, creds)
-            if stopped then return end
-            if bytes then
-                local ok_ri, RI = pcall(require, "ui/renderimage")
-                logger.dbg("OPDS cover renderimage require ok=", ok_ri, "size=", item.cover_w, "x", item.cover_h)
-                if ok_ri then
-                    local ok_bb, bb = pcall(function()
-                        return RI:renderImageData(bytes, #bytes, false,
-                            item.cover_w, item.cover_h)
-                    end)
-                    logger.dbg("OPDS cover renderImageData ok=", ok_bb, "bb=", bb ~= nil)
-                    if ok_bb and bb then
-                        _cover_cache[u] = { bb = bb }
-                        item.entry.cover_bb = bb
-                        if not stopped then item.widget:update() end
+            local Trapper = require("ui/trapper")
+            local function load_cover()
+                local completed, bytes = Trapper:dismissableRunInSubprocess(function()
+                    return fetch_bytes(u, creds)
+                end, nil, true)
+                if stopped then return end
+                if completed and bytes then
+                    local ok_ri, RI = pcall(require, "ui/renderimage")
+                    logger.dbg("OPDS cover renderimage require ok=", ok_ri, "size=", item.cover_w, "x", item.cover_h)
+                    if ok_ri then
+                        local ok_bb, bb = pcall(function()
+                            return RI:renderImageData(bytes, #bytes, false,
+                                item.cover_w, item.cover_h)
+                        end)
+                        logger.dbg("OPDS cover renderImageData ok=", ok_bb, "bb=", bb ~= nil)
+                        if ok_bb and bb then
+                            _cover_cache[u] = { bb = bb }
+                            item.entry.cover_bb = bb
+                            if not stopped then item.widget:update() end
+                        else
+                            logger.warn("OPDS cover renderImageData failed for:", u, ok_bb, bb)
+                            _cover_cache[u] = { failed = true }
+                        end
                     else
-                        logger.warn("OPDS cover renderImageData failed for:", u, ok_bb, bb)
+                        logger.warn("OPDS cover: failed to require ui/renderimage")
                         _cover_cache[u] = { failed = true }
                     end
                 else
-                    logger.warn("OPDS cover: failed to require ui/renderimage")
-                    _cover_cache[u] = { failed = true }
+                    if completed then
+                        logger.warn("OPDS cover fetch returned nil for:", u)
+                        _cover_cache[u] = { failed = true }
+                    else
+                        _cover_cache[u] = nil
+                    end
                 end
-            else
-                logger.warn("OPDS cover fetch returned nil for:", u)
-                _cover_cache[u] = { failed = true }
+                if not stopped and idx <= #queue then
+                    UIManager:scheduleIn(0.15, next_cover)
+                end
             end
-            if not stopped and idx <= #queue then
-                UIManager:scheduleIn(0.15, next_cover)
-            end
+            if Trapper:isWrapped() then load_cover() else Trapper:wrap(load_cover) end
         end
         UIManager:scheduleIn(0.5, next_cover)
         return function()
@@ -682,7 +707,9 @@ local function apply_opds()
         local display_mode = get_opds_display_mode()
         if display_mode == "classic" then
             if self._zen_halt then self._zen_halt(); self._zen_halt = nil end
-            return Menu.updateItems(self, select_number, no_recalculate_dimen)
+            local result = Menu.updateItems(self, select_number, no_recalculate_dimen)
+            prune_cover_cache(nil, self.item_table)
+            return result
         end
         -- Root screen: always list, 10 per page, grey placeholder covers.
         if #(self.paths or {}) == 0 then
@@ -691,6 +718,7 @@ local function apply_opds()
             local old_selected = snapshot_focus(self)
             self.layout = {}
             self.item_group:clear()
+            prune_cover_cache(nil, self.item_table)
             self.page_info:resetLayout()
             self.return_button:resetLayout()
             self.content_group:resetLayout()
@@ -791,6 +819,7 @@ local function apply_opds()
                 - Size.padding.button
         end
         local pending_covers = {}
+        local active_cover_urls = {}
 
         if mosaic_mode then
             -- Grid: match MosaicMenu spacing (item_margin around and between all cells).
@@ -832,6 +861,7 @@ local function apply_opds()
                     if entry then
                         entry.idx = idx
                         if entry.cover_url then
+                            active_cover_urls[entry.cover_url] = true
                             local cached = _cover_cache[entry.cover_url]
                             if cached and cached.bb then entry.cover_bb = cached.bb end
                         end
@@ -897,6 +927,7 @@ local function apply_opds()
                 if not entry then break end
                 entry.idx = idx
                 if entry.cover_url then
+                    active_cover_urls[entry.cover_url] = true
                     local cached = _cover_cache[entry.cover_url]
                     if cached and cached.bb then entry.cover_bb = cached.bb end
                 end
@@ -926,6 +957,7 @@ local function apply_opds()
         end
 
         self:updatePageInfo(select_number)
+        prune_cover_cache(active_cover_urls, self.item_table)
         self:mergeTitleBarIntoLayout()
         restore_focus(self, old_selected)
         UIManager:setDirty(self.show_parent, function()
@@ -945,10 +977,7 @@ local function apply_opds()
     function OPDSBrowser:onCloseWidget()
         if self._zen_halt then self._zen_halt(); self._zen_halt = nil end
         -- Owned by _cover_cache; free them here since image_disposable=false means widgets didn't.
-        for _u, v in pairs(_cover_cache) do
-            if v.bb then v.bb:free() end
-        end
-        _cover_cache = {}
+        prune_cover_cache(nil, self.item_table)
         orig_onCloseWidget(self)
     end
 

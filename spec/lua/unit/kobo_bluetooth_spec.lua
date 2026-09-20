@@ -106,6 +106,8 @@ describe("Kobo Bluetooth control", function()
 
         assert.is_true(bluetooth.setEnabled(true))
         scheduled[1].callback()
+        assert.are.equal(1, prevented)
+        assert.are.equal(0, allowed)
         assert.is_true(table.concat(commands, "\n"):find("Adapter1.StartDiscovery", 1, true) ~= nil)
         assert.is_nil(table.concat(commands, "\n"):find("org.bluez.Device1.Connect", 1, true))
 
@@ -126,6 +128,8 @@ describe("Kobo Bluetooth control", function()
 
         for _i = 3, 10 do scheduled[_i].callback() end
         assert.is_true(table.concat(commands, "\n"):find("Adapter1.StopDiscovery", 1, true) ~= nil)
+        assert.are.equal(1, allowed)
+        assert.is_true(bluetooth.getState())
     end)
 
     it("powers MTK Bluetooth after waking Wi-Fi, then restores Wi-Fi and suspends safely", function()

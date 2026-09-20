@@ -3,6 +3,7 @@ local Kobo = require("common/kobo_bluetooth")
 local logger = require("common/zen_logger").new("bluetooth")
 
 local M = {}
+local cached_state
 
 local SERVICE = "com.lab126.btfd"
 
@@ -46,16 +47,28 @@ local function read_state()
     return type(value) == "number" and value or nil
 end
 
+local function cache_state(state)
+    if state == nil then
+        cached_state = nil
+    else
+        cached_state = state ~= 0
+    end
+    return cached_state
+end
+
 local function log_state(context)
     local state = read_state()
+    cache_state(state)
     logger.info("state", context .. ":", state == nil and "unavailable" or tostring(state))
     return state
 end
 
 function M.getState()
-    local state = read_state()
-    if state == nil then return nil end
-    return state ~= 0
+    return cache_state(read_state())
+end
+
+function M.getCachedState()
+    return cached_state
 end
 
 function M.isAvailable()
@@ -67,7 +80,15 @@ function M.isEnabled()
 end
 
 function M.setEnabled(enabled, complete)
-    if not is_kindle() then return Kobo.setEnabled(enabled, complete) end
+    if not is_kindle() then
+        local function finished(success)
+            if success then cached_state = enabled else cached_state = nil end
+            if complete then complete(success) end
+        end
+        local accepted = Kobo.setEnabled(enabled, finished)
+        if accepted then cached_state = enabled end
+        return accepted
+    end
     local state = log_state("before request")
     if state == nil then
         logger.warn("toggle unavailable: could not read BTstate")
@@ -96,9 +117,9 @@ function M.setEnabled(enabled, complete)
 end
 
 function M.toggle(complete)
-    local state = read_state()
+    local state = M.getState()
     if state == nil then return false end
-    return M.setEnabled(state == 0, complete)
+    return M.setEnabled(not state, complete)
 end
 
 function M.logState(context)
@@ -107,6 +128,7 @@ end
 
 function M.onSuspend()
     Kobo.onSuspend()
+    cached_state = nil
 end
 
 return M

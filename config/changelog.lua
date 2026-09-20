@@ -359,6 +359,7 @@ return {
         "Option to exclude CBZ/CBR from Reading Goals",
         "Option to exclude Rakuyomi comics from history/home",
         "Open KOReader + menu outside home in context menu",
-        "Add manual order TBR (TBR Context menu > Sort > Order)"
+        "Add manual order TBR (TBR Context menu > Sort > Order)",
+        "Bug fixes & performance improvements",
      }
 }

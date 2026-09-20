@@ -137,7 +137,8 @@ local function apply_reader_top_status_bar()
     end
 
     local function getBluetoothItem()
-        if Bluetooth.getState() then
+        local get_state = Bluetooth.getCachedState or Bluetooth.getState
+        if get_state() then
             return inline_icons.bluetooth_on, nil, colors.wifi_on
         end
     end
@@ -897,15 +898,12 @@ local function apply_reader_top_status_bar()
             DBG("repaintHeaderSlots SKIP: view.ui is nil")
             return
         end
+        local cfg2 = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
+        local target_slots = slotsContaining(cfg2, item_keys)
+        if #target_slots == 0 then return end
         local header, all_widgets, header_h, screen_width, relative_slots = buildHeader(view)
         if not header then
             DBG("repaintHeaderSlots SKIP: buildHeader returned nil")
-            return
-        end
-        local cfg2 = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
-        local target_slots = slotsContaining(cfg2, item_keys)
-        if #target_slots == 0 then
-            freeWidgets(all_widgets)
             return
         end
         local show_border = type(cfg2) == "table" and cfg2.show_bottom_border
@@ -962,7 +960,9 @@ local function apply_reader_top_status_bar()
 
     local function autoRefresh()
         local view = activeReaderView()
-        if not (view and view.ui and view.ui.document) or not should_show(view) then
+        local cfg2 = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
+        if not (view and view.ui and view.ui.document) or not should_show(view)
+                or #slotsContaining(cfg2, MINUTE_REFRESH_ITEMS) == 0 then
             _autoRefresh = nil
             return
         end
@@ -974,6 +974,14 @@ local function apply_reader_top_status_bar()
     end
 
     local function armAutoRefresh()
+        local cfg2 = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
+        if #slotsContaining(cfg2, MINUTE_REFRESH_ITEMS) == 0 then
+            if _autoRefresh then
+                UIManager:unschedule(_autoRefresh)
+                _autoRefresh = nil
+            end
+            return
+        end
         if _autoRefresh then return end
         _autoRefresh = autoRefresh
         local t = os.date("*t")
