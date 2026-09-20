@@ -6445,3 +6445,19 @@ msgstr "din"
 #. Reader page count format
 msgid "%1 of %2"
 msgstr "%1 din %2"
+
+#. Type: setting
+msgid "Color"
+msgstr "Culoare"
+
+#. Type: setting
+msgid "Color picker"
+msgstr "Selector de culoare"
+
+#. Type: setting
+msgid "Highlight"
+msgstr "Evidențiere"
+
+#. Type: setting
+msgid "Highlight color: %1"
+msgstr "Culoare evidențiere: %1"

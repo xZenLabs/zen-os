@@ -348,6 +348,7 @@ return {
         "Fix TBR applying Library filter hiding all TBR books"
      },
      ["3.4.0"] = {
+        "Add color pickers for Reader themes and highlights",
         "Add plugin actions to Context Menu in the More section (Library > Context menu)",
         "Add Archive functionality from default move to Archive plugin",
         "Add Kindle books to Home/Collections",

@@ -6445,3 +6445,19 @@ msgstr "共"
 #. Reader page count format
 msgid "%1 of %2"
 msgstr "第%1頁，共%2頁"
+
+#. Type: setting
+msgid "Color"
+msgstr "顏色"
+
+#. Type: setting
+msgid "Color picker"
+msgstr "顏色選擇器"
+
+#. Type: setting
+msgid "Highlight"
+msgstr "劃線"
+
+#. Type: setting
+msgid "Highlight color: %1"
+msgstr "劃線顏色：%1"

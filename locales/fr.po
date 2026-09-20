@@ -6445,3 +6445,19 @@ msgstr "sur"
 #. Reader page count format
 msgid "%1 of %2"
 msgstr "%1 sur %2"
+
+#. Type: setting
+msgid "Color"
+msgstr "Couleur"
+
+#. Type: setting
+msgid "Color picker"
+msgstr "Sélecteur de couleur"
+
+#. Type: setting
+msgid "Highlight"
+msgstr "Surlignage"
+
+#. Type: setting
+msgid "Highlight color: %1"
+msgstr "Couleur du surlignage : %1"

@@ -45,6 +45,28 @@ local function normalize_color(value)
     return value:match("^#%x%x%x%x%x%x$") and value or nil
 end
 
+local function color_to_hsv(value)
+    local color = normalize_color(value)
+    if not color then return end
+    local r = tonumber(color:sub(2, 3), 16) / 255
+    local g = tonumber(color:sub(4, 5), 16) / 255
+    local b = tonumber(color:sub(6, 7), 16) / 255
+    local max = math.max(r, g, b)
+    local min = math.min(r, g, b)
+    local delta = max - min
+    local hue = 0
+    if delta > 0 then
+        if max == r then
+            hue = 60 * (((g - b) / delta) % 6)
+        elseif max == g then
+            hue = 60 * (((b - r) / delta) + 2)
+        else
+            hue = 60 * (((r - g) / delta) + 4)
+        end
+    end
+    return hue, max == 0 and 0 or delta / max, max
+end
+
 local function valid_color(value)
     return normalize_color(value) ~= nil
 end
@@ -202,6 +224,10 @@ end
 
 function M.normalizeColor(value)
     return normalize_color(value)
+end
+
+function M.colorToHsv(value)
+    return color_to_hsv(value)
 end
 
 function M.isActive(plugin)

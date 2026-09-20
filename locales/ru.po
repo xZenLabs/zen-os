@@ -6446,3 +6446,19 @@ msgstr "из"
 #. Reader page count format
 msgid "%1 of %2"
 msgstr "%1 из %2"
+
+#. Type: setting
+msgid "Color"
+msgstr "Цвет"
+
+#. Type: setting
+msgid "Color picker"
+msgstr "Выбор цвета"
+
+#. Type: setting
+msgid "Highlight"
+msgstr "Выделение"
+
+#. Type: setting
+msgid "Highlight color: %1"
+msgstr "Цвет выделения: %1"

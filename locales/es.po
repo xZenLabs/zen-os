@@ -6446,3 +6446,19 @@ msgstr "de"
 #. Reader page count format
 msgid "%1 of %2"
 msgstr "%1 de %2"
+
+#. Type: setting
+msgid "Color"
+msgstr "Color"
+
+#. Type: setting
+msgid "Color picker"
+msgstr "Selector de color"
+
+#. Type: setting
+msgid "Highlight"
+msgstr "Subrayado"
+
+#. Type: setting
+msgid "Highlight color: %1"
+msgstr "Color subrayado: %1"

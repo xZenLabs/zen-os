@@ -238,6 +238,8 @@ ZenOS is original work, but it wouldn't exist without the broader KOReader commu
 - **[qewer33/koreader-patches](https://github.com/qewer33/koreader-patches)** — The bottom navbar and quick settings components. Additional patch approaches and ideas, particularly around UI customization.
 - **[sebdelsol/KOReader.patches](https://github.com/sebdelsol/KOReader.patches)** — Patches and UI techniques that informed several of ZenOS's features.
 - **[doctorhetfield-cmd/simpleui.koplugin](https://github.com/doctorhetfield-cmd/simpleui.koplugin)** — A fellow KOReader UI plugin that served as an inspiration as well as a model for how to apply language translations throughout the plugin.
+- **[Euphoriyy/appearance.koplugin](https://github.com/Euphoriyy/appearance.koplugin)** — ZenOS's modified color picker is adapted from Appearance's color wheel under the GPL-3.0 License.
+- **[AndyHazz/bookshelf.koplugin](https://github.com/AndyHazz/bookshelf.koplugin)** — Inspiration for the Bookshelf home preset.
 - **[kristianpennacchia/zzz-readermenuredesign.koplugin](https://github.com/kristianpennacchia/zzz-readermenuredesign.koplugin)** — Inspiration for the reader search menu redesign
 - **[OGKevin/kobo.koplugin](https://github.com/OGKevin/kobo.koplugin)** — Reference for Kobo Bluetooth control, including MediaTek D-Bus and Libra 2 BlueZ behavior.
 - **[Tharavol/bluetooth.koplugin](https://github.com/Tharavol/bluetooth.koplugin)** — Reference for Kobo Sage Realtek Bluetooth bring-up.

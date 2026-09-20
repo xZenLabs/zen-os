@@ -62,6 +62,63 @@ describe("reader highlight names", function()
         assert.are.equal("Funny", ReaderHighlight.highlight_colors[1][1])
     end)
 
+    it("applies configured colors to current and legacy highlight paths", function()
+        local Blitbuffer = require("ffi/blitbuffer")
+        local original_red = Blitbuffer.HIGHLIGHT_COLORS.red
+        local original_reader_settings = G_reader_settings
+        local night_mode = false
+        _G.G_reader_settings = {
+            isTrue = function(_self, key) return key == "night_mode" and night_mode end,
+        }
+        local ReaderHighlight = {
+            highlight_colors = {
+                { "Red", "red" },
+                { "Gray", "gray" },
+            },
+            getHighlightColorCode = function(_self, color_name)
+                return color_name == "red" and original_red or nil
+            end,
+            getHighlightColor = function(self, color_name, force_orig, honor_night_mode)
+                local code = self:getHighlightColorCode(color_name, force_orig, honor_night_mode)
+                return code and Blitbuffer.colorFromString(code) or Blitbuffer.gray(0.2)
+            end,
+            getHighlightColorList = function(self)
+                return {
+                    { "Red", "red", self:getHighlightColor("red") },
+                    { "Gray", "gray", self:getHighlightColor("gray") },
+                }
+            end,
+        }
+        ZenSpec.replace("apps/reader/modules/readerhighlight", ReaderHighlight)
+        local apply = require("modules/reader/patches/highlight_names")
+        local plugin = {
+            config = {
+                highlight_lookup = {
+                    color_names = {},
+                    color_codes = { red = "#123456", gray = "#abcdef" },
+                },
+            },
+        }
+
+        apply(plugin)
+
+        assert.are.equal("#123456", ReaderHighlight:getHighlightColorCode("red"))
+        assert.are.equal("#abcdef", ReaderHighlight:getHighlightColorCode("gray"))
+        assert.are.equal(0x12, ReaderHighlight:getHighlightColor("red"):getR())
+        assert.are.equal(0xab, ReaderHighlight:getHighlightColor("gray"):getR())
+        assert.are.equal("#123456", Blitbuffer.HIGHLIGHT_COLORS.red)
+        assert.are.equal(0xab, ReaderHighlight:getHighlightColorList()[2][3]:getR())
+
+        night_mode = true
+        assert.are.equal("#edcba9", ReaderHighlight:getHighlightColorCode("red", false, true))
+
+        plugin.config.highlight_lookup.color_codes = {}
+        apply(plugin)
+        assert.are.equal(original_red, ReaderHighlight:getHighlightColorCode("red"))
+        assert.are.equal(original_red, Blitbuffer.HIGHLIGHT_COLORS.red)
+        _G.G_reader_settings = original_reader_settings
+    end)
+
     it("keeps legacy color lists unchanged", function()
         local color = require("ffi").new("struct { uint8_t r; uint8_t g; uint8_t b; uint8_t a; }")
         local ReaderHighlight = {

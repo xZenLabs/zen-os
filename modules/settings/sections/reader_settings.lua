@@ -57,38 +57,69 @@ function M.build(ctx)
     end
 
     local highlight_colors = {
-        { key = "red", text = _("Red") },
-        { key = "orange", text = _("Orange") },
-        { key = "yellow", text = _("Yellow") },
-        { key = "green", text = _("Green") },
-        { key = "olive", text = _("Olive") },
-        { key = "cyan", text = _("Cyan") },
-        { key = "blue", text = _("Blue") },
-        { key = "purple", text = _("Purple") },
-        { key = "gray", text = _("Gray") },
+        { key = "red", text = _("Red"), hex = "#ff3300" },
+        { key = "orange", text = _("Orange"), hex = "#ff8800" },
+        { key = "yellow", text = _("Yellow"), hex = "#ffff33" },
+        { key = "green", text = _("Green"), hex = "#00aa66" },
+        { key = "olive", text = _("Olive"), hex = "#88ff77" },
+        { key = "cyan", text = _("Cyan"), hex = "#00ffee" },
+        { key = "blue", text = _("Blue"), hex = "#0066ff" },
+        { key = "purple", text = _("Purple"), hex = "#ee00ff" },
+        { key = "gray", text = _("Gray"), hex = "#cccccc" },
     }
 
-    local function highlight_color_names()
+    local function highlight_settings()
         if type(config.highlight_lookup) ~= "table" then config.highlight_lookup = {} end
         if type(config.highlight_lookup.color_names) ~= "table" then
             config.highlight_lookup.color_names = {}
         end
-        return config.highlight_lookup.color_names
+        if type(config.highlight_lookup.color_codes) ~= "table" then
+            config.highlight_lookup.color_codes = {}
+        end
+        return config.highlight_lookup
     end
 
-    local function save_highlight_color_names()
+    local function save_highlights()
         plugin:saveConfig()
         require("modules/reader/patches/highlight_names")(plugin)
+        local ok, ReaderUI = pcall(require, "apps/reader/readerui")
+        local reader = ok and ReaderUI.instance
+        if reader and reader.view and type(reader.view.resetHighlightBoxesCache) == "function" then
+            reader.view:resetHighlightBoxesCache()
+            UIManager:setDirty(reader, "ui")
+        end
     end
 
-    local function make_highlight_name_items()
+    local function show_color_dialog(title, color, callback, touchmenu_instance)
+        local ColorWheelWidget = require("common/ui/color_wheel_widget")
+        UIManager:show(ColorWheelWidget:new{
+            title_text = title,
+            hex = color,
+            invert_in_night_mode = true,
+            callback = function(hex)
+                hex = ReaderThemes.normalizeColor(hex)
+                if not hex then return end
+                callback(hex)
+                if touchmenu_instance then touchmenu_instance:updateItems() end
+                UIManager:setDirty(nil, "ui")
+            end,
+            cancel_callback = function() UIManager:setDirty(nil, "ui") end,
+        }, "full")
+    end
+
+    local function make_highlight_items()
         local items = {
             {
                 text = _("Reset"),
-                enabled_func = function() return next(highlight_color_names()) ~= nil end,
+                enabled_func = function()
+                    local settings = highlight_settings()
+                    return next(settings.color_names) ~= nil or next(settings.color_codes) ~= nil
+                end,
                 callback = function(touchmenu_instance)
-                    config.highlight_lookup.color_names = {}
-                    save_highlight_color_names()
+                    local settings = highlight_settings()
+                    settings.color_names = {}
+                    settings.color_codes = {}
+                    save_highlights()
                     if touchmenu_instance then touchmenu_instance:updateItems() end
                 end,
                 separator = true,
@@ -97,48 +128,72 @@ function M.build(ctx)
         for _i, color in ipairs(highlight_colors) do
             local color_name = color.key
             local default_name = color.text
+            local default_hex = color.hex
+            local function display_name()
+                return highlight_settings().color_names[color_name] or default_name
+            end
+            local function display_color()
+                return highlight_settings().color_codes[color_name] or default_hex
+            end
             table.insert(items, {
-                text_func = function()
-                    local name = highlight_color_names()[color_name]
-                    return name and (default_name .. ": " .. name) or default_name
-                end,
-                keep_menu_open = true,
-                callback = function(touchmenu_instance)
-                    local InputDialog = require("ui/widget/inputdialog")
-                    local dlg
-                    dlg = InputDialog:new{
-                        title = default_name,
-                        input = highlight_color_names()[color_name] or "",
-                        input_hint = default_name,
-                        buttons = {{
-                            {
-                                text = _("Cancel"),
-                                id = "close",
-                                callback = function() UIManager:close(dlg) end,
-                            },
-                            {
-                                text = _("Set"),
-                                is_enter_default = true,
-                                callback = function()
-                                    local name = dlg:getInputText()
-                                    name = type(name) == "string"
-                                        and name:match("^%s*(.-)%s*$") or ""
-                                    if name == "" or name == default_name then name = nil end
-                                    if highlight_color_names()[color_name] == name then
-                                        UIManager:close(dlg)
-                                        return
-                                    end
-                                    highlight_color_names()[color_name] = name
-                                    UIManager:close(dlg)
-                                    save_highlight_color_names()
-                                    if touchmenu_instance then touchmenu_instance:updateItems() end
-                                end,
-                            },
-                        }},
-                    }
-                    UIManager:show(dlg)
-                    dlg:onShowKeyboard()
-                end,
+                text_func = display_name,
+                sub_item_table = {
+                    {
+                        text_func = function() return _("Name") .. ": " .. display_name() end,
+                        keep_menu_open = true,
+                        callback = function(touchmenu_instance)
+                            local InputDialog = require("ui/widget/inputdialog")
+                            local dlg
+                            dlg = InputDialog:new{
+                                title = default_name,
+                                input = highlight_settings().color_names[color_name] or "",
+                                input_hint = default_name,
+                                buttons = {{
+                                    {
+                                        text = _("Cancel"),
+                                        id = "close",
+                                        callback = function() UIManager:close(dlg) end,
+                                    },
+                                    {
+                                        text = _("Set"),
+                                        is_enter_default = true,
+                                        callback = function()
+                                            local name = dlg:getInputText()
+                                            name = type(name) == "string"
+                                                and name:match("^%s*(.-)%s*$") or ""
+                                            if name == "" or name == default_name then name = nil end
+                                            local names = highlight_settings().color_names
+                                            if names[color_name] == name then
+                                                UIManager:close(dlg)
+                                                return
+                                            end
+                                            names[color_name] = name
+                                            UIManager:close(dlg)
+                                            save_highlights()
+                                            if touchmenu_instance then touchmenu_instance:updateItems() end
+                                        end,
+                                    },
+                                }},
+                            }
+                            UIManager:show(dlg)
+                            dlg:onShowKeyboard()
+                        end,
+                    },
+                    {
+                        text_func = function() return _("Color") .. ": " .. display_color() end,
+                        keep_menu_open = true,
+                        callback = function(touchmenu_instance)
+                            show_color_dialog(T(_("Highlight color: %1"), display_name()), display_color(),
+                                function(hex)
+                                    local codes = highlight_settings().color_codes
+                                    local custom = hex == default_hex and nil or hex
+                                    if codes[color_name] == custom then return end
+                                    codes[color_name] = custom
+                                    save_highlights()
+                                end, touchmenu_instance)
+                        end,
+                    },
+                },
             })
         end
         return items
@@ -737,10 +792,7 @@ function M.build(ctx)
                     is_enter_default = true,
                     callback = function()
                         local value = dlg:getInputText()
-                        local is_color = field == "background" or field == "text"
-                        if (not is_color and value and not value:match("^%s*$"))
-                            or (is_color and ReaderThemes.isValidColor(value)) then
-                            value = is_color and ReaderThemes.normalizeColor(value) or value
+                        if value and not value:match("^%s*$") then
                             if value == theme[field] then
                                 UIManager:close(dlg)
                                 return
@@ -824,16 +876,16 @@ function M.build(ctx)
             text_func = function() return _("Background color") .. ": " .. editable_theme.background end,
             keep_menu_open = true,
             callback = function(touchmenu_instance)
-                show_theme_text_dialog(editable_theme, "background", _("Background color"), touchmenu_instance,
-                    function(value) save_change("background", value) end)
+                show_color_dialog(_("Background color"), editable_theme.background,
+                    function(value) save_change("background", value) end, touchmenu_instance)
             end,
         })
         table.insert(edit_items, {
             text_func = function() return _("Text color") .. ": " .. editable_theme.text end,
             keep_menu_open = true,
             callback = function(touchmenu_instance)
-                show_theme_text_dialog(editable_theme, "text", _("Text color"), touchmenu_instance,
-                    function(value) save_change("text", value) end)
+                show_color_dialog(_("Text color"), editable_theme.text,
+                    function(value) save_change("text", value) end, touchmenu_instance)
             end,
         })
         table.insert(edit_items, {
@@ -1171,8 +1223,8 @@ function M.build(ctx)
             make_enable_feature_item("dict_quick_lookup", _("Zen quick lookup")),
             make_enable_feature_item("highlight_lookup", _("Zen highlight menu")),
             {
-                text = _("Highlight names"),
-                sub_item_table_func = make_highlight_name_items,
+                text = _("Highlight"),
+                sub_item_table_func = make_highlight_items,
             },
             {
                 text = _("Show Wikipedia"),
