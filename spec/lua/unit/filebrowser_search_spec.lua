@@ -1,11 +1,13 @@
 describe("file browser search", function()
-    local close_button, close_count, closed, dialog, input_widget, stock_calls
+    local close_button, close_count, closed, dialog, input_widget, search_files, searched_paths, stock_calls
 
     before_each(function()
         dialog = nil
         closed = nil
         close_count = 0
         close_button = nil
+        search_files = nil
+        searched_paths = {}
         stock_calls = {}
         _G.__ZEN_UI_PLUGIN = { config = { features = { search = true } } }
 
@@ -17,6 +19,14 @@ describe("file browser search", function()
             isFileMatch = function()
                 stock_calls.match = (stock_calls.match or 0) + 1
                 return "stock match"
+            end,
+            getList = function(self)
+                local path = self.search_path
+                searched_paths[#searched_paths + 1] = path
+                return {}, { { path .. "/book.epub" } }, 0
+            end,
+            doSearch = function(self)
+                search_files = select(2, self:getList())
             end,
             updateItemTable = function() end,
             onMenuHold = function() end,
@@ -48,7 +58,13 @@ describe("file browser search", function()
             end,
             show = function() end,
         })
-        ZenSpec.replace("common/paths", { getHomeDir = function() return "/library" end })
+        ZenSpec.replace("common/paths", {
+            getHomeDir = function() return "/library" end,
+            normPath = function(path) return path end,
+        })
+        ZenSpec.replace("ui/trapper", {
+            wrap = function(_, callback) callback() end,
+        })
         ZenSpec.replace("common/ui/zen_modal_close", {
             installDialog = function(target, callback)
                 close_button = { file = "/zen-ui/icons/close.svg", callback = callback }
@@ -69,6 +85,7 @@ describe("file browser search", function()
     after_each(function()
         _G.__ZEN_UI_PLUGIN = nil
         ZenSpec.unload("modules/filebrowser/patches/search")
+        ZenSpec.unload("ui/trapper")
     end)
 
     it("places a focusable bundled close button at the top right", function()
@@ -114,6 +131,21 @@ describe("file browser search", function()
             "Invincible Presents - Atom Eve & Rex Splode",
             "/library/Invincible Presents - Atom Eve & Rex Splode",
             "atom"))
+    end)
+
+    it("searches every non-overlapping home folder", function()
+        local FileManagerFileSearcher = require("apps/filemanager/filemanagerfilesearcher")
+        _G.__ZEN_UI_PLUGIN.config.additional_home_dirs = {
+            "/extra", "/library/nested", "/extra",
+        }
+        FileManagerFileSearcher.ui = { coverbrowser = {} }
+        FileManagerFileSearcher:onShowFileSearch()
+        dialog.getInputText = function() return "egg" end
+
+        dialog.buttons[1][1].callback()
+
+        assert.are.same({ "/extra", "/library" }, searched_paths)
+        assert.are.equal(2, #search_files)
     end)
 
     it("uses KOReader file search when Zen Search is disabled", function()

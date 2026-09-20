@@ -22,6 +22,50 @@ local function apply_search()
         return type(search) ~= "table" or search.substring ~= false
     end
 
+    local function get_search_paths()
+        local candidates = {}
+        local function add(path)
+            if type(path) ~= "string" or path == "" then return end
+            path = paths.normPath(path:gsub("/*$", ""))
+            if path ~= "" then candidates[#candidates + 1] = path end
+        end
+        add(paths.getHomeDir())
+        local additional = type(zen_plugin.config.additional_home_dirs) == "table"
+            and zen_plugin.config.additional_home_dirs or {}
+        for _i, path in ipairs(additional) do add(path) end
+        table.sort(candidates, function(a, b) return #a < #b end)
+
+        local roots = {}
+        for _i, candidate in ipairs(candidates) do
+            local nested = false
+            for _j, root in ipairs(roots) do
+                if candidate == root or candidate:sub(1, #root + 1) == root .. "/" then
+                    nested = true
+                    break
+                end
+            end
+            if not nested then roots[#roots + 1] = candidate end
+        end
+        return roots
+    end
+
+    local orig_getList = FileManagerFileSearcher.getList
+    function FileManagerFileSearcher:getList(...)
+        if not is_enabled() or type(self._zen_search_paths) ~= "table" then
+            return orig_getList(self, ...)
+        end
+
+        local dirs, files, no_metadata_count = {}, {}, 0
+        for _i, path in ipairs(self._zen_search_paths) do
+            FileManagerFileSearcher.search_path = path
+            local path_dirs, path_files, path_no_metadata_count = orig_getList(self, ...)
+            for _j, item in ipairs(path_dirs or {}) do dirs[#dirs + 1] = item end
+            for _j, item in ipairs(path_files or {}) do files[#files + 1] = item end
+            no_metadata_count = no_metadata_count + (path_no_metadata_count or 0)
+        end
+        return dirs, files, no_metadata_count
+    end
+
     local orig_onShowFileSearch = FileManagerFileSearcher.onShowFileSearch
 
     function FileManagerFileSearcher:onShowFileSearch(search_string)
@@ -43,7 +87,8 @@ local function apply_search()
             self.case_sensitive = false
             self.include_subfolders = true
             self.include_metadata = self.ui.coverbrowser and true or false
-            FileManagerFileSearcher.search_path = paths.getHomeDir()
+            self._zen_search_paths = get_search_paths()
+            FileManagerFileSearcher.search_path = self._zen_search_paths[1]
             local Trapper = require("ui/trapper")
             Trapper:wrap(function()
                 self:doSearch()
