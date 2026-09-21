@@ -351,6 +351,7 @@ return {
         "Add color pickers for Reader themes and highlights",
         "Add plugin actions to Context Menu in the More section (Library > Context menu)",
         "Add Archive functionality from default move to Archive plugin (Library > Context Menu)",
+        "Add swipe to go back gesture in Zen Settings",
         "Add Kindle books to Home/Collections",
         "Add Kobo bluetooth control (KLC, Mediatek, Sage, Clara 2E)",
         "Fix even home widget spacing",

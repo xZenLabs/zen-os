@@ -283,6 +283,21 @@ describe("Zen settings page", function()
         assert.is_false(settings.title_bar.back_visible)
     end)
 
+    it("goes back from submenus on an east swipe starting in the west 40 percent", function()
+        local library = { text = "Library >", sub_item_table = {{ text = "Option" }} }
+        local settings = make_page({ library })
+        settings:onMenuSelect(library)
+
+        assert.is_true(settings:onSwipe(nil, { direction = "east", pos = { x = 240 } }))
+        assert.are.equal(settings._root_items, settings.item_table)
+
+        assert.is_true(settings:onSwipe(nil, { direction = "east", pos = { x = 241 } }))
+        assert.is_true(settings:onSwipe(nil, { direction = "west", pos = { x = 100 } }))
+        assert.is_true(settings:onSwipe(nil, { direction = "east", pos = { x = 100 } }))
+        assert.is_false(settings._closed)
+        assert.are.equal(3, settings.top_menu_swipes)
+    end)
+
     it("shows full truncated row text on hold while preserving explicit help", function()
         local plain = { text = "Plain setting" }
         local truncated = {
