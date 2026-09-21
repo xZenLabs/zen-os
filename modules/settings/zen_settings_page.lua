@@ -363,7 +363,7 @@ end
 function ZenSettingsPage:onSwipe(arg, ges_ev)
     if #self.item_table_stack > 0
             and ges_ev and ges_ev.direction == "east" and ges_ev.pos
-            and ges_ev.pos.x <= self.width * 0.25 then
+            and ges_ev.pos.x <= self.width * 0.33 then
         return self:backToUpperMenu()
     end
     if Menu.onSwipe then return Menu.onSwipe(self, arg, ges_ev) end

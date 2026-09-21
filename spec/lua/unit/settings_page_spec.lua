@@ -283,15 +283,15 @@ describe("Zen settings page", function()
         assert.is_false(settings.title_bar.back_visible)
     end)
 
-    it("goes back from submenus on an east swipe starting in the west 25 percent", function()
+    it("goes back from submenus on an east swipe starting in the west 33 percent", function()
         local library = { text = "Library >", sub_item_table = {{ text = "Option" }} }
         local settings = make_page({ library })
         settings:onMenuSelect(library)
 
-        assert.is_true(settings:onSwipe(nil, { direction = "east", pos = { x = 150 } }))
+        assert.is_true(settings:onSwipe(nil, { direction = "east", pos = { x = 198 } }))
         assert.are.equal(settings._root_items, settings.item_table)
 
-        assert.is_true(settings:onSwipe(nil, { direction = "east", pos = { x = 151 } }))
+        assert.is_true(settings:onSwipe(nil, { direction = "east", pos = { x = 199 } }))
         assert.is_true(settings:onSwipe(nil, { direction = "west", pos = { x = 100 } }))
         assert.is_true(settings:onSwipe(nil, { direction = "east", pos = { x = 100 } }))
         assert.is_false(settings._closed)
