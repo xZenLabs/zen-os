@@ -2,6 +2,7 @@ describe("quick settings plugin controls", function()
     local original_modules
     local original_plugin
     local original_quick_settings
+    local original_open_launcher
     local tailscale
     local zenfm
     local destination_entries
@@ -10,6 +11,9 @@ describe("quick settings plugin controls", function()
     local NetworkMgr
     local actions
     local dispatched_actions
+    local launcher_apply_calls
+    local launcher_opens
+    local settings_shows
     local save_calls
 
     local module_names = {
@@ -46,6 +50,8 @@ describe("quick settings plugin controls", function()
         "common/nav_button_model",
         "modules/menu/app_launcher/plugin_scan",
         "modules/menu/app_launcher/menu_host",
+        "modules/menu/patches/app_launcher",
+        "modules/settings/zen_settings_page",
         "common/plugin_root",
         "modules/menu/patches/touch_menu_panel",
         "ui/widget/touchmenu",
@@ -63,8 +69,13 @@ describe("quick settings plugin controls", function()
         end
         original_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
         original_quick_settings = rawget(_G, "__ZEN_UI_QUICK_SETTINGS")
+        original_open_launcher = rawget(_G, "__ZEN_UI_OPEN_APP_LAUNCHER")
+        _G.__ZEN_UI_OPEN_APP_LAUNCHER = nil
         actions = {}
         dispatched_actions = {}
+        launcher_apply_calls = 0
+        launcher_opens = 0
+        settings_shows = 0
         save_calls = 0
 
         local no_op = {}
@@ -190,6 +201,20 @@ describe("quick settings plugin controls", function()
         ZenSpec.replace("modules/menu/app_launcher/menu_host", {
             show = function(options) hosted_menu = options end,
         })
+        ZenSpec.replace("modules/menu/patches/app_launcher", function()
+            launcher_apply_calls = launcher_apply_calls + 1
+            _G.__ZEN_UI_OPEN_APP_LAUNCHER = function(touch_menu)
+                launcher_opens = launcher_opens + 1
+                touch_menu.opened_launcher = true
+                return true
+            end
+        end)
+        ZenSpec.replace("modules/settings/zen_settings_page", {
+            show = function(plugin)
+                assert.are.equal(_G.__ZEN_UI_PLUGIN, plugin)
+                settings_shows = settings_shows + 1
+            end,
+        })
         ZenSpec.replace("common/plugin_root", "/tmp/zen-ui")
         ZenSpec.replace("modules/menu/patches/touch_menu_panel", { install = function() end })
         ZenSpec.replace("ui/widget/touchmenu", {
@@ -267,6 +292,7 @@ describe("quick settings plugin controls", function()
         ZenSpec.unload("modules/menu/patches/quick_settings")
         _G.__ZEN_UI_PLUGIN = original_plugin
         _G.__ZEN_UI_QUICK_SETTINGS = original_quick_settings
+        _G.__ZEN_UI_OPEN_APP_LAUNCHER = original_open_launcher
     end)
 
     it("uses the plugin's toggle and running state", function()
@@ -334,6 +360,10 @@ describe("quick settings plugin controls", function()
         assert.are.equal("Autorotate", controls.gyro.label)
         assert.are.equal("/tmp/zen-ui/icons/quick_rotate.svg", controls.gyro.icon)
         assert.are.equal("/tmp/zen-ui/icons/quick_zen.svg", controls.zen.icon)
+        assert.are.equal("Settings", controls.zen_settings.label)
+        assert.are.equal("/tmp/zen-ui/icons/zen_ui.svg", controls.zen_settings.icon)
+        assert.are.equal("Launcher", controls.launcher.label)
+        assert.are.equal("/tmp/zen-ui/icons/app_launcher.svg", controls.launcher.icon)
     end)
 
     it("renders default controls while the setup tour is pending", function()
@@ -357,20 +387,30 @@ describe("quick settings plugin controls", function()
         assert.are.same({ "tailscale" }, rendered_ids())
     end)
 
-    it("uses the configured autorotate label and icon", function()
+    it("uses configured labels and icons", function()
         local config = _G.__ZEN_UI_PLUGIN.config.quick_settings
         config.gyro_label = "Turn with device"
         config.gyro_icon = "atom"
+        config.zen_settings_label = "Preferences"
+        config.zen_settings_icon = "settings"
+        config.launcher_label = "Apps"
+        config.launcher_icon = "grid"
         ZenSpec.unload("modules/menu/patches/quick_settings")
         require("modules/menu/patches/quick_settings")()
 
-        local autorotate
+        local autorotate, settings, launcher
         for _i, item in ipairs(_G.__ZEN_UI_QUICK_SETTINGS.getItems()) do
             if item.id == "gyro" then autorotate = item end
+            if item.id == "zen_settings" then settings = item end
+            if item.id == "launcher" then launcher = item end
         end
 
         assert.are.equal("Turn with device", autorotate.label)
         assert.are.equal("/tmp/zen-ui/icons/atom.svg", autorotate.icon)
+        assert.are.equal("Preferences", settings.label)
+        assert.are.equal("/tmp/zen-ui/icons/settings.svg", settings.icon)
+        assert.are.equal("Apps", launcher.label)
+        assert.are.equal("/tmp/zen-ui/icons/grid.svg", launcher.icon)
     end)
 
     it("lists and toggles ZenFM without closing the menu", function()
@@ -430,6 +470,40 @@ describe("quick settings plugin controls", function()
 
         assert.are.equal(1, closes)
         assert.are.same({ { airplanemode_toggle = true } }, dispatched_actions)
+    end)
+
+    it("opens Zen Settings from its control", function()
+        local closes = 0
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("zen_settings", {
+            closeMenu = function() closes = closes + 1 end,
+            updateItems = function() end,
+            item_table = { panel = true },
+        }))
+
+        assert.are.equal(1, closes)
+        assert.are.equal(1, settings_shows)
+    end)
+
+    it("keeps the Zen Settings control inert when Lockdown disables settings", function()
+        _G.__ZEN_UI_PLUGIN.config.lockdown = { disable_settings_panel = true }
+        _G.__ZEN_UI_PLUGIN.config.features.lockdown_mode = true
+
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isDisabled("zen_settings"))
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.activate("zen_settings"))
+        assert.are.equal(0, settings_shows)
+    end)
+
+    it("opens Launcher inside Controls even when its patch was not loaded", function()
+        local touch_menu = {
+            closeMenu = function() error("Launcher should remain inside Controls") end,
+            updateItems = function() end,
+            item_table = { panel = true },
+        }
+
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("launcher", touch_menu))
+        assert.are.equal(1, launcher_apply_calls)
+        assert.are.equal(1, launcher_opens)
+        assert.is_true(touch_menu.opened_launcher)
     end)
 
     it("opens ZenFM settings on hold with a toggle and timeout submenu", function()

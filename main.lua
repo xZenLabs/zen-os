@@ -574,8 +574,13 @@ function ZenUI:init()
         local _cfg = _zen_plugin_ref and _zen_plugin_ref.config
         local _lc = _cfg and _cfg.lockdown
         local _ft = _cfg and _cfg.features
-        return type(_lc) == "table" and _lc.disable_settings_panel == true
+        local _qs = _cfg and _cfg.quick_settings
+        local _buttons = type(_qs) == "table" and _qs.show_buttons
+        local hidden_by_lockdown = type(_lc) == "table" and _lc.disable_settings_panel == true
             and type(_ft) == "table" and _ft.lockdown_mode == true
+        return hidden_by_lockdown
+            or type(_ft) == "table" and _ft.quick_settings == true
+                and type(_buttons) == "table" and _buttons.zen_settings == true
     end
 
     local function flip_lh_rh_icons()

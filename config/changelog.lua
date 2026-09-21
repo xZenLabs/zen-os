@@ -350,6 +350,7 @@ return {
      ["3.4.0"] = {
         "Add color pickers for Reader themes and highlights",
         "Add Airplane Mode control when the plugin is installed",
+        "Add customizable Settings and Launcher controls",
         "Add plugin actions to Context Menu in the More section (Library > Context menu)",
         "Add Archive functionality from default move to Archive plugin (Library > Context Menu)",
         "Add swipe to go back gesture in Zen Settings",

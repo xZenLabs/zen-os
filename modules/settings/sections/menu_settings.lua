@@ -60,6 +60,26 @@ function M.build(ctx)
         return type(icon) == "string" and icon ~= "" and icon or "quick_rotate"
     end
 
+    local function getZenSettingsLabel()
+        local label = config.quick_settings.zen_settings_label
+        return type(label) == "string" and label ~= "" and label or _("Settings")
+    end
+
+    local function getZenSettingsIcon()
+        local icon = config.quick_settings.zen_settings_icon
+        return type(icon) == "string" and icon ~= "" and icon or "zen_ui"
+    end
+
+    local function getLauncherLabel()
+        local label = config.quick_settings.launcher_label
+        return type(label) == "string" and label ~= "" and label or _("Launcher")
+    end
+
+    local function getLauncherIcon()
+        local icon = config.quick_settings.launcher_icon
+        return type(icon) == "string" and icon ~= "" and icon or "app_launcher"
+    end
+
     local quick_button_items = {
         { key = "wifi",    text = _("Wi-Fi")       },
         { key = "bluetooth", text = _("Bluetooth"), detect = Bluetooth.isAvailable },
@@ -75,6 +95,8 @@ function M.build(ctx)
         { key = "restart", text = _("Restart")     },
         { key = "exit",    text = _("Exit")        },
         { key = "sleep",   text = _("Sleep")       },
+        { key = "zen_settings", text = getZenSettingsLabel() },
+        { key = "launcher", text = getLauncherLabel() },
         -- Optional: only shown when the plugin/feature is detected.
         { key = "quickrss",       text = _("QuickRSS"),        detect = function() local ok = pcall(require, "modules/ui/feed_view"); return ok end },
         { key = "cloud",          text = _("Cloud storage") },
@@ -249,6 +271,13 @@ function M.build(ctx)
         }
     end
 
+    local function ensureButtonOrder(id)
+        for _i, ordered_id in ipairs(config.quick_settings.button_order) do
+            if ordered_id == id then return end
+        end
+        table.insert(config.quick_settings.button_order, id)
+    end
+
     local function toggleQuickButton(id)
         if config.quick_settings.show_buttons[id] == true then
             config.quick_settings.show_buttons[id] = false
@@ -260,6 +289,7 @@ function M.build(ctx)
                 })
                 return false
             end
+            ensureButtonOrder(id)
             config.quick_settings.show_buttons[id] = true
         end
         save_and_apply_quick_settings()
@@ -270,13 +300,6 @@ function M.build(ctx)
     local build_control_sub_items
     local get_cb_label
     local sync_cb_action_label
-
-    local function ensureButtonOrder(id)
-        for _i, ordered_id in ipairs(config.quick_settings.button_order) do
-            if ordered_id == id then return end
-        end
-        table.insert(config.quick_settings.button_order, id)
-    end
 
     local function wrap_dispatch_callbacks(items, caller, on_update)
         DispatcherMenu.wrap(items, caller, on_update, "_zen_qs_dispatch")
@@ -426,7 +449,7 @@ function M.build(ctx)
         end
         local picker_items = {}
         for _i, item in ipairs(quick_button_items) do
-            if not selected[item.key] then
+            if item.key ~= "zen_settings" and not selected[item.key] then
                 picker_items[#picker_items + 1] = { id = item.key, text = item.text }
             end
         end
@@ -599,7 +622,21 @@ function M.build(ctx)
                             end
                         end,
                     }
-                    if id == "gyro" then
+                    if id == "zen_settings" then
+                        item.checked_func = nil
+                        item.callback = nil
+                        item.text_func = getZenSettingsLabel
+                        item.sub_title = getZenSettingsLabel()
+                        item.sub_item_table_func = function()
+                            return build_control_sub_items(id)
+                        end
+                    elseif id == "launcher" then
+                        item.text_func = getLauncherLabel
+                        item.sub_title = getLauncherLabel()
+                        item.sub_item_table_func = function()
+                            return build_control_sub_items(id)
+                        end
+                    elseif id == "gyro" then
                         item.text_func = getAutorotateLabel
                         item.sub_title = getAutorotateLabel()
                         item.sub_item_table_func = function()
@@ -973,16 +1010,26 @@ function M.build(ctx)
 
     build_control_sub_items = function(id)
         local items = {}
-        if id == "gyro" then
+        if id == "gyro" or id == "zen_settings" or id == "launcher" then
+            local is_zen_settings = id == "zen_settings"
+            local is_launcher = id == "launcher"
+            local get_label = is_zen_settings and getZenSettingsLabel
+                or is_launcher and getLauncherLabel or getAutorotateLabel
+            local get_icon = is_zen_settings and getZenSettingsIcon
+                or is_launcher and getLauncherIcon or getAutorotateIcon
+            local label_key = is_zen_settings and "zen_settings_label"
+                or is_launcher and "launcher_label" or "gyro_label"
+            local icon_key = is_zen_settings and "zen_settings_icon"
+                or is_launcher and "launcher_icon" or "gyro_icon"
             items[#items + 1] = IconItem.decorate({
                 text_func = function()
                     return T(_("Icon: %1"),
-                        icon_utils.getIconDisplayName(getAutorotateIcon()))
+                        icon_utils.getIconDisplayName(get_icon()))
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
-                    showIconPickerDialog({ icon = getAutorotateIcon() }, function(name)
-                        config.quick_settings.gyro_icon = name
+                    showIconPickerDialog({ icon = get_icon() }, function(name)
+                        config.quick_settings[icon_key] = name
                         save_and_apply_quick_settings()
                         if touch_menu and touch_menu.updateItems then touch_menu:updateItems(1) end
                     end)
@@ -990,15 +1037,16 @@ function M.build(ctx)
             }, icons.icon)
             items[#items + 1] = IconItem.decorate({
                 text_func = function()
-                    return T(_("Label: %1"), getAutorotateLabel())
+                    return T(_("Label: %1"), get_label())
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
                     local InputDialog = require("ui/widget/inputdialog")
                     local dialog
                     dialog = InputDialog:new{
-                        title = _("Autorotate"),
-                        input = config.quick_settings.gyro_label or "",
+                        title = is_zen_settings and _("Settings")
+                            or is_launcher and _("Launcher") or _("Autorotate"),
+                        input = config.quick_settings[label_key] or "",
                         buttons = {{
                             { text = _("Cancel"), callback = function() UIManager:close(dialog) end },
                             {
@@ -1006,8 +1054,8 @@ function M.build(ctx)
                                 is_enter_default = true,
                                 callback = function()
                                     local label = dialog:getInputText()
-                                    config.quick_settings.gyro_label = label or ""
-                                    quick_button_label_by_id.gyro = getAutorotateLabel()
+                                    config.quick_settings[label_key] = label or ""
+                                    quick_button_label_by_id[id] = get_label()
                                     UIManager:close(dialog)
                                     save_and_apply_quick_settings()
                                     if touch_menu and touch_menu.updateItems then
@@ -1029,29 +1077,31 @@ function M.build(ctx)
         elseif id == "tailscale" then
             items = buildTailscaleButtonSubItems()
         end
-        items[#items + 1] = IconItem.decorate({
-            text = _("Delete"),
-            separator = true,
-            callback = function(touch_menu)
-                local ConfirmBox = require("ui/widget/confirmbox")
-                UIManager:show(ConfirmBox:new{
-                    text = _("Delete this control?"),
-                    ok_text = _("Delete"),
-                    ok_callback = function()
-                        local new_order = {}
-                        for _i, saved_id in ipairs(config.quick_settings.button_order) do
-                            if saved_id ~= id then
-                                new_order[#new_order + 1] = saved_id
+        if id ~= "zen_settings" then
+            items[#items + 1] = IconItem.decorate({
+                text = _("Delete"),
+                separator = true,
+                callback = function(touch_menu)
+                    local ConfirmBox = require("ui/widget/confirmbox")
+                    UIManager:show(ConfirmBox:new{
+                        text = _("Delete this control?"),
+                        ok_text = _("Delete"),
+                        ok_callback = function()
+                            local new_order = {}
+                            for _i, saved_id in ipairs(config.quick_settings.button_order) do
+                                if saved_id ~= id then
+                                    new_order[#new_order + 1] = saved_id
+                                end
                             end
-                        end
-                        config.quick_settings.button_order = new_order
-                        config.quick_settings.show_buttons[id] = false
-                        save_and_apply_quick_settings()
-                        if touch_menu then touch_menu:backToUpperMenu() end
-                    end,
-                })
-            end,
-        }, icons.delete)
+                            config.quick_settings.button_order = new_order
+                            config.quick_settings.show_buttons[id] = false
+                            save_and_apply_quick_settings()
+                            if touch_menu then touch_menu:backToUpperMenu() end
+                        end,
+                    })
+                end,
+            }, icons.delete)
+        end
         return items
     end
 
@@ -1080,6 +1130,12 @@ function M.build(ctx)
         config.quick_settings.gyro_label = def.gyro_label
         config.quick_settings.gyro_icon = def.gyro_icon
         quick_button_label_by_id.gyro = getAutorotateLabel()
+        config.quick_settings.zen_settings_label = def.zen_settings_label
+        config.quick_settings.zen_settings_icon = def.zen_settings_icon
+        quick_button_label_by_id.zen_settings = getZenSettingsLabel()
+        config.quick_settings.launcher_label = def.launcher_label
+        config.quick_settings.launcher_icon = def.launcher_icon
+        quick_button_label_by_id.launcher = getLauncherLabel()
         config.quick_settings.screenshot_timer_seconds = def.screenshot_timer_seconds
         config.quick_settings.tailscale_toggle_wifi = def.tailscale_toggle_wifi
         save_and_apply_quick_settings()
@@ -1178,6 +1234,15 @@ function M.build(ctx)
                     save_and_apply_quick_settings()
                 end,
             }, icons.settings_background),
+            IconItem.decorate({
+                text = _("Show Zen Settings in Controls"),
+                checked_func = function()
+                    return config.quick_settings.show_buttons.zen_settings == true
+                end,
+                callback = function()
+                    toggleQuickButton("zen_settings")
+                end,
+            }, icons.settings),
             IconItem.decorate({
                 text = _("Reset to defaults"),
                 separator = true,

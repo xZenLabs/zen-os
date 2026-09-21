@@ -713,6 +713,24 @@
         }
     end
 
+    rawset(_G, "__ZEN_UI_OPEN_APP_LAUNCHER", function(touch_menu)
+        if not (touch_menu and type(touch_menu.item_table) == "table"
+                and type(touch_menu.updateItems) == "function") then
+            return false
+        end
+        if touch_menu.item_table.id ~= "app_launcher" then
+            touch_menu.item_table_stack = touch_menu.item_table_stack or {}
+            table.insert(touch_menu.item_table_stack, touch_menu.item_table)
+            touch_menu.item_table = make_app_launcher_tab(
+                not (zen_plugin.ui and zen_plugin.ui.document))
+        end
+        touch_menu.parent_id = nil
+        touch_menu._app_launcher_folder_id = nil
+        touch_menu._app_launcher_page = 1
+        touch_menu:updateItems(1)
+        return true
+    end)
+
     local function find_tab(tab_table, id)
         for i, tab in ipairs(tab_table or {}) do
             if tab.id == id then return i end

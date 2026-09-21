@@ -32,6 +32,10 @@ describe("Controls destination settings", function()
                 next_custom_id = 0,
                 gyro_label = "",
                 gyro_icon = "quick_rotate",
+                zen_settings_label = "",
+                zen_settings_icon = "zen_ui",
+                launcher_label = "",
+                launcher_icon = "app_launcher",
                 tailscale_toggle_wifi = false,
                 background_hatching = false,
             },
@@ -57,6 +61,8 @@ describe("Controls destination settings", function()
         ZenSpec.replace("config/defaults", { quick_settings = {
             button_order = {}, show_buttons = {},
             gyro_label = "", gyro_icon = "quick_rotate",
+            zen_settings_label = "", zen_settings_icon = "zen_ui",
+            launcher_label = "", launcher_icon = "app_launcher",
             tailscale_toggle_wifi = false,
             background_hatching = false,
         } })
@@ -229,6 +235,88 @@ describe("Controls destination settings", function()
         assert.are.equal(1, saves)
     end)
 
+    it("toggles Zen Settings outside the arranger but keeps it movable", function()
+        local saves = 0
+        local section = require("modules/settings/sections/menu_settings").build({
+            config = config,
+            plugin = {},
+            save_and_apply = function() saves = saves + 1 end,
+        })
+        local setting
+        for _i, item in ipairs(section.sub_item_table) do
+            if item.text == "Show Zen Settings in Controls" then setting = item end
+        end
+
+        assert.is_table(setting)
+        assert.are.equal(setting, section.sub_item_table[#section.sub_item_table - 1])
+        assert.is_false(setting.checked_func())
+        setting.callback()
+        assert.is_true(setting.checked_func())
+        assert.are.same({ "zen_settings" }, config.quick_settings.button_order)
+
+        section.sub_item_table[1].callback()
+        local movable
+        for _i, item in ipairs(arrange_options.item_table) do
+            if item.orig_item == "zen_settings" then movable = item end
+        end
+        assert.is_table(movable)
+        assert.is_nil(movable.checked_func)
+        assert.is_nil(movable.callback)
+        assert.are.equal("Settings", movable.text_func())
+
+        local items = movable.sub_item_table_func()
+        local touch_menu = { updateItems = function() end }
+        assert.are.equal(2, #items)
+        assert.are.equal("Icon: zen_ui", items[1].text_func())
+        items[1].callback(touch_menu)
+        icon_picker_callback("atom")
+        assert.are.equal("atom", config.quick_settings.zen_settings_icon)
+
+        input_text = "Preferences"
+        items[2].callback(touch_menu)
+        shown_widget.buttons[1][2].callback()
+        assert.are.equal("Preferences", config.quick_settings.zen_settings_label)
+        assert.are.equal("Preferences", movable.text_func())
+
+        setting.callback()
+        assert.is_false(setting.checked_func())
+        assert.are.equal(4, saves)
+    end)
+
+    it("edits the Launcher label and icon", function()
+        config.quick_settings.button_order = { "launcher" }
+        config.quick_settings.show_buttons.launcher = true
+        local saves = 0
+        local section = require("modules/settings/sections/menu_settings").build({
+            config = config,
+            plugin = {},
+            save_and_apply = function() saves = saves + 1 end,
+        })
+        section.sub_item_table[1].callback()
+
+        local launcher
+        for _i, item in ipairs(arrange_options.item_table) do
+            if item.orig_item == "launcher" then launcher = item end
+        end
+        assert.is_table(launcher)
+        assert.are.equal("Launcher", launcher.text_func())
+
+        local items = launcher.sub_item_table_func()
+        local touch_menu = { updateItems = function() end }
+        assert.are.equal(3, #items)
+        assert.are.equal("Icon: app_launcher", items[1].text_func())
+        items[1].callback(touch_menu)
+        icon_picker_callback("grid")
+        assert.are.equal("grid", config.quick_settings.launcher_icon)
+
+        input_text = "Apps"
+        items[2].callback(touch_menu)
+        shown_widget.buttons[1][2].callback()
+        assert.are.equal("Apps", config.quick_settings.launcher_label)
+        assert.are.equal("Apps", launcher.text_func())
+        assert.are.equal(2, saves)
+    end)
+
     it("toggles background hatching", function()
         local saves = 0
         local section = require("modules/settings/sections/menu_settings").build({
@@ -239,8 +327,12 @@ describe("Controls destination settings", function()
                 saves = saves + 1
             end,
         })
-        local hatching = section.sub_item_table[#section.sub_item_table - 1]
+        local hatching
+        for _i, item in ipairs(section.sub_item_table) do
+            if item.text == "Background hatching" then hatching = item end
+        end
 
+        assert.is_table(hatching)
         assert.are.equal("Background hatching", hatching.text)
         assert.is_false(hatching.checked_func())
         hatching.callback()

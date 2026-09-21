@@ -116,6 +116,8 @@ local function apply_quick_settings()
             streak = false,
             opds = false,
             airplanemode = false,
+            zen_settings = false,
+            launcher = false,
             filebrowser = false,
             tailscale = false,
             zenfm = false,
@@ -136,6 +138,10 @@ local function apply_quick_settings()
         show_warmth = true,
         gyro_label = "",
         gyro_icon = "quick_rotate",
+        zen_settings_label = "",
+        zen_settings_icon = "zen_ui",
+        launcher_label = "",
+        launcher_icon = "app_launcher",
         rotate_action = "cycle",
         screenshot_timer_seconds = 3,
         tailscale_toggle_wifi = false,
@@ -819,6 +825,44 @@ local function apply_quick_settings()
                 UIManager:nextTick(function()
                     Dispatcher:execute({ airplanemode_toggle = true })
                 end)
+            end,
+        },
+        zen_settings = {
+            icon = resolveConfiguredIcon(
+                type(config.zen_settings_icon) == "string" and config.zen_settings_icon ~= ""
+                    and config.zen_settings_icon or "zen_ui", "zen_ui"),
+            label = type(config.zen_settings_label) == "string"
+                and config.zen_settings_label ~= ""
+                and config.zen_settings_label or _("Settings"),
+            disabled_func = function()
+                local lockdown = zen_plugin.config and zen_plugin.config.lockdown
+                local features = zen_plugin.config and zen_plugin.config.features
+                return type(lockdown) == "table" and lockdown.disable_settings_panel == true
+                    and type(features) == "table" and features.lockdown_mode == true
+            end,
+            callback = function(touch_menu)
+                touch_menu:closeMenu()
+                UIManager:nextTick(function()
+                    require("modules/settings/zen_settings_page").show(zen_plugin)
+                end)
+            end,
+        },
+        launcher = {
+            icon = resolveConfiguredIcon(
+                type(config.launcher_icon) == "string" and config.launcher_icon ~= ""
+                    and config.launcher_icon or "app_launcher", "app_launcher"),
+            label = type(config.launcher_label) == "string" and config.launcher_label ~= ""
+                and config.launcher_label or _("Launcher"),
+            callback = function(touch_menu)
+                local open = rawget(_G, "__ZEN_UI_OPEN_APP_LAUNCHER")
+                if type(open) ~= "function" then
+                    local ok, apply = pcall(require, "modules/menu/patches/app_launcher")
+                    if ok and type(apply) == "function" then apply() end
+                    open = rawget(_G, "__ZEN_UI_OPEN_APP_LAUNCHER")
+                end
+                if type(open) ~= "function" or open(touch_menu) == false then
+                    showUnavailable()
+                end
             end,
         },
         localsend = {
