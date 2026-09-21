@@ -15,4 +15,6 @@ M.SEPARATOR_PRESETS = {
     { key = "custom",      label = "Custom"             },
 }
 
+M.FILEMANAGER_MINUTE_STATUS_ITEMS = { "time", "date", "battery", "disk", "ram" }
+
 return M

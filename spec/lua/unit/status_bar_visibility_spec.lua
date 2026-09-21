@@ -156,6 +156,38 @@ describe("file manager status bar visibility", function()
         assert.are.equal("August 8th", created_text_widgets[1].text)
     end)
 
+    it("limits embedded refreshes to changed and shifted status items", function()
+        local status_api
+        require("ui/geometry").new = function(_self, values) return values end
+        require("common/shared_state").register = function(_plugin, api) status_api = api end
+        require("modules/filebrowser/patches/status_bar")()
+
+        local previous = {
+            _zen_status_item_values = { date = "same", wifi = "same", battery = "99" },
+            _zen_status_item_regions = {
+                date = { x = 0, y = 0, w = 10, h = 14 },
+                wifi = { x = 20, y = 0, w = 10, h = 14 },
+                battery = { x = 50, y = 0, w = 10, h = 14 },
+            },
+        }
+        local current = {
+            _zen_status_item_values = { date = "same", wifi = "same", battery = "98" },
+            _zen_status_item_regions = {
+                date = { x = 0, y = 0, w = 10, h = 14 },
+                wifi = { x = 18, y = 0, w = 10, h = 14 },
+                battery = { x = 48, y = 0, w = 12, h = 14 },
+            },
+        }
+
+        local regions = status_api.statusRowRefreshRegions(previous, current)
+        table.sort(regions, function(first, second) return first.x < second.x end)
+
+        assert.are.same({
+            { x = 18, y = 0, w = 12, h = 14 },
+            { x = 48, y = 0, w = 12, h = 14 },
+        }, regions)
+    end)
+
     it("keeps the patch active with empty status items", function()
         _G.__ZEN_UI_PLUGIN.config.status_bar = {
             left_order = {}, center_order = {}, right_order = {},

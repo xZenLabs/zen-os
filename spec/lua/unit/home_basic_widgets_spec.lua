@@ -127,12 +127,18 @@ describe("home basic widgets", function()
         })
         ZenSpec.unload("modules/filebrowser/patches/home/widgets/datetime")
         local refresh
+        local repaint_widget
+        local refresh_keys
         local component = require("modules/filebrowser/patches/home/widgets/datetime")
         local widget = component.build({
             width = 500,
             height = 120,
             is_first_row = true,
-            registerClockRefresh = function(callback) refresh = callback end,
+            registerClockRefresh = function(callback, target, keys)
+                refresh = callback
+                repaint_widget = target
+                refresh_keys = keys
+            end,
         })
 
         assert.are.equal("datetime", component.id)
@@ -140,6 +146,8 @@ describe("home basic widgets", function()
         assert.are.equal(27, component.preferredHeight({ width = 500 }))
         assert.is_table(widget)
         assert.is_function(refresh)
+        assert.are.equal(widget, repaint_widget)
+        assert.are.same({ "time", "date" }, refresh_keys)
         assert.is_true(refresh())
         assert.is_true(has_text("21:07"))
         assert.is_true(has_text("Monday, January 8"))

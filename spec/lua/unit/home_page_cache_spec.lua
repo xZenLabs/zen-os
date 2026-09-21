@@ -230,6 +230,15 @@ describe("home data and book caches", function()
         error("request_home_repaint upvalue not found")
     end
 
+    local function get_refresh_home_clock_widgets(Home)
+        for i = 1, 80 do
+            local name, value = debug.getupvalue(Home.showHomeView, i)
+            if not name then break end
+            if name == "refresh_home_clock_widgets" then return value end
+        end
+        error("refresh_home_clock_widgets upvalue not found")
+    end
+
     local function get_install_home_key_handlers(Home)
         for i = 1, 80 do
             local name, value = debug.getupvalue(Home.showHomeView, i)
@@ -286,6 +295,79 @@ describe("home data and book caches", function()
         assert.are.same({ 394, 596 }, { bookshelf[1].h, bookshelf[2].h })
         assert.are.same({ 344, 91, 394, 141 },
             { default[1].h, default[2].h, default[3].h, default[4].h })
+    end)
+
+    it("repaints only the requested regions of a Home clock widget", function()
+        local repaints = {}
+        local dirty = {}
+        local cleared = {}
+        local UIManager = {
+            _window_stack = {},
+            nextTick = function(_self, callback) callback() end,
+            scheduleIn = function() end,
+            widgetRepaint = function(_self, widget, x, y)
+                repaints[#repaints + 1] = { widget = widget, x = x, y = y }
+            end,
+            setDirty = function(_self, widget, mode, region, dither)
+                dirty[#dirty + 1] = {
+                    widget = widget, mode = mode, region = region, dither = dither,
+                }
+            end,
+        }
+        ZenSpec.replace("ui/uimanager", UIManager)
+        ZenSpec.replace("ui/geometry", {
+            new = function(_self, values) return values end,
+        })
+        ZenSpec.replace("device", {
+            screen = {
+                getWidth = function() return 600 end,
+                getHeight = function() return 900 end,
+                bb = {
+                    paintRect = function(_self, x, y, w, h, color)
+                        cleared[#cleared + 1] = { x, y, w, h, color }
+                    end,
+                },
+            },
+        })
+        ZenSpec.replace("common/ui/background", {
+            tile_bg = function(color) return color end,
+            library_path = function() return "" end,
+        })
+        ZenSpec.unload("modules/filebrowser/patches/home_page")
+
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local refresh_home_clock_widgets = get_refresh_home_clock_widgets(Home)
+        local widget = { dimen = { x = 10, y = 20, w = 30, h = 40 } }
+        local home = {
+            dithered = true,
+            _zen_home_clock_refreshers = {{
+                refresh = function()
+                    return true, {
+                        { x = 1, y = 2, w = 3, h = 4 },
+                        { x = 20, y = 5, w = 6, h = 7 },
+                    }
+                end,
+                widget = widget,
+            }},
+        }
+        set_home_menu(Home, home)
+        UIManager._window_stack = {{ widget = home }}
+
+        refresh_home_clock_widgets(home)
+
+        assert.are.same({{ widget = widget, x = 10, y = 20 }}, repaints)
+        assert.are.same({
+            { 11, 22, 3, 4, "white" },
+            { 30, 25, 6, 7, "white" },
+        }, cleared)
+        assert.are.equal(2, #dirty)
+        assert.are.same({ x = 11, y = 22, w = 3, h = 4 }, dirty[1].region)
+        assert.are.same({ x = 30, y = 25, w = 6, h = 7 }, dirty[2].region)
+        for _i, entry in ipairs(dirty) do
+            assert.is_nil(entry.widget)
+            assert.are.equal("ui", entry.mode)
+            assert.is_true(entry.dither)
+        end
     end)
 
     it("focuses every strip control and activates it with OK or Enter", function()

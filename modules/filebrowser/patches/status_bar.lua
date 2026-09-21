@@ -73,7 +73,6 @@ local function apply_status_bar()
         wifi_hide_when_off = false,
         hide_browser_bar = true,
     }
-
     local logger = require("common/zen_logger").new("status_bar")
 
     local function _serializeOrder(t)
@@ -458,10 +457,18 @@ local function apply_status_bar()
     -- face: optional Font face override; falls back to getBarFont().
     local function _buildGroup(order, face, bold_override)
         local group     = HorizontalGroup:new{}
+        local item_regions = {}
+        local item_values = {}
+        local group_width = 0
         local sep       = getSeparator()
         local use_color = config.colored
         local bold      = bold_override ~= nil and bold_override or config.bold_text or false
         local first     = true
+        local function append(widget)
+            table.insert(group, widget)
+            local size = widget and widget.getSize and widget:getSize() or nil
+            group_width = group_width + (size and size.w or tonumber(widget and widget.width) or 0)
+        end
         local function f() return face or getBarFont() end
         local function iconFace()
             local text_face = f()
@@ -486,8 +493,9 @@ local function apply_status_bar()
                 local has_icon = icon ~= nil and icon ~= ""
                 local has_label = label ~= nil and label ~= ""
                 if has_icon or has_label then
+                    local item_x = group_width
                     if not first and sep ~= "" then
-                        table.insert(group, TextWidget:new{ text = sep, face = f(), bold = bold })
+                        append(TextWidget:new{ text = sep, face = f(), bold = bold })
                     end
                     if not builtin and has_icon then
                         local widget_class = effective_color and ColorTextWidget or TextWidget
@@ -497,18 +505,18 @@ local function apply_status_bar()
                         if effective_color then icon_opts.fgcolor = effective_color end
 
                         local ImageWidget = require("ui/widget/imagewidget")
-                        table.insert(group, icon_image and ImageWidget:new {
+                        append(icon_image and ImageWidget:new {
                             file = icon,
                             width = Screen:scaleBySize(f().size * 1.5),
                             height = Screen:scaleBySize(f().size * 1.5),
                             alpha = true, is_icon = true
                         } or widget_class:new(icon_opts))
                         if has_label then
-                            table.insert(group, TextWidget:new{ text = label, face = f(), bold = bold })
+                            append(TextWidget:new{ text = label, face = f(), bold = bold })
                         end
                     elseif effective_color and has_icon then
                         local ImageWidget = require("ui/widget/imagewidget")
-                        table.insert(group, icon_image and ImageWidget:new {
+                        append(icon_image and ImageWidget:new {
                             file = icon,
                             width = Screen:scaleBySize(f().size * 1.5),
                             height = Screen:scaleBySize(f().size * 1.5),
@@ -517,19 +525,24 @@ local function apply_status_bar()
                             text = icon, face = f(), fgcolor = effective_color, bold = bold,
                         })
                         if has_label then
-                            table.insert(group, TextWidget:new{ text = label, face = f(), bold = bold })
+                            append(TextWidget:new{ text = label, face = f(), bold = bold })
                         end
                     elseif has_icon then
                         local text = has_label and (icon .. label) or icon
-                        table.insert(group, TextWidget:new{ text = text, face = f(), bold = bold })
+                        append(TextWidget:new{ text = text, face = f(), bold = bold })
                     else
-                        table.insert(group, TextWidget:new{ text = label, face = f(), bold = bold })
+                        append(TextWidget:new{ text = label, face = f(), bold = bold })
                     end
+                    item_regions[key] = { x = item_x, w = group_width - item_x }
+                    item_values[key] = table.concat({
+                        tostring(icon or ""), tostring(label or ""),
+                        tostring(effective_color or ""), icon_image and "1" or "0",
+                    }, "\0")
                     first = false
                 end
             end
         end
-        return #group > 0 and group or nil
+        return #group > 0 and group or nil, item_regions, item_values
     end
 
     local function normalizeDirPath(path)
@@ -776,9 +789,12 @@ local function apply_status_bar()
         end
         if not face then face = getBarFont() end
 
-        local left_content   = _buildGroup(config.left_order   or {}, face, opts.bold_text)
-        local center_content = _buildGroup(config.center_order or {}, face, opts.bold_text)
-        local right_content  = _buildGroup(config.right_order  or {}, face, opts.bold_text)
+        local left_content, left_items, left_values = _buildGroup(
+            config.left_order or {}, face, opts.bold_text)
+        local center_content, center_items, center_values = _buildGroup(
+            config.center_order or {}, face, opts.bold_text)
+        local right_content, right_items, right_values = _buildGroup(
+            config.right_order or {}, face, opts.bold_text)
 
         local row_height = Screen:scaleBySize(opts.row_height or 16)
         local function upd(w)
@@ -813,6 +829,28 @@ local function apply_status_bar()
                 },
             })
         end
+        local item_regions = {}
+        local function add_item_regions(items, offset)
+            for key, region in pairs(items or {}) do
+                item_regions[key] = Geom:new{
+                    x = offset + region.x, y = 0, w = region.w, h = row_height,
+                }
+            end
+        end
+        add_item_regions(left_items, edge_pad)
+        if center_content then
+            add_item_regions(center_items,
+                math.floor((width - center_content:getSize().w) / 2))
+        end
+        if right_content then
+            add_item_regions(right_items,
+                width - edge_pad - right_content:getSize().w)
+        end
+        row._zen_status_item_regions = item_regions
+        row._zen_status_item_values = {}
+        for key, value in pairs(left_values) do row._zen_status_item_values[key] = value end
+        for key, value in pairs(center_values) do row._zen_status_item_values[key] = value end
+        for key, value in pairs(right_values) do row._zen_status_item_values[key] = value end
         if opts.show_bottom_border ~= true then
             return row
         end
@@ -826,7 +864,58 @@ local function apply_status_bar()
             dimen = Geom:new{ w = width, h = Size.line.medium },
             border,
         })
+        vg._zen_status_item_regions = item_regions
+        vg._zen_status_item_values = row._zen_status_item_values
         return vg
+    end
+
+    local function statusRowRefreshRegions(previous, current)
+        local old_regions = previous and previous._zen_status_item_regions or {}
+        local new_regions = current and current._zen_status_item_regions or {}
+        local old_values = previous and previous._zen_status_item_values
+        local new_values = current and current._zen_status_item_values
+        local wanted = {}
+        if type(old_values) == "table" and type(new_values) == "table" then
+            for key, value in pairs(old_values) do
+                if value ~= new_values[key] then wanted[key] = true end
+            end
+            for key, value in pairs(new_values) do
+                if value ~= old_values[key] then wanted[key] = true end
+            end
+        else
+            for key in pairs(old_regions) do wanted[key] = true end
+            for key in pairs(new_regions) do wanted[key] = true end
+        end
+
+        local function moved(first, second)
+            return not first or not second
+                or first.x ~= second.x or first.y ~= second.y
+                or first.w ~= second.w or first.h ~= second.h
+        end
+        for key, region in pairs(old_regions) do
+            if moved(region, new_regions[key]) then wanted[key] = true end
+        end
+        for key, region in pairs(new_regions) do
+            if moved(old_regions[key], region) then wanted[key] = true end
+        end
+
+        local regions = {}
+        for key in pairs(wanted) do
+            local first, second = old_regions[key], new_regions[key]
+            if first or second then
+                local x = math.min(first and first.x or second.x, second and second.x or first.x)
+                local y = math.min(first and first.y or second.y, second and second.y or first.y)
+                regions[#regions + 1] = Geom:new{
+                    x = x,
+                    y = y,
+                    w = math.max(first and first.x + first.w or 0,
+                        second and second.x + second.w or 0) - x,
+                    h = math.max(first and first.y + first.h or 0,
+                        second and second.y + second.h or 0) - y,
+                }
+            end
+        end
+        return regions
     end
 
     rawset(_G, "__ZENOS_BUILD_STATUS_ROW", function(width, opts)
@@ -1007,6 +1096,7 @@ local function apply_status_bar()
             createStatusRow = createStatusRow,
             createStatusRowCustomBack = createStatusRowCustomBack,
             buildStatusRow = buildStatusRow,
+            statusRowRefreshRegions = statusRowRefreshRegions,
             schedulePanelRefresh = schedulePanelRefresh,
             cancelPanelRefresh = cancelPanelRefresh,
             repaintTitleBar = repaintTitleBar,
@@ -1019,6 +1109,7 @@ local function apply_status_bar()
             "createStatusRow",
             "createStatusRowCustomBack",
             "buildStatusRow",
+            "statusRowRefreshRegions",
             "schedulePanelRefresh",
             "cancelPanelRefresh",
             "repaintTitleBar",
@@ -1155,7 +1246,7 @@ local function apply_status_bar()
         return false
     end
 
-    local function refreshVisibleStatusBar(fm, clock_tick)
+    local function refreshVisibleStatusBar(fm, clock_tick, item_keys)
         if FileManager.instance ~= fm then return end
         local top_widget = topmost_non_toast_widget()
 
@@ -1164,13 +1255,13 @@ local function apply_status_bar()
             fm:_updateStatusBar()
         elseif top_widget and top_widget._zen_status_refresh then
             if clock_tick and top_widget._zen_status_clock_bound then return end
-            top_widget._zen_status_refresh(top_widget)
+            top_widget._zen_status_refresh(top_widget, false, item_keys)
         elseif top_widget and top_widget._zen_home_refresh_clock_widgets then
             -- Featured embedded status bar: no _zen_status_refresh, refreshes via
             -- its clock-widget refreshers instead. Skip clock ticks it handles
             -- through its own heartbeat binding to avoid a double refresh.
             if clock_tick and top_widget._zen_status_clock_bound then return end
-            top_widget:_zen_home_refresh_clock_widgets()
+            top_widget:_zen_home_refresh_clock_widgets(false, item_keys)
         end
     end
 
@@ -1306,7 +1397,7 @@ local function apply_status_bar()
         end
     end
 
-    local function chainHook(event_name)
+    local function chainHook(event_name, item_keys)
         local orig = FileManager[event_name]
         FileManager[event_name] = function(self, ...)
             if orig then orig(self, ...) end
@@ -1314,13 +1405,13 @@ local function apply_status_bar()
             -- Only refresh the topmost widget.  If a screensaver, dialog, or
             -- TouchMenu is on top, skip — avoids painting behind overlays
             -- and into the sleep screen.
-            refreshVisibleStatusBar(self, false)
+            refreshVisibleStatusBar(self, false, item_keys)
         end
     end
 
-    chainHook("onNetworkConnected")
-    chainHook("onNetworkDisconnected")
-    chainHook("onBluetoothStateChanged")
+    chainHook("onNetworkConnected", { "wifi" })
+    chainHook("onNetworkDisconnected", { "wifi" })
+    chainHook("onBluetoothStateChanged", { "bluetooth" })
 
     -- Charging events arrive in pairs during USB negotiation (NotCharging -> Charging)
     -- within a few seconds of each other.  A synchronous rebuild per-event causes
@@ -1333,7 +1424,7 @@ local function apply_status_bar()
         end
         _charging_refresh_timer = function()
             _charging_refresh_timer = nil
-            refreshVisibleStatusBar(fm, false)
+            refreshVisibleStatusBar(fm, false, { "battery" })
         end
         UIManager:scheduleIn(1.5, _charging_refresh_timer)
     end

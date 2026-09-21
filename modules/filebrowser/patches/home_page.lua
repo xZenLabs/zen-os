@@ -4,6 +4,7 @@ local title_sort = require("common/title_sort")
 local ConfigManager = require("config/manager")
 local book_status = require("common/book_status")
 local Blitbuffer = require("ffi/blitbuffer")
+local constants = require("common/constants")
 local DecodeCache = require("common/cover_decode_cache")
 local RenderCache = require("common/cover_render_cache")
 local HomeQuotes = require("modules/filebrowser/patches/home/home_quotes")
@@ -155,6 +156,87 @@ local function request_home_repaint(menu, refresh)
     menu._zen_home_needs_repaint = nil
     UIManager:setDirty(menu, refresh)
     return true
+end
+
+local function refresh_home_clock_widgets(menu, suppress_repaint, item_keys)
+    if not menu or menu._zen_home_closing then return end
+    local can_repaint = suppress_repaint ~= true
+        and rawequal(menu, _home_menu)
+        and menu._zen_home_suspended ~= true
+        and home_is_on_top(menu)
+    local needs_full_repaint = false
+
+    for _i, entry in ipairs(menu._zen_home_clock_refreshers or {}) do
+        local refresh = type(entry) == "table" and entry.refresh or entry
+        local widget = type(entry) == "table" and entry.widget or nil
+        local refresh_keys = type(entry) == "table" and entry.keys or nil
+        local dimen = widget and widget.dimen
+        local region
+        if dimen and dimen.x ~= nil and dimen.y ~= nil and dimen.w and dimen.h then
+            region = require("ui/geometry"):new{
+                x = dimen.x, y = dimen.y, w = dimen.w, h = dimen.h,
+            }
+        end
+
+        local matches = type(item_keys) ~= "table" or type(refresh_keys) ~= "table"
+        if not matches then
+            local wanted = {}
+            for _j, key in ipairs(item_keys) do wanted[key] = true end
+            for _j, key in ipairs(refresh_keys) do
+                if wanted[key] then matches = true; break end
+            end
+        end
+
+        if matches and type(refresh) == "function" then
+            local ok, did_refresh, relative_regions = pcall(refresh, item_keys)
+            if not ok then
+                logger.warn("embedded clock refresh failed:", tostring(did_refresh))
+            elseif did_refresh and suppress_repaint ~= true then
+                if can_repaint and region and type(UIManager.widgetRepaint) == "function" then
+                    local regions = { region }
+                    if type(relative_regions) == "table" and #relative_regions > 0 then
+                        regions = {}
+                        local Geom = require("ui/geometry")
+                        for _j, relative in ipairs(relative_regions) do
+                            if type(relative) == "table" and relative.x ~= nil
+                                    and relative.y ~= nil and relative.w and relative.h then
+                                regions[#regions + 1] = Geom:new{
+                                    x = region.x + relative.x,
+                                    y = region.y + relative.y,
+                                    w = relative.w,
+                                    h = relative.h,
+                                }
+                            end
+                        end
+                        if #regions == 0 then regions[1] = region end
+                    end
+                    local Screen = require("device").screen
+                    local bb = Screen.bb
+                    if bb then
+                        local bg_path = type(Background.library_path) == "function"
+                            and Background.library_path(_zen_plugin) or ""
+                        for _j, dirty_region in ipairs(regions) do
+                            if bg_path == "" or not Background.paintScreenRegion(bb,
+                                    dirty_region.x, dirty_region.y,
+                                    dirty_region.x, dirty_region.y,
+                                    dirty_region.w, dirty_region.h, bg_path) then
+                                bb:paintRect(dirty_region.x, dirty_region.y,
+                                    dirty_region.w, dirty_region.h, Blitbuffer.COLOR_WHITE)
+                            end
+                        end
+                    end
+                    UIManager:widgetRepaint(widget, region.x, region.y)
+                    for _j, dirty_region in ipairs(regions) do
+                        UIManager:setDirty(nil, "ui", dirty_region, menu.dithered)
+                    end
+                else
+                    needs_full_repaint = true
+                end
+            end
+        end
+    end
+
+    if needs_full_repaint then request_home_repaint(menu, "ui") end
 end
 
 local function new_home_dataset()
@@ -3066,9 +3148,14 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
             shiftStrip = shift_strip,
             openTopMenu = open_top_menu,
             buildStatusRow = _zen_shared and _zen_shared.buildStatusRow,
-            registerClockRefresh = function(refresh)
+            statusRowRefreshRegions = _zen_shared and _zen_shared.statusRowRefreshRegions,
+            registerClockRefresh = function(refresh, widget, keys)
                 if type(refresh) == "function" then
-                    table.insert(menu._zen_home_clock_refreshers, refresh)
+                    table.insert(menu._zen_home_clock_refreshers, {
+                        refresh = refresh,
+                        widget = widget,
+                        keys = keys,
+                    })
                 end
             end,
             setWidgetActions = function(actions)
@@ -3415,22 +3502,8 @@ function M.showHomeView(injectNavbar, initial_refresh_type)
             "dataset_generation=", perf.dataset_generation or 0)
     end
 
-    function menu:_zen_home_refresh_clock_widgets(suppress_repaint)
-        if self._zen_home_closing then return end
-        local refreshed = 0
-        for _i, refresh in ipairs(self._zen_home_clock_refreshers or {}) do
-            if type(refresh) == "function" then
-                local ok, did_refresh = pcall(refresh)
-                if ok and did_refresh then
-                    refreshed = refreshed + 1
-                elseif not ok then
-                    logger.warn("embedded clock refresh failed:", tostring(did_refresh))
-                end
-            end
-        end
-        if refreshed > 0 and suppress_repaint ~= true then
-            request_home_repaint(self, "ui")
-        end
+    function menu:_zen_home_refresh_clock_widgets(suppress_repaint, item_keys)
+        refresh_home_clock_widgets(self, suppress_repaint, item_keys)
     end
 
     local function refresh_home_clock_widgets_if_top()
@@ -3474,7 +3547,8 @@ function M.showHomeView(injectNavbar, initial_refresh_type)
         pcall(function()
             require("common/clock_timer").bind(menu, function(target)
                 if target and target._zen_home_refresh_clock_widgets then
-                    target:_zen_home_refresh_clock_widgets()
+                    target:_zen_home_refresh_clock_widgets(
+                        false, constants.FILEMANAGER_MINUTE_STATUS_ITEMS)
                 end
             end)
         end)

@@ -2,6 +2,7 @@ local Menu = require("ui/widget/menu")
 local TitleBar = require("ui/widget/titlebar")
 local Geom = require("ui/geometry")
 local ClockTimer = require("common/clock_timer")
+local constants = require("common/constants")
 local WidgetResources = require("common/widget_resources")
 local Background = require("common/ui/background")
 
@@ -131,7 +132,7 @@ local function refresh_bound_status_row(target)
     local stack = UIManager._window_stack
     local top = stack and stack[#stack]
     if not top or top.widget ~= target then return end
-    target:_zen_status_refresh()
+    target:_zen_status_refresh(false, constants.FILEMANAGER_MINUTE_STATUS_ITEMS)
 end
 
 local function remove_from_overlap(group, widget)

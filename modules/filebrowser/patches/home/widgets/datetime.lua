@@ -269,14 +269,7 @@ return {
             end,
         }
 
-        if type(ctx.registerClockRefresh) == "function" then
-            ctx.registerClockRefresh(function()
-                rebuild_clock_widgets()
-                return true
-            end)
-        end
-
-        return FrameContainer:new{
+        local frame = FrameContainer:new{
             width = width,
             height = height,
             padding = 0,
@@ -284,5 +277,12 @@ return {
             background = Background.tile_bg(Blitbuffer.COLOR_WHITE),
             content,
         }
+        if type(ctx.registerClockRefresh) == "function" then
+            ctx.registerClockRefresh(function()
+                rebuild_clock_widgets()
+                return true
+            end, frame, { "time", "date" })
+        end
+        return frame
     end,
 }
