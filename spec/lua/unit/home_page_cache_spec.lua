@@ -1481,6 +1481,57 @@ describe("home data and book caches", function()
         assert.are.equal("/library/alpha.epub", books[1].path)
     end)
 
+    it("includes subfolders in folder strip sources", function()
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function(path, key)
+                local mode = path:match("%.epub$") and "file" or "directory"
+                if key == "mode" then return mode end
+                return { mode = mode, modification = 1 }
+            end,
+        })
+        ZenSpec.replace("document/documentregistry", {
+            hasProvider = function() return true end,
+        })
+        ZenSpec.replace("apps/filemanager/filemanager", {
+            instance = {
+                file_chooser = {
+                    genItemTableFromPath = function(_self, path)
+                        if path == "/library/Subfolder" then
+                            return {{
+                                path = path .. "/nested.epub",
+                                attr = { mode = "file" },
+                            }}
+                        end
+                        return {
+                            { text = "..", is_go_up = true,
+                                attr = { mode = "directory" } },
+                            { text = "Subfolder/", path = path .. "/Subfolder",
+                                attr = { mode = "directory" } },
+                            { path = path .. "/alpha.epub", attr = { mode = "file" } },
+                        }
+                    end,
+                },
+            },
+        })
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+        local source = { kind = "folder", value = "/library" }
+
+        local items = provider:getStripItemsForPage(
+            source, 4, "default", "strip", 0)
+        assert.are.equal(2, #items)
+        assert.is_true(items[1].is_folder)
+        assert.are.equal("Subfolder", items[1].group_label)
+        assert.are.equal("/library/alpha.epub", items[2].path)
+
+        source.drill = { label = "Subfolder", path = "/library/Subfolder" }
+        items = provider:getStripItemsForPage(source, 4, "default", "strip", 0)
+        assert.are.equal("/library/Subfolder/nested.epub", items[1].path)
+    end)
+
     it("prefers authoritative status for dimming over cached metadata", function()
         resolved_status = "complete"
         ZenSpec.replace("ui/widget/booklist", {

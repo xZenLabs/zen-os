@@ -78,6 +78,7 @@ local function copy_home_strip_state(state)
     local drill = source.drill
     if type(drill) == "table" and type(drill.label) == "string" then
         copy.source.drill = { label = drill.label }
+        if type(drill.path) == "string" then copy.source.drill.path = drill.path end
         if type(drill.files) == "table" then
             copy.source.drill.files = utils.deepcopy(drill.files)
         end
@@ -1759,7 +1760,7 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         return files
     end
 
-    local function folder_files(path)
+    local function folder_items(path)
         if type(path) ~= "string" or path == "" then return {} end
         local ok_lfs, lfs = pcall(require, "libs/libkoreader-lfs")
         if not ok_lfs or lfs.attributes(path, "mode") ~= "directory" then return {} end
@@ -1769,18 +1770,30 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         local ok_items, items = pcall(chooser.genItemTableFromPath, chooser, path)
         if not ok_items or type(items) ~= "table" then return {} end
         local DocumentRegistry = require("document/documentregistry")
-        local files = {}
+        local entries = {}
         for _i, item in ipairs(items) do
             local item_path = item and (item.path or item.file)
+            local is_directory = item and not item.is_go_up and (item.is_directory == true
+                or type(item.attr) == "table" and item.attr.mode == "directory")
             local is_file = item and (item.is_file == true
                 or type(item.attr) == "table" and item.attr.mode == "file")
-            if is_file and type(item_path) == "string" then
+            if is_directory and type(item_path) == "string" then
+                local label = item.text or item.name
+                    or item_path:gsub("/$", ""):match("([^/]+)$") or item_path
+                entries[#entries + 1] = {
+                    is_group = true,
+                    is_folder = true,
+                    group_kind = "folder",
+                    group_label = tostring(label):gsub("/$", ""),
+                    folder_path = item_path,
+                }
+            elseif is_file and type(item_path) == "string" then
                 local ok_supported, supported = pcall(
                     DocumentRegistry.hasProvider, DocumentRegistry, item_path)
-                if ok_supported and supported then files[#files + 1] = item_path end
+                if ok_supported and supported then entries[#entries + 1] = item_path end
             end
         end
-        return files
+        return entries
     end
 
     local function source_groups(kind)
@@ -1866,7 +1879,8 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
     end
 
     local function descriptor_key(request, order_key)
-        local drill = type(request.drill) == "table" and request.drill.label or ""
+        local drill = type(request.drill) == "table"
+            and (request.drill.path or request.drill.label) or ""
         return table.concat({
             "strip", tostring(request.kind), tostring(request.value or ""),
             tostring(drill), normalize_order(order_key),
@@ -1920,6 +1934,19 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
     function provider:getStripItemsForPage(request, count, order_key, component_id, page_delta)
         request = type(request) == "table" and request or { kind = "recent" }
         local kind = request.kind or "recent"
+        if kind == "folder" then
+            local path = type(request.drill) == "table" and request.drill.path
+                or request.value
+            local page, adjacent = paginate(
+                folder_items(path), request, count, order_key, component_id, page_delta)
+            local items = {}
+            for _i, value in ipairs(page) do
+                local book = type(value) == "table" and value
+                    or get_book(value, false, true)
+                if book then items[#items + 1] = book end
+            end
+            return items, adjacent
+        end
         if type(request.drill) == "table" then
             local paths = copy_paths(resolve_drill_files(request))
             if normalize_order(order_key) == "reverse" then paths = reverse_copy(paths) end
@@ -1953,17 +1980,6 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             end
             return items, adjacent
         end
-        if kind == "folder" then
-            local paths = folder_files(request.value)
-            local page, adjacent = paginate(
-                paths, request, count, order_key, component_id, page_delta)
-            local books = {}
-            for _i, path in ipairs(page) do
-                local book = get_book(path, false, true)
-                if book then books[#books + 1] = book end
-            end
-            return books, adjacent
-        end
         if kind == "kindle" or kind == "favorites" or kind == "tag" or kind == "status"
                 or kind == "custom" then
             local paths = descriptor_paths(request)
@@ -1989,8 +2005,9 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
                 or "recently_read"
             return self:shiftStrip(source, count, order_key, direction, component_id, refresh)
         end
-        local values = request.drill and resolve_drill_files(request)
-            or request.kind == "folder" and folder_files(request.value)
+        local values = request.kind == "folder" and folder_items(
+                type(request.drill) == "table" and request.drill.path or request.value)
+            or request.drill and resolve_drill_files(request)
             or descriptor_paths(request)
             or source_groups(request.kind)
         local n = math.max(1, tonumber(count) or 4)

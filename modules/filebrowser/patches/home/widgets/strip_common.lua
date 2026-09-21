@@ -621,10 +621,12 @@ function M.build_strip(ctx, source_key)
     ctx.openStripGroup = function(book)
         if type(book) ~= "table" or book.is_group ~= true then return false end
         reset_strip_pages()
-        source.drill = {
-            label = book.group_label,
-            files = utils.deepcopy(book.group_files or {}),
-        }
+        source.drill = { label = book.group_label }
+        if book.is_folder == true then
+            source.drill.path = book.folder_path
+        else
+            source.drill.files = utils.deepcopy(book.group_files or {})
+        end
         runtime.source = source
         remember_strip_state()
         return rebuild_home()
@@ -833,7 +835,12 @@ function M.build_strip(ctx, source_key)
         local uniform = features.browser_cover_mosaic_uniform == true
         -- Match book-cover bounds; spine lines paint outside this box.
         local target_w, target_h = CoverUtils.calcDims(max_cover_w, cover_h)
-        local entry = {
+        local entry = book.is_folder == true and {
+            path = book.folder_path,
+            text = book.group_label,
+            is_directory = true,
+            attr = { mode = "directory" },
+        } or {
             _zen_files = book.group_files or {},
             text = book.group_label,
             mandatory = book.group_count,
@@ -885,7 +892,7 @@ function M.build_strip(ctx, source_key)
             job = {
                 folder_entry = entry,
                 title = result.title,
-                path = table.concat({
+                path = book.folder_path or table.concat({
                     "group", tostring(book.group_kind), tostring(book.group_label),
                 }, "\30"),
                 width = target_w,
@@ -1007,8 +1014,9 @@ function M.build_strip(ctx, source_key)
                     VerticalSpan:new{ width = title_gap },
                     TextBoxWidget:new{
                         text = book.is_group == true
-                            and ((book.group_label or "") .. " ("
-                                .. tostring(book.group_count or 0) .. ")")
+                            and (book.is_folder == true and (book.group_label or "")
+                                or (book.group_label or "") .. " ("
+                                    .. tostring(book.group_count or 0) .. ")")
                             or book.title or "",
                         width = item_w,
                         height = title_h,

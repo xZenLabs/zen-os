@@ -159,8 +159,9 @@ describe("home strip widget", function()
                 folder_calls.builds[#folder_calls.builds + 1] = build
                 local pending = folder_needs_hydration and options.cached_only == true
                 if options.cached_only == false then folder_needs_hydration = false end
+                local paths = entry._zen_files or {}
                 local entries = {}
-                for _i, path in ipairs(entry._zen_files or {}) do
+                for _i, path in ipairs(paths) do
                     entries[#entries + 1] = { is_file = true, path = path }
                 end
                 return {
@@ -169,7 +170,7 @@ describe("home strip widget", function()
                         height = height + 4,
                     },
                     title = title,
-                    count = #entry._zen_files,
+                    count = #paths,
                     cover_count = pending and 0 or 1,
                     entries = entries,
                     mode = "normal",
@@ -1661,6 +1662,53 @@ describe("home strip widget", function()
         assert.is_false(folder_calls.overlay.options.config.features
             .browser_cover_rounded_corners)
         assert.is_false(folder_calls.build.options.uniform)
+    end)
+
+    it("renders and opens physical subfolders", function()
+        local menu = { _home_rebuild = function() return true end }
+        local targets
+        local remembered_path
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        Strip.build({
+            width = 600,
+            height = 240,
+            menu = menu,
+            component_id = "strip",
+            module_cfg = {
+                count = 4,
+                show_strip_titles = true,
+                default_source = { kind = "folder", value = "/library" },
+                controls = { enabled = false },
+            },
+            data = {
+                getStripItemsForPage = function()
+                    return {{
+                        is_group = true,
+                        is_folder = true,
+                        group_kind = "folder",
+                        group_label = "Subfolder",
+                        folder_path = "/library/Subfolder",
+                    }}
+                end,
+                resetStripPages = function() end,
+            },
+            registerHomeFocusTarget = function(_target, widget) return widget end,
+            prepareHomeFocusTarget = function(_target, widget) return widget end,
+            activateStripFocusTargets = function(value) targets = value end,
+            rememberStripState = function(runtime)
+                remembered_path = runtime.source.drill and runtime.source.drill.path
+            end,
+        })
+
+        assert.are.equal("/library/Subfolder", folder_calls.build.entry.path)
+        assert.is_true(folder_calls.build.entry.is_directory)
+        assert.is_true(has_text("Subfolder"))
+
+        assert.is_true(targets[1].activate())
+        assert.are.equal("/library/Subfolder", remembered_path)
+        assert.are.equal("/library/Subfolder",
+            menu._zen_home_strip_runtime.source.drill.path)
+        assert.is_nil(menu._zen_home_strip_runtime.source.drill.files)
     end)
 
     it("exposes vertical slack for Home gap balancing", function()
