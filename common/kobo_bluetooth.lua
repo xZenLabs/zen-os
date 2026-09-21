@@ -28,6 +28,7 @@ end
 local function kind()
     if not (Device.isKobo and Device:isKobo()) then return nil end
     if Device.model == "Kobo_io" then return "libra2" end
+    if Device.model == "Kobo_goldfinch" then return "clara2e" end
     if Device.model == "Kobo_cadmus" then return "sage" end
     if Device.isMTK and Device:isMTK() then
         local file = io.open("/usr/share/dbus-1/system-services/" .. MTK_SERVICE .. ".service", "r")
@@ -384,27 +385,31 @@ local function power(device_kind, enabled)
         return adapter_off and stack_off
     end
 
+    local hci_process = device_kind == "clara2e" and "hciattach" or "rtk_hciattach"
+    local hci_attach = device_kind == "clara2e"
+        and "/sbin/hciattach -p ttymxc1 any 1500000 flow -t 20"
+        or "/sbin/rtk_hciattach -s 115200 ttymxc1 rtk_h5"
     if enabled then
         if not command_ok("grep -q '^sdio_bt_pwr ' /proc/modules"
                 .. " || insmod /drivers/mx6sll-ntx/wifi/sdio_bt_pwr.ko",
-                "libra2-load-power-module") then return false end
-        if not command_ok("pgrep rtk_hciattach >/dev/null"
-                .. " || /sbin/rtk_hciattach -s 115200 ttymxc1 rtk_h5 >/dev/null 2>&1",
-                "libra2-hci-attach") then return false end
+                device_kind .. "-load-power-module") then return false end
+        if not command_ok("pgrep " .. hci_process .. " >/dev/null"
+                .. " || " .. hci_attach .. " >/dev/null 2>&1",
+                device_kind .. "-hci-attach") then return false end
         if not command_ok("pgrep bluetoothd >/dev/null"
                 .. " || ( /libexec/bluetooth/bluetoothd >/dev/null 2>&1 & )",
-                "libra2-bluetoothd-start") then return false end
-        if not command_ok("i=0; while [ $i -lt 50 ] && ! " .. property("libra2")
+                device_kind .. "-bluetoothd-start") then return false end
+        if not command_ok("i=0; while [ $i -lt 50 ] && ! " .. property(device_kind)
                 .. " >/dev/null 2>&1; do sleep 0.1; i=$((i+1)); done",
-                "libra2-adapter-wait") then return false end
-        return command_ok(property("libra2", true), "libra2-adapter-power-on")
+                device_kind .. "-adapter-wait") then return false end
+        return command_ok(property(device_kind, true), device_kind .. "-adapter-power-on")
     end
 
-    if not command_ok(property("libra2", false), "libra2-adapter-power-off") then return false end
-    return command_ok("killall bluetoothd rtk_hciattach 2>/dev/null; "
+    if not command_ok(property(device_kind, false), device_kind .. "-adapter-power-off") then return false end
+    return command_ok("killall bluetoothd " .. hci_process .. " 2>/dev/null; "
         .. "i=0; while [ $i -lt 30 ] && (pgrep bluetoothd >/dev/null"
-        .. " || pgrep rtk_hciattach >/dev/null); do sleep 0.1; i=$((i+1)); done; "
-        .. "rmmod sdio_bt_pwr 2>/dev/null; true", "libra2-stack-stop")
+        .. " || pgrep " .. hci_process .. " >/dev/null); do sleep 0.1; i=$((i+1)); done; "
+        .. "rmmod sdio_bt_pwr 2>/dev/null; true", device_kind .. "-stack-stop")
 end
 
 function M.isAvailable()

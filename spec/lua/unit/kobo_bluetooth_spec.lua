@@ -180,6 +180,29 @@ describe("Kobo Bluetooth control", function()
         assert.are.equal(1, allowed)
     end)
 
+    it("uses the Clara 2E BlueZ startup and shutdown path", function()
+        device.model = "Kobo_goldfinch"
+        device.isMTK = function() return false end
+
+        assert.is_true(bluetooth.isAvailable())
+        assert.is_false(bluetooth.getState())
+        assert.is_true(bluetooth.setEnabled(true))
+        assert.is_true(bluetooth.getState())
+
+        local all_commands = table.concat(commands, "\n")
+        assert.is_true(all_commands:find(
+            "/sbin/hciattach -p ttymxc1 any 1500000 flow -t 20", 1, true
+        ) ~= nil)
+        assert.is_nil(all_commands:find("rtk_hciattach", 1, true))
+        assert.is_true(all_commands:find("--dest=org.bluez", 1, true) ~= nil)
+
+        assert.is_true(bluetooth.setEnabled(false))
+        assert.is_false(bluetooth.getState())
+        assert.is_true(table.concat(commands, "\n"):find(
+            "killall bluetoothd hciattach", 1, true
+        ) ~= nil)
+    end)
+
     it("uses the Sage Realtek BlueZ startup and shutdown path", function()
         device.model = "Kobo_cadmus"
         device.isMTK = function() return false end
