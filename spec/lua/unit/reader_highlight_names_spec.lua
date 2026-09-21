@@ -125,6 +125,31 @@ describe("reader highlight names", function()
         ZenSpec.replace("device", original_device)
     end)
 
+    it("keeps configured colors accurate in legacy night-mode menus", function()
+        local Blitbuffer = require("ffi/blitbuffer")
+        local original_device = package.loaded["device"]
+        ZenSpec.replace("device", { screen = { night_mode = true } })
+        local ReaderHighlight = {
+            highlight_colors = { { "Red", "red" } },
+            getHighlightColor = function(_self, color_name)
+                return Blitbuffer.colorFromString(Blitbuffer.HIGHLIGHT_COLORS[color_name])
+            end,
+            getHighlightColorList = function(self)
+                return { self:getHighlightColor("red") }
+            end,
+        }
+        ZenSpec.replace("apps/reader/modules/readerhighlight", ReaderHighlight)
+
+        require("modules/reader/patches/highlight_names")({
+            config = { highlight_lookup = { color_codes = { red = "#ff63a8" } } },
+        })
+
+        local displayed = ReaderHighlight:getHighlightColorList()[1]:invert()
+        assert.are.same({ 0xff, 0x63, 0xa8 },
+            { displayed:getR(), displayed:getG(), displayed:getB() })
+        ZenSpec.replace("device", original_device)
+    end)
+
     it("keeps legacy color lists unchanged", function()
         local color = require("ffi").new("struct { uint8_t r; uint8_t g; uint8_t b; uint8_t a; }")
         local ReaderHighlight = {

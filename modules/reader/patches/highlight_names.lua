@@ -88,7 +88,9 @@ local function apply(plugin)
         ReaderHighlight.getHighlightColor = function(self, color_name, force_orig, honor_night_mode, ...)
             local color = not force_orig and configured_color(ReaderHighlight, color_name)
             if color then
-                if honor_night_mode and is_night_mode() then color = invert_color(color) end
+                if is_night_mode() and (honor_night_mode or not orig_get_code) then
+                    color = invert_color(color)
+                end
                 return Blitbuffer.colorFromString(color)
             end
             return orig_get_color(self, color_name, force_orig, honor_night_mode, ...)
