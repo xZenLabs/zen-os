@@ -115,6 +115,7 @@ local function apply_quick_settings()
             notion = false,
             streak = false,
             opds = false,
+            airplanemode = false,
             filebrowser = false,
             tailscale = false,
             zenfm = false,
@@ -807,6 +808,17 @@ local function apply_quick_settings()
             callback = function(touch_menu)
                 touch_menu:closeMenu()
                 UIManager:broadcastEvent(Event:new("ShowOPDSCatalog"))
+            end,
+        },
+        airplanemode = {
+            icon = utils.resolveLocalIcon(_icons_dir, "airplane"),
+            label = _("Airplane mode"),
+            visible_func = function() return hasPlugin("airplanemode") end,
+            callback = function(touch_menu)
+                touch_menu:closeMenu()
+                UIManager:nextTick(function()
+                    Dispatcher:execute({ airplanemode_toggle = true })
+                end)
             end,
         },
         localsend = {

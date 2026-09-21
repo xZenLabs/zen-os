@@ -9,6 +9,7 @@ describe("quick settings plugin controls", function()
     local FileManagerMenu
     local NetworkMgr
     local actions
+    local dispatched_actions
     local save_calls
 
     local module_names = {
@@ -63,6 +64,7 @@ describe("quick settings plugin controls", function()
         original_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
         original_quick_settings = rawget(_G, "__ZEN_UI_QUICK_SETTINGS")
         actions = {}
+        dispatched_actions = {}
         save_calls = 0
 
         local no_op = {}
@@ -169,7 +171,11 @@ describe("quick settings plugin controls", function()
         ZenSpec.replace("modules/menu/patches/brightness_slider", function() end)
         ZenSpec.replace("modules/menu/patches/warmth_slider", function() end)
         ZenSpec.replace("gettext", function(text) return text end)
-        ZenSpec.replace("dispatcher", { execute = function() end })
+        ZenSpec.replace("dispatcher", {
+            execute = function(_self, action)
+                dispatched_actions[#dispatched_actions + 1] = action
+            end,
+        })
         ZenSpec.replace("common/dispatch_action", no_op)
         destination_entries = {}
         hosted_menu = nil
@@ -408,6 +414,22 @@ describe("quick settings plugin controls", function()
 
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.has("localsend"))
         assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.has("notion"))
+    end)
+
+    it("shows and dispatches Airplane mode only when its plugin is installed", function()
+        _G.__ZEN_UI_PLUGIN.config._meta = { installed_plugins = {} }
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.has("airplanemode"))
+
+        _G.__ZEN_UI_PLUGIN.config._meta.installed_plugins.airplanemode = true
+        local closes = 0
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("airplanemode", {
+            closeMenu = function() closes = closes + 1 end,
+            updateItems = function() end,
+            item_table = { panel = true },
+        }))
+
+        assert.are.equal(1, closes)
+        assert.are.same({ { airplanemode_toggle = true } }, dispatched_actions)
     end)
 
     it("opens ZenFM settings on hold with a toggle and timeout submenu", function()

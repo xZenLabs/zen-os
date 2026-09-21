@@ -84,6 +84,7 @@ function M.build(ctx)
         { key = "notion",         text = _("Notion"),          detect = function() return hasPlugin("NotionSync") end },
         { key = "streak",         text = _("Streak"),          detect = function() return hasPlugin("readingstreak") end },
         { key = "opds",           text = _("OPDS"),            detect = function() return hasPlugin("opds") end },
+        { key = "airplanemode",   text = _("Airplane mode"),   detect = function() return hasPlugin("airplanemode") end },
         { key = "localsend",      text = _("LocalSend"),       detect = function() return hasPlugin("localsend") end },
         { key = "tailscale",      text = _("Tailscale"),       detect = function() return hasPlugin("tailscale") end },
         { key = "zenfm",          text = _("ZenFM"),           detect = function() return hasPlugin("zenfm") end },

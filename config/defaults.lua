@@ -171,6 +171,7 @@ local defaults = {
             notion = false,
             streak = false,
             opds = false,
+            airplanemode = false,
             tailscale = false,
             zenfm = false,
             filebrowser = false,
