@@ -113,6 +113,14 @@ local function build_brightness_slider(touch_menu, opts)
     end
 
     fl.prev_non_min = fl.cur > fl.min and fl.cur or math.min(fl.max, fl.min + 1)
+    fl_progress.on_drag_start = function()
+        fl.dragging = true
+        if fl.cur > fl.min then fl.prev_non_min = fl.cur end
+    end
+    fl_progress.on_drag_end = function()
+        fl.dragging = false
+        if fl.cur > fl.min then fl.prev_non_min = fl.cur end
+    end
 
     -- During drag: paint directly to Screen.bb and push A2 refresh via
     -- setDirty(nil) — bypasses the widget tree entirely, so no competing
@@ -122,7 +130,7 @@ local function build_brightness_slider(touch_menu, opts)
     fl_progress.on_change = function(v)
         powerd:setIntensity(v)
         fl.cur = v
-        if fl.cur > fl.min then fl.prev_non_min = fl.cur end
+        if fl.cur > fl.min and not fl.dragging then fl.prev_non_min = fl.cur end
         if fl_progress._dragging then
             fl_progress:paintTo(Screen.bb, fl_progress.dimen.x, fl_progress.dimen.y)
             -- Only repaint the number — prefix is static in the framebuffer.
@@ -163,7 +171,7 @@ local function build_brightness_slider(touch_menu, opts)
         height         = fl_button_height,
         bordersize     = 0,
         show_parent    = show_parent,
-        callback       = function() setBrightness(fl.cur + 1) end,
+        callback       = function() setBrightness(fl.cur > fl.min and fl.cur + 1 or fl.prev_non_min) end,
     }
 
     local row_gap = VerticalSpan:new{ width = Screen:scaleBySize(10) }

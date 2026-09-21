@@ -915,14 +915,14 @@ function MetadataEditor:init()
     self:_syncTitleAction()
 end
 
-function MetadataEditor:_fieldDialogButtons(close, save)
+function MetadataEditor:_fieldDialogButtons(close, save, field)
     return {{
         {
             text = _("Find metadata"),
             enabled = type(self.on_hardcover) == "function",
             callback = function()
                 close()
-                UIManager:nextTick(function() self:_openHardcover() end)
+                UIManager:nextTick(function() self:_openHardcover(field) end)
             end,
         },
         { text = _("Save"), callback = save },
@@ -1074,7 +1074,7 @@ function MetadataEditor:_editSeries()
             { description = _("Position"), text = seed[2] },
         },
         buttons = self:_fieldDialogButtons(
-            function() UIManager:close(dialog) end, apply),
+            function() UIManager:close(dialog) end, apply, "series"),
     }
     ZenModalClose.installDialog(dialog, close)
     UIManager:show(dialog)
@@ -1113,26 +1113,28 @@ function MetadataEditor:_editField(key)
         scroll_by_pan = spec.long,
         text_height = spec.list and Screen:scaleBySize(110) or nil,
         buttons = self:_fieldDialogButtons(
-            function() UIManager:close(dialog) end, apply),
+            function() UIManager:close(dialog) end, apply, key),
     }
     ZenModalClose.installDialog(dialog, close)
     UIManager:show(dialog)
     dialog:onShowKeyboard()
 end
 
-function MetadataEditor:applyHardcover(metadata, summary, source, source_label)
+function MetadataEditor:applyHardcover(metadata, summary, source, source_label, only_key)
     local incoming = normalize_draft(metadata)
     source = trim(source)
     if source == "" then source = "hardcover" end
+    only_key = FIELD_SPECS[only_key] and only_key or nil
     self.field_sources = self.field_sources or {}
     local applied, skipped = 0, 0
-    for _i, key in ipairs(FIELD_ORDER) do
+    for _i, key in ipairs(only_key and { only_key } or FIELD_ORDER) do
         if (key ~= "publisher" or self.is_epub) and has_value(key, incoming) then
-            if self.manual_fields[key] or self.field_sources[key] == "manual" then
+            if not only_key
+                    and (self.manual_fields[key] or self.field_sources[key] == "manual") then
                 skipped = skipped + 1
             elseif key == "series" then
                 self.draft.series_name = incoming.series_name
-                if incoming.series_index ~= "" then
+                if only_key or incoming.series_index ~= "" then
                     self.draft.series_index = incoming.series_index
                 end
                 self.field_sources[key] = source
@@ -1142,6 +1144,7 @@ function MetadataEditor:applyHardcover(metadata, summary, source, source_label)
                 self.field_sources[key] = source
                 applied = applied + 1
             end
+            if only_key then self.manual_fields[key] = nil end
         end
     end
     self.edition_summary = trim(summary)
@@ -1155,11 +1158,11 @@ function MetadataEditor:applyHardcover(metadata, summary, source, source_label)
     return skipped
 end
 
-function MetadataEditor:_openHardcover()
+function MetadataEditor:_openHardcover(only_key)
     if self.save_pending or type(self.on_hardcover) ~= "function" then return true end
-    local metadata, summary = self.on_hardcover(self:getDraft(), self)
+    local metadata, summary = self.on_hardcover(self:getDraft(), self, only_key)
     if type(metadata) == "table" then
-        self:applyHardcover(metadata, summary)
+        self:applyHardcover(metadata, summary, nil, nil, only_key)
     elseif summary ~= nil then
         self:setEditionSummary(summary)
     end

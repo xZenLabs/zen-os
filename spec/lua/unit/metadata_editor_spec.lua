@@ -613,8 +613,9 @@ describe("metadata editor Hardcover controller", function()
 
         assert.are.equal("Metadata results", picker.title)
         assert.are.equal(1, #picker.items)
-        assert.are.equal("Paperback, 2024", picker.items[1].text)
-        assert.matches("Hardcover", picker.items[1].secondary_text, 1, true)
+        assert.are.equal("Remote title", picker.items[1].text)
+        assert.are.equal("Remote author", picker.items[1].detail_lines[1])
+        assert.are.equal("Hardcover · Paperback, 2024", picker.items[1].detail_lines[2])
         assert.are.equal("Local title", search_query.title)
         assert.is_nil(search_query.author)
         assert.are.equal("123", search_query.isbn)
@@ -639,7 +640,8 @@ describe("metadata editor Hardcover controller", function()
         shown.on_hardcover(shown.metadata, {})
 
         assert.are.equal(10, #picker.items)
-        assert.are.equal("Edition 10", picker.items[10].text)
+        assert.are.equal("Remote title", picker.items[10].text)
+        assert.are.equal("Hardcover · Edition 10", picker.items[10].detail_lines[2])
     end)
 
     it("merges provider editions into one progressive results list", function()
@@ -703,8 +705,12 @@ describe("metadata editor Hardcover controller", function()
         assert.is_truthy(picker.items[1].image_file:match("%.jpg$"))
         assert.is_truthy(picker.items[31].image_file:match("%.jpg$"))
         assert.matches("-M%.jpg$", cover_download_urls[60])
-        assert.matches("Hardcover", picker.items[1].secondary_text, 1, true)
-        assert.matches("Open Library", picker.items[31].secondary_text, 1, true)
+        assert.are.equal("Hardcover result", picker.items[1].text)
+        assert.are.equal("A", picker.items[1].detail_lines[1])
+        assert.are.equal("Hardcover · Hardcover 1", picker.items[1].detail_lines[2])
+        assert.are.equal("Open Library result", picker.items[31].text)
+        assert.are.equal("C", picker.items[31].detail_lines[1])
+        assert.are.equal("Open Library · Paperback 1", picker.items[31].detail_lines[2])
         picker.on_close(picker.items[31])
         picker.on_select(picker.items[31])
         assert.are.equal(61, cover_download_calls)
@@ -779,8 +785,9 @@ describe("metadata editor Hardcover controller", function()
         shown.on_hardcover(shown.metadata, {})
 
         assert.are.equal(1, #picker.items)
-        assert.are.equal("Paperback", picker.items[1].text)
-        assert.matches("Open Library", picker.items[1].secondary_text, 1, true)
+        assert.are.equal("Open Library result", picker.items[1].text)
+        assert.are.equal("Author", picker.items[1].detail_lines[1])
+        assert.are.equal("Open Library · Paperback", picker.items[1].detail_lines[2])
         assert.are.equal(0, google_search_calls)
         assert.are.equal(1, open_library_search_calls)
     end)
@@ -821,6 +828,25 @@ describe("metadata editor Hardcover controller", function()
         shown.on_hardcover(shown.metadata, editor)
 
         assert.is_nil(picker)
+    end)
+
+    it("does not stage a cover during a field-only metadata lookup", function()
+        _G.__ZEN_UI_PLUGIN.config.metadata.hardcover_auto_match = true
+        search_result[1].exact_edition.image_url =
+            "https://assets.hardcover.app/edition/9/cover.jpg"
+        editions_result = { search_result[1].exact_edition }
+        local applied_key
+        local editor = {
+            applyHardcover = function(_self, _metadata, _summary, _source, _label, only_key)
+                applied_key = only_key
+                return 0
+            end,
+        }
+
+        shown.on_hardcover(shown.metadata, editor, "title")
+
+        assert.are.equal("title", applied_key)
+        assert.are.equal(0, cover_download_calls)
     end)
 
     it("opens an editable search when the draft title is blank", function()
@@ -897,10 +923,11 @@ describe("metadata editor Hardcover controller", function()
         assert.is_truthy(picker.items[1].image_file:match("%.jpg$"))
         assert.are.equal(1, cover_download_calls)
         assert.are.equal(1, preview_refreshes)
-        assert.are.equal("Hardcover, 2022", picker.items[1].text)
-        assert.matches("Hardcover", picker.items[1].secondary_text, 1, true)
-        assert.matches("Orbit", picker.items[1].secondary_text, 1, true)
-        assert.matches("500 pages", picker.items[1].secondary_text, 1, true)
+        assert.are.equal("First", picker.items[1].text)
+        assert.are.equal("A", picker.items[1].detail_lines[1])
+        assert.are.equal("Hardcover · Hardcover, 2022", picker.items[1].detail_lines[2])
+        assert.are.equal("English (en) · 500 pages · Orbit",
+            picker.items[1].detail_lines[3])
         assert.are.equal(2, trapper_wrap_calls)
         local preview = picker.items[1].image_file
         picker.on_close()
@@ -1050,7 +1077,9 @@ describe("metadata editor Hardcover controller", function()
 
         assert.is_nil(pending)
         assert.are.equal("Choose an edition", picker.title)
-        assert.are.equal("Audio CD", picker.items[1].text)
+        assert.are.equal("Remote title", picker.items[1].text)
+        assert.are.equal("Remote author", picker.items[1].detail_lines[1])
+        assert.are.equal("Hardcover · Audio CD", picker.items[1].detail_lines[2])
         assert.are.equal(1, cover_download_calls)
         local selected = picker.items[1]
         picker.on_close(selected)
@@ -1266,6 +1295,40 @@ describe("metadata editor Hardcover merge", function()
         assert.are.equal("en", widget.draft.language)
         assert.are.equal("Remote publisher", widget.draft.publisher)
         assert.are.equal("2024 · E-book", widget.edition_summary)
+    end)
+
+    it("replaces only the field that requested metadata", function()
+        local widget = editor({
+            title = "Original",
+            authors = { "Original author" },
+            series_name = "Original series",
+            series_index = "3",
+            language = "en",
+            publisher = "Original publisher",
+        })
+        widget:_applyField("title", "Pending title")
+        widget:_applyField("authors", "Pending author")
+
+        widget:applyHardcover({
+            title = "Remote title",
+            authors = { "Remote author" },
+            language = "fr",
+            publisher = "Remote publisher",
+        }, "2024 · E-book", "open_library", "Open Library", "title")
+
+        assert.are.equal("Remote title", widget.draft.title)
+        assert.are.same({ "Pending author" }, widget.draft.authors)
+        assert.are.equal("Original series", widget.draft.series_name)
+        assert.are.equal("3", widget.draft.series_index)
+        assert.are.equal("en", widget.draft.language)
+        assert.are.equal("Original publisher", widget.draft.publisher)
+        assert.is_nil(widget.manual_fields.title)
+
+        widget:applyHardcover({ series_name = "Remote series" },
+            nil, "open_library", "Open Library", "series")
+        assert.are.equal("Remote series", widget.draft.series_name)
+        assert.are.equal("", widget.draft.series_index)
+        assert.are.equal("Remote title", widget.draft.title)
     end)
 
     it("treats a staged cover as dirty without changing metadata", function()
@@ -1532,10 +1595,10 @@ describe("metadata editor Hardcover merge", function()
         UIManager.show = function() end
         UIManager.close = function() end
         UIManager.nextTick = function(_self, callback) callback() end
-        local hardcover_calls = 0
+        local hardcover_field
         local widget = editor({ title = "Book", description = "Old description" })
-        widget.on_hardcover = function()
-            hardcover_calls = hardcover_calls + 1
+        widget.on_hardcover = function(_draft, _editor, only_key)
+            hardcover_field = only_key
         end
 
         widget:_editField("description")
@@ -1545,7 +1608,7 @@ describe("metadata editor Hardcover merge", function()
         assert.are.equal("Find metadata", dialog_options.buttons[1][1].text)
         assert.are.equal("Save", dialog_options.buttons[1][2].text)
         dialog_options.buttons[1][1].callback()
-        assert.are.equal(1, hardcover_calls)
+        assert.are.equal("description", hardcover_field)
         dialog_options.buttons[1][2].callback()
         assert.are.equal("Updated description", widget.draft.description)
     end)

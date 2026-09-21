@@ -90,7 +90,7 @@ describe("frontlight slider minus hold", function()
         }
     end
 
-    it("sets brightness to zero and updates the resume light state", function()
+    it("restores the last brightness after turning the frontlight off", function()
         local powerd = {
             fl_min = 0,
             fl_max = 100,
@@ -118,10 +118,17 @@ describe("frontlight slider minus hold", function()
         assert.is_false(powerd.is_on)
         assert.are.equal(1, powerd.resume_state_updates)
 
-        opts.refs.setBrightness(1)
-        assert.are.equal(1, powerd.intensity)
+        group[4][5].callback()
+        assert.are.equal(40, powerd.intensity)
         assert.is_true(powerd.is_on)
         assert.are.equal(2, powerd.resume_state_updates)
+
+        opts.refs.setBrightness(25)
+        opts.refs.fl_progress.on_drag_start()
+        for value = 24, 0, -1 do opts.refs.fl_progress.on_change(value) end
+        opts.refs.fl_progress.on_drag_end()
+        group[4][5].callback()
+        assert.are.equal(25, powerd.intensity)
     end)
 
     it("sets warmth to zero", function()
