@@ -3,15 +3,6 @@ local M = {}
 local VERIFY_ATTEMPTS = 60
 local VERIFY_DELAY_US = 250 * 1000
 
-local function is_kindle(Device)
-    return Device.isKindle and Device:isKindle()
-end
-
-local function has_network_manager(Device)
-    return is_kindle(Device)
-        or (Device.hasWifiManager and Device:hasWifiManager())
-end
-
 local function is_secured(network)
     local flags = type(network.flags) == "string" and network.flags or ""
     return flags:find("WPA", 1, true) ~= nil or flags:find("SAE", 1, true) ~= nil
@@ -41,7 +32,7 @@ local function verify_connection(NetworkMgr, ssid, old_ip, address_released, ffi
     return nil, saw_target and "no_address" or "wrong_network", last_ssid, last_ip
 end
 
-function M.open(on_connected, settings_subpage)
+function M.open(on_connected, settings_subpage, plugin)
     local Device = require("device")
     local ConfirmBox = require("ui/widget/confirmbox")
     local ButtonDialog = require("ui/widget/buttondialog")
@@ -50,6 +41,7 @@ function M.open(on_connected, settings_subpage)
     local InputDialog = require("ui/widget/inputdialog")
     local Menu = require("ui/widget/menu")
     local NetworkMgr = require("ui/network/manager")
+    local KindleNetworkAdapter = require("modules/menu/network_adapters/kindle")
     local Size = require("ui/size")
     local UIManager = require("ui/uimanager")
     local IconItem = require("common/ui/icon_menu_item")
@@ -64,10 +56,12 @@ function M.open(on_connected, settings_subpage)
     local plugin_root = require("common/plugin_root")
     local more_icon = utils.resolveLocalIcon(plugin_root and plugin_root .. "/icons/",
         "app_menu")
+    local adapter = KindleNetworkAdapter.isSupported(Device)
+        and KindleNetworkAdapter.new(NetworkMgr) or nil
 
     IconItem.installMenuPatch()
 
-    if not has_network_manager(Device) then
+    if not adapter and not (Device.hasWifiManager and Device:hasWifiManager()) then
         if type(NetworkMgr.openSettings) == "function" then
             NetworkMgr:openSettings()
             return true
@@ -81,8 +75,6 @@ function M.open(on_connected, settings_subpage)
     local connected_network
     local restore_started = false
     local closed = false
-    local scan_handle
-    local scan_poll
     local restore_previous_network
     local network_list = {}
     local render_networks
@@ -107,6 +99,7 @@ function M.open(on_connected, settings_subpage)
         back_hold_callback = close_menu,
         back_visible = settings_subpage == true,
         close_callback = close_menu,
+        plugin = plugin,
         search_visible = false,
         title = _("Wi-Fi networks"),
         title_full_width = true,
@@ -124,10 +117,7 @@ function M.open(on_connected, settings_subpage)
         close_callback = function()
             title_bar:clearStatusRefresh()
             closed = true
-            if scan_poll then UIManager:unschedule(scan_poll) end
-            if scan_handle then pcall(scan_handle.close, scan_handle) end
-            scan_poll = nil
-            scan_handle = nil
+            if adapter then adapter.close() end
         end,
     }
     title_bar:clearStatusRefresh()
@@ -169,273 +159,6 @@ function M.open(on_connected, settings_subpage)
         UIManager:forceRePaint()
     end
 
-    local function kindle_lipc_handle()
-        local ok_lipc, lipc = pcall(require, "liblipclua")
-        if not ok_lipc or type(lipc.init) ~= "function" then
-            return nil, "liblipclua unavailable"
-        end
-        local ok_handle, handle = pcall(lipc.init, "com.github.koreader.networkmgr")
-        if not ok_handle or not handle then return nil, tostring(handle) end
-        return handle
-    end
-
-    local function kindle_profile_handle()
-        local ok_lipc, lipc = pcall(require, "libopenlipclua")
-        if not ok_lipc or type(lipc) ~= "table"
-                or type(lipc.open_no_name) ~= "function" then
-            return nil, "libopenlipclua unavailable"
-        end
-        local ok_handle, handle = pcall(lipc.open_no_name)
-        if not ok_handle or not handle then return nil, tostring(handle) end
-        return handle
-    end
-
-    local function read_kindle_hash(property)
-        local handle, handle_error = kindle_profile_handle()
-        if not handle then return nil, handle_error end
-        local input
-        local result
-        local profiles
-        local read, read_error = pcall(function()
-            input = handle:new_hasharray()
-            result = handle:access_hash_property(
-                "com.lab126.wifid", property, input)
-            profiles = result and result:to_table()
-        end)
-        if result then pcall(result.destroy, result) end
-        if input then pcall(input.destroy, input) end
-        pcall(handle.close, handle)
-        if not read then return nil, read_error end
-        return profiles or {}
-    end
-
-    local function get_kindle_profile(ssid)
-        local profiles, profiles_error = read_kindle_hash("profileData")
-        if not profiles then return nil, profiles_error end
-        for _i, profile in ipairs(profiles or {}) do
-            if profile.essid == ssid then return profile end
-        end
-        return nil
-    end
-
-    local function wait_for_kindle_profile(ssid, expected)
-        local last_error
-        for _i = 1, 20 do
-            local profile, profile_error = get_kindle_profile(ssid)
-            if profile_error then
-                last_error = profile_error
-            elseif (profile ~= nil) == expected then
-                return profile or true
-            end
-            ffiutil.usleep(100 * 1000)
-        end
-        return nil, last_error or "Kindle Wi-Fi profile did not update"
-    end
-
-    local function connect_kindle(ssid)
-        local profile, profile_error = get_kindle_profile(ssid)
-        if profile_error then return false, profile_error end
-        if not profile then return false, "saved Kindle Wi-Fi profile not found" end
-        local selector = profile.netid and tostring(profile.netid) or ssid
-        local handle, handle_error = kindle_lipc_handle()
-        if not handle then return false, handle_error end
-        local connected, err = pcall(handle.set_string_property, handle,
-            "com.lab126.wifid", "cmConnect", selector)
-        pcall(handle.close, handle)
-        if connected then
-            logger.dbg("Kindle Wi-Fi connection requested", "ssid=", ssid,
-                "selector=", selector)
-        end
-        return connected, err
-    end
-
-    local function scan_kindle(callback)
-        local handle, handle_error = kindle_lipc_handle()
-        if not handle then
-            callback(false, handle_error)
-            return
-        end
-        local requested, scan_error = pcall(handle.set_string_property, handle,
-            "com.lab126.wifid", "scan", "")
-        if not requested then
-            pcall(handle.close, handle)
-            callback(false, scan_error)
-            return
-        end
-        scan_handle = handle
-        local started = false
-        local idle_polls = 0
-        local last_state
-        local attempts = 0
-        local function finish(scanned, err)
-            local active_handle = scan_handle
-            scan_handle = nil
-            scan_poll = nil
-            if active_handle then pcall(active_handle.close, active_handle) end
-            if not closed then callback(scanned, err) end
-        end
-        scan_poll = function()
-            if closed then return end
-            attempts = attempts + 1
-            local ok_state, state = pcall(handle.get_string_property, handle,
-                "com.lab126.wifid", "scanState")
-            if state ~= last_state then
-                logger.dbg("Kindle Wi-Fi scan state", "state=", state)
-                last_state = state
-            end
-            local scanning = type(state) == "string" and state ~= "idle" and state ~= ""
-            idle_polls = scanning and 0 or idle_polls + 1
-            if not ok_state then
-                finish(false, state)
-            elseif not scanning and (started or idle_polls >= 4) then
-                logger.dbg("Kindle Wi-Fi scan completed")
-                finish(true)
-            elseif attempts >= 80 then
-                finish(false, "scan timed out")
-            else
-                if scanning then started = true end
-                UIManager:scheduleIn(0.25, scan_poll)
-            end
-        end
-        scan_poll()
-    end
-
-    local function get_kindle_network_list()
-        local scan_list, scan_error = read_kindle_hash("scanList")
-        if not scan_list then return nil, scan_error end
-        local profiles, profiles_error = read_kindle_hash("profileData")
-        if not profiles then return nil, profiles_error end
-
-        local saved = {}
-        for _i, profile in ipairs(profiles) do
-            if profile.essid then saved[profile.essid] = profile end
-        end
-        local ok_current, current = pcall(NetworkMgr.getCurrentNetwork, NetworkMgr)
-        local current_ssid = ok_current and current and current.ssid
-        local networks = {}
-        for _i, network in ipairs(scan_list) do
-            local signal = tonumber(network.signal)
-            local signal_max = tonumber(network.signal_max)
-            local profile = saved[network.essid]
-            networks[#networks + 1] = {
-                connected = network.essid == current_ssid,
-                flags = network.key_mgmt or "",
-                password = profile and profile.psk,
-                signal_quality = signal and signal_max and signal_max > 0
-                    and math.floor(signal * 100 / signal_max) or nil,
-                ssid = network.essid,
-            }
-        end
-        return networks
-    end
-
-    local function delete_kindle_profile(ssid)
-        local profile, profile_error = get_kindle_profile(ssid)
-        if profile_error then return false, profile_error end
-        if not profile then return true end
-        local profile_id = tonumber(profile.netid)
-        if not profile_id then return false, "Kindle Wi-Fi profile has no netid" end
-
-        local function request_delete(value, numeric)
-            local handle, handle_error = kindle_profile_handle()
-            if not handle then return false, handle_error end
-            local setter = numeric and handle.set_int_property or handle.set_string_property
-            local requested, request_error = pcall(setter, handle,
-                "com.lab126.wifid", "deleteProfile", value)
-            pcall(handle.close, handle)
-            return requested, request_error
-        end
-
-        local requested, request_error = request_delete(profile_id, true)
-        local deleted, delete_error
-        if requested then deleted, delete_error = wait_for_kindle_profile(ssid, false) end
-        if not deleted then
-            requested, request_error = request_delete(ssid, false)
-            if requested then deleted, delete_error = wait_for_kindle_profile(ssid, false) end
-        end
-        if not deleted then return false, delete_error or request_error end
-        logger.dbg("Kindle Wi-Fi profile deleted", "ssid=", ssid,
-            "profile_id=", profile_id)
-        return true
-    end
-
-    local function derive_kindle_psk(network)
-        if not is_secured(network) then return true end
-        local password = network.password
-        if type(password) ~= "string" then return false, "missing password" end
-        if #password == 64 and password:match("^%x+$") then
-            network.psk = password
-            return true
-        end
-        if #password < 8 or #password > 63 then return false, "invalid password length" end
-        local ok_crypto, crypto = pcall(require, "ffi/crypto")
-        local ok_sha, sha = pcall(require, "ffi/sha2")
-        if not ok_crypto or not ok_sha then return false, "WPA PSK support unavailable" end
-        local ok_psk, psk = pcall(crypto.pbkdf2_hmac_sha1,
-            password, network.ssid, 4096, 32)
-        if not ok_psk then return false, psk end
-        network.password = sha.bin_to_hex(psk)
-        network.psk = network.password
-        return true
-    end
-
-    local function create_kindle_profile(network)
-        local derived, derive_error = derive_kindle_psk(network)
-        if not derived then return false, derive_error end
-
-        local flags = type(network.flags) == "string" and network.flags or ""
-        local security_method
-        if flags:find("WPA2", 1, true) then
-            security_method = "wpa2"
-        elseif flags:find("WPA", 1, true) then
-            security_method = "wpa"
-        elseif is_secured(network) then
-            return false, "unsupported Kindle Wi-Fi security"
-        else
-            security_method = "open"
-        end
-
-        local handle, handle_error = kindle_profile_handle()
-        if not handle then return false, handle_error end
-
-        local profile_input
-        local result
-        local created, create_error = pcall(function()
-            profile_input = handle:new_hasharray()
-            profile_input:add_hash()
-            profile_input:put_string(0, "essid", network.ssid)
-            profile_input:put_string(0, "smethod", security_method)
-            if is_secured(network) then
-                profile_input:put_string(0, "secured", "yes")
-                profile_input:put_string(0, "psk", network.psk)
-                profile_input:put_int(0, "store_nw_user_pref", 0)
-            else
-                profile_input:put_string(0, "secured", "no")
-            end
-            result = handle:access_hash_property(
-                "com.lab126.wifid", "createProfile", profile_input)
-        end)
-        if result then pcall(result.destroy, result) end
-        if profile_input then pcall(profile_input.destroy, profile_input) end
-        pcall(handle.close, handle)
-        if not created then return false, create_error end
-
-        local profile, profile_error = wait_for_kindle_profile(network.ssid, true)
-        if not profile then return false, profile_error end
-        logger.dbg("Kindle Wi-Fi profile created", "ssid=", network.ssid,
-            "security=", network.flags, "method=", security_method,
-            "profile_id=", profile.netid)
-        return true
-    end
-
-    local function replace_kindle_profile(network)
-        local derived, derive_error = derive_kindle_psk(network)
-        if not derived then return false, derive_error end
-        local deleted, delete_error = delete_kindle_profile(network.ssid)
-        if not deleted then return false, delete_error end
-        return create_kindle_profile(network)
-    end
-
     local function turn_on_wifi()
         if NetworkMgr:isWifiOn() then return true end
         local reconnect = NetworkMgr.reconnectOrShowNetworkMenu
@@ -447,22 +170,10 @@ function M.open(on_connected, settings_subpage)
     end
 
     local function forget_network(network)
-        if is_kindle(Device) then
-            local ok_current, current = pcall(NetworkMgr.getCurrentNetwork, NetworkMgr)
-            if ok_current and current and current.ssid == network.ssid then
-                local powered_off, power_error = pcall(NetworkMgr.turnOffWifi, NetworkMgr)
-                if not powered_off or power_error == false then
-                    logger.warn("could not turn off Wi-Fi before forgetting profile",
-                        "ssid=", network.ssid, "error=", power_error)
-                    show_status(_("Could not forget the Wi-Fi network."))
-                    return false
-                end
-                NetworkMgr:releaseIP()
-                NetworkMgr.lease_ssid = nil
-            end
-            local deleted, delete_error = delete_kindle_profile(network.ssid)
+        if adapter then
+            local deleted, delete_error = adapter.forgetNetwork(network)
             if not deleted then
-                logger.warn("could not forget Kindle Wi-Fi profile",
+                logger.warn("could not forget Wi-Fi profile",
                     "ssid=", network.ssid, "error=", delete_error)
                 show_status(_("Could not forget the Wi-Fi network."))
                 return false
@@ -519,7 +230,7 @@ function M.open(on_connected, settings_subpage)
         local old_ip = previous_ip or get_ip()
         local address_released = get_ip() == nil
 
-        if not is_kindle(Device) and connected_network
+        if not adapter and connected_network
                 and connected_network.ssid ~= network.ssid then
             UIManager:broadcastEvent(Event:new("NetworkDisconnecting"))
             NetworkMgr:disconnectNetwork(connected_network)
@@ -531,8 +242,8 @@ function M.open(on_connected, settings_subpage)
 
         UIManager:broadcastEvent(Event:new("NetworkConnecting"))
         local authenticated, auth_error
-        if is_kindle(Device) then
-            authenticated, auth_error = connect_kindle(network.ssid)
+        if adapter then
+            authenticated, auth_error = adapter.connect(network)
         else
             authenticated, auth_error = NetworkMgr:authenticateNetwork(network)
         end
@@ -625,10 +336,10 @@ function M.open(on_connected, settings_subpage)
                 end
                 network.password = password
                 network.psk = nil
-                if is_kindle(Device) then
-                    local replaced, replace_error = replace_kindle_profile(network)
+                if adapter then
+                    local replaced, replace_error = adapter.replaceNetwork(network)
                     if not replaced then
-                        logger.warn("could not replace Kindle Wi-Fi profile",
+                        logger.warn("could not replace Wi-Fi profile",
                             "ssid=", network.ssid, "error=", replace_error)
                         UIManager:show(InfoMessage:new{
                             text = _("Could not replace the saved Wi-Fi password."),
@@ -690,8 +401,8 @@ function M.open(on_connected, settings_subpage)
     local function disconnect_network(network)
         UIManager:broadcastEvent(Event:new("NetworkDisconnecting"))
         local ok_disconnect, status
-        if is_kindle(Device) then
-            ok_disconnect, status = pcall(NetworkMgr.turnOffWifi, NetworkMgr)
+        if adapter then
+            ok_disconnect, status = adapter.disconnect(network)
         else
             ok_disconnect, status = pcall(NetworkMgr.disconnectNetwork, NetworkMgr, network)
         end
@@ -843,27 +554,27 @@ function M.open(on_connected, settings_subpage)
         if closed then return end
         show_status(_("Searching for networks…"))
 
-        if is_kindle(Device) and not previous_network then
+        if adapter and not previous_network then
             local ok_current, current = pcall(NetworkMgr.getCurrentNetwork, NetworkMgr)
             if ok_current and current and current.ssid and current.ssid ~= "" then
                 previous_network = current
                 previous_ip = get_ip()
-                logger.dbg("remembering current Kindle Wi-Fi", "ssid=", current.ssid,
+                logger.dbg("remembering current Wi-Fi", "ssid=", current.ssid,
                     "ip=", previous_ip)
             end
         end
 
-        logger.dbg("scan started", "kindle=", is_kindle(Device))
+        logger.dbg("scan started", "adapter=", adapter and adapter.id)
         local function load_results(scanned, scan_error)
             if closed then return end
             if scanned == false then
-                logger.warn("Kindle scan failed", scan_error)
+                logger.warn("adapter scan failed", scan_error)
                 show_status(_("Scanning for Wi-Fi networks timed out."))
                 return
             end
             local scanned_networks
-            if is_kindle(Device) then
-                scanned_networks, scan_error = get_kindle_network_list()
+            if adapter then
+                scanned_networks, scan_error = adapter.getNetworkList()
             else
                 scanned_networks, scan_error = NetworkMgr:getNetworkList()
             end
@@ -881,7 +592,7 @@ function M.open(on_connected, settings_subpage)
             logger.dbg("scan complete", "networks=", #network_list)
             render_networks()
         end
-        if is_kindle(Device) then scan_kindle(load_results) else load_results(true) end
+        if adapter then adapter.scan(load_results) else load_results(true) end
     end
 
     start_scan = function()

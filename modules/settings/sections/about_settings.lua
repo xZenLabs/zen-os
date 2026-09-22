@@ -57,7 +57,7 @@ function M.build(ctx)
     table.insert(items, {
         text = _("Network"),
         callback = function()
-            require("modules/menu/network_switcher").open(nil, true)
+            require("modules/menu/network_switcher").open(nil, true, plugin)
         end,
         keep_menu_open = true,
     })

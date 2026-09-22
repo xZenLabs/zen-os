@@ -597,7 +597,7 @@ local function apply_quick_settings()
             hold_callback = function(touch_menu)
                 return require("modules/menu/network_switcher").open(function()
                     refreshWifiQuickSettings(touch_menu)
-                end)
+                end, false, zen_plugin)
             end,
         },
         night = {

@@ -4,6 +4,7 @@ describe("About settings", function()
     local time_setting
     local tour_starts
     local network_opens
+    local network_plugin
     local network_settings_subpage
 
     before_each(function()
@@ -12,6 +13,7 @@ describe("About settings", function()
         time_setting = { text = "Time and date", sub_item_table = {} }
         tour_starts = 0
         network_opens = 0
+        network_plugin = nil
         network_settings_subpage = nil
 
         ZenSpec.replace("gettext", function(text) return text end)
@@ -41,8 +43,9 @@ describe("About settings", function()
             build = function() return {} end,
         })
         ZenSpec.replace("modules/menu/network_switcher", {
-            open = function(_on_connected, settings_subpage)
+            open = function(_on_connected, settings_subpage, plugin)
                 network_opens = network_opens + 1
+                network_plugin = plugin
                 network_settings_subpage = settings_subpage
             end,
         })
@@ -108,15 +111,17 @@ describe("About settings", function()
     end)
 
     it("opens the network switcher", function()
+        local plugin = {}
         local items = require("modules/settings/sections/about_settings").build({
             config = {},
-            plugin = {},
+            plugin = plugin,
         })
 
         assert.are.equal("Network", items[3].text)
         assert.is_true(items[3].keep_menu_open)
         items[3].callback()
         assert.are.equal(1, network_opens)
+        assert.are.equal(plugin, network_plugin)
         assert.is_true(network_settings_subpage)
     end)
 end)

@@ -128,9 +128,11 @@ describe("quick settings Wi-Fi", function()
         ZenSpec.replace("ui/event", { new = function(_, name) return { name = name } end })
         ZenSpec.replace("modules/menu/patches/touch_menu_panel", { install = function() end })
         ZenSpec.replace("modules/menu/network_switcher", {
-            open = function(callback)
+            open = function(callback, settings_subpage, plugin)
                 switcher_calls = switcher_calls + 1
                 assert.is_function(callback)
+                assert.is_false(settings_subpage)
+                assert.are.equal(_G.__ZEN_UI_PLUGIN, plugin)
                 return true
             end,
         })

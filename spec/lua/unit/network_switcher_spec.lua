@@ -52,6 +52,7 @@ describe("network switcher", function()
         "common/ui/zen_settings_titlebar",
         "common/utils",
         "common/zen_logger",
+        "modules/menu/network_adapters/kindle",
         "modules/settings/zen_settings_utils",
         "gettext",
     }
@@ -454,8 +455,10 @@ describe("network switcher", function()
 
     it("uses settings back navigation when opened from About", function()
         local Switcher = require("modules/menu/network_switcher")
-        assert.is_true(Switcher.open(nil, true))
+        local plugin = {}
+        assert.is_true(Switcher.open(nil, true, plugin))
         assert.is_true(network_menu.custom_title_bar.back_visible)
+        assert.are.equal(plugin, network_menu.custom_title_bar.plugin)
         assert.are.equal(network_menu.custom_title_bar.back_callback,
             network_menu.custom_title_bar.back_hold_callback)
 
