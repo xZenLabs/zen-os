@@ -247,10 +247,14 @@ describe("Zen settings page", function()
 
     it("toggles configurable submenu rows only from their outer switch", function()
         local active = false
+        local callback_menu
         local date = {
             text = "Date",
             checked_func = function() return active end,
-            checkmark_callback = function() active = not active end,
+            checkmark_callback = function(touch_menu)
+                callback_menu = touch_menu
+                active = not active
+            end,
             sub_item_table = {{ text = "MM/DD/YY" }},
             _zen_settings_control_bounds = { left = 0.75, right = 0.9 },
         }
@@ -258,6 +262,7 @@ describe("Zen settings page", function()
 
         settings:onMenuSelect(date, { x = 0.8 })
         assert.is_true(active)
+        assert.are.equal(settings, callback_menu)
         assert.are.equal(settings._root_items, settings.item_table)
 
         settings:onMenuSelect(date, { x = 0.95 })

@@ -572,19 +572,11 @@ local function apply_quick_settings()
             dim_func = isWifiConnecting,
             callback = function(touch_menu)
                 if isWifiConnecting() then return end
-                if not NetworkMgr:isWifiOn()
-                    and Device.isKindle and Device:isKindle()
-                    and Device.hasWifiRestore and Device:hasWifiRestore()
-                then
-                    local InfoMessage = require("ui/widget/infomessage")
-                    local notice = InfoMessage:new{ text = _("Connecting to Wi-Fi…") }
-                    NetworkMgr.pending_connection = true
-                    UIManager:broadcastEvent(Event:new("NetworkConnecting"))
-                    UIManager:show(notice)
-                    NetworkMgr:restoreWifiAsync()
-                    NetworkMgr:scheduleConnectivityCheck(function()
+                if require("modules/menu/network_adapters/kindle").restoreWifi(
+                    NetworkMgr, function()
                         refreshWifiQuickSettings(touch_menu)
-                    end, notice)
+                    end)
+                then
                     return
                 end
                 local wifi_menu = NetworkMgr:getWifiMenuTable()

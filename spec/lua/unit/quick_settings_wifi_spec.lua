@@ -45,6 +45,7 @@ describe("quick settings Wi-Fi", function()
         "modules/menu/app_launcher/plugin_scan",
         "common/plugin_root",
         "modules/menu/patches/touch_menu_panel",
+        "modules/menu/network_adapters/kindle",
         "modules/menu/network_switcher",
         "ui/widget/touchmenu",
         "apps/filemanager/filemanagermenu",
@@ -238,6 +239,7 @@ describe("quick settings Wi-Fi", function()
             end,
         }
 
+        NetworkMgr.current_ssid = "Previous"
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("wifi", touch_menu))
 
         assert.are.equal(1, NetworkMgr.restore_calls)
@@ -252,6 +254,7 @@ describe("quick settings Wi-Fi", function()
         assert.are.equal(UIManager.shown[1], NetworkMgr.connectivity_widget)
         assert.are.equal(0, #UIManager.scheduled)
 
+        NetworkMgr.current_ssid = nil
         NetworkMgr.wifi_on = true
         NetworkMgr.connected = true
         NetworkMgr.connectivity_callback()

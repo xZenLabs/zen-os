@@ -447,7 +447,7 @@ function ZenSettingsPage:onMenuSelect(item, pos)
     if type(item.checkmark_callback) == "function" and type(pos) == "table"
             and type(pos.x) == "number" and type(bounds) == "table"
             and pos.x >= bounds.left and pos.x <= bounds.right then
-        item.checkmark_callback()
+        item.checkmark_callback(self)
         self._search_index = nil
         self:updateItems()
         return true

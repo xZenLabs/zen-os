@@ -6,6 +6,10 @@ describe("About settings", function()
     local network_opens
     local network_plugin
     local network_settings_subpage
+    local kindle_restore_callback
+    local kindle_restore_calls
+    local wifi_on
+    local wifi_toggle_menu
 
     before_each(function()
         quickstart_spec = nil
@@ -15,6 +19,10 @@ describe("About settings", function()
         network_opens = 0
         network_plugin = nil
         network_settings_subpage = nil
+        kindle_restore_callback = nil
+        kindle_restore_calls = 0
+        wifi_on = false
+        wifi_toggle_menu = nil
 
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("ffi/util", {
@@ -47,6 +55,23 @@ describe("About settings", function()
                 network_opens = network_opens + 1
                 network_plugin = plugin
                 network_settings_subpage = settings_subpage
+            end,
+        })
+        ZenSpec.replace("modules/menu/network_adapters/kindle", {
+            restoreWifi = function(_network_mgr, callback)
+                kindle_restore_calls = kindle_restore_calls + 1
+                kindle_restore_callback = callback
+                return not wifi_on
+            end,
+        })
+        ZenSpec.replace("ui/network/manager", {
+            isWifiOn = function() return wifi_on end,
+            getWifiMenuTable = function()
+                return {
+                    callback = function(touch_menu)
+                        wifi_toggle_menu = touch_menu
+                    end,
+                }
             end,
         })
         ZenSpec.replace("ui/elements/common_settings_menu_table", {
@@ -101,13 +126,15 @@ describe("About settings", function()
         assert.are.equal(1, tour_starts)
     end)
 
-    it("reuses KOReader's time and date menu", function()
+    it("puts language and KOReader's time and date menu at the bottom of Device", function()
         local items = require("modules/settings/sections/about_settings").build({
             config = {},
             plugin = {},
         })
 
-        assert.are.equal(time_setting, items[6])
+        local device_items = items[3].sub_item_table
+        assert.are.equal("Language", device_items[#device_items - 1].text)
+        assert.are.equal(time_setting, device_items[#device_items])
     end)
 
     it("opens the network switcher", function()
@@ -117,9 +144,28 @@ describe("About settings", function()
             plugin = plugin,
         })
 
-        assert.are.equal("Network", items[3].text)
-        assert.is_true(items[3].keep_menu_open)
-        items[3].callback()
+        assert.are.equal("Wi-Fi", items[2].text)
+        assert.is_true(items[2].keep_menu_open)
+        assert.is_true(items[2]._zen_settings_submenu)
+        assert.is_false(items[2].checked_func())
+        local updates = 0
+        local status_refreshes = 0
+        local touch_menu = {
+            updateItems = function() updates = updates + 1 end,
+            _zen_status_refresh = function() status_refreshes = status_refreshes + 1 end,
+        }
+        items[2].checkmark_callback(touch_menu)
+        assert.are.equal(1, kindle_restore_calls)
+        assert.is_function(kindle_restore_callback)
+        assert.is_nil(wifi_toggle_menu)
+        kindle_restore_callback()
+        assert.are.equal(1, updates)
+        assert.are.equal(1, status_refreshes)
+        wifi_on = true
+        assert.is_true(items[2].checked_func())
+        items[2].checkmark_callback(touch_menu)
+        assert.are.equal(touch_menu, wifi_toggle_menu)
+        items[2].callback()
         assert.are.equal(1, network_opens)
         assert.are.equal(plugin, network_plugin)
         assert.is_true(network_settings_subpage)
