@@ -182,6 +182,7 @@ modules/menu/app_launcher/book_switcher_page.lua|unit
 modules/menu/app_launcher/store.lua|integration
 modules/menu/app_launcher/zenpm_pending.lua|integration
 modules/menu/menu.lua|integration
+modules/menu/network_switcher.lua|unit
 modules/menu/patches/app_launcher.lua|integration
 modules/menu/patches/brightness_slider.lua|integration
 modules/menu/patches/countdown_screenshot.lua|integration

@@ -130,9 +130,11 @@ describe("Zen scroll bar", function()
     it("keeps the go-to-page dialog in other paginated menus", function()
         local filemanager = new_menu("filemanager")
         local center_tap = find_zone(filemanager, "zen_pn_center_tap")
+        local network_switcher = new_menu("network_switcher")
 
         assert.is_true(center_tap.handler())
         assert.are.equal("Go to page", shown.title)
+        assert.is_table(network_switcher._zen_page_number_zones)
     end)
 
     it("keeps List and Mosaic Authors pagination at the same height", function()

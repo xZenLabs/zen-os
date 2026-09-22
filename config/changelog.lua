@@ -356,6 +356,8 @@ return {
         "Add swipe to go back gesture in Zen Settings",
         "Add Kindle books to Home/Collections",
         "Add manual order TBR (TBR Context menu > Sort > Order)",
+        "Add Zen Settings option to be in Controls",
+        "Add Launcher button to Controls",
         "Add Kobo bluetooth control (KLC, Mediatek, Sage, Clara 2E)",
         "Update a single field of metadata",
         "Update metadata editor results",

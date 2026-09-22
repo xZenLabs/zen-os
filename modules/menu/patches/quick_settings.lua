@@ -493,11 +493,20 @@ local function apply_quick_settings()
         end
     end
 
-    local function refreshWifiQuickSettings(touch_menu)
+    local function refreshWifiQuickSettings(touch_menu, retries)
+        local network = NetworkMgr:isWifiOn() and NetworkMgr.getCurrentNetwork
+            and NetworkMgr:getCurrentNetwork()
+        local remaining = retries or 45
+        if NetworkMgr:isWifiOn()
+            and (not network or type(network.ssid) ~= "string" or network.ssid == "")
+            and remaining > 0
+        then
+            UIManager:scheduleIn(1, function()
+                refreshWifiQuickSettings(touch_menu, remaining - 1)
+            end)
+            return
+        end
         refreshQuickSettings(touch_menu)
-        UIManager:scheduleIn(1, function()
-            refreshQuickSettings(touch_menu)
-        end)
     end
 
     local function isWifiConnected()
@@ -563,7 +572,21 @@ local function apply_quick_settings()
             dim_func = isWifiConnecting,
             callback = function(touch_menu)
                 if isWifiConnecting() then return end
-                -- Explicit toggles need KOReader's scan/DHCP flow; async restore is resume-only.
+                if not NetworkMgr:isWifiOn()
+                    and Device.isKindle and Device:isKindle()
+                    and Device.hasWifiRestore and Device:hasWifiRestore()
+                then
+                    local InfoMessage = require("ui/widget/infomessage")
+                    local notice = InfoMessage:new{ text = _("Connecting to Wi-Fi…") }
+                    NetworkMgr.pending_connection = true
+                    UIManager:broadcastEvent(Event:new("NetworkConnecting"))
+                    UIManager:show(notice)
+                    NetworkMgr:restoreWifiAsync()
+                    NetworkMgr:scheduleConnectivityCheck(function()
+                        refreshWifiQuickSettings(touch_menu)
+                    end, notice)
+                    return
+                end
                 local wifi_menu = NetworkMgr:getWifiMenuTable()
                 wifi_menu.callback({
                     updateItems = function()
@@ -572,22 +595,9 @@ local function apply_quick_settings()
                 })
             end,
             hold_callback = function(touch_menu)
-                -- Long-hold: (re)connect and show the AP picker.
-                -- If Wi-Fi is currently on, turn it off first, then bring it
-                -- back up with long_press=true so the network list appears.
-                -- If already off, go straight to the long-press connect flow.
-                local function do_connect()
-                    NetworkMgr:toggleWifiOn(function()
-                        refreshWifiQuickSettings(touch_menu)
-                    end, true, true)
-                end
-                if NetworkMgr:isWifiOn() then
-                    NetworkMgr:toggleWifiOff(function()
-                        do_connect()
-                    end, true)
-                else
-                    do_connect()
-                end
+                return require("modules/menu/network_switcher").open(function()
+                    refreshWifiQuickSettings(touch_menu)
+                end)
             end,
         },
         night = {
@@ -928,7 +938,7 @@ local function apply_quick_settings()
                     showUnavailable()
                     return
                 end
-                plugin:onToggleZenFM()
+                plugin:onToggleZenFM(touch_menu)
                 refreshQuickSettings(touch_menu)
             end,
             hold_callback = function(touch_menu)

@@ -247,8 +247,9 @@ describe("quick settings plugin controls", function()
                 is_android = function() return false end,
                 status = function() return zenfm.running end,
             },
-            onToggleZenFM = function(self)
+            onToggleZenFM = function(self, touch_menu)
                 self.toggle_calls = self.toggle_calls + 1
+                self.touch_menu = touch_menu
                 self.running = not self.running
             end,
             settings_menu = function(self)
@@ -432,6 +433,7 @@ describe("quick settings plugin controls", function()
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("zenfm", touch_menu))
         assert.are.equal(0, closes)
         assert.are.equal(1, zenfm.toggle_calls)
+        assert.are.equal(touch_menu, zenfm.touch_menu)
         assert.are.equal(1, updates)
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isActive("zenfm"))
     end)

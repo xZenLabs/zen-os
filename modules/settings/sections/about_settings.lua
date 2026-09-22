@@ -55,6 +55,14 @@ function M.build(ctx)
     })
 
     table.insert(items, {
+        text = _("Network"),
+        callback = function()
+            require("modules/menu/network_switcher").open(nil, true)
+        end,
+        keep_menu_open = true,
+    })
+
+    table.insert(items, {
         text = _("Setup Guide"),
         callback = function()
             local ok_qs, QuickstartScreen = pcall(require, "common/quickstart/quickstart_screen")
@@ -114,11 +122,12 @@ function M.build(ctx)
 
     IconItem.decorate(items[1], icons.details)
     IconItem.decorate(items[2], icons.settings_device)
-    IconItem.decorate(items[3], icons.settings_setup)
-    IconItem.decorate(items[4], icons.language)
-    IconItem.decorate(items[5], icons.tbr)
-    IconItem.decorate(items[6], icons.settings_bug)
-    IconItem.decorate(items[7], icons.settings_advanced)
+    IconItem.decorate(items[3], icons.wifi_on)
+    IconItem.decorate(items[4], icons.settings_setup)
+    IconItem.decorate(items[5], icons.language)
+    IconItem.decorate(items[6], icons.tbr)
+    IconItem.decorate(items[7], icons.settings_bug)
+    IconItem.decorate(items[8], icons.settings_advanced)
 
     return items
 end

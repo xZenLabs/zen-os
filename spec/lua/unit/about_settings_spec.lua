@@ -3,12 +3,16 @@ describe("About settings", function()
     local scheduled
     local time_setting
     local tour_starts
+    local network_opens
+    local network_settings_subpage
 
     before_each(function()
         quickstart_spec = nil
         scheduled = {}
         time_setting = { text = "Time and date", sub_item_table = {} }
         tour_starts = 0
+        network_opens = 0
+        network_settings_subpage = nil
 
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("ffi/util", {
@@ -35,6 +39,12 @@ describe("About settings", function()
         })
         ZenSpec.replace("modules/settings/sections/advanced_settings", {
             build = function() return {} end,
+        })
+        ZenSpec.replace("modules/menu/network_switcher", {
+            open = function(_on_connected, settings_subpage)
+                network_opens = network_opens + 1
+                network_settings_subpage = settings_subpage
+            end,
         })
         ZenSpec.replace("ui/elements/common_settings_menu_table", {
             time = time_setting,
@@ -73,7 +83,7 @@ describe("About settings", function()
             plugin = plugin,
         })
 
-        items[3].callback()
+        items[4].callback()
         assert.is_table(quickstart_spec)
         quickstart_spec.on_close()
 
@@ -94,6 +104,19 @@ describe("About settings", function()
             plugin = {},
         })
 
-        assert.are.equal(time_setting, items[5])
+        assert.are.equal(time_setting, items[6])
+    end)
+
+    it("opens the network switcher", function()
+        local items = require("modules/settings/sections/about_settings").build({
+            config = {},
+            plugin = {},
+        })
+
+        assert.are.equal("Network", items[3].text)
+        assert.is_true(items[3].keep_menu_open)
+        items[3].callback()
+        assert.are.equal(1, network_opens)
+        assert.is_true(network_settings_subpage)
     end)
 end)
