@@ -114,6 +114,7 @@ return {
     calendar          = "\u{F073}",  -- nf-fa-calendar
     settings_opds     = "\u{F0B7D}",
     settings_sleep    = "\u{F04B2}",
+    keyboard          = "\u{F030C}",  -- mdi-keyboard
     schedule_brightness = "\u{F0599}",
     schedule_night    = "\u{F0594}",  -- mdi-weather-night
     schedule_warmth   = "\u{F0510}",

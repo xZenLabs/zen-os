@@ -369,6 +369,7 @@ return {
         "Option to exclude Rakuyomi comics from history/home (Extras > Rakuyomi)",
         "Open KOReader + menu outside home in context menu",
         "Fix even home widget spacing",
+        "Improve virtual keyboard responsiveness and layouts",
         "Bug fixes & performance improvements",
      }
 }

@@ -25,9 +25,12 @@ describe("global search settings", function()
         ZenSpec.replace("common/restart", {})
         ZenSpec.replace("config/preset_store", {})
         ZenSpec.replace("modules/settings/zen_settings_utils", {})
-        ZenSpec.replace("common/inline_icon_map", {})
+        ZenSpec.replace("common/inline_icon_map", { keyboard = "keyboard-icon" })
         ZenSpec.replace("common/ui/icon_menu_item", {
-            decorate = function(item) return item end,
+            decorate = function(item, glyph)
+                item.icon_glyph = glyph
+                return item
+            end,
         })
         ZenSpec.replace("common/plugin_root", "/missing")
         ZenSpec.replace("libs/libkoreader-lfs", {
@@ -58,6 +61,30 @@ describe("global search settings", function()
         search_toggle.callback()
         assert.is_false(search_toggle.checked_func())
         assert.is_false(items[1].sub_item_table[2].enabled_func())
+        assert.are.equal(1, saved)
+        assert.are.equal(1, restart_prompts)
+    end)
+
+    it("defaults Zen Keyboard on and prompts for restart when toggled", function()
+        local saved, restart_prompts = 0, 0
+        local config = { features = {} }
+        local items = require("modules/settings/sections/global_settings").build_extras_items({
+            config = config,
+            plugin = { saveConfig = function() saved = saved + 1 end },
+            settings_apply = {
+                prompt_restart = function() restart_prompts = restart_prompts + 1 end,
+            },
+        })
+        local keyboard_toggle
+        for _i, item in ipairs(items) do
+            if item.text == "Zen Keyboard" then keyboard_toggle = item end
+        end
+
+        assert.is_not_nil(keyboard_toggle)
+        assert.are.equal("keyboard-icon", keyboard_toggle.icon_glyph)
+        assert.is_true(keyboard_toggle.checked_func())
+        keyboard_toggle.callback()
+        assert.is_false(keyboard_toggle.checked_func())
         assert.are.equal(1, saved)
         assert.are.equal(1, restart_prompts)
     end)

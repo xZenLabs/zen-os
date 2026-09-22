@@ -942,6 +942,9 @@ function M.build(ctx)
 end
 
 function M.build_extras_items(ctx)
+    local config = ctx.config
+    local plugin = ctx.plugin
+    local settings_apply = ctx.settings_apply
     local global_items = M.build(ctx)
     local search_item = global_items[1]
     local night_schedule_item = global_items[2]
@@ -967,10 +970,26 @@ function M.build_extras_items(ctx)
         },
         sleep_item,
         lockdown_item,
+        {
+            text = _("Zen Keyboard"),
+            help_text = _("Enable ZenOS keyboard improvements."),
+            checked_func = function()
+                return type(config.features) ~= "table"
+                    or config.features.zen_keyboard ~= false
+            end,
+            callback = function(touchmenu_instance)
+                if type(config.features) ~= "table" then config.features = {} end
+                config.features.zen_keyboard = config.features.zen_keyboard == false
+                plugin:saveConfig()
+                if touchmenu_instance then touchmenu_instance:updateItems() end
+                settings_apply.prompt_restart()
+            end,
+        },
     }
     IconItem.decorate(items[1], icons.search)
     IconItem.decorate(items[2], icons.tbr)
     IconItem.decorate(items[4], icons.settings_lockdown)
+    IconItem.decorate(items[5], icons.keyboard)
     return items
 end
 

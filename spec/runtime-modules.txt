@@ -170,6 +170,7 @@ modules/global/patches/unified_title_style.lua|unit
 modules/global/patches/menu_top_swipe.lua|integration
 modules/global/patches/night_mode_schedule.lua|integration
 modules/global/patches/opds.lua|integration
+modules/global/patches/responsive_keyboard.lua|unit
 modules/global/patches/warmth_schedule.lua|integration
 modules/menu/app_launcher/action_filter.lua|integration
 modules/menu/app_launcher/book_details_page.lua|unit

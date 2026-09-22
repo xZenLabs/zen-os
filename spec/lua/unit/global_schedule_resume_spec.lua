@@ -3,6 +3,7 @@ describe("global schedule resume hook", function()
     local device
     local ui_manager
     local scheduled
+    local responsive_keyboard_applies
     local original_reader_settings
     local patched_modules = {
         "modules/global/patches/night_mode_schedule",
@@ -15,6 +16,7 @@ describe("global schedule resume hook", function()
         "modules/global/patches/incognito_mode",
         "modules/global/patches/menu_font",
         "modules/global/patches/unified_title_style",
+        "modules/global/patches/responsive_keyboard",
     }
 
     before_each(function()
@@ -32,6 +34,7 @@ describe("global schedule resume hook", function()
         _G.brightness_reschedules = nil
         _G.warmth_reschedules = nil
         scheduled = {}
+        responsive_keyboard_applies = 0
 
         ui_manager = {
             broadcastEvent = function(_, event)
@@ -55,6 +58,9 @@ describe("global schedule resume hook", function()
         for _i, name in ipairs(patched_modules) do
             ZenSpec.replace(name, function() end)
         end
+        ZenSpec.replace("modules/global/patches/responsive_keyboard", function()
+            responsive_keyboard_applies = responsive_keyboard_applies + 1
+        end)
         ZenSpec.unload("modules/global/global")
         global = require("modules/global/global")
     end)
@@ -88,6 +94,18 @@ describe("global schedule resume hook", function()
         assert.are.equal(1, _G.night_reschedules)
         assert.are.equal(2, _G.brightness_reschedules)
         assert.are.equal(2, _G.warmth_reschedules)
+    end)
+
+    it("applies Zen Keyboard by default", function()
+        assert.is_true(global.init(nil, { config = { features = {} } }))
+        assert.are.equal(1, responsive_keyboard_applies)
+    end)
+
+    it("skips Zen Keyboard when disabled", function()
+        assert.is_true(global.init(nil, {
+            config = { features = { zen_keyboard = false } },
+        }))
+        assert.are.equal(0, responsive_keyboard_applies)
     end)
 
     it("does not reapply schedules for unrelated broadcasts", function()

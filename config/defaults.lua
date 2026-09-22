@@ -87,6 +87,7 @@ local defaults = {
         lockdown_mode        = false,
         incognito_mode       = false,
         zen_opds             = true,
+        zen_keyboard         = true,
     },
     search = {
         substring = not FontLanguage.supportsWholeWordSearch(),
