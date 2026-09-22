@@ -101,30 +101,16 @@ local function delete_profile(ssid)
     return true
 end
 
-local function derive_psk(network)
+local function validate_password(network)
     if not is_secured(network) then return true end
     local password = network.password
     if type(password) ~= "string" then return false, "missing password" end
-    if #password == 64 and password:match("^%x+$") then
-        network.psk = password
-        return true
-    end
+    if #password == 64 and password:match("^%x+$") then return true end
     if #password < 8 or #password > 63 then return false, "invalid password length" end
-    local ok_crypto, crypto = pcall(require, "ffi/crypto")
-    local ok_sha, sha = pcall(require, "ffi/sha2")
-    if not ok_crypto or not ok_sha then return false, "WPA PSK support unavailable" end
-    local ok_psk, psk = pcall(crypto.pbkdf2_hmac_sha1,
-        password, network.ssid, 4096, 32)
-    if not ok_psk then return false, psk end
-    network.password = sha.bin_to_hex(psk)
-    network.psk = network.password
     return true
 end
 
 local function create_profile(network)
-    local derived, derive_error = derive_psk(network)
-    if not derived then return false, derive_error end
-
     local flags = type(network.flags) == "string" and network.flags or ""
     local security_method
     if flags:find("WPA2", 1, true) then
@@ -149,7 +135,7 @@ local function create_profile(network)
         profile_input:put_string(0, "smethod", security_method)
         if is_secured(network) then
             profile_input:put_string(0, "secured", "yes")
-            profile_input:put_string(0, "psk", network.psk)
+            profile_input:put_string(0, "psk", network.password)
             profile_input:put_int(0, "store_nw_user_pref", 0)
         else
             profile_input:put_string(0, "secured", "no")
@@ -273,8 +259,8 @@ function M.new(NetworkMgr)
     end
 
     function adapter.replaceNetwork(network)
-        local derived, derive_error = derive_psk(network)
-        if not derived then return false, derive_error end
+        local valid, password_error = validate_password(network)
+        if not valid then return false, password_error end
         local deleted, delete_error = delete_profile(network.ssid)
         if not deleted then return false, delete_error end
         return create_profile(network)

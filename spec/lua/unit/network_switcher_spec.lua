@@ -25,15 +25,12 @@ describe("network switcher", function()
     local kindle_scan_state
     local kindle_scan_stays_idle
     local power_cycle_sleeps
-    local derived_passwords
     local created_profile
     local native_profiles
     local deleted_profile_id
 
     local module_names = {
         "device",
-        "ffi/crypto",
-        "ffi/sha2",
         "libopenlipclua",
         "ui/event",
         "ui/widget/buttondialog",
@@ -81,7 +78,6 @@ describe("network switcher", function()
         kindle_scan_state = 0
         kindle_scan_stays_idle = false
         power_cycle_sleeps = 0
-        derived_passwords = {}
         created_profile = nil
         native_profiles = {
             Home = { essid = "Home", netid = 11, psk = "saved" },
@@ -213,20 +209,6 @@ describe("network switcher", function()
             queryNetworkState = function(self) self.queried = true end,
         }
         ZenSpec.replace("ui/network/manager", NetworkMgr)
-        ZenSpec.replace("ffi/crypto", {
-            pbkdf2_hmac_sha1 = function(password, ssid, rounds, length)
-                derived_passwords[#derived_passwords + 1] = { password, ssid }
-                assert.are.equal(4096, rounds)
-                assert.are.equal(32, length)
-                return string.rep("a", 32)
-            end,
-        })
-        ZenSpec.replace("ffi/sha2", {
-            bin_to_hex = function(value)
-                assert.are.equal(string.rep("a", 32), value)
-                return string.rep("ab", 32)
-            end,
-        })
         ZenSpec.replace("liblipclua", {
             init = function(name)
                 assert.are.equal("com.github.koreader.networkmgr", name)
@@ -526,12 +508,11 @@ describe("network switcher", function()
         assert.is_nil(NetworkMgr.saved)
         assert.are.same({
             essid = "Guest",
-            psk = string.rep("ab", 32),
+            psk = "guest-password",
             secured = "yes",
             smethod = "wpa2",
             store_nw_user_pref = 0,
         }, created_profile)
-        assert.are.same({ "guest-password", "Guest" }, derived_passwords[1])
         assert.are.equal(0, kindle_disconnects)
         assert.are.equal(1, kindle_connects)
         assert.are.equal(0, kindle_deletes)
@@ -609,7 +590,6 @@ describe("network switcher", function()
         assert.are.equal(1, authentication_attempts)
         assert.are.equal(0, kindle_deletes)
         assert.is_nil(created_profile)
-        assert.are.equal(0, #derived_passwords)
         assert.are.equal("Guest", password_dialog.title)
         assert.are.equal(
             "Connected to Home instead of Guest. The password may be incorrect.",
@@ -624,9 +604,8 @@ describe("network switcher", function()
         assert.are.equal(2, kindle_connects)
         assert.are.equal(1, kindle_deletes)
         assert.are.equal(22, deleted_profile_id)
-        assert.are.equal(string.rep("ab", 32), created_profile.psk)
+        assert.are.equal("guest-password", created_profile.psk)
         assert.are.equal("wpa2", created_profile.smethod)
-        assert.are.same({ "guest-password", "Guest" }, derived_passwords[1])
         assert.are.equal("Guest", NetworkMgr.lease_ssid)
         assert.is_true(NetworkMgr.queried)
         assert.are.equal(60, verification_sleeps)
