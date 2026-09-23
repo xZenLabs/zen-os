@@ -321,8 +321,6 @@ function M.build(ctx)
     local dcfg = ensure_cfg(config)
     local capacity_units = type(Registry.capacityUnits) == "function"
         and Registry.capacityUnits() or Registry.CAPACITY_UNITS
-    local home_rebuild_pending = false
-    local home_rebuild_poll_active = false
     local schedule_home_rebuild_on_menu_close
 
     local function unique_user_preset_name(base)
@@ -362,7 +360,6 @@ function M.build(ctx)
             make_builtin_editable()
         end
         PresetStore.saveSettings("home", dcfg)
-        home_rebuild_pending = true
         schedule_home_rebuild_on_menu_close()
     end
 
@@ -373,54 +370,21 @@ function M.build(ctx)
         if ctx.plugin and type(ctx.plugin.saveConfig) == "function" then
             ctx.plugin:saveConfig()
         end
-        home_rebuild_pending = true
         schedule_home_rebuild_on_menu_close()
     end
 
-    local function is_filemanager_menu_open()
-        local ok_fm, FileManager = pcall(require, "apps/filemanager/filemanager")
-        if not ok_fm or not FileManager or not FileManager.instance then return false end
-        local fm = FileManager.instance
-        local menu = fm.menu
-        if not menu then return false end
-        local menu_container = menu.menu_container
-        local stack = UIManager._window_stack
-        if not stack then return false end
-        for _i, entry in ipairs(stack) do
-            local widget = entry and entry.widget
-            if widget == menu or (menu_container and widget == menu_container) then return true end
-        end
-        return false
-    end
-
     schedule_home_rebuild_on_menu_close = function()
-        if home_rebuild_poll_active then return end
-        home_rebuild_poll_active = true
-        local function tick()
+        local settings_apply = ctx.settings_apply
+        if not (settings_apply and settings_apply.defer_until_settings_close) then return end
+        settings_apply.defer_until_settings_close("home_rebuild", function()
             local plugin = ctx.plugin or rawget(_G, "__ZEN_UI_PLUGIN")
-            local settings_apply = ctx.settings_apply
             local home = settings_apply
                 and settings_apply.get_shared
                 and settings_apply.get_shared(plugin, "home")
-            local home_waiting = home
-                and home.hasActive
-                and home.hasActive()
-                and home.isActiveOnTop
-                and not home.isActiveOnTop()
-            if is_filemanager_menu_open() or home_waiting then
-                UIManager:scheduleIn(0.25, tick)
-                return
-            end
-            home_rebuild_poll_active = false
-            if not home_rebuild_pending then return end
-            home_rebuild_pending = false
             if home and home.rebuildActive then
-                UIManager:scheduleIn(0, function()
-                    home.rebuildActive()
-                end)
+                home.rebuildActive()
             end
-        end
-        UIManager:scheduleIn(0.25, tick)
+        end)
     end
 
     local function component_label(id)

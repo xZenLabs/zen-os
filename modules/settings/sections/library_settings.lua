@@ -22,10 +22,6 @@ local LIBRARY_WALLPAPERS_DIR = DataStorage:getFullDataDir() .. "/resources/wallp
 local DEFAULT_LIBRARY_FONT = defaults.library_font.font_face
 local BOOK_DETAIL_ORDER = defaults.book_details.order
 local BOOK_DETAIL_TEXT_STYLE_DEFAULTS = defaults.book_details.text_styles
-local home_rebuild_pending = false
-local home_rebuild_poll_active = false
-local bg_surface_refresh_pending = false
-local bg_surface_refresh_poll_active = false
 
 local function resolved_library_font(font_face)
     if font_face == "default" then font_face = DEFAULT_LIBRARY_FONT end
@@ -70,34 +66,14 @@ local function picker_default(FontChooser)
     return "default", find_registered_font_file("cfont")
 end
 
-local function is_filemanager_menu_open()
-    local ok_fm, FileManager = pcall(require, "apps/filemanager/filemanager")
-    if not ok_fm or not FileManager or not FileManager.instance then return false end
-    local fm = FileManager.instance
-    return fm.menu ~= nil and fm.menu.menu_container ~= nil
-end
-
 local function schedule_home_rebuild_on_menu_close(plugin)
-    if not plugin then return end
-    home_rebuild_pending = true
-    if home_rebuild_poll_active then return end
-    home_rebuild_poll_active = true
-
-    local function tick()
-        if is_filemanager_menu_open() then
-            UIManager:scheduleIn(0.25, tick)
-            return
-        end
-        home_rebuild_poll_active = false
-        if not home_rebuild_pending then return end
-        home_rebuild_pending = false
+    if not plugin or not settings_apply.defer_until_settings_close then return end
+    settings_apply.defer_until_settings_close("home_rebuild", function()
         local home = SharedState.get(plugin, "home")
         if home and home.rebuildActive then
             home.rebuildActive()
         end
-    end
-
-    UIManager:scheduleIn(0.25, tick)
+    end)
 end
 
 local function refresh_background_surfaces(plugin)
@@ -127,23 +103,10 @@ local function refresh_background_surfaces(plugin)
 end
 
 local function schedule_background_surface_refresh(plugin)
-    if not plugin then return end
-    bg_surface_refresh_pending = true
-    if bg_surface_refresh_poll_active then return end
-    bg_surface_refresh_poll_active = true
-
-    local function tick()
-        if is_filemanager_menu_open() then
-            UIManager:scheduleIn(0.25, tick)
-            return
-        end
-        bg_surface_refresh_poll_active = false
-        if not bg_surface_refresh_pending then return end
-        bg_surface_refresh_pending = false
+    if not plugin or not settings_apply.defer_until_settings_close then return end
+    settings_apply.defer_until_settings_close("background_surfaces", function()
         refresh_background_surfaces(plugin)
-    end
-
-    UIManager:scheduleIn(0.25, tick)
+    end)
 end
 
 local function ensure_library_font_cfg(config)

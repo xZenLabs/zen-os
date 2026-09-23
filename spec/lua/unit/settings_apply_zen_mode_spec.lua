@@ -12,6 +12,7 @@ describe("Zen mode settings apply", function()
         "common/shared_state",
         "common/tbr_index",
         "ui/widget/touchmenu",
+        "apps/filemanager/filemanager",
         "apps/reader/readerui",
         "modules/reader/patches/reader_top_status_bar",
         "modules/menu/patches/zen_mode",
@@ -44,6 +45,7 @@ describe("Zen mode settings apply", function()
         })
         ZenSpec.replace("common/restart", {})
         ZenSpec.replace("ui/widget/touchmenu", {})
+        ZenSpec.replace("apps/filemanager/filemanager", {})
         ZenSpec.replace("apps/reader/readerui", { instance = nil })
         ZenSpec.unload("modules/settings/zen_settings_apply")
     end)
@@ -178,5 +180,35 @@ describe("Zen mode settings apply", function()
 
         queued[1]()
         assert.are.equal(1, repaints)
+    end)
+
+    it("runs coalesced refresh work from the TouchMenu close hook without polling", function()
+        local callbacks = 0
+        local scheduled = {}
+        local UIManager = require("ui/uimanager")
+        local TouchMenu = require("ui/widget/touchmenu")
+        local menu_container = {}
+        TouchMenu.menu_container = menu_container
+        require("apps/filemanager/filemanager").instance = { menu = TouchMenu }
+        UIManager._window_stack = { { widget = menu_container } }
+        UIManager.scheduleIn = function(_self, delay, callback)
+            scheduled[#scheduled + 1] = { delay = delay, callback = callback }
+        end
+
+        local settings_apply = require("modules/settings/zen_settings_apply")
+        settings_apply.defer_until_settings_close("home_rebuild", function()
+            callbacks = callbacks + 1
+        end)
+        settings_apply.defer_until_settings_close("home_rebuild", function()
+            callbacks = callbacks + 10
+        end)
+
+        assert.are.equal(0, #scheduled)
+        TouchMenu:onCloseWidget()
+        assert.are.equal(1, #scheduled)
+        assert.are.equal(0, scheduled[1].delay)
+
+        scheduled[1].callback()
+        assert.are.equal(10, callbacks)
     end)
 end)
