@@ -1221,6 +1221,7 @@ function M.build_strip(ctx, source_key)
     local repaint_widget = swipe
     local UIManager = require("ui/uimanager")
     local closed = false
+    local has_cover_listener = type(ctx.registerStripCoverListener) == "function"
     local visible_hydrate_fn
     local prewarm_fn
     local prewarm_direction = 1
@@ -1398,7 +1399,9 @@ function M.build_strip(ctx, source_key)
                 "failed=", failed,
                 "partial_repaint=", completed > 0 and 1 or 0)
             if #pending > 0 then
-                schedule_visible_hydration(COVER_POLL_S)
+                if not has_cover_listener then
+                    schedule_visible_hydration(COVER_POLL_S)
+                end
             else
                 schedule_prewarm(PRELOAD_DELAY_S)
             end
@@ -1622,7 +1625,7 @@ function M.build_strip(ctx, source_key)
     end
 
     local unregister_cover_listener
-    if type(ctx.registerStripCoverListener) == "function" then
+    if has_cover_listener then
         unregister_cover_listener = ctx.registerStripCoverListener(function(path)
             hydration_failed_paths[path] = nil
             local current = page_cache[0]

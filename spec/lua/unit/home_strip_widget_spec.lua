@@ -1922,7 +1922,7 @@ describe("home strip widget", function()
         assert.are.equal(0, #scheduled)
     end)
 
-    it("refreshes a grouped preview when one of its pending covers is ready", function()
+    it("waits for cover-ready notification instead of polling pending covers", function()
         folder_needs_hydration = true
         local member_covers_pending = true
         local cover_listener
@@ -1957,7 +1957,7 @@ describe("home strip widget", function()
         widget:paintTo({}, 0, 0)
         run_scheduled()
         assert.are.equal(1, #folder_calls.builds)
-        assert.are.same({ 0.4 }, scheduled_delays)
+        assert.are.equal(0, #scheduled)
         assert.are.equal(0, refreshed)
 
         member_covers_pending = false
