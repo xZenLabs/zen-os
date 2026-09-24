@@ -6461,3 +6461,59 @@ msgstr "高亮"
 #. Type: setting
 msgid "Highlight color: %1"
 msgstr "高亮色：%1"
+
+#. Type: menu
+msgid "Bluetooth devices"
+msgstr "蓝牙设备"
+
+#. Type: menu
+msgid "Searching for devices…"
+msgstr "正在搜索设备…"
+
+#. Type: menu
+msgid "No Bluetooth devices found."
+msgstr "未找到蓝牙设备。"
+
+#. Type: menu
+msgid "Turning on Bluetooth…"
+msgstr "正在开启蓝牙…"
+
+#. Type: menu
+msgid "Could not turn on Bluetooth."
+msgstr "无法开启蓝牙。"
+
+#. Type: menu
+msgid "Bluetooth scan failed."
+msgstr "蓝牙扫描失败。"
+
+#. Type: menu
+msgid "Could not read Bluetooth devices."
+msgstr "无法读取蓝牙设备。"
+
+#. Type: menu
+msgid "Updating %1…"
+msgstr "正在更新%1…"
+
+#. Type: menu
+msgid "Could not update %1."
+msgstr "无法更新%1。"
+
+#. Type: menu
+msgid "Address"
+msgstr "地址"
+
+#. Type: menu
+msgid "Paired"
+msgstr "已配对"
+
+#. Type: menu
+msgid "Pair"
+msgstr "配对"
+
+#. Type: menu
+msgid "Forget Bluetooth device %1?"
+msgstr "忘记蓝牙设备%1？"
+
+#. Type: menu
+msgid "Bluetooth device management is unavailable on this device."
+msgstr "此设备不支持蓝牙设备管理。"

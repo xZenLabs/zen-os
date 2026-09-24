@@ -57,6 +57,7 @@ describe("About settings", function()
                 network_settings_subpage = settings_subpage
             end,
         })
+        ZenSpec.replace("modules/menu/bluetooth/bluetooth", { isAvailable = function() return false end })
         ZenSpec.replace("modules/menu/network_adapters/kindle", {
             restoreWifi = function(_network_mgr, callback)
                 kindle_restore_calls = kindle_restore_calls + 1
@@ -169,5 +170,72 @@ describe("About settings", function()
         assert.are.equal(1, network_opens)
         assert.are.equal(plugin, network_plugin)
         assert.is_true(network_settings_subpage)
+    end)
+
+    it("shows Bluetooth management and preserves checkmark power control", function()
+        local original_bluetooth = package.loaded["modules/menu/bluetooth/bluetooth"]
+        local original_event = package.loaded["ui/event"]
+        local original_switcher = package.loaded["modules/menu/bluetooth_switcher"]
+        local original_info = package.loaded["ui/widget/infomessage"]
+        local enabled, cached, toggles, opens, events = false, nil, 0, 0, 0
+        ZenSpec.replace("modules/menu/bluetooth/bluetooth", {
+            isAvailable = function() return true end,
+            isEnabled = function() return enabled end,
+            getCachedState = function() return cached end,
+            toggle = function(callback)
+                enabled = not enabled
+                cached = enabled
+                toggles = toggles + 1
+                callback(true)
+            end,
+        })
+        ZenSpec.replace("ui/event", { new = function() return {} end })
+        ZenSpec.replace("modules/menu/bluetooth_switcher", {
+            open = function(_on_changed, subpage)
+                opens = opens + 1
+                assert.is_true(subpage)
+            end,
+        })
+        local manager = package.loaded["ui/uimanager"]
+        manager.broadcastEvent = function() events = events + 1 end
+        local shown
+        manager.show = function(_self, widget) shown = widget end
+        ZenSpec.replace("ui/widget/infomessage", { new = function(_self, spec) return spec end })
+        local decorated = {}
+        ZenSpec.replace("common/ui/icon_menu_item", { decorate = function(item, icon)
+            if item.text then decorated[item.text] = icon end
+        end })
+        ZenSpec.unload("modules/settings/sections/about_settings")
+        local items = require("modules/settings/sections/about_settings").build({
+            config = {}, plugin = {},
+        })
+        assert.are.equal("Bluetooth", items[3].text)
+        assert.are.equal("bluetooth_on", decorated.Bluetooth)
+        assert.are.equal("settings_device", decorated.Device)
+        assert.are.equal("settings_setup", decorated["Setup Guide"])
+        assert.are.equal("settings_bug", decorated["Report a Bug"])
+        assert.are.equal("settings_advanced", decorated.Advanced)
+        assert.is_false(items[3].checked_func())
+        local updates = 0
+        items[3].checkmark_callback({ updateItems = function() updates = updates + 1 end })
+        assert.is_true(items[3].checked_func())
+        assert.are.same({1, 1, 1}, {toggles, updates, events})
+        items[3].checkmark_callback({ updateItems = function() updates = updates + 1 end })
+        assert.is_false(items[3].checked_func())
+        assert.are.same({2, 2, 2}, {toggles, updates, events})
+        enabled = true -- a stale live read must not override the confirmed off state
+        assert.is_false(items[3].checked_func())
+        package.loaded["modules/menu/bluetooth/bluetooth"].toggle = function(callback)
+            callback(false, "Bluetooth power did not change.")
+        end
+        items[3].checkmark_callback({ updateItems = function() updates = updates + 1 end })
+        assert.are.same({2, 3, 2}, {toggles, updates, events})
+        assert.are.equal("Bluetooth power did not change.", shown.text)
+        items[3].callback()
+        assert.are.equal(1, opens)
+        package.loaded["modules/menu/bluetooth/bluetooth"] = original_bluetooth
+        package.loaded["ui/event"] = original_event
+        package.loaded["modules/menu/bluetooth_switcher"] = original_switcher
+        package.loaded["ui/widget/infomessage"] = original_info
     end)
 end)

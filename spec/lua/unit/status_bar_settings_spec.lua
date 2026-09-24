@@ -45,7 +45,7 @@ describe("status bar settings", function()
         replace("common/ui/icon_menu_item", {
             decorate = function(item) return item end,
         })
-        replace("common/bluetooth", { isAvailable = function() return false end })
+        replace("modules/menu/bluetooth/bluetooth", { isAvailable = function() return false end })
         replace("common/date_format", {
             format = function(format)
                 return ({

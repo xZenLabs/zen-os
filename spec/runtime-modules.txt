@@ -5,8 +5,8 @@ common/book_open_tap.lua|unit
 _meta.lua|load
 main.lua|integration
 common/book_status.lua|unit
-common/bluetooth.lua|unit
-common/kobo_bluetooth.lua|unit
+modules/menu/bluetooth/bluetooth.lua|unit
+modules/menu/bluetooth/kobo_bluetooth.lua|unit
 common/book_walker.lua|unit
 common/brand_migration.lua|unit
 common/clock_schedule.lua|unit
@@ -185,6 +185,11 @@ modules/menu/app_launcher/zenpm_pending.lua|integration
 modules/menu/menu.lua|integration
 modules/menu/network_adapters/kindle.lua|unit
 modules/menu/network_switcher.lua|unit
+modules/menu/bluetooth_adapters/common.lua|unit
+modules/menu/bluetooth_adapters/kindle.lua|unit
+modules/menu/bluetooth_adapters/kobo.lua|unit
+modules/menu/bluetooth_adapters/pocketbook.lua|unit
+modules/menu/bluetooth_switcher.lua|unit
 modules/menu/patches/app_launcher.lua|integration
 modules/menu/patches/brightness_slider.lua|integration
 modules/menu/patches/countdown_screenshot.lua|integration

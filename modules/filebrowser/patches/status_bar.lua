@@ -28,7 +28,7 @@ local function apply_status_bar()
     local SharedState = require("common/shared_state")
     local status_bar_registry = require("common/status_bar_registry")
     local Background = require("common/ui/background")
-    local Bluetooth = require("common/bluetooth")
+    local Bluetooth = require("modules/menu/bluetooth/bluetooth")
     local inline_icons = require("common/inline_icon_map")
     local _ = require("gettext")
 
@@ -1068,15 +1068,18 @@ local function apply_status_bar()
     -- Avoids overlap artifacts (VerticalGroup/OverlapGroup don't clear their
     -- background) and avoids the dithered-widget freeze (never marks the
     -- parent menu dirty).
-    local function repaintTitleBar(tb)
+    local function repaintTitleBar(tb, regions)
         if not tb or not tb.dimen then return end
+        regions = regions or { tb.dimen }
         local bb = Screen.bb
         if bb then
             local bg_path = Background.library_path(zen_plugin)
-            if bg_path == "" or not Background.paintScreenRegion(bb,
-                    tb.dimen.x, tb.dimen.y, tb.dimen.x, tb.dimen.y,
-                    tb.dimen.w, tb.dimen.h, bg_path) then
-                bb:paintRect(tb.dimen.x, tb.dimen.y, tb.dimen.w, tb.dimen.h, Blitbuffer.COLOR_WHITE)
+            for _i, region in ipairs(regions) do
+                if bg_path == "" or not Background.paintScreenRegion(bb,
+                        region.x, region.y, region.x, region.y,
+                        region.w, region.h, bg_path) then
+                    bb:paintRect(region.x, region.y, region.w, region.h, Blitbuffer.COLOR_WHITE)
+                end
             end
         end
         UIManager:widgetRepaint(tb, tb.dimen.x, tb.dimen.y)
@@ -1086,7 +1089,9 @@ local function apply_status_bar()
         -- widget's dithering hint so the region matches.
         local top_widget = topmost_non_toast_widget()
         local refresh_dither = top_widget and top_widget.dithered or nil
-        UIManager:setDirty(nil, "ui", tb.dimen, refresh_dither)
+        for _i, region in ipairs(regions) do
+            UIManager:setDirty(nil, "ui", region, refresh_dither)
+        end
     end
 
     -- Expose for cross-patch use. Stored on the plugin table so it is naturally

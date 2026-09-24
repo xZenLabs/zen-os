@@ -12,17 +12,52 @@ local owned = false
 local standby_locked = false
 local pending
 local discovery_kind, discovery_poll
+local manager_scanning = false
+local manager_scan_done
 local cached_state, cached_at
 local last_state_log
 local last_availability_log
+local last_plugin_source
+
+local function supported_plugin(plugin, source)
+    local bluetooth = type(plugin) == "table" and plugin.kobo_bluetooth
+    if bluetooth and type(bluetooth.isDeviceSupported) == "function" then
+        local ok, supported = pcall(bluetooth.isDeviceSupported, bluetooth)
+        if ok and supported then
+            if source ~= last_plugin_source then
+                logger.info("kobo.koplugin lookup found via", source)
+                last_plugin_source = source
+            end
+            return bluetooth
+        end
+    end
+end
+
+local function ui_plugin(ui, source)
+    if type(ui) ~= "table" then return nil end
+    return supported_plugin(ui.kobo, source .. ".kobo")
+        or supported_plugin(ui.kobo_plugin, source .. ".kobo_plugin")
+end
 
 local function plugin_bluetooth()
-    local zen = rawget(_G, "__ZEN_UI_PLUGIN")
-    local kobo = zen and zen.ui and zen.ui.kobo_plugin
-    local bluetooth = kobo and kobo.kobo_bluetooth
-    if bluetooth and bluetooth.isDeviceSupported and bluetooth:isDeviceSupported() then
-        return bluetooth
+    local ok_loader, loader = pcall(require, "pluginloader")
+    if ok_loader and type(loader) == "table" and type(loader.getPluginInstance) == "function" then
+        local ok_plugin, plugin = pcall(loader.getPluginInstance, loader, "kobo")
+        if ok_plugin then
+            local bluetooth = supported_plugin(plugin, "PluginLoader.kobo")
+            if bluetooth then return bluetooth end
+        end
     end
+    local ok_reader, ReaderUI = pcall(require, "apps/reader/readerui")
+    local bluetooth = ok_reader and type(ReaderUI) == "table"
+        and ui_plugin(ReaderUI.instance, "ReaderUI")
+    if bluetooth then return bluetooth end
+    local ok_manager, FileManager = pcall(require, "apps/filemanager/filemanager")
+    bluetooth = ok_manager and type(FileManager) == "table"
+        and ui_plugin(FileManager.instance, "FileManager")
+    if bluetooth then return bluetooth end
+    local zen = rawget(_G, "__ZEN_UI_PLUGIN")
+    return ui_plugin(zen and zen.ui, "ZenUI")
 end
 
 local function kind()
@@ -165,37 +200,17 @@ local function log_sage_daemons(context)
     end
 end
 
-local function reconnect_paired(device_kind, attempted, poll)
-    local output = query(dbus(device_kind, "/", "org.freedesktop.DBus.ObjectManager.GetManagedObjects"),
-        "managed-objects-poll-" .. tostring(poll), true)
-    if not output then return end
-
-    local device, property_name
-    local total, paired_count, connected_count, launched = 0, 0, 0, 0
+local function parse_devices(output)
+    local devices, device, property_name = {}, nil, nil
     local function finish_device()
-        if not device then return end
-        total = total + 1
-        if device.paired then paired_count = paired_count + 1 end
-        if device.connected then connected_count = connected_count + 1 end
-        logger.info("device snapshot poll=", poll, "path=", device.path,
-            "address=", device.address or "unknown", "name=", device.name or "unknown",
-            "paired=", tostring(device.paired), "connected=", tostring(device.connected),
-            "trusted=", tostring(device.trusted), "rssi=", tostring(device.rssi))
-        if device.paired and not device.connected and not attempted[device.path] then
-            attempted[device.path] = true
-            local command = dbus(device_kind, device.path, "org.bluez.Device1.Connect")
-            logger.info("connect command path=", device.path, "command=", command,
-                "reply=asynchronous-process-output")
-            local ok, reason, code = os.execute(command .. " 2>&1 &")
-            local success = succeeded(ok, code)
-            launched = launched + (success and 1 or 0)
-            local log = success and logger.info or logger.warn
-            log("connect launch path=", device.path, "success=", tostring(success),
-                "status=", tostring(ok), "reason=", tostring(reason), "code=", tostring(code))
+        if device then
+            device.address = device.address or device.path:match("/dev_(.+)$"):gsub("_", ":")
+            device.id = device.path
+            device.name = device.name or device.address
+            devices[#devices + 1] = device
         end
     end
-
-    for line in output:gmatch("[^\r\n]+") do
+    for line in (output or ""):gmatch("[^\r\n]+") do
         local next_path = line:match('object path "(/org/bluez/hci0/dev_[%w_]+)"')
         if next_path then
             finish_device()
@@ -224,6 +239,36 @@ local function reconnect_paired(device_kind, attempted, poll)
         end
     end
     finish_device()
+    return devices
+end
+
+local function reconnect_paired(device_kind, attempted, poll)
+    local output = query(dbus(device_kind, "/", "org.freedesktop.DBus.ObjectManager.GetManagedObjects"),
+        "managed-objects-poll-" .. tostring(poll), true)
+    if not output then return end
+    local devices = parse_devices(output)
+    local total, paired_count, connected_count, launched = 0, 0, 0, 0
+    for _i, device in ipairs(devices) do
+        total = total + 1
+        if device.paired then paired_count = paired_count + 1 end
+        if device.connected then connected_count = connected_count + 1 end
+        logger.info("device snapshot poll=", poll, "path=", device.path,
+            "address=", device.address, "name=", device.name,
+            "paired=", tostring(device.paired), "connected=", tostring(device.connected),
+            "trusted=", tostring(device.trusted), "rssi=", tostring(device.rssi))
+        if device.paired and not device.connected and not attempted[device.path] then
+            attempted[device.path] = true
+            local command = dbus(device_kind, device.path, "org.bluez.Device1.Connect")
+            logger.info("connect command path=", device.path, "command=", command,
+                "reply=asynchronous-process-output")
+            local ok, reason, code = os.execute(command .. " 2>&1 &")
+            local success = succeeded(ok, code)
+            launched = launched + (success and 1 or 0)
+            local log = success and logger.info or logger.warn
+            log("connect launch path=", device.path, "success=", tostring(success),
+                "status=", tostring(ok), "reason=", tostring(reason), "code=", tostring(code))
+        end
+    end
     if total == 0 then
         logger.warn("discovery poll found no device objects poll=", poll,
             "output=", compact(output, 800))
@@ -244,18 +289,85 @@ local function stop_discovery()
     local device_kind = discovery_kind
     if not device_kind then
         release_standby()
-        return
+        return true
     end
     local UIManager = require("ui/uimanager")
     local poll = discovery_poll
+    local cancelled = manager_scanning and manager_scan_done
     discovery_kind, discovery_poll = nil, nil
+    manager_scanning = false
+    manager_scan_done = nil
     if poll then UIManager:unschedule(poll) end
-    local success = command_ok(dbus(device_kind, ADAPTER, "org.bluez.Adapter1.StopDiscovery"),
-        "discovery-stop")
+    local stop_command = dbus(device_kind, ADAPTER, "org.bluez.Adapter1.StopDiscovery")
+    local success = command_ok(stop_command, "discovery-stop")
+    if not success then success = command_ok(stop_command, "discovery-stop-retry") end
     logger.info("discovery stopped kind=", device_kind, "success=", tostring(success))
     log_adapter(device_kind, "after-discovery-stop")
     if device_kind == "sage" then log_sage_daemons("after-discovery-stop") end
     release_standby()
+    if cancelled then cancelled(false, "Cancelled.") end
+    return success
+end
+
+function M.getDeviceList()
+    local device_kind = kind()
+    if not device_kind then return nil, "Bluetooth device management is unavailable on this Kobo." end
+    local output = query(dbus(device_kind, "/", "org.freedesktop.DBus.ObjectManager.GetManagedObjects"),
+        "manager-devices")
+    if not output or output:find("Error", 1, true) then
+        return nil, "Could not read Bluetooth devices."
+    end
+    return parse_devices(output)
+end
+
+function M.startScan(done)
+    local device_kind = kind()
+    if not device_kind then done(false, "Bluetooth device management is unavailable on this Kobo."); return end
+    stop_discovery()
+    if not command_ok(dbus(device_kind, ADAPTER, "org.bluez.Adapter1.StartDiscovery"),
+            "manager-discovery-start") then
+        done(false, "Could not start Bluetooth discovery.")
+        return
+    end
+    local UIManager = require("ui/uimanager")
+    discovery_kind = device_kind
+    manager_scanning = true
+    manager_scan_done = done
+    discovery_poll = function()
+        if not manager_scanning then return end
+        manager_scanning = false
+        manager_scan_done = nil
+        local stopped = stop_discovery()
+        done(stopped, stopped and nil or "Could not stop Bluetooth discovery.")
+    end
+    UIManager:scheduleIn(10, discovery_poll)
+end
+
+function M.stopScan()
+    if manager_scanning then stop_discovery() end
+end
+
+function M.deviceAction(action, device)
+    local device_kind = kind()
+    if not device_kind then return false, "Bluetooth device management is unavailable on this Kobo." end
+    local path = device and device.path
+    if type(path) ~= "string" or not path:match("^/org/bluez/hci0/dev_[%x_]+$") then
+        return false, "Invalid Bluetooth device."
+    end
+    local command
+    if action == "forget" then
+        command = dbus(device_kind, ADAPTER, "org.bluez.Adapter1.RemoveDevice",
+            " objpath:" .. path)
+    elseif action == "pair" or action == "connect" or action == "disconnect" then
+        command = dbus(device_kind, path, "org.bluez.Device1."
+            .. action:sub(1, 1):upper() .. action:sub(2))
+    else
+        return false, "Unsupported Bluetooth action."
+    end
+    if not command_ok(command, "manager-" .. action) then
+        return false, "Bluetooth " .. action .. " failed."
+    end
+    return true
 end
 
 local function start_reconnect(device_kind)
@@ -439,12 +551,63 @@ function M.getState()
 end
 
 function M.setEnabled(enabled, complete)
+    local callback_started = false
+    local function finish_callback(success, from_plugin)
+        if callback_started then return end
+        callback_started = true
+        if not complete then
+            if success and from_plugin then emit(enabled) end
+            return
+        end
+        if not success then complete(false); return end
+        local UIManager = require("ui/uimanager")
+        local attempts = 0
+        local check
+        check = function()
+            attempts = attempts + 1
+            cached_at = nil
+            if M.getState() == enabled then
+                if from_plugin then emit(enabled) end
+                complete(true)
+            elseif attempts >= 10 then
+                complete(false)
+            else
+                UIManager:scheduleIn(0.5, check)
+            end
+        end
+        check()
+    end
     local plugin = plugin_bluetooth()
     if plugin then
         logger.info("delegating power request to kobo.koplugin requested=", tostring(enabled),
             "model=", tostring(Device.model))
-        if enabled then plugin:turnBluetoothOn(false) else plugin:turnBluetoothOff(false) end
-        return true
+        local UIManager = require("ui/uimanager")
+        local timeout, finished
+        local function plugin_done(success)
+            if finished then return end
+            finished = true
+            if timeout then UIManager:unschedule(timeout) end
+            finish_callback(success, true)
+        end
+        if enabled then
+            if complete then
+                timeout = function() plugin_done(false) end
+                UIManager:scheduleIn(15, timeout)
+            end
+            local ok, result = pcall(plugin.turnBluetoothOn, plugin, false,
+                function() plugin_done(true) end)
+            if not ok or result == false then
+                logger.warn("kobo.koplugin Bluetooth power-on failed", tostring(result))
+                plugin_done(false)
+                return false
+            end
+            return true
+        end
+        local ok, result = pcall(plugin.turnBluetoothOff, plugin, false)
+        local success = ok and result ~= false
+        if not success then logger.warn("kobo.koplugin Bluetooth power-off failed", tostring(result)) end
+        plugin_done(success)
+        return success
     end
     local device_kind = kind()
     logger.info("power request requested=", tostring(enabled), "model=", tostring(Device.model),
@@ -478,6 +641,7 @@ function M.setEnabled(enabled, complete)
             owned = false
             release_standby("already-off")
         end
+        finish_callback(true)
         return true
     end
 
@@ -517,7 +681,7 @@ function M.setEnabled(enabled, complete)
         end
         logger.info("power request callback present=", tostring(complete ~= nil),
             "success=", tostring(success))
-        if complete then complete(success) end
+        finish_callback(success)
         return success
     end
 

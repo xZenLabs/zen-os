@@ -12,7 +12,7 @@ local PresetStore = require("config/preset_store")
 local ReaderThemes = require("common/reader_themes")
 local icons = require("common/inline_icon_map")
 local IconItem = require("common/ui/icon_menu_item")
-local Bluetooth = require("common/bluetooth")
+local Bluetooth = require("modules/menu/bluetooth/bluetooth")
 
 local M = {}
 

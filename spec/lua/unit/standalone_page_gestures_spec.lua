@@ -32,6 +32,7 @@ describe("standalone page gestures", function()
         ZenSpec.replace("common/clock_timer", { bind = function() end })
         ZenSpec.replace("common/ui/background", {})
         ZenSpec.replace("common/widget_resources", {
+            free = function(widget) if widget and widget.free then widget:free() end end,
             replaceChild = function(group, index, child) group[index] = child end,
         })
         ZenSpec.replace("ui/geometry", {})
@@ -80,6 +81,41 @@ describe("standalone page gestures", function()
 
         assert.are.equal("Kindle Library", received_label)
         assert.are.equal("Kindle Library", title_group[2].label)
+    end)
+
+    it("repaints only changed standalone status items on minute ticks", function()
+        local bound, repaints, freed, value = nil, {}, 0, "old"
+        package.loaded["common/clock_timer"].bind = function(_menu, callback)
+            bound = callback
+        end
+        package.loaded["ui/geometry"].new = function(_self, region) return region end
+        local title_group = { {}, {} }
+        title_group.resetLayout = function() end
+        local menu = { title_bar = { title_group = title_group } }
+        local function build_row()
+            return {
+                value = value,
+                dimen = { x = 10, y = 20, w = 100, h = 10 },
+                getSize = function() return { w = 100, h = 10 } end,
+                free = function() freed = freed + 1 end,
+            }
+        end
+        require("modules/filebrowser/patches/standalone_page").apply_status_row(menu, {
+            createStatusRow = build_row,
+            statusRowRefreshRegions = function(previous, current)
+                return previous.value == current.value and {}
+                    or { { x = 25, y = 0, w = 10, h = 10 } }
+            end,
+            repaintTitleBar = function(_tb, regions) repaints[#repaints + 1] = regions end,
+        })
+        UIManager._window_stack = { { widget = menu } }
+        value = "new"
+        bound(menu)
+        assert.are.same({ { { x = 35, y = 20, w = 10, h = 10 } } }, repaints)
+        assert.are.equal("new", title_group[2].value)
+        bound(menu)
+        assert.are.equal(1, #repaints)
+        assert.are.equal(1, freed)
     end)
 
     it("gives every Gesture Manager family priority over page handlers", function()

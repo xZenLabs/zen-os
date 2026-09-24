@@ -6462,3 +6462,59 @@ msgstr "Subrayado"
 #. Type: setting
 msgid "Highlight color: %1"
 msgstr "Color subrayado: %1"
+
+#. Type: menu
+msgid "Bluetooth devices"
+msgstr "Dispositivos Bluetooth"
+
+#. Type: menu
+msgid "Searching for devices…"
+msgstr "Buscando dispositivos…"
+
+#. Type: menu
+msgid "No Bluetooth devices found."
+msgstr "No se encontraron dispositivos Bluetooth."
+
+#. Type: menu
+msgid "Turning on Bluetooth…"
+msgstr "Activando Bluetooth…"
+
+#. Type: menu
+msgid "Could not turn on Bluetooth."
+msgstr "No se pudo activar Bluetooth."
+
+#. Type: menu
+msgid "Bluetooth scan failed."
+msgstr "Falló la búsqueda de Bluetooth."
+
+#. Type: menu
+msgid "Could not read Bluetooth devices."
+msgstr "No se pudieron leer los dispositivos Bluetooth."
+
+#. Type: menu
+msgid "Updating %1…"
+msgstr "Actualizando %1…"
+
+#. Type: menu
+msgid "Could not update %1."
+msgstr "No se pudo actualizar %1."
+
+#. Type: menu
+msgid "Address"
+msgstr "Dirección"
+
+#. Type: menu
+msgid "Paired"
+msgstr "Emparejado"
+
+#. Type: menu
+msgid "Pair"
+msgstr "Emparejar"
+
+#. Type: menu
+msgid "Forget Bluetooth device %1?"
+msgstr "¿Olvidar el dispositivo Bluetooth %1?"
+
+#. Type: menu
+msgid "Bluetooth device management is unavailable on this device."
+msgstr "La gestión de dispositivos Bluetooth no está disponible en este dispositivo."

@@ -6461,3 +6461,59 @@ msgstr "Evidenziazione"
 #. Type: setting
 msgid "Highlight color: %1"
 msgstr "Colore dell'evidenziazione: %1"
+
+#. Type: menu
+msgid "Bluetooth devices"
+msgstr "Dispositivi Bluetooth"
+
+#. Type: menu
+msgid "Searching for devices…"
+msgstr "Ricerca dei dispositivi…"
+
+#. Type: menu
+msgid "No Bluetooth devices found."
+msgstr "Nessun dispositivo Bluetooth trovato."
+
+#. Type: menu
+msgid "Turning on Bluetooth…"
+msgstr "Attivazione del Bluetooth…"
+
+#. Type: menu
+msgid "Could not turn on Bluetooth."
+msgstr "Impossibile attivare il Bluetooth."
+
+#. Type: menu
+msgid "Bluetooth scan failed."
+msgstr "Scansione Bluetooth non riuscita."
+
+#. Type: menu
+msgid "Could not read Bluetooth devices."
+msgstr "Impossibile leggere i dispositivi Bluetooth."
+
+#. Type: menu
+msgid "Updating %1…"
+msgstr "Aggiornamento di %1…"
+
+#. Type: menu
+msgid "Could not update %1."
+msgstr "Impossibile aggiornare %1."
+
+#. Type: menu
+msgid "Address"
+msgstr "Indirizzo"
+
+#. Type: menu
+msgid "Paired"
+msgstr "Associato"
+
+#. Type: menu
+msgid "Pair"
+msgstr "Associa"
+
+#. Type: menu
+msgid "Forget Bluetooth device %1?"
+msgstr "Dimenticare il dispositivo Bluetooth %1?"
+
+#. Type: menu
+msgid "Bluetooth device management is unavailable on this device."
+msgstr "La gestione dei dispositivi Bluetooth non è disponibile su questo dispositivo."

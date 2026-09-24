@@ -32,7 +32,7 @@ local function apply_reader_top_status_bar()
     local inline_icons = require("common/inline_icon_map")
     local _ = require("gettext")
     local ReaderThemes = require("common/reader_themes")
-    local Bluetooth = require("common/bluetooth")
+    local Bluetooth = require("modules/menu/bluetooth/bluetooth")
     local Screen = Device.screen
     local CreDocument = require("document/credocument")
     local ReaderTypeset = require("apps/reader/modules/readertypeset")

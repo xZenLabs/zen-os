@@ -25,7 +25,7 @@ describe("reader top status bar refresh", function()
         "apps/reader/modules/readerview",
         "apps/reader/modules/readertypeset",
         "apps/reader/readerui",
-        "common/bluetooth",
+        "modules/menu/bluetooth/bluetooth",
         "common/inline_icon_map",
         "common/ui/color_text_widget",
         "common/reader_status_bar",
@@ -161,7 +161,7 @@ describe("reader top status bar refresh", function()
         replace("apps/reader/modules/readertypeset", ReaderTypeset)
         replace("apps/reader/readerui", ReaderUI)
         bluetooth_enabled = false
-        replace("common/bluetooth", {
+        replace("modules/menu/bluetooth/bluetooth", {
             getState = function() error("status paint must not query Bluetooth") end,
             getCachedState = function() return bluetooth_enabled end,
         })

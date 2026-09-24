@@ -103,7 +103,7 @@ describe("file manager status bar visibility", function()
         })
         replace("common/status_bar_registry", {})
         replace("common/ui/background", {})
-        replace("common/bluetooth", {})
+        replace("modules/menu/bluetooth/bluetooth", {})
         replace("common/inline_icon_map", {})
         replace("ui/rendertext", {})
         replace("gettext", setmetatable({
@@ -186,6 +186,29 @@ describe("file manager status bar visibility", function()
             { x = 18, y = 0, w = 12, h = 14 },
             { x = 48, y = 0, w = 12, h = 14 },
         }, regions)
+    end)
+
+    it("flushes only requested titlebar regions", function()
+        local status_api
+        local painted, dirty, repaints = {}, {}, 0
+        require("device").screen.bb = {
+            paintRect = function(_self, x, y, w, h)
+                painted[#painted + 1] = { x = x, y = y, w = w, h = h }
+            end,
+        }
+        require("common/ui/background").library_path = function() return "" end
+        UIManager.widgetRepaint = function() repaints = repaints + 1 end
+        UIManager.setDirty = function(_self, _kind, _refresh, region)
+            dirty[#dirty + 1] = region
+        end
+        require("common/shared_state").register = function(_plugin, api) status_api = api end
+        require("modules/filebrowser/patches/status_bar")()
+
+        local region = { x = 35, y = 20, w = 10, h = 14 }
+        status_api.repaintTitleBar({ dimen = { x = 0, y = 0, w = 600, h = 70 } }, { region })
+        assert.are.same({ region }, painted)
+        assert.are.same({ region }, dirty)
+        assert.are.equal(1, repaints)
     end)
 
     it("keeps the patch active with empty status items", function()
