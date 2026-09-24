@@ -1621,6 +1621,51 @@ describe("home strip widget", function()
         assert.are.equal(2, resets)
     end)
 
+    it("returns from a Home tag series to its tag", function()
+        local menu = {
+            _zen_home_strip_runtime = {
+                source = { kind = "tags", drill = { label = "Science" } },
+                active_id = "tags",
+            },
+            _home_rebuild = function() return true end,
+        }
+        local targets
+        local ctx = {
+            width = 600,
+            height = 300,
+            menu = menu,
+            component_id = "strip",
+            module_cfg = {
+                default_source = { kind = "tags" },
+                controls = {
+                    enabled = true,
+                    order = { "tags" },
+                    show_buttons = { tags = true },
+                    labels = { tags = "Tags" }, custom_buttons = {},
+                },
+            },
+            data = { getStripItemsForPage = function() return {} end },
+            prepareHomeFocusTarget = function(_target, widget) return widget end,
+            activateStripFocusTargets = function(value) targets = value end,
+        }
+        require("modules/filebrowser/patches/home/widgets/strip").build(ctx)
+
+        assert.is_true(ctx.openStripGroup({
+            is_group = true,
+            group_kind = "series",
+            group_label = "Saga",
+            group_files = { "/books/first.epub", "/books/second.epub" },
+        }))
+        assert.are.equal("Saga", menu._zen_home_strip_runtime.source.drill.label)
+        assert.are.equal("Science", menu._zen_home_strip_runtime.source.drill.parent.label)
+        local tag_control
+        for _i, target in ipairs(targets) do
+            if target.key == "strip-control:tags" then tag_control = target end
+        end
+        assert(tag_control).activate()
+        assert.are.equal("Science", menu._zen_home_strip_runtime.source.drill.label)
+    end)
+
     it("uses Home's active config for group-label corner styling", function()
         rawset(_G, "__ZEN_UI_PLUGIN", {
             config = {

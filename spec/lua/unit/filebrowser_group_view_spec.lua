@@ -1,3 +1,5 @@
+local group_paths_by_series = require("common/db_bookinfo").groupPathsBySeries
+
 describe("file browser group views", function()
     local SortFixtures = require("sort_fixtures")
     local api
@@ -145,7 +147,14 @@ describe("file browser group views", function()
             getGroupedBySeries = function() return groups.series or {} end,
             getGroupedByLanguage = function() return groups.languages or {} end,
             getGroupedByTags = function() return groups.tags or {} end,
+            getTagBooks = function(tag)
+                for _i, group in ipairs(groups.tags or {}) do
+                    if group.tag == tag then return group.files end
+                end
+                return {}
+            end,
             getLightMetadata = function() return metadata end,
+            groupPathsBySeries = group_paths_by_series,
             getTBRBooks = function()
                 legacy_tbr_calls = legacy_tbr_calls + 1
                 return groups.tbr or {}
@@ -819,6 +828,47 @@ describe("file browser group views", function()
         assert.is_truthy(sort_dialog.buttons[1][1].text:find("Title", 1, true))
         assert.is_truthy(sort_dialog.buttons[2][1].text:find("Title natural", 1, true))
         assert.is_truthy(sort_dialog.buttons[3][1].text:find("Order", 1, true))
+    end)
+
+    it("groups tagged series in both tag entry points when library grouping is enabled", function()
+        install_group_view({
+            tags = { { tag = "Fantasy", files = {
+                "/second.epub", "/solo.epub", "/first.epub",
+            } } },
+        })
+        metadata["/second.epub"] = { title = "Second", series = "Saga", series_index = 2 }
+        metadata["/first.epub"] = { title = "First", series = "Saga", series_index = 1 }
+        metadata["/solo.epub"] = { title = "Solo" }
+
+        api.showTagsView()
+        local root = assert(find_menu("tags"))
+        root.onMenuSelect(root, root.item_table[1])
+        local detail = assert(find_menu("tags_detail"))
+        local group = assert(detail.item_table[1])
+        assert.is_true(group.is_series_group)
+        assert.are.same({ "/first.epub", "/second.epub" }, group._zen_files)
+        detail.onMenuSelect(detail, group)
+        local series = assert(find_menu("series_detail"))
+        assert.are.same({ "/first.epub", "/second.epub" }, {
+            series.item_table[1].path, series.item_table[2].path,
+        })
+        assert.are.equal("Fantasy", api.getActiveDetail().group_name)
+
+        api.closeAll()
+        assert.are.same({ series, detail, root }, {
+            closed[#closed - 2], closed[#closed - 1], closed[#closed],
+        })
+        menus = {}
+        api.showTagDetail("Fantasy")
+        assert.is_true(assert(find_menu("tags_detail")).item_table[1].is_series_group)
+
+        api.closeAll()
+        menus = {}
+        config.features.automatic_series_grouping = false
+        api.showTagDetail("Fantasy")
+        local ungrouped = assert(find_menu("tags_detail"))
+        assert.are.equal(3, #ungrouped.item_table)
+        assert.is_nil(ungrouped.item_table[1].is_series_group)
     end)
 
     it("restores root and detail pages after returning from the reader", function()
