@@ -1,3 +1,5 @@
+local group_paths_by_series = require("common/db_bookinfo").groupPathsBySeries
+
 describe("home data and book caches", function()
     local doc_open_count
     local history_reload_count
@@ -1844,6 +1846,47 @@ describe("home data and book caches", function()
         }, 4, "default", "strip", 0)
         assert.are.equal(2, #books)
         assert.is_nil(books[1].is_group)
+    end)
+
+    it("groups series in Home tag books and restores a series drill", function()
+        local tagged = { "/library/alpha.epub", "/library/beta.epub", "/library/solo.epub" }
+        ZenSpec.replace("common/db_bookinfo", {
+            getGroupedByTags = function()
+                return { { tag = "Science", files = tagged } }
+            end,
+            getTagBooks = function() return tagged end,
+            getLightMetadata = function()
+                return {
+                    [tagged[1]] = { series = "Saga", series_index = 2 },
+                    [tagged[2]] = { series = "Saga", series_index = 1 },
+                }
+            end,
+            groupPathsBySeries = group_paths_by_series,
+        })
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({
+            features = { automatic_series_grouping = true },
+            browser_cover_badges = {},
+        }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+
+        local tag = { kind = "tags", drill = { label = "Science" } }
+        local books = provider:getStripItemsForPage(tag, 4, "default", "strip", 0)
+        assert.are.equal(2, #books)
+        assert.are.equal("Saga", books[1].group_label)
+        assert.are.same({ tagged[2], tagged[1] }, books[1].group_files)
+        local series = provider:getStripItemsForPage({
+            kind = "tags",
+            drill = { label = "Saga", series = true, parent = { label = "Science" } },
+        }, 4, "default", "strip", 0)
+        assert.are.same({ tagged[2], tagged[1] }, {
+            series[1].path, series[2].path,
+        })
+        local direct = provider:getStripItemsForPage(
+            { kind = "tag", value = "Science" }, 4, "default", "strip", 0)
+        assert.are.equal("Saga", direct[1].group_label)
     end)
 
     it("returns language stacks and drills into their books", function()

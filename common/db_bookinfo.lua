@@ -529,6 +529,44 @@ function M.getLightMetadata(directory)
     return metadata
 end
 
+function M.groupPathsBySeries(files, metadata)
+    local groups, result = {}, {}
+    local series_count, ungrouped_count = 0, 0
+    for _i, file in ipairs(files) do
+        local info = metadata[file]
+        local name = info and info.series
+        if type(name) == "string" and name ~= "" then
+            local group = groups[name]
+            if not group then
+                group = { series = name, files = {} }
+                groups[name] = group
+                result[#result + 1] = group
+                series_count = series_count + 1
+            end
+            group.files[#group.files + 1] = file
+        else
+            result[#result + 1] = file
+            ungrouped_count = ungrouped_count + 1
+        end
+    end
+    if series_count == 1 and ungrouped_count == 0 then return files end
+    for index, item in ipairs(result) do
+        if type(item) == "table" then
+            if #item.files == 1 then
+                result[index] = item.files[1]
+            else
+                table.sort(item.files, function(a, b)
+                    local a_info, b_info = metadata[a], metadata[b]
+                    local a_index = tonumber(a_info and a_info.series_index) or 0
+                    local b_index = tonumber(b_info and b_info.series_index) or 0
+                    return a_index == b_index and a < b or a_index < b_index
+                end)
+            end
+        end
+    end
+    return result
+end
+
 -- Returns a sorted list of tag groups from the keywords (Calibre tags) column:
 --   { { tag="Name", files={"/abs/path", ...} }, ... }
 -- Books may appear under multiple tags. Tags are split by comma and trimmed.

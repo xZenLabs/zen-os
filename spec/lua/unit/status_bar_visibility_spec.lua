@@ -156,6 +156,24 @@ describe("file manager status bar visibility", function()
         assert.are.equal("August 8th", created_text_widgets[1].text)
     end)
 
+    it("keeps nested back buttons bound to their own views", function()
+        local status_api
+        require("common/shared_state").register = function(_plugin, api) status_api = api end
+        replace("ui/widget/button", { new = function(_self, values) return values end })
+        require("modules/filebrowser/patches/status_bar")()
+
+        local make_back = assert(get_upvalue(status_api.createStatusRowCustomBack,
+            "makeBackButton"))
+        local calls = {}
+        local tag_back = make_back(28, function() calls[#calls + 1] = "tags" end)
+        local series_back = make_back(28, function() calls[#calls + 1] = "series" end)
+        tag_back.callback()
+        series_back.callback()
+
+        assert.not_equal(tag_back, series_back)
+        assert.are.same({ "tags", "series" }, calls)
+    end)
+
     it("limits embedded refreshes to changed and shifted status items", function()
         local status_api
         require("ui/geometry").new = function(_self, values) return values end

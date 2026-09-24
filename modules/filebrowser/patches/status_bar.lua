@@ -235,15 +235,8 @@ local function apply_status_bar()
     -- leaves a white box around the chevron when a library background is showing.
     -- Force the icon to keep its alpha channel and drop the frame's white fill so
     -- the background paints through.
-    -- Back chevron only depends on icon size; memoize it and swap the
-    -- callback on reuse (the callback captures the per-call path).
-    local _back_btn_icon_size = nil
-    local _back_btn_widget = nil
+    -- Each visible row needs its own callback, including nested library views.
     local function makeBackButton(icon_size, callback)
-        if _back_btn_icon_size == icon_size and _back_btn_widget then
-            _back_btn_widget.callback = callback or function() end
-            return _back_btn_widget
-        end
         local Button = require("ui/widget/button")
         local back_widget = Button:new{
             icon        = "chevron.left",
@@ -268,8 +261,6 @@ local function apply_status_bar()
         -- background stays untouched.
         back_widget._doFeedbackHighlight = function() end
         back_widget._undoFeedbackHighlight = function() end
-        _back_btn_icon_size = icon_size
-        _back_btn_widget = back_widget
         return back_widget
     end
 

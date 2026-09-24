@@ -80,6 +80,10 @@ local function copy_home_strip_state(state)
     if type(drill) == "table" and type(drill.label) == "string" then
         copy.source.drill = { label = drill.label }
         if type(drill.path) == "string" then copy.source.drill.path = drill.path end
+        if drill.series == true then copy.source.drill.series = true end
+        if type(drill.parent) == "table" then
+            copy.source.drill.parent = { label = drill.parent.label }
+        end
         if type(drill.files) == "table" then
             copy.source.drill.files = utils.deepcopy(drill.files)
         end
@@ -1946,10 +1950,43 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         return groups
     end
 
+    local function group_tag_paths(paths, force)
+        local features = type(cfg) == "table" and cfg.features
+        if not force and not (features and features.automatic_series_grouping ~= false) then
+            return paths
+        end
+        local ok_db, db = pcall(require, "common/db_bookinfo")
+        if not (ok_db and db and type(db.getLightMetadata) == "function"
+                and type(db.groupPathsBySeries) == "function") then
+            return paths
+        end
+        return db.groupPathsBySeries(paths, db.getLightMetadata())
+    end
+
     local function resolve_drill_files(request)
         local drill = type(request) == "table" and request.drill or nil
         if type(drill) ~= "table" then return nil end
         if type(drill.files) == "table" then return drill.files end
+        if drill.series == true then
+            local paths = {}
+            if request.kind == "tag" then
+                local ok_db, db = pcall(require, "common/db_bookinfo")
+                paths = ok_db and db and type(db.getTagBooks) == "function"
+                    and db.getTagBooks(request.value) or {}
+            elseif drill.parent then
+                for _i, group in ipairs(source_groups(request.kind)) do
+                    if group.label == drill.parent.label then paths = group.files; break end
+                end
+            end
+            for _i, group in ipairs(group_tag_paths(paths, true)) do
+                if type(group) == "table" and group.series == drill.label then
+                    drill.files = group.files
+                    return drill.files
+                end
+            end
+            drill.files = {}
+            return drill.files
+        end
         for _i, group in ipairs(source_groups(request.kind)) do
             if group.label == drill.label then
                 drill.files = copy_paths(group.files)
@@ -1965,7 +2002,8 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             and (request.drill.path or request.drill.label) or ""
         return table.concat({
             "strip", tostring(request.kind), tostring(request.value or ""),
-            tostring(drill), normalize_order(order_key),
+            tostring(drill), tostring(request.drill and request.drill.series or ""),
+            normalize_order(order_key),
         }, ":")
     end
 
@@ -2013,6 +2051,25 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         end
     end
 
+    local function books_from_tag_page(page)
+        local books = {}
+        for _i, value in ipairs(page) do
+            local group = type(value) == "table" and value or nil
+            local book = get_book(group and group.files[1] or value, false, true)
+            if book then
+                if group then
+                    book.is_group = true
+                    book.group_kind = "series"
+                    book.group_label = group.series
+                    book.group_count = #group.files
+                    book.group_files = group.files
+                end
+                books[#books + 1] = book
+            end
+        end
+        return books
+    end
+
     function provider:getStripItemsForPage(request, count, order_key, component_id, page_delta)
         request = type(request) == "table" and request or { kind = "recent" }
         local kind = request.kind or "recent"
@@ -2032,14 +2089,11 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         if type(request.drill) == "table" then
             local paths = copy_paths(resolve_drill_files(request))
             if normalize_order(order_key) == "reverse" then paths = reverse_copy(paths) end
+            local values = (kind == "tags" or kind == "tag")
+                and request.drill.series ~= true and group_tag_paths(paths) or paths
             local page, adjacent = paginate(
-                paths, request, count, order_key, component_id, page_delta)
-            local books = {}
-            for _i, path in ipairs(page) do
-                local book = get_book(path, false, true)
-                if book then books[#books + 1] = book end
-            end
-            return books, adjacent
+                values, request, count, order_key, component_id, page_delta)
+            return books_from_tag_page(page), adjacent
         end
         if kind == "authors" or kind == "series" or kind == "languages"
                 or kind == "tags"
@@ -2066,14 +2120,10 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
                 or kind == "custom" then
             local paths = descriptor_paths(request)
             if normalize_order(order_key) == "reverse" then paths = reverse_copy(paths) end
+            if kind == "tag" then paths = group_tag_paths(paths) end
             local page, adjacent = paginate(
                 paths, request, count, order_key, component_id, page_delta)
-            local books = {}
-            for _i, path in ipairs(page) do
-                local book = get_book(path, false, true)
-                if book then books[#books + 1] = book end
-            end
-            return books, adjacent
+            return books_from_tag_page(page), adjacent
         end
         local source = kind == "to_be_read" and "to_be_read" or "recently_read"
         return self:getBooksForStripPage(
@@ -2092,6 +2142,10 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             or request.drill and resolve_drill_files(request)
             or descriptor_paths(request)
             or source_groups(request.kind)
+        if (request.kind == "tags" and request.drill
+                or request.kind == "tag") and not (request.drill and request.drill.series) then
+            values = group_tag_paths(values)
+        end
         local n = math.max(1, tonumber(count) or 4)
         if type(values) ~= "table" or #values <= n then return false end
         local key = tostring(component_id or "strip") .. ":" .. descriptor_key(request, order_key)
