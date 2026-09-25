@@ -435,6 +435,26 @@ describe("network switcher", function()
         assert.are.equal("Guest", network_menu.item_table[2].text)
     end)
 
+    it("rescans from the title bar without overlapping scans", function()
+        local Switcher = require("modules/menu/network_switcher")
+        assert.is_true(Switcher.open())
+        local refresh = network_menu.custom_title_bar.action
+        assert.are.equal("Refresh", refresh.text)
+
+        scan_task()
+        refresh.callback()
+        assert.are.equal(1, kindle_scans)
+        while #scheduled > 0 do table.remove(scheduled, 1)() end
+
+        refresh.callback()
+        assert.are.equal("Searching for networks…", network_menu.item_table[1].text)
+        assert.are.equal(2, kindle_scans)
+        refresh.callback()
+        assert.are.equal(2, kindle_scans)
+        while #scheduled > 0 do table.remove(scheduled, 1)() end
+        assert.are.equal("Guest", network_menu.item_table[2].text)
+    end)
+
     it("uses settings back navigation when opened from About", function()
         local Switcher = require("modules/menu/network_switcher")
         local plugin = {}

@@ -105,22 +105,31 @@ function M.setEnabled(enabled, complete)
         if success then cached_state = enabled else cached_state = nil end
         if complete then complete(success, reason) end
     end
-    local function verify(fallback)
+    local function verify(delays, fallback)
         if not complete then return end
         local UIManager = require("ui/uimanager")
         local attempts = 0
         local check
         check = function()
             attempts = attempts + 1
-            if M.getState() == enabled then
+            local state = M.getState()
+            logger.info("power confirmation:", "requested=", tostring(enabled), "observed=", tostring(state),
+                "attempt=", attempts)
+            if state == enabled then
                 done(true)
-            elseif attempts == 5 and fallback then
-                fallback()
-                UIManager:scheduleIn(0.5, check)
-            elseif attempts >= 10 then
-                done(false, "Could not confirm Bluetooth power state.")
             else
-                UIManager:scheduleIn(0.5, check)
+                if attempts == 4 and fallback and not fallback() then
+                    done(false, "Could not change Bluetooth power.")
+                    return
+                end
+                local delay
+                if delays then delay = delays[attempts]
+                elseif attempts < 10 then delay = 0.5 end
+                if delay then
+                    UIManager:scheduleIn(delay, check)
+                else
+                    done(false, "Could not confirm Bluetooth power state.")
+                end
             end
         end
         check()
@@ -150,25 +159,26 @@ function M.setEnabled(enabled, complete)
         local accepted = with_lipc(function(handle)
             local setter = numeric and handle.set_int_property or handle.set_string_property
             local ok, result = pcall(setter, handle, SERVICE, property, value)
-            return ok and (result == nil or result == 0 or result == true)
+            logger.info(property .. " LIPC:", tostring(ok), "result=",
+                type(result) == "number" and tostring(result) or type(result))
+            return ok
         end)
         if not accepted then
-            local command_value = value == "" and "''" or value
             local ok, _, code = os.execute("lipc-set-prop " .. (numeric and "-i " or "-s ") .. SERVICE
-                .. " " .. property .. " " .. command_value .. " >/dev/null 2>&1")
+                .. " " .. property .. " " .. value .. " >/dev/null 2>&1")
             accepted = ok == true or ok == 0 or code == 0
+            logger.info(property .. " command fallback:", tostring(accepted), "exit=", tostring(code))
         end
         logger.info(property .. " request:", tostring(value), tostring(accepted))
         return accepted
     end
 
-    if not enabled then set_kindle_property("btPopupDone", "", false) end
     local accepted = set_kindle_property("BTenable", enabled and "1:1" or "0:1")
     log_state("immediately after power request")
     if accepted then
-        verify(function()
+        verify({ 0.5, 0.5, 1, 2, 4, 8, 8 }, function()
             logger.info("BTenable state unchanged; trying BTflightMode")
-            set_kindle_property("BTflightMode", enabled and 0 or 1, true)
+            return set_kindle_property("BTflightMode", enabled and 0 or 1, true)
         end)
     else
         done(false, "Could not change Bluetooth power.")

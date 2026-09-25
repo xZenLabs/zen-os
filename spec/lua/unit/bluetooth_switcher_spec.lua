@@ -122,6 +122,33 @@ describe("Bluetooth switcher", function()
         assert.are.equal(3, changed)
     end)
 
+    it("shows pair and connect progress beneath the device name", function()
+        local pending_pair, pending_connect
+        adapter.pair = function(_device, done) pending_pair = done end
+        adapter.connect = function(_device, done) pending_connect = done end
+        require("modules/menu/bluetooth_switcher").open()
+        local device = menu.item_table[3].device
+        menu.item_table[3].callback()
+        assert.are.equal("Headphones", menu.item_table[3].text)
+        assert.are.equal("Updating…", menu.item_table[3]._zen_settings_breadcrumb)
+        assert.are.equal("Page turner", menu.item_table[2].text)
+        assert.are.equal("Paired · -80 dBm", menu.item_table[2]._zen_settings_breadcrumb)
+
+        device.paired = true
+        pending_pair(true)
+        assert.is_function(pending_connect)
+        for _i, row in ipairs(menu.item_table) do
+            if row.device == device then
+                assert.are.equal("Headphones", row.text)
+                assert.are.equal("Updating…", row._zen_settings_breadcrumb)
+            end
+        end
+        device.connected = true
+        pending_connect(true)
+        assert.are.equal("Headphones", menu.item_table[1].text)
+        assert.are.equal("Connected · -45 dBm", menu.item_table[1]._zen_settings_breadcrumb)
+    end)
+
     it("powers on before scanning and confirms forget", function()
         state = false
         require("modules/menu/bluetooth_switcher").open()
@@ -166,6 +193,23 @@ describe("Bluetooth switcher", function()
         assert.are.equal("Searching for devices…", menu.item_table[1].text)
         adapter.scan_done(true)
         assert.are.equal("No Bluetooth devices found.", menu.item_table[1].text)
+    end)
+
+    it("rescans from the title bar without overlapping discovery", function()
+        require("modules/menu/bluetooth_switcher").open()
+        local refresh = menu.custom_title_bar.action
+        assert.are.equal("Refresh", refresh.text)
+        refresh.callback()
+        assert.are.equal(1, adapter.scanned)
+        adapter.scan_done(false, "Radio busy")
+        assert.are.equal("Radio busy", menu.item_table[4].text)
+        refresh.callback()
+        assert.are.equal(2, adapter.scanned)
+        assert.is_nil(menu.item_table[4])
+        refresh.callback()
+        assert.are.equal(2, adapter.scanned)
+        adapter.scan_done(true)
+        assert.are.equal("Speaker", menu.item_table[1].text)
     end)
 
     it("shows devices discovered by the Kindle scan", function()

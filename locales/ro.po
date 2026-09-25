@@ -6491,8 +6491,8 @@ msgid "Could not read Bluetooth devices."
 msgstr "Dispozitivele Bluetooth nu au putut fi citite."
 
 #. Type: menu
-msgid "Updating %1…"
-msgstr "Se actualizează %1…"
+msgid "Updating…"
+msgstr "Se actualizează…"
 
 #. Type: menu
 msgid "Could not update %1."

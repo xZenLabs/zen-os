@@ -93,28 +93,29 @@ describe("Bluetooth state cache", function()
             return {
                 get_int_property = function() return state and 1 or 0 end,
                 set_string_property = function(_self, _service, property, value)
-                    if property == "btPopupDone" or value == "0:1" then assert.is_true(cancelled) end
+                    if value == "0:1" then assert.is_true(cancelled) end
                     requests[#requests + 1] = { property, value }
-                    if not request_ok then return -1 end
+                    if not request_ok then error("LIPC request failed") end
                     if property == "BTenable" then state = value == "1:1" end
-                    return 0
+                    return {} -- liblipclua may return a handle rather than a status code.
                 end,
                 close = function() end,
             }
         end })
         local Bluetooth = require("modules/menu/bluetooth/bluetooth")
         local results = {}
+        local no_shell = stub(os, "execute", function() error("unexpected shell fallback") end)
         assert.is_true(Bluetooth.setEnabled(false, function(ok) results[#results + 1] = ok end))
         assert.is_true(cancelled)
-        assert.are.same({ { "btPopupDone", "" }, { "BTenable", "0:1" } }, requests)
+        assert.are.same({ { "BTenable", "0:1" } }, requests)
         assert.are.same({ true }, results)
         assert.are.equal(0, #scheduled)
         assert.is_false(Bluetooth.getState())
         assert.is_true(Bluetooth.setEnabled(true, function(ok) results[#results + 1] = ok end))
-        assert.are.same({ { "btPopupDone", "" }, { "BTenable", "0:1" },
-            { "BTenable", "1:1" } }, requests)
+        assert.are.same({ { "BTenable", "0:1" }, { "BTenable", "1:1" } }, requests)
         assert.are.same({ true, true }, results)
         assert.is_true(Bluetooth.getState())
+        no_shell:revert()
 
         request_ok = false
         local shell_requests = {}
@@ -125,30 +126,29 @@ describe("Bluetooth state cache", function()
         local accepted = Bluetooth.setEnabled(false, function(ok) results[#results + 1] = ok end)
         execute_stub:revert()
         assert.is_false(accepted)
-        assert.is_truthy(shell_requests[1]:find("btPopupDone ''", 1, true))
+        assert.are.equal(1, #shell_requests)
+        assert.is_truthy(shell_requests[1]:find("BTenable 0:1", 1, true))
         assert.are.same({ true, true, false }, results)
         assert.is_true(Bluetooth.getState())
     end)
 
-    it("falls back to Kindle flight mode only when BTenable stalls during discovery", function()
+    it("uses Kindle flight mode when BTenable stalls and verifies the delayed state", function()
         ZenSpec.replace("device", { isKindle = function() return true end })
-        local scheduled, requests = {}, {}
-        local radio_on, flight_mode = true, false
-        ZenSpec.replace("ui/uimanager", { scheduleIn = function(_self, _delay, callback)
+        local scheduled, requests, delays = {}, {}, {}
+        local radio_state = 2
+        ZenSpec.replace("ui/uimanager", { scheduleIn = function(_self, delay, callback)
             scheduled[#scheduled + 1] = callback
+            delays[#delays + 1] = delay
         end })
         ZenSpec.replace("liblipclua", { init = function()
             return {
-                get_int_property = function() return radio_on and 1 or 0 end,
+                get_int_property = function() return radio_state end,
                 set_string_property = function(_self, _service, property, value)
                     requests[#requests + 1] = { property, value }
-                    if value == "1:1" and not flight_mode then radio_on = true end
-                    return 0
+                    return {}
                 end,
                 set_int_property = function(_self, _service, property, value)
                     requests[#requests + 1] = { property, value }
-                    flight_mode = value == 1
-                    radio_on = not flight_mode
                     return 0
                 end,
                 close = function() end,
@@ -156,27 +156,28 @@ describe("Bluetooth state cache", function()
         end })
         local Bluetooth = require("modules/menu/bluetooth/bluetooth")
         local results = {}
-        local function check_delayed_result(expected)
-            for _i = 1, 5 do
-                local callback = table.remove(scheduled, 1)
-                assert.is_function(callback)
-                callback()
-            end
-            assert.are.equal(expected, results[#results])
-            assert.are.equal(0, #scheduled)
-        end
-
         Bluetooth.setEnabled(false, function(ok) results[#results + 1] = ok end)
-        assert.are.same({ { "btPopupDone", "" }, { "BTenable", "0:1" } }, requests)
-        check_delayed_result(true)
-        assert.are.same({ { "btPopupDone", "" }, { "BTenable", "0:1" },
-            { "BTflightMode", 1 } }, requests)
+        assert.are.same({ { "BTenable", "0:1" } }, requests)
+        for _i = 1, 5 do
+            local callback = table.remove(scheduled, 1)
+            assert.is_function(callback)
+            callback()
+        end
+        assert.are.same({}, results)
+        radio_state = 0
+        table.remove(scheduled, 1)()
+        assert.are.same({ true }, results)
+        assert.are.same({ 0.5, 0.5, 1, 2, 4, 8 }, delays)
+        assert.are.same({ { "BTenable", "0:1" }, { "BTflightMode", 1 } }, requests)
+        assert.are.equal(0, #scheduled)
 
         Bluetooth.setEnabled(true, function(ok) results[#results + 1] = ok end)
-        assert.are.same({ { "btPopupDone", "" }, { "BTenable", "0:1" },
-            { "BTflightMode", 1 }, { "BTenable", "1:1" } }, requests)
-        check_delayed_result(true)
-        assert.are.same({ { "btPopupDone", "" }, { "BTenable", "0:1" },
-            { "BTflightMode", 1 }, { "BTenable", "1:1" }, { "BTflightMode", 0 } }, requests)
+        for _i = 1, 3 do table.remove(scheduled, 1)() end
+        assert.are.same({ { "BTenable", "0:1" }, { "BTflightMode", 1 },
+            { "BTenable", "1:1" }, { "BTflightMode", 0 } }, requests)
+        radio_state = 1
+        table.remove(scheduled, 1)()
+        assert.are.same({ true, true }, results)
+        assert.are.equal(0, #scheduled)
     end)
 end)

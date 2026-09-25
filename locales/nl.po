@@ -6491,8 +6491,8 @@ msgid "Could not read Bluetooth devices."
 msgstr "Bluetooth-apparaten konden niet worden gelezen."
 
 #. Type: menu
-msgid "Updating %1…"
-msgstr "%1 bijwerken…"
+msgid "Updating…"
+msgstr "Bijwerken…"
 
 #. Type: menu
 msgid "Could not update %1."

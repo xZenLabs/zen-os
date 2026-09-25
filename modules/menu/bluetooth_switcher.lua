@@ -37,10 +37,10 @@ function M.open(on_changed, settings_subpage, plugin)
         return false
     end
     local adapter = backend.new()
-    local closed, busy = false, false
+    local closed, busy, busy_device, scanning = false, false, nil, false
     local scan_warning
     local devices = {}
-    local menu, render, show_actions
+    local menu, render, show_actions, start
     IconItem.installMenuPatch()
 
     local function status_items(message)
@@ -81,10 +81,12 @@ function M.open(on_changed, settings_subpage, plugin)
     local function operate(action, device, follow_connect)
         if closed or busy then return end
         busy = true
-        show_status(T(_("Updating %1…"), device.name))
+        busy_device = device.address
+        render(device.address)
         adapter[action](device, function(ok, err)
             if closed then return end
             busy = false
+            busy_device = nil
             if not ok then
                 show_status(err or T(_("Could not update %1."), device.name))
                 return
@@ -182,7 +184,8 @@ function M.open(on_changed, settings_subpage, plugin)
                 text = device.name, device = device,
                 _zen_settings_row = true,
                 _zen_display_text = device.name,
-                _zen_settings_breadcrumb = signal and status .. " · " .. signal or status,
+                _zen_settings_breadcrumb = busy_device == device.address and _("Updating…")
+                    or signal and status .. " · " .. signal or status,
                 _zen_value_black = true,
                 _zen_primary_bold = device.connected == true,
                 _zen_has_submenu = true,
@@ -213,6 +216,7 @@ function M.open(on_changed, settings_subpage, plugin)
         back_visible = settings_subpage == true,
         close_callback = close_menu, plugin = plugin,
         search_visible = false, title = _("Bluetooth devices"), title_full_width = true,
+        action = { text = _("Refresh"), callback = function() start() end },
     }
     menu = Menu:new{
         name = "bluetooth_switcher", title = _("Bluetooth devices"),
@@ -263,11 +267,12 @@ function M.open(on_changed, settings_subpage, plugin)
         if adapter.id == "kindle" then
             show_status(_("Searching for devices…"))
         else
-            if not load_devices() then return end
+            if not load_devices() then scanning = false; return end
             if #devices == 0 then show_status(_("Searching for devices…")) end
         end
         adapter.scan(function(ok, err)
             if closed then return end
+            scanning = false
             if ok then
                 load_devices()
             else
@@ -276,13 +281,16 @@ function M.open(on_changed, settings_subpage, plugin)
             end
         end)
     end
-    local function start()
-        if closed then return end
+    start = function()
+        if closed or scanning or busy then return end
+        scanning = true
+        scan_warning = nil
         if Bluetooth.isEnabled() then scan(); return end
         show_status(_("Turning on Bluetooth…"))
         Bluetooth.setEnabled(true, function(ok, err)
             if closed then return end
             if not ok then
+                scanning = false
                 show_status(err or _("Could not turn on Bluetooth."))
                 return
             end

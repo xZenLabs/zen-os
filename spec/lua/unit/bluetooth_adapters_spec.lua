@@ -4,7 +4,7 @@ describe("Bluetooth device adapters", function()
     before_each(function()
         originals = {}
         for _i, name in ipairs({
-            "ui/uimanager", "libopenlipclua", "modules/menu/bluetooth_adapters/common",
+            "ui/uimanager", "libopenlipclua", "common/zen_logger", "modules/menu/bluetooth_adapters/common",
             "modules/menu/bluetooth_adapters/kindle", "modules/menu/bluetooth_adapters/pocketbook",
         }) do originals[name] = package.loaded[name] or false end
         commands, scheduled, unscheduled = {}, {}, {}
@@ -77,11 +77,13 @@ describe("Bluetooth device adapters", function()
                 end,
                 set_int_property = function(_self, _service, property)
                     commands[#commands + 1] = property
+                    return 1
                 end,
                 set_string_property = function(_self, _service, property, value)
                     commands[#commands + 1] = property .. ":" .. value
                     if property == "Bond" then paired = true end
                     if property == "Connect" then connected = true end
+                    return 1
                 end,
                 close = function() end,
             }
@@ -134,6 +136,30 @@ describe("Bluetooth device adapters", function()
         assert.is_true(devices[1].paired)
     end)
 
+    it("reads Kindle bd fields without treating every list entry as connected", function()
+        ZenSpec.replace("libopenlipclua", { open_no_name = function()
+            return {
+                new_hasharray = function() return { destroy = function() end } end,
+                access_hash_property = function()
+                    return {
+                        to_table = function() return {{
+                            bd_address = "AA:BB:CC:DD:EE:FF", bd_name = "Page turner",
+                            is_paired = 1, is_connected = 0,
+                        }} end,
+                        destroy = function() end,
+                    }
+                end,
+                close = function() end,
+            }
+        end })
+        local devices, err = require("modules/menu/bluetooth_adapters/kindle").new().getDeviceList()
+        assert.is_nil(err)
+        assert.are.equal(1, #devices)
+        assert.are.equal("Page turner", devices[1].name)
+        assert.is_true(devices[1].paired)
+        assert.is_false(devices[1].connected)
+    end)
+
     it("reports unsupported Kindle hash properties", function()
         ZenSpec.replace("libopenlipclua", {})
         local adapter = require("modules/menu/bluetooth_adapters/kindle").new()
@@ -143,6 +169,14 @@ describe("Bluetooth device adapters", function()
     end)
 
     it("rejects unknown Kindle device schemas instead of showing an empty list", function()
+        local warnings = {}
+        ZenSpec.replace("common/zen_logger", { new = function()
+            return { warn = function(...)
+                local parts = {}
+                for _i, part in ipairs({ ... }) do parts[#parts + 1] = tostring(part) end
+                warnings[#warnings + 1] = table.concat(parts, " ")
+            end }
+        end })
         ZenSpec.replace("libopenlipclua", { open_no_name = function()
             return {
                 new_hasharray = function() return { destroy = function() end } end,
@@ -160,6 +194,8 @@ describe("Bluetooth device adapters", function()
         local devices, err = require("modules/menu/bluetooth_adapters/kindle").new().getDeviceList()
         assert.is_nil(devices)
         assert.is_truthy(err:find("not supported", 1, true))
+        assert.is_truthy(warnings[1]:find("ListDiscovered reply shape", 1, true))
+        assert.is_truthy(warnings[1]:find("unknown:string", 1, true))
     end)
 
     it("bounds state verification and cancels pending callbacks", function()
