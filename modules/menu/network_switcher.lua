@@ -105,7 +105,10 @@ function M.open(on_connected, settings_subpage, plugin)
         search_visible = false,
         title = _("Wi-Fi networks"),
         title_full_width = true,
-        action = { text = _("Refresh"), callback = function() start_scan() end },
+        action = {
+            file = utils.resolveLocalIcon(plugin_root and plugin_root .. "/icons/", "quick_sync"),
+            callback = function() start_scan() end,
+        },
     }
     menu = Menu:new{
         name = "network_switcher",
@@ -453,7 +456,7 @@ function M.open(on_connected, settings_subpage, plugin)
                 prompt_password(network, _("Enter a new Wi-Fi password."))
             end)
         end
-        if network.connected then
+        if network.connected and not network.preview then
             add(icons.wifi_off .. "  " .. _("Disconnect"), function()
                 disconnect_network(network)
             end)
@@ -620,7 +623,31 @@ function M.open(on_connected, settings_subpage, plugin)
 
     UIManager:show(menu)
     UIManager:forceRePaint()
-    UIManager:tickAfterNext(start_scan)
+    UIManager:tickAfterNext(function()
+        if closed then return end
+        if NetworkMgr:isWifiOn() then
+            local has_connection_check = type(NetworkMgr.isConnected) == "function"
+            local connected = has_connection_check and NetworkMgr:isConnected()
+            local ok_current, current = pcall(NetworkMgr.getCurrentNetwork, NetworkMgr)
+            local has_ssid = ok_current and current and type(current.ssid) == "string"
+                and current.ssid ~= ""
+            if connected or (not has_connection_check and has_ssid) then
+                if has_ssid then
+                    if adapter then
+                        previous_network = current
+                        previous_ip = get_ip()
+                    end
+                    network_list = {{ ssid = current.ssid, connected = true,
+                        flags = "—", preview = true }}
+                    render_networks()
+                else
+                    show_status(_("Connected"))
+                end
+                return
+            end
+        end
+        start_scan()
+    end)
     return true
 end
 

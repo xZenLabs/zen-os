@@ -6,6 +6,8 @@ describe("Bluetooth device adapters", function()
         for _i, name in ipairs({
             "ui/uimanager", "libopenlipclua", "common/zen_logger", "modules/menu/bluetooth_adapters/common",
             "modules/menu/bluetooth_adapters/kindle", "modules/menu/bluetooth_adapters/pocketbook",
+            "device", "liblipclua", "modules/menu/bluetooth/bluetooth",
+            "modules/menu/bluetooth/kobo_bluetooth", "modules/menu/bluetooth_switcher",
         }) do originals[name] = package.loaded[name] or false end
         commands, scheduled, unscheduled = {}, {}, {}
         ZenSpec.replace("ui/uimanager", {
@@ -88,6 +90,18 @@ describe("Bluetooth device adapters", function()
                 close = function() end,
             }
         end })
+        ZenSpec.replace("liblipclua", { init = function(name)
+            assert.are.equal("com.github.koreader.zenui.bluetooth.scan", name)
+            local scanning = false
+            return {
+                set_int_property = function(_self, _service, property, value)
+                    commands[#commands + 1] = property .. ":" .. value
+                    if property == "DiscoverA2DP" then scanning = value == 1 end
+                    return 0
+                end,
+                close = function() assert.is_false(scanning) end,
+            }
+        end })
         local adapter = require("modules/menu/bluetooth_adapters/kindle").new()
         local devices = adapter.getDeviceList()
         assert.are.equal(1, #devices)
@@ -101,19 +115,89 @@ describe("Bluetooth device adapters", function()
         assert.are.same({ "Bond:" .. address, "Connect:" .. address }, commands)
         local scan_results = {}
         adapter.scan(function(ok) scan_results[#scan_results + 1] = ok end)
-        assert.are.equal("triggerBTscan", commands[3])
+        assert.are.equal("DiscoverA2DP:1", commands[3])
         assert.are.equal(10, scheduled[1].delay)
         adapter.close()
         assert.are.equal(scheduled[1].callback, unscheduled[1])
-        assert.are.equal("btPopupDone:", commands[4])
+        assert.are.equal("DiscoverA2DP:0", commands[4])
         scheduled[1].callback()
         assert.are.same({ false }, scan_results)
         local next_adapter = require("modules/menu/bluetooth_adapters/kindle").new()
         next_adapter.scan(function(ok) scan_results[#scan_results + 1] = ok end)
         scheduled[2].callback()
         assert.are.same({ false, true }, scan_results)
-        assert.are.equal("btPopupDone:", commands[6])
+        assert.are.same({ "DiscoverA2DP:1", "DiscoverA2DP:0" }, { commands[5], commands[6] })
         next_adapter.close()
+    end)
+
+    it("disconnects Kindle devices before powering off after a scan", function()
+        local scanning, connected, powered, disconnect_requested = false, true, true, false
+        ZenSpec.replace("device", { isKindle = function() return true end })
+        ZenSpec.replace("modules/menu/bluetooth/kobo_bluetooth", {})
+        ZenSpec.replace("modules/menu/bluetooth_switcher", {})
+        ZenSpec.replace("libopenlipclua", { open_no_name = function()
+            return {
+                new_hasharray = function() return { destroy = function() end } end,
+                access_hash_property = function(_self, _service, property)
+                    return {
+                        to_table = function()
+                            if property == "ListDiscovered" and scanning then
+                                return {{ Address = "AA:BB:CC:DD:EE:FF", Name = "Speaker" }}
+                            end
+                            if property == "ListConnected" and connected then
+                                return {{ Address = "AA:BB:CC:DD:EE:FF", Name = "Speaker" }}
+                            end
+                            return {}
+                        end,
+                        destroy = function() end,
+                    }
+                end,
+                set_string_property = function(_self, _service, property)
+                    if property == "Disconnect" then disconnect_requested = true end
+                end,
+                close = function() end,
+            }
+        end })
+        ZenSpec.replace("liblipclua", { init = function()
+            return {
+                get_int_property = function(_self, _service, property)
+                    return property == "BTstate" and (powered and 1 or 0) or 0
+                end,
+                set_int_property = function(_self, _service, property, value)
+                    if property == "DiscoverA2DP" then scanning = value == 1 end
+                end,
+                set_string_property = function(_self, _service, property, value)
+                    if property == "BTenable" then
+                        assert.is_false(scanning)
+                        assert.is_false(connected)
+                        powered = value == "1:1"
+                    end
+                end,
+                close = function() end,
+            }
+        end })
+        ZenSpec.unload("modules/menu/bluetooth/bluetooth")
+        local Bluetooth = require("modules/menu/bluetooth/bluetooth")
+        local adapter = require("modules/menu/bluetooth_adapters/kindle").new()
+        local found
+        adapter.scan(function(ok)
+            assert.is_true(ok)
+            local devices = adapter.getDeviceList()
+            found = devices[1] and devices[1].name
+        end)
+        scheduled[1].callback()
+        assert.are.equal("Speaker", found)
+        assert.is_false(scanning)
+        local result
+        Bluetooth.setEnabled(false, function(ok) result = ok end)
+        assert.is_true(disconnect_requested)
+        assert.is_true(powered)
+        assert.is_nil(result)
+        connected = false
+        scheduled[2].callback()
+        assert.is_false(connected)
+        assert.is_false(powered)
+        assert.is_true(result)
     end)
 
     it("accepts empty Kindle hash replies alongside paired devices", function()
@@ -171,7 +255,7 @@ describe("Bluetooth device adapters", function()
     it("rejects unknown Kindle device schemas instead of showing an empty list", function()
         local warnings = {}
         ZenSpec.replace("common/zen_logger", { new = function()
-            return { warn = function(...)
+            return { info = function() end, warn = function(...)
                 local parts = {}
                 for _i, part in ipairs({ ... }) do parts[#parts + 1] = tostring(part) end
                 warnings[#warnings + 1] = table.concat(parts, " ")

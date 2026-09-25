@@ -157,6 +157,7 @@ describe("network switcher", function()
         NetworkMgr = {
             wifi_on = true,
             isWifiOn = function(self) return self.wifi_on end,
+            isConnected = function(self) return self.current_ssid ~= nil end,
             turnOffWifi = function(self)
                 self.wifi_on = false
                 self.current_ssid = nil
@@ -409,13 +410,70 @@ describe("network switcher", function()
 
     local function finish_scan()
         scan_task()
+        network_menu.custom_title_bar.action.callback()
         while #scheduled > 0 do table.remove(scheduled, 1)() end
     end
+
+    it("opens connected Wi-Fi without scanning or changing the connection", function()
+        local Switcher = require("modules/menu/network_switcher")
+        assert.is_true(Switcher.open())
+        scan_task()
+
+        assert.are.equal(0, kindle_scans)
+        assert.are.equal(1, #network_menu.item_table)
+        assert.are.equal("Home", network_menu.item_table[1].text)
+        assert.are.equal("Connected", network_menu.item_table[1]._zen_settings_breadcrumb)
+        assert.is_true(NetworkMgr.wifi_on)
+        assert.is_nil(NetworkMgr.released)
+        assert.is_nil(NetworkMgr.disconnected)
+        assert.are.same({}, events)
+        network_menu.item_table[1].callback()
+        assert.are.equal(1, #button_dialog.buttons)
+    end)
+
+    it("does not scan connected non-Kindle Wi-Fi until refresh", function()
+        ZenSpec.replace("device", {
+            hasWifiManager = function() return true end,
+            isKindle = function() return false end,
+        })
+        local scans = 0
+        NetworkMgr.getNetworkList = function()
+            scans = scans + 1
+            return {{ ssid = "Home", connected = true }}
+        end
+
+        local Switcher = require("modules/menu/network_switcher")
+        assert.is_true(Switcher.open())
+        scan_task()
+        assert.are.equal(0, scans)
+        assert.are.equal("Home", network_menu.item_table[1].text)
+
+        network_menu.custom_title_bar.action.callback()
+        assert.are.equal(1, scans)
+    end)
+
+    it("scans automatically when there is no current network", function()
+        NetworkMgr.current_ssid = nil
+        local Switcher = require("modules/menu/network_switcher")
+        assert.is_true(Switcher.open())
+        scan_task()
+        assert.are.equal(1, kindle_scans)
+    end)
+
+    it("keeps an active connection when its network name is unavailable", function()
+        NetworkMgr.getCurrentNetwork = function() error("network name unavailable") end
+        local Switcher = require("modules/menu/network_switcher")
+        assert.is_true(Switcher.open())
+        scan_task()
+        assert.are.equal(0, kindle_scans)
+        assert.are.equal("Connected", network_menu.item_table[1].text)
+    end)
 
     it("cancels an active scan and accepts idle results after reopening", function()
         local Switcher = require("modules/menu/network_switcher")
         assert.is_true(Switcher.open())
         scan_task()
+        network_menu.custom_title_bar.action.callback()
 
         assert.are.equal(1, kindle_scans)
         assert.are.equal(1, #scheduled)
@@ -439,7 +497,7 @@ describe("network switcher", function()
         local Switcher = require("modules/menu/network_switcher")
         assert.is_true(Switcher.open())
         local refresh = network_menu.custom_title_bar.action
-        assert.are.equal("Refresh", refresh.text)
+        assert.are.equal("/tmp/zen-ui/icons/quick_sync.svg", refresh.file)
 
         scan_task()
         refresh.callback()

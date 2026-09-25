@@ -3,8 +3,7 @@ local active_menu
 
 function M.cancelScan()
     if not active_menu then return false end
-    active_menu:onClose()
-    return true
+    return active_menu.cancelScan()
 end
 
 function M.open(on_changed, settings_subpage, plugin)
@@ -38,6 +37,7 @@ function M.open(on_changed, settings_subpage, plugin)
     end
     local adapter = backend.new()
     local closed, busy, busy_device, scanning = false, false, nil, false
+    local scan_sequence = 0
     local scan_warning
     local devices = {}
     local menu, render, show_actions, start
@@ -216,7 +216,10 @@ function M.open(on_changed, settings_subpage, plugin)
         back_visible = settings_subpage == true,
         close_callback = close_menu, plugin = plugin,
         search_visible = false, title = _("Bluetooth devices"), title_full_width = true,
-        action = { text = _("Refresh"), callback = function() start() end },
+        action = {
+            file = utils.resolveLocalIcon(plugin_root and plugin_root .. "/icons/", "quick_sync"),
+            callback = function() start() end,
+        },
     }
     menu = Menu:new{
         name = "bluetooth_switcher", title = _("Bluetooth devices"),
@@ -261,9 +264,24 @@ function M.open(on_changed, settings_subpage, plugin)
         if row and row.device then show_actions(row.device) end
         return true
     end
+    menu.cancelScan = function()
+        if closed or not scanning then return false end
+        scanning = false
+        scan_sequence = scan_sequence + 1
+        if adapter.cancelScan then
+            adapter.cancelScan()
+        else
+            adapter.close()
+            adapter = backend.new()
+        end
+        render()
+        return true
+    end
 
     local function scan()
         if closed then return end
+        scan_sequence = scan_sequence + 1
+        local sequence = scan_sequence
         if adapter.id == "kindle" then
             show_status(_("Searching for devices…"))
         else
@@ -271,7 +289,7 @@ function M.open(on_changed, settings_subpage, plugin)
             if #devices == 0 then show_status(_("Searching for devices…")) end
         end
         adapter.scan(function(ok, err)
-            if closed then return end
+            if closed or sequence ~= scan_sequence then return end
             scanning = false
             if ok then
                 load_devices()
@@ -288,7 +306,7 @@ function M.open(on_changed, settings_subpage, plugin)
         if Bluetooth.isEnabled() then scan(); return end
         show_status(_("Turning on Bluetooth…"))
         Bluetooth.setEnabled(true, function(ok, err)
-            if closed then return end
+            if closed or not scanning then return end
             if not ok then
                 scanning = false
                 show_status(err or _("Could not turn on Bluetooth."))

@@ -7,7 +7,8 @@ describe("Bluetooth state cache", function()
         originals = {}
         for _i, name in ipairs({
             "device", "modules/menu/bluetooth/kobo_bluetooth", "common/zen_logger", "modules/menu/bluetooth/bluetooth",
-            "modules/menu/bluetooth_switcher", "ui/uimanager", "liblipclua",
+            "modules/menu/bluetooth_switcher", "modules/menu/bluetooth_adapters/kindle",
+            "ui/uimanager", "liblipclua",
         }) do
             originals[name] = package.loaded[name] or false
         end
@@ -24,6 +25,9 @@ describe("Bluetooth state cache", function()
         ZenSpec.replace("common/zen_logger", {
             new = function() return { info = function() end, warn = function() end } end,
         })
+        ZenSpec.replace("modules/menu/bluetooth_adapters/kindle", { new = function()
+            return { getDeviceList = function() return {} end, close = function() end }
+        end, logServiceState = function() end })
         ZenSpec.unload("modules/menu/bluetooth/bluetooth")
     end)
 
@@ -84,7 +88,7 @@ describe("Bluetooth state cache", function()
         ZenSpec.replace("modules/menu/bluetooth_switcher", { cancelScan = function()
             cancelled = true
         end })
-        local request_ok = true
+        local request_ok, btenable_ok = true, true
         state = true
         ZenSpec.replace("ui/uimanager", { scheduleIn = function(_self, _delay, callback)
             scheduled[#scheduled + 1] = callback
@@ -92,10 +96,18 @@ describe("Bluetooth state cache", function()
         ZenSpec.replace("liblipclua", { init = function()
             return {
                 get_int_property = function() return state and 1 or 0 end,
+                set_int_property = function(_self, _service, property, value)
+                    requests[#requests + 1] = { property, value }
+                    if not request_ok then error("LIPC request failed") end
+                    state = value == 0
+                    return 0
+                end,
                 set_string_property = function(_self, _service, property, value)
                     if value == "0:1" then assert.is_true(cancelled) end
                     requests[#requests + 1] = { property, value }
-                    if not request_ok then error("LIPC request failed") end
+                    if not request_ok or (property == "BTenable" and not btenable_ok) then
+                        error("LIPC request failed")
+                    end
                     if property == "BTenable" then state = value == "1:1" end
                     return {} -- liblipclua may return a handle rather than a status code.
                 end,
@@ -117,6 +129,17 @@ describe("Bluetooth state cache", function()
         assert.is_true(Bluetooth.getState())
         no_shell:revert()
 
+        btenable_ok = false
+        local enable_shell = stub(os, "execute", function() return 1 end)
+        assert.is_true(Bluetooth.setEnabled(false, function(ok) results[#results + 1] = ok end))
+        enable_shell:revert()
+        assert.are.same({ { "BTenable", "0:1" }, { "BTenable", "1:1" },
+            { "BTenable", "0:1" }, { "BTflightMode", 1 } }, requests)
+        assert.are.same({ true, true, true }, results)
+        assert.is_false(Bluetooth.getState())
+
+        btenable_ok = true
+        state = true
         request_ok = false
         local shell_requests = {}
         local execute_stub = stub(os, "execute", function(command)
@@ -124,15 +147,26 @@ describe("Bluetooth state cache", function()
             return 1
         end)
         local accepted = Bluetooth.setEnabled(false, function(ok) results[#results + 1] = ok end)
-        execute_stub:revert()
         assert.is_false(accepted)
-        assert.are.equal(1, #shell_requests)
+        assert.are.equal(2, #shell_requests)
         assert.is_truthy(shell_requests[1]:find("BTenable 0:1", 1, true))
-        assert.are.same({ true, true, false }, results)
+        assert.is_truthy(shell_requests[2]:find("BTflightMode 1", 1, true))
+        assert.are.same({ true, true, true, false }, results)
         assert.is_true(Bluetooth.getState())
+
+        ZenSpec.replace("modules/menu/bluetooth_adapters/kindle", { new = function()
+            return {
+                getDeviceList = function() return { { address = "AA:BB:CC:DD:EE:FF", connected = true } } end,
+                disconnect = function(_device, callback) callback(true) end,
+                close = function() end,
+            }
+        end, logServiceState = function() end })
+        assert.is_false(Bluetooth.setEnabled(false, function(ok) results[#results + 1] = ok end))
+        assert.is_false(results[#results])
+        execute_stub:revert()
     end)
 
-    it("uses Kindle flight mode when BTenable stalls and verifies the delayed state", function()
+    it("keeps verifying delayed Kindle power changes if BTflightMode fallback fails", function()
         ZenSpec.replace("device", { isKindle = function() return true end })
         local scheduled, requests, delays = {}, {}, {}
         local radio_state = 2
@@ -145,16 +179,17 @@ describe("Bluetooth state cache", function()
                 get_int_property = function() return radio_state end,
                 set_string_property = function(_self, _service, property, value)
                     requests[#requests + 1] = { property, value }
-                    return {}
+                    return 0
                 end,
                 set_int_property = function(_self, _service, property, value)
                     requests[#requests + 1] = { property, value }
-                    return 0
+                    error("BTflightMode unavailable")
                 end,
                 close = function() end,
             }
         end })
         local Bluetooth = require("modules/menu/bluetooth/bluetooth")
+        local shell_stub = stub(os, "execute", function() return 1 end)
         local results = {}
         Bluetooth.setEnabled(false, function(ok) results[#results + 1] = ok end)
         assert.are.same({ { "BTenable", "0:1" } }, requests)
@@ -179,5 +214,14 @@ describe("Bluetooth state cache", function()
         table.remove(scheduled, 1)()
         assert.are.same({ true, true }, results)
         assert.are.equal(0, #scheduled)
+
+        local popen_stub = stub(io, "popen", function()
+            return { read = function() return 1 end, close = function() end }
+        end)
+        Bluetooth.setEnabled(false, function(ok) results[#results + 1] = ok end)
+        for _i = 1, 7 do table.remove(scheduled, 1)() end
+        assert.are.same({ true, true, false }, results)
+        popen_stub:revert()
+        shell_stub:revert()
     end)
 end)

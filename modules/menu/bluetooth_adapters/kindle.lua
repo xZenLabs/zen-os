@@ -5,6 +5,7 @@ local logger = require("common/zen_logger").new("bluetooth_kindle")
 local M = {}
 local SERVICE = "com.lab126.btfd"
 local UNSUPPORTED = "Bluetooth device management is not supported by this Kindle firmware."
+local next_scan_id = 0
 
 local function with_handle(property, callback)
     local ok, lipc = pcall(require, "libopenlipclua")
@@ -46,8 +47,7 @@ local function write_property(property, value, numeric)
     local result, err = with_handle(property, function(handle)
         local setter = numeric and handle.set_int_property or handle.set_string_property
         if type(setter) ~= "function" then error(UNSUPPORTED) end
-        local status = setter(handle, SERVICE, property, value)
-        if property == "triggerBTscan" then logger.info("triggerBTscan return:", tostring(status)) end
+        setter(handle, SERVICE, property, value)
         return true
     end)
     return result == true, err
@@ -93,13 +93,31 @@ function M.isSupported(Device)
     return Device.isKindle and Device:isKindle()
 end
 
+function M.logServiceState(context, handle)
+    local function read(property)
+        if type(handle.get_int_property) ~= "function" then return "unavailable" end
+        local ok, value = pcall(handle.get_int_property, handle, SERVICE, property)
+        return ok and tostring(value) or "error:" .. tostring(value)
+    end
+    logger.info("btfd", context,
+        "BTstate=", read("BTstate"), "mode=", read("currentBTOperatingMode"),
+        "btch_running=", read("isBtchRunning"),
+        "btch_queued=", read("isBtchQueuedOrRunning"))
+end
+
 function M.new()
     local adapter = { id = "kindle" }
-    local function finish_scan()
-        -- Notify btfd before a subsequent power-off request.
-        local ok, err = write_property("btPopupDone", "", false)
-        logger.info("btPopupDone request:", tostring(ok))
-        return ok, err or "Could not finish Bluetooth discovery."
+    local function finish_scan(reason)
+        local handle = adapter.scan_handle
+        if not handle then return end
+        adapter.scan_handle = nil
+        logger.info("scan", adapter.scan_id, "finishing:", reason)
+        M.logServiceState("scan " .. adapter.scan_id .. " before DiscoverA2DP cancel", handle)
+        local cancelled, cancel_result = pcall(handle.set_int_property, handle, SERVICE, "DiscoverA2DP", 0)
+        logger.info("DiscoverA2DP cancel LIPC:", tostring(cancelled), "result=", tostring(cancel_result))
+        M.logServiceState("scan " .. adapter.scan_id .. " after DiscoverA2DP cancel", handle)
+        local closed, close_result = pcall(handle.close, handle)
+        logger.info("scan", adapter.scan_id, "handle close:", tostring(closed), tostring(close_result))
     end
 
     function adapter.getDeviceList()
@@ -109,6 +127,8 @@ function M.new()
         if not paired then return nil, pair_error end
         local connected, connection_error = read_hash("ListConnected")
         if not connected then return nil, connection_error end
+        logger.info("device list counts:", "scan=", tostring(adapter.scan_id),
+            "discovered=", #discovered, "paired=", #paired, "connected=", #connected)
         local devices, by_address, invalid = {}, {}, false
         local function merge(list, field, property)
             local malformed = next(list) and #list == 0 or false
@@ -152,17 +172,40 @@ function M.new()
     end
 
     function adapter.scan(done)
-        local ok, err = write_property("triggerBTscan", 1, true)
-        if not ok then done(false, err); return end
+        next_scan_id = next_scan_id + 1
+        adapter.scan_id = next_scan_id
+        logger.info("scan", adapter.scan_id, "starting")
+        local available, lipc = pcall(require, "liblipclua")
+        if not available or type(lipc) ~= "table" or type(lipc.init) ~= "function" then
+            done(false, UNSUPPORTED)
+            return
+        end
+        local opened, handle = pcall(lipc.init, "com.github.koreader.zenui.bluetooth.scan")
+        if not opened or not handle then done(false, UNSUPPORTED); return end
+        M.logServiceState("scan " .. adapter.scan_id .. " before DiscoverA2DP", handle)
+        local ok, result = pcall(handle.set_int_property, handle, SERVICE, "DiscoverA2DP", 1)
+        logger.info("scan", adapter.scan_id, "DiscoverA2DP LIPC:", tostring(ok),
+            "result=", tostring(result))
+        if not ok then
+            pcall(handle.close, handle)
+            done(false, UNSUPPORTED)
+            return
+        end
+        M.logServiceState("scan " .. adapter.scan_id .. " after DiscoverA2DP", handle)
+        adapter.scan_handle = handle
         adapter.scan_done = done
-        adapter.scan_timer = function()
-            if adapter.closed then return end
+        local timer
+        timer = function()
+            if adapter.closed or adapter.scan_timer ~= timer then return end
             adapter.scan_timer = nil
             adapter.scan_done = nil
-            local finished, finish_error = finish_scan()
-            done(finished, finished and nil or finish_error)
+            logger.info("scan", adapter.scan_id, "timer elapsed; reading results")
+            local completed, callback_error = pcall(done, true)
+            finish_scan("timer")
+            if not completed then error(callback_error) end
         end
-        UIManager:scheduleIn(10, adapter.scan_timer)
+        adapter.scan_timer = timer
+        UIManager:scheduleIn(10, timer)
     end
 
     local function action(property, device, field, expected, done)
@@ -178,16 +221,20 @@ function M.new()
     function adapter.connect(device, done) action("Connect", device, "connected", true, done) end
     function adapter.disconnect(device, done) action("Disconnect", device, "connected", false, done) end
     function adapter.forget(device, done) action("Unbond", device, "paired", false, done) end
-    function adapter.close()
-        Common.close(adapter)
+    function adapter.cancelScan()
         if adapter.scan_timer then
+            logger.info("scan", adapter.scan_id, "cancel requested")
             UIManager:unschedule(adapter.scan_timer)
-            finish_scan()
+            finish_scan("cancel")
         end
         adapter.scan_timer = nil
         local done = adapter.scan_done
         adapter.scan_done = nil
         if done then done(false, "Cancelled.") end
+    end
+    function adapter.close()
+        Common.close(adapter)
+        adapter.cancelScan()
     end
     return adapter
 end
