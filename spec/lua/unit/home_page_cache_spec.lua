@@ -1610,10 +1610,14 @@ describe("home data and book caches", function()
         assert.is_true(items[1].is_folder)
         assert.are.equal("Subfolder", items[1].group_label)
         assert.are.equal("/library/alpha.epub", items[2].path)
+        assert.are.same({ total = 2, total_pages = 2, current_page = 1 },
+            provider:getStripPageInfo(source, 1, "default", "strip", 0))
 
         source.drill = { label = "Subfolder", path = "/library/Subfolder" }
         items = provider:getStripItemsForPage(source, 4, "default", "strip", 0)
         assert.are.equal("/library/Subfolder/nested.epub", items[1].path)
+        assert.are.same({ total = 1, total_pages = 1, current_page = 1 },
+            provider:getStripPageInfo(source, 1, "default", "strip", 0))
     end)
 
     it("prefers authoritative status for dimming over cached metadata", function()

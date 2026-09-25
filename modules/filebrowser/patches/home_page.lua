@@ -2196,13 +2196,14 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         local kind = type(request) == "table" and (request.kind or "recent") or request
         if type(request) == "table" and kind ~= "recent" and kind ~= "to_be_read" then
             local values
-            if type(request.drill) == "table" then
+            if kind == "folder" then
+                values = folder_items(type(request.drill) == "table"
+                    and request.drill.path or request.value)
+            elseif type(request.drill) == "table" then
                 values = resolve_drill_files(request)
             elseif kind == "authors" or kind == "series" or kind == "languages"
                     or kind == "tags" or kind == "collections" then
                 values = source_groups(kind)
-            elseif kind == "folder" then
-                values = folder_files(request.value)
             else
                 values = descriptor_paths(request)
             end
