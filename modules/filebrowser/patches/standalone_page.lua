@@ -328,6 +328,9 @@ function M.apply_status_row(menu, params)
     local createStatusRow = params.createStatusRow
     local createStatusRowCustomBack = params.createStatusRowCustomBack
     local repaintTitleBar = params.repaintTitleBar
+    local statusRowRefreshRegions = params.statusRowRefreshRegions
+        or require("common/shared_state").get(
+            _zen_plugin or rawget(_G, "__ZEN_UI_PLUGIN"), "statusRowRefreshRegions")
     local back_callback = params.back_callback
     local label = params.label
 
@@ -354,10 +357,29 @@ function M.apply_status_row(menu, params)
         set_title_row(build_row())
     end
 
-    menu._zen_status_refresh = function(_self, suppress_repaint)
+    menu._zen_status_refresh = function(_self, suppress_repaint, item_keys)
         if tb.title_group and #tb.title_group >= 2 then
-            set_title_row(build_row())
-            if repaintTitleBar and suppress_repaint ~= true then repaintTitleBar(tb) end
+            local previous = tb.title_group[2]
+            local current = build_row()
+            local regions
+            if type(item_keys) == "table" and type(statusRowRefreshRegions) == "function"
+                    and previous and previous.dimen and current then
+                local old_size, new_size = previous:getSize(), current:getSize()
+                if old_size.w == new_size.w and old_size.h == new_size.h then
+                    local relative = statusRowRefreshRegions(previous, current)
+                    if #relative == 0 then WidgetResources.free(current); return end
+                    regions = {}
+                    for _i, region in ipairs(relative) do
+                        regions[#regions + 1] = Geom:new{
+                            x = previous.dimen.x + region.x,
+                            y = previous.dimen.y + region.y,
+                            w = region.w, h = region.h,
+                        }
+                    end
+                end
+            end
+            set_title_row(current)
+            if repaintTitleBar and suppress_repaint ~= true then repaintTitleBar(tb, regions) end
         end
     end
 

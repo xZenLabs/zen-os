@@ -42,7 +42,7 @@ See the [Home guide](docs/home.md).
 
 ### Controls
 
-Swipe down from anywhere for up to nine configurable controls plus brightness and warmth sliders. Buttons can toggle device features, run dispatcher actions, open plugins or KOReader menus, and expose installed integrations such as Bluetooth, Tailscale, and ZenFM. Tailscale can toggle Wi-Fi with itself, and optional hatching fills the area below the top menu. Hold the minus button on a lighting slider to jump to zero.
+Swipe down from anywhere for up to nine configurable controls plus brightness and warmth sliders. Buttons can toggle device features, run dispatcher actions, open plugins or KOReader menus, and expose installed integrations such as Bluetooth, Tailscale, and ZenFM. Tap Bluetooth to toggle it, or hold it to manage connections on Kindle, Kobo, and PocketBook. Tailscale can toggle Wi-Fi with itself, and optional hatching fills the area below the top menu. Hold the minus button on a lighting slider to jump to zero.
 
 <img src="./images/quickstart/onboarding/quicksettings.png" width="500" alt="Quick Settings">
 
@@ -242,6 +242,7 @@ ZenOS is original work, but it wouldn't exist without the broader KOReader commu
 - **[AndyHazz/bookshelf.koplugin](https://github.com/AndyHazz/bookshelf.koplugin)** — Inspiration for the Bookshelf home preset.
 - **[kristianpennacchia/zzz-readermenuredesign.koplugin](https://github.com/kristianpennacchia/zzz-readermenuredesign.koplugin)** — Inspiration for the reader search menu redesign
 - **[OGKevin/kobo.koplugin](https://github.com/OGKevin/kobo.koplugin)** — Reference for Kobo Bluetooth control, including MediaTek D-Bus and Libra 2 BlueZ behavior.
+- **[sabrina553/bluetooth.koplugin](https://github.com/sabrina553/bluetooth.koplugin)** — Reference for PocketBook `netagent` and BlueZ Bluetooth management (GPL-3.0).
 - **[Tharavol/bluetooth.koplugin](https://github.com/Tharavol/bluetooth.koplugin)** — Reference for Kobo Sage Realtek Bluetooth bring-up.
 - **[rameezk/rebind.koplugin](https://github.com/rameezk/rebind.koplugin)** — The EPUB metadata mutation code is adapted from Rebind under the MIT License.
 - **[Phrogz/SLAXML](https://github.com/Phrogz/SLAXML)** — ZenOS vendors SLAXML's parser and DOM serializer under the MIT License.

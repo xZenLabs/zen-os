@@ -6461,3 +6461,63 @@ msgstr "Realce"
 #. Type: setting
 msgid "Highlight color: %1"
 msgstr "Cor do realce: %1"
+
+#. Type: menu
+msgid "Bluetooth devices"
+msgstr "Dispositivos Bluetooth"
+
+#. Type: menu
+msgid "Searching for devices…"
+msgstr "A procurar dispositivos…"
+
+#. Type: menu
+msgid "No Bluetooth devices found."
+msgstr "Não foram encontrados dispositivos Bluetooth."
+
+#. Type: menu
+msgid "Turning on Bluetooth…"
+msgstr "A ativar o Bluetooth…"
+
+#. Type: menu
+msgid "Could not turn on Bluetooth."
+msgstr "Não foi possível ativar o Bluetooth."
+
+#. Type: menu
+msgid "Bluetooth scan failed."
+msgstr "A pesquisa Bluetooth falhou."
+
+#. Type: menu
+msgid "Could not read Bluetooth devices."
+msgstr "Não foi possível ler os dispositivos Bluetooth."
+
+#. Type: menu
+msgid "Updating…"
+msgstr "A atualizar…"
+
+#. Type: menu
+msgid "Could not connect"
+msgstr "Não foi possível estabelecer ligação"
+
+#. Type: menu
+msgid "Could not update %1."
+msgstr "Não foi possível atualizar %1."
+
+#. Type: menu
+msgid "Address"
+msgstr "Endereço"
+
+#. Type: menu
+msgid "Paired"
+msgstr "Emparelhado"
+
+#. Type: menu
+msgid "Pair"
+msgstr "Emparelhar"
+
+#. Type: menu
+msgid "Forget Bluetooth device %1?"
+msgstr "Esquecer o dispositivo Bluetooth %1?"
+
+#. Type: menu
+msgid "Bluetooth device management is unavailable on this device."
+msgstr "A gestão de dispositivos Bluetooth não está disponível neste dispositivo."

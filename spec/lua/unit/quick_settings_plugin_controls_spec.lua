@@ -41,7 +41,7 @@ describe("quick settings plugin controls", function()
         "common/shared_state",
         "common/settings_transition",
         "common/ui/button_label_width",
-        "common/bluetooth",
+        "modules/menu/bluetooth/bluetooth",
         "modules/menu/patches/brightness_slider",
         "modules/menu/patches/warmth_slider",
         "gettext",
@@ -176,7 +176,7 @@ describe("quick settings plugin controls", function()
             maxWidth = function(width) return width end,
             SIDE_PADDING = 0,
         })
-        ZenSpec.replace("common/bluetooth", {
+        ZenSpec.replace("modules/menu/bluetooth/bluetooth", {
             isAvailable = function() return false end,
         })
         ZenSpec.replace("modules/menu/patches/brightness_slider", function() end)

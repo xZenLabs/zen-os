@@ -91,7 +91,7 @@ describe("Controls destination settings", function()
             getIconPickerList = function() return {} end,
             getIconDisplayName = function(name) return name end,
         })
-        ZenSpec.replace("common/bluetooth", { isAvailable = function() return false end })
+        ZenSpec.replace("modules/menu/bluetooth/bluetooth", { isAvailable = function() return false end })
         ZenSpec.replace("common/library_destination", {
             folderLabel = function(path) return path:match("([^/]+)$") or path end,
             chooseFolder = function(callback) choose_folder = callback end,

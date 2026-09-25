@@ -5,6 +5,8 @@
 local _ = require("gettext")
 local T = require("ffi/util").template
 local NetworkMgr = require("ui/network/manager")
+local Bluetooth = require("modules/menu/bluetooth/bluetooth")
+local Event = require("ui/event")
 local UIManager = require("ui/uimanager")
 local utils = require("modules/settings/zen_settings_utils")
 local bugreporter = require("modules/settings/zen_bugreporter")
@@ -78,6 +80,36 @@ function M.build(ctx)
         keep_menu_open = true,
     })
     items[2], items[3] = items[3], items[2]
+    local device_items = items[3].sub_item_table
+
+    local has_bluetooth = Bluetooth.isAvailable()
+    if has_bluetooth then
+        table.insert(items, 3, {
+            text = _("Bluetooth"),
+            checked_func = function()
+                local state = Bluetooth.getCachedState()
+                if state ~= nil then return state end
+                return Bluetooth.isEnabled()
+            end,
+            checkmark_callback = function(touch_menu)
+                Bluetooth.toggle(function(success, reason)
+                    if success then
+                        UIManager:broadcastEvent(Event:new("BluetoothStateChanged"))
+                    else
+                        local InfoMessage = require("ui/widget/infomessage")
+                        UIManager:show(InfoMessage:new{ text = reason or _("Could not change Bluetooth power.") })
+                    end
+                    touch_menu:updateItems()
+                    if touch_menu._zen_status_refresh then touch_menu:_zen_status_refresh() end
+                end)
+            end,
+            _zen_settings_submenu = true,
+            callback = function()
+                require("modules/menu/bluetooth_switcher").open(nil, true, plugin)
+            end,
+            keep_menu_open = true,
+        })
+    end
 
     table.insert(items, {
         text = _("Setup Guide"),
@@ -115,7 +147,6 @@ function M.build(ctx)
         end,
     })
 
-    local device_items = items[3].sub_item_table
     local language_setting = require("ui/language"):getLangMenuTable()
     table.insert(device_items, {
         text = language_setting.text,
@@ -140,10 +171,12 @@ function M.build(ctx)
 
     IconItem.decorate(items[1], icons.details)
     IconItem.decorate(items[2], icons.wifi_on)
-    IconItem.decorate(items[3], icons.settings_device)
-    IconItem.decorate(items[4], icons.settings_setup)
-    IconItem.decorate(items[5], icons.settings_bug)
-    IconItem.decorate(items[6], icons.settings_advanced)
+    if has_bluetooth then IconItem.decorate(items[3], icons.bluetooth_on) end
+    local offset = has_bluetooth and 1 or 0
+    IconItem.decorate(items[3 + offset], icons.settings_device)
+    IconItem.decorate(items[4 + offset], icons.settings_setup)
+    IconItem.decorate(items[5 + offset], icons.settings_bug)
+    IconItem.decorate(items[6 + offset], icons.settings_advanced)
     IconItem.decorate(device_items[#device_items - 1], icons.language)
     IconItem.decorate(device_items[#device_items], icons.tbr)
 

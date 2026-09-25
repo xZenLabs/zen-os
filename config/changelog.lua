@@ -348,6 +348,7 @@ return {
         "Fix TBR applying Library filter hiding all TBR books"
      },
      ["3.4.0"] = {
+        "Add Bluetooth device manager for Kindle, Kobo, and PocketBook (hold Bluetooth in Controls or open from Device settings)",
         "Add color pickers for Reader themes and highlights",
         "Add Airplane Mode control when the plugin is installed",
         "Add customizable Settings and Launcher controls",

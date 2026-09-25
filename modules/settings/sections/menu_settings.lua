@@ -14,7 +14,7 @@ local PluginScan = require("modules/menu/app_launcher/plugin_scan")
 local DispatcherMenu = require("common/dispatcher_menu")
 local icon_utils = require("common/utils")
 local Destination = require("common/library_destination")
-local Bluetooth = require("common/bluetooth")
+local Bluetooth = require("modules/menu/bluetooth/bluetooth")
 
 local M = {}
 

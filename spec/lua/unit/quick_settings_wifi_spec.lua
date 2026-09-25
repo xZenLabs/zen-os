@@ -34,7 +34,7 @@ describe("quick settings Wi-Fi", function()
         "common/shutdown",
         "common/restart",
         "common/shared_state",
-        "common/bluetooth",
+        "modules/menu/bluetooth/bluetooth",
         "modules/menu/patches/brightness_slider",
         "modules/menu/patches/warmth_slider",
         "gettext",
@@ -47,6 +47,7 @@ describe("quick settings Wi-Fi", function()
         "modules/menu/patches/touch_menu_panel",
         "modules/menu/network_adapters/kindle",
         "modules/menu/network_switcher",
+        "modules/menu/bluetooth_switcher",
         "ui/widget/touchmenu",
         "apps/filemanager/filemanagermenu",
         "apps/reader/modules/readermenu",
@@ -96,7 +97,7 @@ describe("quick settings Wi-Fi", function()
         ZenSpec.replace("common/shutdown", no_op)
         ZenSpec.replace("common/restart", no_op)
         ZenSpec.replace("common/shared_state", { get = function() end })
-        ZenSpec.replace("common/bluetooth", no_op)
+        ZenSpec.replace("modules/menu/bluetooth/bluetooth", no_op)
         ZenSpec.replace("modules/menu/patches/brightness_slider", function() end)
         ZenSpec.replace("modules/menu/patches/warmth_slider", function() end)
         ZenSpec.replace("gettext", function(text) return text end)
@@ -267,6 +268,38 @@ describe("quick settings Wi-Fi", function()
         NetworkMgr.current_ssid = "Home"
         UIManager.scheduled[1].callback()
         assert.are.equal(1, updates)
+    end)
+
+    it("keeps Bluetooth tap as power control and opens the manager on hold", function()
+        local toggles, opens, updates = 0, 0, 0
+        package.loaded["modules/menu/bluetooth/bluetooth"].toggle = function(callback)
+            toggles = toggles + 1
+            callback(true)
+            return true
+        end
+        ZenSpec.replace("modules/menu/bluetooth_switcher", { open = function(callback, subpage)
+            opens = opens + 1
+            assert.is_false(subpage)
+            callback()
+            return true
+        end })
+        local touch_menu = {
+            item_table = { panel = true },
+            updateItems = function() updates = updates + 1 end,
+        }
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("bluetooth", touch_menu))
+        assert.are.equal(1, toggles)
+        assert.are.equal(0, opens)
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.hold("bluetooth", touch_menu))
+        assert.are.equal(1, opens)
+        assert.are.equal(2, updates)
+
+        package.loaded["modules/menu/bluetooth/bluetooth"].toggle = function(callback)
+            callback(false, "Bluetooth power did not change.")
+        end
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("bluetooth", touch_menu))
+        assert.are.equal("Bluetooth power did not change.", UIManager.shown[#UIManager.shown].text)
+        assert.are.equal(3, updates)
     end)
 
     it("keeps KOReader's normal Wi-Fi action as the fallback", function()

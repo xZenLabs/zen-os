@@ -6462,3 +6462,63 @@ msgstr "Выделение"
 #. Type: setting
 msgid "Highlight color: %1"
 msgstr "Цвет выделения: %1"
+
+#. Type: menu
+msgid "Bluetooth devices"
+msgstr "Устройства Bluetooth"
+
+#. Type: menu
+msgid "Searching for devices…"
+msgstr "Поиск устройств…"
+
+#. Type: menu
+msgid "No Bluetooth devices found."
+msgstr "Устройства Bluetooth не найдены."
+
+#. Type: menu
+msgid "Turning on Bluetooth…"
+msgstr "Включение Bluetooth…"
+
+#. Type: menu
+msgid "Could not turn on Bluetooth."
+msgstr "Не удалось включить Bluetooth."
+
+#. Type: menu
+msgid "Bluetooth scan failed."
+msgstr "Сбой поиска устройств Bluetooth."
+
+#. Type: menu
+msgid "Could not read Bluetooth devices."
+msgstr "Не удалось получить список устройств Bluetooth."
+
+#. Type: menu
+msgid "Updating…"
+msgstr "Обновление…"
+
+#. Type: menu
+msgid "Could not connect"
+msgstr "Не удалось подключиться"
+
+#. Type: menu
+msgid "Could not update %1."
+msgstr "Не удалось обновить %1."
+
+#. Type: menu
+msgid "Address"
+msgstr "Адрес"
+
+#. Type: menu
+msgid "Paired"
+msgstr "Сопряжено"
+
+#. Type: menu
+msgid "Pair"
+msgstr "Сопрячь"
+
+#. Type: menu
+msgid "Forget Bluetooth device %1?"
+msgstr "Забыть устройство Bluetooth %1?"
+
+#. Type: menu
+msgid "Bluetooth device management is unavailable on this device."
+msgstr "Управление устройствами Bluetooth недоступно на этом устройстве."

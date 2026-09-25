@@ -6461,3 +6461,63 @@ msgstr "Markering"
 #. Type: setting
 msgid "Highlight color: %1"
 msgstr "Markeerkleur: %1"
+
+#. Type: menu
+msgid "Bluetooth devices"
+msgstr "Bluetooth-apparaten"
+
+#. Type: menu
+msgid "Searching for devices…"
+msgstr "Zoeken naar apparaten…"
+
+#. Type: menu
+msgid "No Bluetooth devices found."
+msgstr "Geen Bluetooth-apparaten gevonden."
+
+#. Type: menu
+msgid "Turning on Bluetooth…"
+msgstr "Bluetooth inschakelen…"
+
+#. Type: menu
+msgid "Could not turn on Bluetooth."
+msgstr "Bluetooth kon niet worden ingeschakeld."
+
+#. Type: menu
+msgid "Bluetooth scan failed."
+msgstr "Bluetooth-scan mislukt."
+
+#. Type: menu
+msgid "Could not read Bluetooth devices."
+msgstr "Bluetooth-apparaten konden niet worden gelezen."
+
+#. Type: menu
+msgid "Updating…"
+msgstr "Bijwerken…"
+
+#. Type: menu
+msgid "Could not connect"
+msgstr "Kan geen verbinding maken"
+
+#. Type: menu
+msgid "Could not update %1."
+msgstr "%1 kon niet worden bijgewerkt."
+
+#. Type: menu
+msgid "Address"
+msgstr "Adres"
+
+#. Type: menu
+msgid "Paired"
+msgstr "Gekoppeld"
+
+#. Type: menu
+msgid "Pair"
+msgstr "Koppelen"
+
+#. Type: menu
+msgid "Forget Bluetooth device %1?"
+msgstr "Bluetooth-apparaat %1 vergeten?"
+
+#. Type: menu
+msgid "Bluetooth device management is unavailable on this device."
+msgstr "Bluetooth-apparaatbeheer is niet beschikbaar op dit apparaat."

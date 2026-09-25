@@ -27,7 +27,7 @@ local function apply_quick_settings()
     local SharedState = require("common/shared_state")
     local SettingsTransition = require("common/settings_transition")
     local ButtonLabelWidth = require("common/ui/button_label_width")
-    local Bluetooth = require("common/bluetooth")
+    local Bluetooth = require("modules/menu/bluetooth/bluetooth")
     local build_brightness_slider = require("modules/menu/patches/brightness_slider")
     local build_warmth_slider     = require("modules/menu/patches/warmth_slider")
     local _ = require("gettext")
@@ -541,19 +541,22 @@ local function apply_quick_settings()
             visible_func = Bluetooth.isAvailable,
             active_func = Bluetooth.isEnabled,
             callback = function(touch_menu)
-                if Bluetooth.toggle(function()
+                Bluetooth.toggle(function(success, reason)
+                    if success then
+                        UIManager:broadcastEvent(Event:new("BluetoothStateChanged"))
+                    else
+                        local InfoMessage = require("ui/widget/infomessage")
+                        UIManager:show(InfoMessage:new{ text = reason or _("Could not change Bluetooth power.") })
+                    end
                     if touch_menu.item_table and touch_menu.item_table.panel then
                         touch_menu:updateItems(1)
                     end
-                end) then
-                    UIManager:scheduleIn(0.5, function()
-                        Bluetooth.logState("0.5 s after control toggle")
-                        UIManager:broadcastEvent(Event:new("BluetoothStateChanged"))
-                        if touch_menu.item_table and touch_menu.item_table.panel then
-                            touch_menu:updateItems(1)
-                        end
-                    end)
-                end
+                end)
+            end,
+            hold_callback = function(touch_menu)
+                return require("modules/menu/bluetooth_switcher").open(function()
+                    refreshQuickSettings(touch_menu)
+                end, false, zen_plugin)
             end,
         },
         wifi = {

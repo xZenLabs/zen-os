@@ -79,6 +79,8 @@ function M.open(on_connected, settings_subpage, plugin)
     local network_list = {}
     local render_networks
     local show_network_actions
+    local start_scan
+    local scanning = false
     local settings_font_size = IconItem.getSettingsFontSize()
 
     local function status_items(text)
@@ -103,6 +105,10 @@ function M.open(on_connected, settings_subpage, plugin)
         search_visible = false,
         title = _("Wi-Fi networks"),
         title_full_width = true,
+        action = {
+            file = utils.resolveLocalIcon(plugin_root and plugin_root .. "/icons/", "quick_sync"),
+            callback = function() start_scan() end,
+        },
     }
     menu = Menu:new{
         name = "network_switcher",
@@ -450,7 +456,7 @@ function M.open(on_connected, settings_subpage, plugin)
                 prompt_password(network, _("Enter a new Wi-Fi password."))
             end)
         end
-        if network.connected then
+        if network.connected and not network.preview then
             add(icons.wifi_off .. "  " .. _("Disconnect"), function()
                 disconnect_network(network)
             end)
@@ -549,7 +555,6 @@ function M.open(on_connected, settings_subpage, plugin)
         menu:switchItemTable(nil, items, selected_index)
     end
 
-    local start_scan
     local function scan_networks()
         if closed then return end
         show_status(_("Searching for networks…"))
@@ -567,6 +572,7 @@ function M.open(on_connected, settings_subpage, plugin)
         logger.dbg("scan started", "adapter=", adapter and adapter.id)
         local function load_results(scanned, scan_error)
             if closed then return end
+            scanning = false
             if scanned == false then
                 logger.warn("adapter scan failed", scan_error)
                 show_status(_("Scanning for Wi-Fi networks timed out."))
@@ -596,7 +602,8 @@ function M.open(on_connected, settings_subpage, plugin)
     end
 
     start_scan = function()
-        if closed then return end
+        if closed or scanning then return end
+        scanning = true
         if NetworkMgr:isWifiOn() then
             scan_networks()
             return
@@ -606,6 +613,7 @@ function M.open(on_connected, settings_subpage, plugin)
         logger.dbg("turning on Wi-Fi for scan")
         local powered_on, reason = turn_on_wifi()
         if not powered_on then
+            scanning = false
             logger.warn("could not turn on Wi-Fi for scan", reason)
             show_status(reason)
             return
@@ -615,7 +623,31 @@ function M.open(on_connected, settings_subpage, plugin)
 
     UIManager:show(menu)
     UIManager:forceRePaint()
-    UIManager:tickAfterNext(start_scan)
+    UIManager:tickAfterNext(function()
+        if closed then return end
+        if NetworkMgr:isWifiOn() then
+            local has_connection_check = type(NetworkMgr.isConnected) == "function"
+            local connected = has_connection_check and NetworkMgr:isConnected()
+            local ok_current, current = pcall(NetworkMgr.getCurrentNetwork, NetworkMgr)
+            local has_ssid = ok_current and current and type(current.ssid) == "string"
+                and current.ssid ~= ""
+            if connected or (not has_connection_check and has_ssid) then
+                if has_ssid then
+                    if adapter then
+                        previous_network = current
+                        previous_ip = get_ip()
+                    end
+                    network_list = {{ ssid = current.ssid, connected = true,
+                        flags = "—", preview = true }}
+                    render_networks()
+                else
+                    show_status(_("Connected"))
+                end
+                return
+            end
+        end
+        start_scan()
+    end)
     return true
 end
 

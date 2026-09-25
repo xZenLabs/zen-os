@@ -6461,3 +6461,63 @@ msgstr "Evidențiere"
 #. Type: setting
 msgid "Highlight color: %1"
 msgstr "Culoare evidențiere: %1"
+
+#. Type: menu
+msgid "Bluetooth devices"
+msgstr "Dispozitive Bluetooth"
+
+#. Type: menu
+msgid "Searching for devices…"
+msgstr "Se caută dispozitive…"
+
+#. Type: menu
+msgid "No Bluetooth devices found."
+msgstr "Nu s-au găsit dispozitive Bluetooth."
+
+#. Type: menu
+msgid "Turning on Bluetooth…"
+msgstr "Se activează Bluetooth…"
+
+#. Type: menu
+msgid "Could not turn on Bluetooth."
+msgstr "Bluetooth nu a putut fi activat."
+
+#. Type: menu
+msgid "Bluetooth scan failed."
+msgstr "Scanarea Bluetooth a eșuat."
+
+#. Type: menu
+msgid "Could not read Bluetooth devices."
+msgstr "Dispozitivele Bluetooth nu au putut fi citite."
+
+#. Type: menu
+msgid "Updating…"
+msgstr "Se actualizează…"
+
+#. Type: menu
+msgid "Could not connect"
+msgstr "Nu s-a putut conecta"
+
+#. Type: menu
+msgid "Could not update %1."
+msgstr "%1 nu a putut fi actualizat."
+
+#. Type: menu
+msgid "Address"
+msgstr "Adresă"
+
+#. Type: menu
+msgid "Paired"
+msgstr "Asociat"
+
+#. Type: menu
+msgid "Pair"
+msgstr "Asociază"
+
+#. Type: menu
+msgid "Forget Bluetooth device %1?"
+msgstr "Uitați dispozitivul Bluetooth %1?"
+
+#. Type: menu
+msgid "Bluetooth device management is unavailable on this device."
+msgstr "Gestionarea dispozitivelor Bluetooth nu este disponibilă pe acest dispozitiv."

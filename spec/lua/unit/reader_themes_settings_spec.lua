@@ -11,7 +11,7 @@ describe("reader themes settings", function()
         reader_store = { settings = { footer = { existing = true } } }
         highlight_names_plugin = nil
         ZenSpec.replace("gettext", function(text) return text end)
-        ZenSpec.replace("common/bluetooth", { isAvailable = function() return false end })
+        ZenSpec.replace("modules/menu/bluetooth/bluetooth", { isAvailable = function() return false end })
         ZenSpec.replace("ui/uimanager", {
             show = function(_, dialog) shown_dialog = dialog end,
             close = function() end,
