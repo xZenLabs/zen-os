@@ -124,6 +124,29 @@ describe("Bluetooth switcher", function()
         assert.are.equal(3, changed)
     end)
 
+    it("taps disconnected devices and holds for their actions", function()
+        require("modules/menu/bluetooth_switcher").open()
+        local paired_row = menu.item_table[2]
+        assert.is_false(paired_row._zen_has_submenu)
+        menu:onMenuSelect(paired_row, { x = 0.95 })
+        assert.is_true(paired_row.device.connected)
+        assert.are.equal("connect", adapter.last_action)
+        assert.are.equal(1, #shown)
+
+        local available_row = menu.item_table[3]
+        assert.is_false(available_row._zen_has_submenu)
+        menu:onMenuHold(available_row)
+        local actions = shown[#shown]
+        assert.are.equal("Headphones", actions.title)
+        assert.is_truthy(actions.buttons[2][1].text:find("Pair", 1, true))
+
+        local shown_count = #shown
+        menu:onMenuSelect(available_row, { x = 0.95 })
+        assert.are.equal(shown_count, #shown)
+        assert.is_true(available_row.device.paired)
+        assert.is_true(available_row.device.connected)
+    end)
+
     it("shows pair and connect progress beneath the device name", function()
         local pending_pair, pending_connect
         adapter.pair = function(_device, done) pending_pair = done end
@@ -149,6 +172,27 @@ describe("Bluetooth switcher", function()
         pending_connect(true)
         assert.are.equal("Headphones", menu.item_table[1].text)
         assert.are.equal("Connected · -45 dBm", menu.item_table[1]._zen_settings_breadcrumb)
+    end)
+
+    it("shows a failed connection beneath its device without replacing the list", function()
+        local connect_done
+        adapter.connect = function(_device, done) connect_done = done end
+        require("modules/menu/bluetooth_switcher").open()
+        adapter.scan_done(true)
+
+        menu:onMenuSelect(menu.item_table[2], { x = 0.95 })
+        assert.are.equal("Updating…", menu.item_table[2]._zen_settings_breadcrumb)
+        connect_done(false, "Bluetooth device did not change state.")
+        assert.are.same({ "Speaker", "Page turner", "Headphones" },
+            { menu.item_table[1].text, menu.item_table[2].text, menu.item_table[3].text })
+        assert.are.equal("Could not connect", menu.item_table[2]._zen_settings_breadcrumb)
+        assert.is_true(menu.item_table[2].device.paired)
+
+        menu:onMenuSelect(menu.item_table[2], { x = 0.95 })
+        assert.are.equal("Updating…", menu.item_table[2]._zen_settings_breadcrumb)
+        connect_done(false, "Bluetooth device did not change state.")
+        menu.custom_title_bar.action.callback()
+        assert.are.equal("Paired · -80 dBm", menu.item_table[2]._zen_settings_breadcrumb)
     end)
 
     it("powers on before scanning and confirms forget", function()

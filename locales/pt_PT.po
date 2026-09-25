@@ -6495,6 +6495,10 @@ msgid "Updating…"
 msgstr "A atualizar…"
 
 #. Type: menu
+msgid "Could not connect"
+msgstr "Não foi possível estabelecer ligação"
+
+#. Type: menu
 msgid "Could not update %1."
 msgstr "Não foi possível atualizar %1."
 

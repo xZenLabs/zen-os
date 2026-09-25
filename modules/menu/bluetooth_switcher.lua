@@ -39,6 +39,7 @@ function M.open(on_changed, settings_subpage, plugin)
     local closed, busy, busy_device, scanning = false, false, nil, false
     local scan_sequence = 0
     local scan_warning
+    local operation_error
     local devices = {}
     local menu, render, show_actions, start
     IconItem.installMenuPatch()
@@ -82,13 +83,19 @@ function M.open(on_changed, settings_subpage, plugin)
         if closed or busy then return end
         busy = true
         busy_device = device.address
+        operation_error = nil
         render(device.address)
         adapter[action](device, function(ok, err)
             if closed then return end
             busy = false
             busy_device = nil
             if not ok then
-                show_status(err or T(_("Could not update %1."), device.name))
+                operation_error = {
+                    address = device.address,
+                    text = action == "connect" and _("Could not connect")
+                        or err or T(_("Could not update %1."), device.name),
+                }
+                render(device.address)
                 return
             end
             notify_changed()
@@ -185,11 +192,13 @@ function M.open(on_changed, settings_subpage, plugin)
                 _zen_settings_row = true,
                 _zen_display_text = device.name,
                 _zen_settings_breadcrumb = busy_device == device.address and _("Updating…")
+                    or operation_error and operation_error.address == device.address
+                        and operation_error.text
                     or signal and status .. " · " .. signal or status,
                 _zen_value_black = true,
                 _zen_primary_bold = device.connected == true,
-                _zen_has_submenu = true,
-                _zen_caret_icon = more_icon,
+                _zen_has_submenu = device.connected == true,
+                _zen_caret_icon = device.connected and more_icon or nil,
                 icon_glyph = device.connected and icons.bluetooth_on or nil,
                 callback = function()
                     if device.connected then
@@ -251,13 +260,9 @@ function M.open(on_changed, settings_subpage, plugin)
             if original_swipe then return original_swipe(self, arg, gesture) end
         end
     end
-    menu.onMenuSelect = function(self, row, pos)
+    menu.onMenuSelect = function(self, row)
         if row.select_enabled == false then return true end
-        if row.device and pos and pos.x >= 0.8 then
-            show_actions(row.device)
-        else
-            self:onMenuChoice(row)
-        end
+        self:onMenuChoice(row)
         return true
     end
     menu.onMenuHold = function(_self, row)
@@ -303,6 +308,7 @@ function M.open(on_changed, settings_subpage, plugin)
         if closed or scanning or busy then return end
         scanning = true
         scan_warning = nil
+        operation_error = nil
         if Bluetooth.isEnabled() then scan(); return end
         show_status(_("Turning on Bluetooth…"))
         Bluetooth.setEnabled(true, function(ok, err)

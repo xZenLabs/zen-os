@@ -6495,6 +6495,10 @@ msgid "Updating…"
 msgstr "Se actualizează…"
 
 #. Type: menu
+msgid "Could not connect"
+msgstr "Nu s-a putut conecta"
+
+#. Type: menu
 msgid "Could not update %1."
 msgstr "%1 nu a putut fi actualizat."
 

@@ -6495,6 +6495,10 @@ msgid "Updating…"
 msgstr "Bijwerken…"
 
 #. Type: menu
+msgid "Could not connect"
+msgstr "Kan geen verbinding maken"
+
+#. Type: menu
 msgid "Could not update %1."
 msgstr "%1 kon niet worden bijgewerkt."
 
