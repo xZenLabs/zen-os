@@ -74,6 +74,7 @@ local function strip_defaults(opts)
         interactive = true,
         order = "default",
         show_badges = false,
+        show_page_indicator = true,
         show_strip_titles = false,
         sources = {
             custom = { paths = {} },
@@ -448,7 +449,7 @@ end
 local LEGACY_STRIP_MODULE_IDS = { "strip_recent", "strip_custom", "strip_tag", "strip_tbr" }
 local STRIP_COMMON_KEYS = {
     "center_books", "count", "interactive", "order", "show_badges",
-    "show_strip_titles", "two_rows",
+    "show_page_indicator", "show_strip_titles", "two_rows",
 }
 
 local VALID_CONTROL_IDS = {
