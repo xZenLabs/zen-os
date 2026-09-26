@@ -737,7 +737,9 @@ p { margin: 0; }
         if not tap_self.dimen or not ges or not ges.pos then return false end
         if ctx.openTopMenu and ctx.openTopMenu(ges) then return true end
         if not tap_self.dimen:contains(ges.pos) then return false end
-        if ges.time ~= nil and not BookOpenTap.shouldOpen(book.path, ges.time) then return true end
+        if ges.time ~= nil and not BookOpenTap.shouldOpen(book.path, ges.time, function()
+            tap.onHoldFeatured(tap_self, nil, ges)
+        end) then return true end
         set_opening_banner_cover(cover_widget)
         ctx.openBook(book.path)
         return true
@@ -745,10 +747,12 @@ p { margin: 0; }
     tap.onHoldFeatured = function(tap_self, _arg, ges)
         if not tap_self.dimen or not ges or not ges.pos then return false end
         if not tap_self.dimen:contains(ges.pos) then return false end
+        BookOpenTap.reset()
         if ctx.showBookMenu then return ctx.showBookMenu(book.path) end
         return false
     end
     tap[1] = frame
+    WidgetResources.wrapFree(tap, BookOpenTap.reset)
     return tap
 end
 

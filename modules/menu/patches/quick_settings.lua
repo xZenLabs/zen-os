@@ -863,7 +863,7 @@ local function apply_quick_settings()
                 local open = rawget(_G, "__ZEN_UI_OPEN_APP_LAUNCHER")
                 if type(open) ~= "function" then
                     local ok, apply = pcall(require, "modules/menu/patches/app_launcher")
-                    if ok and type(apply) == "function" then apply() end
+                    if ok and type(apply) == "function" then apply(zen_plugin) end
                     open = rawget(_G, "__ZEN_UI_OPEN_APP_LAUNCHER")
                 end
                 if type(open) ~= "function" or open(touch_menu) == false then

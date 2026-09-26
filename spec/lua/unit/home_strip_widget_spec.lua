@@ -716,7 +716,7 @@ describe("home strip widget", function()
         assert.is_table(content_bounds)
         assert.are.equal(18, content_bounds.top)
         assert.are.equal(8, content_bounds.bottom_anchor_offset)
-        assert.are.equal(30 + 18 + 205,
+        assert.are.equal(30 + 18 + 205 + 20,
             content_bounds.bottom - content_bounds.top)
         assert.are.equal(-content_bounds.top, content_bounds.min_shift)
         assert.are.equal(400 - content_bounds.bottom, content_bounds.max_shift)
@@ -807,9 +807,8 @@ describe("home strip widget", function()
 
         local safe_bottom_shift = 400 - content_bounds.bottom
         assert.is_true(content_bounds.lock_shift)
-        -- A sparse two-row page claims the whole cover area: the row minus
-        -- the page dots band reserved under it.
-        assert.are.equal(400 - 22, content_bounds.bottom)
+        -- A sparse two-row page claims the cover area and reserved dots.
+        assert.are.equal(400 - 2, content_bounds.bottom)
         assert.are.equal(safe_bottom_shift, content_bounds.min_shift)
         assert.are.equal(safe_bottom_shift, content_bounds.max_shift)
         assert.is_true(safe_bottom_shift < 400)
@@ -1337,6 +1336,66 @@ describe("home strip widget", function()
         }, remembered)
     end)
 
+    it("keeps a borrowed Home offset when switching between books and paged tags", function()
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        local menu, bounds, targets = {}, nil, nil
+        local books, groups = {}, {}
+        for i = 1, 4 do
+            books[i] = { path = "/library/" .. i .. ".epub" }
+            groups[i] = {
+                is_group = true, group_kind = "tags", group_label = "Tag " .. i,
+                group_files = { books[i].path }, group_count = 1,
+            }
+        end
+        local ctx = {
+            width = 600,
+            height = 300,
+            menu = menu,
+            component_id = "strip",
+            row_space_below = 64,
+            module_cfg = {
+                count = 4,
+                controls = {
+                    enabled = true, order = { "recent", "tags" },
+                    show_buttons = { recent = true, tags = true },
+                    labels = {}, custom_buttons = {},
+                },
+            },
+            data = {
+                getStripItemsForPage = function(_self, source)
+                    return source.kind == "tags" and groups or books
+                end,
+                getStripPageInfo = function(_self, source)
+                    return { total_pages = source.kind == "tags" and 2 or 1 }
+                end,
+            },
+            prepareHomeFocusTarget = function(_target, child) return child end,
+            activateStripFocusTargets = function(value) targets = value end,
+            setContentBounds = function(value) bounds = value end,
+        }
+        menu._home_rebuild = function()
+            Strip.build(ctx)
+            bounds.set_shift(bounds.max_shift)
+        end
+        Strip.build(ctx)
+        local original = {
+            top = bounds.top, bottom = bounds.bottom,
+            shift = bounds.max_shift + ctx.row_space_below,
+        }
+        bounds.set_shift(original.shift)
+        for _i, key in ipairs({ "strip-control:tags", "strip-control:recent" }) do
+            local control
+            for _j, target in ipairs(targets) do
+                if target.key == key then control = target end
+            end
+            assert.is_true(control.activate())
+            assert.are.equal(original.top, bounds.top)
+            assert.are.equal(original.bottom, bounds.bottom)
+            assert.are.equal(original.shift, menu._zen_home_strip_runtime._visual_shift)
+        end
+        assert.are.equal(4, #folder_calls.builds)
+    end)
+
     it("uses the previous and next controls to page the strip", function()
         local current_page = 0
         local shifted = {}
@@ -1836,11 +1895,9 @@ describe("home strip widget", function()
         local single_bounds = build({ total = 4, total_pages = 1, current_page = 1 })
         local paged_bounds, paged_frame = build({ total = 7, total_pages = 2, current_page = 2 })
 
-        -- One page: nothing to paint, the covers alone are the content.
+        -- Reserve the same bounds even when the dots are hidden.
         assert.are.equal(plain_bounds.bottom, single_bounds.bottom)
-        -- Two pages: the dots (12 px under the covers, 8 px tall) are content too,
-        -- so Home spaces the next widget from the dots and never shifts them out.
-        assert.are.equal(plain_bounds.bottom + 20, paged_bounds.bottom)
+        assert.are.equal(plain_bounds.bottom, paged_bounds.bottom)
         assert.are.equal(400 - paged_bounds.bottom, paged_bounds.max_shift)
 
         -- Dots are scanline pills like the Library pager's "dots" style: 8 px,
@@ -1855,7 +1912,7 @@ describe("home strip widget", function()
         assert.are.same({}, rows)
         paged_frame:paintTo(bb, 0, 0)
         assert.are.equal(16, #rows)
-        local dot_top = plain_bounds.bottom + 12
+        local dot_top = paged_bounds.bottom - 8
         -- two dots span 8 + 12 + 8 = 28 px centred in 600: x = 286 and 306
         local extents = { darkgray = { 286, 294 }, black = { 306, 314 } }
         local per_color = { darkgray = 0, black = 0 }

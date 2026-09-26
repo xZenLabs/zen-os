@@ -2274,6 +2274,12 @@ msgstr "Nama depan"
 msgid "Fixed layout documents (pdf, djvu, pics…)"
 msgstr "Dokumen tata letak tetap (pdf, djvu, gambar…)"
 
+#. Type: message
+#. Context: text = _("Partial pages refresh"), help_text = _("Flash the screen in the library when a page is not full of books to prevent ghosting."), checked_func = function()
+#: advanced_settings.lua:39
+msgid "Flash the screen in the library when a page is not full of books to prevent ghosting."
+msgstr "Kedipkan layar di perpustakaan saat halaman tidak penuh dengan buku untuk mencegah bayangan gambar."
+
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Flip LH/RH icon"), checked_func = function() return config.quick_settings.flip_lh_rh_icon == true end,
 #: menu_settings.lua:1163
@@ -4391,6 +4397,12 @@ msgstr "Hapus dari koleksi"
 #: context_menu.lua:2504 history.lua:301
 msgid "Remove from history"
 msgstr "Hapus dari riwayat"
+
+#. Type: action
+#. Context: Hold a book in the book switcher to remove it from that list.
+#: book_switcher_page.lua:401
+msgid "Remove from switcher"
+msgstr "Hapus dari pengalih buku"
 
 #. Type: label
 #. Context: return text == _("Add to vocabulary builder") or text == _("Remove from vocabulary builder") or text == _("Long-press to add to vocabulary builder")

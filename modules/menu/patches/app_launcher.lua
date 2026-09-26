@@ -1,4 +1,4 @@
-        local function apply_app_launcher()
+        local function apply_app_launcher(plugin_ref)
     local Blitbuffer = require("ffi/blitbuffer")
     local CenterContainer = require("ui/widget/container/centercontainer")
     local Device = require("device")
@@ -31,7 +31,7 @@
     local utils = require("common/utils")
     local library_font = require("modules/filebrowser/patches/library_font")
 
-    local zen_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
+    local zen_plugin = plugin_ref or rawget(_G, "__ZEN_UI_PLUGIN")
     if not zen_plugin or type(zen_plugin.config) ~= "table" then
         return
     end
@@ -546,9 +546,15 @@
                 width = panel_width,
                 height = panel_height,
                 config = zen_plugin.config,
+                launcher_config = cfg,
                 exclude_path = current_reader_path(touch_menu),
                 open_book = function(path, _cover, release_cover)
                     open_book_from_switcher(touch_menu, path, release_cover)
+                end,
+                remove_book = function(path)
+                    cfg.book_switcher_hidden[path] = true
+                    Model.save(cfg)
+                    touch_menu:updateItems(1)
                 end,
             }
             refs.buttons = switcher_refs.buttons
@@ -713,6 +719,12 @@
         }
     end
 
+    local function find_tab(tab_table, id)
+        for i, tab in ipairs(tab_table or {}) do
+            if tab.id == id then return i end
+        end
+    end
+
     rawset(_G, "__ZEN_UI_OPEN_APP_LAUNCHER", function(touch_menu)
         if not (touch_menu and type(touch_menu.item_table) == "table"
                 and type(touch_menu.updateItems) == "function") then
@@ -721,8 +733,9 @@
         if touch_menu.item_table.id ~= "app_launcher" then
             touch_menu.item_table_stack = touch_menu.item_table_stack or {}
             table.insert(touch_menu.item_table_stack, touch_menu.item_table)
-            touch_menu.item_table = make_app_launcher_tab(
-                not (zen_plugin.ui and zen_plugin.ui.document))
+            local index = find_tab(touch_menu.tab_item_table, "app_launcher")
+            touch_menu.item_table = index and touch_menu.tab_item_table[index]
+                or make_app_launcher_tab(current_reader(touch_menu) == nil)
         end
         touch_menu.parent_id = nil
         touch_menu._app_launcher_folder_id = nil
@@ -730,12 +743,6 @@
         touch_menu:updateItems(1)
         return true
     end)
-
-    local function find_tab(tab_table, id)
-        for i, tab in ipairs(tab_table or {}) do
-            if tab.id == id then return i end
-        end
-    end
 
     local function sync_tab(menu_self, library_context)
         if type(menu_self.tab_item_table) ~= "table" then return end
@@ -752,8 +759,12 @@
         end
         local zen_pos = find_tab(menu_self.tab_item_table, "zen_ui")
         local qs_pos = find_tab(menu_self.tab_item_table, "quicksettings")
+        local insert_pos = qs_pos and (qs_pos + 1) or zen_pos or 1
+        if find_tab(menu_self.tab_item_table, "zen_library_home") == 1 and (qs_pos or zen_pos) then
+            insert_pos = qs_pos or (#menu_self.tab_item_table + 1)
+        end
         table.insert(menu_self.tab_item_table,
-            zen_pos and (zen_pos + 1) or qs_pos and (qs_pos + 1) or 1,
+            insert_pos,
             make_app_launcher_tab(library_context))
     end
 

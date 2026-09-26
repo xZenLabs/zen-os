@@ -622,7 +622,12 @@ def test_compact_home_with_three_goals_never_overlaps() -> None:
             process.wait(timeout=15)
 
 
-def test_home_tags_drill_from_tag_folders_into_books() -> None:
+@pytest.mark.parametrize("two_row_strip,width,height", [
+    (False, 800, 600), (False, 562, 725), (True, 562, 725),
+])
+def test_home_tags_drill_from_tag_folders_into_books(
+    two_row_strip: bool, width: int, height: int
+) -> None:
     runtime = Path(os.environ["KOREADER_DIR"])
     with tempfile.TemporaryDirectory(prefix="zen-ui-home-tags-") as temporary:
         root = Path(temporary)
@@ -630,21 +635,43 @@ def test_home_tags_drill_from_tag_folders_into_books() -> None:
         ko_home.mkdir()
         library = root / "library"
         fixture = build_library(library)
-        _seed_home_settings(ko_home, show_strip_titles=False)
+        _seed_home_settings(
+            ko_home, show_strip_titles=False, two_row_strip=two_row_strip
+        )
         _seed_bookinfo(ko_home, fixture["epub"])
+        recent_books = [fixture["epub"]]
+        for index in range(2, 9):
+            book = library / f"Recent {index}.epub"
+            book.write_bytes(fixture["epub"].read_bytes())
+            recent_books.append(book)
+        _seed_history_books(ko_home, recent_books)
+        with sqlite3.connect(ko_home / "settings" / "bookinfo_cache.sqlite3") as connection:
+            connection.execute(
+                "UPDATE bookinfo SET keywords = ?",
+                ("Focus, Testing" if two_row_strip else "Focus, Testing, Z1, Z2, Z3",),
+            )
         socket_path = root / "driver.sock"
-        process = launch(runtime, ko_home, socket_path, library.resolve())
+        process = launch(
+            runtime, ko_home, socket_path, library.resolve(),
+            env_overrides={"EMULATE_READER_W": str(width), "EMULATE_READER_H": str(height)},
+        )
+        minimum_widgets = 2 if two_row_strip else 5
         try:
             wait_for_socket(socket_path)
             driver = ZenDriver(socket_path)
             assert driver.command("activate_navbar_tab", id="home")["ok"] is True
-            _wait_for_home(driver)
+            reading = _wait_for_home(driver, minimum_widget_count=minimum_widgets)
+            reading_top = int(reading["strip_control_top"])
 
             assert driver.command(
                 "activate_home_target", key="strip-control:tags"
             )["ok"] is True
-            groups = _wait_for_home(driver, {"Focus", "Testing"})
+            groups = _wait_for_home(
+                driver, {"Focus", "Testing"}, minimum_widget_count=minimum_widgets
+            )
             controls_top = int(groups["strip_control_top"])
+            assert abs(controls_top - reading_top) <= 1, groups
+            assert groups["widget_heights"]["strip"] == reading["widget_heights"]["strip"]
             assert {"Focus", "Testing"} <= set(groups["visible_texts"])
             assert {"Focus (1)", "Testing (1)"}.isdisjoint(groups["visible_texts"])
             screenshot = root / "home-tag-folders.png"
@@ -656,7 +683,8 @@ def test_home_tags_drill_from_tag_folders_into_books() -> None:
             )["ok"] is True
             book_path = str(fixture["epub"].resolve())
             books = _wait_for_home(
-                driver, {"Focus"}, required_book_paths={book_path}
+                driver, {"Focus"}, required_book_paths={book_path},
+                minimum_widget_count=minimum_widgets,
             )
             assert abs(int(books["strip_control_top"]) - controls_top) <= 1, books
             assert book_path in books["book_paths"]
@@ -665,7 +693,7 @@ def test_home_tags_drill_from_tag_folders_into_books() -> None:
             assert driver.command(
                 "activate_home_target", key="strip-control:tags"
             )["ok"] is True
-            _wait_for_home(driver)
+            _wait_for_home(driver, minimum_widget_count=minimum_widgets)
             assert driver.command(
                 "activate_home_target", key="group:Focus", action="context"
             )["ok"] is True

@@ -2644,8 +2644,13 @@ local function wrap_home_focus_target(menu, target, widget, defer_registration)
     frame.paintTo = function(self, bb, x, y)
         orig_paintTo(self, bb, x, y)
         if menu._zen_home_focus_id == target.id then
+            local frame_size = self:getSize()
+            local bounds = target.content_bounds
+            local shift = bounds and bounds.shift or 0
+            local top = bounds and math.min(0, bounds.top + shift - 2) or 0
+            local bottom = bounds and math.max(frame_size.h, bounds.bottom + shift + 2) or frame_size.h
             paint_focus_rect(
-                bb, x, y, self:getSize().w, self:getSize().h, target.focus_color)
+                bb, x, y + top, frame_size.w, bottom - top, target.focus_color)
         end
     end
     target.widget = frame
@@ -3289,6 +3294,7 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
             component_id = comp.id,
             module_cfg = module_cfg,
             row_gap_above = i > 1 and row_gap or 0,
+            row_space_below = math.max(0, body_h - row_y - h),
             is_first_row = i == 1,
             is_last_row = i == #rows,
         }
@@ -3309,6 +3315,7 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
                 col = 0,
                 width = content_w,
                 height = h,
+                content_bounds = content_bounds,
                 activate = row_focus_actions.activate,
                 context = row_focus_actions.context,
             }, final_widget)
@@ -3371,6 +3378,7 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
             end
             local shifts = Registry.equalSpacingShifts(run, spacing_options)
             for i, shift in ipairs(shifts) do
+                run[i].shift = shift
                 run[i].set_shift(shift)
             end
             if #shifts == #run then

@@ -1,12 +1,17 @@
 local M = {}
 local BookOpenTap = require("common/book_open_tap")
 local BookStatus = require("common/book_status")
+local icons = require("common/inline_icon_map")
 local paths = require("common/paths")
 
 M.BOOK_COUNT = 4
 
 local function launcher_config(config)
     return type(config) == "table" and config or {}
+end
+
+function M.normalizeCount(value)
+    return math.min(8, math.max(1, math.floor(tonumber(value) or M.BOOK_COUNT)))
 end
 
 function M.isEnabled(config, library_context)
@@ -50,8 +55,12 @@ function M.layout(opts)
     local gap = math.max(2, Screen:scaleBySize(2))
     local inner_w = math.max(1, width - padding * 2)
     local max_content_h = math.max(1, height - top_padding - padding)
+    local count = M.normalizeCount(opts.book_count)
+    local columns = math.min(4, count)
+    local rows = math.ceil(count / columns)
+    local row_h = math.floor((max_content_h - gap * (rows - 1)) / rows)
     local cell_w = math.max(24,
-        math.floor((inner_w - gap * (M.BOOK_COUNT - 1)) / M.BOOK_COUNT))
+        math.floor((inner_w - gap * (columns - 1)) / columns))
     local render = M.rendererOptions(opts.config)
     local title_face = library_font.getFace(library_font.scaleValue(16))
     local author_face = library_font.getFace(library_font.scaleValue(13))
@@ -73,7 +82,7 @@ function M.layout(opts)
     end
     if strip_h > 0 then strip_h = strip_h + strip_padding * 2 end
     local cover_area_h = math.min(
-        math.max(1, max_content_h - strip_h), Screen:scaleBySize(200))
+        math.max(1, row_h - strip_h), Screen:scaleBySize(200))
     local cover_border = cover_common.BORDER_SIZE
     return {
         width = width,
@@ -81,6 +90,7 @@ function M.layout(opts)
         padding = padding,
         top_padding = top_padding,
         gap = gap,
+        columns = columns,
         inner_w = inner_w,
         cell_w = cell_w,
         cell_h = cover_area_h + strip_h,
@@ -161,8 +171,10 @@ local function load_book(path, BookInfoManager)
     }
 end
 
-function M.loadBooks(limit, exclude_path)
-    local count = math.min(M.BOOK_COUNT, math.max(1, math.floor(tonumber(limit) or M.BOOK_COUNT)))
+function M.loadBooks(limit, exclude_path, config)
+    local count = M.normalizeCount(limit)
+    local cfg = launcher_config(config)
+    local hidden = type(cfg.book_switcher_hidden) == "table" and cfg.book_switcher_hidden or {}
     local ok_history, ReadHistory = pcall(require, "readhistory")
     if not ok_history or not ReadHistory then return {} end
     if type(ReadHistory.reload) == "function" then
@@ -188,10 +200,13 @@ function M.loadBooks(limit, exclude_path)
             and in_library
             and not BookStatus.isImageFile(path)
             and (is_kindle or not ok_lfs or lfs.attributes(path, "mode") == "file")
-        if is_file and path ~= exclude_path and not seen[path] then
+        if is_file and path ~= exclude_path and not hidden[path] and not seen[path] then
             seen[path] = true
-            books[#books + 1] = load_book(path, BookInfoManager)
-            if #books >= count then break end
+            if cfg.book_switcher_hide_finished == false
+                    or BookStatus.getEffectiveStatusFromFile(path) ~= "complete" then
+                books[#books + 1] = load_book(path, BookInfoManager)
+                if #books >= count then break end
+            end
         end
     end
     return books
@@ -219,15 +234,20 @@ function M.build(opts)
     local Screen = Device.screen
     local width = math.max(1, tonumber(opts.width) or Screen:getWidth())
     local height = math.max(1, tonumber(opts.height) or Screen:getHeight())
-    local layout = M.layout{ width = width, height = height, config = opts.config }
+    local cfg = launcher_config(opts.launcher_config)
+    local count = M.normalizeCount(cfg.book_switcher_count)
+    local books = type(opts.books) == "table" and opts.books
+        or M.loadBooks(count, opts.exclude_path, cfg)
+    local layout = M.layout{
+        width = width, height = height, config = opts.config,
+        book_count = math.min(count, math.max(1, #books)),
+    }
     local padding = layout.padding
     local top_padding = layout.top_padding
     local gap = layout.gap
     local inner_w = layout.inner_w
     local cell_w = layout.cell_w
     local render = layout.render
-    local books = type(opts.books) == "table" and opts.books
-        or M.loadBooks(M.BOOK_COUNT, opts.exclude_path)
     local refs = { buttons = {}, layout_rows = {} }
 
     if #books == 0 then
@@ -263,6 +283,7 @@ function M.build(opts)
         self.dimen = self.dimen or Geom:new{ w = self.width, h = self.height }
         self.ges_events = {
             TapSelect = { GestureRange:new{ ges = "tap", range = self.dimen } },
+            HoldSelect = { GestureRange:new{ ges = "hold", range = self.dimen } },
         }
     end
 
@@ -283,6 +304,11 @@ function M.build(opts)
         return true
     end
 
+    function BookCell:onHoldSelect()
+        if self.hold_callback then self.hold_callback() end
+        return true
+    end
+
     function BookCell:onFocus()
         self.focused = true
         UIManager:setDirty(nil, "fast", self.dimen)
@@ -295,9 +321,25 @@ function M.build(opts)
         return true
     end
 
-    local row = HorizontalGroup:new{ align = "center" }
-    local layout_row = {}
+    local panel = VerticalGroup:new{
+        align = "center",
+        VerticalSpan:new{ width = top_padding },
+    }
+    local row
+    local layout_row
     for index, book in ipairs(books) do
+        if index > count then break end
+        if (index - 1) % layout.columns == 0 then
+            if row then panel[#panel + 1] = VerticalSpan:new{ width = gap } end
+            row = HorizontalGroup:new{ align = "center" }
+            layout_row = {}
+            refs.layout_rows[#refs.layout_rows + 1] = layout_row
+            panel[#panel + 1] = CenterContainer:new{
+                dimen = Geom:new{ w = width, h = cell_h }, row,
+            }
+        else
+            row[#row + 1] = HorizontalSpan:new{ width = gap }
+        end
         local cover = cover_common.make_cover_widget(
             book, cover_max_w, cover_max_h, {
                 border = cover_border,
@@ -349,28 +391,42 @@ function M.build(opts)
                 end)
             end
         end
+        local hold_callback = function()
+            if type(opts.remove_book) ~= "function" then return end
+            local ButtonDialog = require("ui/widget/buttondialog")
+            local dialog
+            dialog = ButtonDialog:new{
+                buttons = {{
+                    {
+                        text = icons.delete .. "  " .. _("Remove"),
+                        align = "left",
+                        callback = function()
+                            UIManager:close(dialog)
+                            opts.remove_book(book.path)
+                        end,
+                    },
+                }},
+            }
+            UIManager:show(dialog)
+        end
         local cell = BookCell:new{
             width = cell_w,
             height = cell_h,
             dimen = Geom:new{ w = cell_w, h = cell_h },
             callback = callback,
+            hold_callback = hold_callback,
             book_path = book.path,
             content,
         }
         cell._zen_book_switcher_cover = cover
         row[#row + 1] = cell
         layout_row[#layout_row + 1] = cell
-        refs.buttons[#refs.buttons + 1] = { widget = cell, callback = callback }
-        if index < #books then row[#row + 1] = HorizontalSpan:new{ width = gap } end
+        refs.buttons[#refs.buttons + 1] = {
+            widget = cell, callback = callback, hold_callback = hold_callback,
+        }
     end
-    refs.layout_rows[1] = layout_row
-
-    return VerticalGroup:new{
-        align = "center",
-        VerticalSpan:new{ width = top_padding },
-        CenterContainer:new{ dimen = Geom:new{ w = width, h = cell_h }, row },
-        VerticalSpan:new{ width = padding },
-    }, refs
+    panel[#panel + 1] = VerticalSpan:new{ width = padding }
+    return panel, refs
 end
 
 return M

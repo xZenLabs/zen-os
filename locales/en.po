@@ -2274,6 +2274,12 @@ msgstr "First name"
 msgid "Fixed layout documents (pdf, djvu, pics…)"
 msgstr "Fixed layout documents (pdf, djvu, pics…)"
 
+#. Type: message
+#. Context: text = _("Partial pages refresh"), help_text = _("Flash the screen in the library when a page is not full of books to prevent ghosting."), checked_func = function()
+#: advanced_settings.lua:39
+msgid "Flash the screen in the library when a page is not full of books to prevent ghosting."
+msgstr "Flash the screen in the library when a page is not full of books to prevent ghosting."
+
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Flip LH/RH icon"), checked_func = function() return config.quick_settings.flip_lh_rh_icon == true end,
 #: menu_settings.lua:1163
@@ -4398,6 +4404,12 @@ msgstr "Remove from collection"
 msgid "Remove from history"
 msgstr "Remove from history"
 
+#. Type: action
+#. Context: Hold a book in the book switcher to remove it from that list.
+#: book_switcher_page.lua:401
+msgid "Remove from switcher"
+msgstr "Remove from switcher"
+
 #. Type: label
 #. Context: return text == _("Add to vocabulary builder") or text == _("Remove from vocabulary builder") or text == _("Long-press to add to vocabulary builder")
 #: dict_quick_lookup.lua:75
@@ -5129,6 +5141,12 @@ msgstr "Show Zen icon - black background"
 #: quickstart_pages.lua:729
 msgid "Show Zen icon - white background"
 msgstr "Show Zen icon - white background"
+
+#. Type: setting
+#. Context: { text = _("Single tap to open context menu"), enabled_func = function()
+#: advanced_settings.lua:64
+msgid "Single tap to open context menu"
+msgstr "Single tap to open context menu"
 
 #. Type: setting
 #. Context: { text = _("Skip"), id = "close",

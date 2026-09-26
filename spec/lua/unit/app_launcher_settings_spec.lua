@@ -202,7 +202,7 @@ describe("app launcher settings", function()
         assert.is_false(switcher.checked_func())
         switcher.checkmark_callback()
         assert.is_true(launcher_cfg.show_book_switcher)
-        assert.are.equal(1, #switcher.sub_item_table)
+        assert.are.equal(3, #switcher.sub_item_table)
         assert.are.equal("Only show while reading", switcher.sub_item_table[1].text)
         assert.are.equal(order_index + 1, open_menu_index)
         assert.are.equal("sort", order_item.test_icon)
@@ -220,6 +220,37 @@ describe("app launcher settings", function()
         assert.are.same({ "buttons", "book_switcher", "book_details" },
             launcher_cfg.page_order)
         assert.are.equal(5, saves)
+    end)
+
+    it("sets the switcher limit and defaults to hiding finished books", function()
+        local spin_options
+        local refreshes = 0
+        ZenSpec.replace("ui/widget/spinwidget", {
+            new = function(_self, options) spin_options = options return options end,
+        })
+        ZenSpec.replace("ui/uimanager", { show = function() end })
+        local section = require(
+            "modules/settings/sections/app_launcher_settings").build({
+                config = { features = { app_launcher = true } },
+                save_and_apply = function() end,
+        })
+        local items = section.sub_item_table[3].sub_item_table
+        assert.are.equal("Max books shown: 4", items[2].text_func())
+        items[2].callback({ updateItems = function() refreshes = refreshes + 1 end })
+        assert.are.equal(1, spin_options.value_min)
+        assert.are.equal(8, spin_options.value_max)
+        assert.are.equal(4, spin_options.default_value)
+        spin_options.callback({ value = 8 })
+        assert.are.equal(8, launcher_cfg.book_switcher_count)
+        assert.are.equal("Max books shown: 8", items[2].text_func())
+        assert.are.equal(1, refreshes)
+        assert.are.equal("Hide finished books", items[3].text)
+        assert.is_true(items[3].checked_func())
+        items[3].callback()
+        assert.is_false(items[3].checked_func())
+        items[3].callback()
+        assert.is_true(items[3].checked_func())
+        assert.are.equal(3, saves)
     end)
 
     it("stores an approved icon name instead of a control's plugin path", function()

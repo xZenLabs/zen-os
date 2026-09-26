@@ -56,9 +56,20 @@ describe("Advanced settings", function()
 
         assert.is_table(double_tap_item)
         assert.is_false(double_tap_item.checked_func())
-        double_tap_item.callback()
+        double_tap_item.checkmark_callback()
         assert.is_true(double_tap_item.checked_func())
         assert.are.equal(1, saved)
+
+        local single_tap_item = double_tap_item.sub_item_table[1]
+        assert.are.equal("Single tap to open context menu", single_tap_item.text)
+        assert.is_true(single_tap_item.enabled_func())
+        assert.is_false(single_tap_item.checked_func())
+        single_tap_item.callback()
+        assert.is_true(single_tap_item.checked_func())
+        assert.are.equal(2, saved)
+        double_tap_item.checkmark_callback()
+        assert.is_false(single_tap_item.enabled_func())
+        assert.are.equal(3, saved)
     end)
 
     it("enables modal dragging only after an explicit toggle", function()

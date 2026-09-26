@@ -1,6 +1,7 @@
 local function apply_book_double_tap()
     local BookOpenTap = require("common/book_open_tap")
     local Cover = require("common/cover_utils")
+    local WidgetResources = require("common/widget_resources")
 
     local function book_path(widget)
         local entry = widget and widget.entry
@@ -43,9 +44,19 @@ local function apply_book_double_tap()
                 BookOpenTap.reset()
                 return original_onTapSelect(self, arg, ges, ...)
             end
-            if not BookOpenTap.shouldOpen(path, ges.time) then return true end
+            if not BookOpenTap.shouldOpen(path, ges.time, function()
+                if not is_select_mode(self) then self:onHoldSelect(arg, ges) end
+            end) then return true end
             return original_onTapSelect(self, arg, ges, ...)
         end
+        local original_onHoldSelect = ItemClass.onHoldSelect
+        if original_onHoldSelect then
+            function ItemClass:onHoldSelect(...)
+                BookOpenTap.reset()
+                return original_onHoldSelect(self, ...)
+            end
+        end
+        WidgetResources.wrapFree(ItemClass, BookOpenTap.reset)
     end
 
     local Menu = require("ui/widget/menu")

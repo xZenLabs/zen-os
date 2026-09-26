@@ -2274,6 +2274,12 @@ msgstr "Prenume"
 msgid "Fixed layout documents (pdf, djvu, pics…)"
 msgstr "Documente cu aspect fix (pdf, djvu, pics…)"
 
+#. Type: message
+#. Context: text = _("Partial pages refresh"), help_text = _("Flash the screen in the library when a page is not full of books to prevent ghosting."), checked_func = function()
+#: advanced_settings.lua:39
+msgid "Flash the screen in the library when a page is not full of books to prevent ghosting."
+msgstr "Reîmprospătați ecranul cu o clipire în bibliotecă atunci când o pagină nu este plină de cărți, pentru a preveni imaginile reziduale."
+
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Flip LH/RH icon"), checked_func = function() return config.quick_settings.flip_lh_rh_icon == true end,
 #: menu_settings.lua:1163
@@ -4398,6 +4404,12 @@ msgstr "Elimină din colecție"
 msgid "Remove from history"
 msgstr "Elimină din istoric"
 
+#. Type: action
+#. Context: Hold a book in the book switcher to remove it from that list.
+#: book_switcher_page.lua:401
+msgid "Remove from switcher"
+msgstr "Elimină din selectorul de cărți"
+
 #. Type: label
 #. Context: return text == _("Add to vocabulary builder") or text == _("Remove from vocabulary builder") or text == _("Long-press to add to vocabulary builder")
 #: dict_quick_lookup.lua:75
@@ -5123,6 +5135,12 @@ msgstr "Afișează pictograma Zen - fundal negru"
 #: quickstart_pages.lua:729
 msgid "Show Zen icon - white background"
 msgstr "Afișează pictograma Zen - fundal alb"
+
+#. Type: setting
+#. Context: { text = _("Single tap to open context menu"), enabled_func = function()
+#: advanced_settings.lua:64
+msgid "Single tap to open context menu"
+msgstr "O singură atingere pentru a deschide meniul contextual"
 
 #. Type: setting
 #. Context: { text = _("Skip"), id = "close",

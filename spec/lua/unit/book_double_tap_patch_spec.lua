@@ -6,11 +6,15 @@ describe("Double-tap book item patch", function()
     local accepted
     local resets
     local saved_modules
+    local menu_callback
+    local menus
 
     before_each(function()
         opened = 0
         accepted = false
         resets = 0
+        menus = 0
+        menu_callback = nil
         saved_modules = {}
         for _i, name in ipairs({
             "apps/filemanager/filemanager",
@@ -29,6 +33,10 @@ describe("Double-tap book item patch", function()
                     opened = opened + 1
                     return true
                 end,
+                onHoldSelect = function()
+                    menus = menus + 1
+                    return true
+                end,
             }
         end
         StandardItem = item_class()
@@ -37,7 +45,8 @@ describe("Double-tap book item patch", function()
 
         ZenSpec.replace("common/book_open_tap", {
             reset = function() resets = resets + 1 end,
-            shouldOpen = function()
+            shouldOpen = function(_path, _time, on_single_tap)
+                menu_callback = on_single_tap
                 local result = accepted
                 accepted = true
                 return result
@@ -98,5 +107,35 @@ describe("Double-tap book item patch", function()
         assert.is_true(StandardItem._zen_book_double_tap_patched)
         assert.is_true(ListItem._zen_book_double_tap_patched)
         assert.is_true(MosaicItem._zen_book_double_tap_patched)
+    end)
+
+    it("uses the existing context menu in every display mode", function()
+        for _i, ItemClass in ipairs({ StandardItem, ListItem, MosaicItem }) do
+            local item = setmetatable({
+                entry = { is_file = true, path = "/books/one.epub" },
+                menu = {},
+            }, { __index = ItemClass })
+            accepted = false
+            ItemClass.onTapSelect(item, nil, { time = 1 })
+            menu_callback()
+        end
+        assert.are.equal(3, menus)
+        assert.are.equal(0, opened)
+    end)
+
+    it("cancels a pending tap when holding or freeing the item", function()
+        local item = { entry = { is_file = true, path = "/books/one.epub" }, menu = {} }
+        StandardItem.onHoldSelect(item, nil, { time = 1 })
+        StandardItem.free(item)
+        assert.are.equal(2, resets)
+        assert.are.equal(1, menus)
+    end)
+
+    it("does not open a pending menu after entering selection mode", function()
+        local item = { entry = { is_file = true, path = "/books/one.epub" }, menu = {} }
+        StandardItem.onTapSelect(item, nil, { time = 1 })
+        item.menu.ui = { selected_files = {} }
+        menu_callback()
+        assert.are.equal(0, menus)
     end)
 end)

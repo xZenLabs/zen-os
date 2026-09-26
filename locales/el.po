@@ -2275,6 +2275,12 @@ msgstr "Ονομα"
 msgid "Fixed layout documents (pdf, djvu, pics…)"
 msgstr "Έγγραφα σταθερής διάταξης (pdf, djvu, φωτογραφίες…)"
 
+#. Type: message
+#. Context: text = _("Partial pages refresh"), help_text = _("Flash the screen in the library when a page is not full of books to prevent ghosting."), checked_func = function()
+#: advanced_settings.lua:39
+msgid "Flash the screen in the library when a page is not full of books to prevent ghosting."
+msgstr "Ανανεώστε την οθόνη με αναλαμπή στη βιβλιοθήκη όταν μια σελίδα δεν είναι γεμάτη βιβλία, για να αποτρέψετε τα υπολειπόμενα είδωλα."
+
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Flip LH/RH icon"), checked_func = function() return config.quick_settings.flip_lh_rh_icon == true end,
 #: menu_settings.lua:1163
@@ -4392,6 +4398,12 @@ msgstr "Αφαίρεση από τη συλλογή"
 #: context_menu.lua:2504 history.lua:301
 msgid "Remove from history"
 msgstr "Διαγραφή από το Ιστορικό"
+
+#. Type: action
+#. Context: Hold a book in the book switcher to remove it from that list.
+#: book_switcher_page.lua:401
+msgid "Remove from switcher"
+msgstr "Αφαίρεση από τον επιλογέα βιβλίων"
 
 #. Type: label
 #. Context: return text == _("Add to vocabulary builder") or text == _("Remove from vocabulary builder") or text == _("Long-press to add to vocabulary builder")

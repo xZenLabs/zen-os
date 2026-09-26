@@ -102,6 +102,7 @@ local defaults = {
     developer = {
         allow_modal_drag = false,
         double_tap_to_open_books = false,
+        single_tap_to_open_context_menu = false,
     },
     navbar = {
         show_tabs = {

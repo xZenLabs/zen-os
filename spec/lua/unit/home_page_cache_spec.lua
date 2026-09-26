@@ -218,7 +218,7 @@ describe("home data and book caches", function()
         for i = 1, 80 do
             local name, value = debug.getupvalue(build_home_content, i)
             if not name then break end
-            if name == "compute_row_heights" then return value end
+            if name == "compute_row_heights" then return value, build_home_content end
         end
         error("compute_row_heights upvalue not found")
     end
@@ -261,6 +261,46 @@ describe("home data and book caches", function()
         end
         error("home menu upvalue not found")
     end
+
+    it("keeps shifted goal rows inside the focus border", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local build_home_content = select(2, get_compute_row_heights(Home))
+        local wrap_home_focus_target
+        for i = 1, 80 do
+            local name, value = debug.getupvalue(build_home_content, i)
+            if name == "wrap_home_focus_target" then wrap_home_focus_target = value; break end
+        end
+        assert.is_function(wrap_home_focus_target)
+        ZenSpec.replace("ui/widget/container/framecontainer", {
+            new = function(_self, frame)
+                function frame:getSize() return { w = self.width, h = self.height } end
+                function frame:paintTo() end
+                return frame
+            end,
+        })
+
+        for goal_count = 1, 4 do
+            for _i, shift in ipairs({ -24, 0, 24 }) do
+                local bounds = { top = 8, bottom = goal_count * 40 - 8, shift = shift }
+                local target = { width = 600, height = 160, content_bounds = bounds }
+                local menu = {}
+                local frame = wrap_home_focus_target(menu, target, {})
+                menu._zen_home_focus_id = target.id
+                local rects = {}
+                frame:paintTo({ paintRect = function(_bb, x, y, w, h)
+                    rects[#rects + 1] = { x = x, y = y, w = w, h = h }
+                end }, 10, 100)
+
+                assert.is_true(rects[1].y <= 100 + bounds.top + shift - 2)
+                assert.is_true(rects[2].y >= 100 + bounds.bottom + shift)
+                assert.are.equal(600, rects[1].w)
+                if shift == 0 then
+                    assert.are.equal(100, rects[1].y)
+                    assert.are.equal(259, rects[2].y)
+                end
+            end
+        end
+    end)
 
     it("keeps preset row heights on their original grids", function()
         ZenSpec.replace("modules/filebrowser/patches/home/components/registry", {

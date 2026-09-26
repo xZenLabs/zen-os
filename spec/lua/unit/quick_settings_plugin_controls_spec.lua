@@ -3,6 +3,7 @@ describe("quick settings plugin controls", function()
     local original_plugin
     local original_quick_settings
     local original_open_launcher
+    local original_launcher_preview
     local tailscale
     local zenfm
     local destination_entries
@@ -12,6 +13,7 @@ describe("quick settings plugin controls", function()
     local actions
     local dispatched_actions
     local launcher_apply_calls
+    local launcher_apply_plugin
     local launcher_opens
     local settings_shows
     local save_calls
@@ -26,6 +28,8 @@ describe("quick settings plugin controls", function()
         "ui/font",
         "ui/widget/container/framecontainer",
         "ui/geometry",
+        "ui/gesturerange",
+        "ui/widget/container/inputcontainer",
         "ui/widget/horizontalgroup",
         "ui/widget/horizontalspan",
         "ui/widget/iconwidget",
@@ -42,6 +46,7 @@ describe("quick settings plugin controls", function()
         "common/shared_state",
         "common/settings_transition",
         "common/ui/button_label_width",
+        "common/ui/zen_button",
         "modules/menu/bluetooth/bluetooth",
         "modules/menu/patches/brightness_slider",
         "modules/menu/patches/warmth_slider",
@@ -50,6 +55,11 @@ describe("quick settings plugin controls", function()
         "common/dispatch_action",
         "common/nav_button_model",
         "modules/menu/app_launcher/plugin_scan",
+        "modules/menu/app_launcher/action_filter",
+        "modules/menu/app_launcher/model",
+        "modules/menu/app_launcher/book_details_page",
+        "modules/menu/app_launcher/book_switcher_page",
+        "modules/menu/app_launcher/page_plan",
         "modules/menu/app_launcher/menu_host",
         "modules/menu/patches/app_launcher",
         "modules/settings/zen_settings_page",
@@ -63,6 +73,23 @@ describe("quick settings plugin controls", function()
         "pluginloader",
     }
 
+    local function apply_launcher(plugin)
+        ZenSpec.replace("ui/widget/container/inputcontainer", {
+            extend = function(_self, definition) return definition end,
+        })
+        for _i, name in ipairs({
+            "ui/gesturerange", "common/ui/zen_button",
+            "modules/menu/app_launcher/action_filter", "modules/menu/app_launcher/model",
+        }) do
+            ZenSpec.replace(name, {})
+        end
+        ZenSpec.unload("modules/menu/app_launcher/book_details_page")
+        ZenSpec.unload("modules/menu/app_launcher/book_switcher_page")
+        ZenSpec.unload("modules/menu/app_launcher/page_plan")
+        ZenSpec.unload("modules/menu/patches/app_launcher")
+        require("modules/menu/patches/app_launcher")(plugin)
+    end
+
     before_each(function()
         original_modules = {}
         for _i, name in ipairs(module_names) do
@@ -71,10 +98,12 @@ describe("quick settings plugin controls", function()
         original_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
         original_quick_settings = rawget(_G, "__ZEN_UI_QUICK_SETTINGS")
         original_open_launcher = rawget(_G, "__ZEN_UI_OPEN_APP_LAUNCHER")
+        original_launcher_preview = rawget(_G, "__ZEN_UI_BUILD_APP_LAUNCHER_PREVIEW")
         _G.__ZEN_UI_OPEN_APP_LAUNCHER = nil
         actions = {}
         dispatched_actions = {}
         launcher_apply_calls = 0
+        launcher_apply_plugin = nil
         launcher_opens = 0
         settings_shows = 0
         save_calls = 0
@@ -205,8 +234,9 @@ describe("quick settings plugin controls", function()
         ZenSpec.replace("modules/menu/app_launcher/menu_host", {
             show = function(options) hosted_menu = options end,
         })
-        ZenSpec.replace("modules/menu/patches/app_launcher", function()
+        ZenSpec.replace("modules/menu/patches/app_launcher", function(plugin)
             launcher_apply_calls = launcher_apply_calls + 1
+            launcher_apply_plugin = plugin
             _G.__ZEN_UI_OPEN_APP_LAUNCHER = function(touch_menu)
                 launcher_opens = launcher_opens + 1
                 touch_menu.opened_launcher = true
@@ -298,6 +328,7 @@ describe("quick settings plugin controls", function()
         _G.__ZEN_UI_PLUGIN = original_plugin
         _G.__ZEN_UI_QUICK_SETTINGS = original_quick_settings
         _G.__ZEN_UI_OPEN_APP_LAUNCHER = original_open_launcher
+        _G.__ZEN_UI_BUILD_APP_LAUNCHER_PREVIEW = original_launcher_preview
     end)
 
     it("uses the plugin's toggle and running state", function()
@@ -525,7 +556,10 @@ describe("quick settings plugin controls", function()
         assert.are.equal(0, settings_shows)
     end)
 
-    it("opens Launcher inside Controls even when its patch was not loaded", function()
+    it("opens Launcher inside Controls when disabled and its patch was not loaded", function()
+        local plugin = _G.__ZEN_UI_PLUGIN
+        plugin.config.features.app_launcher = false
+        _G.__ZEN_UI_PLUGIN = nil
         local touch_menu = {
             closeMenu = function() error("Launcher should remain inside Controls") end,
             updateItems = function() end,
@@ -534,8 +568,95 @@ describe("quick settings plugin controls", function()
 
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("launcher", touch_menu))
         assert.are.equal(1, launcher_apply_calls)
+        assert.are.equal(plugin, launcher_apply_plugin)
         assert.are.equal(1, launcher_opens)
         assert.is_true(touch_menu.opened_launcher)
+    end)
+
+    it("preserves the Settings and Home pair when restoring the Launcher tab", function()
+        local plugin = _G.__ZEN_UI_PLUGIN
+        plugin.config.features.app_launcher = true
+        _G.__ZEN_UI_PLUGIN = nil
+        local ReaderMenu = require("apps/reader/modules/readermenu")
+        for _i, Menu in ipairs({ FileManagerMenu, ReaderMenu }) do
+            Menu.onShowMenu = function(self) return self.tab_item_table end
+        end
+        apply_launcher(plugin)
+
+        for _i, Menu in ipairs({ FileManagerMenu, ReaderMenu }) do
+            for _j, case in ipairs({
+                {
+                    { "quicksettings", "zen_ui", "zen_library_home" },
+                    { "quicksettings", "app_launcher", "zen_ui", "zen_library_home" },
+                },
+                {
+                    { "zen_ui", "zen_library_home" },
+                    { "app_launcher", "zen_ui", "zen_library_home" },
+                },
+                {
+                    { "zen_library_home", "zen_ui", "quicksettings" },
+                    { "zen_library_home", "zen_ui", "app_launcher", "quicksettings" },
+                },
+                {
+                    { "zen_library_home", "zen_ui" },
+                    { "zen_library_home", "zen_ui", "app_launcher" },
+                },
+            }) do
+                local menu = setmetatable({ tab_item_table = {} }, { __index = Menu })
+                for _k, id in ipairs(case[1]) do
+                    menu.tab_item_table[#menu.tab_item_table + 1] = { id = id }
+                end
+                local actual = {}
+                for _k, tab in ipairs(menu:onShowMenu()) do actual[#actual + 1] = tab.id end
+                assert.are.same(case[2], actual)
+            end
+        end
+    end)
+
+    it("opens the same optional Launcher pages from Controls and the menu tab", function()
+        local plugin = _G.__ZEN_UI_PLUGIN
+        plugin.ui = { file_chooser = {} }
+        _G.__ZEN_UI_PLUGIN = nil
+        apply_launcher(plugin)
+        local ReaderMenu = require("apps/reader/modules/readermenu")
+        local ReaderUI = require("apps/reader/readerui")
+        local PagePlan = require("modules/menu/app_launcher/page_plan")
+        local cfg = {
+            show_book_details = true,
+            show_book_switcher = true,
+            book_switcher_reader_only = true,
+        }
+        for _i, case in ipairs({
+            { ReaderMenu, { document = { file = "/books/current.epub" } }, {
+                { kind = "book_details" }, { kind = "book_switcher" }, { kind = "buttons", index = 1 },
+            } },
+            { FileManagerMenu, false, { { kind = "buttons", index = 1 } } },
+        }) do
+            ReaderUI.instance = case[2] or nil
+            plugin.config.features.app_launcher = true
+            local menu = setmetatable({ tab_item_table = {} }, { __index = case[1] })
+            menu:setUpdateItemTable()
+            local launcher
+            for _j, tab in ipairs(menu.tab_item_table) do
+                if tab.id == "app_launcher" then launcher = tab end
+            end
+            local controls = {
+                item_table = { id = "quicksettings" },
+                tab_item_table = menu.tab_item_table,
+                updateItems = function() end,
+            }
+            assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("launcher", controls))
+            assert.are.equal(launcher, controls.item_table)
+            assert.are.same(case[3], PagePlan.build(1, cfg,
+                controls.item_table._zen_app_launcher_library))
+
+            plugin.config.features.app_launcher = false
+            controls.item_table = { id = "quicksettings" }
+            controls.tab_item_table = {}
+            assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("launcher", controls))
+            assert.are.same(case[3], PagePlan.build(1, cfg,
+                controls.item_table._zen_app_launcher_library))
+        end
     end)
 
     it("opens ZenFM settings on hold with a toggle and timeout submenu", function()

@@ -231,10 +231,9 @@ end
 -- band for them below the covers (metrics.dots_h) as soon as the indicator
 -- is enabled, so the row keeps one height on every source and the dots
 -- always have room; they are painted only when the source has more than one
--- page, and are then part of the strip's reported content bounds so Home's
--- spacing pass measures the gap below the strip from the dots, not from the
--- covers. module_cfg.show_page_indicator = false drops the band. The strip's
--- page buttons and swipes page as before.
+-- page. Their space stays in the reported bounds even when hidden, so Home's
+-- spacing pass keeps the strip in place. module_cfg.show_page_indicator = false
+-- drops the band. Page buttons and swipes page as before.
 -- HOME_STRIP_MAX_BOOKS (40) at the smallest page size (2, two rows) is 20 pages.
 -- common/ui/zen_pager is not required from here: it sizes itself with Screen
 -- and loads icons at module load, which the widget specs cannot host. Its
@@ -792,14 +791,13 @@ function M.build_strip(ctx, source_key)
         if page_delta ~= 0 then return base_shift, adjusted_top end
         controls_visual_top = adjusted_top
         if type(ctx.setContentBounds) == "function" then
-            -- Painted dots belong to the content: Home's spacing pass then
-            -- measures the gap below the strip from the dots, and the shift
-            -- range keeps them inside the row.
-            local dots_ink_h = dots_info and (metrics.dot_gap_above + metrics.dot_diam) or 0
+            -- Reserve hidden dots too, so tab changes keep the same shift range.
+            local dots_ink_h = metrics.dot_gap_above + metrics.dot_diam
             local group_bottom = controls_and_gap + visual_bottom + base_shift + dots_ink_h
             local locked_shift = tonumber(runtime._locked_visual_shift)
             if locked_shift then
                 local natural_max = total_outer_height - group_bottom
+                    + (ctx.row_space_below or 0)
                 locked_shift = math.min(natural_max, locked_shift)
             end
             ctx.setContentBounds{
@@ -1156,10 +1154,13 @@ function M.build_strip(ctx, source_key)
                     if ctx.openTopMenu and ctx.openTopMenu(ges) then return true end
                     if not tap_self.dimen:contains(ges.pos) then return false end
                     if book.is_group == true then
+                        BookOpenTap.reset()
                         if type(ctx.openStripGroup) == "function" then ctx.openStripGroup(book) end
                         return true
                     end
-                    if ges.time ~= nil and not BookOpenTap.shouldOpen(path, ges.time) then return true end
+                    if ges.time ~= nil and not BookOpenTap.shouldOpen(path, ges.time, function()
+                        tap.onHoldCover(tap_self, nil, ges)
+                    end) then return true end
                     set_opening_banner_cover(item.cover)
                     ctx.openBook(path)
                     return true
@@ -1167,6 +1168,7 @@ function M.build_strip(ctx, source_key)
                 tap.onHoldCover = function(tap_self, _, ges)
                     if not tap_self.dimen or not ges or not ges.pos then return false end
                     if not tap_self.dimen:contains(ges.pos) then return false end
+                    BookOpenTap.reset()
                     if book.is_group == true then
                         if type(ctx.showStripGroupMenu) == "function" then
                             return ctx.showStripGroupMenu(book)
@@ -1656,6 +1658,7 @@ function M.build_strip(ctx, source_key)
     end
 
     local function refresh_strip(swipe_self, direction, gesture_started_at)
+        BookOpenTap.reset()
         cancel_visible_hydration("swipe")
         cancel_prewarm("swipe")
         local replacement_delta = direction == "next" and 1 or -1
@@ -1792,6 +1795,7 @@ function M.build_strip(ctx, source_key)
 
     WidgetResources.wrapFree(swipe, function()
         closed = true
+        BookOpenTap.reset()
         cancel_visible_hydration("widget_close")
         cancel_prewarm("widget_close")
         if unregister_page_handler then unregister_page_handler() end
