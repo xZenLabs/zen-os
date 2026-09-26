@@ -1,3 +1,5 @@
+local group_paths_by_series = require("common/db_bookinfo").groupPathsBySeries
+
 describe("home data and book caches", function()
     local doc_open_count
     local history_reload_count
@@ -56,9 +58,9 @@ describe("home data and book caches", function()
         })
         ZenSpec.replace("common/reading_goals", {})
         ZenSpec.replace("common/db_stats", {
-            queryHomeStats = function()
+            queryHomeStats = function(_fields, exclude_cbz_cbr)
                 stats_query_count = stats_query_count + 1
-                return { today_pages = 12 }
+                return { today_pages = exclude_cbz_cbr and 7 or 12 }
             end,
         })
         ZenSpec.replace("config/preset_store", {})
@@ -136,7 +138,9 @@ describe("home data and book caches", function()
         ZenSpec.replace("common/paths", {
             getHomeDir = function() return "/library" end,
             normPath = function(path) return path end,
-            isInHomeDir = function() return true end,
+            isInHomeDir = function(path)
+                return path == "/library" or path:sub(1, 9) == "/library/"
+            end,
         })
         ZenSpec.replace("common/book_status", {
             isImageFile = function() return false end,
@@ -177,6 +181,7 @@ describe("home data and book caches", function()
 
     after_each(function()
         _G.__ZEN_UI_LAST_READ_FILE = nil
+        _G.__ZEN_UI_RAKUYOMI = nil
     end)
 
     local function get_home_module(apply)
@@ -203,6 +208,21 @@ describe("home data and book caches", function()
         error("build_data_provider upvalue not found")
     end
 
+    local function get_compute_row_heights(Home)
+        local build_home_content
+        for i = 1, 80 do
+            local name, value = debug.getupvalue(Home.showHomeView, i)
+            if not name then break end
+            if name == "build_home_content" then build_home_content = value; break end
+        end
+        for i = 1, 80 do
+            local name, value = debug.getupvalue(build_home_content, i)
+            if not name then break end
+            if name == "compute_row_heights" then return value, build_home_content end
+        end
+        error("compute_row_heights upvalue not found")
+    end
+
     local function get_request_home_repaint(Home)
         for i = 1, 80 do
             local name, value = debug.getupvalue(Home.showHomeView, i)
@@ -210,6 +230,15 @@ describe("home data and book caches", function()
             if name == "request_home_repaint" then return value end
         end
         error("request_home_repaint upvalue not found")
+    end
+
+    local function get_refresh_home_clock_widgets(Home)
+        for i = 1, 80 do
+            local name, value = debug.getupvalue(Home.showHomeView, i)
+            if not name then break end
+            if name == "refresh_home_clock_widgets" then return value end
+        end
+        error("refresh_home_clock_widgets upvalue not found")
     end
 
     local function get_install_home_key_handlers(Home)
@@ -232,6 +261,188 @@ describe("home data and book caches", function()
         end
         error("home menu upvalue not found")
     end
+
+    it("refreshes date-dependent Home once per day but allows explicit refreshes", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        for index = 1, 30 do
+            local name = debug.getupvalue(Home.refreshDateDependentActive, index)
+            if name == "load_zen_config" then
+                debug.setupvalue(Home.refreshDateDependentActive, index, function() return {} end)
+            elseif name == "ensure_home_cfg" then
+                debug.setupvalue(Home.refreshDateDependentActive, index, function() return {} end)
+            elseif name == "resolve_rows" then
+                debug.setupvalue(Home.refreshDateDependentActive, index,
+                    function() return { { id = "quotes" } } end)
+            end
+        end
+        local rebuilds = 0
+        local menu = {
+            _zen_home_built_day = os.date("%Y-%j"),
+            _home_rebuild = function(self)
+                rebuilds = rebuilds + 1
+                self._zen_home_built_day = os.date("%Y-%j")
+            end,
+        }
+        set_home_menu(Home, menu)
+        require("ui/uimanager")._window_stack = { { widget = menu } }
+
+        assert.is_false(Home.refreshDateDependentActive())
+        menu._zen_home_built_day = "1900-001"
+        assert.is_true(Home.refreshDateDependentActive())
+        assert.is_false(Home.refreshDateDependentActive())
+        assert.is_true(Home.refreshDateDependentActive(true))
+        assert.are.equal(2, rebuilds)
+    end)
+
+    it("keeps shifted goal rows inside the focus border", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local build_home_content = select(2, get_compute_row_heights(Home))
+        local wrap_home_focus_target
+        for i = 1, 80 do
+            local name, value = debug.getupvalue(build_home_content, i)
+            if name == "wrap_home_focus_target" then wrap_home_focus_target = value; break end
+        end
+        assert.is_function(wrap_home_focus_target)
+        ZenSpec.replace("ui/widget/container/framecontainer", {
+            new = function(_self, frame)
+                function frame:getSize() return { w = self.width, h = self.height } end
+                function frame:paintTo() end
+                return frame
+            end,
+        })
+
+        for goal_count = 1, 4 do
+            for _i, shift in ipairs({ -24, 0, 24 }) do
+                local bounds = { top = 8, bottom = goal_count * 40 - 8, shift = shift }
+                local target = { width = 600, height = 160, content_bounds = bounds }
+                local menu = {}
+                local frame = wrap_home_focus_target(menu, target, {})
+                menu._zen_home_focus_id = target.id
+                local rects = {}
+                frame:paintTo({ paintRect = function(_bb, x, y, w, h)
+                    rects[#rects + 1] = { x = x, y = y, w = w, h = h }
+                end }, 10, 100)
+
+                assert.is_true(rects[1].y <= 100 + bounds.top + shift - 2)
+                assert.is_true(rects[2].y >= 100 + bounds.bottom + shift)
+                assert.are.equal(600, rects[1].w)
+                if shift == 0 then
+                    assert.are.equal(100, rects[1].y)
+                    assert.are.equal(259, rects[2].y)
+                end
+            end
+        end
+    end)
+
+    it("keeps preset row heights on their original grids", function()
+        ZenSpec.replace("modules/filebrowser/patches/home/components/registry", {
+            layoutUnits = function(rows)
+                return #rows == 2 and { 4, 6 } or { 3.5, 1, 4, 1.5 }
+            end,
+            gridHeights = function(units)
+                if #units == 2 then
+                    assert.are.same({ 4, 6 }, units)
+                    return { 394, 596 }
+                end
+                assert.are.same({ 3.5, 1, 4, 1.5 }, units)
+                return { 344, 91, 394, 141 }
+            end,
+            get = function(id) return { id = id } end,
+            list = function() return {} end,
+            setRefreshCallback = function() end,
+        })
+        ZenSpec.unload("modules/filebrowser/patches/home_page")
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local compute_row_heights = get_compute_row_heights(Home)
+        local rows = {
+            { id = "featured", preferredHeight = function() return 600 end },
+            { id = "strip", preferredHeight = function() return 600 end },
+        }
+        local bookshelf = compute_row_heights(rows, 1000, 10, 10, 600, {}, {}, {})
+        local default = compute_row_heights({
+            { id = "featured" },
+            { id = "stats_triplet" },
+            { id = "strip" },
+            { id = "quotes" },
+        }, 1000, 10, 10, 600, {}, {}, {})
+
+        assert.are.same({ 394, 596 }, { bookshelf[1].h, bookshelf[2].h })
+        assert.are.same({ 344, 91, 394, 141 },
+            { default[1].h, default[2].h, default[3].h, default[4].h })
+    end)
+
+    it("repaints only the requested regions of a Home clock widget", function()
+        local repaints = {}
+        local dirty = {}
+        local cleared = {}
+        local UIManager = {
+            _window_stack = {},
+            nextTick = function(_self, callback) callback() end,
+            scheduleIn = function() end,
+            widgetRepaint = function(_self, widget, x, y)
+                repaints[#repaints + 1] = { widget = widget, x = x, y = y }
+            end,
+            setDirty = function(_self, widget, mode, region, dither)
+                dirty[#dirty + 1] = {
+                    widget = widget, mode = mode, region = region, dither = dither,
+                }
+            end,
+        }
+        ZenSpec.replace("ui/uimanager", UIManager)
+        ZenSpec.replace("ui/geometry", {
+            new = function(_self, values) return values end,
+        })
+        ZenSpec.replace("device", {
+            screen = {
+                getWidth = function() return 600 end,
+                getHeight = function() return 900 end,
+                bb = {
+                    paintRect = function(_self, x, y, w, h, color)
+                        cleared[#cleared + 1] = { x, y, w, h, color }
+                    end,
+                },
+            },
+        })
+        ZenSpec.replace("common/ui/background", {
+            tile_bg = function(color) return color end,
+            library_path = function() return "" end,
+        })
+        ZenSpec.unload("modules/filebrowser/patches/home_page")
+
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local refresh_home_clock_widgets = get_refresh_home_clock_widgets(Home)
+        local widget = { dimen = { x = 10, y = 20, w = 30, h = 40 } }
+        local home = {
+            dithered = true,
+            _zen_home_clock_refreshers = {{
+                refresh = function()
+                    return true, {
+                        { x = 1, y = 2, w = 3, h = 4 },
+                        { x = 20, y = 5, w = 6, h = 7 },
+                    }
+                end,
+                widget = widget,
+            }},
+        }
+        set_home_menu(Home, home)
+        UIManager._window_stack = {{ widget = home }}
+
+        refresh_home_clock_widgets(home)
+
+        assert.are.same({{ widget = widget, x = 10, y = 20 }}, repaints)
+        assert.are.same({
+            { 11, 22, 3, 4, "white" },
+            { 30, 25, 6, 7, "white" },
+        }, cleared)
+        assert.are.equal(2, #dirty)
+        assert.are.same({ x = 11, y = 22, w = 3, h = 4 }, dirty[1].region)
+        assert.are.same({ x = 30, y = 25, w = 6, h = 7 }, dirty[2].region)
+        for _i, entry in ipairs(dirty) do
+            assert.is_nil(entry.widget)
+            assert.are.equal("ui", entry.mode)
+            assert.is_true(entry.dither)
+        end
+    end)
 
     it("focuses every strip control and activates it with OK or Enter", function()
         local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
@@ -439,6 +650,56 @@ describe("home data and book caches", function()
             provider:getFeaturedBook("recently_read", "default").path)
     end)
 
+    it("includes Kindle history outside the configured library in Home widgets", function()
+        local kindle_path = "/kindle-cache/book.epub"
+        history_items[1].file = kindle_path
+        ZenSpec.replace("modules/filebrowser/patches/kindle_virtual_library", {
+            isBookPath = function(path) return path == kindle_path end,
+        })
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function(path)
+                if path ~= kindle_path then return { mode = "file", modification = 1 } end
+            end,
+        })
+
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+
+        assert.are.equal(kindle_path,
+            provider:getFeaturedBook("recently_read", "default").path)
+        assert.are.equal(kindle_path,
+            provider:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
+    end)
+
+    it("excludes Rakuyomi chapters from recent Home books when enabled", function()
+        history_items[1].file = "/library/chapter.cbz"
+        history_items[2] = { file = "/library/alpha.epub" }
+        _G.__ZEN_UI_RAKUYOMI = {
+            isChapterFile = function(path) return path == "/library/chapter.cbz" end,
+        }
+
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local build_data_provider = get_build_data_provider(Home)
+        local dcfg = {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { featured = { default_source = { kind = "recent" } }, strip = {} },
+        }
+        local excluded = build_data_provider({
+            browser_cover_badges = {}, rakuyomi = { exclude_from_home = true },
+        }, dcfg)
+        assert.are.equal("/library/alpha.epub",
+            excluded:getFeaturedBook("recently_read", "default").path)
+        assert.are.equal("/library/alpha.epub",
+            excluded:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
+
+        local included = build_data_provider({ browser_cover_badges = {} }, dcfg)
+        assert.are.equal("/library/chapter.cbz",
+            included:getFeaturedBook("recently_read", "default").path)
+    end)
+
     it("reuses matching Home stats across provider rebuilds", function()
         local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
         local build_data_provider = get_build_data_provider(Home)
@@ -455,6 +716,19 @@ describe("home data and book caches", function()
         assert.are.equal(1, stats_query_count)
 
         second:prepareStats(rows, true)
+        assert.are.equal(2, stats_query_count)
+    end)
+
+    it("keeps comic-free goal totals separate from other Home stats", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            goals = { exclude_cbz_cbr = true, periods = { "daily" } },
+            modules = {},
+        })
+        local rows = { { id = "stats_triplet" }, { id = "reading_goals" } }
+
+        assert.are.equal(12, provider:prepareStats(rows).today_pages)
+        assert.are.equal(7, provider.goal_stats.today_pages)
         assert.are.equal(2, stats_query_count)
     end)
 
@@ -1294,6 +1568,7 @@ describe("home data and book caches", function()
             default_collection_name = "favorites",
             coll = {
                 favorites = {
+                    archived = { file = "/archive/old.epub", order = 0 },
                     a = { file = "/library/alpha.epub", order = 2 },
                     b = { file = "/library/beta.epub", order = 1 },
                 },
@@ -1360,6 +1635,61 @@ describe("home data and book caches", function()
             { kind = "status", value = "complete" }, 4, "default", "strip", 0)
         assert.same({ complete = true }, requested)
         assert.are.equal("/library/alpha.epub", books[1].path)
+    end)
+
+    it("includes subfolders in folder strip sources", function()
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function(path, key)
+                local mode = path:match("%.epub$") and "file" or "directory"
+                if key == "mode" then return mode end
+                return { mode = mode, modification = 1 }
+            end,
+        })
+        ZenSpec.replace("document/documentregistry", {
+            hasProvider = function() return true end,
+        })
+        ZenSpec.replace("apps/filemanager/filemanager", {
+            instance = {
+                file_chooser = {
+                    genItemTableFromPath = function(_self, path)
+                        if path == "/library/Subfolder" then
+                            return {{
+                                path = path .. "/nested.epub",
+                                attr = { mode = "file" },
+                            }}
+                        end
+                        return {
+                            { text = "..", is_go_up = true,
+                                attr = { mode = "directory" } },
+                            { text = "Subfolder/", path = path .. "/Subfolder",
+                                attr = { mode = "directory" } },
+                            { path = path .. "/alpha.epub", attr = { mode = "file" } },
+                        }
+                    end,
+                },
+            },
+        })
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+        local source = { kind = "folder", value = "/library" }
+
+        local items = provider:getStripItemsForPage(
+            source, 4, "default", "strip", 0)
+        assert.are.equal(2, #items)
+        assert.is_true(items[1].is_folder)
+        assert.are.equal("Subfolder", items[1].group_label)
+        assert.are.equal("/library/alpha.epub", items[2].path)
+        assert.are.same({ total = 2, total_pages = 2, current_page = 1 },
+            provider:getStripPageInfo(source, 1, "default", "strip", 0))
+
+        source.drill = { label = "Subfolder", path = "/library/Subfolder" }
+        items = provider:getStripItemsForPage(source, 4, "default", "strip", 0)
+        assert.are.equal("/library/Subfolder/nested.epub", items[1].path)
+        assert.are.same({ total = 1, total_pages = 1, current_page = 1 },
+            provider:getStripPageInfo(source, 1, "default", "strip", 0))
     end)
 
     it("prefers authoritative status for dimming over cached metadata", function()
@@ -1504,6 +1834,7 @@ describe("home data and book caches", function()
         ZenSpec.replace("readcollection", {
             coll = {
                 Adventure = {
+                    archived = { file = "/archive/old.epub", order = 0 },
                     a = { file = "/library/alpha.epub", order = 1 },
                     b = { file = "/library/beta.epub", order = 2 },
                 },
@@ -1591,6 +1922,47 @@ describe("home data and book caches", function()
         }, 4, "default", "strip", 0)
         assert.are.equal(2, #books)
         assert.is_nil(books[1].is_group)
+    end)
+
+    it("groups series in Home tag books and restores a series drill", function()
+        local tagged = { "/library/alpha.epub", "/library/beta.epub", "/library/solo.epub" }
+        ZenSpec.replace("common/db_bookinfo", {
+            getGroupedByTags = function()
+                return { { tag = "Science", files = tagged } }
+            end,
+            getTagBooks = function() return tagged end,
+            getLightMetadata = function()
+                return {
+                    [tagged[1]] = { series = "Saga", series_index = 2 },
+                    [tagged[2]] = { series = "Saga", series_index = 1 },
+                }
+            end,
+            groupPathsBySeries = group_paths_by_series,
+        })
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({
+            features = { automatic_series_grouping = true },
+            browser_cover_badges = {},
+        }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+
+        local tag = { kind = "tags", drill = { label = "Science" } }
+        local books = provider:getStripItemsForPage(tag, 4, "default", "strip", 0)
+        assert.are.equal(2, #books)
+        assert.are.equal("Saga", books[1].group_label)
+        assert.are.same({ tagged[2], tagged[1] }, books[1].group_files)
+        local series = provider:getStripItemsForPage({
+            kind = "tags",
+            drill = { label = "Saga", series = true, parent = { label = "Science" } },
+        }, 4, "default", "strip", 0)
+        assert.are.same({ tagged[2], tagged[1] }, {
+            series[1].path, series[2].path,
+        })
+        local direct = provider:getStripItemsForPage(
+            { kind = "tag", value = "Science" }, 4, "default", "strip", 0)
+        assert.are.equal("Saga", direct[1].group_label)
     end)
 
     it("returns language stacks and drills into their books", function()

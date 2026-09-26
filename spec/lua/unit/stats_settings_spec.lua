@@ -107,6 +107,9 @@ describe("stats settings", function()
             end,
             show = function() end,
         })
+        ZenSpec.replace("modules/settings/zen_settings_apply", {
+            defer_until_settings_close = function() end,
+        })
         ZenSpec.unload("modules/settings/sections/stats_settings")
     end)
 

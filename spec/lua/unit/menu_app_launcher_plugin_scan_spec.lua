@@ -64,6 +64,39 @@ describe("app launcher plugin scan", function()
         assert.are.equal("package-id", zenpm[1].zenpm_package_id)
     end)
 
+    it("uses a plugin menu when the ZenPM plugin instance has no path or launch method", function()
+        local opened = false
+        ZenSpec.replace("pluginloader", {
+            loaded_plugins = {
+                marked = {
+                    addToMainMenu = function(_self, menu)
+                        menu.marked = {
+                            text = "Marked menu",
+                            callback = function() opened = true end,
+                        }
+                    end,
+                },
+            },
+            loadPlugins = function()
+                return { { name = "marked" } }
+            end,
+        })
+        ZenSpec.unload("modules/menu/app_launcher/plugin_scan")
+
+        local PluginScan = require("modules/menu/app_launcher/plugin_scan")
+        local zenpm = PluginScan.scanZenPM({
+            { id = "package-id", install_path = plugin_dir },
+        })
+        assert.are.equal(1, #zenpm)
+        assert.are.equal("marked", zenpm[1].key)
+        assert.are.equal("Marked menu", zenpm[1].title)
+        assert.are.equal(PluginScan.SENTINEL, zenpm[1].method)
+        assert.are.equal("package-id", zenpm[1].zenpm_package_id)
+        assert.is_function(PluginScan.resolve(zenpm[1].key, zenpm[1].method))
+        PluginScan.resolve(zenpm[1].key, zenpm[1].method)()
+        assert.is_true(opened)
+    end)
+
     it("caches plugin directory names without reading metadata", function()
         local scans = 0
         ZenSpec.replace("common/plugin_root", "/plugins/zenos.koplugin")

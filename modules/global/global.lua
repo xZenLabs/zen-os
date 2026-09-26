@@ -13,6 +13,7 @@ local PATCH_MODULES = {
     incognito_mode         = "modules/global/patches/incognito_mode",
     menu_font              = "modules/global/patches/menu_font",
     unified_title_style    = "modules/global/patches/unified_title_style",
+    responsive_keyboard    = "modules/global/patches/responsive_keyboard",
 }
 
 local function run_patch(logger, plugin, feature, fn)
@@ -60,6 +61,13 @@ end
 
 function M.init(logger, plugin)
     if initialized then return true end
+
+    if plugin.config.features.zen_keyboard ~= false then
+        local responsive_keyboard_fn = load_patch("responsive_keyboard")
+        if responsive_keyboard_fn then
+            run_patch(logger, plugin, "responsive_keyboard", responsive_keyboard_fn)
+        end
+    end
 
     local night_mode_schedule_fn = load_patch("night_mode_schedule")
     if night_mode_schedule_fn then

@@ -444,6 +444,19 @@ describe("Home widget content settings", function()
         end
     end)
 
+    it("allows a 16-point reading goals font", function()
+        ZenSpec.replace("ui/widget/spinwidget", {
+            new = function(_self, values) return values end,
+        })
+        local settings = require("modules/settings/sections/library_settings/home_settings")
+        assert.is_true(settings.openWidgetSettings("reading_goals"))
+
+        find_item(arrange_options.item_table, "Font size: 11").callback()
+        assert.are.equal(16, shown[#shown].value_max)
+        shown[#shown].callback({ value = 16 })
+        assert.are.equal(16, home_page.modules.reading_goals.font_size)
+    end)
+
     it("shows Strip filters and custom books only for their content", function()
         local settings = require("modules/settings/sections/library_settings/home_settings")
         assert.is_true(settings.openWidgetSettings("strip"))

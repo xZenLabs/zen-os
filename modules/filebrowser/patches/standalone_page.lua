@@ -2,6 +2,7 @@ local Menu = require("ui/widget/menu")
 local TitleBar = require("ui/widget/titlebar")
 local Geom = require("ui/geometry")
 local ClockTimer = require("common/clock_timer")
+local constants = require("common/constants")
 local WidgetResources = require("common/widget_resources")
 local Background = require("common/ui/background")
 
@@ -85,6 +86,17 @@ local function is_navbar_gesture(menu, ges)
         and y >= screen_h - navbar_h
 end
 
+local function is_pagination_gesture(menu, ges)
+    if not ges then return false end
+    for _i, zone in ipairs(menu and menu._zen_page_number_zones or {}) do
+        local registered = menu._zones and menu._zones[zone.id]
+        if registered and registered.gs_range and registered.gs_range:match(ges) then
+            return true
+        end
+    end
+    return false
+end
+
 -- broadcastEvent dispatches to *every* window-stack widget directly, including
 -- FileManager.instance (which sits beneath the standalone page). Forwarding
 -- broadcast events to FM as well would dispatch them twice -- harmless for most
@@ -120,7 +132,7 @@ local function refresh_bound_status_row(target)
     local stack = UIManager._window_stack
     local top = stack and stack[#stack]
     if not top or top.widget ~= target then return end
-    target:_zen_status_refresh()
+    target:_zen_status_refresh(false, constants.FILEMANAGER_MINUTE_STATUS_ITEMS)
 end
 
 local function remove_from_overlap(group, widget)
@@ -141,12 +153,13 @@ function M.enable_gesture_manager_dispatch(menu)
     function menu:handleEvent(event)
         local ges = event and event.handler == "onGesture"
             and event.args and event.args[1] or nil
+        local navbar_gesture = is_navbar_gesture(self, ges)
         local local_checked = false
-        if is_navbar_gesture(self, ges) then
+        if navbar_gesture or is_pagination_gesture(self, ges) then
             local_checked = true
             if orig_handleEvent and orig_handleEvent(self, event) then return true end
         end
-        if ges and dispatch_gesture_manager(ges) then
+        if not navbar_gesture and ges and dispatch_gesture_manager(ges) then
             return true
         end
         if not local_checked and orig_handleEvent then
@@ -315,6 +328,9 @@ function M.apply_status_row(menu, params)
     local createStatusRow = params.createStatusRow
     local createStatusRowCustomBack = params.createStatusRowCustomBack
     local repaintTitleBar = params.repaintTitleBar
+    local statusRowRefreshRegions = params.statusRowRefreshRegions
+        or require("common/shared_state").get(
+            _zen_plugin or rawget(_G, "__ZEN_UI_PLUGIN"), "statusRowRefreshRegions")
     local back_callback = params.back_callback
     local label = params.label
 
@@ -341,10 +357,29 @@ function M.apply_status_row(menu, params)
         set_title_row(build_row())
     end
 
-    menu._zen_status_refresh = function(_self, suppress_repaint)
+    menu._zen_status_refresh = function(_self, suppress_repaint, item_keys)
         if tb.title_group and #tb.title_group >= 2 then
-            set_title_row(build_row())
-            if repaintTitleBar and suppress_repaint ~= true then repaintTitleBar(tb) end
+            local previous = tb.title_group[2]
+            local current = build_row()
+            local regions
+            if type(item_keys) == "table" and type(statusRowRefreshRegions) == "function"
+                    and previous and previous.dimen and current then
+                local old_size, new_size = previous:getSize(), current:getSize()
+                if old_size.w == new_size.w and old_size.h == new_size.h then
+                    local relative = statusRowRefreshRegions(previous, current)
+                    if #relative == 0 then WidgetResources.free(current); return end
+                    regions = {}
+                    for _i, region in ipairs(relative) do
+                        regions[#regions + 1] = Geom:new{
+                            x = previous.dimen.x + region.x,
+                            y = previous.dimen.y + region.y,
+                            w = region.w, h = region.h,
+                        }
+                    end
+                end
+            end
+            set_title_row(current)
+            if repaintTitleBar and suppress_repaint ~= true then repaintTitleBar(tb, regions) end
         end
     end
 

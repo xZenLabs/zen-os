@@ -35,6 +35,21 @@ function M.getHomeDir()
     return normalize_dir(ok_device and Device and Device.home_dir)
 end
 
+-- Returns the archive root configured by KOReader's Move to archive plugin.
+-- Archive is intentionally separate from the library roots: it can share the
+-- Zen browser presentation without feeding archived books back into Home
+-- widgets, library statistics, or library database scans.
+function M.getArchiveDir()
+    local ok_storage, DataStorage = pcall(require, "datastorage")
+    if not ok_storage or not DataStorage then return nil end
+    local path = DataStorage:getSettingsDir() .. "/move_to_archive_settings.lua"
+    local ok_settings, archive_settings = pcall(dofile, path)
+    local dir = ok_settings and type(archive_settings) == "table"
+        and archive_settings.archive_dir_path or nil
+    if type(dir) ~= "string" or dir == "" then return nil end
+    return M.normPath(dir:gsub("/*$", ""))
+end
+
 function M.isUnsafeFlatViewRoot(path)
     if type(path) ~= "string" then return false end
     local norm = M.normPath(path:gsub("/*$", ""))
@@ -86,6 +101,12 @@ function M.isPrimaryHomeRoot(path)
     return home ~= nil and norm == home
 end
 
+function M.isArchiveRoot(path)
+    if not path then return false end
+    local archive = M.getArchiveDir()
+    return archive ~= nil and M.normPath(path:gsub("/*$", "")) == archive
+end
+
 -- Returns true if path is at or directly under home_dir,
 -- or under any additional home dirs configured in zen_ui_config.
 -- Both path and home_dir are normalized before the comparison.
@@ -111,6 +132,17 @@ function M.isInHomeDir(path)
     end
 
     return false
+end
+
+-- Browser presentation scope: normal library roots plus the external archive
+-- configured by KOReader's Move to archive plugin.
+function M.isInThemedDir(path)
+    if M.isInHomeDir(path) then return true end
+    if not path then return false end
+    local norm = M.normPath(path:gsub("/+$", ""))
+    local archive = M.getArchiveDir()
+    return archive ~= nil
+        and (norm == archive or norm:sub(1, #archive + 1) == archive .. "/")
 end
 
 function M.getHomeLockMode()

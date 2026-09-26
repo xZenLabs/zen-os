@@ -27,8 +27,9 @@ local function apply_status_bar()
     local paths = require("common/paths")
     local SharedState = require("common/shared_state")
     local status_bar_registry = require("common/status_bar_registry")
+    local constants = require("common/constants")
     local Background = require("common/ui/background")
-    local Bluetooth = require("common/bluetooth")
+    local Bluetooth = require("modules/menu/bluetooth/bluetooth")
     local inline_icons = require("common/inline_icon_map")
     local _ = require("gettext")
 
@@ -73,7 +74,6 @@ local function apply_status_bar()
         wifi_hide_when_off = false,
         hide_browser_bar = true,
     }
-
     local logger = require("common/zen_logger").new("status_bar")
 
     local function _serializeOrder(t)
@@ -236,15 +236,8 @@ local function apply_status_bar()
     -- leaves a white box around the chevron when a library background is showing.
     -- Force the icon to keep its alpha channel and drop the frame's white fill so
     -- the background paints through.
-    -- Back chevron only depends on icon size; memoize it and swap the
-    -- callback on reuse (the callback captures the per-call path).
-    local _back_btn_icon_size = nil
-    local _back_btn_widget = nil
+    -- Each visible row needs its own callback, including nested library views.
     local function makeBackButton(icon_size, callback)
-        if _back_btn_icon_size == icon_size and _back_btn_widget then
-            _back_btn_widget.callback = callback or function() end
-            return _back_btn_widget
-        end
         local Button = require("ui/widget/button")
         local back_widget = Button:new{
             icon        = "chevron.left",
@@ -269,8 +262,6 @@ local function apply_status_bar()
         -- background stays untouched.
         back_widget._doFeedbackHighlight = function() end
         back_widget._undoFeedbackHighlight = function() end
-        _back_btn_icon_size = icon_size
-        _back_btn_widget = back_widget
         return back_widget
     end
 
@@ -320,7 +311,8 @@ local function apply_status_bar()
     end
 
     local function getBluetoothInfo()
-        local enabled = Bluetooth.getState()
+        local get_state = Bluetooth.getCachedState or Bluetooth.getState
+        local enabled = get_state()
         if enabled == nil then return nil end
         if enabled then
             return inline_icons.bluetooth_on, nil, colors.wifi_on
@@ -457,10 +449,18 @@ local function apply_status_bar()
     -- face: optional Font face override; falls back to getBarFont().
     local function _buildGroup(order, face, bold_override)
         local group     = HorizontalGroup:new{}
+        local item_regions = {}
+        local item_values = {}
+        local group_width = 0
         local sep       = getSeparator()
         local use_color = config.colored
         local bold      = bold_override ~= nil and bold_override or config.bold_text or false
         local first     = true
+        local function append(widget)
+            table.insert(group, widget)
+            local size = widget and widget.getSize and widget:getSize() or nil
+            group_width = group_width + (size and size.w or tonumber(widget and widget.width) or 0)
+        end
         local function f() return face or getBarFont() end
         local function iconFace()
             local text_face = f()
@@ -485,8 +485,9 @@ local function apply_status_bar()
                 local has_icon = icon ~= nil and icon ~= ""
                 local has_label = label ~= nil and label ~= ""
                 if has_icon or has_label then
+                    local item_x = group_width
                     if not first and sep ~= "" then
-                        table.insert(group, TextWidget:new{ text = sep, face = f(), bold = bold })
+                        append(TextWidget:new{ text = sep, face = f(), bold = bold })
                     end
                     if not builtin and has_icon then
                         local widget_class = effective_color and ColorTextWidget or TextWidget
@@ -496,18 +497,18 @@ local function apply_status_bar()
                         if effective_color then icon_opts.fgcolor = effective_color end
 
                         local ImageWidget = require("ui/widget/imagewidget")
-                        table.insert(group, icon_image and ImageWidget:new {
+                        append(icon_image and ImageWidget:new {
                             file = icon,
                             width = Screen:scaleBySize(f().size * 1.5),
                             height = Screen:scaleBySize(f().size * 1.5),
                             alpha = true, is_icon = true
                         } or widget_class:new(icon_opts))
                         if has_label then
-                            table.insert(group, TextWidget:new{ text = label, face = f(), bold = bold })
+                            append(TextWidget:new{ text = label, face = f(), bold = bold })
                         end
                     elseif effective_color and has_icon then
                         local ImageWidget = require("ui/widget/imagewidget")
-                        table.insert(group, icon_image and ImageWidget:new {
+                        append(icon_image and ImageWidget:new {
                             file = icon,
                             width = Screen:scaleBySize(f().size * 1.5),
                             height = Screen:scaleBySize(f().size * 1.5),
@@ -516,19 +517,24 @@ local function apply_status_bar()
                             text = icon, face = f(), fgcolor = effective_color, bold = bold,
                         })
                         if has_label then
-                            table.insert(group, TextWidget:new{ text = label, face = f(), bold = bold })
+                            append(TextWidget:new{ text = label, face = f(), bold = bold })
                         end
                     elseif has_icon then
                         local text = has_label and (icon .. label) or icon
-                        table.insert(group, TextWidget:new{ text = text, face = f(), bold = bold })
+                        append(TextWidget:new{ text = text, face = f(), bold = bold })
                     else
-                        table.insert(group, TextWidget:new{ text = label, face = f(), bold = bold })
+                        append(TextWidget:new{ text = label, face = f(), bold = bold })
                     end
+                    item_regions[key] = { x = item_x, w = group_width - item_x }
+                    item_values[key] = table.concat({
+                        tostring(icon or ""), tostring(label or ""),
+                        tostring(effective_color or ""), icon_image and "1" or "0",
+                    }, "\0")
                     first = false
                 end
             end
         end
-        return #group > 0 and group or nil
+        return #group > 0 and group or nil, item_regions, item_values
     end
 
     local function normalizeDirPath(path)
@@ -589,10 +595,14 @@ local function apply_status_bar()
             and folder_root ~= nil and folder_root ~= ""
             and norm_path == folder_root
             and not in_series_view
+        local current_chooser = file_manager and file_manager.file_chooser
+        local at_direct_archive_root = current_chooser
+            and norm_path == current_chooser._zen_direct_archive_root
+            and not in_series_view
 
-        -- Show back in subfolders, but treat the configured Folder tab path as its root.
+        -- Direct folder tabs are roots; normal File Browser traversal can navigate upward.
         -- path must be non-nil — callers like collections pass nil for non-filesystem views.
-        local show_back = path ~= nil and not at_folder_tab_root
+        local show_back = path ~= nil and not at_folder_tab_root and not at_direct_archive_root
             and (in_subfolder or not home_locked)
 
         -- Back chevron is always pinned to the far-left when navigation is available
@@ -627,8 +637,8 @@ local function apply_status_bar()
             back_widget = makeBackButton(icon_size, back_callback)
         end
 
-        local left_content  = _buildGroup(config.left_order   or {})
-        local right_content = _buildGroup(config.right_order  or {})
+        local left_content, left_items, left_values = _buildGroup(config.left_order or {})
+        local right_content, right_items, right_values = _buildGroup(config.right_order or {})
 
         -- Row height = max of all present widgets
         local row_height = Screen:scaleBySize(18)
@@ -672,13 +682,13 @@ local function apply_status_bar()
         local center_max_w = math.max(1, half_avail * 2)
 
         -- Center: nav_title override > folder name when in subfolder > configured center items
-        local center_content
+        local center_content, center_items, center_values
         if nav_title then
             center_content = fitTextWidget(nav_title, center_max_w)
         elseif in_subfolder and folder_name then
             center_content = fitTextWidget(folder_name, center_max_w)
         else
-            center_content = _buildGroup(config.center_order or {})
+            center_content, center_items, center_values = _buildGroup(config.center_order or {})
         end
 
         updateRowHeight(center_content)
@@ -707,6 +717,34 @@ local function apply_status_bar()
                 },
             })
         end
+
+        local item_regions, item_values = {}, {}
+        local function add_items(prefix, items, values, offset)
+            for key, region in pairs(items or {}) do
+                item_regions[prefix .. key] = Geom:new{
+                    x = offset + region.x, y = 0, w = region.w, h = row_height,
+                }
+            end
+            for key, value in pairs(values or {}) do item_values[prefix .. key] = value end
+        end
+        add_items("left:", left_items, left_values,
+            left_w - (left_content and left_content:getSize().w or 0))
+        if center_content then
+            add_items("center:", center_items, center_values,
+                math.floor((screen_w - center_content:getSize().w) / 2))
+            if nav_title or folder_name then
+                item_regions["center:title"] = Geom:new{
+                    x = math.floor((screen_w - center_content:getSize().w) / 2),
+                    y = 0, w = center_content:getSize().w, h = row_height,
+                }
+                item_values["center:title"] = (nav_title or folder_name)
+                    .. "\0" .. center_max_w
+            end
+        end
+        add_items("right:", right_items, right_values,
+            screen_w - h_padding - (right_content and right_content:getSize().w or 0))
+        row._zen_status_item_regions = item_regions
+        row._zen_status_item_values = item_values
 
         -- Invisible overlay extending the back button's tap area below the status bar.
         if show_back and back_callback then
@@ -745,6 +783,8 @@ local function apply_status_bar()
             dimen = Geom:new{ w = screen_w, h = Size.line.medium },
             border,
         })
+        vg._zen_status_item_regions = item_regions
+        vg._zen_status_item_values = item_values
         return vg
     end
 
@@ -771,9 +811,12 @@ local function apply_status_bar()
         end
         if not face then face = getBarFont() end
 
-        local left_content   = _buildGroup(config.left_order   or {}, face, opts.bold_text)
-        local center_content = _buildGroup(config.center_order or {}, face, opts.bold_text)
-        local right_content  = _buildGroup(config.right_order  or {}, face, opts.bold_text)
+        local left_content, left_items, left_values = _buildGroup(
+            config.left_order or {}, face, opts.bold_text)
+        local center_content, center_items, center_values = _buildGroup(
+            config.center_order or {}, face, opts.bold_text)
+        local right_content, right_items, right_values = _buildGroup(
+            config.right_order or {}, face, opts.bold_text)
 
         local row_height = Screen:scaleBySize(opts.row_height or 16)
         local function upd(w)
@@ -808,6 +851,28 @@ local function apply_status_bar()
                 },
             })
         end
+        local item_regions = {}
+        local function add_item_regions(items, offset)
+            for key, region in pairs(items or {}) do
+                item_regions[key] = Geom:new{
+                    x = offset + region.x, y = 0, w = region.w, h = row_height,
+                }
+            end
+        end
+        add_item_regions(left_items, edge_pad)
+        if center_content then
+            add_item_regions(center_items,
+                math.floor((width - center_content:getSize().w) / 2))
+        end
+        if right_content then
+            add_item_regions(right_items,
+                width - edge_pad - right_content:getSize().w)
+        end
+        row._zen_status_item_regions = item_regions
+        row._zen_status_item_values = {}
+        for key, value in pairs(left_values) do row._zen_status_item_values[key] = value end
+        for key, value in pairs(center_values) do row._zen_status_item_values[key] = value end
+        for key, value in pairs(right_values) do row._zen_status_item_values[key] = value end
         if opts.show_bottom_border ~= true then
             return row
         end
@@ -821,7 +886,58 @@ local function apply_status_bar()
             dimen = Geom:new{ w = width, h = Size.line.medium },
             border,
         })
+        vg._zen_status_item_regions = item_regions
+        vg._zen_status_item_values = row._zen_status_item_values
         return vg
+    end
+
+    local function statusRowRefreshRegions(previous, current)
+        local old_regions = previous and previous._zen_status_item_regions or {}
+        local new_regions = current and current._zen_status_item_regions or {}
+        local old_values = previous and previous._zen_status_item_values
+        local new_values = current and current._zen_status_item_values
+        local wanted = {}
+        if type(old_values) == "table" and type(new_values) == "table" then
+            for key, value in pairs(old_values) do
+                if value ~= new_values[key] then wanted[key] = true end
+            end
+            for key, value in pairs(new_values) do
+                if value ~= old_values[key] then wanted[key] = true end
+            end
+        else
+            for key in pairs(old_regions) do wanted[key] = true end
+            for key in pairs(new_regions) do wanted[key] = true end
+        end
+
+        local function moved(first, second)
+            return not first or not second
+                or first.x ~= second.x or first.y ~= second.y
+                or first.w ~= second.w or first.h ~= second.h
+        end
+        for key, region in pairs(old_regions) do
+            if moved(region, new_regions[key]) then wanted[key] = true end
+        end
+        for key, region in pairs(new_regions) do
+            if moved(old_regions[key], region) then wanted[key] = true end
+        end
+
+        local regions = {}
+        for key in pairs(wanted) do
+            local first, second = old_regions[key], new_regions[key]
+            if first or second then
+                local x = math.min(first and first.x or second.x, second and second.x or first.x)
+                local y = math.min(first and first.y or second.y, second and second.y or first.y)
+                regions[#regions + 1] = Geom:new{
+                    x = x,
+                    y = y,
+                    w = math.max(first and first.x + first.w or 0,
+                        second and second.x + second.w or 0) - x,
+                    h = math.max(first and first.y + first.h or 0,
+                        second and second.y + second.h or 0) - y,
+                }
+            end
+        end
+        return regions
     end
 
     rawset(_G, "__ZENOS_BUILD_STATUS_ROW", function(width, opts)
@@ -969,30 +1085,40 @@ local function apply_status_bar()
         return vg
     end
 
-    -- Safe repaint for a titlebar widget: clears the region to white first,
+    -- Safe repaint for a titlebar widget: clears the requested regions first,
     -- then repaints the widget tree, then flushes to the e-ink display.
     -- Avoids overlap artifacts (VerticalGroup/OverlapGroup don't clear their
     -- background) and avoids the dithered-widget freeze (never marks the
     -- parent menu dirty).
-    local function repaintTitleBar(tb)
+    local function repaintTitleBar(tb, regions, status_row)
         if not tb or not tb.dimen then return end
+        regions = regions or { tb.dimen }
         local bb = Screen.bb
         if bb then
             local bg_path = Background.library_path(zen_plugin)
-            if bg_path == "" or not Background.paintScreenRegion(bb,
-                    tb.dimen.x, tb.dimen.y, tb.dimen.x, tb.dimen.y,
-                    tb.dimen.w, tb.dimen.h, bg_path) then
-                bb:paintRect(tb.dimen.x, tb.dimen.y, tb.dimen.w, tb.dimen.h, Blitbuffer.COLOR_WHITE)
+            for _i, region in ipairs(regions) do
+                if bg_path == "" or not Background.paintScreenRegion(bb,
+                        region.x, region.y, region.x, region.y,
+                        region.w, region.h, bg_path) then
+                    bb:paintRect(region.x, region.y, region.w, region.h, Blitbuffer.COLOR_WHITE)
+                end
             end
         end
-        UIManager:widgetRepaint(tb, tb.dimen.x, tb.dimen.y)
+        if status_row then
+            UIManager:widgetRepaint(status_row, tb.dimen.x,
+                tb.dimen.y + tb.title_group[1]:getSize().h)
+        else
+            UIManager:widgetRepaint(tb, tb.dimen.x, tb.dimen.y)
+        end
         -- CoverBrowser paints library/group pages dithered (show_parent.dithered).
         -- A non-dithered "ui" refresh of this region renders whiter than the
         -- surrounding dithered page, leaving a brighter box. Honor the top
         -- widget's dithering hint so the region matches.
         local top_widget = topmost_non_toast_widget()
         local refresh_dither = top_widget and top_widget.dithered or nil
-        UIManager:setDirty(nil, "ui", tb.dimen, refresh_dither)
+        for _i, region in ipairs(regions) do
+            UIManager:setDirty(nil, "ui", region, refresh_dither)
+        end
     end
 
     -- Expose for cross-patch use. Stored on the plugin table so it is naturally
@@ -1002,6 +1128,7 @@ local function apply_status_bar()
             createStatusRow = createStatusRow,
             createStatusRowCustomBack = createStatusRowCustomBack,
             buildStatusRow = buildStatusRow,
+            statusRowRefreshRegions = statusRowRefreshRegions,
             schedulePanelRefresh = schedulePanelRefresh,
             cancelPanelRefresh = cancelPanelRefresh,
             repaintTitleBar = repaintTitleBar,
@@ -1014,6 +1141,7 @@ local function apply_status_bar()
             "createStatusRow",
             "createStatusRowCustomBack",
             "buildStatusRow",
+            "statusRowRefreshRegions",
             "schedulePanelRefresh",
             "cancelPanelRefresh",
             "repaintTitleBar",
@@ -1051,7 +1179,8 @@ local function apply_status_bar()
         return widget and widget._zen_home_show_status_bar == false
     end
 
-    function FileManager:_updateStatusBar(no_repaint)
+    local _fm_autoRefresh, syncMinuteRefresh
+    function FileManager:_updateStatusBar(no_repaint, diff_only)
         if not is_enabled() or home_without_status_bar_is_on_top() then
             return
         end
@@ -1067,7 +1196,29 @@ local function apply_status_bar()
             _serializeOrder(config.left_order),
             "center=", _serializeOrder(config.center_order),
             "right=",  _serializeOrder(config.right_order))
+        local previous_row = title_group[2]
         local status_row = createStatusRow(current_path, self)
+        local regions
+        if diff_only and previous_row and previous_row._zen_status_item_values
+                and status_row._zen_status_item_values then
+            local old_size, new_size = previous_row:getSize(), status_row:getSize()
+            if old_size.w == new_size.w and old_size.h == new_size.h then
+                local relative = statusRowRefreshRegions(previous_row, status_row)
+                regions = {}
+                local row_y = tb.dimen and tb.dimen.y
+                    and tb.dimen.y + title_group[1]:getSize().h or nil
+                if row_y then
+                    for _i, region in ipairs(relative) do
+                        regions[#regions + 1] = Geom:new{
+                            x = tb.dimen.x + region.x, y = row_y + region.y,
+                            w = region.w, h = region.h,
+                        }
+                    end
+                else
+                    regions = nil
+                end
+            end
+        end
         title_group[2] = status_row
         title_group:resetLayout()
 
@@ -1115,12 +1266,16 @@ local function apply_status_bar()
             end
         end
 
+        if syncMinuteRefresh and _fm_autoRefresh and FileManager.instance == self then
+            syncMinuteRefresh(self)
+        end
+
         local top_widget = topmost_non_toast_widget()
-        if not no_repaint and FileManager.instance == self and self.invisible ~= true
+        if not no_repaint and (not regions or #regions > 0)
+                and FileManager.instance == self and self.invisible ~= true
                 and (top_widget == self or top_widget == self.show_parent) then
-            -- Clear the full titlebar region so stale pixels from a previously
-            -- wider right-side group don't leave ghosts.
-            repaintTitleBar(tb)
+            -- Clear old item bounds so shrinking text leaves no ghosts.
+            repaintTitleBar(tb, regions, regions and status_row or nil)
         end
     end
 
@@ -1128,7 +1283,24 @@ local function apply_status_bar()
 
     -- Holds the current autoRefresh callback so resume can rebind it after
     -- pausing the shared heartbeat during suspend.
-    local _fm_autoRefresh = nil
+    syncMinuteRefresh = function(fm)
+        local row = fm.title_bar and fm.title_bar.title_group
+            and fm.title_bar.title_group[2]
+        local values = row and row._zen_status_item_values
+        local visible = values == nil
+        for _i, key in ipairs(constants.FILEMANAGER_MINUTE_STATUS_ITEMS) do
+            if values and (values["left:" .. key] or values["center:" .. key]
+                    or values["right:" .. key]) then
+                visible = true
+                break
+            end
+        end
+        if visible and _fm_autoRefresh then
+            clock_timer.subscribe("filemanager_status_bar", _fm_autoRefresh)
+        else
+            clock_timer.unsubscribe("filemanager_status_bar")
+        end
+    end
     local rakuyomi_view_names = {
         chapter_listing = true,
         library_view = true,
@@ -1150,22 +1322,22 @@ local function apply_status_bar()
         return false
     end
 
-    local function refreshVisibleStatusBar(fm, clock_tick)
+    local function refreshVisibleStatusBar(fm, clock_tick, item_keys)
         if FileManager.instance ~= fm then return end
         local top_widget = topmost_non_toast_widget()
 
         if suppresses_status_bar(top_widget) then return end
         if top_widget == fm or top_widget == fm.show_parent then
-            fm:_updateStatusBar()
+            fm:_updateStatusBar(false, clock_tick or item_keys ~= nil)
         elseif top_widget and top_widget._zen_status_refresh then
             if clock_tick and top_widget._zen_status_clock_bound then return end
-            top_widget._zen_status_refresh(top_widget)
+            top_widget._zen_status_refresh(top_widget, false, item_keys)
         elseif top_widget and top_widget._zen_home_refresh_clock_widgets then
             -- Featured embedded status bar: no _zen_status_refresh, refreshes via
             -- its clock-widget refreshers instead. Skip clock ticks it handles
             -- through its own heartbeat binding to avoid a double refresh.
             if clock_tick and top_widget._zen_status_clock_bound then return end
-            top_widget:_zen_home_refresh_clock_widgets()
+            top_widget:_zen_home_refresh_clock_widgets(false, item_keys)
         end
     end
 
@@ -1278,11 +1450,10 @@ local function apply_status_bar()
 
         -- Periodic refresh for time/battery/disk. The shared heartbeat is
         -- minute-aligned and also drives home/group standalone pages.
-        local function autoRefresh()
-            refreshVisibleStatusBar(fm, true)
+        _fm_autoRefresh = function()
+            refreshVisibleStatusBar(fm, true, constants.FILEMANAGER_MINUTE_STATUS_ITEMS)
         end
-        _fm_autoRefresh = autoRefresh
-        clock_timer.subscribe("filemanager_status_bar", autoRefresh)
+        syncMinuteRefresh(fm)
     end
 
     local orig_onPathChanged = FileManager.onPathChanged
@@ -1301,20 +1472,21 @@ local function apply_status_bar()
         end
     end
 
-    local function chainHook(event_name)
+    local function chainHook(event_name, item_keys)
         local orig = FileManager[event_name]
-        FileManager[event_name] = function(self)
-            if orig then orig(self) end
+        FileManager[event_name] = function(self, ...)
+            if orig then orig(self, ...) end
             if not is_enabled() then return end
             -- Only refresh the topmost widget.  If a screensaver, dialog, or
             -- TouchMenu is on top, skip — avoids painting behind overlays
             -- and into the sleep screen.
-            refreshVisibleStatusBar(self, false)
+            refreshVisibleStatusBar(self, false, item_keys)
         end
     end
 
-    chainHook("onNetworkConnected")
-    chainHook("onNetworkDisconnected")
+    chainHook("onNetworkConnected", { "wifi" })
+    chainHook("onNetworkDisconnected", { "wifi" })
+    chainHook("onBluetoothStateChanged", { "bluetooth" })
 
     -- Charging events arrive in pairs during USB negotiation (NotCharging -> Charging)
     -- within a few seconds of each other.  A synchronous rebuild per-event causes
@@ -1327,7 +1499,7 @@ local function apply_status_bar()
         end
         _charging_refresh_timer = function()
             _charging_refresh_timer = nil
-            refreshVisibleStatusBar(fm, false)
+            refreshVisibleStatusBar(fm, false, { "battery" })
         end
         UIManager:scheduleIn(1.5, _charging_refresh_timer)
     end
@@ -1398,10 +1570,21 @@ local function apply_status_bar()
             UIManager:scheduleIn(2, function()
                 if FileManager.instance ~= fm or not _fm_autoRefresh then return end
                 clock_timer.resume()
-                clock_timer.subscribe("filemanager_status_bar", _fm_autoRefresh)
+                syncMinuteRefresh(fm)
                 clock_timer.restart()
             end)
         end
+    end
+
+    local orig_onCloseWidget = FileManager.onCloseWidget
+    FileManager.onCloseWidget = function(self, ...)
+        clock_timer.unsubscribe("filemanager_status_bar")
+        _fm_autoRefresh = nil
+        if _charging_refresh_timer then
+            UIManager:unschedule(_charging_refresh_timer)
+            _charging_refresh_timer = nil
+        end
+        if orig_onCloseWidget then return orig_onCloseWidget(self, ...) end
     end
 end
 

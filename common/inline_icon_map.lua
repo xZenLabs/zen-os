@@ -20,6 +20,7 @@ return {
     select       = "\u{F0489}",  -- mdi-cursor-default-click
     new_folder   = "\u{F0B9D}",  -- mdi-folder-plus
     folder_open  = "\u{F07C}",   -- mdi-folder-open
+    archive      = "\u{F19C}",
     connect      = "\u{F0337}",  -- mdi-link-variant
 
     -- view modes (context_menu.lua)
@@ -65,6 +66,7 @@ return {
     icon         = "\u{F02F5}",
     plugin       = "\u{F06A5}",
     action       = "\u{F140B}",
+    more         = "\u{F01D8}",  -- mdi-dots-horizontal
     settings       = "\u{F0493}",
 
     -- network / sync (opds.lua)
@@ -112,6 +114,7 @@ return {
     calendar          = "\u{F073}",  -- nf-fa-calendar
     settings_opds     = "\u{F0B7D}",
     settings_sleep    = "\u{F04B2}",
+    keyboard          = "\u{F030C}",  -- mdi-keyboard
     schedule_brightness = "\u{F0599}",
     schedule_night    = "\u{F0594}",  -- mdi-weather-night
     schedule_warmth   = "\u{F0510}",

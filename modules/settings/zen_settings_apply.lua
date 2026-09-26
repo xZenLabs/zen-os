@@ -188,10 +188,8 @@ local DISRUPTIVE_MODES = {
     navbar_refresh      = true,
 }
 
-local deferred_applies      = {}
-local deferred_poll_active  = false
-local deferred_poll_retries = 0
-local DEFERRED_MAX_RETRIES  = 40 -- 10 s at 0.25 s intervals
+local deferred_applies = {}
+local deferred_callbacks = {}
 
 -- True when a settings menu that owns the FileManager is open.
 local function is_filemanager_menu_open()
@@ -235,39 +233,24 @@ local function run_apply_mode_now(mode)
 end
 
 local function flush_deferred_now()
-    deferred_poll_active = false
-    deferred_poll_retries = 0
     local pending = deferred_applies
     deferred_applies = {}
+    local callbacks = deferred_callbacks
+    deferred_callbacks = {}
     local navbar_refresh = pending.navbar_refresh
     pending.navbar_refresh = nil
     for mode, _mode in pairs(pending) do
         run_apply_mode_now(mode)
     end
     if navbar_refresh then run_apply_mode_now("navbar_refresh") end
-end
-
--- Polls at 0.25 s intervals until the menu closes, then applies deferred modes.
-local function flush_deferred()
-    deferred_poll_active = false
-    if rawget(_G, "__ZEN_UI_SETTINGS_PAGE") then return end
-    if is_filemanager_menu_open() and deferred_poll_retries < DEFERRED_MAX_RETRIES then
-        deferred_poll_retries = deferred_poll_retries + 1
-        deferred_poll_active = true
-        UIManager:scheduleIn(0.25, flush_deferred)
-        return
+    for _key, callback in pairs(callbacks) do
+        callback()
     end
-    flush_deferred_now()
 end
 
 local function queue_deferred_apply(mode)
     deferred_applies[mode] = true
-    if rawget(_G, "__ZEN_UI_SETTINGS_PAGE") then return end
-    if not deferred_poll_active then
-        deferred_poll_active  = true
-        deferred_poll_retries = 0
-        UIManager:scheduleIn(0.25, flush_deferred)
-    end
+    if not is_filemanager_menu_open() then UIManager:nextTick(flush_deferred_now) end
 end
 
 local function install_touchmenu_close_flush()
@@ -277,7 +260,7 @@ local function install_touchmenu_close_flush()
     local orig_onCloseWidget = TouchMenu.onCloseWidget
     function TouchMenu:onCloseWidget(...)
         if orig_onCloseWidget then orig_onCloseWidget(self, ...) end
-        if next(deferred_applies) == nil then return end
+        if next(deferred_applies) == nil and next(deferred_callbacks) == nil then return end
         if rawget(_G, "__ZEN_UI_SETTINGS_PAGE") then return end
         UIManager:scheduleIn(0, flush_deferred_now)
     end
@@ -342,10 +325,17 @@ function M.refresh_tbr_on_menu_close()
     queue_deferred_apply("tbr_refresh")
 end
 
+-- Coalesce arbitrary refresh work until the active settings UI closes.
+function M.defer_until_settings_close(key, callback)
+    if type(key) ~= "string" or type(callback) ~= "function" then return end
+    deferred_callbacks[key] = callback
+    if not is_filemanager_menu_open() then UIManager:nextTick(flush_deferred_now) end
+end
+
 -- ZenSettingsPage calls this after it has been closed. TouchMenu has its own
 -- close hook above.
 function M.flush_deferred_on_settings_close()
-    if next(deferred_applies) == nil then return end
+    if next(deferred_applies) == nil and next(deferred_callbacks) == nil then return end
     UIManager:nextTick(flush_deferred_now)
 end
 

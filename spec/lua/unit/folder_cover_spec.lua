@@ -512,6 +512,50 @@ describe("shared folder cover provider", function()
         assert.is_false(FolderCover.allBooksFinished({}, entry, {}, 0))
     end)
 
+    it("checks finished physical folders in one walk without sorting every book", function()
+        local books = {}
+        for index = 1, 1000 do
+            books[index] = { name = string.format("book%04d.epub", index) }
+        end
+        local scans, status_reads, comparisons = 0, 0, 0
+        install_lfs(function() return books end, function() scans = scans + 1 end)
+        ZenSpec.replace("common/book_status", {
+            getEffectiveStatusFromFile = function()
+                status_reads = status_reads + 1
+                return "complete"
+            end,
+        })
+        local FolderCover = require("modules/filebrowser/folder_cover")
+        local menu = { collates = { strcoll = {
+            init_sort_func = function()
+                return function()
+                    comparisons = comparisons + 1
+                    return false
+                end
+            end,
+        } } }
+        local entry = { path = "/library/folder", attr = { mode = "directory" } }
+
+        assert.is_true(FolderCover.allBooksFinished(menu, entry, {}, 1000))
+        assert.are.equal(1, scans)
+        assert.are.equal(1000, status_reads)
+        assert.are.equal(0, comparisons)
+        assert.is_true(FolderCover.allBooksFinished(menu, entry, {}, 1001))
+
+        status_reads = 0
+        ZenSpec.replace("common/book_status", {
+            getEffectiveStatusFromFile = function()
+                status_reads = status_reads + 1
+                return "reading"
+            end,
+        })
+        ZenSpec.unload("modules/filebrowser/folder_cover")
+        FolderCover = require("modules/filebrowser/folder_cover")
+        assert.is_false(FolderCover.allBooksFinished(menu, entry, {}, 1000))
+        assert.are.equal(1, status_reads)
+        assert.are.equal(0, comparisons)
+    end)
+
     it("retains one candidate in single mode when the parent supplied the count", function()
         local yielded = 0
         cover_mode = "normal"

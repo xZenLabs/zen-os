@@ -269,11 +269,17 @@ local function rebuild_settings_menu_item(row)
         table.insert(right_controls, HorizontalSpan:new{ width = Size.padding.large })
     end
     if item._zen_has_submenu then
-        table.insert(right_controls, IconWidget:new{
-            icon = item._zen_caret_icon or "chevron.right",
+        local caret = item._zen_caret_icon or "chevron.right"
+        local caret_options = {
             width = M.SETTINGS_CARET_SIZE,
             height = M.SETTINGS_CARET_SIZE,
-        })
+        }
+        if caret:find("/", 1, true) then
+            caret_options.file = caret
+        else
+            caret_options.icon = caret
+        end
+        table.insert(right_controls, IconWidget:new(caret_options))
     elseif control_widget then
         table.insert(right_controls, HorizontalSpan:new{ width = M.SETTINGS_CARET_SIZE })
     end

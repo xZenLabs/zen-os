@@ -185,6 +185,13 @@ function M.build(ctx)
         { id = "page_right",  text = _("Next page")     },
         { id = "menu",        text = _("Menu")          },
     }
+    local archive_available = paths.getArchiveDir() ~= nil
+    if archive_available then
+        table.insert(navbar_tab_items, 2, {
+            id = "archive",
+            text = _("Archive"),
+        })
+    end
 
     if config.navbar.show_tabs.books == nil then
         config.navbar.show_tabs.books = true
@@ -204,6 +211,9 @@ function M.build(ctx)
         "books", "folder", "kindle", "manga", "news", "history", "favorites",
         "collections", "authors", "series", "languages", "home", "tags", "to_be_read",
     }
+    if archive_available then
+        table.insert(default_tab_ids, 2, "archive")
+    end
 
     local function get_builtin_tab_label(tab_id)
         local tab = tab_item_by_id[tab_id]

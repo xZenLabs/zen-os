@@ -1,6 +1,7 @@
 local LuaSettings = require("luasettings")
 local PresetStore = require("config/preset_store")
 local PagePlan = require("modules/menu/app_launcher/page_plan")
+local BookSwitcherPage = require("modules/menu/app_launcher/book_switcher_page")
 
 local M = {}
 
@@ -69,6 +70,9 @@ local function default_config()
         page_order = PagePlan.normalizeOrder(),
         show_book_switcher = false,
         book_switcher_reader_only = false,
+        book_switcher_count = BookSwitcherPage.BOOK_COUNT,
+        book_switcher_hide_finished = true,
+        book_switcher_hidden = {},
         show_book_details = false,
     })
 end
@@ -112,6 +116,11 @@ local function normalize(cfg)
     if type(cfg.book_switcher_reader_only) ~= "boolean" then
         cfg.book_switcher_reader_only = false
     end
+    cfg.book_switcher_count = BookSwitcherPage.normalizeCount(cfg.book_switcher_count)
+    if type(cfg.book_switcher_hide_finished) ~= "boolean" then
+        cfg.book_switcher_hide_finished = true
+    end
+    if type(cfg.book_switcher_hidden) ~= "table" then cfg.book_switcher_hidden = {} end
     if type(cfg.show_book_details) ~= "boolean" then cfg.show_book_details = false end
     return normalize_book_details(cfg)
 end

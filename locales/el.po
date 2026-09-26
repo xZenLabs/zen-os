@@ -9,7 +9,7 @@ msgstr ""
 
 #. Type: unit
 #. Context: title = title .. " " .. metricLabel(block.metric) .. ", " .. tostring(block.range_days or 14) .. _(" days") elseif block.id == "calendar" then
-#: stats_page.lua:99 stats_page.lua:1319 stats_page.lua:1427 stats_settings.lua:122
+#: stats_page.lua:99 stats_page.lua:1329 stats_page.lua:1437 stats_settings.lua:122
 msgid " days"
 msgstr " ημέρες"
 
@@ -87,7 +87,7 @@ msgstr "%d%% αναγνωσμένο"
 
 #. Type: format
 #. Context: local title = is_time and string.format(_("%s time goal (min)"), period.text) or is_books and string.format(_("%s books goal"), period.text) or string.format(_("%s pages goal"), period.text)
-#: reading_goals.lua:82
+#: reading_goals.lua:83
 msgid "%s books goal"
 msgstr "Στόχος: %s βιβλία"
 
@@ -111,19 +111,19 @@ msgstr "Απομένουν %s"
 
 #. Type: format
 #. Context: or is_books and string.format(_("%s books goal"), period.text) or string.format(_("%s pages goal"), period.text) local label = title .. ": "
-#: reading_goals.lua:83
+#: reading_goals.lua:84
 msgid "%s pages goal"
 msgstr "Στόχος: %s σελίδες"
 
 #. Type: title
 #. Context: local is_books = target == period.books local title = is_time and string.format(_("%s time goal (min)"), period.text) or is_books and string.format(_("%s books goal"), period.text)
-#: reading_goals.lua:81
+#: reading_goals.lua:82
 msgid "%s time goal (min)"
 msgstr "Στόχος χρόνου: %s (λεπτά)"
 
 #. Type: setting
 #. Context: text_func = function() local lbl = (cb.label and cb.label ~= "") and cb.label or _("(auto)") return T(_("Label: %1"), lbl)
-#: menu_settings.lua:886 navbar_settings.lua:835
+#: menu_settings.lua:886 navbar_settings.lua:845
 msgid "(auto)"
 msgstr "(αυτόματο)"
 
@@ -135,7 +135,7 @@ msgstr "(Kindle)"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Tag: %1"), entry.tag or _("(none)")) end,
-#: app_launcher_settings.lua:774 app_launcher_settings.lua:795 app_launcher_settings.lua:821 app_launcher_settings.lua:834 app_launcher_settings.lua:845 menu_settings.lua:774 menu_settings.lua:786 menu_settings.lua:817 navbar_settings.lua:730 navbar_settings.lua:750 navbar_settings.lua:770 navbar_settings.lua:782
+#: app_launcher_settings.lua:774 app_launcher_settings.lua:795 app_launcher_settings.lua:821 app_launcher_settings.lua:834 app_launcher_settings.lua:845 menu_settings.lua:774 menu_settings.lua:786 menu_settings.lua:817 navbar_settings.lua:740 navbar_settings.lua:760 navbar_settings.lua:780 navbar_settings.lua:792
 msgid "(none)"
 msgstr "(κανένα)"
 
@@ -147,31 +147,31 @@ msgstr "(τυπικό)"
 
 #. Type: subtitle
 #. Context: if tab_id == "authors" then subtitle = count == 1 and _("1 author") or (tostring(count) .. " " .. _("authors"))
-#: group_view.lua:1324
+#: group_view.lua:1320
 msgid "1 author"
 msgstr "1 συγγραφέας"
 
 #. Type: label
 #. Context: _zen_group_name = display_name, _zen_group_subtitle = book_count == 1 and _("1 book") or (tostring(book_count) .. " " .. _("books")),
-#: collections.lua:441 collections.lua:539 context_menu.lua:667 context_menu.lua:1270 group_view.lua:1293
+#: collections.lua:441 collections.lua:539 context_menu.lua:692 context_menu.lua:1300 group_view.lua:1289
 msgid "1 book"
 msgstr "1 βιβλίο"
 
 #. Type: subtitle
 #. Context: elseif tab_id == "languages" then subtitle = count == 1 and _("1 language") or (tostring(count) .. " " .. _("languages"))
-#: group_view.lua:1327
+#: group_view.lua:1323
 msgid "1 language"
 msgstr "1 γλώσσα"
 
 #. Type: subtitle
 #. Context: else subtitle = count == 1 and _("1 series") or (tostring(count) .. " " .. _("series"))
-#: group_view.lua:1333
+#: group_view.lua:1329
 msgid "1 series"
 msgstr "1 σειρά"
 
 #. Type: subtitle
 #. Context: elseif tab_id == "tags" then subtitle = count == 1 and _("1 tag") or (tostring(count) .. " " .. _("tags"))
-#: group_view.lua:1330
+#: group_view.lua:1326
 msgid "1 tag"
 msgstr "1 ετικέτα"
 
@@ -217,6 +217,18 @@ msgstr "90°"
 msgid "< %1m"
 msgstr "< %1m"
 
+#. Type: message
+#. Context: if lfs.attributes(destination) then show_message(_("A book with that name already exists in the archive.")) return false
+#: archive_actions.lua:239
+msgid "A book with that name already exists in the archive."
+msgstr "Ένα βιβλίο με αυτό το όνομα υπάρχει ήδη στο αρχείο."
+
+#. Type: message
+#. Context: if lfs.attributes(destination) then show_message(_("A book with that name already exists in the destination.")) return false
+#: archive_actions.lua:130
+msgid "A book with that name already exists in the destination."
+msgstr "Ένα βιβλίο με αυτό το όνομα υπάρχει ήδη στον προορισμό."
+
 #. Type: description
 #. Context: icon = "_zen_quickstart", description = _("A clean, minimal experience for your e-reader.\n\nSwipe or tap Next to continue."), },
 #: quickstart_pages.lua:653
@@ -261,7 +273,7 @@ msgstr "Ένας πάροχος μεταδεδομένων επέστρεψε μ
 
 #. Type: description
 #. Context: title = _("Bug report title"), description = _("A short summary of what went wrong"), input = "",
-#: zen_bugreporter.lua:195
+#: zen_bugreporter.lua:198
 msgid "A short summary of what went wrong"
 msgstr "Σύντομη περιγραφή του προβλήματος"
 
@@ -273,25 +285,25 @@ msgstr "Σχετικά"
 
 #. Type: setting
 #. Context: local current = entry.label or "" if entry.label_auto == true or current == "" or current == _("Action") then entry.label = action_label(entry) or _("Action")
-#: app_launcher_settings.lua:168 app_launcher_settings.lua:169 app_launcher_settings.lua:261 app_launcher_settings.lua:559 menu_settings.lua:665 menu_settings.lua:752 home_settings.lua:1437 home_settings.lua:1478 navbar_settings.lua:335 navbar_settings.lua:1388
+#: app_launcher_settings.lua:168 app_launcher_settings.lua:169 app_launcher_settings.lua:261 app_launcher_settings.lua:559 menu_settings.lua:665 menu_settings.lua:752 home_settings.lua:1437 home_settings.lua:1478 navbar_settings.lua:345 navbar_settings.lua:1398
 msgid "Action"
 msgstr "Ενέργεια"
 
 #. Type: setting
 #. Context: if entry.action and next(entry.action) then return T(_("Action: %1"), Dispatcher:menuTextFunc(entry.action)) end
-#: app_launcher_settings.lua:642 menu_settings.lua:855 navbar_settings.lua:807
+#: app_launcher_settings.lua:642 menu_settings.lua:855 navbar_settings.lua:817
 msgid "Action: %1"
 msgstr "Ενέργεια: %1"
 
 #. Type: setting
 #. Context: end return _("Action: (none)") end,
-#: app_launcher_settings.lua:644 menu_settings.lua:857 navbar_settings.lua:809
+#: app_launcher_settings.lua:644 menu_settings.lua:857 navbar_settings.lua:819
 msgid "Action: (none)"
 msgstr "Ενέργεια: (καμία)"
 
 #. Type: setting
 #. Context: _("Icons"), _("Active tab"), _("Show top border"),
-#: zen_settings.lua:105 zen_settings.lua:109 navbar_settings.lua:1599
+#: zen_settings.lua:105 zen_settings.lua:109 navbar_settings.lua:1609
 msgid "Active tab"
 msgstr "Ενεργή καρτέλα"
 
@@ -303,19 +315,19 @@ msgstr "Χρώμα ενεργής καρτέλας"
 
 #. Type: setting
 #. Context: utils.buildColorSubMenu({ label = _("Active tab color: "), get = ensure_navbar_color,
-#: navbar_settings.lua:1629
+#: navbar_settings.lua:1639
 msgid "Active tab color: "
 msgstr "Χρώμα ενεργής καρτέλας: "
 
 #. Type: title
 #. Context: end, dialog_title = _("Active tab RGB"), presets = {
-#: navbar_settings.lua:1638
+#: navbar_settings.lua:1648
 msgid "Active tab RGB"
 msgstr "RGB ενεργής καρτέλας"
 
 #. Type: title
 #. Context: item_table = sort_items, add_title = _("Add"), add_item_table = arrange_add_items(parent),
-#: app_launcher_settings.lua:282 app_launcher_settings.lua:922 menu_settings.lua:656 home_settings.lua:1611 navbar_settings.lua:1421
+#: app_launcher_settings.lua:282 app_launcher_settings.lua:922 menu_settings.lua:656 home_settings.lua:1611 navbar_settings.lua:1431
 msgid "Add"
 msgstr "Προσθήκη"
 
@@ -357,7 +369,7 @@ msgstr "Προσθέστε προσαρμοσμένα κουμπιά για άλ
 
 #. Type: message
 #. Context: table.insert(sub, { text = _("Add folder…"), keep_menu_open = true,
-#: library_settings.lua:1363
+#: library_settings.lua:1361
 msgid "Add folder…"
 msgstr "Προσθήκη φακέλου…"
 
@@ -375,7 +387,7 @@ msgstr "Προσθήκη πρόσθετου"
 
 #. Type: title
 #. Context: coll_picker = Menu_cp:new{ title = _("Add to collection"), item_table = items,
-#: quickstart_pages.lua:305 context_menu.lua:1898 context_menu.lua:1926
+#: quickstart_pages.lua:305 context_menu.lua:1983 context_menu.lua:2011
 msgid "Add to collection"
 msgstr "Προσθήκη σε συλλογή"
 
@@ -387,13 +399,13 @@ msgstr "Προσθήκη στον δημιουργό λεξιλογίου"
 
 #. Type: label
 #. Context: text = display .. (already_in and " \u{2713}" or ""), mandatory = already_in and _("added") or nil, dim = already_in,
-#: context_menu.lua:1919
+#: context_menu.lua:2004
 msgid "added"
 msgstr "προστέθηκε"
 
 #. Type: setting
 #. Context: { text = _("Additional home folders"), sub_item_table_func = build_additional_home_items,
-#: library_settings.lua:1475
+#: library_settings.lua:1473
 msgid "Additional home folders"
 msgstr "Επιπλέον αρχικοί φάκελοι"
 
@@ -411,7 +423,7 @@ msgstr "Αλέξανδρος Δουμάς"
 
 #. Type: label
 #. Context: table.insert(fbts, {{ text = _("All") .. (is_all and " " .. icons.check or ""), align = "left",
-#: context_menu.lua:743 context_menu.lua:2325
+#: context_menu.lua:768 context_menu.lua:2410
 msgid "All"
 msgstr "Όλα"
 
@@ -423,7 +435,7 @@ msgstr "Όλες οι ρυθμίσεις βρίσκονται σε μία ενι
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = entry.id == "tags" and _("All tags") or entry.label, entry = entry,
-#: home_settings.lua:1309 navbar_settings.lua:380
+#: home_settings.lua:1309 navbar_settings.lua:390
 msgid "All tags"
 msgstr "Όλες οι ετικέτες"
 
@@ -441,13 +453,19 @@ msgstr "Συνολικά"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Allow delete"), checked_func = function()
-#: library_settings.lua:1482
+#: library_settings.lua:1480
 msgid "Allow delete"
 msgstr "Να επιτρέπεται η διαγραφή"
 
 #. Type: setting
+#. Context: table.insert(items, { text = _("Allow dragging reader modals"), help_text = _("Restore KOReader's default draggable modal behavior."),
+#: advanced_settings.lua:65
+msgid "Allow dragging reader modals"
+msgstr "Να επιτρέπεται η μεταφορά των modal κωδικών ανάγνωσης"
+
+#. Type: setting
 #. Context: { text = _("Green"), r = 0x99, g = 0xCC, b = 0x99 }, { text = _("Amber"), r = 0xF0, g = 0xD0, b = 0x80 }, { text = _("Red"), r = 0xDD, g = 0x99, b = 0x99 },
-#: library_settings.lua:572 navbar_settings.lua:1642
+#: library_settings.lua:572 navbar_settings.lua:1652
 msgid "Amber"
 msgstr "Κεχριμπαρένιο"
 
@@ -465,13 +483,13 @@ msgstr "Απαιτείται τίτλος EPUB."
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("An item with that name already exists."), icon = "notice-warning",
-#: context_menu.lua:1813
+#: context_menu.lua:1898
 msgid "An item with that name already exists."
 msgstr "Υπάρχει ήδη στοιχείο με αυτό το όνομα."
 
 #. Type: setting
 #. Context: rating = _("Rating"), annotations = _("Annotations"), note = _("Note"),
-#: book_details.lua:387 library_settings.lua:1511 home_settings.lua:2467
+#: book_details.lua:387 library_settings.lua:1509 home_settings.lua:2467
 msgid "Annotations"
 msgstr "Επισημειώσεις"
 
@@ -486,6 +504,24 @@ msgstr "Εφαρμογή"
 #: zen_slider_dialog.lua:158
 msgid "Apply"
 msgstr "Εφαρμογή"
+
+#. Type: button
+#. Context: archive_button = Button:new{ text = _("Archive"), width = action_width,
+#: archive_actions.lua:156 archive_actions.lua:199 archive_actions.lua:203 archive_actions.lua:247 navbar.lua:240 book_status.lua:251 library_settings.lua:1748 navbar_settings.lua:192
+msgid "Archive"
+msgstr "Αρχείο"
+
+#. Type: dialog
+#. Context: UIManager:show(InfoMessage:new{ text = ffiUtil.template(_("Archive folder not found: %1"), folder_path), })
+#: navbar.lua:1235
+msgid "Archive folder not found: %1"
+msgstr "Δεν βρέθηκε ο φάκελος αρχειοθέτησης: %1"
+
+#. Type: message
+#. Context: callback = function() confirm_action(_("Archive this book?"), _("Archive"), function() local filename = select(2, util.splitFilePathName(file))
+#: archive_actions.lua:203 archive_actions.lua:247
+msgid "Archive this book?"
+msgstr "Αρχειοθέτηση αυτού του βιβλίου;"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Are you sure you want to exit KOReader?"), ok_text = _("Exit"),
@@ -549,13 +585,13 @@ msgstr "Διάταξη δεξιών στοιχείων"
 
 #. Type: label
 #. Context: {{ text = "\u{F15D} " .. _("Ascending") .. (not cur_reverse and " \u{2713}" or ""), align = "left",
-#: group_view.lua:897
+#: group_view.lua:895
 msgid "Ascending"
 msgstr "Αύξουσα"
 
 #. Type: setting
 #. Context: if countEnabledTabs() <= 1 then showTabLimitMessage(_("At least one tab must be visible")) return false
-#: navbar_settings.lua:264
+#: navbar_settings.lua:274
 msgid "At least one tab must be visible"
 msgstr "Τουλάχιστον μία καρτέλα πρέπει να είναι ορατή"
 
@@ -567,13 +603,13 @@ msgstr "Συγγραφέας"
 
 #. Type: title
 #. Context: if tab_id == "authors" then title = _("Authors") elseif tab_id == "languages" then
-#: nav_button_model.lua:9 quickstart_pages.lua:688 metadata_editor.lua:47 metadata_editor.lua:509 context_menu.lua:2167 group_view.lua:1309 group_view.lua:1354 navbar.lua:279 library_settings.lua:1506 home_settings.lua:1074 navbar_settings.lua:174
+#: nav_button_model.lua:9 quickstart_pages.lua:688 metadata_editor.lua:47 metadata_editor.lua:509 context_menu.lua:2252 group_view.lua:1305 group_view.lua:1350 navbar.lua:285 library_settings.lua:1504 home_settings.lua:1074 navbar_settings.lua:174
 msgid "Authors"
 msgstr "Συγγραφείς"
 
 #. Type: label
 #. Context: subtitle = count == 1 and _("1 author") or (tostring(count) .. " " .. _("authors")) elseif tab_id == "languages" then
-#: group_view.lua:1325
+#: group_view.lua:1321
 msgid "authors"
 msgstr "συγγραφείς"
 
@@ -597,7 +633,7 @@ msgstr "Αυτόματο μέγεθος γραμματοσειράς"
 
 #. Type: setting
 #. Context: table.insert(sub, { text = _("Automatic suspend"), sub_item_table = suspend_sub,
-#: global_settings.lua:813
+#: global_settings.lua:833
 msgid "Automatic suspend"
 msgstr "Αυτόματη αναστολή λειτουργίας"
 
@@ -615,7 +651,7 @@ msgstr "Επιστροφή"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Background"), checked_func = function()
-#: library_settings.lua:1259 library_settings.lua:1340
+#: library_settings.lua:1257 library_settings.lua:1338
 msgid "Background"
 msgstr "Φόντο"
 
@@ -632,22 +668,16 @@ msgid "Background hatching"
 msgstr "Διαγράμμιση φόντου"
 
 #. Type: message
-#. Context: elseif code == "decode_failed" then return _("Background image could not be loaded. It may be corrupt or unsupported.") end
-#: library_settings.lua:1242
+#. Context: elseif code == "unsupported" or code == "decode_failed" then return _("Background image could not be loaded. It may be corrupt or unsupported.") end
+#: library_settings.lua:1240
 msgid "Background image could not be loaded. It may be corrupt or unsupported."
 msgstr "Δεν ήταν δυνατή η φόρτωση της εικόνας φόντου. Μπορεί να είναι κατεστραμμένη ή μη υποστηριζόμενη."
 
 #. Type: message
-#. Context: elseif code == "missing" then return _("Background image file not found.") elseif code == "no_decoder" then
-#: library_settings.lua:1238
+#. Context: if code == "missing" then return _("Background image file not found.") elseif code == "no_decoder" then
+#: library_settings.lua:1236
 msgid "Background image file not found."
 msgstr "Το αρχείο εικόνας φόντου δεν βρέθηκε."
-
-#. Type: message
-#. Context: if code == "not_jpeg" then return _("Background image must be a JPG or JPEG file.") elseif code == "missing" then
-#: library_settings.lua:1236
-msgid "Background image must be a JPG or JPEG file."
-msgstr "Η εικόνα φόντου πρέπει να είναι αρχείο JPG ή JPEG."
 
 #. Type: title
 #. Context: reset_text = _("Default (black)"), dialog_title = _("Badge color RGB"), presets = {
@@ -747,7 +777,7 @@ msgstr "Μαύρο"
 
 #. Type: setting
 #. Context: { text = _("Gray"), r = 204, g = 204, b = 204 }, { text = _("Blue"), r = 0x99, g = 0xBB, b = 0xF0 }, { text = _("Green"), r = 0x99, g = 0xCC, b = 0x99 },
-#: library_settings.lua:570 reader_settings.lua:65 navbar_settings.lua:1640
+#: library_settings.lua:570 reader_settings.lua:65 navbar_settings.lua:1650
 msgid "Blue"
 msgstr "Μπλε"
 
@@ -758,16 +788,16 @@ msgid "Bluetooth"
 msgstr "Bluetooth"
 
 #. Type: setting
-#. Context: table.insert(font_sub_items, { text = _("Bold"), checked_func = function()
-#: reader_settings.lua:1358 home_settings.lua:752 home_settings.lua:1726
-msgid "Bold"
-msgstr "Έντονη"
-
-#. Type: setting
 #. Context: local style = ensure_featured_text_style(mcfg, key) local weight = style.bold and _("bold") or _("regular") return string.format("%s, %s, %s", font_label(style.font_face), tostring(style.font_size), weight)
 #: home_settings.lua:690 home_settings.lua:1656
 msgid "bold"
 msgstr "με έντονους χαρακτήρες"
+
+#. Type: setting
+#. Context: table.insert(font_sub_items, { text = _("Bold"), checked_func = function()
+#: reader_settings.lua:1358 home_settings.lua:752 home_settings.lua:1726
+msgid "Bold"
+msgstr "Έντονη"
 
 #. Type: setting
 #. Context: _("Show bottom border"), _("Bold text"), _("Colored status icons"),
@@ -789,7 +819,7 @@ msgstr "Το βιβλίο προστέθηκε στη λίστα λήψης"
 
 #. Type: title
 #. Context: return { title = _("Book details"), details = details,
-#: metadata_editor.lua:401 metadata_editor.lua:402 book_details_page.lua:126 book_details.lua:507 book_info_widget.lua:134 app_launcher_settings.lua:99 app_launcher_settings.lua:997 library_settings.lua:1686 library_settings.lua:1719
+#: metadata_editor.lua:401 metadata_editor.lua:402 book_details_page.lua:126 book_details.lua:507 book_info_widget.lua:134 app_launcher_settings.lua:99 app_launcher_settings.lua:997 library_settings.lua:1684 library_settings.lua:1717
 msgid "Book details"
 msgstr "Λεπτομέρειες βιβλίου"
 
@@ -799,9 +829,21 @@ msgstr "Λεπτομέρειες βιβλίου"
 msgid "Book information"
 msgstr "Πληροφορίες βιβλίου"
 
+#. Type: message
+#. Context: if move_book(fm, file, archive, original_dirs) then show_message(_("Book moved to archive.")) end
+#: archive_actions.lua:207 archive_actions.lua:259
+msgid "Book moved to archive."
+msgstr "Το βιβλίο μεταφέρθηκε στο αρχείο."
+
+#. Type: message
+#. Context: if move_book(fm, file, destination, original_dirs) then show_message(_("Book moved to library.")) end
+#: archive_actions.lua:191
+msgid "Book moved to library."
+msgstr "Το βιβλίο μεταφέρθηκε στη βιβλιοθήκη."
+
 #. Type: title
 #. Context: local review_header = self:genHeader(_("Review")) local status_header = self:genHeader(self.readonly and _("Book Status") or _("Update Status"))
-#: book_status.lua:210
+#: book_status.lua:211
 msgid "Book Status"
 msgstr "Κατάσταση βιβλίου"
 
@@ -841,17 +883,17 @@ msgstr "Βιβλίο: "
 msgid "Bookmarks"
 msgstr "Σελιδοδείκτες"
 
-#. Type: setting
-#. Context: { text = _("Books"), radio = true,
-#: reading_goals.lua:141 browser_list_item_layout.lua:188 reading_goals.lua:96 reading_goals.lua:267 navbar_settings.lua:1002
-msgid "Books"
-msgstr "Βιβλία"
-
 #. Type: label
 #. Context: _zen_group_subtitle = book_count == 1 and _("1 book") or (tostring(book_count) .. " " .. _("books")), _zen_sort_cb = function()
-#: collections.lua:442 collections.lua:540 context_menu.lua:667 context_menu.lua:1270 group_view.lua:1294
+#: collections.lua:442 collections.lua:540 context_menu.lua:692 context_menu.lua:1300 group_view.lua:1290
 msgid "books"
 msgstr "βιβλία"
+
+#. Type: setting
+#. Context: { text = _("Books"), radio = true,
+#: reading_goals.lua:142 browser_list_item_layout.lua:188 reading_goals.lua:96 reading_goals.lua:267 navbar_settings.lua:1012
+msgid "Books"
+msgstr "Βιβλία"
 
 #. Type: label
 #. Context: blockCard{ width = c4_w, height = card_h, value = formatTime(stats.year_duration), label = _("Total time") }, blockCard{ width = c4_w, height = card_h, value = tostring(stats.books_this_year or 0), label = _("Books read") }, }, stat_styl...
@@ -861,7 +903,7 @@ msgstr "Βιβλία που διαβάστηκαν"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Books tab label"), input = config.navbar.books_label or "",
-#: navbar_settings.lua:1046
+#: navbar_settings.lua:1056
 msgid "Books tab label"
 msgstr "Ονομασία καρτέλας «Βιβλία»"
 
@@ -879,31 +921,31 @@ msgstr "Κάτω γραμμή κατάστασης"
 
 #. Type: setting
 #. Context: input = "", input_hint = _("Brief description of the bug"), buttons = {{
-#: zen_bugreporter.lua:197
+#: zen_bugreporter.lua:200
 msgid "Brief description of the bug"
 msgstr "Σύντομη περιγραφή του σφάλματος"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Brightness"), sub_item_table = {
-#: brightness_slider.lua:48 global_settings.lua:471 global_settings.lua:491 global_settings.lua:538 global_settings.lua:551 global_settings.lua:594 global_settings.lua:607 reader_settings.lua:160 status_bar_settings.lua:32
+#: brightness_slider.lua:48 global_settings.lua:491 global_settings.lua:511 global_settings.lua:558 global_settings.lua:571 global_settings.lua:614 global_settings.lua:627 reader_settings.lua:160 status_bar_settings.lua:32
 msgid "Brightness"
 msgstr "Φωτεινότητα"
 
 #. Type: title
 #. Context: dlg = InputDialog:new{ title = _("Bug description (optional)"), description = _("Steps to reproduce, expected vs. actual behavior"),
-#: zen_bugreporter.lua:225
+#: zen_bugreporter.lua:228
 msgid "Bug description (optional)"
 msgstr "Περιγραφή σφάλματος (προαιρετικά)"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Bug report submitted!") .. "\n\n" .. issue_url, no_ok_button = true,
-#: zen_bugreporter.lua:346
+#: zen_bugreporter.lua:349
 msgid "Bug report submitted!"
 msgstr "Η αναφορά σφάλματος υποβλήθηκε!"
 
 #. Type: title
 #. Context: dlg = InputDialog:new{ title = _("Bug report title"), description = _("A short summary of what went wrong"),
-#: zen_bugreporter.lua:194
+#: zen_bugreporter.lua:197
 msgid "Bug report title"
 msgstr "Τίτλος αναφοράς σφάλματος"
 
@@ -933,7 +975,7 @@ msgstr "Calibre"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Calibre plugin is not installed."), })
-#: navbar.lua:1502
+#: navbar.lua:1533
 msgid "Calibre plugin is not installed."
 msgstr "Το πρόσθετο Calibre δεν είναι εγκατεστημένο."
 
@@ -945,13 +987,13 @@ msgstr "Αναζήτηση Calibre"
 
 #. Type: button
 #. Context: or _("Restore the previous metadata for this book?"), cancel_text = _("Cancel"), ok_text = _("Restore"),
-#: metadata_editor.lua:1225 home_page.lua:2175 metadata_editor.lua:957 metadata_editor.lua:1176 zen_bugreporter.lua:156 zen_bugreporter.lua:200 zen_bugreporter.lua:231 zen_settings_utils.lua:537 zen_updater.lua:1349 zen_updater.lua:1652 zenpm_installer.lua:323 app_launcher_settings.lua:186 app_launcher_settings.lua:276 global_settings.lua:303 menu_settings.lua:899 menu_settings.lua:1002 reader_settings.lua:114 reader_settings.lua:207 reader_settings.lua:683 reader_settings.lua:1013 home_settings.lua:1206 home_settings.lua:2034 home_settings.lua:2112 metadata_settings.lua:38 navbar_settings.lua:848 navbar_settings.lua:978 navbar_settings.lua:1049 navbar_settings.lua:1185 status_bar_settings.lua:273 status_bar_settings.lua:369
+#: metadata_editor.lua:1225 home_page.lua:2194 metadata_editor.lua:957 metadata_editor.lua:1176 zen_bugreporter.lua:156 zen_bugreporter.lua:203 zen_bugreporter.lua:234 zen_settings_utils.lua:537 zen_updater.lua:1349 zen_updater.lua:1652 zenpm_installer.lua:323 app_launcher_settings.lua:186 app_launcher_settings.lua:276 global_settings.lua:304 menu_settings.lua:899 menu_settings.lua:1002 reader_settings.lua:114 reader_settings.lua:207 reader_settings.lua:683 reader_settings.lua:1013 home_settings.lua:1206 home_settings.lua:2034 home_settings.lua:2112 metadata_settings.lua:38 navbar_settings.lua:858 navbar_settings.lua:988 navbar_settings.lua:1059 navbar_settings.lua:1195 status_bar_settings.lua:273 status_bar_settings.lua:369
 msgid "Cancel"
 msgstr "Άκυρο"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Cannot open last document"), })
-#: navbar.lua:1329
+#: navbar.lua:1360
 msgid "Cannot open last document"
 msgstr "Αδυναμία ανοίγματος τελευταίου αρχείου"
 
@@ -1041,7 +1083,7 @@ msgstr "Επιλέξτε μια έκδοση"
 
 #. Type: title
 #. Context: require("common/ui/zen_menu_picker"){ title = _("Choose control"), items = picker_items,
-#: app_launcher_settings.lua:474 menu_settings.lua:434 home_settings.lua:1415 navbar_settings.lua:673 navbar_settings.lua:695
+#: app_launcher_settings.lua:474 menu_settings.lua:434 home_settings.lua:1415 navbar_settings.lua:683 navbar_settings.lua:705
 msgid "Choose control"
 msgstr "Επιλέξτε στοιχείο ελέγχου"
 
@@ -1059,7 +1101,7 @@ msgstr "Επιλέξτε στοιχείο"
 
 #. Type: title
 #. Context: require("common/ui/zen_menu_picker"){ title = _("Choose KOReader menu"), items = found,
-#: app_launcher_settings.lua:417 menu_settings.lua:414 home_settings.lua:1397 navbar_settings.lua:476
+#: app_launcher_settings.lua:417 menu_settings.lua:414 home_settings.lua:1397 navbar_settings.lua:486
 msgid "Choose KOReader menu"
 msgstr "Επιλέξτε μενού KOReader"
 
@@ -1071,13 +1113,13 @@ msgstr "Επιλέξτε αντιστοίχιση χειροκίνητα"
 
 #. Type: title
 #. Context: show_menu_picker{ title = _("Choose plugin menu"), items = picker_items,
-#: app_launcher_settings.lua:323 app_launcher_settings.lua:393 menu_settings.lua:399 home_settings.lua:1375 navbar_settings.lua:461
+#: app_launcher_settings.lua:323 app_launcher_settings.lua:393 menu_settings.lua:399 home_settings.lua:1375 navbar_settings.lua:471
 msgid "Choose plugin menu"
 msgstr "Επιλέξτε μενού πρόσθετου"
 
 #. Type: title
 #. Context: require("common/ui/zen_menu_picker"){ title = _("Choose tab"), items = items,
-#: home_settings.lua:1328 navbar_settings.lua:401
+#: home_settings.lua:1328 navbar_settings.lua:411
 msgid "Choose tab"
 msgstr "Επιλέξτε καρτέλα"
 
@@ -1107,13 +1149,13 @@ msgstr "Κλασικός (μόνο όνομα αρχείου)"
 
 #. Type: button
 #. Context: text = _("Set all gestures to pass-through? Top-right corner in reader will be kept as Toggle bookmark."), ok_text = _("Clear"), ok_callback = function()
-#: folder_cover_picker.lua:52 folder_cover_picker.lua:408 context_menu.lua:2277 metadata_editor.lua:1036 advanced_settings.lua:134 metadata_settings.lua:88
+#: folder_cover_picker.lua:52 folder_cover_picker.lua:408 context_menu.lua:2362 metadata_editor.lua:1036 advanced_settings.lua:149 metadata_settings.lua:88
 msgid "Clear"
 msgstr "Εκκαθάριση"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Clear all gestures"), callback = function()
-#: advanced_settings.lua:129
+#: advanced_settings.lua:144
 msgid "Clear all gestures"
 msgstr "Εκκαθάριση όλων των χειρονομιών"
 
@@ -1125,7 +1167,7 @@ msgstr "Εκκαθάριση βιβλίου"
 
 #. Type: label
 #. Context: local clear_cache = {{ text = icons.delete .. " " .. _("Clear cache"), align = "left",
-#: kindle_virtual_library.lua:303
+#: kindle_virtual_library.lua:315
 msgid "Clear cache"
 msgstr "Εκκαθάριση προσωρινής μνήμης"
 
@@ -1179,13 +1221,13 @@ msgstr "Αποθήκευση στο cloud"
 
 #. Type: setting
 #. Context: series = _("Series"), languages = _("Languages"), tags = _("Tags"), collections = _("Collections"), custom = _("Custom books"), }
-#: nav_button_model.lua:13 quickstart_pages.lua:687 navbar.lua:274 home_settings.lua:1076 navbar_settings.lua:173
+#: nav_button_model.lua:13 quickstart_pages.lua:687 navbar.lua:280 home_settings.lua:1076 navbar_settings.lua:173
 msgid "Collections"
 msgstr "Συλλογές"
 
 #. Type: setting
 #. Context: _("Underline above icon"), _("Colored"), _("Active tab color"),
-#: zen_settings.lua:112 navbar_settings.lua:1621
+#: zen_settings.lua:112 navbar_settings.lua:1631
 msgid "Colored"
 msgstr "Έγχρωμο"
 
@@ -1237,39 +1279,45 @@ msgstr "Περιεχόμενο: "
 msgid "Context Menu"
 msgstr "Μενού περιβάλλοντος"
 
+#. Type: setting
+#. Context: table.insert(items, IconItem.decorate({ text = _("Context menu"), sub_item_table = {
+#: library_settings.lua:1745
+msgid "Context menu"
+msgstr "Μενού περιβάλλοντος"
+
 #. Type: button
 #. Context: .. _("crash.log will be embedded in a public GitHub issue. It may contain file paths and book titles.") .. ("\n\n") .. ("Continue?"), ok_text = _("Continue"), ok_callback = function()
-#: nav_button_model.lua:18 quickstart_pages.lua:684 navbar.lua:259 zen_bugreporter.lua:183 navbar_settings.lua:170
+#: nav_button_model.lua:18 quickstart_pages.lua:684 navbar.lua:265 zen_bugreporter.lua:186 navbar_settings.lua:170
 msgid "Continue"
 msgstr "Συνέχεια"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Control"), keep_menu_open = true,
-#: app_launcher_settings.lua:566 menu_settings.lua:660 home_settings.lua:1485 navbar_settings.lua:1403
+#: app_launcher_settings.lua:566 menu_settings.lua:660 home_settings.lua:1485 navbar_settings.lua:1413
 msgid "Control"
 msgstr "Στοιχείο ελέγχου"
 
 #. Type: title
 #. Context: require("modules/menu/app_launcher/menu_host").show{ title = button_defs[id] and button_defs[id].label or _("Control settings"), item_table = items,
-#: quick_settings.lua:1262 app_launcher_settings.lua:808 home_settings.lua:1590 navbar_settings.lua:762
+#: quick_settings.lua:1262 app_launcher_settings.lua:808 home_settings.lua:1590 navbar_settings.lua:772
 msgid "Control settings"
 msgstr "Ρυθμίσεις στοιχείων ελέγχου"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Control: %1"), entry.label or _("(none)")) end,
-#: app_launcher_settings.lua:795 navbar_settings.lua:750
+#: app_launcher_settings.lua:795 navbar_settings.lua:760
 msgid "Control: %1"
 msgstr "Στοιχείο ελέγχου: %1"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = string.format("%s %s", _("Controls"), _("font size")), value = style.font_size,
-#: zen_settings.lua:130 global_settings.lua:854 menu_settings.lua:1130 home_settings.lua:1521 home_settings.lua:1680 home_settings.lua:1706 home_settings.lua:1755
+#: zen_settings.lua:130 global_settings.lua:874 menu_settings.lua:1130 home_settings.lua:1521 home_settings.lua:1680 home_settings.lua:1706 home_settings.lua:1755
 msgid "Controls"
 msgstr "Έλεγχοι"
 
 #. Type: label
 #. Context: { text = icons.copy .. " " .. C_("File", "Copy"), align = "left",
-#: context_menu.lua:1475 context_menu.lua:1620
+#: context_menu.lua:1505 context_menu.lua:1650
 msgid "Copy"
 msgstr "Αντιγραφή"
 
@@ -1341,7 +1389,7 @@ msgstr "Εξώφυλλα"
 
 #. Type: message
 #. Context: text = isolation_notice .. "\n\n" .. _("crash.log will be embedded in a public GitHub issue. It may contain file paths and book titles.") .. ("\n\n") .. ("Continue?"), ok_text = _("Continue"),
-#: zen_bugreporter.lua:182
+#: zen_bugreporter.lua:185
 msgid "crash.log will be embedded in a public GitHub issue. It may contain file paths and book titles."
 msgstr "Το crash.log θα ενσωματωθεί σε δημόσιο issue στο GitHub. Μπορεί να περιέχει διαδρομές αρχείων και τίτλους βιβλίων."
 
@@ -1369,6 +1417,12 @@ msgstr "Ρεύμα"
 msgid "Current / total pages"
 msgstr "Τρέχουσα / συνολικές σελίδες"
 
+#. Type: title
+#. Context: local out = { title = _("Current Book"), total_time = 0,
+#: stats_page.lua:67 stats_page.lua:261
+msgid "Current Book"
+msgstr "Τρέχον βιβλίο"
+
 #. Type: setting
 #. Context: library = _("Library"), current_book = _("Current book"), trend_graph = _("Reading trend"),
 #: stats_settings.lua:34
@@ -1376,14 +1430,8 @@ msgid "Current book"
 msgstr "Τρέχον βιβλίο"
 
 #. Type: title
-#. Context: local out = { title = _("Current Book"), total_time = 0,
-#: stats_page.lua:67 stats_page.lua:261
-msgid "Current Book"
-msgstr "Τρέχον βιβλίο"
-
-#. Type: title
 #. Context: local filemanagerutil = require("apps/filemanager/filemanagerutil") local title_header = _("Current home folder:") local current_path = paths.getHomeDir()
-#: library_settings.lua:1424
+#: library_settings.lua:1422
 msgid "Current home folder:"
 msgstr "Τρέχων αρχικός φάκελος:"
 
@@ -1407,7 +1455,7 @@ msgstr "Τρέχουσα / συνολικές σελίδες"
 
 #. Type: setting
 #. Context: or (cb_action and next(cb_action) and Dispatcher:menuTextFunc(cb_action)) or _("Custom"), active_func = function()
-#: nav_button_model.lua:137 nav_button_model.lua:145 nav_button_model.lua:154 navbar.lua:2080 quick_settings.lua:1136 menu_settings.lua:176 menu_settings.lua:342 menu_settings.lua:346 menu_settings.lua:348 menu_settings.lua:349 menu_settings.lua:744 menu_settings.lua:750 menu_settings.lua:751 reader_settings.lua:714 home_settings.lua:957 home_settings.lua:999 navbar_settings.lua:220 navbar_settings.lua:312 navbar_settings.lua:327 navbar_settings.lua:333 navbar_settings.lua:334 navbar_settings.lua:518 navbar_settings.lua:523 navbar_settings.lua:525 navbar_settings.lua:526 navbar_settings.lua:1034 status_bar_settings.lua:358
+#: nav_button_model.lua:137 nav_button_model.lua:145 nav_button_model.lua:154 navbar.lua:2115 quick_settings.lua:1136 menu_settings.lua:176 menu_settings.lua:342 menu_settings.lua:346 menu_settings.lua:348 menu_settings.lua:349 menu_settings.lua:744 menu_settings.lua:750 menu_settings.lua:751 reader_settings.lua:714 home_settings.lua:957 home_settings.lua:999 navbar_settings.lua:230 navbar_settings.lua:322 navbar_settings.lua:337 navbar_settings.lua:343 navbar_settings.lua:344 navbar_settings.lua:528 navbar_settings.lua:533 navbar_settings.lua:535 navbar_settings.lua:536 navbar_settings.lua:1044 status_bar_settings.lua:358
 msgid "Custom"
 msgstr "Προσαρμοσμένο"
 
@@ -1455,7 +1503,7 @@ msgstr "Προσαρμοσμένο διαχωριστικό"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Custom tab label"), input = ButtonModel.label(controls, entry),
-#: home_settings.lua:1203 navbar_settings.lua:843
+#: home_settings.lua:1203 navbar_settings.lua:853
 msgid "Custom tab label"
 msgstr "Ονομασία προσαρμοσμένης καρτέλας"
 
@@ -1485,19 +1533,19 @@ msgstr "Προσαρμοσμένα θέματα"
 
 #. Type: setting
 #. Context: if presets[label] then return _("Custom") end return _("Custom: ") .. label end,
-#: navbar_settings.lua:1035
+#: navbar_settings.lua:1045
 msgid "Custom: "
 msgstr "Προσαρμοσμένο: "
 
 #. Type: title
 #. Context: menu._zen_block_dlg = ButtonDialog:new{ title = _("Customize widget"), title_align = "center",
-#: stats_page.lua:1459
+#: stats_page.lua:1469
 msgid "Customize widget"
 msgstr "Προσαρμογή γραφικού στοιχείου"
 
 #. Type: label
 #. Context: { text = "\u{F0190} " .. _("Cut"), align = "left",
-#: context_menu.lua:1609
+#: context_menu.lua:1639
 msgid "Cut"
 msgstr "Αποκοπή"
 
@@ -1527,7 +1575,7 @@ msgstr "Σκούρο γραφίτη"
 
 #. Type: setting
 #. Context: local function mode_pair_label(setting) return _("Light mode") .. " / " .. _("Dark mode") .. " " .. setting:lower() end
-#: global_settings.lua:112 global_settings.lua:594 global_settings.lua:607 global_settings.lua:748 global_settings.lua:761 reader_settings.lua:911
+#: global_settings.lua:113 global_settings.lua:614 global_settings.lua:627 global_settings.lua:768 global_settings.lua:781 reader_settings.lua:911
 msgid "Dark mode"
 msgstr "Σκοτεινή λειτουργία"
 
@@ -1539,7 +1587,7 @@ msgstr "Σκούρο θερμό γκρι"
 
 #. Type: setting
 #. Context: text_func = function() return _("Date") .. ": " .. datetime_style_summary(mcfg, "date") end,
-#: stats_page.lua:1434 home_settings.lua:676 home_settings.lua:678 status_bar_settings.lua:35
+#: stats_page.lua:1444 home_settings.lua:676 home_settings.lua:678 status_bar_settings.lua:35
 msgid "Date"
 msgstr "Ημερομηνία"
 
@@ -1551,25 +1599,25 @@ msgstr "Ημερομηνία/ώρα"
 
 #. Type: setting
 #. Context: local title = config.features.brightness_schedule == true and _("Day brightness") or mode_value_label(_("Light mode"), _("Brightness"))
-#: global_settings.lua:550
+#: global_settings.lua:570
 msgid "Day brightness"
 msgstr "Ημερήσια φωτεινότητα"
 
 #. Type: setting
 #. Context: local cfg = get_brightness_schedule_config() utils.show_time_picker(_("Day brightness time"), cfg.day_h, cfg.day_m, function(h, m)
-#: global_settings.lua:519
+#: global_settings.lua:539
 msgid "Day brightness time"
 msgstr "Ώρα ημερήσιας φωτεινότητας"
 
 #. Type: setting
 #. Context: local cfg = get_brightness_schedule_config() return _("Day brightness time: ") .. utils.fmt_time(cfg.day_h, cfg.day_m) end,
-#: global_settings.lua:511
+#: global_settings.lua:531
 msgid "Day brightness time: "
 msgstr "Ώρα ημερήσιας φωτεινότητας: "
 
 #. Type: setting
 #. Context: if config.features.brightness_schedule == true then return _("Day brightness: ") .. cfg.day_value end
-#: global_settings.lua:536
+#: global_settings.lua:556
 msgid "Day brightness: "
 msgstr "Ημερήσια φωτεινότητα: "
 
@@ -1581,31 +1629,31 @@ msgstr "Σερί ημερών"
 
 #. Type: setting
 #. Context: local title = config.features.warmth_schedule == true and _("Day warmth") or mode_value_label(_("Light mode"), _("Warmth"))
-#: global_settings.lua:704
+#: global_settings.lua:724
 msgid "Day warmth"
 msgstr "Ημερήσιο θερμό φως"
 
 #. Type: setting
 #. Context: local cfg = get_warmth_schedule_config() utils.show_time_picker(_("Day warmth time"), cfg.day_h, cfg.day_m, function(h, m)
-#: global_settings.lua:673
+#: global_settings.lua:693
 msgid "Day warmth time"
 msgstr "Ώρα ημερήσιου θερμού φωτός"
 
 #. Type: setting
 #. Context: local cfg = get_warmth_schedule_config() return _("Day warmth time: ") .. utils.fmt_time(cfg.day_h, cfg.day_m) end,
-#: global_settings.lua:665
+#: global_settings.lua:685
 msgid "Day warmth time: "
 msgstr "Ώρα ημερήσιου θερμού φωτός: "
 
 #. Type: setting
 #. Context: if config.features.warmth_schedule == true then return _("Day warmth: ") .. cfg.day_value end
-#: global_settings.lua:690
+#: global_settings.lua:710
 msgid "Day warmth: "
 msgstr "Ημερήσιο θερμό φως: "
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Debug logging"), help_text = _("Enable KOReader verbose debug logging. Logs are written to koreader.log. Takes effect immediately."),
-#: advanced_settings.lua:103
+#: advanced_settings.lua:118
 msgid "Debug logging"
 msgstr "Καταγραφή εντοπισμού σφαλμάτων"
 
@@ -1616,16 +1664,16 @@ msgid "Debug logging must be enabled to submit bug reports."
 msgstr "Η καταγραφή εντοπισμού σφαλμάτων πρέπει να είναι ενεργοποιημένη για την υποβολή αναφορών σφαλμάτων."
 
 #. Type: setting
+#. Context: local function font_name_text(cfg, FontChooser) if cfg.font_face == "default" then return _("default") end return FontChooser.getFontNameText(resolved_library_font(cfg.font_face)) or cfg.font_face
+#: library_settings.lua:36 library_settings.lua:226 library_settings.lua:257 library_settings.lua:1596 reader_settings.lua:407 reader_settings.lua:440 reader_settings.lua:795 reader_settings.lua:1337 home_settings.lua:525
+msgid "default"
+msgstr "προκαθορισμένo"
+
+#. Type: setting
 #. Context: local label = opts.label local default_text = opts.default_text or _("Default") local reset_text = opts.reset_text or default_text
 #: zen_settings_utils.lua:489 library_settings.lua:563 reader_settings.lua:599 reader_settings.lua:634
 msgid "Default"
 msgstr "Προεπιλογή"
-
-#. Type: setting
-#. Context: local function font_name_text(cfg, FontChooser) if cfg.font_face == "default" then return _("default") end return FontChooser.getFontNameText(resolved_library_font(cfg.font_face)) or cfg.font_face
-#: library_settings.lua:36 library_settings.lua:226 library_settings.lua:257 library_settings.lua:1598 reader_settings.lua:407 reader_settings.lua:440 reader_settings.lua:795 reader_settings.lua:1337 home_settings.lua:525
-msgid "default"
-msgstr "προκαθορισμένo"
 
 #. Type: setting
 #. Context: default_text = _("Default"), reset_text = _("Default (black)"), dialog_title = _("Badge color RGB"),
@@ -1647,19 +1695,19 @@ msgstr "Προεπιλεγμένα αποφθέγματα"
 
 #. Type: setting
 #. Context: _("Styling"), _("Default tab: "), })
-#: zen_settings.lua:99 navbar_settings.lua:1661
+#: zen_settings.lua:99 navbar_settings.lua:1671
 msgid "Default tab: "
 msgstr "Προεπιλεγμένη καρτέλα: "
 
 #. Type: setting
 #. Context: input = config.navbar.home_label or "Home", input_hint = _("Default: Home"), buttons = {{
-#: navbar_settings.lua:976
+#: navbar_settings.lua:986
 msgid "Default: Home"
 msgstr "Προεπιλογή: Αρχική"
 
 #. Type: button
 #. Context: text = _("Delete OPDS catalog?"), ok_text = _("Delete"), ok_callback = function()
-#: context_menu.lua:1714 opds.lua:1452 opds.lua:1456 countdown_screenshot.lua:160 app_launcher_settings.lua:862 app_launcher_settings.lua:880 global_settings.lua:351 menu_settings.lua:933 menu_settings.lua:964 menu_settings.lua:1032 menu_settings.lua:1038 reader_settings.lua:827 reader_settings.lua:1057 home_settings.lua:1558 home_settings.lua:1571 home_settings.lua:2083 home_settings.lua:2171 navbar_settings.lua:885 navbar_settings.lua:913 navbar_settings.lua:1299 navbar_settings.lua:1305
+#: context_menu.lua:1744 opds.lua:1452 opds.lua:1456 countdown_screenshot.lua:160 app_launcher_settings.lua:862 app_launcher_settings.lua:880 global_settings.lua:352 menu_settings.lua:933 menu_settings.lua:964 menu_settings.lua:1032 menu_settings.lua:1038 reader_settings.lua:827 reader_settings.lua:1057 home_settings.lua:1558 home_settings.lua:1571 home_settings.lua:2083 home_settings.lua:2171 navbar_settings.lua:895 navbar_settings.lua:923 navbar_settings.lua:1309 navbar_settings.lua:1315
 msgid "Delete"
 msgstr "Διαγραφή"
 
@@ -1677,7 +1725,7 @@ msgstr "Να διαγραφεί ο κατάλογος OPDS;"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Delete preset?") .. "\n\n" .. pname, ok_text = _("Delete"),
-#: global_settings.lua:350 reader_settings.lua:1056 home_settings.lua:2082
+#: global_settings.lua:351 reader_settings.lua:1056 home_settings.lua:2082
 msgid "Delete preset?"
 msgstr "Διαγραφή προρύθμισης;"
 
@@ -1719,19 +1767,19 @@ msgstr "Διαγραφή αυτής της αλλαγής γραμμής;"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Delete this tab?"), ok_text = _("Delete"),
-#: home_settings.lua:1570 navbar_settings.lua:912 navbar_settings.lua:1304
+#: home_settings.lua:1570 navbar_settings.lua:922 navbar_settings.lua:1314
 msgid "Delete this tab?"
 msgstr "Διαγραφή αυτής της καρτέλας;"
 
 #. Type: label
 #. Context: {{ text = "\u{F15E} " .. _("Descending") .. (cur_reverse and " \u{2713}" or ""), align = "left",
-#: group_view.lua:907
+#: group_view.lua:905
 msgid "Descending"
 msgstr "Φθίνουσα"
 
 #. Type: title
 #. Context: UIManager:show(FontChooser:new{ title = _("Description") .. " " .. _("font"), font_file = display_face,
-#: metadata_editor.lua:52 metadata_editor.lua:412 metadata_editor.lua:413 metadata_editor.lua:541 opds.lua:1656 library_settings.lua:1518 library_settings.lua:1617 library_settings.lua:1641 home_settings.lua:840
+#: metadata_editor.lua:52 metadata_editor.lua:412 metadata_editor.lua:413 metadata_editor.lua:541 opds.lua:1656 library_settings.lua:1516 library_settings.lua:1615 library_settings.lua:1639 home_settings.lua:840
 msgid "Description"
 msgstr "Περιγραφή"
 
@@ -1755,7 +1803,7 @@ msgstr "Κατάλογος με μεταδεδομένα, χωρίς εικόν�
 
 #. Type: button
 #. Context: local buttons = { {{ text = "\u{F02FD} " .. _("Details"), align = "left", callback = function() end }}, {{ text = "\u{F01BE} " .. _("Move"), align = "left", callback = function() end }},
-#: quickstart_pages.lua:303 context_menu.lua:1737
+#: quickstart_pages.lua:303 context_menu.lua:1822
 msgid "Details"
 msgstr "Λεπτομέρειες"
 
@@ -1785,31 +1833,31 @@ msgstr "Θάμπωμα τελειωμένων βιβλίων"
 
 #. Type: setting
 #. Context: { text = _("Disable bottom menu swipe"), checked_func = function()
-#: global_settings.lua:884
+#: global_settings.lua:904
 msgid "Disable bottom menu swipe"
 msgstr "Απενεργοποίηση σάρωσης κάτω μενού"
 
 #. Type: setting
 #. Context: { text = _("Disable context menu"), checked_func = function()
-#: global_settings.lua:841
+#: global_settings.lua:861
 msgid "Disable context menu"
 msgstr "Απενεργοποίηση μενού περιβάλλοντος"
 
 #. Type: setting
 #. Context: { text = _("Disable multi-word selection"), checked_func = function()
-#: global_settings.lua:895
+#: global_settings.lua:915
 msgid "Disable multi-word selection"
 msgstr "Απενεργοποίηση επιλογής πολλών λέξεων"
 
 #. Type: setting
 #. Context: { text = _("Disable settings panel"), checked_func = function()
-#: global_settings.lua:868
+#: global_settings.lua:888
 msgid "Disable settings panel"
 msgstr "Απενεργοποίηση πίνακα ρυθμίσεων"
 
 #. Type: setting
 #. Context: { text = _("Disable word search on hold"), checked_func = function()
-#: global_settings.lua:906
+#: global_settings.lua:926
 msgid "Disable word search on hold"
 msgstr "Απενεργοποίηση αναζήτησης λέξης με παρατεταμένο πάτημα"
 
@@ -1839,13 +1887,13 @@ msgstr "Χώρος στον δίσκο"
 
 #. Type: label
 #. Context: table.insert(buttons, {{ text = "\u{F06D0} " .. _("Display") .. " " .. submenu_arrow, align = "left",
-#: collections.lua:454 collections.lua:563 collections.lua:636 context_menu.lua:700 context_menu.lua:2155
+#: collections.lua:454 collections.lua:563 collections.lua:636 context_menu.lua:725 context_menu.lua:2240
 msgid "Display"
 msgstr "Οθόνη"
 
 #. Type: title
 #. Context: view_dialog = ButtonDialog:new{ title = _("Display mode"), title_align = "center",
-#: collections.lua:424 collections.lua:522 collections.lua:615 context_menu.lua:2142 group_view.lua:574 kindle_virtual_library.lua:251 zen_settings.lua:80 extras_settings.lua:60 library_settings.lua:832
+#: collections.lua:424 collections.lua:522 collections.lua:615 context_menu.lua:2227 group_view.lua:574 kindle_virtual_library.lua:263 zen_settings.lua:80 extras_settings.lua:60 library_settings.lua:832
 msgid "Display mode"
 msgstr "Τρόπος προβολής"
 
@@ -1923,13 +1971,13 @@ msgstr "Ευέλικτο διάστημα 2"
 
 #. Type: action
 #. Context: {{ text = "\u{F0B64} " .. _("Read status") .. " " .. icons.arrow_right, align = "left", callback = function() end }}, {{ text = "\u{F090C} " .. _("Edit") .. " " .. icons.arrow_right, align = "left", callback = function() end }}, }
-#: quickstart_pages.lua:307 context_menu.lua:2389 opds.lua:1446 book_info_widget.lua:115
+#: quickstart_pages.lua:307 context_menu.lua:2474 opds.lua:1446 book_info_widget.lua:115
 msgid "Edit"
 msgstr "Επεξεργασία"
 
 #. Type: title
 #. Context: width = self.width, title = _("Edit metadata"), title_full_width = true,
-#: metadata_editor.lua:647 context_menu.lua:1683
+#: metadata_editor.lua:647 context_menu.lua:1713
 msgid "Edit metadata"
 msgstr "Επεξεργασία μεταδεδομένων"
 
@@ -1959,7 +2007,7 @@ msgstr "Ενεργοποίηση σάρωσης από κάτω"
 
 #. Type: setting
 #. Context: { text = _("Enable brightness schedule"), checked_func = function()
-#: global_settings.lua:474
+#: global_settings.lua:494
 msgid "Enable brightness schedule"
 msgstr "Ενεργοποίηση προγράμματος φωτεινότητας"
 
@@ -1971,19 +2019,19 @@ msgstr "Ενεργοποίηση προσαρμοσμένων εικονιδίω
 
 #. Type: message
 #. Context: text = _("Debug logging"), help_text = _("Enable KOReader verbose debug logging. Logs are written to koreader.log. Takes effect immediately."), checked_func = function()
-#: advanced_settings.lua:104
+#: advanced_settings.lua:119
 msgid "Enable KOReader verbose debug logging. Logs are written to koreader.log. Takes effect immediately."
 msgstr "Ενεργοποίηση αναλυτικής καταγραφής εντοπισμού σφαλμάτων του KOReader. Τα αρχεία καταγραφής γράφονται στο koreader.log. Ισχύει άμεσα."
 
 #. Type: setting
 #. Context: { text = _("Enable night mode schedule"), checked_func = function()
-#: global_settings.lua:402
+#: global_settings.lua:422
 msgid "Enable night mode schedule"
 msgstr "Ενεργοποίηση προγράμματος νυχτερινής λειτουργίας"
 
 #. Type: setting
 #. Context: { text = _("Enable warmth schedule"), checked_func = function()
-#: global_settings.lua:629
+#: global_settings.lua:649
 msgid "Enable warmth schedule"
 msgstr "Ενεργοποίηση προγράμματος θερμού φωτός"
 
@@ -1992,6 +2040,12 @@ msgstr "Ενεργοποίηση προγράμματος θερμού φωτό�
 #: extras_settings.lua:69
 msgid "Enable Zen OPDS"
 msgstr "Ενεργοποίηση Zen OPDS"
+
+#. Type: setting
+#. Context: { text = _("Enable Zen Search"), help_text = _("Use Zen Search in the file browser and reader. Disable to use KOReader's default search."),
+#: global_settings.lua:384
+msgid "Enable Zen Search"
+msgstr "Ενεργοποίηση αναζήτησης Zen"
 
 #. Type: message
 #. Context: text = _("Zen OPDS"), help_text = _("Enable ZenOS enhancements to the OPDS browser: cover art, list view, hold menu, and navigation improvements."), sub_item_table = {
@@ -2043,7 +2097,7 @@ msgstr "Εισαγάγετε μία τιμή ανά γραμμή."
 
 #. Type: description
 #. Context: title = _("GitHub username (optional)"), description = _("Enter your GitHub username to be tagged in the issue"), input = "",
-#: zen_bugreporter.lua:256
+#: zen_bugreporter.lua:259
 msgid "Enter your GitHub username to be tagged in the issue"
 msgstr "Εισαγάγετε το όνομα χρήστη GitHub σας για να αναφερθείτε στο issue"
 
@@ -2053,9 +2107,21 @@ msgstr "Εισαγάγετε το όνομα χρήστη GitHub σας για �
 msgid "Exact ISBN match"
 msgstr "Ακριβής αντιστοίχιση ISBN"
 
+#. Type: menu
+#. Context: items[#items + 1] = { text = _("Exclude CBZ/CBR files"), checked_func = function() return goals.exclude_cbz_cbr end,
+#: reading_goals.lua:156
+msgid "Exclude CBZ/CBR files"
+msgstr "Εξαίρεση αρχείων CBZ/CBR"
+
+#. Type: setting
+#. Context: text = _("Exclude from Home"),
+#: extras_settings.lua:115
+msgid "Exclude from Home"
+msgstr "Εξαίρεση από την αρχική σελίδα"
+
 #. Type: button
 #. Context: text = _("Are you sure you want to exit KOReader?"), ok_text = _("Exit"), ok_callback = function()
-#: nav_button_model.lua:24 navbar.lua:324 quick_settings.lua:683 quick_settings.lua:687 menu_settings.lua:76 navbar_settings.lua:183
+#: nav_button_model.lua:24 navbar.lua:330 quick_settings.lua:683 quick_settings.lua:687 menu_settings.lua:76 navbar_settings.lua:183
 msgid "Exit"
 msgstr "Έξοδος"
 
@@ -2085,31 +2151,43 @@ msgstr "Πρόσθετα στοιχεία"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(InfoMessage:new{ text = _("Failed to clear cache:") .. "\n" .. (err or _("Unknown error")), })
-#: kindle_virtual_library.lua:312
+#: kindle_virtual_library.lua:324
 msgid "Failed to clear cache:"
 msgstr "Αποτυχία εκκαθάρισης της προσωρινής μνήμης:"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Failed to clear folder cover."), })
-#: context_menu.lua:1581
+#: context_menu.lua:1611
 msgid "Failed to clear folder cover."
 msgstr "Αποτυχία εκκαθάρισης εξωφύλλου φακέλου."
 
+#. Type: message
+#. Context: FileManager:showFiles(source_dir, file) show_message(_("Failed to move book to archive.")) end
+#: archive_actions.lua:262
+msgid "Failed to move book to archive."
+msgstr "Αποτυχία μετακίνησης βιβλίου στο αρχείο."
+
+#. Type: message
+#. Context: if not FileManager:moveFile(file, destination_dir) then show_message(_("Failed to move book.")) return false
+#: archive_actions.lua:134
+msgid "Failed to move book."
+msgstr "Αποτυχία μετακίνησης βιβλίου."
+
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Failed to set folder cover."), })
-#: context_menu.lua:1563
+#: context_menu.lua:1593
 msgid "Failed to set folder cover."
 msgstr "Αποτυχία ορισμού εξωφύλλου φακέλου."
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Failed to submit report: ") .. (err or "unknown error"), })
-#: zen_bugreporter.lua:352
+#: zen_bugreporter.lua:355
 msgid "Failed to submit report: "
 msgstr "Η υποβολή της αναφοράς απέτυχε: "
 
 #. Type: setting
 #. Context: local labels = { recent = _("Recent"), favorites = _("Favorites"), to_be_read = _("To Be Read"), authors = _("Authors"),
-#: nav_button_model.lua:7 quickstart_pages.lua:686 collections.lua:354 collections.lua:988 collections.lua:1024 context_menu.lua:1915 navbar.lua:269 home_settings.lua:1073 navbar_settings.lua:172
+#: nav_button_model.lua:7 quickstart_pages.lua:686 collections.lua:354 collections.lua:988 collections.lua:1024 context_menu.lua:2000 navbar.lua:275 home_settings.lua:1073 navbar_settings.lua:172
 msgid "Favorites"
 msgstr "Αγαπημένα"
 
@@ -2145,19 +2223,19 @@ msgstr "Το πρόσθετο Filebrowser δεν είναι εγκατεστημ
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Filename"), input = seed,
-#: metadata_editor.lua:514 metadata_editor.lua:962 context_menu.lua:2166 group_view.lua:832
+#: metadata_editor.lua:514 metadata_editor.lua:962 context_menu.lua:2251 group_view.lua:832
 msgid "Filename"
 msgstr "Όνομα αρχείου"
 
 #. Type: label
 #. Context: table.insert(buttons, {{ text = icons.filter .. " " .. _("Filter") .. (n_gf > 0 and " (" .. n_gf .. ")" or "")
-#: context_menu.lua:789 context_menu.lua:2374
+#: context_menu.lua:814 context_menu.lua:2459
 msgid "Filter"
 msgstr "Φίλτρο"
 
 #. Type: title
 #. Context: filter_dialog = new_context_menu_dialog{ title = _("Filter by status"), title_align = "center",
-#: context_menu.lua:774 context_menu.lua:2359
+#: context_menu.lua:799 context_menu.lua:2444
 msgid "Filter by status"
 msgstr "Φιλτράρισμα κατά κατάσταση"
 
@@ -2169,7 +2247,7 @@ msgstr "Εύρεση μεταδεδομένων"
 
 #. Type: status
 #. Context: elseif display_status == "complete" then status_label = _("Finished") progress_str = "\u{F012C}" -- MD check
-#: nav_button_model.lua:35 browser_list_item_layout.lua:451 context_menu.lua:739 context_menu.lua:2061 context_menu.lua:2320 stats_page.lua:944 stats_page.lua:956
+#: nav_button_model.lua:35 browser_list_item_layout.lua:451 context_menu.lua:764 context_menu.lua:2146 context_menu.lua:2405 stats_page.lua:944 stats_page.lua:956
 msgid "Finished"
 msgstr "Τελειωμένα"
 
@@ -2197,6 +2275,12 @@ msgstr "Ονομα"
 msgid "Fixed layout documents (pdf, djvu, pics…)"
 msgstr "Έγγραφα σταθερής διάταξης (pdf, djvu, φωτογραφίες…)"
 
+#. Type: message
+#. Context: text = _("Partial pages refresh"), help_text = _("Flash the screen in the library when a page is not full of books to prevent ghosting."), checked_func = function()
+#: advanced_settings.lua:39
+msgid "Flash the screen in the library when a page is not full of books to prevent ghosting."
+msgstr "Ανανεώστε την οθόνη με αναλαμπή στη βιβλιοθήκη όταν μια σελίδα δεν είναι γεμάτη βιβλία, για να αποτρέψετε τα υπολειπόμενα είδωλα."
+
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Flip LH/RH icon"), checked_func = function() return config.quick_settings.flip_lh_rh_icon == true end,
 #: menu_settings.lua:1163
@@ -2205,7 +2289,7 @@ msgstr "Αντιστροφή εικονιδίου αριστερού/δεξιο�
 
 #. Type: setting
 #. Context: items[#items + 1] = IconItem.decorate({ text = _("Folder"), keep_menu_open = true,
-#: library_destination.lua:6 browser_list_item_layout.lua:182 navbar.lua:223 app_launcher_settings.lua:589 app_launcher_settings.lua:753 menu_settings.lua:670 menu_settings.lua:796 home_settings.lua:1123 home_settings.lua:1467 navbar_settings.lua:154 navbar_settings.lua:740 navbar_settings.lua:1393
+#: library_destination.lua:6 browser_list_item_layout.lua:182 navbar.lua:224 app_launcher_settings.lua:589 app_launcher_settings.lua:753 menu_settings.lua:670 menu_settings.lua:796 home_settings.lua:1123 home_settings.lua:1467 navbar_settings.lua:154 navbar_settings.lua:750 navbar_settings.lua:1403
 msgid "Folder"
 msgstr "Φάκελος"
 
@@ -2229,7 +2313,7 @@ msgstr "Θέση ονόματος φακέλου"
 
 #. Type: setting
 #. Context: return { text = _("Folder presets"), sub_item_table = {
-#: navbar_settings.lua:1096
+#: navbar_settings.lua:1106
 msgid "Folder presets"
 msgstr "Προρυθμίσεις φακέλου"
 
@@ -2240,22 +2324,16 @@ msgid "Folders"
 msgstr "Φάκελοι"
 
 #. Type: title
-#. Context: UIManager:show(FontChooser:new{ title = _("Font"), font_file = footer_settings.text_font_face or "NotoSans-Regular.ttf",
-#: reader_settings.lua:1095 reader_settings.lua:1344 reader_settings.lua:1384 home_settings.lua:1775
-msgid "Font"
-msgstr "Γραμματοσειρά"
-
-#. Type: title
 #. Context: UIManager:show(FontChooser:new{ title = _("Description") .. " " .. _("font"), font_file = display_face,
-#: library_settings.lua:1617 home_settings.lua:588 home_settings.lua:732 home_settings.lua:1706
+#: library_settings.lua:1615 home_settings.lua:588 home_settings.lua:732 home_settings.lua:1706
 msgid "font"
 msgstr "γραμματοσειρά"
 
 #. Type: title
-#. Context: UIManager:show(SpinWidget:new{ title_text = _("Description") .. " " .. _("font size"), value = description_font_size(style),
-#: library_settings.lua:1641 stats_settings.lua:148 home_settings.lua:558 home_settings.lua:653 home_settings.lua:707 home_settings.lua:1680
-msgid "font size"
-msgstr "μέγεθος γραμματοσειράς"
+#. Context: UIManager:show(FontChooser:new{ title = _("Font"), font_file = footer_settings.text_font_face or "NotoSans-Regular.ttf",
+#: reader_settings.lua:1095 reader_settings.lua:1344 reader_settings.lua:1384 home_settings.lua:1775
+msgid "Font"
+msgstr "Γραμματοσειρά"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Font size"), value = type(config.reader_top_status_bar) == "table" and config.reader_top_status_bar.font_size or 14,
@@ -2263,9 +2341,15 @@ msgstr "μέγεθος γραμματοσειράς"
 msgid "Font size"
 msgstr "Μέγεθος γραμματοσειράς"
 
+#. Type: title
+#. Context: UIManager:show(SpinWidget:new{ title_text = _("Description") .. " " .. _("font size"), value = description_font_size(style),
+#: library_settings.lua:1639 stats_settings.lua:148 home_settings.lua:558 home_settings.lua:653 home_settings.lua:707 home_settings.lua:1680
+msgid "font size"
+msgstr "μέγεθος γραμματοσειράς"
+
 #. Type: setting
 #. Context: local cfg = ensure_library_font_cfg(config) return string.format("%s %s", _("Font size:"), tostring(cfg.font_size)) end,
-#: library_settings.lua:234 library_settings.lua:1633 reader_settings.lua:416 reader_settings.lua:1225 reader_settings.lua:1309 stats_settings.lua:141 home_settings.lua:551 home_settings.lua:700 home_settings.lua:1673 home_settings.lua:2192 home_settings.lua:2286 home_settings.lua:2543
+#: library_settings.lua:234 library_settings.lua:1631 reader_settings.lua:416 reader_settings.lua:1225 reader_settings.lua:1309 stats_settings.lua:141 home_settings.lua:551 home_settings.lua:700 home_settings.lua:1673 home_settings.lua:2192 home_settings.lua:2286 home_settings.lua:2543
 msgid "Font size:"
 msgstr "Μέγεθος γραμματοσειράς:"
 
@@ -2277,7 +2361,7 @@ msgstr "Γραμματοσειρά, περιθώρια, αντίθεση, διά
 
 #. Type: setting
 #. Context: or (ok_fc and font_name_text(cfg, FontChooser) or cfg.font_face) return string.format("%s %s, %s", _("Font:"), face_text, tostring(cfg.font_size)) end,
-#: library_settings.lua:228 library_settings.lua:259 library_settings.lua:1600 reader_settings.lua:410 reader_settings.lua:442 reader_settings.lua:1338 home_settings.lua:576 home_settings.lua:722 home_settings.lua:1695
+#: library_settings.lua:228 library_settings.lua:259 library_settings.lua:1598 reader_settings.lua:410 reader_settings.lua:442 reader_settings.lua:1338 home_settings.lua:576 home_settings.lua:722 home_settings.lua:1695
 msgid "Font:"
 msgstr "Γραμματοσειρά:"
 
@@ -2325,7 +2409,7 @@ msgstr "Ας ξεκινήσουμε"
 
 #. Type: title
 #. Context: dlg = InputDialog:new{ title = _("GitHub username (optional)"), description = _("Enter your GitHub username to be tagged in the issue"),
-#: zen_bugreporter.lua:255
+#: zen_bugreporter.lua:258
 msgid "GitHub username (optional)"
 msgstr "Όνομα χρήστη GitHub (προαιρετικά)"
 
@@ -2361,13 +2445,13 @@ msgstr "Κλειδί API Βιβλίων Google:"
 
 #. Type: title
 #. Context: menu._zen_block_dlg = ButtonDialog:new{ title = _("Graph metric"), title_align = "center",
-#: stats_page.lua:1361
+#: stats_page.lua:1371
 msgid "Graph metric"
 msgstr "Μετρική γραφήματος"
 
 #. Type: title
 #. Context: menu._zen_block_dlg = ButtonDialog:new{ title = _("Graph range"), title_align = "center",
-#: stats_page.lua:1331
+#: stats_page.lua:1341
 msgid "Graph range"
 msgstr "Εύρος γραφήματος"
 
@@ -2379,7 +2463,7 @@ msgstr "Γκρι"
 
 #. Type: setting
 #. Context: { text = _("Blue"), r = 0x99, g = 0xBB, b = 0xF0 }, { text = _("Green"), r = 0x99, g = 0xCC, b = 0x99 }, { text = _("Amber"), r = 0xF0, g = 0xD0, b = 0x80 },
-#: library_settings.lua:571 reader_settings.lua:62 navbar_settings.lua:1641
+#: library_settings.lua:571 reader_settings.lua:62 navbar_settings.lua:1651
 msgid "Green"
 msgstr "Πράσινο"
 
@@ -2427,7 +2511,7 @@ msgstr "Απόκρυψη σε αρχεία CBZ/PDF"
 
 #. Type: setting
 #. Context: return { text = _("Hide Kindle Library folder"), checked_func = function()
-#: home_settings.lua:1242 navbar_settings.lua:1224
+#: home_settings.lua:1242 navbar_settings.lua:1234
 msgid "Hide Kindle Library folder"
 msgstr "Απόκρυψη φακέλου Βιβλιοθήκης Kindle"
 
@@ -2481,7 +2565,7 @@ msgstr "Επισημάνετε ονόματα"
 
 #. Type: setting
 #. Context: { id = "continue", text = _("Continue") }, { id = "history", text = _("History") }, { id = "favorites", text = _("Favorites") },
-#: nav_button_model.lua:19 quickstart_pages.lua:685 navbar.lua:264 navbar_settings.lua:171
+#: nav_button_model.lua:19 quickstart_pages.lua:685 navbar.lua:270 navbar_settings.lua:171
 msgid "History"
 msgstr "Ιστορικό"
 
@@ -2493,20 +2577,20 @@ msgstr "Παρατεταμένο πάτημα για παράλειψη"
 
 #. Type: setting
 #. Context: app_launcher_item._zen_settings_root = "launcher" home_item.text = _("Home") IconItem.decorate(home_item, icons.settings_home)
-#: nav_button_model.lua:20 quickstart_pages.lua:683 navbar.lua:219 zen_settings.lua:135 home_settings.lua:1520 home_settings.lua:1932 home_settings.lua:2613 home_settings.lua:2629 home_settings.lua:2741 navbar_settings.lua:148 navbar_settings.lua:1011
+#: nav_button_model.lua:20 quickstart_pages.lua:683 navbar.lua:220 zen_settings.lua:135 home_settings.lua:1520 home_settings.lua:1932 home_settings.lua:2613 home_settings.lua:2629 home_settings.lua:2741 navbar_settings.lua:148 navbar_settings.lua:1021
 msgid "Home"
 msgstr "Αρχικός Φάκελος"
+
+#. Type: setting
+#. Context: table.insert(items, { text = _("Home folder"), sub_item_table = {
+#: library_settings.lua:1416
+msgid "Home folder"
+msgstr "Αρχικός φάκελος"
 
 #. Type: title
 #. Context: table.insert(pages, #pages, { title = _("Home Folder"), description = T(_("The place for all your books %1"), books_dir),
 #: quickstart_pages.lua:834 quickstart_pages.lua:906
 msgid "Home Folder"
-msgstr "Αρχικός φάκελος"
-
-#. Type: setting
-#. Context: table.insert(items, { text = _("Home folder"), sub_item_table = {
-#: library_settings.lua:1418
-msgid "Home folder"
 msgstr "Αρχικός φάκελος"
 
 #. Type: setting
@@ -2517,7 +2601,7 @@ msgstr "Προρύθμιση αρχικής σελίδας"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Home tab label"), input = config.navbar.home_label or "Home",
-#: navbar_settings.lua:974
+#: navbar_settings.lua:984
 msgid "Home tab label"
 msgstr "Ονομασία καρτέλας «Αρχική»"
 
@@ -2535,43 +2619,43 @@ msgstr "HTML"
 
 #. Type: setting
 #. Context: _("Show icons"), _("Icon size:"), })
-#: zen_settings.lua:123 navbar_settings.lua:1571
+#: zen_settings.lua:123 navbar_settings.lua:1581
 msgid "Icon size:"
 msgstr "Μέγεθος εικονιδίου:"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Icon: %1"), icon_utils.getIconDisplayName(entry.icon or DEFAULT_ENTRY_ICON))
-#: app_launcher_settings.lua:711 menu_settings.lua:867 menu_settings.lua:978 navbar_settings.lua:818 navbar_settings.lua:1158
+#: app_launcher_settings.lua:711 menu_settings.lua:867 menu_settings.lua:978 navbar_settings.lua:828 navbar_settings.lua:1168
 msgid "Icon: %1"
 msgstr "Εικονίδιο: %1"
 
 #. Type: setting
 #. Context: _("Labels"), _("Icons"), _("Active tab"),
-#: zen_settings.lua:104 zen_settings.lua:121 navbar_settings.lua:1550
+#: zen_settings.lua:104 zen_settings.lua:121 navbar_settings.lua:1560
 msgid "Icons"
 msgstr "Εικονίδια"
 
 #. Type: message
-#. Context: elseif code == "no_decoder" then return _("Image support is unavailable on this device.") elseif code == "decode_failed" then
-#: library_settings.lua:1240
+#. Context: elseif code == "no_decoder" then return _("Image support is unavailable on this device.") elseif code == "unsupported" or code == "decode_failed" then
+#: library_settings.lua:1238
 msgid "Image support is unavailable on this device."
 msgstr "Η υποστήριξη εικόνων δεν είναι διαθέσιμη σε αυτή τη συσκευή."
 
 #. Type: setting
 #. Context: local name = select(2, util.splitFilePathName(path)) return _("Image: ") .. (name ~= "" and name or path) end,
-#: library_settings.lua:1292
+#: library_settings.lua:1290
 msgid "Image: "
 msgstr "Εικόνα: "
 
 #. Type: setting
 #. Context: local path = lib_bg_path() if path == "" then return _("Image: none") end local util = require("util")
-#: library_settings.lua:1289
+#: library_settings.lua:1287
 msgid "Image: none"
 msgstr "Εικόνα: καμία"
 
 #. Type: setting
 #. Context: table.insert(items, IconItem.decorate({ text = _("Include new books in TBR"), help_text = _("New includes unread books and books modified since they were last opened."),
-#: library_settings.lua:1727
+#: library_settings.lua:1725
 msgid "Include new books in TBR"
 msgstr "Συμπερίληψη νέων βιβλίων στη λίστα «Προς ανάγνωση»"
 
@@ -2583,19 +2667,19 @@ msgstr "Ανώνυμη λειτουργία"
 
 #. Type: label
 #. Context: text = opts.timed_out and _("Incognito mode timed out") or enabled and _("Incognito mode enabled") or _("Incognito mode disabled"), timeout = 3,
-#: dispatch_action.lua:616
+#: dispatch_action.lua:620
 msgid "Incognito mode disabled"
 msgstr "Η ανώνυμη λειτουργία απενεργοποιήθηκε"
 
 #. Type: label
 #. Context: text = opts.timed_out and _("Incognito mode timed out") or enabled and _("Incognito mode enabled") or _("Incognito mode disabled"), timeout = 3,
-#: dispatch_action.lua:616
+#: dispatch_action.lua:620
 msgid "Incognito mode enabled"
 msgstr "Η ανώνυμη λειτουργία ενεργοποιήθηκε"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = opts.timed_out and _("Incognito mode timed out") or enabled and _("Incognito mode enabled") or _("Incognito mode disabled"),
-#: dispatch_action.lua:615
+#: dispatch_action.lua:619
 msgid "Incognito mode timed out"
 msgstr "Έληξε το χρονικό όριο της ανώνυμης λειτουργίας"
 
@@ -2660,16 +2744,16 @@ msgid "Items"
 msgstr "Αντικείμενα"
 
 #. Type: setting
-#. Context: _("Display mode"), _("Items per page"), _("Sort by"),
-#: zen_settings.lua:81 library_settings.lua:857
-msgid "Items per page"
-msgstr "Στοιχεία ανά σελίδα"
-
-#. Type: setting
 #. Context: fpp = math.min(fpp, max_fpp) return _("List: ") .. tostring(fpp) .. " " .. _("items per page") end,
 #: library_settings.lua:974
 msgid "items per page"
 msgstr "στοιχεία ανά σελίδα"
+
+#. Type: setting
+#. Context: _("Display mode"), _("Items per page"), _("Sort by"),
+#: zen_settings.lua:81 library_settings.lua:857
+msgid "Items per page"
+msgstr "Στοιχεία ανά σελίδα"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Justify text"), checked_func = function()
@@ -2703,19 +2787,19 @@ msgstr "Διατηρήστε την τρέχουσα επέκταση αρχεί
 
 #. Type: setting
 #. Context: { id = "folder", text_func = get_folder_tab_label }, { id = "kindle", text = _("Kindle Library") }, { id = "manga", text = _("Manga") },
-#: nav_button_model.lua:15 navbar.lua:244 navbar_settings.lua:167
+#: nav_button_model.lua:15 navbar.lua:250 navbar_settings.lua:167
 msgid "Kindle Library"
 msgstr "Βιβλιοθήκη Kindle"
 
 #. Type: setting
 #. Context: or target.title or _("KOReader menu"), disabled_func = function()
-#: nav_button_model.lua:152 quick_settings.lua:1077 app_launcher_settings.lua:580 menu_settings.lua:516 menu_settings.lua:685 menu_settings.lua:738 home_settings.lua:1495 navbar_settings.lua:321 navbar_settings.lua:565 navbar_settings.lua:1413
+#: nav_button_model.lua:152 quick_settings.lua:1077 app_launcher_settings.lua:580 menu_settings.lua:516 menu_settings.lua:685 menu_settings.lua:738 home_settings.lua:1495 navbar_settings.lua:331 navbar_settings.lua:575 navbar_settings.lua:1423
 msgid "KOReader menu"
 msgstr "Μενού KOReader"
 
 #. Type: setting
 #. Context: local target = entry.koreader_menu return T(_("KOReader menu: %1"), type(target) == "table" and target.title or entry.label or _("(none)"))
-#: app_launcher_settings.lua:820 menu_settings.lua:785 navbar_settings.lua:781
+#: app_launcher_settings.lua:820 menu_settings.lua:785 navbar_settings.lua:791
 msgid "KOReader menu: %1"
 msgstr "Μενού KOReader: %1"
 
@@ -2727,31 +2811,31 @@ msgstr "KOReader: "
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Label"), input = config.navbar.folder_label or "",
-#: home_settings.lua:1551 navbar_settings.lua:1073 navbar_settings.lua:1182
+#: home_settings.lua:1551 navbar_settings.lua:1083 navbar_settings.lua:1192
 msgid "Label"
 msgstr "Ονομασία"
 
 #. Type: setting
 #. Context: _("Show labels"), _("Label size:"), })
-#: zen_settings.lua:118 navbar_settings.lua:1519
+#: zen_settings.lua:118 navbar_settings.lua:1529
 msgid "Label size:"
 msgstr "Μέγεθος ονομασίας:"
 
 #. Type: setting
 #. Context: if label == nil or label == "" then label = "Home" end return _("Label: ") .. label end,
-#: navbar_settings.lua:967
+#: navbar_settings.lua:977
 msgid "Label: "
 msgstr "Ονομασία: "
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Label: %1"), entry.label) end,
-#: app_launcher_settings.lua:723 menu_settings.lua:887 menu_settings.lua:992 navbar_settings.lua:836 navbar_settings.lua:1175
+#: app_launcher_settings.lua:723 menu_settings.lua:887 menu_settings.lua:992 navbar_settings.lua:846 navbar_settings.lua:1185
 msgid "Label: %1"
 msgstr "Ονομασία: %1"
 
 #. Type: setting
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Styling"), { _("Labels"), _("Icons"),
-#: zen_settings.lua:103 zen_settings.lua:116 navbar_settings.lua:1498
+#: zen_settings.lua:103 zen_settings.lua:116 navbar_settings.lua:1508
 msgid "Labels"
 msgstr "Ονομασίες"
 
@@ -2769,21 +2853,21 @@ msgstr "Οριζόντιο μωσαϊκό: "
 
 #. Type: setting
 #. Context: tags = _("Tags"), language = _("Language"), rating = _("Rating"),
-#: metadata_editor.lua:50 metadata_editor.lua:512 library_settings.lua:1509
+#: metadata_editor.lua:50 metadata_editor.lua:512 library_settings.lua:1507
 msgid "Language"
 msgstr "Γλώσσα"
 
-#. Type: title
-#. Context: elseif tab_id == "languages" then title = _("Languages") elseif tab_id == "tags" then
-#: nav_button_model.lua:11 group_view.lua:1310 group_view.lua:1356 navbar.lua:289 home_settings.lua:1075 navbar_settings.lua:176
-msgid "Languages"
-msgstr "Γλώσσες"
-
 #. Type: label
 #. Context: subtitle = count == 1 and _("1 language") or (tostring(count) .. " " .. _("languages")) elseif tab_id == "tags" then
-#: group_view.lua:1328
+#: group_view.lua:1324
 msgid "languages"
 msgstr "γλώσσες"
+
+#. Type: title
+#. Context: elseif tab_id == "languages" then title = _("Languages") elseif tab_id == "tags" then
+#: nav_button_model.lua:11 group_view.lua:1306 group_view.lua:1352 navbar.lua:295 home_settings.lua:1075 navbar_settings.lua:176
+msgid "Languages"
+msgstr "Γλώσσες"
 
 #. Type: setting
 #. Context: { label = _("Normal"), value = "normal" }, { label = _("Large"), value = "large" }, { label = _("Extra large"), value = "extra_large" },
@@ -2835,7 +2919,7 @@ msgstr "Διάταξη"
 
 #. Type: setting
 #. Context: input = entry.label or "", input_hint = entry.type == "action" and _("Leave empty to use action title") or nil, buttons = {{
-#: app_launcher_settings.lua:183 menu_settings.lua:897 navbar_settings.lua:846
+#: app_launcher_settings.lua:183 menu_settings.lua:897 navbar_settings.lua:856
 msgid "Leave empty to use action title"
 msgstr "Αφήστε το κενό για χρήση του τίτλου της ενέργειας"
 
@@ -2853,7 +2937,7 @@ msgstr "Αριστερά στοιχεία"
 
 #. Type: setting
 #. Context: local library_item = IconItem.decorate({ text = _("Library"), sub_item_table = filebrowser_items,
-#: nav_button_model.lua:14 navbar.lua:215 stats_page.lua:66 zen_settings.lua:140 global_settings.lua:838 stats_settings.lua:33 navbar_settings.lua:165 navbar_settings.lua:224 navbar_settings.lua:1020
+#: nav_button_model.lua:14 navbar.lua:216 stats_page.lua:66 zen_settings.lua:140 global_settings.lua:858 stats_settings.lua:33 navbar_settings.lua:165 navbar_settings.lua:234 navbar_settings.lua:1030
 msgid "Library"
 msgstr "Βιβλιοθήκη"
 
@@ -2889,7 +2973,7 @@ msgstr "Λεπτή"
 
 #. Type: setting
 #. Context: local function mode_pair_label(setting) return _("Light mode") .. " / " .. _("Dark mode") .. " " .. setting:lower() end
-#: global_settings.lua:112 global_settings.lua:538 global_settings.lua:551 global_settings.lua:692 global_settings.lua:705 reader_settings.lua:912
+#: global_settings.lua:113 global_settings.lua:558 global_settings.lua:571 global_settings.lua:712 global_settings.lua:725 reader_settings.lua:912
 msgid "Light mode"
 msgstr "Φωτεινή λειτουργία"
 
@@ -2913,13 +2997,13 @@ msgstr "Κατάλογος"
 
 #. Type: label
 #. Context: viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"), viewBtn(_("List (basic)"), "\u{F0CA}", "list_image_filename"), }),
-#: collections.lua:429 collections.lua:527 collections.lua:620 context_menu.lua:2147 group_view.lua:579 kindle_virtual_library.lua:256
+#: collections.lua:429 collections.lua:527 collections.lua:620 context_menu.lua:2232 group_view.lua:579 kindle_virtual_library.lua:268
 msgid "List (basic)"
 msgstr "Κατάλογος (απλός)"
 
 #. Type: label
 #. Context: viewBtn(_("Mosaic"), "\u{F00A}", "mosaic_image"), viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"), viewBtn(_("List (basic)"), "\u{F0CA}", "list_image_filename"),
-#: collections.lua:428 collections.lua:526 collections.lua:619 context_menu.lua:2146 group_view.lua:578 kindle_virtual_library.lua:255
+#: collections.lua:428 collections.lua:526 collections.lua:619 context_menu.lua:2231 group_view.lua:578 kindle_virtual_library.lua:267
 msgid "List (detailed)"
 msgstr "Κατάλογος (αναλυτικός)"
 
@@ -2949,7 +3033,7 @@ msgstr "LocalSend"
 
 #. Type: setting
 #. Context: { text = _("Lock home folder"), enabled_func = function()
-#: library_settings.lua:1449
+#: library_settings.lua:1447
 msgid "Lock home folder"
 msgstr "Κλείδωμα Αρχικού Φακέλου"
 
@@ -2961,7 +3045,7 @@ msgstr "Κλείδωμα"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Lockdown mode"), sub_item_table = {
-#: global_settings.lua:824
+#: global_settings.lua:844
 msgid "Lockdown mode"
 msgstr "Λειτουργία κλειδώματος"
 
@@ -2985,7 +3069,7 @@ msgstr "Μεμονωμένα εικονίδια στο /koreader/icons"
 
 #. Type: setting
 #. Context: { text = _("Magnify UI"), checked_func = function()
-#: global_settings.lua:827
+#: global_settings.lua:847
 msgid "Magnify UI"
 msgstr "Μεγέθυνση διεπαφής"
 
@@ -2997,13 +3081,13 @@ msgstr "Κύριο μενού"
 
 #. Type: setting
 #. Context: { id = "kindle", text = _("Kindle Library") }, { id = "manga", text = _("Manga") }, { id = "news", text = _("News") },
-#: nav_button_model.lua:16 navbar.lua:249 navbar_settings.lua:168
+#: nav_button_model.lua:16 navbar.lua:255 navbar_settings.lua:168
 msgid "Manga"
 msgstr "Manga"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Manga folder not found: ") .. (folder_path or config.manga_folder), })
-#: navbar.lua:1221
+#: navbar.lua:1252
 msgid "Manga folder not found: "
 msgstr "Ο φάκελος manga δεν βρέθηκε: "
 
@@ -3015,7 +3099,7 @@ msgstr "Επιλογή αγώνα"
 
 #. Type: setting
 #. Context: { text = _("Match whole words"), help_text = _("When enabled, search matches whole words only. When disabled, substring matching is used (e.g., 'fish' matches 'fishing')."),
-#: global_settings.lua:383
+#: global_settings.lua:399
 msgid "Match whole words"
 msgstr "Αντιστοίχιση ολόκληρων λέξεων"
 
@@ -3033,7 +3117,7 @@ msgstr "Μέγιστος αριθμός βιβλίων που εμφανίζον
 
 #. Type: setting
 #. Context: if countEnabledTabs() >= navbar_max_tabs then showTabLimitMessage(_("Maximum 7 tabs allowed")) return false
-#: home_settings.lua:1298 home_settings.lua:1356 navbar_settings.lua:270
+#: home_settings.lua:1298 home_settings.lua:1356 navbar_settings.lua:280
 msgid "Maximum 7 tabs allowed"
 msgstr "Επιτρέπονται έως 7 καρτέλες"
 
@@ -3057,7 +3141,7 @@ msgstr "Μέγιστο μέγεθος γραμματοσειράς αποφθέ�
 
 #. Type: setting
 #. Context: { id = "page_right", text = _("Next page") }, { id = "menu", text = _("Menu") }, }
-#: nav_button_model.lua:27 navbar.lua:339 navbar_settings.lua:186
+#: nav_button_model.lua:27 navbar.lua:345 navbar_settings.lua:186
 msgid "Menu"
 msgstr "Γρήγορο μενού"
 
@@ -3105,7 +3189,7 @@ msgstr "Τα μεταδεδομένα αποθηκεύτηκαν, αλλά η ε
 
 #. Type: setting
 #. Context: { text = _("Metric"), sub_item_table = {
-#: stats_page.lua:1423 stats_settings.lua:99
+#: stats_page.lua:1433 stats_settings.lua:99
 msgid "Metric"
 msgstr "Μετρική"
 
@@ -3122,16 +3206,16 @@ msgid "Minute"
 msgstr "Λεπτό"
 
 #. Type: unit
-#. Context: local function metricLabel(metric) return metric == "time" and _("Minutes") or _("Pages") end
-#: stats_page.lua:76
-msgid "Minutes"
-msgstr "Λεπτά"
-
-#. Type: unit
 #. Context: width = pill_w, height = card_h, stat_style = stat_style, value = minuteCount(minutes), label = _("minutes"), },
 #: stats_page.lua:426
 msgid "minutes"
 msgstr "λεπτά"
+
+#. Type: unit
+#. Context: local function metricLabel(metric) return metric == "time" and _("Minutes") or _("Pages") end
+#: stats_page.lua:76
+msgid "Minutes"
+msgstr "Λεπτά"
 
 #. Type: setting
 #. Context: end return T(_("Missing: %1"), active_id) end
@@ -3153,13 +3237,19 @@ msgstr "Μηνιαία"
 
 #. Type: title
 #. Context: menu._zen_block_dlg = ButtonDialog:new{ title = _("Months"), title_align = "center",
-#: stats_page.lua:1410
+#: stats_page.lua:1420
 msgid "Months"
 msgstr "Μήνες"
 
+#. Type: label
+#. Context: { text = icons.more .. " " .. _("More") .. " " .. submenu_arrow, align = "left",
+#: context_menu.lua:2488
+msgid "More"
+msgstr "Περισσότερο"
+
 #. Type: setting
 #. Context: local display_modes = { { text = _("Mosaic"), mode = "mosaic" }, { text = _("List"), mode = "list" },
-#: collections.lua:427 collections.lua:525 collections.lua:618 context_menu.lua:2145 group_view.lua:577 kindle_virtual_library.lua:254 extras_settings.lua:38
+#: collections.lua:427 collections.lua:525 collections.lua:618 context_menu.lua:2230 group_view.lua:577 kindle_virtual_library.lua:266 extras_settings.lua:38
 msgid "Mosaic"
 msgstr "Μωσαϊκό"
 
@@ -3183,13 +3273,13 @@ msgstr "Μωσαϊκό με κείμενο"
 
 #. Type: action
 #. Context: {{ text = "\u{F02FD} " .. _("Details"), align = "left", callback = function() end }}, {{ text = "\u{F01BE} " .. _("Move"), align = "left", callback = function() end }}, {{ text = "\u{F04CE} " .. _("Add to collection") .. " " .. icons.arr...
-#: quickstart_pages.lua:304 context_menu.lua:1480 context_menu.lua:1780
+#: quickstart_pages.lua:304 context_menu.lua:1510 context_menu.lua:1865
 msgid "Move"
 msgstr "Μετακίνηση"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Move failed."), icon = "notice-warning",
-#: context_menu.lua:1857
+#: context_menu.lua:1942
 msgid "Move failed."
 msgstr "Η μετακίνηση απέτυχε."
 
@@ -3207,7 +3297,7 @@ msgstr "Μετακίνηση σε φάκελο"
 
 #. Type: title
 #. Context: show_files = true, title = _("Move to…"), path = move_home_dir,
-#: context_menu.lua:1803
+#: context_menu.lua:1888
 msgid "Move to…"
 msgstr "Μετακίνηση σε…"
 
@@ -3219,19 +3309,19 @@ msgstr "Ονομα"
 
 #. Type: setting
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Navbar"), { _("Tabs") .. " \u{25B8}",
-#: zen_settings.lua:96 zen_settings.lua:137 navbar_settings.lua:1486
+#: zen_settings.lua:96 zen_settings.lua:137 navbar_settings.lua:1496
 msgid "Navbar"
 msgstr "Γραμμή πλοήγησης"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Navbar icon size"), value = config.navbar.icon_size,
-#: navbar_settings.lua:1579
+#: navbar_settings.lua:1589
 msgid "Navbar icon size"
 msgstr "Μέγεθος εικονιδίων γραμμής πλοήγησης"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Navbar label size"), value = config.navbar.label_size,
-#: navbar_settings.lua:1530
+#: navbar_settings.lua:1540
 msgid "Navbar label size"
 msgstr "Μέγεθος ονομασιών γραμμής πλοήγησης"
 
@@ -3243,7 +3333,7 @@ msgstr "Καρτέλες γραμμής πλοήγησης"
 
 #. Type: setting
 #. Context: note = _("Note"), navigate_to_tag = _("Navigate to tag"), pages = _("Pages"),
-#: library_settings.lua:1513
+#: library_settings.lua:1511
 msgid "Navigate to tag"
 msgstr "Πλοήγηση στην ετικέτα"
 
@@ -3279,13 +3369,13 @@ msgstr "Νέο προσαρμοσμένο θέμα"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("New folder"), input = "",
-#: context_menu.lua:1767 app_launcher_settings.lua:272
+#: context_menu.lua:1852 app_launcher_settings.lua:272
 msgid "New folder"
 msgstr "Νέος φάκελος"
 
 #. Type: message
 #. Context: text = _("Include new books in TBR"), help_text = _("New includes unread books and books modified since they were last opened."), checked_func = function()
-#: library_settings.lua:1728
+#: library_settings.lua:1726
 msgid "New includes unread books and books modified since they were last opened."
 msgstr "Τα «Νέα» περιλαμβάνουν αδιάβαστα βιβλία και βιβλία που τροποποιήθηκαν από το τελευταίο άνοιγμά τους."
 
@@ -3297,19 +3387,19 @@ msgstr "Νέο απόφθεγμα"
 
 #. Type: setting
 #. Context: { id = "manga", text = _("Manga") }, { id = "news", text = _("News") }, { id = "continue", text = _("Continue") },
-#: nav_button_model.lua:17 navbar.lua:254 navbar_settings.lua:169
+#: nav_button_model.lua:17 navbar.lua:260 navbar_settings.lua:169
 msgid "News"
 msgstr "Ειδήσεις"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("News folder not found: ") .. (folder_path or config.news_folder), })
-#: navbar.lua:1292
+#: navbar.lua:1323
 msgid "News folder not found: "
 msgstr "Ο φάκελος ειδήσεων δεν βρέθηκε: "
 
 #. Type: setting
 #. Context: { text = _("Next"), is_enter_default = true,
-#: quickstart_screen.lua:489 navbar.lua:334 zen_bugreporter.lua:205
+#: quickstart_screen.lua:489 navbar.lua:340 zen_bugreporter.lua:208
 msgid "Next"
 msgstr "Επόμενο"
 
@@ -3327,25 +3417,25 @@ msgstr "Νύχτα"
 
 #. Type: setting
 #. Context: local title = config.features.brightness_schedule == true and _("Night brightness") or mode_value_label(_("Dark mode"), _("Brightness"))
-#: global_settings.lua:606
+#: global_settings.lua:626
 msgid "Night brightness"
 msgstr "Νυχτερινή φωτεινότητα"
 
 #. Type: setting
 #. Context: local cfg = get_brightness_schedule_config() utils.show_time_picker(_("Night brightness time"), cfg.night_h, cfg.night_m, function(h, m)
-#: global_settings.lua:575
+#: global_settings.lua:595
 msgid "Night brightness time"
 msgstr "Ώρα νυχτερινής φωτεινότητας"
 
 #. Type: setting
 #. Context: local cfg = get_brightness_schedule_config() return _("Night brightness time: ") .. utils.fmt_time(cfg.night_h, cfg.night_m) end,
-#: global_settings.lua:567
+#: global_settings.lua:587
 msgid "Night brightness time: "
 msgstr "Ώρα νυχτερινής φωτεινότητας: "
 
 #. Type: setting
 #. Context: if config.features.brightness_schedule == true then return _("Night brightness: ") .. cfg.night_value end
-#: global_settings.lua:592
+#: global_settings.lua:612
 msgid "Night brightness: "
 msgstr "Νυχτερινή φωτεινότητα: "
 
@@ -3357,61 +3447,67 @@ msgstr "Νυχτερινή λειτουργία"
 
 #. Type: setting
 #. Context: local cfg = get_night_schedule_config() utils.show_time_picker(_("Night mode off time"), cfg.night_off_h, cfg.night_off_m,
-#: global_settings.lua:452
+#: global_settings.lua:472
 msgid "Night mode off time"
 msgstr "Ώρα απενεργοποίησης νυχτερινής λειτουργίας"
 
 #. Type: setting
 #. Context: local cfg = get_night_schedule_config() return _("Night mode off: ") .. utils.fmt_time(cfg.night_off_h, cfg.night_off_m) end,
-#: global_settings.lua:444
+#: global_settings.lua:464
 msgid "Night mode off: "
 msgstr "Νυχτερινή λειτουργία ανενεργή: "
 
 #. Type: setting
 #. Context: local cfg = get_night_schedule_config() utils.show_time_picker(_("Night mode on time"), cfg.night_on_h, cfg.night_on_m,
-#: global_settings.lua:427
+#: global_settings.lua:447
 msgid "Night mode on time"
 msgstr "Ώρα ενεργοποίησης νυχτερινής λειτουργίας"
 
 #. Type: setting
 #. Context: local cfg = get_night_schedule_config() return _("Night mode on: ") .. utils.fmt_time(cfg.night_on_h, cfg.night_on_m) end,
-#: global_settings.lua:419
+#: global_settings.lua:439
 msgid "Night mode on: "
 msgstr "Νυχτερινή λειτουργία ενεργή: "
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Night mode schedule"), sub_item_table = {
-#: global_settings.lua:399
+#: global_settings.lua:419
 msgid "Night mode schedule"
 msgstr "Πρόγραμμα νυχτερινής λειτουργίας"
 
 #. Type: setting
 #. Context: local title = config.features.warmth_schedule == true and _("Night warmth") or mode_value_label(_("Dark mode"), _("Warmth"))
-#: global_settings.lua:760
+#: global_settings.lua:780
 msgid "Night warmth"
 msgstr "Νυχτερινό θερμό φως"
 
 #. Type: setting
 #. Context: local cfg = get_warmth_schedule_config() utils.show_time_picker(_("Night warmth time"), cfg.night_h, cfg.night_m, function(h, m)
-#: global_settings.lua:729
+#: global_settings.lua:749
 msgid "Night warmth time"
 msgstr "Ώρα νυχτερινού θερμού φωτός"
 
 #. Type: setting
 #. Context: local cfg = get_warmth_schedule_config() return _("Night warmth time: ") .. utils.fmt_time(cfg.night_h, cfg.night_m) end,
-#: global_settings.lua:721
+#: global_settings.lua:741
 msgid "Night warmth time: "
 msgstr "Ώρα νυχτερινού θερμού φωτός: "
 
 #. Type: setting
 #. Context: if config.features.warmth_schedule == true then return _("Night warmth: ") .. cfg.night_value end
-#: global_settings.lua:746
+#: global_settings.lua:766
 msgid "Night warmth: "
 msgstr "Νυχτερινό θερμό φως: "
 
+#. Type: dialog
+#. Context: UIManager:show(ConfirmBox:new{ text = _("No archive folder is set. Set one now?"), ok_text = _("Set archive folder"),
+#: archive_actions.lua:161
+msgid "No archive folder is set. Set one now?"
+msgstr "Δεν έχει οριστεί φάκελος αρχειοθέτησης. Ορίστε έναν τώρα;"
+
 #. Type: message
 #. Context: end return _("No background image selected.") end
-#: library_settings.lua:1244
+#: library_settings.lua:1242
 msgid "No background image selected."
 msgstr "Δεν έχει επιλεγεί εικόνα φόντου."
 
@@ -3471,13 +3567,13 @@ msgstr "Χωρίς περιγραφή."
 
 #. Type: dialog
 #. Context: local InfoMessage = require("ui/widget/infomessage") UIManager:show(InfoMessage:new{ text = _("No KOReader submenus found") }) return
-#: app_launcher_settings.lua:413 menu_settings.lua:410 navbar_settings.lua:472
+#: app_launcher_settings.lua:413 menu_settings.lua:410 navbar_settings.lua:482
 msgid "No KOReader submenus found"
 msgstr "Δεν βρέθηκαν υπομενού του KOReader"
 
 #. Type: dialog
 #. Context: local InfoMessage = require("ui/widget/infomessage") UIManager:show(InfoMessage:new{ text = _("No launchable plugin menus found") }) return
-#: app_launcher_settings.lua:311 app_launcher_settings.lua:381 menu_settings.lua:387 navbar_settings.lua:450
+#: app_launcher_settings.lua:311 app_launcher_settings.lua:381 menu_settings.lua:387 navbar_settings.lua:460
 msgid "No launchable plugin menus found"
 msgstr "Δεν βρέθηκαν μενού πρόσθετων που μπορούν να εκκινηθούν"
 
@@ -3501,7 +3597,7 @@ msgstr "Δεν έχουν ενεργοποιηθεί πάροχοι μεταδε
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("No network connection. Please connect to Wi-Fi and try again."), })
-#: zen_bugreporter.lua:173
+#: zen_bugreporter.lua:176
 msgid "No network connection. Please connect to Wi-Fi and try again."
 msgstr "Δεν υπάρχει σύνδεση δικτύου. Συνδεθείτε στο Wi-Fi και δοκιμάστε ξανά."
 
@@ -3525,7 +3621,7 @@ msgstr "Δεν υπάρχουν δεδομένα ανάγνωσης"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = _("No table of contents available."), })
-#: dispatch_action.lua:336 zen_toc_widget.lua:537
+#: dispatch_action.lua:340 zen_toc_widget.lua:537
 msgid "No table of contents available."
 msgstr "Δεν υπάρχει διαθέσιμος πίνακας περιεχομένων."
 
@@ -3585,13 +3681,13 @@ msgstr "Δεν έχει οριστεί"
 
 #. Type: setting
 #. Context: annotations = _("Annotations"), note = _("Note"), navigate_to_tag = _("Navigate to tag"),
-#: library_settings.lua:1512
+#: library_settings.lua:1510
 msgid "Note"
 msgstr "Σημείωμα"
 
 #. Type: setting
 #. Context: local text = Dispatcher:menuTextFunc(entry.action) if text and text ~= "" and text ~= _("Nothing") then return icon_utils.stripZenPrefix(text)
-#: app_launcher_settings.lua:158 menu_settings.lua:742 home_settings.lua:1437 navbar_settings.lua:325
+#: app_launcher_settings.lua:158 menu_settings.lua:742 home_settings.lua:1437 navbar_settings.lua:335
 msgid "Nothing"
 msgstr "Τίποτα"
 
@@ -3609,13 +3705,13 @@ msgstr "NotionSync"
 
 #. Type: setting
 #. Context: { text = _("Off"), radio = true,
-#: status_bar.lua:395 incognito_mode.lua:248 reader_top_status_bar.lua:191 library_settings.lua:1455 home_settings.lua:474 home_settings.lua:485
+#: status_bar.lua:395 incognito_mode.lua:248 reader_top_status_bar.lua:191 library_settings.lua:1453 home_settings.lua:474 home_settings.lua:485
 msgid "Off"
 msgstr "Ανενεργό"
 
 #. Type: button
 #. Context: no_ok_button = true, cancel_text = _("OK"), })
-#: coverbrowser_check.lua:46 zen_bugreporter.lua:348 zen_updater.lua:1277 zen_updater.lua:1285 zen_updater.lua:1290 zen_updater.lua:1295 zen_updater.lua:1301 zen_updater.lua:1321 zen_updater.lua:1371 zen_updater.lua:1373 zen_updater.lua:1375 zen_updater.lua:1382 zen_updater.lua:1384 zen_updater.lua:1539 zen_updater.lua:1559 zen_updater.lua:1677 zen_updater.lua:1689 zen_updater.lua:1695 zen_updater.lua:1701 zenpm_installer.lua:350 zenpm_installer.lua:358 zenpm_installer.lua:361 zenpm_installer.lua:369 zenpm_installer.lua:378
+#: coverbrowser_check.lua:46 zen_bugreporter.lua:351 zen_updater.lua:1277 zen_updater.lua:1285 zen_updater.lua:1290 zen_updater.lua:1295 zen_updater.lua:1301 zen_updater.lua:1321 zen_updater.lua:1371 zen_updater.lua:1373 zen_updater.lua:1375 zen_updater.lua:1382 zen_updater.lua:1384 zen_updater.lua:1539 zen_updater.lua:1559 zen_updater.lua:1677 zen_updater.lua:1689 zen_updater.lua:1695 zen_updater.lua:1701 zenpm_installer.lua:350 zenpm_installer.lua:358 zenpm_installer.lua:361 zenpm_installer.lua:369 zenpm_installer.lua:378
 msgid "OK"
 msgstr "Εντάξει"
 
@@ -3627,13 +3723,13 @@ msgstr "Ελιά"
 
 #. Type: setting
 #. Context: { text = _("On"), radio = true,
-#: library_settings.lua:1467
+#: library_settings.lua:1465
 msgid "On"
 msgstr "Ενεργό"
 
 #. Type: status
 #. Context: elseif display_status == "abandoned" then status_label = _("On hold") progress_str = "\u{F03E4}"
-#: nav_button_model.lua:34 browser_list_item_layout.lua:454 context_menu.lua:738 context_menu.lua:2060 context_menu.lua:2319
+#: nav_button_model.lua:34 browser_list_item_layout.lua:454 context_menu.lua:763 context_menu.lua:2145 context_menu.lua:2404
 msgid "On hold"
 msgstr "Σε αναμονή"
 
@@ -3651,7 +3747,7 @@ msgstr "Ένα ανά γραμμή"
 
 #. Type: setting
 #. Context: { text = _("Only in Zen mode"), radio = true,
-#: library_settings.lua:1461
+#: library_settings.lua:1459
 msgid "Only in Zen mode"
 msgstr "Μόνο στη λειτουργία Zen"
 
@@ -3663,7 +3759,7 @@ msgstr "Εμφάνιση μόνο κατά την ανάγνωση"
 
 #. Type: setting
 #. Context: text_func = function() return string.format("%s: %d%%", _("Opacity"), ensure_lib_bg().opacity)
-#: library_settings.lua:1330 library_settings.lua:1340
+#: library_settings.lua:1328 library_settings.lua:1338
 msgid "Opacity"
 msgstr "Αδιαφάνεια"
 
@@ -3681,13 +3777,13 @@ msgstr "OPDS"
 
 #. Type: button
 #. Context: text = _("Open this file?") .. "\n\n" .. filename, ok_text = _("Open"), cancel_text = _("Cancel"),
-#: home_page.lua:2174 opening_banner.lua:548
+#: home_page.lua:2193 opening_banner.lua:548
 msgid "Open"
 msgstr "Άνοιγμα"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Open folder"), keep_menu_open = true,
-#: app_launcher_settings.lua:540 app_launcher_settings.lua:595 navbar_settings.lua:1124 navbar_settings.lua:1126
+#: app_launcher_settings.lua:540 app_launcher_settings.lua:595 navbar_settings.lua:1134 navbar_settings.lua:1136
 msgid "Open folder"
 msgstr "Άνοιγμα φακέλου"
 
@@ -3711,25 +3807,25 @@ msgstr "Άνοιγμα μενού στην καρτέλα «Εκκινητής»
 
 #. Type: button
 #. Context: next_file_btn = Button:new{ text = _("Open next file"), width = action_width,
-#: book_status.lua:239
+#: book_status.lua:240
 msgid "Open next file"
 msgstr "Άνοιγμα επόμενου αρχείου"
 
 #. Type: setting
 #. Context: { text = _("Open QuickRSS"), checked_func = function()
-#: navbar_settings.lua:1241
+#: navbar_settings.lua:1251
 msgid "Open QuickRSS"
 msgstr "Άνοιγμα QuickRSS"
 
 #. Type: setting
 #. Context: { text = _("Open Rakuyomi"), checked_func = function() return config.navbar.manga_action ~= "folder" end,
-#: navbar_settings.lua:1210
+#: navbar_settings.lua:1220
 msgid "Open Rakuyomi"
 msgstr "Άνοιγμα Rakuyomi"
 
 #. Type: setting
 #. Context: { text = _("Open RSS Reader"), checked_func = function() return config.navbar.news_action == "rssreader" end,
-#: navbar_settings.lua:1252
+#: navbar_settings.lua:1262
 msgid "Open RSS Reader"
 msgstr "Άνοιγμα RSS Reader"
 
@@ -3741,7 +3837,7 @@ msgstr "Άνοιγμα ρυθμίσεων"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Open this file?") .. "\n\n" .. filename, ok_text = _("Open"),
-#: home_page.lua:2173 opening_banner.lua:547
+#: home_page.lua:2192 opening_banner.lua:547
 msgid "Open this file?"
 msgstr "Να ανοιχθεί αυτό το αρχείο;"
 
@@ -3771,7 +3867,7 @@ msgstr "Πορτοκάλι"
 
 #. Type: title
 #. Context: require("common/ui/zen_arrange_list").show{ title = _("Order"), item_table = items,
-#: tbr_index.lua:873 tbr_index.lua:881 context_menu.lua:2199 context_menu.lua:2259 group_view.lua:631 group_view.lua:676 group_view.lua:890 app_launcher_settings.lua:60 app_launcher_settings.lua:1027 home_settings.lua:1157 navbar_settings.lua:1266
+#: tbr_index.lua:873 tbr_index.lua:881 context_menu.lua:2284 context_menu.lua:2344 group_view.lua:631 group_view.lua:676 group_view.lua:888 app_launcher_settings.lua:60 app_launcher_settings.lua:1027 home_settings.lua:1157 navbar_settings.lua:1276
 msgid "Order"
 msgstr "Φορά"
 
@@ -3830,16 +3926,16 @@ msgid "Page x / y"
 msgstr "Σελίδα x / y"
 
 #. Type: unit
-#. Context: { text = _("Pages"), radio = true,
-#: reading_goals.lua:127 stats_page.lua:76 stats_page.lua:917 stats_page.lua:926 stats_page.lua:934 stats_page.lua:1342 stats_page.lua:1423 app_launcher_settings.lua:79 library_settings.lua:1514 stats_settings.lua:102
-msgid "Pages"
-msgstr "Σελίδες"
-
-#. Type: unit
 #. Context: function M.formatPageCount(pages, long) local label = long and __("pages") or __("p.") return tostring(pages) .. "\u{00A0}" .. label
-#: utils.lua:345 context_menu.lua:1139 stats_page.lua:430 reading_goals.lua:92 reading_goals.lua:267 book_details_page.lua:226
+#: utils.lua:345 context_menu.lua:1169 stats_page.lua:430 reading_goals.lua:92 reading_goals.lua:267 book_details_page.lua:226
 msgid "pages"
 msgstr "σελίδες"
+
+#. Type: unit
+#. Context: { text = _("Pages"), radio = true,
+#: reading_goals.lua:128 stats_page.lua:76 stats_page.lua:917 stats_page.lua:926 stats_page.lua:934 stats_page.lua:1352 stats_page.lua:1433 app_launcher_settings.lua:79 library_settings.lua:1512 stats_settings.lua:102
+msgid "Pages"
+msgstr "Σελίδες"
 
 #. Type: label
 #. Context: blockCard{ width = c4_w, height = card_h, value = formatLongTime(book.total_time), label = _("Total time") }, blockCard{ width = c4_w, height = card_h, value = tostring(book.pages_read or 0), label = _("Pages read") }, blockCard{ width =...
@@ -3873,13 +3969,13 @@ msgstr "Μερική ανανέωση σελίδων"
 
 #. Type: label
 #. Context: {{ text = "\u{F0192} " .. C_("File", "Paste"), align = "left",
-#: context_menu.lua:1595 context_menu.lua:1631
+#: context_menu.lua:1625 context_menu.lua:1661
 msgid "Paste"
 msgstr "Επικόλληση"
 
 #. Type: title
 #. Context: action_dialog = new_context_menu_dialog{ title = _("Paste selected files"), title_align = "center",
-#: context_menu.lua:1471
+#: context_menu.lua:1501
 msgid "Paste selected files"
 msgstr "Επικόλληση επιλεγμένων αρχείων"
 
@@ -3889,16 +3985,16 @@ msgstr "Επικόλληση επιλεγμένων αρχείων"
 msgid "Percent"
 msgstr "Ποσοστό"
 
-#. Type: label
-#. Context: all_time = _("All Time"), personal_records = _("Personal Records"), library = _("Library"),
-#: stats_page.lua:65
-msgid "Personal Records"
-msgstr "Προσωπικά ρεκόρ"
-
 #. Type: setting
 #. Context: all_time = _("All time"), personal_records = _("Personal records"), library = _("Library"),
 #: stats_settings.lua:32
 msgid "Personal records"
+msgstr "Προσωπικά ρεκόρ"
+
+#. Type: label
+#. Context: all_time = _("All Time"), personal_records = _("Personal Records"), library = _("Library"),
+#: stats_page.lua:65
+msgid "Personal Records"
 msgstr "Προσωπικά ρεκόρ"
 
 #. Type: message
@@ -3915,25 +4011,31 @@ msgstr "Διαγράψτε το πρόσθετο Project: Title από τον φ
 
 #. Type: setting
 #. Context: or cb.plugin_title or _("Plugin"), visible_func = function()
-#: nav_button_model.lua:150 quick_settings.lua:1100 menu_settings.lua:455 menu_settings.lua:729 home_settings.lua:1490 navbar_settings.lua:318 navbar_settings.lua:498
+#: nav_button_model.lua:150 quick_settings.lua:1100 menu_settings.lua:455 menu_settings.lua:729 home_settings.lua:1490 navbar_settings.lua:328 navbar_settings.lua:508
 msgid "Plugin"
 msgstr "Πρόσθετο"
 
 #. Type: setting
+#. Context: { text = _("Plugin actions"), checked_func = function()
+#: library_settings.lua:1761
+msgid "Plugin actions"
+msgstr "Ενέργειες πρόσθετου"
+
+#. Type: setting
 #. Context: table.insert(items, { text = _("Plugin management"), sub_item_table_func = function()
-#: advanced_settings.lua:160
+#: advanced_settings.lua:175
 msgid "Plugin management"
 msgstr "Διαχείριση προσθέτων"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Plugin Menu"), keep_menu_open = true,
-#: app_launcher_settings.lua:573 menu_settings.lua:680 navbar_settings.lua:1408
+#: app_launcher_settings.lua:573 menu_settings.lua:680 navbar_settings.lua:1418
 msgid "Plugin Menu"
 msgstr "Μενού προσθηκών"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Plugin: %1"), entry.label or _("(none)")) end,
-#: app_launcher_settings.lua:845 menu_settings.lua:774 navbar_settings.lua:770
+#: app_launcher_settings.lua:845 menu_settings.lua:774 navbar_settings.lua:780
 msgid "Plugin: %1"
 msgstr "Πρόσθετο: %1"
 
@@ -3963,19 +4065,19 @@ msgstr "Θέση"
 
 #. Type: title
 #. Context: dlg = InputDialog:new{ title = _("Preset name"), input = "",
-#: global_settings.lua:299 reader_settings.lua:1009 home_settings.lua:2029 home_settings.lua:2107
+#: global_settings.lua:300 reader_settings.lua:1009 home_settings.lua:2029 home_settings.lua:2107
 msgid "Preset name"
 msgstr "Όνομα προρύθμισης"
 
 #. Type: setting
 #. Context: table.insert(sub, { text = _("Presets"), sub_item_table_func = build_preset_items,
-#: global_settings.lua:790 home_settings.lua:2658
+#: global_settings.lua:810 home_settings.lua:2658
 msgid "Presets"
 msgstr "Προρυθμίσεις"
 
 #. Type: label
 #. Context: local prev_tw = TextWidget:new{ text = _("Prev"), face = Font:getFace("cfont", 20),
-#: quickstart_screen.lua:464 navbar.lua:329
+#: quickstart_screen.lua:464 navbar.lua:335
 msgid "Prev"
 msgstr "Προηγ."
 
@@ -3987,7 +4089,7 @@ msgstr "Προηγούμενη σελίδα"
 
 #. Type: setting
 #. Context: icon = "quick_stats_progress", label = _("Progress"), visible_func = function() return hasPlugin("statistics") end,
-#: quick_settings.lua:972 library_settings.lua:1515 home_settings.lua:1030
+#: quick_settings.lua:972 library_settings.lua:1513 home_settings.lua:1030
 msgid "Progress"
 msgstr "Πρόοδος"
 
@@ -4053,7 +4155,7 @@ msgstr "QuickRSS"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("QuickRSS plugin is not installed."), })
-#: navbar.lua:1319 quick_settings.lua:728
+#: navbar.lua:1350 quick_settings.lua:728
 msgid "QuickRSS plugin is not installed."
 msgstr "Το πρόσθετο QuickRSS δεν είναι εγκατεστημένο."
 
@@ -4107,13 +4209,13 @@ msgstr "Χρήση RAM"
 
 #. Type: setting
 #. Context: { text = _("Range"), sub_item_table_func = function()
-#: stats_page.lua:1427 stats_settings.lua:116
+#: stats_page.lua:1437 stats_settings.lua:116
 msgid "Range"
 msgstr "Εύρος"
 
 #. Type: setting
 #. Context: language = _("Language"), rating = _("Rating"), annotations = _("Annotations"),
-#: library_settings.lua:1510
+#: library_settings.lua:1508
 msgid "Rating"
 msgstr "Εκτίμηση"
 
@@ -4125,13 +4227,13 @@ msgstr "Ανάγνωση τώρα"
 
 #. Type: title
 #. Context: status_dialog = new_context_menu_dialog{ title = _("Read status"), title_align = "center",
-#: quickstart_pages.lua:306 context_menu.lua:1963 context_menu.lua:2054
+#: quickstart_pages.lua:306 context_menu.lua:2048 context_menu.lua:2139
 msgid "Read status"
 msgstr "Κατάσταση ανάγνωσης"
 
 #. Type: setting
 #. Context: local labels = { read_time = _("Read time"), time_remaining = _("Time remaining"),
-#: stats_page.lua:943 app_launcher_settings.lua:75 library_settings.lua:1516
+#: stats_page.lua:943 app_launcher_settings.lua:75 library_settings.lua:1514
 msgid "Read time"
 msgstr "Χρόνος ανάγνωσης"
 
@@ -4149,7 +4251,7 @@ msgstr "Ανάγνωση: %s"
 
 #. Type: title
 #. Context: { title = _("Reader"), description = _("Font, margins, contrast, line spacing etc - tested together for the best reading experience"),
-#: quickstart_pages.lua:773 action_filter.lua:66 zen_settings.lua:151 global_settings.lua:881
+#: quickstart_pages.lua:773 action_filter.lua:66 zen_settings.lua:151 global_settings.lua:901
 msgid "Reader"
 msgstr "Αναγνώστης"
 
@@ -4167,20 +4269,20 @@ msgstr "Θέματα ανάγνωσης"
 
 #. Type: status
 #. Context: else status_label = _("Reading") end
-#: nav_button_model.lua:32 browser_list_item_layout.lua:460 context_menu.lua:736 context_menu.lua:2058 context_menu.lua:2317 stats_page.lua:955
+#: nav_button_model.lua:32 browser_list_item_layout.lua:460 context_menu.lua:761 context_menu.lua:2143 context_menu.lua:2402 stats_page.lua:955
 msgid "Reading"
 msgstr "Υπό ανάγνωση"
-
-#. Type: label
-#. Context: goal_progress = _("Reading goals"), calendar = _("Reading Calendar"), }
-#: stats_page.lua:70
-msgid "Reading Calendar"
-msgstr "Ημερολόγιο ανάγνωσης"
 
 #. Type: setting
 #. Context: goal_progress = _("Reading goals"), calendar = _("Reading calendar"), }
 #: stats_settings.lua:37
 msgid "Reading calendar"
+msgstr "Ημερολόγιο ανάγνωσης"
+
+#. Type: label
+#. Context: goal_progress = _("Reading goals"), calendar = _("Reading Calendar"), }
+#: stats_page.lua:70
+msgid "Reading Calendar"
 msgstr "Ημερολόγιο ανάγνωσης"
 
 #. Type: title
@@ -4201,16 +4303,16 @@ msgstr "Μέγεθος γραμματοσειράς στόχων ανάγνωσ�
 msgid "Reading stats"
 msgstr "Στατιστικά ανάγνωσης"
 
-#. Type: setting
-#. Context: current_book = _("Current book"), trend_graph = _("Reading trend"), goal_progress = _("Reading goals"),
-#: stats_settings.lua:35
-msgid "Reading trend"
-msgstr "Τάση ανάγνωσης"
-
 #. Type: label
 #. Context: current_book = _("Current Book"), trend_graph = _("Reading Trend"), goal_progress = _("Reading goals"),
 #: stats_page.lua:68
 msgid "Reading Trend"
+msgstr "Τάση ανάγνωσης"
+
+#. Type: setting
+#. Context: current_book = _("Current book"), trend_graph = _("Reading trend"), goal_progress = _("Reading goals"),
+#: stats_settings.lua:35
+msgid "Reading trend"
 msgstr "Τάση ανάγνωσης"
 
 #. Type: setting
@@ -4227,13 +4329,13 @@ msgstr "Φίλτρα πρόσφατων"
 
 #. Type: setting
 #. Context: if kind == "to_be_read" then return _("To Be Read") end return _("Recently read") end
-#: context_menu.lua:2169 group_view.lua:833 home_settings.lua:959 home_settings.lua:997
+#: context_menu.lua:2254 group_view.lua:833 home_settings.lua:959 home_settings.lua:997
 msgid "Recently read"
 msgstr "Πρόσφατα αναγνωσμένα"
 
 #. Type: setting
 #. Context: { text = _("Amber"), r = 0xF0, g = 0xD0, b = 0x80 }, { text = _("Red"), r = 0xDD, g = 0x99, b = 0x99 }, },
-#: library_settings.lua:573 reader_settings.lua:59 navbar_settings.lua:1643
+#: library_settings.lua:573 reader_settings.lua:59 navbar_settings.lua:1653
 msgid "Red"
 msgstr "Κόκκινο"
 
@@ -4245,7 +4347,7 @@ msgstr "Έγγραφα μεταβλητής διάταξης (epub, fb2, txt ...
 
 #. Type: label
 #. Context: { text = icons.refresh .. " " .. _("Refresh"), align = "left",
-#: context_menu.lua:1658 context_menu.lua:2073
+#: context_menu.lua:1688 context_menu.lua:2158
 msgid "Refresh"
 msgstr "Ανανέωση"
 
@@ -4269,7 +4371,7 @@ msgstr "Υπόλοιπο: %s"
 
 #. Type: button
 #. Context: text = _("Remove this book from history?"), ok_text = _("Remove"), ok_callback = function()
-#: context_menu.lua:2412 library_settings.lua:1404
+#: context_menu.lua:2511 library_settings.lua:1402
 msgid "Remove"
 msgstr "Αφαίρεση"
 
@@ -4280,16 +4382,28 @@ msgid "Remove default"
 msgstr "Αφαίρεση της ένδειξης «προεπιλογή»"
 
 #. Type: label
+#. Context: return {{ text = icons.archive .. " " .. _("Remove from archive"), align = "left",
+#: archive_actions.lua:177 archive_actions.lua:187
+msgid "Remove from archive"
+msgstr "Αφαίρεση από το αρχείο"
+
+#. Type: label
 #. Context: { text = "\u{F04D2} " .. _("Remove from collection"), align = "left",
-#: context_menu.lua:1877
+#: context_menu.lua:1962
 msgid "Remove from collection"
 msgstr "Αφαίρεση από τη συλλογή"
 
 #. Type: label
 #. Context: { text = icons.delete .. " " .. _("Remove from history"), align = "left",
-#: context_menu.lua:2405 history.lua:301
+#: context_menu.lua:2504 history.lua:301
 msgid "Remove from history"
 msgstr "Διαγραφή από το Ιστορικό"
+
+#. Type: action
+#. Context: Hold a book in the book switcher to remove it from that list.
+#: book_switcher_page.lua:401
+msgid "Remove from switcher"
+msgstr "Αφαίρεση από τον επιλογέα βιβλίων"
 
 #. Type: label
 #. Context: return text == _("Add to vocabulary builder") or text == _("Remove from vocabulary builder") or text == _("Long-press to add to vocabulary builder")
@@ -4297,15 +4411,21 @@ msgstr "Διαγραφή από το Ιστορικό"
 msgid "Remove from vocabulary builder"
 msgstr "Αφαίρεση από το εργαλείο δημιουργίας λεξιλογίου"
 
+#. Type: message
+#. Context: end confirm_action(_("Remove this book from archive?"), _("Remove from archive"), function()
+#: archive_actions.lua:187
+msgid "Remove this book from archive?"
+msgstr "Αφαίρεση αυτού του βιβλίου από το αρχείο;"
+
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Remove this book from history?"), ok_text = _("Remove"),
-#: context_menu.lua:2411
+#: context_menu.lua:2510
 msgid "Remove this book from history?"
 msgstr "Αφαίρεση αυτού του βιβλίου από το ιστορικό;"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Remove this folder from additional home folders?") .. "\n" .. dir, ok_text = _("Remove"),
-#: library_settings.lua:1403
+#: library_settings.lua:1401
 msgid "Remove this folder from additional home folders?"
 msgstr "Αφαίρεση αυτού του φακέλου από τους επιπλέον αρχικούς φακέλους;"
 
@@ -4317,7 +4437,7 @@ msgstr "Αφαίρεση: "
 
 #. Type: setting
 #. Context: { text = _("Rename"), is_enter_default = true,
-#: collections.lua:363 context_menu.lua:1754 home_settings.lua:2039 home_settings.lua:2164
+#: collections.lua:363 context_menu.lua:1839 home_settings.lua:2039 home_settings.lua:2164
 msgid "Rename"
 msgstr "Μετονομασία"
 
@@ -4341,7 +4461,7 @@ msgstr "Άνοιγμα βιβλίων με διπλό πάτημα"
 
 #. Type: setting
 #. Context: { text = _("Require hold to toggle buttons"), checked_func = function()
-#: global_settings.lua:857
+#: global_settings.lua:877
 msgid "Require hold to toggle buttons"
 msgstr "Παρατεταμένο πάτημα για εναλλαγή κουμπιών"
 
@@ -4383,7 +4503,7 @@ msgstr "Επανεκκίνηση"
 
 #. Type: button
 #. Context: local restart_book_btn = Button:new{ text = _("Restart Book"), width = action_width,
-#: book_status.lua:222
+#: book_status.lua:223
 msgid "Restart Book"
 msgstr "Επανεκκίνηση βιβλίου"
 
@@ -4410,6 +4530,12 @@ msgstr "Επανεκκίνηση σε εξέλιξη"
 #: metadata_editor.lua:720 metadata_editor.lua:1226
 msgid "Restore"
 msgstr "Επαναφέρω"
+
+#. Type: message
+#. Context: text = _("Allow dragging reader modals"), help_text = _("Restore KOReader's default draggable modal behavior."), checked_func = function()
+#: advanced_settings.lua:66
+msgid "Restore KOReader's default draggable modal behavior."
+msgstr "Επαναφορά της προεπιλεγμένης συμπεριφοράς συρόμενου τρόπου λειτουργίας του KOReader."
 
 #. Type: setting
 #. Context: table.insert(items, IconItem.decorate({ text = _("Restore library location on exit"), checked_func = function()
@@ -4449,7 +4575,7 @@ msgstr "Επιστροφή στη λίστα κεφαλαίων κατά την 
 
 #. Type: title
 #. Context: local stats_header = self:genHeader(_("Statistics")) local review_header = self:genHeader(_("Review")) local status_header = self:genHeader(self.readonly and _("Book Status") or _("Update Status"))
-#: book_status.lua:209
+#: book_status.lua:210
 msgid "Review"
 msgstr "Κριτική"
 
@@ -4497,13 +4623,13 @@ msgstr "Γραμμές"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("RSS Reader plugin is not installed."), })
-#: navbar.lua:1305
+#: navbar.lua:1336
 msgid "RSS Reader plugin is not installed."
 msgstr "Το πρόσθετο RSS Reader δεν είναι εγκατεστημένο."
 
 #. Type: setting
 #. Context: { text = _("Save"), is_enter_default = true,
-#: metadata_editor.lua:663 metadata_editor.lua:928 metadata_editor.lua:1046 metadata_editor.lua:1240 global_settings.lua:308 reader_settings.lua:1018 home_settings.lua:2117 metadata_settings.lua:43
+#: metadata_editor.lua:663 metadata_editor.lua:928 metadata_editor.lua:1046 metadata_editor.lua:1240 global_settings.lua:309 reader_settings.lua:1018 home_settings.lua:2117 metadata_settings.lua:43
 msgid "Save"
 msgstr "Αποθήκευση"
 
@@ -4515,7 +4641,7 @@ msgstr "Αποθήκευση τρέχουσας αρχικής σελίδας ω
 
 #. Type: setting
 #. Context: table.insert(preset_items, { text = _("Save current settings as preset"), keep_menu_open = true,
-#: global_settings.lua:293 reader_settings.lua:1003
+#: global_settings.lua:294 reader_settings.lua:1003
 msgid "Save current settings as preset"
 msgstr "Αποθήκευση τρεχουσών ρυθμίσεων ως προρύθμιση"
 
@@ -4551,7 +4677,7 @@ msgstr "Αποθήκευση μεταδεδομένων…"
 
 #. Type: setting
 #. Context: { text = _("Schedules"), sub_item_table = {
-#: global_settings.lua:941
+#: global_settings.lua:961
 msgid "Schedules"
 msgstr "Προγράμματα"
 
@@ -4587,13 +4713,13 @@ msgstr "Γραμμή κύλισης"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Search") .. (catalog_name ~= "" and " " .. catalog_name or ""), input_hint = _("Alexandre Dumas"),
-#: nav_button_model.lua:21 quickstart_pages.lua:691 collections.lua:649 metadata_editor.lua:958 navbar.lua:309 navbar.lua:314 search.lua:64 opds.lua:1293 opds.lua:1487 opds.lua:1491 native_menu.lua:9 quick_settings.lua:710 quick_settings.lua:750 page_browser.lua:2757 global_settings.lua:380 navbar_settings.lua:180
+#: nav_button_model.lua:21 quickstart_pages.lua:691 collections.lua:649 metadata_editor.lua:958 navbar.lua:315 navbar.lua:320 search.lua:64 opds.lua:1293 opds.lua:1487 opds.lua:1491 native_menu.lua:9 quick_settings.lua:710 quick_settings.lua:750 page_browser.lua:2773 global_settings.lua:381 navbar_settings.lua:180
 msgid "Search"
 msgstr "Αναζήτηση"
 
 #. Type: title
 #. Context: self.input_dialog = InputDialog:new{ title = _("Search Book"), width = math.floor(math.min(Screen_s:getWidth(), Screen_s:getHeight()) * 0.9),
-#: page_browser.lua:2748
+#: page_browser.lua:2757
 msgid "Search Book"
 msgstr "Αναζήτηση στο βιβλίο"
 
@@ -4629,7 +4755,7 @@ msgstr "Αναζήτηση μεταδεδομένων…"
 
 #. Type: label
 #. Context: { text = "\u{F0489} " .. _("Select"), align = "left",
-#: context_menu.lua:1641
+#: context_menu.lua:1671
 msgid "Select"
 msgstr "Επιλογή"
 
@@ -4663,17 +4789,17 @@ msgstr "Διαχωριστικό"
 msgid "Separator: "
 msgstr "Διαχωριστικό: "
 
-#. Type: label
-#. Context: subtitle = count == 1 and _("1 series") or (tostring(count) .. " " .. _("series")) end
-#: group_view.lua:1334
-msgid "series"
-msgstr "σειρές"
-
 #. Type: title
 #. Context: dialog = MultiInputDialog:new{ title = _("Series"), fields = {
-#: nav_button_model.lua:10 quickstart_pages.lua:689 metadata_editor.lua:48 metadata_editor.lua:510 metadata_editor.lua:1071 context_menu.lua:2168 group_view.lua:1311 group_view.lua:1360 navbar.lua:284 library_settings.lua:393 library_settings.lua:1507 home_settings.lua:838 home_settings.lua:1075 navbar_settings.lua:175
+#: nav_button_model.lua:10 quickstart_pages.lua:689 metadata_editor.lua:48 metadata_editor.lua:510 metadata_editor.lua:1071 context_menu.lua:2253 group_view.lua:1307 group_view.lua:1356 navbar.lua:290 library_settings.lua:393 library_settings.lua:1505 home_settings.lua:838 home_settings.lua:1075 navbar_settings.lua:175
 msgid "Series"
 msgstr "Σειρές"
+
+#. Type: label
+#. Context: subtitle = count == 1 and _("1 series") or (tostring(count) .. " " .. _("series")) end
+#: group_view.lua:1330
+msgid "series"
+msgstr "σειρές"
 
 #. Type: label
 #. Context: local SORT_OPTIONS = { { key = "series_index", text = "\u{F0CB} " .. _("Series number") }, { key = "title", text = "\u{F031} " .. _("Title") },
@@ -4695,15 +4821,33 @@ msgstr "Σελίδες συνεδρίας"
 
 #. Type: setting
 #. Context: { text = _("Set"), is_enter_default = true,
-#: zen_settings_utils.lua:542 app_launcher_settings.lua:192 menu_settings.lua:901 menu_settings.lua:1004 reader_settings.lua:119 reader_settings.lua:212 reader_settings.lua:688 home_settings.lua:1208 navbar_settings.lua:850 navbar_settings.lua:980 navbar_settings.lua:1051 navbar_settings.lua:1187 status_bar_settings.lua:278 status_bar_settings.lua:374
+#: zen_settings_utils.lua:542 app_launcher_settings.lua:192 menu_settings.lua:901 menu_settings.lua:1004 reader_settings.lua:119 reader_settings.lua:212 reader_settings.lua:688 home_settings.lua:1208 navbar_settings.lua:860 navbar_settings.lua:990 navbar_settings.lua:1061 navbar_settings.lua:1197 status_bar_settings.lua:278 status_bar_settings.lua:374
 msgid "Set"
 msgstr "Ορισμός"
 
+#. Type: message
+#. Context: or lfs.attributes(destination, "mode") ~= "directory" then show_message(_("Set a HOME folder in File Manager first.")) return
+#: archive_actions.lua:184
+msgid "Set a HOME folder in File Manager first."
+msgstr "Ορίστε πρώτα έναν φάκελο HOME στη Διαχείριση αρχείων."
+
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Set all gestures to pass-through? Top-right corner in reader will be kept as Toggle bookmark."), ok_text = _("Clear"),
-#: advanced_settings.lua:133
+#: advanced_settings.lua:148
 msgid "Set all gestures to pass-through? Top-right corner in reader will be kept as Toggle bookmark."
 msgstr "Να οριστούν όλες οι χειρονομίες ως διαμπερείς; Η πάνω δεξιά γωνία στην ανάγνωση θα διατηρηθεί ως εναλλαγή σελιδοδείκτη."
+
+#. Type: message
+#. Context: or lfs.attributes(archive, "mode") ~= "directory" then show_message(_("Set an archive folder with Move to archive first.")) return false
+#: archive_actions.lua:227
+msgid "Set an archive folder with Move to archive first."
+msgstr "Ορίστε έναν φάκελο αρχειοθέτησης με την επιλογή Μετακίνηση πρώτα στο αρχείο."
+
+#. Type: button
+#. Context: text = _("No archive folder is set. Set one now?"), ok_text = _("Set archive folder"), ok_callback = function()
+#: archive_actions.lua:162
+msgid "Set archive folder"
+msgstr "Ορισμός φακέλου αρχειοθέτησης"
 
 #. Type: label
 #. Context: and ("\u{F04D2} " .. _("Remove default")) or ("\u{F04CE} " .. _("Set as default")), align = "left",
@@ -4719,13 +4863,13 @@ msgstr "Ορισμός τύπων αρχείων για συγχρονισμό"
 
 #. Type: title
 #. Context: name = "folder_cover_picker", title = options.title or _("Set folder cover"), subtitle = options.subtitle or (type(options.path) == "string"
-#: folder_cover_picker.lua:461 context_menu.lua:1528 context_menu.lua:1671
+#: folder_cover_picker.lua:461 context_menu.lua:1558 context_menu.lua:1701
 msgid "Set folder cover"
 msgstr "Ορισμός εξωφύλλου φακέλου"
 
 #. Type: setting
 #. Context: { text = _("Set home folder"), callback = function()
-#: library_settings.lua:1421
+#: library_settings.lua:1419
 msgid "Set home folder"
 msgstr "Ορισμός Αρχικού Φακέλου"
 
@@ -4833,7 +4977,7 @@ msgstr "Εμφάνιση ονόματος φακέλου"
 
 #. Type: menu
 #. Context: { text = _("Show goal"), checked_func = function() return has_period(goals, period.id) end,
-#: reading_goals.lua:110
+#: reading_goals.lua:111
 msgid "Show goal"
 msgstr "Εμφάνιση στόχου"
 
@@ -4845,13 +4989,13 @@ msgstr "Εμφάνιση κωδικού QR σελίδας διακριτικού
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Show hidden files"), checked_func = function()
-#: advanced_settings.lua:65
+#: advanced_settings.lua:80
 msgid "Show hidden files"
 msgstr "Εμφάνιση κρυφών αρχείων"
 
 #. Type: setting
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Icons"), { _("Show icons"), _("Icon size:"),
-#: zen_settings.lua:122 navbar_settings.lua:1553
+#: zen_settings.lua:122 navbar_settings.lua:1563
 msgid "Show icons"
 msgstr "Εμφάνιση εικονιδίων"
 
@@ -4875,7 +5019,7 @@ msgstr "Εμφάνιση KOAsistant"
 
 #. Type: setting
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Labels"), { _("Show labels"), _("Label size:"),
-#: zen_settings.lua:117 app_launcher_settings.lua:1014 menu_settings.lua:1139 navbar_settings.lua:1501
+#: zen_settings.lua:117 app_launcher_settings.lua:1014 menu_settings.lua:1139 navbar_settings.lua:1511
 msgid "Show labels"
 msgstr "Εμφάνιση ονομασιών"
 
@@ -4947,7 +5091,7 @@ msgstr "Εμφάνιση τίτλου κάτω από το εξώφυλλο (μ�
 
 #. Type: setting
 #. Context: _("Active tab"), _("Show top border"), })
-#: zen_settings.lua:106 navbar_settings.lua:1649
+#: zen_settings.lua:106 navbar_settings.lua:1659
 msgid "Show top border"
 msgstr "Εμφάνιση πάνω περιγράμματος"
 
@@ -4989,7 +5133,7 @@ msgstr "Εμφάνιση εικονιδίου Zen - λευκό φόντο"
 
 #. Type: setting
 #. Context: { text = _("Skip"), id = "close",
-#: quickstart_pages.lua:840 zen_bugreporter.lua:261
+#: quickstart_pages.lua:840 zen_bugreporter.lua:264
 msgid "Skip"
 msgstr "Παράλειψη"
 
@@ -5007,7 +5151,7 @@ msgstr "Παράλειψη 20 σελίδων"
 
 #. Type: setting
 #. Context: icon = "quick_sleep", label = _("Sleep"), callback = function(touch_menu)
-#: quick_settings.lua:696 global_settings.lua:779 menu_settings.lua:77
+#: quick_settings.lua:696 global_settings.lua:799 menu_settings.lua:77
 msgid "Sleep"
 msgstr "Αναστολή λειτουργίας"
 
@@ -5025,7 +5169,7 @@ msgstr "Παζλ ολίσθησης"
 
 #. Type: label
 #. Context: table.insert(buttons, {{ text = "\u{F04BF} " .. _("Sort") .. " " .. submenu_arrow, align = "left",
-#: collections.lua:462 collections.lua:554 context_menu.lua:710
+#: collections.lua:462 collections.lua:554 context_menu.lua:735
 msgid "Sort"
 msgstr "Ταξινόμηση"
 
@@ -5037,7 +5181,7 @@ msgstr "Ταξινόμηση συγγραφέων"
 
 #. Type: title
 #. Context: sort_dialog = ButtonDialog:new{ title = _("Sort books by"), title_align = "center",
-#: group_view.lua:927
+#: group_view.lua:925
 msgid "Sort books by"
 msgstr "Ταξινόμηση βιβλίων κατά"
 
@@ -5049,13 +5193,13 @@ msgstr "Ταξινόμηση κατά"
 
 #. Type: label
 #. Context: { text = "\u{F04BF} " .. _("Sort folder") .. " " .. submenu_arrow, align = "left",
-#: context_menu.lua:2236
+#: context_menu.lua:2321
 msgid "Sort folder"
 msgstr "Ταξινόμηση φακέλου"
 
 #. Type: title
 #. Context: sort_dialog = new_context_menu_dialog{ title = _("Sort folder by"), title_align = "center",
-#: context_menu.lua:2287
+#: context_menu.lua:2372
 msgid "Sort folder by"
 msgstr "Ταξινόμηση φακέλου κατά"
 
@@ -5067,19 +5211,19 @@ msgstr "Ταξινόμηση γλωσσών"
 
 #. Type: label
 #. Context: { text = "\u{F04BF} " .. _("Sort library") .. " " .. submenu_arrow, align = "left",
-#: context_menu.lua:2177
+#: context_menu.lua:2262
 msgid "Sort library"
 msgstr "Ταξινόμηση βιβλιοθήκης"
 
 #. Type: title
 #. Context: sort_dialog = new_context_menu_dialog{ title = _("Sort library by"), title_align = "center",
-#: context_menu.lua:2217
+#: context_menu.lua:2302
 msgid "Sort library by"
 msgstr "Ταξινόμηση βιβλιοθήκης κατά"
 
 #. Type: title
 #. Context: order_dialog = ButtonDialog:new{ title = _("Sort order"), title_align = "center",
-#: group_view.lua:918
+#: group_view.lua:916
 msgid "Sort order"
 msgstr "Σειρά ταξινόμησης"
 
@@ -5091,7 +5235,7 @@ msgstr "Ταξινόμηση σειρών"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Specific tag"), keep_menu_open = true,
-#: app_launcher_settings.lua:547 app_launcher_settings.lua:602 menu_settings.lua:675 home_settings.lua:1078 home_settings.lua:1110 home_settings.lua:1457 navbar_settings.lua:1398
+#: app_launcher_settings.lua:547 app_launcher_settings.lua:602 menu_settings.lua:675 home_settings.lua:1078 home_settings.lua:1110 home_settings.lua:1457 navbar_settings.lua:1408
 msgid "Specific tag"
 msgstr "Συγκεκριμένη ετικέτα"
 
@@ -5127,7 +5271,7 @@ msgstr "Θέση στατιστικού "
 
 #. Type: title
 #. Context: local stats_header = self:genHeader(_("Statistics")) local review_header = self:genHeader(_("Review"))
-#: book_status.lua:208
+#: book_status.lua:209
 msgid "Statistics"
 msgstr "Στατιστικά"
 
@@ -5139,7 +5283,7 @@ msgstr "Το ημερολόγιο στατιστικών δεν είναι δι�
 
 #. Type: setting
 #. Context: { text = _("Extras"), occurrence = 1 }, { text = _("Stats"), occurrence = 1 }, }, _("Widgets"), { id })
-#: nav_button_model.lua:23 quickstart_pages.lua:692 navbar.lua:319 stats_settings.lua:304 stats_settings.lua:328 stats_settings.lua:357 navbar_settings.lua:182
+#: nav_button_model.lua:23 quickstart_pages.lua:692 navbar.lua:325 stats_settings.lua:304 stats_settings.lua:328 stats_settings.lua:357 navbar_settings.lua:182
 msgid "Stats"
 msgstr "Στατιστικά"
 
@@ -5181,7 +5325,7 @@ msgstr "Στοιχεία γραμμής κατάστασης"
 
 #. Type: description
 #. Context: title = _("Bug description (optional)"), description = _("Steps to reproduce, expected vs. actual behavior"), input = "",
-#: zen_bugreporter.lua:226
+#: zen_bugreporter.lua:229
 msgid "Steps to reproduce, expected vs. actual behavior"
 msgstr "Βήματα αναπαραγωγής, αναμενόμενη και πραγματική συμπεριφορά"
 
@@ -5199,25 +5343,25 @@ msgstr "Ροή από τη σελίδα"
 
 #. Type: setting
 #. Context: _("Tabs") .. " \u{25B8}", _("Styling"), _("Default tab: "),
-#: zen_settings.lua:98 zen_settings.lua:102 navbar_settings.lua:1495
+#: zen_settings.lua:98 zen_settings.lua:102 navbar_settings.lua:1505
 msgid "Styling"
 msgstr "Μορφοποίηση"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Subfolder flat view was disabled because the home folder is the device storage root."), })
-#: library_settings.lua:1436
+#: library_settings.lua:1434
 msgid "Subfolder flat view was disabled because the home folder is the device storage root."
 msgstr "Η ενιαία προβολή υποφακέλων απενεργοποιήθηκε επειδή ο αρχικός φάκελος είναι η ρίζα του αποθηκευτικού χώρου της συσκευής."
 
 #. Type: setting
 #. Context: { text = _("Submit"), is_enter_default = true,
-#: zen_bugreporter.lua:236 zen_bugreporter.lua:269
+#: zen_bugreporter.lua:239 zen_bugreporter.lua:272
 msgid "Submit"
 msgstr "Υποβολή"
 
 #. Type: dialog
 #. Context: -- Let the notice paint before starting the blocking network work. local spinner = InfoMessage:new{ text = _("Submitting report…") } UIManager:show(spinner)
-#: zen_bugreporter.lua:290
+#: zen_bugreporter.lua:293
 msgid "Submitting report…"
 msgstr "Υποβολή αναφοράς…"
 
@@ -5259,7 +5403,7 @@ msgstr "Συγχρονισμός όλων των καταλόγων"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Tab"), keep_menu_open = true,
-#: home_settings.lua:1450 navbar_settings.lua:1383
+#: home_settings.lua:1450 navbar_settings.lua:1393
 msgid "Tab"
 msgstr "Καρτέλα"
 
@@ -5271,31 +5415,31 @@ msgstr "Πίνακας περιεχομένων"
 
 #. Type: title
 #. Context: ZenArrangeList.show{ title = _("Tabs"), item_table = sort_items,
-#: zen_settings.lua:97 home_settings.lua:1512 home_settings.lua:1521 home_settings.lua:1609 home_settings.lua:1766 navbar_settings.lua:1419 navbar_settings.lua:1490
+#: zen_settings.lua:97 home_settings.lua:1512 home_settings.lua:1521 home_settings.lua:1609 home_settings.lua:1766 navbar_settings.lua:1429 navbar_settings.lua:1500
 msgid "Tabs"
 msgstr "Καρτέλες"
 
 #. Type: setting
 #. Context: if cb.type == "tag" then return cb.tag or _("Tag") end
-#: nav_button_model.lua:143 menu_settings.lua:735 navbar_settings.lua:309
+#: nav_button_model.lua:143 menu_settings.lua:735 navbar_settings.lua:319
 msgid "Tag"
 msgstr "Ετικέτα"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Tag: %1"), entry.tag or _("(none)")) end,
-#: app_launcher_settings.lua:774 menu_settings.lua:817 navbar_settings.lua:730
+#: app_launcher_settings.lua:774 menu_settings.lua:817 navbar_settings.lua:740
 msgid "Tag: %1"
 msgstr "Ετικέτα: %1"
 
 #. Type: label
 #. Context: subtitle = count == 1 and _("1 tag") or (tostring(count) .. " " .. _("tags")) else
-#: group_view.lua:1331
+#: group_view.lua:1327
 msgid "tags"
 msgstr "ετικέτες"
 
 #. Type: title
 #. Context: elseif tab_id == "tags" then title = _("Tags") else
-#: nav_button_model.lua:12 nav_button_model.lua:140 group_view.lua:601 group_view.lua:1311 group_view.lua:1358 navbar.lua:294 library_settings.lua:1508 home_settings.lua:1075 navbar_settings.lua:178
+#: nav_button_model.lua:12 nav_button_model.lua:140 group_view.lua:601 group_view.lua:1307 group_view.lua:1354 navbar.lua:300 library_settings.lua:1506 home_settings.lua:1075 navbar_settings.lua:178
 msgid "Tags"
 msgstr "Ετικέτες"
 
@@ -5389,6 +5533,12 @@ msgstr "Γραμματοσειρά θέματος"
 msgid "Theme name"
 msgstr "Όνομα θέματος"
 
+#. Type: message
+#. Context: if is_in_archive(file, archive) then show_message(_("This book is already in the archive.")) return false
+#: archive_actions.lua:231
+msgid "This book is already in the archive."
+msgstr "Αυτό το βιβλίο βρίσκεται ήδη στο αρχείο."
+
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("This change requires a restart to take effect."), ok_text = _("Restart now"),
 #: zen_settings_apply.lua:87
@@ -5469,7 +5619,7 @@ msgstr "Φέτος"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Time") .. " " .. _("font size"), value = mcfg.max_font_size,
-#: reading_goals.lua:133 stats_page.lua:1343 stats_page.lua:1423 reader_settings.lua:154 stats_settings.lua:108 home_settings.lua:653 home_settings.lua:670 home_settings.lua:672 status_bar_settings.lua:34
+#: reading_goals.lua:134 stats_page.lua:1353 stats_page.lua:1433 reader_settings.lua:154 stats_settings.lua:108 home_settings.lua:653 home_settings.lua:670 home_settings.lua:672 status_bar_settings.lua:34
 msgid "Time"
 msgstr "Χρόνος"
 
@@ -5481,7 +5631,7 @@ msgstr "Μορφή ώρας"
 
 #. Type: setting
 #. Context: read_time = _("Read time"), time_remaining = _("Time remaining"), pages_today = _("Pages today"),
-#: app_launcher_settings.lua:76 library_settings.lua:1517
+#: app_launcher_settings.lua:76 library_settings.lua:1515
 msgid "Time remaining"
 msgstr "Χρόνος που απομένει"
 
@@ -5541,19 +5691,19 @@ msgstr "Χρονόμετρο: %1 δευτ."
 
 #. Type: title
 #. Context: local FIELD_SPECS = { title = { label = _("Title") }, authors = { label = _("Authors"), list = true },
-#: metadata_editor.lua:46 metadata_editor.lua:508 context_menu.lua:2164 group_view.lua:659 group_view.lua:830 metadata_editor.lua:953 app_launcher_settings.lua:835 app_launcher_settings.lua:839 home_settings.lua:836
+#: metadata_editor.lua:46 metadata_editor.lua:508 context_menu.lua:2249 group_view.lua:659 group_view.lua:830 metadata_editor.lua:953 app_launcher_settings.lua:835 app_launcher_settings.lua:839 home_settings.lua:836
 msgid "Title"
 msgstr "Τίτλος"
 
 #. Type: label
 #. Context: BookList.collates.title_natural = { text = _("Title natural"), menu_order = 100,
-#: add_sort_title_natural.lua:29 context_menu.lua:2165 group_view.lua:660 group_view.lua:831
+#: add_sort_title_natural.lua:29 context_menu.lua:2250 group_view.lua:660 group_view.lua:831
 msgid "Title natural"
 msgstr "Τίτλος (φυσική σειρά)"
 
 #. Type: setting
 #. Context: if kind == "custom" then return _("Custom") end if kind == "to_be_read" then return _("To Be Read") end return _("Recently read")
-#: nav_button_model.lua:8 nav_button_model.lua:33 quickstart_pages.lua:690 browser_list_item_layout.lua:448 context_menu.lua:737 context_menu.lua:2059 context_menu.lua:2318 group_view.lua:1292 group_view.lua:1578 navbar.lua:299 home_settings.lua:958 home_settings.lua:998 home_settings.lua:1074 navbar_settings.lua:179
+#: nav_button_model.lua:8 nav_button_model.lua:33 quickstart_pages.lua:690 browser_list_item_layout.lua:448 context_menu.lua:762 context_menu.lua:2144 context_menu.lua:2403 group_view.lua:1288 group_view.lua:1574 navbar.lua:305 home_settings.lua:958 home_settings.lua:998 home_settings.lua:1074 navbar_settings.lua:179
 msgid "To Be Read"
 msgstr "Προς ανάγνωση"
 
@@ -5649,13 +5799,13 @@ msgstr "Μη διαθέσιμο πακέτο: %1"
 
 #. Type: setting
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Active tab"), { _("Underline"), _("Underline above icon"),
-#: zen_settings.lua:110 navbar_settings.lua:1602
+#: zen_settings.lua:110 navbar_settings.lua:1612
 msgid "Underline"
 msgstr "Υπογράμμιση"
 
 #. Type: setting
 #. Context: _("Underline"), _("Underline above icon"), _("Colored"),
-#: zen_settings.lua:111 navbar_settings.lua:1610
+#: zen_settings.lua:111 navbar_settings.lua:1620
 msgid "Underline above icon"
 msgstr "Υπογράμμιση πάνω από το εικονίδιο"
 
@@ -5665,17 +5815,17 @@ msgstr "Υπογράμμιση πάνω από το εικονίδιο"
 msgid "Uniform covers"
 msgstr "Ενιαίο μέγεθος εξωφύλλων"
 
-#. Type: title
-#. Context: elseif not no_fallback then if title == "" then title = _("Unknown") end if authors == "" then authors = _("Unknown Author") end
-#: cover_utils.lua:238
-msgid "Unknown"
-msgstr "Άγνωστo"
-
 #. Type: setting
 #. Context: local function render_release_text(entry) local label = entry.version ~= "" and ("v" .. entry.version) or (entry.tag or _("unknown")) local lines = {}
 #: zen_updater.lua:236
 msgid "unknown"
 msgstr "άγνωστο"
+
+#. Type: title
+#. Context: elseif not no_fallback then if title == "" then title = _("Unknown") end if authors == "" then authors = _("Unknown Author") end
+#: cover_utils.lua:238
+msgid "Unknown"
+msgstr "Άγνωστo"
 
 #. Type: message
 #. Context: if title == "" then title = _("Unknown") end if authors == "" then authors = _("Unknown Author") end elseif bookinfo_found and authors == "" then
@@ -5683,17 +5833,17 @@ msgstr "άγνωστο"
 msgid "Unknown Author"
 msgstr "Άγνωστος Συγγραφέας"
 
+#. Type: dialog
+#. Context: require("ui/uimanager"):show(InfoMessage:new{ text = _("Failed to clear cache:") .. "\n" .. (err or _("Unknown error")), })
+#: metadata_editor.lua:1315 kindle_virtual_library.lua:324
+msgid "Unknown error"
+msgstr "Άγνωστο σφάλμα"
+
 #. Type: subtitle
 #. Context: else screen:update{ subtitle = _("Download failed: ") .. (err or _("unknown error")), button = _("OK"), dismissable = true } end
 #: zen_updater.lua:1384
 msgid "unknown error"
 msgstr "άγνωστο σφάλμα"
-
-#. Type: dialog
-#. Context: require("ui/uimanager"):show(InfoMessage:new{ text = _("Failed to clear cache:") .. "\n" .. (err or _("Unknown error")), })
-#: metadata_editor.lua:1315 kindle_virtual_library.lua:312
-msgid "Unknown error"
-msgstr "Άγνωστο σφάλμα"
 
 #. Type: setting
 #. Context: local prefix = active == preset_name and "* " or "" return prefix .. (preset_name or _("Unnamed preset")) end,
@@ -5703,7 +5853,7 @@ msgstr "Προρύθμιση χωρίς όνομα"
 
 #. Type: label
 #. Context: local STATUSES = { { key = "new", label = _("Unread") }, { key = "reading", label = _("Reading") },
-#: nav_button_model.lua:31 context_menu.lua:735 context_menu.lua:2057 context_menu.lua:2316
+#: nav_button_model.lua:31 context_menu.lua:760 context_menu.lua:2142 context_menu.lua:2401
 msgid "Unread"
 msgstr "Μη αναγνωσμένο"
 
@@ -5835,7 +5985,7 @@ msgstr "Ενημέρωση τώρα"
 
 #. Type: title
 #. Context: local review_header = self:genHeader(_("Review")) local status_header = self:genHeader(self.readonly and _("Book Status") or _("Update Status"))
-#: book_status.lua:210
+#: book_status.lua:211
 msgid "Update Status"
 msgstr "Ενημέρωση Κατάστασης"
 
@@ -5865,7 +6015,7 @@ msgstr "USB"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Use a narrower books folder instead of the device storage root."), })
-#: library_settings.lua:1377
+#: library_settings.lua:1375
 msgid "Use a narrower books folder instead of the device storage root."
 msgstr "Χρησιμοποιήστε έναν πιο συγκεκριμένο φάκελο βιβλίων αντί για τη ρίζα του αποθηκευτικού χώρου."
 
@@ -5883,7 +6033,7 @@ msgstr "Χρήση του περιγράμματος ως γραμμής προ�
 
 #. Type: setting
 #. Context: { text = _("Use current folder"), callback = function()
-#: navbar_settings.lua:1111
+#: navbar_settings.lua:1121
 msgid "Use current folder"
 msgstr "Χρήση τρέχοντος φακέλου"
 
@@ -5895,25 +6045,31 @@ msgstr "Χρήση προεπιλεγμένης γραμματοσειράς"
 
 #. Type: setting
 #. Context: { text = _("Use default style"), callback = function(touchmenu_instance)
-#: library_settings.lua:1654 home_settings.lua:614 home_settings.lua:796 home_settings.lua:1737
+#: library_settings.lua:1652 home_settings.lua:614 home_settings.lua:796 home_settings.lua:1737
 msgid "Use default style"
 msgstr "Χρήση προεπιλεγμένου στυλ"
 
 #. Type: setting
 #. Context: { text = _("Use home folder"), callback = function()
-#: navbar_settings.lua:1099
+#: navbar_settings.lua:1109
 msgid "Use home folder"
 msgstr "Χρήση αρχικού φακέλου"
 
 #. Type: setting
 #. Context: { text = _("Use last folder"), callback = function()
-#: navbar_settings.lua:1105
+#: navbar_settings.lua:1115
 msgid "Use last folder"
 msgstr "Χρήση τελευταίου φακέλου"
 
+#. Type: message
+#. Context: text = _("Enable Zen Search"), help_text = _("Use Zen Search in the file browser and reader. Disable to use KOReader's default search."), checked_func = function()
+#: global_settings.lua:385
+msgid "Use Zen Search in the file browser and reader. Disable to use KOReader's default search."
+msgstr "Χρησιμοποιήστε την Αναζήτηση Zen στο πρόγραμμα περιήγησης αρχείων και στον αναγνώστη. Απενεργοποιήστε την για να χρησιμοποιήσετε την προεπιλεγμένη αναζήτηση του KOReader."
+
 #. Type: setting
 #. Context: input = "", input_hint = _("username"), buttons = {{
-#: zen_bugreporter.lua:258
+#: zen_bugreporter.lua:261
 msgid "username"
 msgstr "όνομα χρήστη"
 
@@ -5925,7 +6081,7 @@ msgstr "Προβολή"
 
 #. Type: label
 #. Context: or nil local virtual_folder_str = is_series_group and _("Virtual folder") or nil dialog_title = folder_name_str
-#: context_menu.lua:1272
+#: context_menu.lua:1302
 msgid "Virtual folder"
 msgstr "Εικονικός φάκελος"
 
@@ -5937,7 +6093,7 @@ msgstr "Εργαλείο δημιουργίας λεξιλογίου"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Warmth"), enabled_func = function() return Device:hasNaturalLight() end,
-#: warmth_slider.lua:47 global_settings.lua:625 global_settings.lua:645 global_settings.lua:692 global_settings.lua:705 global_settings.lua:748 global_settings.lua:761
+#: warmth_slider.lua:47 global_settings.lua:645 global_settings.lua:665 global_settings.lua:712 global_settings.lua:725 global_settings.lua:768 global_settings.lua:781
 msgid "Warmth"
 msgstr "Θερμό φως"
 
@@ -5984,8 +6140,8 @@ msgid "When enabled, loose icons or a selected ZenOS icon pack override supporte
 msgstr "Αν ενεργοποιηθεί, τα μεμονωμένα εικονίδια ή ένα επιλεγμένο πακέτο εικονιδίων ZenOS αντικαθιστούν τα υποστηριζόμενα εικονίδια. Για όσα λείπουν χρησιμοποιούνται τα εικονίδια του ZenOS και έπειτα του KOReader."
 
 #. Type: message
-#. Context: text = _("Match whole words"), help_text = _("When enabled, search matches whole words only. When disabled, substring matching is used (e.g., 'fish' matches 'fishing')."), checked_func = function()
-#: global_settings.lua:384
+#. Context: text = _("Match whole words"), help_text = _("When enabled, search matches whole words only. When disabled, substring matching is used (e.g., 'fish' matches 'fishing')."), enabled_func = function()
+#: global_settings.lua:400
 msgid "When enabled, search matches whole words only. When disabled, substring matching is used (e.g., 'fish' matches 'fishing')."
 msgstr "Αν ενεργοποιηθεί, η αναζήτηση βρίσκει μόνο ολόκληρες λέξεις. Αν απενεργοποιηθεί, γίνεται αναζήτηση τμήματος λέξης (π.χ. το «ψαρ» βρίσκει το «ψάρεμα»)."
 
@@ -6015,7 +6171,7 @@ msgstr "Wi-Fi"
 
 #. Type: action
 #. Context: buttons[#buttons + 1] = {{ text = icons.settings .. " " .. _("Widget settings"), callback = function()
-#: context_menu.lua:2437 stats_page.lua:1446
+#: context_menu.lua:2536 stats_page.lua:1456
 msgid "Widget settings"
 msgstr "Ρυθμίσεις γραφικού στοιχείου"
 
@@ -6105,13 +6261,13 @@ msgstr "Η λειτουργία Zen είναι ενεργή. Τα μενού τ�
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = features.zen_mode and _("Zen Mode: Enabled") or _("Zen Mode: Disabled"), timeout = 2,
-#: dispatch_action.lua:557
+#: dispatch_action.lua:561
 msgid "Zen Mode: Disabled"
 msgstr "Λειτουργία Zen: ανενεργή"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = features.zen_mode and _("Zen Mode: Enabled") or _("Zen Mode: Disabled"), timeout = 2,
-#: dispatch_action.lua:557
+#: dispatch_action.lua:561
 msgid "Zen Mode: Enabled"
 msgstr "Λειτουργία Zen: ενεργή"
 
@@ -6171,109 +6327,109 @@ msgstr "ZenOS: "
 
 #. Type: title
 #. Context: event = "ShowZenUIAuthors", title = _("ZenOS: Authors"), general = true,
-#: dispatch_action.lua:502
+#: dispatch_action.lua:506
 msgid "ZenOS: Authors"
 msgstr "ZenOS: Συγγραφείς"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = _("ZenOS: folder not found: ") .. folder, })
-#: dispatch_action.lua:150 navbar.lua:1239 navbar.lua:1253
+#: dispatch_action.lua:150 navbar.lua:1270 navbar.lua:1284
 msgid "ZenOS: folder not found: "
 msgstr "ZenOS: ο φάκελος δεν βρέθηκε: "
 
 #. Type: title
 #. Context: event = "ShowZenUIHome", title = _("ZenOS: Home"), general = true,
-#: dispatch_action.lua:490
+#: dispatch_action.lua:494
 msgid "ZenOS: Home"
 msgstr "ZenOS: Αρχική"
 
 #. Type: title
 #. Context: event = "ShowZenUILibrary", title = _("ZenOS: Library"), general = true,
-#: dispatch_action.lua:496
+#: dispatch_action.lua:500
 msgid "ZenOS: Library"
 msgstr "ZenOS: Βιβλιοθήκη"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = _("ZenOS: no folder set for this action."), })
-#: dispatch_action.lua:167 navbar.lua:1240 navbar.lua:1254
+#: dispatch_action.lua:171 navbar.lua:1271 navbar.lua:1285
 msgid "ZenOS: no folder set for this action."
 msgstr "ZenOS: δεν έχει οριστεί φάκελος για αυτή την ενέργεια."
 
 #. Type: title
 #. Context: event = "ShowZenUIFolder", title = _("ZenOS: Open folder"), args = {},
-#: dispatch_action.lua:392 dispatch_action.lua:394 dispatch_action.lua:532
+#: dispatch_action.lua:396 dispatch_action.lua:398 dispatch_action.lua:536
 msgid "ZenOS: Open folder"
 msgstr "ZenOS: Άνοιγμα φακέλου"
 
 #. Type: title
 #. Context: event = "ShowZenUISeries", title = _("ZenOS: Series"), general = true,
-#: dispatch_action.lua:508
+#: dispatch_action.lua:512
 msgid "ZenOS: Series"
 msgstr "ZenOS: Σειρές"
 
 #. Type: title
 #. Context: event = "ShowZenUIStats", title = _("ZenOS: Stats"), general = true,
-#: dispatch_action.lua:520
+#: dispatch_action.lua:524
 msgid "ZenOS: Stats"
 msgstr "ZenOS: Στατιστικά"
 
 #. Type: title
 #. Context: event = "ZenUIKOSyncSync", title = _("ZenOS: Sync progress (pull + push)"), general = true,
-#: dispatch_action.lua:540
+#: dispatch_action.lua:544
 msgid "ZenOS: Sync progress (pull + push)"
 msgstr "ZenOS: Συγχρονισμός προόδου (λήψη + αποστολή)"
 
 #. Type: title
 #. Context: event = "ShowZenUIToc", title = _("ZenOS: Table of contents"), reader = true,
-#: dispatch_action.lua:484
+#: dispatch_action.lua:488
 msgid "ZenOS: Table of contents"
 msgstr "ZenOS: Πίνακας περιεχομένων"
 
 #. Type: title
 #. Context: event = "ShowZenUITags", title = _("ZenOS: Tags"), general = true,
-#: dispatch_action.lua:514
+#: dispatch_action.lua:518
 msgid "ZenOS: Tags"
 msgstr "ZenOS: Ετικέτες"
 
 #. Type: title
 #. Context: event = "ToggleReaderBottomStatusBar", title = _("ZenOS: Toggle bottom reader status bar"), reader = true,
-#: dispatch_action.lua:470
+#: dispatch_action.lua:474
 msgid "ZenOS: Toggle bottom reader status bar"
 msgstr "ZenOS: Εναλλαγή κάτω γραμμής κατάστασης ανάγνωσης"
 
 #. Type: title
 #. Context: event = "ToggleIncognitoMode", title = _("ZenOS: Toggle Incognito Mode"), general = true,
-#: dispatch_action.lua:449
+#: dispatch_action.lua:453
 msgid "ZenOS: Toggle Incognito Mode"
 msgstr "ZenOS: Εναλλαγή ανώνυμης λειτουργίας"
 
 #. Type: title
 #. Context: event = "ToggleLockdownMode", title = _("ZenOS: Toggle Lockdown Mode"), general = true,
-#: dispatch_action.lua:442
+#: dispatch_action.lua:446
 msgid "ZenOS: Toggle Lockdown Mode"
 msgstr "ZenOS: Εναλλαγή λειτουργίας κλειδώματος"
 
 #. Type: title
 #. Context: event = "ToggleReaderStatusBars", title = _("ZenOS: Toggle reader status bars"), reader = true,
-#: dispatch_action.lua:477
+#: dispatch_action.lua:481
 msgid "ZenOS: Toggle reader status bars"
 msgstr "ZenOS: Εναλλαγή γραμμών κατάστασης ανάγνωσης"
 
 #. Type: title
 #. Context: event = "ToggleReaderThemes", title = _("ZenOS: Toggle reader themes"), reader = true,
-#: dispatch_action.lua:463
+#: dispatch_action.lua:467
 msgid "ZenOS: Toggle reader themes"
 msgstr "ZenOS: Εναλλαγή θεμάτων ανάγνωσης"
 
 #. Type: title
 #. Context: event = "ToggleReaderTopStatusBar", title = _("ZenOS: Toggle top reader status bar"), reader = true,
-#: dispatch_action.lua:456
+#: dispatch_action.lua:460
 msgid "ZenOS: Toggle top reader status bar"
 msgstr "ZenOS: Εναλλαγή πάνω γραμμής κατάστασης ανάγνωσης"
 
 #. Type: title
 #. Context: event = "ToggleZenMode", title = _("ZenOS: Toggle Zen Mode"), general = true,
-#: dispatch_action.lua:435
+#: dispatch_action.lua:439
 msgid "ZenOS: Toggle Zen Mode"
 msgstr "ZenOS: Εναλλαγή λειτουργίας Zen"
 

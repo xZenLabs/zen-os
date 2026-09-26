@@ -10,6 +10,8 @@
 --       value_min  = 0,
 --       value_max  = 100,
 --       on_change  = function(v) ... end,
+--       on_drag_start = function() ... end,
+--       on_drag_end   = function() ... end,
 --   }
 --
 -- API:
@@ -248,6 +250,7 @@ function ZenSlider:handlePan(ges)
     local dir = ges.direction
     if dir == "north" or dir == "south" then return false end
     if not self:_isNearKnob(ges.pos.x) then return false end
+    if self.on_drag_start then self.on_drag_start() end
     self._dragging = true
     self.hide_knob = true
     self:applyPosition(ges.pos.x)
@@ -260,6 +263,7 @@ function ZenSlider:handlePanRelease(ges, show_parent, dirty_dimen)
     self._dragging = false
     self.hide_knob = false
     self:applyPosition(ges.pos.x)
+    if self.on_drag_end then self.on_drag_end() end
     UIManager:setDirty(show_parent, "ui", dirty_dimen)
     return true
 end
@@ -288,6 +292,7 @@ function ZenSlider:handleSwipe(ges, show_parent, dirty_dimen)
         if not self:_isNearKnob(ges.pos.x) then return false end
     end
     local was_dragging = self._dragging
+    if not was_dragging and self.on_drag_start then self.on_drag_start() end
     self._dragging = false
     self.hide_knob = false
     if not was_dragging then
@@ -298,6 +303,7 @@ function ZenSlider:handleSwipe(ges, show_parent, dirty_dimen)
         -- Pan events already positioned the knob; repaint to restore it.
         UIManager:setDirty(show_parent, "ui", dirty_dimen)
     end
+    if self.on_drag_end then self.on_drag_end() end
     return true
 end
 
@@ -306,6 +312,7 @@ function ZenSlider:handleMultiSwipe(ges, show_parent, dirty_dimen)
     if not self._dragging then return false end
     self._dragging = false
     self.hide_knob = false
+    if self.on_drag_end then self.on_drag_end() end
     UIManager:setDirty(show_parent, "ui", dirty_dimen)
     return true
 end

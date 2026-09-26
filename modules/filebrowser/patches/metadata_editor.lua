@@ -274,14 +274,17 @@ local function apply_metadata_editor()
         return value ~= "" and value or _("Edition")
     end
 
-    local function edition_secondary(edition)
+    local function edition_detail_lines(work, edition)
         local pages = tonumber(edition.pages)
-        return join_parts({
-            provider_label(edition._provider),
-            edition.publisher,
-            language_label(edition.language),
-            pages and T(_("%1 pages"), pages) or "",
-        })
+        return {
+            table.concat(type(work.authors) == "table" and work.authors or {}, ", "),
+            join_parts({ provider_label(edition._provider), edition_primary(edition) }),
+            join_parts({
+                language_label(edition.language),
+                pages and T(_("%1 pages"), pages) or "",
+                edition.publisher,
+            }),
+        }
     end
 
     local function edition_summary(edition)
@@ -379,7 +382,7 @@ local function apply_metadata_editor()
         end)
     end
 
-    local function apply_provider_selection(editor, work, edition, cover_only)
+    local function apply_provider_selection(editor, work, edition, cover_only, only_key)
         if cover_only then
             download_provider_cover(editor, edition, true)
             return
@@ -396,10 +399,10 @@ local function apply_metadata_editor()
             return
         end
         local retained = editor:applyHardcover(metadata, edition_summary(edition),
-            provider.id, provider.label)
+            provider.id, provider.label, only_key)
         logger.dbg("Metadata staged provider=", provider.id, " work_id=", tostring(work.id),
             " edition_id=", tostring(edition.id), " retained=", tostring(retained))
-        if trim(edition.image_url) ~= ""
+        if not only_key and trim(edition.image_url) ~= ""
                 and editor:getPendingCoverSource() ~= "manual" then
             UIManager:nextTick(function()
                 download_provider_cover(editor, edition, false)
@@ -488,8 +491,8 @@ local function apply_metadata_editor()
         local items = {}
         for _i, edition in ipairs(editions) do
             items[#items + 1] = {
-                text = edition_primary(edition),
-                secondary_text = edition_secondary(edition),
+                text = trim(work.title) ~= "" and work.title or edition_primary(edition),
+                detail_lines = edition_detail_lines(work, edition),
                 image_file = edition._cover_path,
                 edition = edition,
                 work = work,
@@ -498,7 +501,8 @@ local function apply_metadata_editor()
         return items
     end
 
-    local function present_edition_picker(editor, draft, work, editions, cover_only)
+    local function present_edition_picker(
+            editor, draft, work, editions, cover_only, only_key)
         local items = edition_picker_items(work, editions)
         local picker
         picker = require("common/ui/zen_menu_picker"){
@@ -511,7 +515,7 @@ local function apply_metadata_editor()
             title_action_callback = function()
                 show_search_dialog(editor, draft, cover_only, function()
                     picker:onCancelOrClose()
-                end)
+                end, only_key)
             end,
             back_hold_callback = function() return true end,
             on_close = function(item)
@@ -519,23 +523,25 @@ local function apply_metadata_editor()
                 cleanup_cover_previews(editions, keep)
             end,
             on_select = function(item)
-                apply_provider_selection(editor, item.work, item.edition, cover_only)
+                apply_provider_selection(
+                    editor, item.work, item.edition, cover_only, only_key)
             end,
         }
     end
 
-    local function show_edition_picker(editor, draft, work, editions, cover_only)
+    local function show_edition_picker(
+            editor, draft, work, editions, cover_only, only_key)
         if cover_only then editions = cover_editions(editions) end
         if #editions == 0 then
             show_metadata_error({ kind = "no_match" })
             return
         end
         prepare_cover_previews(editions, function(ready)
-            present_edition_picker(editor, draft, work, ready, cover_only)
+            present_edition_picker(editor, draft, work, ready, cover_only, only_key)
         end)
     end
 
-    local function select_work(editor, draft, work, cover_only, auto_pick)
+    local function select_work(editor, draft, work, cover_only, auto_pick, only_key)
         local provider = providers_by_id[work._provider]
         if not provider then
             show_metadata_error({ kind = "malformed" })
@@ -559,16 +565,18 @@ local function apply_metadata_editor()
                 end
 
                 if best then
-                    apply_provider_selection(editor, work, best, cover_only)
+                    apply_provider_selection(editor, work, best, cover_only, only_key)
                 elseif #editions > 0 then
-                    show_edition_picker(editor, draft, work, editions, cover_only)
+                    show_edition_picker(
+                        editor, draft, work, editions, cover_only, only_key)
                 else
                     show_metadata_error({ kind = "no_match" })
                 end
             elseif #editions == 1 and editions[1].is_audio ~= true then
-                apply_provider_selection(editor, work, editions[1], cover_only)
+                apply_provider_selection(
+                    editor, work, editions[1], cover_only, only_key)
             else
-                show_edition_picker(editor, draft, work, editions, cover_only)
+                show_edition_picker(editor, draft, work, editions, cover_only, only_key)
             end
         end
         if type(work._edition) == "table" then
@@ -606,7 +614,7 @@ local function apply_metadata_editor()
     end
 
     local function show_results_picker(
-            editor, draft, items, cover_only, title, on_select, preview_traps)
+            editor, draft, items, cover_only, title, on_select, preview_traps, only_key)
         local picker
         local function dismiss_loading()
             if not picker then return end
@@ -626,7 +634,7 @@ local function apply_metadata_editor()
                 picker:addItems({}, _("Metadata results"))
                 show_search_dialog(editor, draft, cover_only, function()
                     picker:onCancelOrClose()
-                end)
+                end, only_key)
             end,
             back_hold_callback = function() return true end,
             on_close = function(item)
@@ -693,7 +701,8 @@ local function apply_metadata_editor()
         end)
     end
 
-    start_hardcover_search = function(editor, draft, query, cover_only, replace_callback)
+    start_hardcover_search = function(
+            editor, draft, query, cover_only, replace_callback, only_key)
         local active, missing_credential, any_enabled = active_providers()
         if #active == 0 then
             offer_metadata_settings(not any_enabled
@@ -829,7 +838,7 @@ local function apply_metadata_editor()
                             replace_callback = nil
                         end
                         if cover_only and #active == 1 and works[1].exact_edition then
-                            select_work(editor, draft, works[1], true, false)
+                            select_work(editor, draft, works[1], true, false, only_key)
                             close_notice()
                             return
                         end
@@ -839,12 +848,12 @@ local function apply_metadata_editor()
                         picker = show_results_picker(
                             editor, draft, result_items, cover_only, title,
                             cover_only and function(item)
-                                select_work(editor, draft, item.work, true)
+                                select_work(editor, draft, item.work, true, nil, only_key)
                             end or function(item)
                                 apply_provider_selection(
-                                    editor, item.work, item.edition, false)
+                                    editor, item.work, item.edition, false, only_key)
                             end,
-                            preview_traps)
+                            preview_traps, only_key)
                         logger.dbg("Metadata results opened provider=", provider.id,
                             " results=", #result_items,
                             " remaining_providers=", #active - provider_index)
@@ -905,7 +914,7 @@ local function apply_metadata_editor()
         end, function(works)
             if replace_callback then replace_callback() end
             if #active == 1 and works[1] and works[1].exact_edition then
-                select_work(editor, draft, works[1], cover_only, false)
+                select_work(editor, draft, works[1], cover_only, false, only_key)
             else
                 local selected
                 for _i, work in ipairs(works) do
@@ -917,7 +926,7 @@ local function apply_metadata_editor()
                 selected = selected or works[1]
                 if selected then
                     select_work(editor, draft, selected, cover_only,
-                        selected.exact_edition == nil)
+                        selected.exact_edition == nil, only_key)
                 else
                     show_metadata_error({ kind = "no_match" })
                 end
@@ -925,7 +934,8 @@ local function apply_metadata_editor()
         end)
     end
 
-    show_search_dialog = function(editor, draft, cover_only, replace_callback)
+    show_search_dialog = function(
+            editor, draft, cover_only, replace_callback, only_key)
         local MultiInputDialog = require("ui/widget/multiinputdialog")
         local ZenModalClose = require("common/ui/zen_modal_close")
         local dialog
@@ -944,7 +954,7 @@ local function apply_metadata_editor()
             UIManager:close(dialog)
             UIManager:nextTick(function()
                 start_hardcover_search(
-                    editor, draft, query, cover_only, replace_callback)
+                    editor, draft, query, cover_only, replace_callback, only_key)
             end)
         end
         dialog = MultiInputDialog:new{
@@ -963,14 +973,14 @@ local function apply_metadata_editor()
         dialog:onShowKeyboard()
     end
 
-    local function native_hardcover(draft, editor)
+    local function native_hardcover(draft, editor, only_key)
         if (metadata_config().hardcover_auto_match == false
                 and trim(editor.edition_summary) ~= "")
                 or trim(draft.title) == "" then
-            show_search_dialog(editor, draft)
+            show_search_dialog(editor, draft, nil, nil, only_key)
             return
         end
-        start_hardcover_search(editor, draft)
+        start_hardcover_search(editor, draft, nil, nil, nil, only_key)
     end
 
     function BookInfo:showFromBookDetails(doc_settings_or_file, book_props, options)

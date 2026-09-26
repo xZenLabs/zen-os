@@ -47,7 +47,7 @@ local function apply_browser_display_mode_by_path()
     end
 
     local function is_in_home(path)
-        return paths.isInHomeDir(path)
+        return paths.isInThemedDir(path)
     end
 
     local orig_changeToPath = FileChooser.changeToPath

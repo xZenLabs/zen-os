@@ -15,14 +15,19 @@ describe("reader top status bar refresh", function()
     local item_fetchers
     local collect_item_texts
     local build_group_from_texts
+    local build_header
     local startup_reader
     local disabled_reader
     local NetworkMgr
+    local bluetooth_enabled
+    local clock_text
+    local battery_capacity
 
     local dependencies = {
         "apps/reader/modules/readerview",
         "apps/reader/modules/readertypeset",
         "apps/reader/readerui",
+        "modules/menu/bluetooth/bluetooth",
         "common/inline_icon_map",
         "common/ui/color_text_widget",
         "common/reader_status_bar",
@@ -97,6 +102,8 @@ describe("reader top status bar refresh", function()
         saved_settings = G_reader_settings
         scheduled = {}
         unscheduled = {}
+        clock_text = "12:34"
+        battery_capacity = 73
         reset_paint_log()
 
         local screen_bb = {
@@ -157,7 +164,12 @@ describe("reader top status bar refresh", function()
         replace("apps/reader/modules/readerview", ReaderView)
         replace("apps/reader/modules/readertypeset", ReaderTypeset)
         replace("apps/reader/readerui", ReaderUI)
-        replace("common/inline_icon_map", {})
+        bluetooth_enabled = false
+        replace("modules/menu/bluetooth/bluetooth", {
+            getState = function() error("status paint must not query Bluetooth") end,
+            getCachedState = function() return bluetooth_enabled end,
+        })
+        replace("common/inline_icon_map", { bluetooth_on = "BT" })
         replace("common/reader_themes", {
             getBackgroundColor = function() end,
             getTextColor = function() end,
@@ -166,13 +178,13 @@ describe("reader top status bar refresh", function()
         replace("common/zen_logger", {
             new = function() return { dbg = function() end } end,
         })
-        replace("datetime", {})
+        replace("datetime", { secondsToHour = function() return clock_text end })
         replace("device", {
             screen = screen,
             hasBattery = function() return true end,
             getPowerDevice = function()
                 return {
-                    getCapacity = function() return 73 end,
+                    getCapacity = function() return battery_capacity end,
                     getBatterySymbol = function() return "B" end,
                     isCharged = function() return false end,
                     isCharging = function() return false end,
@@ -272,9 +284,9 @@ describe("reader top status bar refresh", function()
             center = { x = 250, y = 0, w = 100, h = 20 },
             right = { x = 500, y = 0, w = 100, h = 20 },
         }
-        local original_build_header = get_upvalue(ReaderView.paintTo, "buildHeader")
-        collect_item_texts = get_upvalue(original_build_header, "collectItemTexts")
-        build_group_from_texts = get_upvalue(original_build_header, "buildGroupFromTexts")
+        build_header = get_upvalue(ReaderView.paintTo, "buildHeader")
+        collect_item_texts = get_upvalue(build_header, "collectItemTexts")
+        build_group_from_texts = get_upvalue(build_header, "buildGroupFromTexts")
         item_fetchers = get_upvalue(collect_item_texts, "item_fetchers")
         assert.is_true(replace_upvalue(ReaderView.paintTo, "buildHeader", function()
             return header, {}, 20, 600, slot_regions
@@ -441,6 +453,23 @@ describe("reader top status bar refresh", function()
         assert.are.equal("7", item_fetchers.current_page(context))
         assert.are.equal("120", item_fetchers.total_pages(context))
         assert.are.equal("7 / 120", item_fetchers.page_progress(context))
+
+        local cfg = _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar
+        cfg.page_separator = "of"
+        assert.are.equal("7 of 120", item_fetchers.page_progress(context))
+
+        cfg.page_count_scope = "chapter"
+        context.ui.toc = {
+            getChapterPagesDone = function() return 2 end,
+            getChapterPageCount = function() return 8 end,
+        }
+        assert.are.equal("3", item_fetchers.current_page(context))
+        assert.are.equal("8", item_fetchers.total_pages(context))
+        assert.are.equal("3 of 8", item_fetchers.page_progress(context))
+        assert.are.equal("6%", item_fetchers.progress_percent(context))
+
+        context.ui.toc = nil
+        assert.are.equal("7 of 120", item_fetchers.page_progress(context))
     end)
 
     it("hides Wi-Fi only when it is off and the option is enabled", function()
@@ -451,6 +480,14 @@ describe("reader top status bar refresh", function()
 
         NetworkMgr.wifi_on = true
         assert.are.equal("\u{ECA8}", item_fetchers.wifi())
+    end)
+
+    it("shows Bluetooth only while powered and refreshes its slot on state changes", function()
+        assert.is_nil(item_fetchers.bluetooth())
+        bluetooth_enabled = true
+        assert.are.equal("BT", item_fetchers.bluetooth())
+        assert.are.equal("BT", collect_item_texts({ "bluetooth" })[1].text)
+        assert.is_function(ReaderUI.onBluetoothStateChanged)
     end)
 
     it("uses the bottom status bar's progress percentage format", function()
@@ -478,6 +515,34 @@ describe("reader top status bar refresh", function()
         assert.is_nil(collect_item_texts({ "battery" })[1].color)
     end)
 
+    it("matches the left and right dogear spacing", function()
+        local cfg = _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar
+        for _i, name in ipairs({
+            "ui/widget/container/centercontainer",
+            "ui/widget/container/leftcontainer",
+            "ui/widget/container/rightcontainer",
+            "ui/widget/horizontalspan",
+            "ui/widget/verticalgroup",
+            "ui/widget/verticalspan",
+        }) do
+            package.loaded[name].new = function(_self, values) return values or {} end
+        end
+        assert.is_true(replace_upvalue(build_header, "buildGroupFromTexts", function(texts)
+            if #texts == 0 then return nil, {} end
+            return { getSize = function() return { w = 10, h = 18 } end }, {}
+        end))
+
+        for _i, center_order in ipairs({ {}, { "wifi" } }) do
+            cfg.center_order = center_order
+            local header, _, _, _, slots = build_header({
+                dogear = { icon = { dimen = { x = 550, w = 50 } } },
+            })
+            assert.are.equal(60, header[1][1][1].width)
+            assert.are.equal(60, header[#header][1][2].width)
+            assert.are.equal(slots.left.w, slots.right.w)
+        end
+    end)
+
     it("hides reflowable headers in scroll mode and keeps the fixed-layout overlay optional", function()
         local view = make_view()
         view._zen_header_dimen = nil
@@ -499,6 +564,17 @@ describe("reader top status bar refresh", function()
         _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar.auto_refresh = false
         make_view()
         assert.are.equal(1, #scheduled)
+    end)
+
+    it("does not arm a minute timer for a static header", function()
+        local cfg = _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar
+        cfg.left_order = { "book_title" }
+        cfg.center_order = { "chapter" }
+        cfg.right_order = { "percent_read" }
+
+        make_view()
+
+        assert.are.equal(0, #scheduled)
     end)
 
     it("keeps one hook set and releases old reader views", function()
@@ -528,7 +604,7 @@ describe("reader top status bar refresh", function()
         assert.are.equal(handlers.onClose, ReaderUI.onClose)
 
         scheduled[1].callback()
-        assert.are.equal(2, #paint_rects)
+        assert.are.equal(0, #paint_rects)
         collectgarbage("collect")
         collectgarbage("collect")
         assert.is_nil(weak_first[1])
@@ -573,12 +649,20 @@ describe("reader top status bar refresh", function()
         assert.same({ x = 474, y = 20, w = 2, h = 1, color = "black" }, paint_rects[4])
     end)
 
-    it("refreshes only the dynamic item's slot and restores the dogear", function()
+    it("skips unchanged minute values and refreshes only changed slots", function()
         make_view()
 
         scheduled[1].callback()
-        assert.are.equal(2, #paint_rects)
-        assert.same({ 250, 500 }, { paint_rects[1].x, paint_rects[2].x })
+        assert.are.equal(0, #paint_rects)
+
+        clock_text = "12:35"
+        scheduled[2].callback()
+        assert_single_slot(250)
+
+        reset_paint_log()
+        battery_capacity = 72
+        scheduled[3].callback()
+        assert_single_slot(500)
 
         reset_paint_log()
         ReaderUI.onNetworkConnected({})
@@ -620,6 +704,7 @@ describe("reader top status bar refresh", function()
         _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar.right_order = {}
         make_view()
 
+        clock_text = "12:35"
         scheduled[1].callback()
 
         assert.are.equal("sepia", paint_rects[1].color)

@@ -10,6 +10,7 @@ local _ = require("gettext")
 local DecodeCache = require("common/cover_decode_cache")
 local RenderCache = require("common/cover_render_cache")
 local FolderCoverFiles = require("common/folder_cover_files")
+local lfs = require("libs/libkoreader-lfs")
 local plugin_root = require("common/plugin_root")
 local now = require("common/zen_logger").now
 
@@ -433,12 +434,41 @@ end
 -- Explicit cover file detection and loading
 -- ============================================================
 
-function CoverUtils.loadExplicitCover(path)
-    local RenderImage = require("ui/renderimage")
-    local ok, bb = pcall(function()
-        return RenderImage:renderImageFile(path, false)
-    end)
-    if not ok or not bb then return nil end
+function CoverUtils.loadExplicitCover(path, max_w, max_h)
+    max_w, max_h = tonumber(max_w), tonumber(max_h)
+    if not max_w or max_w < 1 or not max_h or max_h < 1 then
+        max_w, max_h = nil, nil
+    end
+    local ok_attr, attr = pcall(lfs.attributes, path)
+    local signature = ok_attr and type(attr) == "table" and attr.mode == "file"
+        and table.concat({
+            tostring(attr.modification), tostring(attr.change), tostring(attr.size),
+        }, "\31") or nil
+    local key = table.concat({
+        "zen-explicit", tostring(path), tostring(max_w), tostring(max_h),
+    }, "\31")
+    local bb = signature and type(DecodeCache.get) == "function"
+        and DecodeCache:get(key, signature) or nil
+    if not bb then
+        local RenderImage = require("ui/renderimage")
+        local ok, decoded = pcall(function()
+            return RenderImage:renderImageFile(path, false)
+        end)
+        if not ok or not decoded then return nil end
+        bb = decoded
+        if max_w and max_h then
+            local width, height = bb:getWidth(), bb:getHeight()
+            local scale = math.min(1, math.max(max_w / width, max_h / height))
+            if scale < 1 then
+                local ok_scale, scaled = pcall(RenderImage.scaleBlitBuffer,
+                    RenderImage, bb, math.ceil(width * scale), math.ceil(height * scale))
+                if ok_scale and scaled then bb = scaled end
+            end
+        end
+        if signature and type(DecodeCache.put) == "function" then
+            DecodeCache:put(key, signature, bb)
+        end
+    end
     return {
         data = bb,
         w = bb:getWidth(),
@@ -447,14 +477,14 @@ function CoverUtils.loadExplicitCover(path)
     }
 end
 
-function CoverUtils.loadExplicitCovers(path, mode)
+function CoverUtils.loadExplicitCovers(path, mode, max_w, max_h)
     local files = FolderCoverFiles.find(path, mode)
     if not next(files) then return nil, false end
 
     local result = {}
     for i = 1, 4 do
         if files[i] then
-            local cover = CoverUtils.loadExplicitCover(files[i])
+            local cover = CoverUtils.loadExplicitCover(files[i], max_w, max_h)
             if cover then table.insert(result, cover) end
         end
     end
@@ -484,7 +514,6 @@ function CoverUtils.collect(dir_path, chooser, max_covers, _need_copy, entries, 
         end
 
         if not entries then
-            local lfs = require("libs/libkoreader-lfs")
             local G = rawget(_G, "G_reader_settings")
             local collate = G and G:readSetting("collate") or "strcoll"
             local ok, iter, dir_obj = pcall(lfs.dir, dir_path)
@@ -1148,7 +1177,8 @@ function CoverUtils.makeCover(path, chooser, options)
     local has_explicit = false
     if not covers or #covers == 0 then
         -- Auto-detect explicit cover image files (cover.jpg, cover1.jpg, etc.)
-        covers, has_explicit = CoverUtils.loadExplicitCovers(path, mode)
+        covers, has_explicit = CoverUtils.loadExplicitCovers(
+            path, mode, options.max_w or 200, options.max_h or 300)
     end
     if not has_explicit and (not covers or #covers == 0) then
         covers = CoverUtils.collect(path, chooser, max_covers, need_copy)

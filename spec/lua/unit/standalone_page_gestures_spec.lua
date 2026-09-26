@@ -32,6 +32,7 @@ describe("standalone page gestures", function()
         ZenSpec.replace("common/clock_timer", { bind = function() end })
         ZenSpec.replace("common/ui/background", {})
         ZenSpec.replace("common/widget_resources", {
+            free = function(widget) if widget and widget.free then widget:free() end end,
             replaceChild = function(group, index, child) group[index] = child end,
         })
         ZenSpec.replace("ui/geometry", {})
@@ -80,6 +81,41 @@ describe("standalone page gestures", function()
 
         assert.are.equal("Kindle Library", received_label)
         assert.are.equal("Kindle Library", title_group[2].label)
+    end)
+
+    it("repaints only changed standalone status items on minute ticks", function()
+        local bound, repaints, freed, value = nil, {}, 0, "old"
+        package.loaded["common/clock_timer"].bind = function(_menu, callback)
+            bound = callback
+        end
+        package.loaded["ui/geometry"].new = function(_self, region) return region end
+        local title_group = { {}, {} }
+        title_group.resetLayout = function() end
+        local menu = { title_bar = { title_group = title_group } }
+        local function build_row()
+            return {
+                value = value,
+                dimen = { x = 10, y = 20, w = 100, h = 10 },
+                getSize = function() return { w = 100, h = 10 } end,
+                free = function() freed = freed + 1 end,
+            }
+        end
+        require("modules/filebrowser/patches/standalone_page").apply_status_row(menu, {
+            createStatusRow = build_row,
+            statusRowRefreshRegions = function(previous, current)
+                return previous.value == current.value and {}
+                    or { { x = 25, y = 0, w = 10, h = 10 } }
+            end,
+            repaintTitleBar = function(_tb, regions) repaints[#repaints + 1] = regions end,
+        })
+        UIManager._window_stack = { { widget = menu } }
+        value = "new"
+        bound(menu)
+        assert.are.same({ { { x = 35, y = 20, w = 10, h = 10 } } }, repaints)
+        assert.are.equal("new", title_group[2].value)
+        bound(menu)
+        assert.are.equal(1, #repaints)
+        assert.are.equal(1, freed)
     end)
 
     it("gives every Gesture Manager family priority over page handlers", function()
@@ -170,6 +206,34 @@ describe("standalone page gestures", function()
         assert.are.same({ "tap_bottom_right_corner" }, gesture_calls)
     end)
 
+    it("gives standalone pagination priority over Gesture Manager taps", function()
+        local StandalonePage = require("modules/filebrowser/patches/standalone_page")
+        local page_calls = 0
+        local gesture_calls = {}
+        local page_zone = zone("zen_pn_left_tap", "tap", {})
+        local menu = {
+            _zen_page_number_zones = { page_zone.def },
+            _zones = { zen_pn_left_tap = page_zone },
+            handleEvent = function()
+                page_calls = page_calls + 1
+                return true
+            end,
+        }
+        FileManager.instance = {
+            _ordered_touch_zones = {
+                zone("tap_bottom_left_corner", "tap", gesture_calls),
+            },
+        }
+        StandalonePage.enable_gesture_manager_dispatch(menu)
+
+        assert.is_true(menu:handleEvent({
+            handler = "onGesture",
+            args = { { ges = "tap" } },
+        }))
+        assert.are.equal(1, page_calls)
+        assert.are.same({}, gesture_calls)
+    end)
+
     it("keeps Home page swipes local without suppressing diagonals", function()
         local StandalonePage = require("modules/filebrowser/patches/standalone_page")
         local swipes = {}
@@ -197,6 +261,24 @@ describe("standalone page gestures", function()
             args = { { ges = "swipe", direction = "southeast" } },
         }))
         assert.are.same({ "southeast" }, swipes)
+    end)
+
+    it("forwards unhandled dispatcher actions to the File Manager", function()
+        local StandalonePage = require("modules/filebrowser/patches/standalone_page")
+        local calls = 0
+        local menu = { handleEvent = function() return false end }
+        FileManager.instance = {
+            handleEvent = function(_self, event)
+                if event.handler == "onToggleZenMode" then
+                    calls = calls + 1
+                    return true
+                end
+            end,
+        }
+        StandalonePage.enable_filemanager_dispatch(menu)
+
+        assert.is_true(menu:handleEvent({ handler = "onToggleZenMode" }))
+        assert.are.equal(1, calls)
     end)
 
     it("honors the touch-input filter for forwarded gestures", function()

@@ -9,8 +9,7 @@ msgstr ""
 
 #. Type: unit
 #. Context: title = title .. " " .. metricLabel(block.metric) .. ", " .. tostring(block.range_days or 14) .. _(" days") elseif block.id == "calendar" then
-#: stats_page.lua:99 stats_page.lua:1319 stats_page.lua:1427
-#: stats_settings.lua:122
+#: stats_page.lua:99 stats_page.lua:1329 stats_page.lua:1437 stats_settings.lua:122
 msgid " days"
 msgstr " días"
 
@@ -88,7 +87,7 @@ msgstr "%d%% leído"
 
 #. Type: format
 #. Context: local title = is_time and string.format(_("%s time goal (min)"), period.text) or is_books and string.format(_("%s books goal"), period.text) or string.format(_("%s pages goal"), period.text)
-#: reading_goals.lua:82
+#: reading_goals.lua:83
 msgid "%s books goal"
 msgstr "Objetivo: %s libros"
 
@@ -112,19 +111,19 @@ msgstr "%s restantes"
 
 #. Type: format
 #. Context: or is_books and string.format(_("%s books goal"), period.text) or string.format(_("%s pages goal"), period.text) local label = title .. ": "
-#: reading_goals.lua:83
+#: reading_goals.lua:84
 msgid "%s pages goal"
 msgstr "Objetivo: %s páginas"
 
 #. Type: title
 #. Context: local is_books = target == period.books local title = is_time and string.format(_("%s time goal (min)"), period.text) or is_books and string.format(_("%s books goal"), period.text)
-#: reading_goals.lua:81
+#: reading_goals.lua:82
 msgid "%s time goal (min)"
 msgstr "Objetivo: %s minutos"
 
 #. Type: setting
 #. Context: text_func = function() local lbl = (cb.label and cb.label ~= "") and cb.label or _("(auto)") return T(_("Label: %1"), lbl)
-#: menu_settings.lua:886 navbar_settings.lua:835
+#: menu_settings.lua:886 navbar_settings.lua:845
 msgid "(auto)"
 msgstr "(automático)"
 
@@ -136,11 +135,7 @@ msgstr "(Kindle)"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Tag: %1"), entry.tag or _("(none)")) end,
-#: app_launcher_settings.lua:774 app_launcher_settings.lua:795
-#: app_launcher_settings.lua:821 app_launcher_settings.lua:834
-#: app_launcher_settings.lua:845 menu_settings.lua:774 menu_settings.lua:786
-#: menu_settings.lua:817 navbar_settings.lua:730 navbar_settings.lua:750
-#: navbar_settings.lua:770 navbar_settings.lua:782
+#: app_launcher_settings.lua:774 app_launcher_settings.lua:795 app_launcher_settings.lua:821 app_launcher_settings.lua:834 app_launcher_settings.lua:845 menu_settings.lua:774 menu_settings.lua:786 menu_settings.lua:817 navbar_settings.lua:740 navbar_settings.lua:760 navbar_settings.lua:780 navbar_settings.lua:792
 msgid "(none)"
 msgstr "(ninguno)"
 
@@ -152,32 +147,31 @@ msgstr "(estándar)"
 
 #. Type: subtitle
 #. Context: if tab_id == "authors" then subtitle = count == 1 and _("1 author") or (tostring(count) .. " " .. _("authors"))
-#: group_view.lua:1324
+#: group_view.lua:1320
 msgid "1 author"
 msgstr "1 autor"
 
 #. Type: label
 #. Context: _zen_group_name = display_name, _zen_group_subtitle = book_count == 1 and _("1 book") or (tostring(book_count) .. " " .. _("books")),
-#: collections.lua:441 collections.lua:539 context_menu.lua:667
-#: context_menu.lua:1270 group_view.lua:1293
+#: collections.lua:441 collections.lua:539 context_menu.lua:692 context_menu.lua:1300 group_view.lua:1289
 msgid "1 book"
 msgstr "1 libro"
 
 #. Type: subtitle
 #. Context: elseif tab_id == "languages" then subtitle = count == 1 and _("1 language") or (tostring(count) .. " " .. _("languages"))
-#: group_view.lua:1327
+#: group_view.lua:1323
 msgid "1 language"
 msgstr "1 idioma"
 
 #. Type: subtitle
 #. Context: else subtitle = count == 1 and _("1 series") or (tostring(count) .. " " .. _("series"))
-#: group_view.lua:1333
+#: group_view.lua:1329
 msgid "1 series"
 msgstr "1 serie"
 
 #. Type: subtitle
 #. Context: elseif tab_id == "tags" then subtitle = count == 1 and _("1 tag") or (tostring(count) .. " " .. _("tags"))
-#: group_view.lua:1330
+#: group_view.lua:1326
 msgid "1 tag"
 msgstr "1 etiqueta"
 
@@ -223,17 +217,23 @@ msgstr "90°"
 msgid "< %1m"
 msgstr "< %1 min."
 
+#. Type: message
+#. Context: if lfs.attributes(destination) then show_message(_("A book with that name already exists in the archive.")) return false
+#: archive_actions.lua:239
+msgid "A book with that name already exists in the archive."
+msgstr "Ya existe un libro con ese título en el archivo."
+
+#. Type: message
+#. Context: if lfs.attributes(destination) then show_message(_("A book with that name already exists in the destination.")) return false
+#: archive_actions.lua:130
+msgid "A book with that name already exists in the destination."
+msgstr "Ya existe un libro con ese nombre en el destino."
+
 #. Type: description
 #. Context: icon = "_zen_quickstart", description = _("A clean, minimal experience for your e-reader.\n\nSwipe or tap Next to continue."), },
 #: quickstart_pages.lua:653
-msgid ""
-"A clean, minimal experience for your e-reader.\n"
-"\n"
-"Swipe or tap Next to continue."
-msgstr ""
-"Una experiencia de uso sencilla y minimalista para lectores electrónicos.\n"
-"\n"
-"Desliza o toca Siguiente para continuar."
+msgid "A clean, minimal experience for your e-reader.\n\nSwipe or tap Next to continue."
+msgstr "Una experiencia de uso sencilla y minimalista para lectores electrónicos.\n\nDesliza o toca Siguiente para continuar."
 
 #. Type: message
 #. Context: if lfs.symlinkattributes(destination) then return nil, _("A file with this name already exists.") end
@@ -251,25 +251,19 @@ msgstr "Se ha añadido al lanzador un botón de ZenPM."
 #. Context: offline = _("Connect to a network before searching metadata."), rate_limited = _("A metadata provider is rate-limiting requests. Try again later."), server = _("A metadata provider is unavailable right now. Try again later."),
 #: metadata_editor.lua:176
 msgid "A metadata provider is rate-limiting requests. Try again later."
-msgstr ""
-"Un proveedor de metadatos está limitando la frecuencia de las solicitudes. "
-"Inténtalo de nuevo más tarde."
+msgstr "Un proveedor de metadatos está limitando la frecuencia de las solicitudes. Inténtalo de nuevo más tarde."
 
 #. Type: message
 #. Context: rate_limited = _("A metadata provider is rate-limiting requests. Try again later."), server = _("A metadata provider is unavailable right now. Try again later."), malformed = _("A metadata provider returned an unreadable response."),
 #: metadata_editor.lua:177
 msgid "A metadata provider is unavailable right now. Try again later."
-msgstr ""
-"Un proveedor de metadatos no está disponible en este momento. Inténtalo de "
-"nuevo más tarde."
+msgstr "Un proveedor de metadatos no está disponible en este momento. Inténtalo de nuevo más tarde."
 
 #. Type: message
 #. Context: and T(_("%1 rejected its API credential. Open metadata settings?"), provider) or _("A metadata provider rejected its API credential. Open metadata settings?")) return
 #: metadata_editor.lua:192
 msgid "A metadata provider rejected its API credential. Open metadata settings?"
-msgstr ""
-"Un proveedor de metadatos rechazó su credencial de API. ¿Abrir los "
-"configuración de metadatos?"
+msgstr "Un proveedor de metadatos rechazó su credencial de API. ¿Abrir los configuración de metadatos?"
 
 #. Type: message
 #. Context: server = _("A metadata provider is unavailable right now. Try again later."), malformed = _("A metadata provider returned an unreadable response."), no_match = _("No metadata matches were found."),
@@ -279,7 +273,7 @@ msgstr "Un proveedor de metadatos devolvió una respuesta ilegible."
 
 #. Type: description
 #. Context: title = _("Bug report title"), description = _("A short summary of what went wrong"), input = "",
-#: zen_bugreporter.lua:195
+#: zen_bugreporter.lua:198
 msgid "A short summary of what went wrong"
 msgstr "Breve resumen del error"
 
@@ -291,28 +285,25 @@ msgstr "Acerca de"
 
 #. Type: setting
 #. Context: local current = entry.label or "" if entry.label_auto == true or current == "" or current == _("Action") then entry.label = action_label(entry) or _("Action")
-#: app_launcher_settings.lua:168 app_launcher_settings.lua:169
-#: app_launcher_settings.lua:261 app_launcher_settings.lua:559
-#: menu_settings.lua:665 menu_settings.lua:752 home_settings.lua:1437
-#: home_settings.lua:1478 navbar_settings.lua:335 navbar_settings.lua:1388
+#: app_launcher_settings.lua:168 app_launcher_settings.lua:169 app_launcher_settings.lua:261 app_launcher_settings.lua:559 menu_settings.lua:665 menu_settings.lua:752 home_settings.lua:1437 home_settings.lua:1478 navbar_settings.lua:345 navbar_settings.lua:1398
 msgid "Action"
 msgstr "Acción"
 
 #. Type: setting
 #. Context: if entry.action and next(entry.action) then return T(_("Action: %1"), Dispatcher:menuTextFunc(entry.action)) end
-#: app_launcher_settings.lua:642 menu_settings.lua:855 navbar_settings.lua:807
+#: app_launcher_settings.lua:642 menu_settings.lua:855 navbar_settings.lua:817
 msgid "Action: %1"
 msgstr "Acción: %1"
 
 #. Type: setting
 #. Context: end return _("Action: (none)") end,
-#: app_launcher_settings.lua:644 menu_settings.lua:857 navbar_settings.lua:809
+#: app_launcher_settings.lua:644 menu_settings.lua:857 navbar_settings.lua:819
 msgid "Action: (none)"
 msgstr "Acción: (ninguna)"
 
 #. Type: setting
 #. Context: _("Icons"), _("Active tab"), _("Show top border"),
-#: zen_settings.lua:105 zen_settings.lua:109 navbar_settings.lua:1599
+#: zen_settings.lua:105 zen_settings.lua:109 navbar_settings.lua:1609
 msgid "Active tab"
 msgstr "Pestaña activa"
 
@@ -324,20 +315,19 @@ msgstr "Color de la pestaña activa"
 
 #. Type: setting
 #. Context: utils.buildColorSubMenu({ label = _("Active tab color: "), get = ensure_navbar_color,
-#: navbar_settings.lua:1629
+#: navbar_settings.lua:1639
 msgid "Active tab color: "
 msgstr "Color de la pestaña activa: "
 
 #. Type: title
 #. Context: end, dialog_title = _("Active tab RGB"), presets = {
-#: navbar_settings.lua:1638
+#: navbar_settings.lua:1648
 msgid "Active tab RGB"
 msgstr "Color RGB de la pestaña activa"
 
 #. Type: title
 #. Context: item_table = sort_items, add_title = _("Add"), add_item_table = arrange_add_items(parent),
-#: app_launcher_settings.lua:282 app_launcher_settings.lua:922
-#: menu_settings.lua:656 home_settings.lua:1611 navbar_settings.lua:1421
+#: app_launcher_settings.lua:282 app_launcher_settings.lua:922 menu_settings.lua:656 home_settings.lua:1611 navbar_settings.lua:1431
 msgid "Add"
 msgstr "Añadir"
 
@@ -379,7 +369,7 @@ msgstr "Añadir botones personalizados para otros complementos o acciones."
 
 #. Type: message
 #. Context: table.insert(sub, { text = _("Add folder…"), keep_menu_open = true,
-#: library_settings.lua:1363
+#: library_settings.lua:1361
 msgid "Add folder…"
 msgstr "Añadir carpeta…"
 
@@ -397,7 +387,7 @@ msgstr "Añadir complemento"
 
 #. Type: title
 #. Context: coll_picker = Menu_cp:new{ title = _("Add to collection"), item_table = items,
-#: quickstart_pages.lua:305 context_menu.lua:1898 context_menu.lua:1926
+#: quickstart_pages.lua:305 context_menu.lua:1983 context_menu.lua:2011
 msgid "Add to collection"
 msgstr "Añadir a la colección"
 
@@ -409,13 +399,13 @@ msgstr "Añadir al vocabulario"
 
 #. Type: label
 #. Context: text = display .. (already_in and " \u{2713}" or ""), mandatory = already_in and _("added") or nil, dim = already_in,
-#: context_menu.lua:1919
+#: context_menu.lua:2004
 msgid "added"
 msgstr "añadido"
 
 #. Type: setting
 #. Context: { text = _("Additional home folders"), sub_item_table_func = build_additional_home_items,
-#: library_settings.lua:1475
+#: library_settings.lua:1473
 msgid "Additional home folders"
 msgstr "Carpetas de inicio adicionales"
 
@@ -433,27 +423,19 @@ msgstr "Alexandre Dumas"
 
 #. Type: label
 #. Context: table.insert(fbts, {{ text = _("All") .. (is_all and " " .. icons.check or ""), align = "left",
-#: context_menu.lua:743 context_menu.lua:2325
+#: context_menu.lua:768 context_menu.lua:2410
 msgid "All"
 msgstr "Todo"
 
 #. Type: description
 #. Context: icon_size = 120, description = _("All settings are in one unified tab. This icon with the dot indicates an update is available.\n\nInstall ZenOS updates directly from your device."), },
 #: quickstart_pages.lua:805
-msgid ""
-"All settings are in one unified tab. This icon with the dot indicates an "
-"update is available.\n"
-"\n"
-"Install ZenOS updates directly from your device."
-msgstr ""
-"Toda la configuración está en una pestaña unificada. El icono con el punto "
-"indica que hay una actualización disponible.\n"
-"\n"
-"Instala las actualizaciones de ZenOS directamente desde el dispositivo."
+msgid "All settings are in one unified tab. This icon with the dot indicates an update is available.\n\nInstall ZenOS updates directly from your device."
+msgstr "Toda la configuración está en una pestaña unificada. El icono con el punto indica que hay una actualización disponible.\n\nInstala las actualizaciones de ZenOS directamente desde el dispositivo."
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = entry.id == "tags" and _("All tags") or entry.label, entry = entry,
-#: home_settings.lua:1309 navbar_settings.lua:380
+#: home_settings.lua:1309 navbar_settings.lua:390
 msgid "All tags"
 msgstr "Todas las etiquetas"
 
@@ -471,13 +453,19 @@ msgstr "Desde el inicio"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Allow delete"), checked_func = function()
-#: library_settings.lua:1482
+#: library_settings.lua:1480
 msgid "Allow delete"
 msgstr "Permitir eliminar"
 
 #. Type: setting
+#. Context: table.insert(items, { text = _("Allow dragging reader modals"), help_text = _("Restore KOReader's default draggable modal behavior."),
+#: advanced_settings.lua:65
+msgid "Allow dragging reader modals"
+msgstr "Permitir arrastrar los diálogos del lector"
+
+#. Type: setting
 #. Context: { text = _("Green"), r = 0x99, g = 0xCC, b = 0x99 }, { text = _("Amber"), r = 0xF0, g = 0xD0, b = 0x80 }, { text = _("Red"), r = 0xDD, g = 0x99, b = 0x99 },
-#: library_settings.lua:572 navbar_settings.lua:1642
+#: library_settings.lua:572 navbar_settings.lua:1652
 msgid "Amber"
 msgstr "Ámbar"
 
@@ -495,13 +483,13 @@ msgstr "El título del EPUB es obligatorio."
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("An item with that name already exists."), icon = "notice-warning",
-#: context_menu.lua:1813
+#: context_menu.lua:1898
 msgid "An item with that name already exists."
 msgstr "Ya existe un elemento con ese nombre."
 
 #. Type: setting
 #. Context: rating = _("Rating"), annotations = _("Annotations"), note = _("Note"),
-#: book_details.lua:387 library_settings.lua:1511 home_settings.lua:2467
+#: book_details.lua:387 library_settings.lua:1509 home_settings.lua:2467
 msgid "Annotations"
 msgstr "Anotaciones"
 
@@ -516,6 +504,24 @@ msgstr "Aplicación"
 #: zen_slider_dialog.lua:158
 msgid "Apply"
 msgstr "Aplicar"
+
+#. Type: button
+#. Context: archive_button = Button:new{ text = _("Archive"), width = action_width,
+#: archive_actions.lua:156 archive_actions.lua:199 archive_actions.lua:203 archive_actions.lua:247 navbar.lua:240 book_status.lua:251 library_settings.lua:1748 navbar_settings.lua:192
+msgid "Archive"
+msgstr "Archivo"
+
+#. Type: dialog
+#. Context: UIManager:show(InfoMessage:new{ text = ffiUtil.template(_("Archive folder not found: %1"), folder_path), })
+#: navbar.lua:1235
+msgid "Archive folder not found: %1"
+msgstr "No se encontró la carpeta de archivo: %1"
+
+#. Type: message
+#. Context: callback = function() confirm_action(_("Archive this book?"), _("Archive"), function() local filename = select(2, util.splitFilePathName(file))
+#: archive_actions.lua:203 archive_actions.lua:247
+msgid "Archive this book?"
+msgstr "¿Archivar este libro?"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Are you sure you want to exit KOReader?"), ok_text = _("Exit"),
@@ -579,13 +585,13 @@ msgstr "Organizar elementos a la derecha"
 
 #. Type: label
 #. Context: {{ text = "\u{F15D} " .. _("Ascending") .. (not cur_reverse and " \u{2713}" or ""), align = "left",
-#: group_view.lua:897
+#: group_view.lua:895
 msgid "Ascending"
 msgstr "Ascendente"
 
 #. Type: setting
 #. Context: if countEnabledTabs() <= 1 then showTabLimitMessage(_("At least one tab must be visible")) return false
-#: navbar_settings.lua:264
+#: navbar_settings.lua:274
 msgid "At least one tab must be visible"
 msgstr "Debe haber al menos una pestaña visible"
 
@@ -597,16 +603,13 @@ msgstr "Autor"
 
 #. Type: title
 #. Context: if tab_id == "authors" then title = _("Authors") elseif tab_id == "languages" then
-#: nav_button_model.lua:9 quickstart_pages.lua:688 metadata_editor.lua:47
-#: metadata_editor.lua:509 context_menu.lua:2167 group_view.lua:1309
-#: group_view.lua:1354 navbar.lua:279 library_settings.lua:1506
-#: home_settings.lua:1074 navbar_settings.lua:174
+#: nav_button_model.lua:9 quickstart_pages.lua:688 metadata_editor.lua:47 metadata_editor.lua:509 context_menu.lua:2252 group_view.lua:1305 group_view.lua:1350 navbar.lua:285 library_settings.lua:1504 home_settings.lua:1074 navbar_settings.lua:174
 msgid "Authors"
 msgstr "Autores"
 
 #. Type: label
 #. Context: subtitle = count == 1 and _("1 author") or (tostring(count) .. " " .. _("authors")) elseif tab_id == "languages" then
-#: group_view.lua:1325
+#: group_view.lua:1321
 msgid "authors"
 msgstr "autores"
 
@@ -630,7 +633,7 @@ msgstr "Tamaño de fuente automático"
 
 #. Type: setting
 #. Context: table.insert(sub, { text = _("Automatic suspend"), sub_item_table = suspend_sub,
-#: global_settings.lua:813
+#: global_settings.lua:833
 msgid "Automatic suspend"
 msgstr "Suspensión automática"
 
@@ -648,7 +651,7 @@ msgstr "Atrás"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Background"), checked_func = function()
-#: library_settings.lua:1259 library_settings.lua:1340
+#: library_settings.lua:1257 library_settings.lua:1338
 msgid "Background"
 msgstr "Fondo"
 
@@ -665,24 +668,16 @@ msgid "Background hatching"
 msgstr "Sombreado de fondo"
 
 #. Type: message
-#. Context: elseif code == "decode_failed" then return _("Background image could not be loaded. It may be corrupt or unsupported.") end
-#: library_settings.lua:1242
+#. Context: elseif code == "unsupported" or code == "decode_failed" then return _("Background image could not be loaded. It may be corrupt or unsupported.") end
+#: library_settings.lua:1240
 msgid "Background image could not be loaded. It may be corrupt or unsupported."
-msgstr ""
-"No se ha podido cargar la imagen de fondo. Puede estar dañada o no ser "
-"compatible."
+msgstr "No se ha podido cargar la imagen de fondo. Puede estar dañada o no ser compatible."
 
 #. Type: message
-#. Context: elseif code == "missing" then return _("Background image file not found.") elseif code == "no_decoder" then
-#: library_settings.lua:1238
+#. Context: if code == "missing" then return _("Background image file not found.") elseif code == "no_decoder" then
+#: library_settings.lua:1236
 msgid "Background image file not found."
 msgstr "No se ha encontrado el archivo de imagen de fondo."
-
-#. Type: message
-#. Context: if code == "not_jpeg" then return _("Background image must be a JPG or JPEG file.") elseif code == "missing" then
-#: library_settings.lua:1236
-msgid "Background image must be a JPG or JPEG file."
-msgstr "La imagen de fondo debe ser un archivo JPG o JPEG."
 
 #. Type: title
 #. Context: reset_text = _("Default (black)"), dialog_title = _("Badge color RGB"), presets = {
@@ -741,12 +736,8 @@ msgstr "Estadísticas de la batería"
 #. Type: message
 #. Context: function M.show_dialog(ctx) local isolation_notice = _("Before reporting, please disable other plugins and patches to see if this is actually a ZenOS issue.") -- Require debug logging to be on so crash.log is useful.
 #: zen_bugreporter.lua:144
-msgid ""
-"Before reporting, please disable other plugins and patches to see if this is "
-"actually a ZenOS issue."
-msgstr ""
-"Antes de informar, desactiva otros complementos y parches para comprobar si "
-"realmente se trata de un problema de ZenOS."
+msgid "Before reporting, please disable other plugins and patches to see if this is actually a ZenOS issue."
+msgstr "Antes de informar, desactiva otros complementos y parches para comprobar si realmente se trata de un problema de ZenOS."
 
 #. Type: setting
 #. Context: { text = _("Skip 20 pages"), skip = "20" }, { text = _("Beginning / End"), skip = "ends" }, }
@@ -786,7 +777,7 @@ msgstr "Negro"
 
 #. Type: setting
 #. Context: { text = _("Gray"), r = 204, g = 204, b = 204 }, { text = _("Blue"), r = 0x99, g = 0xBB, b = 0xF0 }, { text = _("Green"), r = 0x99, g = 0xCC, b = 0x99 },
-#: library_settings.lua:570 reader_settings.lua:65 navbar_settings.lua:1640
+#: library_settings.lua:570 reader_settings.lua:65 navbar_settings.lua:1650
 msgid "Blue"
 msgstr "Azul"
 
@@ -797,16 +788,16 @@ msgid "Bluetooth"
 msgstr "Bluetooth"
 
 #. Type: setting
-#. Context: table.insert(font_sub_items, { text = _("Bold"), checked_func = function()
-#: reader_settings.lua:1358 home_settings.lua:752 home_settings.lua:1726
-msgid "Bold"
-msgstr "Negrita"
-
-#. Type: setting
 #. Context: local style = ensure_featured_text_style(mcfg, key) local weight = style.bold and _("bold") or _("regular") return string.format("%s, %s, %s", font_label(style.font_face), tostring(style.font_size), weight)
 #: home_settings.lua:690 home_settings.lua:1656
 msgid "bold"
 msgstr "negrita"
+
+#. Type: setting
+#. Context: table.insert(font_sub_items, { text = _("Bold"), checked_func = function()
+#: reader_settings.lua:1358 home_settings.lua:752 home_settings.lua:1726
+msgid "Bold"
+msgstr "Negrita"
 
 #. Type: setting
 #. Context: _("Show bottom border"), _("Bold text"), _("Colored status icons"),
@@ -828,10 +819,7 @@ msgstr "Libro añadido a la lista de descarga"
 
 #. Type: title
 #. Context: return { title = _("Book details"), details = details,
-#: metadata_editor.lua:401 metadata_editor.lua:402 book_details_page.lua:126
-#: book_details.lua:507 book_info_widget.lua:134 app_launcher_settings.lua:99
-#: app_launcher_settings.lua:997 library_settings.lua:1686
-#: library_settings.lua:1719
+#: metadata_editor.lua:401 metadata_editor.lua:402 book_details_page.lua:126 book_details.lua:507 book_info_widget.lua:134 app_launcher_settings.lua:99 app_launcher_settings.lua:997 library_settings.lua:1684 library_settings.lua:1717
 msgid "Book details"
 msgstr "Detalles del libro"
 
@@ -841,9 +829,21 @@ msgstr "Detalles del libro"
 msgid "Book information"
 msgstr "Información del libro"
 
+#. Type: message
+#. Context: if move_book(fm, file, archive, original_dirs) then show_message(_("Book moved to archive.")) end
+#: archive_actions.lua:207 archive_actions.lua:259
+msgid "Book moved to archive."
+msgstr "Libro trasladado al archivo."
+
+#. Type: message
+#. Context: if move_book(fm, file, destination, original_dirs) then show_message(_("Book moved to library.")) end
+#: archive_actions.lua:191
+msgid "Book moved to library."
+msgstr "El libro fue trasladado a la biblioteca."
+
 #. Type: title
 #. Context: local review_header = self:genHeader(_("Review")) local status_header = self:genHeader(self.readonly and _("Book Status") or _("Update Status"))
-#: book_status.lua:210
+#: book_status.lua:211
 msgid "Book Status"
 msgstr "Estado del libro"
 
@@ -883,19 +883,17 @@ msgstr "Libro: "
 msgid "Bookmarks"
 msgstr "Marcadores"
 
-#. Type: setting
-#. Context: { text = _("Books"), radio = true,
-#: reading_goals.lua:141 browser_list_item_layout.lua:188 reading_goals.lua:96
-#: reading_goals.lua:267 navbar_settings.lua:1002
-msgid "Books"
-msgstr "Libros"
-
 #. Type: label
 #. Context: _zen_group_subtitle = book_count == 1 and _("1 book") or (tostring(book_count) .. " " .. _("books")), _zen_sort_cb = function()
-#: collections.lua:442 collections.lua:540 context_menu.lua:667
-#: context_menu.lua:1270 group_view.lua:1294
+#: collections.lua:442 collections.lua:540 context_menu.lua:692 context_menu.lua:1300 group_view.lua:1290
 msgid "books"
 msgstr "libros"
+
+#. Type: setting
+#. Context: { text = _("Books"), radio = true,
+#: reading_goals.lua:142 browser_list_item_layout.lua:188 reading_goals.lua:96 reading_goals.lua:267 navbar_settings.lua:1012
+msgid "Books"
+msgstr "Libros"
 
 #. Type: label
 #. Context: blockCard{ width = c4_w, height = card_h, value = formatTime(stats.year_duration), label = _("Total time") }, blockCard{ width = c4_w, height = card_h, value = tostring(stats.books_this_year or 0), label = _("Books read") }, }, stat_styl...
@@ -905,7 +903,7 @@ msgstr "Libros leídos"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Books tab label"), input = config.navbar.books_label or "",
-#: navbar_settings.lua:1046
+#: navbar_settings.lua:1056
 msgid "Books tab label"
 msgstr "Etiqueta de la pestaña Libros"
 
@@ -923,40 +921,37 @@ msgstr "Barra de estado inferior"
 
 #. Type: setting
 #. Context: input = "", input_hint = _("Brief description of the bug"), buttons = {{
-#: zen_bugreporter.lua:197
+#: zen_bugreporter.lua:200
 msgid "Brief description of the bug"
 msgstr "Descripción breve del error"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Brightness"), sub_item_table = {
-#: brightness_slider.lua:48 global_settings.lua:471 global_settings.lua:491
-#: global_settings.lua:538 global_settings.lua:551 global_settings.lua:594
-#: global_settings.lua:607 reader_settings.lua:160 status_bar_settings.lua:32
+#: brightness_slider.lua:48 global_settings.lua:491 global_settings.lua:511 global_settings.lua:558 global_settings.lua:571 global_settings.lua:614 global_settings.lua:627 reader_settings.lua:160 status_bar_settings.lua:32
 msgid "Brightness"
 msgstr "Brillo"
 
 #. Type: title
 #. Context: dlg = InputDialog:new{ title = _("Bug description (optional)"), description = _("Steps to reproduce, expected vs. actual behavior"),
-#: zen_bugreporter.lua:225
+#: zen_bugreporter.lua:228
 msgid "Bug description (optional)"
 msgstr "Descripción del error (opcional)"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Bug report submitted!") .. "\n\n" .. issue_url, no_ok_button = true,
-#: zen_bugreporter.lua:346
+#: zen_bugreporter.lua:349
 msgid "Bug report submitted!"
 msgstr "Informe enviado"
 
 #. Type: title
 #. Context: dlg = InputDialog:new{ title = _("Bug report title"), description = _("A short summary of what went wrong"),
-#: zen_bugreporter.lua:194
+#: zen_bugreporter.lua:197
 msgid "Bug report title"
 msgstr "Título del informe de error"
 
 #. Type: title
 #. Context: ZenArrangeList.show{ title = parent and parent.label or _("Buttons"), item_table = sort_items,
-#: app_launcher_settings.lua:51 app_launcher_settings.lua:920
-#: app_launcher_settings.lua:963 menu_settings.lua:654 menu_settings.lua:1134
+#: app_launcher_settings.lua:51 app_launcher_settings.lua:920 app_launcher_settings.lua:963 menu_settings.lua:654 menu_settings.lua:1134
 msgid "Buttons"
 msgstr "Botones"
 
@@ -980,7 +975,7 @@ msgstr "Calibre"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Calibre plugin is not installed."), })
-#: navbar.lua:1502
+#: navbar.lua:1533
 msgid "Calibre plugin is not installed."
 msgstr "El complemento de Calibre no está instalado."
 
@@ -992,23 +987,13 @@ msgstr "Búsqueda en Calibre"
 
 #. Type: button
 #. Context: or _("Restore the previous metadata for this book?"), cancel_text = _("Cancel"), ok_text = _("Restore"),
-#: metadata_editor.lua:1225 home_page.lua:2175 metadata_editor.lua:957
-#: metadata_editor.lua:1176 zen_bugreporter.lua:156 zen_bugreporter.lua:200
-#: zen_bugreporter.lua:231 zen_settings_utils.lua:537 zen_updater.lua:1349
-#: zen_updater.lua:1652 zenpm_installer.lua:323 app_launcher_settings.lua:186
-#: app_launcher_settings.lua:276 global_settings.lua:303 menu_settings.lua:899
-#: menu_settings.lua:1002 reader_settings.lua:114 reader_settings.lua:207
-#: reader_settings.lua:683 reader_settings.lua:1013 home_settings.lua:1206
-#: home_settings.lua:2034 home_settings.lua:2112 metadata_settings.lua:38
-#: navbar_settings.lua:848 navbar_settings.lua:978 navbar_settings.lua:1049
-#: navbar_settings.lua:1185 status_bar_settings.lua:273
-#: status_bar_settings.lua:369
+#: metadata_editor.lua:1225 home_page.lua:2194 metadata_editor.lua:957 metadata_editor.lua:1176 zen_bugreporter.lua:156 zen_bugreporter.lua:203 zen_bugreporter.lua:234 zen_settings_utils.lua:537 zen_updater.lua:1349 zen_updater.lua:1652 zenpm_installer.lua:323 app_launcher_settings.lua:186 app_launcher_settings.lua:276 global_settings.lua:304 menu_settings.lua:899 menu_settings.lua:1002 reader_settings.lua:114 reader_settings.lua:207 reader_settings.lua:683 reader_settings.lua:1013 home_settings.lua:1206 home_settings.lua:2034 home_settings.lua:2112 metadata_settings.lua:38 navbar_settings.lua:858 navbar_settings.lua:988 navbar_settings.lua:1059 navbar_settings.lua:1195 status_bar_settings.lua:273 status_bar_settings.lua:369
 msgid "Cancel"
 msgstr "Cancelar"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Cannot open last document"), })
-#: navbar.lua:1329
+#: navbar.lua:1360
 msgid "Cannot open last document"
 msgstr "No se puede abrir el último documento"
 
@@ -1046,9 +1031,7 @@ msgstr "Cambiar carpeta"
 #. Context: steps = {{ text = _("Change page browser view to single, coverflow, or grid"), target = target,
 #: reader_tour.lua:101
 msgid "Change page browser view to single, coverflow, or grid"
-msgstr ""
-"Cambia la vista del Explorador de páginas a página individual, coverflow o "
-"cuadrícula"
+msgstr "Cambia la vista del Explorador de páginas a página individual, coverflow o cuadrícula"
 
 #. Type: title
 #. Context: screen = ZenScreen:new{ title = _("Changelog"), title_icon = true,
@@ -1100,8 +1083,7 @@ msgstr "Elegir una edición"
 
 #. Type: title
 #. Context: require("common/ui/zen_menu_picker"){ title = _("Choose control"), items = picker_items,
-#: app_launcher_settings.lua:474 menu_settings.lua:434 home_settings.lua:1415
-#: navbar_settings.lua:673 navbar_settings.lua:695
+#: app_launcher_settings.lua:474 menu_settings.lua:434 home_settings.lua:1415 navbar_settings.lua:683 navbar_settings.lua:705
 msgid "Choose control"
 msgstr "Elegir control"
 
@@ -1119,8 +1101,7 @@ msgstr "Elegir elemento"
 
 #. Type: title
 #. Context: require("common/ui/zen_menu_picker"){ title = _("Choose KOReader menu"), items = found,
-#: app_launcher_settings.lua:417 menu_settings.lua:414 home_settings.lua:1397
-#: navbar_settings.lua:476
+#: app_launcher_settings.lua:417 menu_settings.lua:414 home_settings.lua:1397 navbar_settings.lua:486
 msgid "Choose KOReader menu"
 msgstr "Elegir menú de KOReader"
 
@@ -1132,14 +1113,13 @@ msgstr "Elegir la coincidencia manualmente"
 
 #. Type: title
 #. Context: show_menu_picker{ title = _("Choose plugin menu"), items = picker_items,
-#: app_launcher_settings.lua:323 app_launcher_settings.lua:393
-#: menu_settings.lua:399 home_settings.lua:1375 navbar_settings.lua:461
+#: app_launcher_settings.lua:323 app_launcher_settings.lua:393 menu_settings.lua:399 home_settings.lua:1375 navbar_settings.lua:471
 msgid "Choose plugin menu"
 msgstr "Elegir menú del complemento"
 
 #. Type: title
 #. Context: require("common/ui/zen_menu_picker"){ title = _("Choose tab"), items = items,
-#: home_settings.lua:1328 navbar_settings.lua:401
+#: home_settings.lua:1328 navbar_settings.lua:411
 msgid "Choose tab"
 msgstr "Elegir pestaña"
 
@@ -1152,12 +1132,8 @@ msgstr "Elegir etiqueta"
 #. Type: description
 #. Context: title = _("Navbar Tabs"), description = _("Choose which tabs appear in your navigation bar.\nYou can rearrange or adjust these anytime in Settings."), choice_type = "checkbox",
 #: quickstart_pages.lua:679
-msgid ""
-"Choose which tabs appear in your navigation bar.\n"
-"You can rearrange or adjust these anytime in Settings."
-msgstr ""
-"Elige qué pestañas aparecen en la barra de navegación.\n"
-"Puedes reorganizarlas o ajustarlas en cualquier momento en Configuración."
+msgid "Choose which tabs appear in your navigation bar.\nYou can rearrange or adjust these anytime in Settings."
+msgstr "Elige qué pestañas aparecen en la barra de navegación.\nPuedes reorganizarlas o ajustarlas en cualquier momento en Configuración."
 
 #. Type: setting
 #. Context: { text = _("List"), mode = "list" }, { text = _("Classic"), mode = "classic" }, }
@@ -1173,14 +1149,13 @@ msgstr "Clásico (solo nombre de archivo)"
 
 #. Type: button
 #. Context: text = _("Set all gestures to pass-through? Top-right corner in reader will be kept as Toggle bookmark."), ok_text = _("Clear"), ok_callback = function()
-#: folder_cover_picker.lua:52 folder_cover_picker.lua:408 context_menu.lua:2277
-#: metadata_editor.lua:1036 advanced_settings.lua:134 metadata_settings.lua:88
+#: folder_cover_picker.lua:52 folder_cover_picker.lua:408 context_menu.lua:2362 metadata_editor.lua:1036 advanced_settings.lua:149 metadata_settings.lua:88
 msgid "Clear"
 msgstr "Limpiar"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Clear all gestures"), callback = function()
-#: advanced_settings.lua:129
+#: advanced_settings.lua:144
 msgid "Clear all gestures"
 msgstr "Borrar todos los gestos"
 
@@ -1192,7 +1167,7 @@ msgstr "Limpiar libro"
 
 #. Type: label
 #. Context: local clear_cache = {{ text = icons.delete .. " " .. _("Clear cache"), align = "left",
-#: kindle_virtual_library.lua:303
+#: kindle_virtual_library.lua:315
 msgid "Clear cache"
 msgstr "Borrar caché"
 
@@ -1246,14 +1221,13 @@ msgstr "Almacenamiento en la nube"
 
 #. Type: setting
 #. Context: series = _("Series"), languages = _("Languages"), tags = _("Tags"), collections = _("Collections"), custom = _("Custom books"), }
-#: nav_button_model.lua:13 quickstart_pages.lua:687 navbar.lua:274
-#: home_settings.lua:1076 navbar_settings.lua:173
+#: nav_button_model.lua:13 quickstart_pages.lua:687 navbar.lua:280 home_settings.lua:1076 navbar_settings.lua:173
 msgid "Collections"
 msgstr "Colecciones"
 
 #. Type: setting
 #. Context: _("Underline above icon"), _("Colored"), _("Active tab color"),
-#: zen_settings.lua:112 navbar_settings.lua:1621
+#: zen_settings.lua:112 navbar_settings.lua:1631
 msgid "Colored"
 msgstr "En color"
 
@@ -1305,44 +1279,45 @@ msgstr "Contenido: "
 msgid "Context Menu"
 msgstr "Menú contextual"
 
+#. Type: setting
+#. Context: table.insert(items, IconItem.decorate({ text = _("Context menu"), sub_item_table = {
+#: library_settings.lua:1745
+msgid "Context menu"
+msgstr "Menú contextual"
+
 #. Type: button
 #. Context: .. _("crash.log will be embedded in a public GitHub issue. It may contain file paths and book titles.") .. ("\n\n") .. ("Continue?"), ok_text = _("Continue"), ok_callback = function()
-#: nav_button_model.lua:18 quickstart_pages.lua:684 navbar.lua:259
-#: zen_bugreporter.lua:183 navbar_settings.lua:170
+#: nav_button_model.lua:18 quickstart_pages.lua:684 navbar.lua:265 zen_bugreporter.lua:186 navbar_settings.lua:170
 msgid "Continue"
 msgstr "Continuar"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Control"), keep_menu_open = true,
-#: app_launcher_settings.lua:566 menu_settings.lua:660 home_settings.lua:1485
-#: navbar_settings.lua:1403
+#: app_launcher_settings.lua:566 menu_settings.lua:660 home_settings.lua:1485 navbar_settings.lua:1413
 msgid "Control"
 msgstr "Control"
 
 #. Type: title
 #. Context: require("modules/menu/app_launcher/menu_host").show{ title = button_defs[id] and button_defs[id].label or _("Control settings"), item_table = items,
-#: quick_settings.lua:1262 app_launcher_settings.lua:808 home_settings.lua:1590
-#: navbar_settings.lua:762
+#: quick_settings.lua:1262 app_launcher_settings.lua:808 home_settings.lua:1590 navbar_settings.lua:772
 msgid "Control settings"
 msgstr "Configuración de controles"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Control: %1"), entry.label or _("(none)")) end,
-#: app_launcher_settings.lua:795 navbar_settings.lua:750
+#: app_launcher_settings.lua:795 navbar_settings.lua:760
 msgid "Control: %1"
 msgstr "Control: %1"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = string.format("%s %s", _("Controls"), _("font size")), value = style.font_size,
-#: zen_settings.lua:130 global_settings.lua:854 menu_settings.lua:1130
-#: home_settings.lua:1521 home_settings.lua:1680 home_settings.lua:1706
-#: home_settings.lua:1755
+#: zen_settings.lua:130 global_settings.lua:874 menu_settings.lua:1130 home_settings.lua:1521 home_settings.lua:1680 home_settings.lua:1706 home_settings.lua:1755
 msgid "Controls"
 msgstr "Controles"
 
 #. Type: label
 #. Context: { text = icons.copy .. " " .. C_("File", "Copy"), align = "left",
-#: context_menu.lua:1475 context_menu.lua:1620
+#: context_menu.lua:1505 context_menu.lua:1650
 msgid "Copy"
 msgstr "Copiar"
 
@@ -1386,33 +1361,25 @@ msgstr "No se ha podido contactar con el servidor de actualizaciones."
 #. Context: screen:update{ subtitle = M._last_error or _("Could not reach update server. Check your internet connection."), button = _("OK"),
 #: zen_updater.lua:1276 zen_updater.lua:1538 zen_updater.lua:1676
 msgid "Could not reach update server. Check your internet connection."
-msgstr ""
-"No se ha podido conectar con el servidor de actualizaciones. Comprueba la "
-"conexión a Internet."
+msgstr "No se ha podido conectar con el servidor de actualizaciones. Comprueba la conexión a Internet."
 
 #. Type: message
 #. Context: logger.warn("suppressed Kindle Wi-Fi profile scan crash", err) return nil, _("Could not scan Wi-Fi networks. Please try again after waking the device.") end
 #: kindle_network_profile_guard.lua:25
 msgid "Could not scan Wi-Fi networks. Please try again after waking the device."
-msgstr ""
-"No se han podido buscar las redes Wi-Fi. Inténtalo de nuevo después de "
-"reactivar el dispositivo."
+msgstr "No se han podido buscar las redes Wi-Fi. Inténtalo de nuevo después de reactivar el dispositivo."
 
 #. Type: title
 #. Context: cover_picker = require("common/ui/zen_menu_picker"){ title = _("Cover"), items = {},
-#: folder_cover_picker.lua:297 folder_cover_picker.lua:421
-#: folder_cover_picker.lua:441 metadata_editor.lua:1043
+#: folder_cover_picker.lua:297 folder_cover_picker.lua:421 folder_cover_picker.lua:441 metadata_editor.lua:1043
 msgid "Cover"
 msgstr "Portada"
 
 #. Type: title
 #. Context: dialog = ButtonDialog:new{ title = _("CoverBrowser plugin is not enabled, some features will not work correctly."), title_align = "center",
 #: coverbrowser_check.lua:51
-msgid ""
-"CoverBrowser plugin is not enabled, some features will not work correctly."
-msgstr ""
-"El complemento CoverBrowser no está activado, algunas funciones no "
-"funcionarán correctamente."
+msgid "CoverBrowser plugin is not enabled, some features will not work correctly."
+msgstr "El complemento CoverBrowser no está activado, algunas funciones no funcionarán correctamente."
 
 #. Type: setting
 #. Context: { text = _("Covers"), sub_item_table = {
@@ -1422,13 +1389,9 @@ msgstr "Portadas"
 
 #. Type: message
 #. Context: text = isolation_notice .. "\n\n" .. _("crash.log will be embedded in a public GitHub issue. It may contain file paths and book titles.") .. ("\n\n") .. ("Continue?"), ok_text = _("Continue"),
-#: zen_bugreporter.lua:182
-msgid ""
-"crash.log will be embedded in a public GitHub issue. It may contain file "
-"paths and book titles."
-msgstr ""
-"El archivo crash.log se adjuntará a una incidencia pública en GitHub. Puede "
-"contener rutas de archivos y títulos de libros."
+#: zen_bugreporter.lua:185
+msgid "crash.log will be embedded in a public GitHub issue. It may contain file paths and book titles."
+msgstr "El archivo crash.log se adjuntará a una incidencia pública en GitHub. Puede contener rutas de archivos y títulos de libros."
 
 #. Type: option
 #. Context: choices = { { id = "books", text = _("Create this folder and use as home"), checked = true }, { id = "choose", text = _("Choose a different folder"), checked = false },
@@ -1454,6 +1417,12 @@ msgstr "Actual"
 msgid "Current / total pages"
 msgstr "Páginas actual / total"
 
+#. Type: title
+#. Context: local out = { title = _("Current Book"), total_time = 0,
+#: stats_page.lua:67 stats_page.lua:261
+msgid "Current Book"
+msgstr "Libro actual"
+
 #. Type: setting
 #. Context: library = _("Library"), current_book = _("Current book"), trend_graph = _("Reading trend"),
 #: stats_settings.lua:34
@@ -1461,14 +1430,8 @@ msgid "Current book"
 msgstr "Libro actual"
 
 #. Type: title
-#. Context: local out = { title = _("Current Book"), total_time = 0,
-#: stats_page.lua:67 stats_page.lua:261
-msgid "Current Book"
-msgstr "Libro actual"
-
-#. Type: title
 #. Context: local filemanagerutil = require("apps/filemanager/filemanagerutil") local title_header = _("Current home folder:") local current_path = paths.getHomeDir()
-#: library_settings.lua:1424
+#: library_settings.lua:1422
 msgid "Current home folder:"
 msgstr "Carpeta de inicio actual:"
 
@@ -1492,15 +1455,7 @@ msgstr "Páginas actuales/totales"
 
 #. Type: setting
 #. Context: or (cb_action and next(cb_action) and Dispatcher:menuTextFunc(cb_action)) or _("Custom"), active_func = function()
-#: nav_button_model.lua:137 nav_button_model.lua:145 nav_button_model.lua:154
-#: navbar.lua:2080 quick_settings.lua:1136 menu_settings.lua:176
-#: menu_settings.lua:342 menu_settings.lua:346 menu_settings.lua:348
-#: menu_settings.lua:349 menu_settings.lua:744 menu_settings.lua:750
-#: menu_settings.lua:751 reader_settings.lua:714 home_settings.lua:957
-#: home_settings.lua:999 navbar_settings.lua:220 navbar_settings.lua:312
-#: navbar_settings.lua:327 navbar_settings.lua:333 navbar_settings.lua:334
-#: navbar_settings.lua:518 navbar_settings.lua:523 navbar_settings.lua:525
-#: navbar_settings.lua:526 navbar_settings.lua:1034 status_bar_settings.lua:358
+#: nav_button_model.lua:137 nav_button_model.lua:145 nav_button_model.lua:154 navbar.lua:2115 quick_settings.lua:1136 menu_settings.lua:176 menu_settings.lua:342 menu_settings.lua:346 menu_settings.lua:348 menu_settings.lua:349 menu_settings.lua:744 menu_settings.lua:750 menu_settings.lua:751 reader_settings.lua:714 home_settings.lua:957 home_settings.lua:999 navbar_settings.lua:230 navbar_settings.lua:322 navbar_settings.lua:337 navbar_settings.lua:343 navbar_settings.lua:344 navbar_settings.lua:528 navbar_settings.lua:533 navbar_settings.lua:535 navbar_settings.lua:536 navbar_settings.lua:1044 status_bar_settings.lua:358
 msgid "Custom"
 msgstr "Personalizado"
 
@@ -1536,8 +1491,7 @@ msgstr "Citas personalizadas"
 
 #. Type: title
 #. Context: local reset_text = opts.reset_text or default_text local dialog_title = opts.dialog_title or _("Custom RGB") local presets = opts.presets or {}
-#: zen_settings_utils.lua:491 zen_settings_utils.lua:523
-#: zen_settings_utils.lua:524
+#: zen_settings_utils.lua:491 zen_settings_utils.lua:523 zen_settings_utils.lua:524
 msgid "Custom RGB"
 msgstr "RGB personalizado"
 
@@ -1549,14 +1503,13 @@ msgstr "Separador personalizado"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Custom tab label"), input = ButtonModel.label(controls, entry),
-#: home_settings.lua:1203 navbar_settings.lua:843
+#: home_settings.lua:1203 navbar_settings.lua:853
 msgid "Custom tab label"
 msgstr "Etiqueta de pestaña personalizada"
 
 #. Type: title
 #. Context: dlg = InputDialog:new{ title = _("Custom text"), input = type(config.reader_top_status_bar) == "table"
-#: reader_settings.lua:163 reader_settings.lua:201 status_bar_settings.lua:36
-#: status_bar_settings.lua:268
+#: reader_settings.lua:163 reader_settings.lua:201 status_bar_settings.lua:36 status_bar_settings.lua:268
 msgid "Custom text"
 msgstr "Texto personalizado"
 
@@ -1580,19 +1533,19 @@ msgstr "Temas personalizados"
 
 #. Type: setting
 #. Context: if presets[label] then return _("Custom") end return _("Custom: ") .. label end,
-#: navbar_settings.lua:1035
+#: navbar_settings.lua:1045
 msgid "Custom: "
 msgstr "Personalizado: "
 
 #. Type: title
 #. Context: menu._zen_block_dlg = ButtonDialog:new{ title = _("Customize widget"), title_align = "center",
-#: stats_page.lua:1459
+#: stats_page.lua:1469
 msgid "Customize widget"
 msgstr "Personalizar widget"
 
 #. Type: label
 #. Context: { text = "\u{F0190} " .. _("Cut"), align = "left",
-#: context_menu.lua:1609
+#: context_menu.lua:1639
 msgid "Cut"
 msgstr "Cortar"
 
@@ -1622,8 +1575,7 @@ msgstr "Grafito oscuro"
 
 #. Type: setting
 #. Context: local function mode_pair_label(setting) return _("Light mode") .. " / " .. _("Dark mode") .. " " .. setting:lower() end
-#: global_settings.lua:112 global_settings.lua:594 global_settings.lua:607
-#: global_settings.lua:748 global_settings.lua:761 reader_settings.lua:911
+#: global_settings.lua:113 global_settings.lua:614 global_settings.lua:627 global_settings.lua:768 global_settings.lua:781 reader_settings.lua:911
 msgid "Dark mode"
 msgstr "Modo oscuro"
 
@@ -1635,8 +1587,7 @@ msgstr "Gris cálido oscuro"
 
 #. Type: setting
 #. Context: text_func = function() return _("Date") .. ": " .. datetime_style_summary(mcfg, "date") end,
-#: stats_page.lua:1434 home_settings.lua:676 home_settings.lua:678
-#: status_bar_settings.lua:35
+#: stats_page.lua:1444 home_settings.lua:676 home_settings.lua:678 status_bar_settings.lua:35
 msgid "Date"
 msgstr "Fecha"
 
@@ -1648,25 +1599,25 @@ msgstr "Fecha/hora"
 
 #. Type: setting
 #. Context: local title = config.features.brightness_schedule == true and _("Day brightness") or mode_value_label(_("Light mode"), _("Brightness"))
-#: global_settings.lua:550
+#: global_settings.lua:570
 msgid "Day brightness"
 msgstr "Brillo diurno"
 
 #. Type: setting
 #. Context: local cfg = get_brightness_schedule_config() utils.show_time_picker(_("Day brightness time"), cfg.day_h, cfg.day_m, function(h, m)
-#: global_settings.lua:519
+#: global_settings.lua:539
 msgid "Day brightness time"
 msgstr "Hora de activación del brillo diurno"
 
 #. Type: setting
 #. Context: local cfg = get_brightness_schedule_config() return _("Day brightness time: ") .. utils.fmt_time(cfg.day_h, cfg.day_m) end,
-#: global_settings.lua:511
+#: global_settings.lua:531
 msgid "Day brightness time: "
 msgstr "Hora de activación del brillo diurno: "
 
 #. Type: setting
 #. Context: if config.features.brightness_schedule == true then return _("Day brightness: ") .. cfg.day_value end
-#: global_settings.lua:536
+#: global_settings.lua:556
 msgid "Day brightness: "
 msgstr "Brillo diurno: "
 
@@ -1678,31 +1629,31 @@ msgstr "Días de racha"
 
 #. Type: setting
 #. Context: local title = config.features.warmth_schedule == true and _("Day warmth") or mode_value_label(_("Light mode"), _("Warmth"))
-#: global_settings.lua:704
+#: global_settings.lua:724
 msgid "Day warmth"
 msgstr "Calidez diurna"
 
 #. Type: setting
 #. Context: local cfg = get_warmth_schedule_config() utils.show_time_picker(_("Day warmth time"), cfg.day_h, cfg.day_m, function(h, m)
-#: global_settings.lua:673
+#: global_settings.lua:693
 msgid "Day warmth time"
 msgstr "Hora de activación de la calidez diurna"
 
 #. Type: setting
 #. Context: local cfg = get_warmth_schedule_config() return _("Day warmth time: ") .. utils.fmt_time(cfg.day_h, cfg.day_m) end,
-#: global_settings.lua:665
+#: global_settings.lua:685
 msgid "Day warmth time: "
 msgstr "Hora de activación de la calidez diurna: "
 
 #. Type: setting
 #. Context: if config.features.warmth_schedule == true then return _("Day warmth: ") .. cfg.day_value end
-#: global_settings.lua:690
+#: global_settings.lua:710
 msgid "Day warmth: "
 msgstr "Calidez diurna: "
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Debug logging"), help_text = _("Enable KOReader verbose debug logging. Logs are written to koreader.log. Takes effect immediately."),
-#: advanced_settings.lua:103
+#: advanced_settings.lua:118
 msgid "Debug logging"
 msgstr "Registro de depuración"
 
@@ -1713,19 +1664,16 @@ msgid "Debug logging must be enabled to submit bug reports."
 msgstr "El registro de depuración debe estar activado para enviar informes."
 
 #. Type: setting
-#. Context: local label = opts.label local default_text = opts.default_text or _("Default") local reset_text = opts.reset_text or default_text
-#: zen_settings_utils.lua:489 library_settings.lua:563 reader_settings.lua:599
-#: reader_settings.lua:634
-msgid "Default"
-msgstr "Predeterminado"
-
-#. Type: setting
 #. Context: local function font_name_text(cfg, FontChooser) if cfg.font_face == "default" then return _("default") end return FontChooser.getFontNameText(resolved_library_font(cfg.font_face)) or cfg.font_face
-#: library_settings.lua:36 library_settings.lua:226 library_settings.lua:257
-#: library_settings.lua:1598 reader_settings.lua:407 reader_settings.lua:440
-#: reader_settings.lua:795 reader_settings.lua:1337 home_settings.lua:525
+#: library_settings.lua:36 library_settings.lua:226 library_settings.lua:257 library_settings.lua:1596 reader_settings.lua:407 reader_settings.lua:440 reader_settings.lua:795 reader_settings.lua:1337 home_settings.lua:525
 msgid "default"
 msgstr "predeterminado"
+
+#. Type: setting
+#. Context: local label = opts.label local default_text = opts.default_text or _("Default") local reset_text = opts.reset_text or default_text
+#: zen_settings_utils.lua:489 library_settings.lua:563 reader_settings.lua:599 reader_settings.lua:634
+msgid "Default"
+msgstr "Predeterminado"
 
 #. Type: setting
 #. Context: default_text = _("Default"), reset_text = _("Default (black)"), dialog_title = _("Badge color RGB"),
@@ -1747,26 +1695,19 @@ msgstr "Citas predeterminadas"
 
 #. Type: setting
 #. Context: _("Styling"), _("Default tab: "), })
-#: zen_settings.lua:99 navbar_settings.lua:1661
+#: zen_settings.lua:99 navbar_settings.lua:1671
 msgid "Default tab: "
 msgstr "Pestaña predeterminada: "
 
 #. Type: setting
 #. Context: input = config.navbar.home_label or "Home", input_hint = _("Default: Home"), buttons = {{
-#: navbar_settings.lua:976
+#: navbar_settings.lua:986
 msgid "Default: Home"
 msgstr "Predeterminado: Inicio"
 
 #. Type: button
 #. Context: text = _("Delete OPDS catalog?"), ok_text = _("Delete"), ok_callback = function()
-#: context_menu.lua:1714 opds.lua:1452 opds.lua:1456
-#: countdown_screenshot.lua:160 app_launcher_settings.lua:862
-#: app_launcher_settings.lua:880 global_settings.lua:351 menu_settings.lua:933
-#: menu_settings.lua:964 menu_settings.lua:1032 menu_settings.lua:1038
-#: reader_settings.lua:827 reader_settings.lua:1057 home_settings.lua:1558
-#: home_settings.lua:1571 home_settings.lua:2083 home_settings.lua:2171
-#: navbar_settings.lua:885 navbar_settings.lua:913 navbar_settings.lua:1299
-#: navbar_settings.lua:1305
+#: context_menu.lua:1744 opds.lua:1452 opds.lua:1456 countdown_screenshot.lua:160 app_launcher_settings.lua:862 app_launcher_settings.lua:880 global_settings.lua:352 menu_settings.lua:933 menu_settings.lua:964 menu_settings.lua:1032 menu_settings.lua:1038 reader_settings.lua:827 reader_settings.lua:1057 home_settings.lua:1558 home_settings.lua:1571 home_settings.lua:2083 home_settings.lua:2171 navbar_settings.lua:895 navbar_settings.lua:923 navbar_settings.lua:1309 navbar_settings.lua:1315
 msgid "Delete"
 msgstr "Eliminar"
 
@@ -1784,7 +1725,7 @@ msgstr "¿Eliminar catálogo OPDS?"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Delete preset?") .. "\n\n" .. pname, ok_text = _("Delete"),
-#: global_settings.lua:350 reader_settings.lua:1056 home_settings.lua:2082
+#: global_settings.lua:351 reader_settings.lua:1056 home_settings.lua:2082
 msgid "Delete preset?"
 msgstr "¿Eliminar preajuste?"
 
@@ -1826,21 +1767,19 @@ msgstr "¿Eliminar este salto de fila?"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Delete this tab?"), ok_text = _("Delete"),
-#: home_settings.lua:1570 navbar_settings.lua:912 navbar_settings.lua:1304
+#: home_settings.lua:1570 navbar_settings.lua:922 navbar_settings.lua:1314
 msgid "Delete this tab?"
 msgstr "¿Eliminar esta pestaña?"
 
 #. Type: label
 #. Context: {{ text = "\u{F15E} " .. _("Descending") .. (cur_reverse and " \u{2713}" or ""), align = "left",
-#: group_view.lua:907
+#: group_view.lua:905
 msgid "Descending"
 msgstr "Descendente"
 
 #. Type: title
 #. Context: UIManager:show(FontChooser:new{ title = _("Description") .. " " .. _("font"), font_file = display_face,
-#: metadata_editor.lua:52 metadata_editor.lua:412 metadata_editor.lua:413
-#: metadata_editor.lua:541 opds.lua:1656 library_settings.lua:1518
-#: library_settings.lua:1617 library_settings.lua:1641 home_settings.lua:840
+#: metadata_editor.lua:52 metadata_editor.lua:412 metadata_editor.lua:413 metadata_editor.lua:541 opds.lua:1656 library_settings.lua:1516 library_settings.lua:1615 library_settings.lua:1639 home_settings.lua:840
 msgid "Description"
 msgstr "Descripción"
 
@@ -1864,7 +1803,7 @@ msgstr "Lista detallada con metadatos, sin imágenes"
 
 #. Type: button
 #. Context: local buttons = { {{ text = "\u{F02FD} " .. _("Details"), align = "left", callback = function() end }}, {{ text = "\u{F01BE} " .. _("Move"), align = "left", callback = function() end }},
-#: quickstart_pages.lua:303 context_menu.lua:1737
+#: quickstart_pages.lua:303 context_menu.lua:1822
 msgid "Details"
 msgstr "Detalles"
 
@@ -1894,31 +1833,31 @@ msgstr "Atenuar libros terminados"
 
 #. Type: setting
 #. Context: { text = _("Disable bottom menu swipe"), checked_func = function()
-#: global_settings.lua:884
+#: global_settings.lua:904
 msgid "Disable bottom menu swipe"
 msgstr "Desactivar deslizamiento del menú inferior"
 
 #. Type: setting
 #. Context: { text = _("Disable context menu"), checked_func = function()
-#: global_settings.lua:841
+#: global_settings.lua:861
 msgid "Disable context menu"
 msgstr "Desactivar menú contextual"
 
 #. Type: setting
 #. Context: { text = _("Disable multi-word selection"), checked_func = function()
-#: global_settings.lua:895
+#: global_settings.lua:915
 msgid "Disable multi-word selection"
 msgstr "Desactivar selección de varias palabras"
 
 #. Type: setting
 #. Context: { text = _("Disable settings panel"), checked_func = function()
-#: global_settings.lua:868
+#: global_settings.lua:888
 msgid "Disable settings panel"
 msgstr "Desactivar panel de configuración"
 
 #. Type: setting
 #. Context: { text = _("Disable word search on hold"), checked_func = function()
-#: global_settings.lua:906
+#: global_settings.lua:926
 msgid "Disable word search on hold"
 msgstr "Desactivar búsqueda de palabras al mantener pulsado"
 
@@ -1926,18 +1865,13 @@ msgstr "Desactivar búsqueda de palabras al mantener pulsado"
 #. Context: description = _("Turn on Zen mode to strip KOReader down to its bare essentials.\n\nRemove visual clutter for a focused, distraction-free reading experience. Exit at anytime from Settings.") .. "\n\n" .. _("Disable zen mode to access def...
 #: quickstart_pages.lua:718
 msgid "Disable zen mode to access default KOReader menus."
-msgstr ""
-"Desactiva el modo Zen para acceder a los menús predeterminados de KOReader."
+msgstr "Desactiva el modo Zen para acceder a los menús predeterminados de KOReader."
 
 #. Type: message
 #. Context: _("Zen Mode is enabled. KOReader menus are hidden."), _("Disable Zen Mode with this icon to adjust KOReader settings that aren’t available in Zen Settings."), _("This does not disable ZenOS—it only shows or hides KOReader’s menus."),
 #: menu_tour.lua:11
-msgid ""
-"Disable Zen Mode with this icon to adjust KOReader settings that aren’t "
-"available in Zen Settings."
-msgstr ""
-"Desactiva el modo Zen con este icono para ajustar opciones de KOReader que no "
-"están disponibles en la configuración de Zen."
+msgid "Disable Zen Mode with this icon to adjust KOReader settings that aren’t available in Zen Settings."
+msgstr "Desactiva el modo Zen con este icono para ajustar opciones de KOReader que no están disponibles en la configuración de Zen."
 
 #. Type: label
 #. Context: cancel_text = _("Keep editing"), choice1_text = _("Discard"), choice1_callback = function() UIManager:close(dialog) end,
@@ -1953,16 +1887,13 @@ msgstr "Espacio en disco"
 
 #. Type: label
 #. Context: table.insert(buttons, {{ text = "\u{F06D0} " .. _("Display") .. " " .. submenu_arrow, align = "left",
-#: collections.lua:454 collections.lua:563 collections.lua:636
-#: context_menu.lua:700 context_menu.lua:2155
+#: collections.lua:454 collections.lua:563 collections.lua:636 context_menu.lua:725 context_menu.lua:2240
 msgid "Display"
 msgstr "Visualización"
 
 #. Type: title
 #. Context: view_dialog = ButtonDialog:new{ title = _("Display mode"), title_align = "center",
-#: collections.lua:424 collections.lua:522 collections.lua:615
-#: context_menu.lua:2142 group_view.lua:574 kindle_virtual_library.lua:251
-#: zen_settings.lua:80 extras_settings.lua:60 library_settings.lua:832
+#: collections.lua:424 collections.lua:522 collections.lua:615 context_menu.lua:2227 group_view.lua:574 kindle_virtual_library.lua:263 zen_settings.lua:80 extras_settings.lua:60 library_settings.lua:832
 msgid "Display mode"
 msgstr "Modo de visualización"
 
@@ -2040,14 +1971,13 @@ msgstr "Relleno dinámico 2"
 
 #. Type: action
 #. Context: {{ text = "\u{F0B64} " .. _("Read status") .. " " .. icons.arrow_right, align = "left", callback = function() end }}, {{ text = "\u{F090C} " .. _("Edit") .. " " .. icons.arrow_right, align = "left", callback = function() end }}, }
-#: quickstart_pages.lua:307 context_menu.lua:2389 opds.lua:1446
-#: book_info_widget.lua:115
+#: quickstart_pages.lua:307 context_menu.lua:2474 opds.lua:1446 book_info_widget.lua:115
 msgid "Edit"
 msgstr "Editar"
 
 #. Type: title
 #. Context: width = self.width, title = _("Edit metadata"), title_full_width = true,
-#: metadata_editor.lua:647 context_menu.lua:1683
+#: metadata_editor.lua:647 context_menu.lua:1713
 msgid "Edit metadata"
 msgstr "Editar metadatos"
 
@@ -2077,7 +2007,7 @@ msgstr "Activar deslizamiento inferior"
 
 #. Type: setting
 #. Context: { text = _("Enable brightness schedule"), checked_func = function()
-#: global_settings.lua:474
+#: global_settings.lua:494
 msgid "Enable brightness schedule"
 msgstr "Activar programación del brillo"
 
@@ -2089,23 +2019,19 @@ msgstr "Activar iconos personalizados"
 
 #. Type: message
 #. Context: text = _("Debug logging"), help_text = _("Enable KOReader verbose debug logging. Logs are written to koreader.log. Takes effect immediately."), checked_func = function()
-#: advanced_settings.lua:104
-msgid ""
-"Enable KOReader verbose debug logging. Logs are written to koreader.log. "
-"Takes effect immediately."
-msgstr ""
-"Activar el registro de depuración detallado de KOReader. Los registros se "
-"escriben en koreader.log. Los cambios se aplican inmediatamente."
+#: advanced_settings.lua:119
+msgid "Enable KOReader verbose debug logging. Logs are written to koreader.log. Takes effect immediately."
+msgstr "Activar el registro de depuración detallado de KOReader. Los registros se escriben en koreader.log. Los cambios se aplican inmediatamente."
 
 #. Type: setting
 #. Context: { text = _("Enable night mode schedule"), checked_func = function()
-#: global_settings.lua:402
+#: global_settings.lua:422
 msgid "Enable night mode schedule"
 msgstr "Modo nocturno"
 
 #. Type: setting
 #. Context: { text = _("Enable warmth schedule"), checked_func = function()
-#: global_settings.lua:629
+#: global_settings.lua:649
 msgid "Enable warmth schedule"
 msgstr "Activar programación de calidez"
 
@@ -2115,33 +2041,29 @@ msgstr "Activar programación de calidez"
 msgid "Enable Zen OPDS"
 msgstr "Activar Zen OPDS"
 
+#. Type: setting
+#. Context: { text = _("Enable Zen Search"), help_text = _("Use Zen Search in the file browser and reader. Disable to use KOReader's default search."),
+#: global_settings.lua:384
+msgid "Enable Zen Search"
+msgstr "Activar Zen Search"
+
 #. Type: message
 #. Context: text = _("Zen OPDS"), help_text = _("Enable ZenOS enhancements to the OPDS browser: cover art, list view, hold menu, and navigation improvements."), sub_item_table = {
 #: extras_settings.lua:66
-msgid ""
-"Enable ZenOS enhancements to the OPDS browser: cover art, list view, hold "
-"menu, and navigation improvements."
-msgstr ""
-"Activar las mejoras de ZenOS para el explorador OPDS: portadas, vista de "
-"lista, menú al mantener y mejoras de navegación."
+msgid "Enable ZenOS enhancements to the OPDS browser: cover art, list view, hold menu, and navigation improvements."
+msgstr "Activar las mejoras de ZenOS para el explorador OPDS: portadas, vista de lista, menú al mantener y mejoras de navegación."
 
 #. Type: message
 #. Context: or missing_credential and _("Enabled metadata providers need an API credential. Open settings?") or _("No metadata providers are available. Open settings?"))
 #: metadata_editor.lua:702
 msgid "Enabled metadata providers need an API credential. Open settings?"
-msgstr ""
-"Los proveedores de metadatos habilitados necesitan una credencial de API. "
-"¿Abrir los configuración?"
+msgstr "Los proveedores de metadatos habilitados necesitan una credencial de API. ¿Abrir los configuración?"
 
 #. Type: message
 #. Context: .. "\n\n" .. _("Enabling debug logging, restart required. Please reproduce the issue, then submit the report.") .. "\n\n" .. isolation_notice,
 #: zen_bugreporter.lua:153
-msgid ""
-"Enabling debug logging, restart required. Please reproduce the issue, then "
-"submit the report."
-msgstr ""
-"Al activar el registro de depuración, es necesario reiniciar. Reproduce el "
-"problema y envía el informe."
+msgid "Enabling debug logging, restart required. Please reproduce the issue, then submit the report."
+msgstr "Al activar el registro de depuración, es necesario reiniciar. Reproduce el problema y envía el informe."
 
 #. Type: error
 #. Context: if title == "" then editor:showError(_("Enter a title to search metadata.")) return
@@ -2175,7 +2097,7 @@ msgstr "Introduce un valor por línea."
 
 #. Type: description
 #. Context: title = _("GitHub username (optional)"), description = _("Enter your GitHub username to be tagged in the issue"), input = "",
-#: zen_bugreporter.lua:256
+#: zen_bugreporter.lua:259
 msgid "Enter your GitHub username to be tagged in the issue"
 msgstr "Introduce tu usuario de GitHub para ser mencionado en la incidencia"
 
@@ -2185,10 +2107,21 @@ msgstr "Introduce tu usuario de GitHub para ser mencionado en la incidencia"
 msgid "Exact ISBN match"
 msgstr "Coincidencia exacta de ISBN"
 
+#. Type: menu
+#. Context: items[#items + 1] = { text = _("Exclude CBZ/CBR files"), checked_func = function() return goals.exclude_cbz_cbr end,
+#: reading_goals.lua:156
+msgid "Exclude CBZ/CBR files"
+msgstr "Excluir archivos CBZ/CBR"
+
+#. Type: setting
+#. Context: text = _("Exclude from Home"),
+#: extras_settings.lua:115
+msgid "Exclude from Home"
+msgstr "Excluir de Inicio"
+
 #. Type: button
 #. Context: text = _("Are you sure you want to exit KOReader?"), ok_text = _("Exit"), ok_callback = function()
-#: nav_button_model.lua:24 navbar.lua:324 quick_settings.lua:683
-#: quick_settings.lua:687 menu_settings.lua:76 navbar_settings.lua:183
+#: nav_button_model.lua:24 navbar.lua:330 quick_settings.lua:683 quick_settings.lua:687 menu_settings.lua:76 navbar_settings.lua:183
 msgid "Exit"
 msgstr "Salir"
 
@@ -2201,12 +2134,8 @@ msgstr "Extra grande"
 #. Type: message
 #. Context: text = _("Extract metadata"), help_text = _("Extract and cache book metadata and cover images for books in the current directory. Requires CoverBrowser plugin."), callback = function()
 #: advanced_settings.lua:21
-msgid ""
-"Extract and cache book metadata and cover images for books in the current "
-"directory. Requires CoverBrowser plugin."
-msgstr ""
-"Extrae y almacena en la memoria caché los metadatos y portadas de los libros "
-"del directorio actual. Requiere el complemento CoverBrowser."
+msgid "Extract and cache book metadata and cover images for books in the current directory. Requires CoverBrowser plugin."
+msgstr "Extrae y almacena en la memoria caché los metadatos y portadas de los libros del directorio actual. Requiere el complemento CoverBrowser."
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Extract metadata"), help_text = _("Extract and cache book metadata and cover images for books in the current directory. Requires CoverBrowser plugin."),
@@ -2222,33 +2151,43 @@ msgstr "Funciones adicionales"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(InfoMessage:new{ text = _("Failed to clear cache:") .. "\n" .. (err or _("Unknown error")), })
-#: kindle_virtual_library.lua:312
+#: kindle_virtual_library.lua:324
 msgid "Failed to clear cache:"
 msgstr "No se ha podido borrar la caché:"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Failed to clear folder cover."), })
-#: context_menu.lua:1581
+#: context_menu.lua:1611
 msgid "Failed to clear folder cover."
 msgstr "No se ha podido borrar la portada de la carpeta."
 
+#. Type: message
+#. Context: FileManager:showFiles(source_dir, file) show_message(_("Failed to move book to archive.")) end
+#: archive_actions.lua:262
+msgid "Failed to move book to archive."
+msgstr "No se pudo mover el libro al archivo."
+
+#. Type: message
+#. Context: if not FileManager:moveFile(file, destination_dir) then show_message(_("Failed to move book.")) return false
+#: archive_actions.lua:134
+msgid "Failed to move book."
+msgstr "No se pudo mover el libro."
+
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Failed to set folder cover."), })
-#: context_menu.lua:1563
+#: context_menu.lua:1593
 msgid "Failed to set folder cover."
 msgstr "No se ha podido establecer la portada de la carpeta."
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Failed to submit report: ") .. (err or "unknown error"), })
-#: zen_bugreporter.lua:352
+#: zen_bugreporter.lua:355
 msgid "Failed to submit report: "
 msgstr "No se ha podido enviar el informe: "
 
 #. Type: setting
 #. Context: local labels = { recent = _("Recent"), favorites = _("Favorites"), to_be_read = _("To Be Read"), authors = _("Authors"),
-#: nav_button_model.lua:7 quickstart_pages.lua:686 collections.lua:354
-#: collections.lua:988 collections.lua:1024 context_menu.lua:1915 navbar.lua:269
-#: home_settings.lua:1073 navbar_settings.lua:172
+#: nav_button_model.lua:7 quickstart_pages.lua:686 collections.lua:354 collections.lua:988 collections.lua:1024 context_menu.lua:2000 navbar.lua:275 home_settings.lua:1073 navbar_settings.lua:172
 msgid "Favorites"
 msgstr "Favoritos"
 
@@ -2284,20 +2223,19 @@ msgstr "El complemento Filebrowser no está instalado."
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Filename"), input = seed,
-#: metadata_editor.lua:514 metadata_editor.lua:962 context_menu.lua:2166
-#: group_view.lua:832
+#: metadata_editor.lua:514 metadata_editor.lua:962 context_menu.lua:2251 group_view.lua:832
 msgid "Filename"
 msgstr "Nombre del archivo"
 
 #. Type: label
 #. Context: table.insert(buttons, {{ text = icons.filter .. " " .. _("Filter") .. (n_gf > 0 and " (" .. n_gf .. ")" or "")
-#: context_menu.lua:789 context_menu.lua:2374
+#: context_menu.lua:814 context_menu.lua:2459
 msgid "Filter"
 msgstr "Filtrar"
 
 #. Type: title
 #. Context: filter_dialog = new_context_menu_dialog{ title = _("Filter by status"), title_align = "center",
-#: context_menu.lua:774 context_menu.lua:2359
+#: context_menu.lua:799 context_menu.lua:2444
 msgid "Filter by status"
 msgstr "Filtrar por estado"
 
@@ -2309,9 +2247,7 @@ msgstr "Buscar metadatos"
 
 #. Type: status
 #. Context: elseif display_status == "complete" then status_label = _("Finished") progress_str = "\u{F012C}" -- MD check
-#: nav_button_model.lua:35 browser_list_item_layout.lua:451 context_menu.lua:739
-#: context_menu.lua:2061 context_menu.lua:2320 stats_page.lua:944
-#: stats_page.lua:956
+#: nav_button_model.lua:35 browser_list_item_layout.lua:451 context_menu.lua:764 context_menu.lua:2146 context_menu.lua:2405 stats_page.lua:944 stats_page.lua:956
 msgid "Finished"
 msgstr "Terminado"
 
@@ -2339,6 +2275,12 @@ msgstr "Nombre"
 msgid "Fixed layout documents (pdf, djvu, pics…)"
 msgstr "Documentos de maquetación fija (PDF, DJVU, imágenes…)"
 
+#. Type: message
+#. Context: text = _("Partial pages refresh"), help_text = _("Flash the screen in the library when a page is not full of books to prevent ghosting."), checked_func = function()
+#: advanced_settings.lua:39
+msgid "Flash the screen in the library when a page is not full of books to prevent ghosting."
+msgstr "Hacer parpadear la pantalla en la biblioteca cuando una página no esté llena de libros para evitar imágenes residuales."
+
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Flip LH/RH icon"), checked_func = function() return config.quick_settings.flip_lh_rh_icon == true end,
 #: menu_settings.lua:1163
@@ -2347,11 +2289,7 @@ msgstr "Invertir posición de los iconos"
 
 #. Type: setting
 #. Context: items[#items + 1] = IconItem.decorate({ text = _("Folder"), keep_menu_open = true,
-#: library_destination.lua:6 browser_list_item_layout.lua:182 navbar.lua:223
-#: app_launcher_settings.lua:589 app_launcher_settings.lua:753
-#: menu_settings.lua:670 menu_settings.lua:796 home_settings.lua:1123
-#: home_settings.lua:1467 navbar_settings.lua:154 navbar_settings.lua:740
-#: navbar_settings.lua:1393
+#: library_destination.lua:6 browser_list_item_layout.lua:182 navbar.lua:224 app_launcher_settings.lua:589 app_launcher_settings.lua:753 menu_settings.lua:670 menu_settings.lua:796 home_settings.lua:1123 home_settings.lua:1467 navbar_settings.lua:154 navbar_settings.lua:750 navbar_settings.lua:1403
 msgid "Folder"
 msgstr "Carpeta"
 
@@ -2375,7 +2313,7 @@ msgstr "Posición del nombre de la carpeta"
 
 #. Type: setting
 #. Context: return { text = _("Folder presets"), sub_item_table = {
-#: navbar_settings.lua:1096
+#: navbar_settings.lua:1106
 msgid "Folder presets"
 msgstr "Preajustes de carpeta"
 
@@ -2386,25 +2324,16 @@ msgid "Folders"
 msgstr "Carpetas"
 
 #. Type: title
-#. Context: UIManager:show(FontChooser:new{ title = _("Font"), font_file = footer_settings.text_font_face or "NotoSans-Regular.ttf",
-#: reader_settings.lua:1095 reader_settings.lua:1344 reader_settings.lua:1384
-#: home_settings.lua:1775
-msgid "Font"
-msgstr "Fuente"
-
-#. Type: title
 #. Context: UIManager:show(FontChooser:new{ title = _("Description") .. " " .. _("font"), font_file = display_face,
-#: library_settings.lua:1617 home_settings.lua:588 home_settings.lua:732
-#: home_settings.lua:1706
+#: library_settings.lua:1615 home_settings.lua:588 home_settings.lua:732 home_settings.lua:1706
 msgid "font"
 msgstr "fuente"
 
 #. Type: title
-#. Context: UIManager:show(SpinWidget:new{ title_text = _("Description") .. " " .. _("font size"), value = description_font_size(style),
-#: library_settings.lua:1641 stats_settings.lua:148 home_settings.lua:558
-#: home_settings.lua:653 home_settings.lua:707 home_settings.lua:1680
-msgid "font size"
-msgstr "tamaño de fuente"
+#. Context: UIManager:show(FontChooser:new{ title = _("Font"), font_file = footer_settings.text_font_face or "NotoSans-Regular.ttf",
+#: reader_settings.lua:1095 reader_settings.lua:1344 reader_settings.lua:1384 home_settings.lua:1775
+msgid "Font"
+msgstr "Fuente"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Font size"), value = type(config.reader_top_status_bar) == "table" and config.reader_top_status_bar.font_size or 14,
@@ -2412,30 +2341,27 @@ msgstr "tamaño de fuente"
 msgid "Font size"
 msgstr "Tamaño de fuente"
 
+#. Type: title
+#. Context: UIManager:show(SpinWidget:new{ title_text = _("Description") .. " " .. _("font size"), value = description_font_size(style),
+#: library_settings.lua:1639 stats_settings.lua:148 home_settings.lua:558 home_settings.lua:653 home_settings.lua:707 home_settings.lua:1680
+msgid "font size"
+msgstr "tamaño de fuente"
+
 #. Type: setting
 #. Context: local cfg = ensure_library_font_cfg(config) return string.format("%s %s", _("Font size:"), tostring(cfg.font_size)) end,
-#: library_settings.lua:234 library_settings.lua:1633 reader_settings.lua:416
-#: reader_settings.lua:1225 reader_settings.lua:1309 stats_settings.lua:141
-#: home_settings.lua:551 home_settings.lua:700 home_settings.lua:1673
-#: home_settings.lua:2192 home_settings.lua:2286 home_settings.lua:2543
+#: library_settings.lua:234 library_settings.lua:1631 reader_settings.lua:416 reader_settings.lua:1225 reader_settings.lua:1309 stats_settings.lua:141 home_settings.lua:551 home_settings.lua:700 home_settings.lua:1673 home_settings.lua:2192 home_settings.lua:2286 home_settings.lua:2543
 msgid "Font size:"
 msgstr "Tamaño de fuente:"
 
 #. Type: description
 #. Context: title = _("Reader"), description = _("Font, margins, contrast, line spacing etc - tested together for the best reading experience"), choice_type = "radio",
 #: quickstart_pages.lua:774
-msgid ""
-"Font, margins, contrast, line spacing etc - tested together for the best "
-"reading experience"
-msgstr ""
-"Fuente, márgenes, contraste e interlineado, combinados para ofrecer la mejor "
-"experiencia de lectura"
+msgid "Font, margins, contrast, line spacing etc - tested together for the best reading experience"
+msgstr "Fuente, márgenes, contraste e interlineado, combinados para ofrecer la mejor experiencia de lectura"
 
 #. Type: setting
 #. Context: or (ok_fc and font_name_text(cfg, FontChooser) or cfg.font_face) return string.format("%s %s, %s", _("Font:"), face_text, tostring(cfg.font_size)) end,
-#: library_settings.lua:228 library_settings.lua:259 library_settings.lua:1600
-#: reader_settings.lua:410 reader_settings.lua:442 reader_settings.lua:1338
-#: home_settings.lua:576 home_settings.lua:722 home_settings.lua:1695
+#: library_settings.lua:228 library_settings.lua:259 library_settings.lua:1598 reader_settings.lua:410 reader_settings.lua:442 reader_settings.lua:1338 home_settings.lua:576 home_settings.lua:722 home_settings.lua:1695
 msgid "Font:"
 msgstr "Fuente:"
 
@@ -2477,14 +2403,13 @@ msgstr "Géneros"
 
 #. Type: label
 #. Context: if not (is_last and page.finale) then local next_lbl = is_last and _("Get Started") or _("Next") local show_chevron = not is_last and IconWidget ~= nil
-#: quickstart_screen.lua:489 quickstart_screen.lua:532 zen_screen.lua:519
-#: zen_screen.lua:525
+#: quickstart_screen.lua:489 quickstart_screen.lua:532 zen_screen.lua:519 zen_screen.lua:525
 msgid "Get Started"
 msgstr "Comenzar"
 
 #. Type: title
 #. Context: dlg = InputDialog:new{ title = _("GitHub username (optional)"), description = _("Enter your GitHub username to be tagged in the issue"),
-#: zen_bugreporter.lua:255
+#: zen_bugreporter.lua:258
 msgid "GitHub username (optional)"
 msgstr "Nombre de usuario de GitHub (opcional)"
 
@@ -2520,13 +2445,13 @@ msgstr "Clave de API de Google Books:"
 
 #. Type: title
 #. Context: menu._zen_block_dlg = ButtonDialog:new{ title = _("Graph metric"), title_align = "center",
-#: stats_page.lua:1361
+#: stats_page.lua:1371
 msgid "Graph metric"
 msgstr "Métrica gráfica"
 
 #. Type: title
 #. Context: menu._zen_block_dlg = ButtonDialog:new{ title = _("Graph range"), title_align = "center",
-#: stats_page.lua:1331
+#: stats_page.lua:1341
 msgid "Graph range"
 msgstr "Rango del gráfico"
 
@@ -2538,7 +2463,7 @@ msgstr "Gris"
 
 #. Type: setting
 #. Context: { text = _("Blue"), r = 0x99, g = 0xBB, b = 0xF0 }, { text = _("Green"), r = 0x99, g = 0xCC, b = 0x99 }, { text = _("Amber"), r = 0xF0, g = 0xD0, b = 0x80 },
-#: library_settings.lua:571 reader_settings.lua:62 navbar_settings.lua:1641
+#: library_settings.lua:571 reader_settings.lua:62 navbar_settings.lua:1651
 msgid "Green"
 msgstr "Verde"
 
@@ -2550,8 +2475,7 @@ msgstr "Agrupar series de libros en carpetas"
 
 #. Type: setting
 #. Context: sub_item_table = { provider_item(_("Hardcover"), "hardcover_enabled", hardcover_items), provider_item(_("Google Books"), "google_books_enabled", google_items),
-#: metadata_editor.lua:679 metadata_editor.lua:1150 metadata_editor.lua:123
-#: metadata_settings.lua:161
+#: metadata_editor.lua:679 metadata_editor.lua:1150 metadata_editor.lua:123 metadata_settings.lua:161
 msgid "Hardcover"
 msgstr "Hardcover"
 
@@ -2587,7 +2511,7 @@ msgstr "Ocultar en archivos CBZ/PDF"
 
 #. Type: setting
 #. Context: return { text = _("Hide Kindle Library folder"), checked_func = function()
-#: home_settings.lua:1242 navbar_settings.lua:1224
+#: home_settings.lua:1242 navbar_settings.lua:1234
 msgid "Hide Kindle Library folder"
 msgstr "Ocultar la carpeta de la biblioteca Kindle"
 
@@ -2641,8 +2565,7 @@ msgstr "Nombres de los resaltados"
 
 #. Type: setting
 #. Context: { id = "continue", text = _("Continue") }, { id = "history", text = _("History") }, { id = "favorites", text = _("Favorites") },
-#: nav_button_model.lua:19 quickstart_pages.lua:685 navbar.lua:264
-#: navbar_settings.lua:171
+#: nav_button_model.lua:19 quickstart_pages.lua:685 navbar.lua:270 navbar_settings.lua:171
 msgid "History"
 msgstr "Historial"
 
@@ -2654,23 +2577,20 @@ msgstr "Mantener pulsado para omitir"
 
 #. Type: setting
 #. Context: app_launcher_item._zen_settings_root = "launcher" home_item.text = _("Home") IconItem.decorate(home_item, icons.settings_home)
-#: nav_button_model.lua:20 quickstart_pages.lua:683 navbar.lua:219
-#: zen_settings.lua:135 home_settings.lua:1520 home_settings.lua:1932
-#: home_settings.lua:2613 home_settings.lua:2629 home_settings.lua:2741
-#: navbar_settings.lua:148 navbar_settings.lua:1011
+#: nav_button_model.lua:20 quickstart_pages.lua:683 navbar.lua:220 zen_settings.lua:135 home_settings.lua:1520 home_settings.lua:1932 home_settings.lua:2613 home_settings.lua:2629 home_settings.lua:2741 navbar_settings.lua:148 navbar_settings.lua:1021
 msgid "Home"
 msgstr "Inicio"
+
+#. Type: setting
+#. Context: table.insert(items, { text = _("Home folder"), sub_item_table = {
+#: library_settings.lua:1416
+msgid "Home folder"
+msgstr "Carpeta de inicio"
 
 #. Type: title
 #. Context: table.insert(pages, #pages, { title = _("Home Folder"), description = T(_("The place for all your books %1"), books_dir),
 #: quickstart_pages.lua:834 quickstart_pages.lua:906
 msgid "Home Folder"
-msgstr "Carpeta de inicio"
-
-#. Type: setting
-#. Context: table.insert(items, { text = _("Home folder"), sub_item_table = {
-#: library_settings.lua:1418
-msgid "Home folder"
 msgstr "Carpeta de inicio"
 
 #. Type: setting
@@ -2681,7 +2601,7 @@ msgstr "Preajuste de la página de inicio"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Home tab label"), input = config.navbar.home_label or "Home",
-#: navbar_settings.lua:974
+#: navbar_settings.lua:984
 msgid "Home tab label"
 msgstr "Etiqueta de la pestaña Inicio"
 
@@ -2699,69 +2619,67 @@ msgstr "HTML"
 
 #. Type: setting
 #. Context: _("Show icons"), _("Icon size:"), })
-#: zen_settings.lua:123 navbar_settings.lua:1571
+#: zen_settings.lua:123 navbar_settings.lua:1581
 msgid "Icon size:"
 msgstr "Tamaño de icono:"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Icon: %1"), icon_utils.getIconDisplayName(entry.icon or DEFAULT_ENTRY_ICON))
-#: app_launcher_settings.lua:711 menu_settings.lua:867 menu_settings.lua:978
-#: navbar_settings.lua:818 navbar_settings.lua:1158
+#: app_launcher_settings.lua:711 menu_settings.lua:867 menu_settings.lua:978 navbar_settings.lua:828 navbar_settings.lua:1168
 msgid "Icon: %1"
 msgstr "Icono: %1"
 
 #. Type: setting
 #. Context: _("Labels"), _("Icons"), _("Active tab"),
-#: zen_settings.lua:104 zen_settings.lua:121 navbar_settings.lua:1550
+#: zen_settings.lua:104 zen_settings.lua:121 navbar_settings.lua:1560
 msgid "Icons"
 msgstr "Iconos"
 
 #. Type: message
-#. Context: elseif code == "no_decoder" then return _("Image support is unavailable on this device.") elseif code == "decode_failed" then
-#: library_settings.lua:1240
+#. Context: elseif code == "no_decoder" then return _("Image support is unavailable on this device.") elseif code == "unsupported" or code == "decode_failed" then
+#: library_settings.lua:1238
 msgid "Image support is unavailable on this device."
 msgstr "Este dispositivo no admite imágenes."
 
 #. Type: setting
 #. Context: local name = select(2, util.splitFilePathName(path)) return _("Image: ") .. (name ~= "" and name or path) end,
-#: library_settings.lua:1292
+#: library_settings.lua:1290
 msgid "Image: "
 msgstr "Imagen: "
 
 #. Type: setting
 #. Context: local path = lib_bg_path() if path == "" then return _("Image: none") end local util = require("util")
-#: library_settings.lua:1289
+#: library_settings.lua:1287
 msgid "Image: none"
 msgstr "Imagen: ninguna"
 
 #. Type: setting
 #. Context: table.insert(items, IconItem.decorate({ text = _("Include new books in TBR"), help_text = _("New includes unread books and books modified since they were last opened."),
-#: library_settings.lua:1727
+#: library_settings.lua:1725
 msgid "Include new books in TBR"
 msgstr "Incluir libros nuevos en Por leer"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Incognito") .. " - " .. _("Timeout"), value = timeout_minutes(plugin),
-#: incognito_mode.lua:256 quick_settings.lua:914 menu_settings.lua:71
-#: reader_settings.lua:158 status_bar_settings.lua:28
+#: incognito_mode.lua:256 quick_settings.lua:914 menu_settings.lua:71 reader_settings.lua:158 status_bar_settings.lua:28
 msgid "Incognito"
 msgstr "Incógnito"
 
 #. Type: label
 #. Context: text = opts.timed_out and _("Incognito mode timed out") or enabled and _("Incognito mode enabled") or _("Incognito mode disabled"), timeout = 3,
-#: dispatch_action.lua:616
+#: dispatch_action.lua:620
 msgid "Incognito mode disabled"
 msgstr "Modo incógnito desactivado"
 
 #. Type: label
 #. Context: text = opts.timed_out and _("Incognito mode timed out") or enabled and _("Incognito mode enabled") or _("Incognito mode disabled"), timeout = 3,
-#: dispatch_action.lua:616
+#: dispatch_action.lua:620
 msgid "Incognito mode enabled"
 msgstr "Modo incógnito activado"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = opts.timed_out and _("Incognito mode timed out") or enabled and _("Incognito mode enabled") or _("Incognito mode disabled"),
-#: dispatch_action.lua:615
+#: dispatch_action.lua:619
 msgid "Incognito mode timed out"
 msgstr "Se ha agotado el tiempo del modo incógnito"
 
@@ -2826,16 +2744,16 @@ msgid "Items"
 msgstr "Elementos"
 
 #. Type: setting
-#. Context: _("Display mode"), _("Items per page"), _("Sort by"),
-#: zen_settings.lua:81 library_settings.lua:857
-msgid "Items per page"
-msgstr "Elementos por página"
-
-#. Type: setting
 #. Context: fpp = math.min(fpp, max_fpp) return _("List: ") .. tostring(fpp) .. " " .. _("items per page") end,
 #: library_settings.lua:974
 msgid "items per page"
 msgstr "elementos por página"
+
+#. Type: setting
+#. Context: _("Display mode"), _("Items per page"), _("Sort by"),
+#: zen_settings.lua:81 library_settings.lua:857
+msgid "Items per page"
+msgstr "Elementos por página"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Justify text"), checked_func = function()
@@ -2869,22 +2787,19 @@ msgstr "Conserva la extensión de archivo actual."
 
 #. Type: setting
 #. Context: { id = "folder", text_func = get_folder_tab_label }, { id = "kindle", text = _("Kindle Library") }, { id = "manga", text = _("Manga") },
-#: nav_button_model.lua:15 navbar.lua:244 navbar_settings.lua:167
+#: nav_button_model.lua:15 navbar.lua:250 navbar_settings.lua:167
 msgid "Kindle Library"
 msgstr "Biblioteca Kindle"
 
 #. Type: setting
 #. Context: or target.title or _("KOReader menu"), disabled_func = function()
-#: nav_button_model.lua:152 quick_settings.lua:1077
-#: app_launcher_settings.lua:580 menu_settings.lua:516 menu_settings.lua:685
-#: menu_settings.lua:738 home_settings.lua:1495 navbar_settings.lua:321
-#: navbar_settings.lua:565 navbar_settings.lua:1413
+#: nav_button_model.lua:152 quick_settings.lua:1077 app_launcher_settings.lua:580 menu_settings.lua:516 menu_settings.lua:685 menu_settings.lua:738 home_settings.lua:1495 navbar_settings.lua:331 navbar_settings.lua:575 navbar_settings.lua:1423
 msgid "KOReader menu"
 msgstr "Menú de KOReader"
 
 #. Type: setting
 #. Context: local target = entry.koreader_menu return T(_("KOReader menu: %1"), type(target) == "table" and target.title or entry.label or _("(none)"))
-#: app_launcher_settings.lua:820 menu_settings.lua:785 navbar_settings.lua:781
+#: app_launcher_settings.lua:820 menu_settings.lua:785 navbar_settings.lua:791
 msgid "KOReader menu: %1"
 msgstr "Menú de KOReader: %1"
 
@@ -2896,32 +2811,31 @@ msgstr "KOReader: "
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Label"), input = config.navbar.folder_label or "",
-#: home_settings.lua:1551 navbar_settings.lua:1073 navbar_settings.lua:1182
+#: home_settings.lua:1551 navbar_settings.lua:1083 navbar_settings.lua:1192
 msgid "Label"
 msgstr "Etiqueta"
 
 #. Type: setting
 #. Context: _("Show labels"), _("Label size:"), })
-#: zen_settings.lua:118 navbar_settings.lua:1519
+#: zen_settings.lua:118 navbar_settings.lua:1529
 msgid "Label size:"
 msgstr "Tamaño de etiqueta:"
 
 #. Type: setting
 #. Context: if label == nil or label == "" then label = "Home" end return _("Label: ") .. label end,
-#: navbar_settings.lua:967
+#: navbar_settings.lua:977
 msgid "Label: "
 msgstr "Etiqueta: "
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Label: %1"), entry.label) end,
-#: app_launcher_settings.lua:723 menu_settings.lua:887 menu_settings.lua:992
-#: navbar_settings.lua:836 navbar_settings.lua:1175
+#: app_launcher_settings.lua:723 menu_settings.lua:887 menu_settings.lua:992 navbar_settings.lua:846 navbar_settings.lua:1185
 msgid "Label: %1"
 msgstr "Etiqueta: %1"
 
 #. Type: setting
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Styling"), { _("Labels"), _("Icons"),
-#: zen_settings.lua:103 zen_settings.lua:116 navbar_settings.lua:1498
+#: zen_settings.lua:103 zen_settings.lua:116 navbar_settings.lua:1508
 msgid "Labels"
 msgstr "Etiquetas"
 
@@ -2939,22 +2853,21 @@ msgstr "Mosaico horizontal: "
 
 #. Type: setting
 #. Context: tags = _("Tags"), language = _("Language"), rating = _("Rating"),
-#: metadata_editor.lua:50 metadata_editor.lua:512 library_settings.lua:1509
+#: metadata_editor.lua:50 metadata_editor.lua:512 library_settings.lua:1507
 msgid "Language"
 msgstr "Idioma"
 
-#. Type: title
-#. Context: elseif tab_id == "languages" then title = _("Languages") elseif tab_id == "tags" then
-#: nav_button_model.lua:11 group_view.lua:1310 group_view.lua:1356
-#: navbar.lua:289 home_settings.lua:1075 navbar_settings.lua:176
-msgid "Languages"
-msgstr "Idiomas"
-
 #. Type: label
 #. Context: subtitle = count == 1 and _("1 language") or (tostring(count) .. " " .. _("languages")) elseif tab_id == "tags" then
-#: group_view.lua:1328
+#: group_view.lua:1324
 msgid "languages"
 msgstr "idiomas"
+
+#. Type: title
+#. Context: elseif tab_id == "languages" then title = _("Languages") elseif tab_id == "tags" then
+#: nav_button_model.lua:11 group_view.lua:1306 group_view.lua:1352 navbar.lua:295 home_settings.lua:1075 navbar_settings.lua:176
+msgid "Languages"
+msgstr "Idiomas"
 
 #. Type: setting
 #. Context: { label = _("Normal"), value = "normal" }, { label = _("Large"), value = "large" }, { label = _("Extra large"), value = "extra_large" },
@@ -2970,8 +2883,7 @@ msgstr "Apellido"
 
 #. Type: button
 #. Context: ok_text = _("Restart now"), cancel_text = _("Later"), ok_callback = function()
-#: zen_screen.lua:499 zen_screen.lua:512 zen_settings_apply.lua:89
-#: zen_updater.lua:1576 zenpm_installer.lua:386
+#: zen_screen.lua:499 zen_screen.lua:512 zen_settings_apply.lua:89 zen_updater.lua:1576 zenpm_installer.lua:386
 msgid "Later"
 msgstr "Más tarde"
 
@@ -2983,8 +2895,7 @@ msgstr "más reciente"
 
 #. Type: button
 #. Context: TextWidget:new{ text = _("Launcher"), face = library_font.getFace(Font.sizemap and Font.sizemap["smallinfofont"] or 22),
-#: app_launcher.lua:604 zen_settings.lua:132 app_launcher_settings.lua:1102
-#: app_launcher_settings.lua:1107
+#: app_launcher.lua:604 zen_settings.lua:132 app_launcher_settings.lua:1102 app_launcher_settings.lua:1107
 msgid "Launcher"
 msgstr "Lanzador"
 
@@ -3008,7 +2919,7 @@ msgstr "Diseño"
 
 #. Type: setting
 #. Context: input = entry.label or "", input_hint = entry.type == "action" and _("Leave empty to use action title") or nil, buttons = {{
-#: app_launcher_settings.lua:183 menu_settings.lua:897 navbar_settings.lua:846
+#: app_launcher_settings.lua:183 menu_settings.lua:897 navbar_settings.lua:856
 msgid "Leave empty to use action title"
 msgstr "Dejar vacío para usar el título de la acción"
 
@@ -3026,9 +2937,7 @@ msgstr "Elementos a la izquierda"
 
 #. Type: setting
 #. Context: local library_item = IconItem.decorate({ text = _("Library"), sub_item_table = filebrowser_items,
-#: nav_button_model.lua:14 navbar.lua:215 stats_page.lua:66 zen_settings.lua:140
-#: global_settings.lua:838 stats_settings.lua:33 navbar_settings.lua:165
-#: navbar_settings.lua:224 navbar_settings.lua:1020
+#: nav_button_model.lua:14 navbar.lua:216 stats_page.lua:66 zen_settings.lua:140 global_settings.lua:858 stats_settings.lua:33 navbar_settings.lua:165 navbar_settings.lua:234 navbar_settings.lua:1030
 msgid "Library"
 msgstr "Biblioteca"
 
@@ -3036,9 +2945,7 @@ msgstr "Biblioteca"
 #. Context: local notice = Notification:new{ text = _("Library background was disabled because the image file was not found."), }
 #: background.lua:52
 msgid "Library background was disabled because the image file was not found."
-msgstr ""
-"El fondo de la biblioteca se ha desactivado al no encontrar el archivo de "
-"imagen."
+msgstr "El fondo de la biblioteca se ha desactivado al no encontrar el archivo de imagen."
 
 #. Type: title
 #. Context: UIManager:show(FontChooser:new{ title = _("Library font"), font_file = display_face,
@@ -3066,8 +2973,7 @@ msgstr "Claro"
 
 #. Type: setting
 #. Context: local function mode_pair_label(setting) return _("Light mode") .. " / " .. _("Dark mode") .. " " .. setting:lower() end
-#: global_settings.lua:112 global_settings.lua:538 global_settings.lua:551
-#: global_settings.lua:692 global_settings.lua:705 reader_settings.lua:912
+#: global_settings.lua:113 global_settings.lua:558 global_settings.lua:571 global_settings.lua:712 global_settings.lua:725 reader_settings.lua:912
 msgid "Light mode"
 msgstr "Modo claro"
 
@@ -3091,15 +2997,13 @@ msgstr "Lista"
 
 #. Type: label
 #. Context: viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"), viewBtn(_("List (basic)"), "\u{F0CA}", "list_image_filename"), }),
-#: collections.lua:429 collections.lua:527 collections.lua:620
-#: context_menu.lua:2147 group_view.lua:579 kindle_virtual_library.lua:256
+#: collections.lua:429 collections.lua:527 collections.lua:620 context_menu.lua:2232 group_view.lua:579 kindle_virtual_library.lua:268
 msgid "List (basic)"
 msgstr "Lista (básica)"
 
 #. Type: label
 #. Context: viewBtn(_("Mosaic"), "\u{F00A}", "mosaic_image"), viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"), viewBtn(_("List (basic)"), "\u{F0CA}", "list_image_filename"),
-#: collections.lua:428 collections.lua:526 collections.lua:619
-#: context_menu.lua:2146 group_view.lua:578 kindle_virtual_library.lua:255
+#: collections.lua:428 collections.lua:526 collections.lua:619 context_menu.lua:2231 group_view.lua:578 kindle_virtual_library.lua:267
 msgid "List (detailed)"
 msgstr "Lista (detallada)"
 
@@ -3129,7 +3033,7 @@ msgstr "LocalSend"
 
 #. Type: setting
 #. Context: { text = _("Lock home folder"), enabled_func = function()
-#: library_settings.lua:1449
+#: library_settings.lua:1447
 msgid "Lock home folder"
 msgstr "Bloquear carpeta de inicio"
 
@@ -3141,7 +3045,7 @@ msgstr "Modo de bloqueo"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Lockdown mode"), sub_item_table = {
-#: global_settings.lua:824
+#: global_settings.lua:844
 msgid "Lockdown mode"
 msgstr "Modo de bloqueo"
 
@@ -3165,7 +3069,7 @@ msgstr "Iconos individuales en /koreader/icons"
 
 #. Type: setting
 #. Context: { text = _("Magnify UI"), checked_func = function()
-#: global_settings.lua:827
+#: global_settings.lua:847
 msgid "Magnify UI"
 msgstr "Ampliar interfaz"
 
@@ -3177,13 +3081,13 @@ msgstr "Menú principal"
 
 #. Type: setting
 #. Context: { id = "kindle", text = _("Kindle Library") }, { id = "manga", text = _("Manga") }, { id = "news", text = _("News") },
-#: nav_button_model.lua:16 navbar.lua:249 navbar_settings.lua:168
+#: nav_button_model.lua:16 navbar.lua:255 navbar_settings.lua:168
 msgid "Manga"
 msgstr "Manga"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Manga folder not found: ") .. (folder_path or config.manga_folder), })
-#: navbar.lua:1221
+#: navbar.lua:1252
 msgid "Manga folder not found: "
 msgstr "Carpeta de manga no encontrada: "
 
@@ -3195,7 +3099,7 @@ msgstr "Selección de coincidencias"
 
 #. Type: setting
 #. Context: { text = _("Match whole words"), help_text = _("When enabled, search matches whole words only. When disabled, substring matching is used (e.g., 'fish' matches 'fishing')."),
-#: global_settings.lua:383
+#: global_settings.lua:399
 msgid "Match whole words"
 msgstr "Solo palabras completas"
 
@@ -3213,7 +3117,7 @@ msgstr "Máximo de libros mostrados: "
 
 #. Type: setting
 #. Context: if countEnabledTabs() >= navbar_max_tabs then showTabLimitMessage(_("Maximum 7 tabs allowed")) return false
-#: home_settings.lua:1298 home_settings.lua:1356 navbar_settings.lua:270
+#: home_settings.lua:1298 home_settings.lua:1356 navbar_settings.lua:280
 msgid "Maximum 7 tabs allowed"
 msgstr "Máximo 7 pestañas permitidas"
 
@@ -3237,7 +3141,7 @@ msgstr "Tamaño máximo de la fuente de las citas"
 
 #. Type: setting
 #. Context: { id = "page_right", text = _("Next page") }, { id = "menu", text = _("Menu") }, }
-#: nav_button_model.lua:27 navbar.lua:339 navbar_settings.lua:186
+#: nav_button_model.lua:27 navbar.lua:345 navbar_settings.lua:186
 msgid "Menu"
 msgstr "Menú"
 
@@ -3273,8 +3177,7 @@ msgstr "Error en la búsqueda de metadatos."
 
 #. Type: title
 #. Context: picker = require("common/ui/zen_menu_picker"){ title = title or _("Metadata results"), items = items,
-#: metadata_editor.lua:603 metadata_editor.lua:605 metadata_editor.lua:618
-#: metadata_editor.lua:626
+#: metadata_editor.lua:603 metadata_editor.lua:605 metadata_editor.lua:618 metadata_editor.lua:626
 msgid "Metadata results"
 msgstr "Resultados de metadatos"
 
@@ -3282,20 +3185,17 @@ msgstr "Resultados de metadatos"
 #. Context: return nil, metadata_dirty and _("Metadata was saved, but the cover image could not be saved.") or _("The cover image could not be saved.")
 #: metadata_editor.lua:1156
 msgid "Metadata was saved, but the cover image could not be saved."
-msgstr ""
-"Los metadatos se han guardado, pero no se ha podido guardar la imagen de "
-"portada."
+msgstr "Los metadatos se han guardado, pero no se ha podido guardar la imagen de portada."
 
 #. Type: setting
 #. Context: { text = _("Metric"), sub_item_table = {
-#: stats_page.lua:1423 stats_settings.lua:99
+#: stats_page.lua:1433 stats_settings.lua:99
 msgid "Metric"
 msgstr "Métrico"
 
 #. Type: unit
 #. Context: tostring(row.pages_current) .. " / " .. tostring(row.pages_target) .. " " .. _("pages"), tostring(row.time_current) .. " / " .. tostring(row.time_target) .. " " .. _("min"), }
-#: reading_goals.lua:93 reading_goals.lua:267 incognito_mode.lua:248
-#: incognito_mode.lua:262
+#: reading_goals.lua:93 reading_goals.lua:267 incognito_mode.lua:248 incognito_mode.lua:262
 msgid "min"
 msgstr "min."
 
@@ -3306,16 +3206,16 @@ msgid "Minute"
 msgstr "Minuto"
 
 #. Type: unit
-#. Context: local function metricLabel(metric) return metric == "time" and _("Minutes") or _("Pages") end
-#: stats_page.lua:76
-msgid "Minutes"
-msgstr "Minutos"
-
-#. Type: unit
 #. Context: width = pill_w, height = card_h, stat_style = stat_style, value = minuteCount(minutes), label = _("minutes"), },
 #: stats_page.lua:426
 msgid "minutes"
 msgstr "minutos"
+
+#. Type: unit
+#. Context: local function metricLabel(metric) return metric == "time" and _("Minutes") or _("Pages") end
+#: stats_page.lua:76
+msgid "Minutes"
+msgstr "Minutos"
 
 #. Type: setting
 #. Context: end return T(_("Missing: %1"), active_id) end
@@ -3337,15 +3237,19 @@ msgstr "Mensual"
 
 #. Type: title
 #. Context: menu._zen_block_dlg = ButtonDialog:new{ title = _("Months"), title_align = "center",
-#: stats_page.lua:1410
+#: stats_page.lua:1420
 msgid "Months"
 msgstr "Meses"
 
+#. Type: label
+#. Context: { text = icons.more .. " " .. _("More") .. " " .. submenu_arrow, align = "left",
+#: context_menu.lua:2488
+msgid "More"
+msgstr "Más"
+
 #. Type: setting
 #. Context: local display_modes = { { text = _("Mosaic"), mode = "mosaic" }, { text = _("List"), mode = "list" },
-#: collections.lua:427 collections.lua:525 collections.lua:618
-#: context_menu.lua:2145 group_view.lua:577 kindle_virtual_library.lua:254
-#: extras_settings.lua:38
+#: collections.lua:427 collections.lua:525 collections.lua:618 context_menu.lua:2230 group_view.lua:577 kindle_virtual_library.lua:266 extras_settings.lua:38
 msgid "Mosaic"
 msgstr "Mosaico"
 
@@ -3369,13 +3273,13 @@ msgstr "Mosaico con texto"
 
 #. Type: action
 #. Context: {{ text = "\u{F02FD} " .. _("Details"), align = "left", callback = function() end }}, {{ text = "\u{F01BE} " .. _("Move"), align = "left", callback = function() end }}, {{ text = "\u{F04CE} " .. _("Add to collection") .. " " .. icons.arr...
-#: quickstart_pages.lua:304 context_menu.lua:1480 context_menu.lua:1780
+#: quickstart_pages.lua:304 context_menu.lua:1510 context_menu.lua:1865
 msgid "Move"
 msgstr "Mover"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Move failed."), icon = "notice-warning",
-#: context_menu.lua:1857
+#: context_menu.lua:1942
 msgid "Move failed."
 msgstr "No se ha podido mover."
 
@@ -3393,7 +3297,7 @@ msgstr "Mover a carpeta"
 
 #. Type: title
 #. Context: show_files = true, title = _("Move to…"), path = move_home_dir,
-#: context_menu.lua:1803
+#: context_menu.lua:1888
 msgid "Move to…"
 msgstr "Mover a…"
 
@@ -3405,19 +3309,19 @@ msgstr "Nombre"
 
 #. Type: setting
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Navbar"), { _("Tabs") .. " \u{25B8}",
-#: zen_settings.lua:96 zen_settings.lua:137 navbar_settings.lua:1486
+#: zen_settings.lua:96 zen_settings.lua:137 navbar_settings.lua:1496
 msgid "Navbar"
 msgstr "Barra de navegación"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Navbar icon size"), value = config.navbar.icon_size,
-#: navbar_settings.lua:1579
+#: navbar_settings.lua:1589
 msgid "Navbar icon size"
 msgstr "Tamaño de los iconos de la barra de navegación"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Navbar label size"), value = config.navbar.label_size,
-#: navbar_settings.lua:1530
+#: navbar_settings.lua:1540
 msgid "Navbar label size"
 msgstr "Tamaño de las etiquetas de la barra de navegación"
 
@@ -3429,7 +3333,7 @@ msgstr "Pestañas de navegación"
 
 #. Type: setting
 #. Context: note = _("Note"), navigate_to_tag = _("Navigate to tag"), pages = _("Pages"),
-#: library_settings.lua:1513
+#: library_settings.lua:1511
 msgid "Navigate to tag"
 msgstr "Ir a la etiqueta"
 
@@ -3447,8 +3351,7 @@ msgstr "Red no disponible."
 
 #. Type: status
 #. Context: if is_new then status_label = _("New") elseif display_status == "tbr" then
-#: metadata_editor.lua:610 browser_list_item_layout.lua:446 zen_renderer.lua:827
-#: strip_common.lua:453
+#: metadata_editor.lua:610 browser_list_item_layout.lua:446 zen_renderer.lua:827 strip_common.lua:453
 msgid "New"
 msgstr "Nuevo"
 
@@ -3466,18 +3369,15 @@ msgstr "Nuevo tema personalizado"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("New folder"), input = "",
-#: context_menu.lua:1767 app_launcher_settings.lua:272
+#: context_menu.lua:1852 app_launcher_settings.lua:272
 msgid "New folder"
 msgstr "Nueva carpeta"
 
 #. Type: message
 #. Context: text = _("Include new books in TBR"), help_text = _("New includes unread books and books modified since they were last opened."), checked_func = function()
-#: library_settings.lua:1728
-msgid ""
-"New includes unread books and books modified since they were last opened."
-msgstr ""
-"Nuevo incluye los libros no leídos y los modificados desde la última vez que "
-"se abrieron."
+#: library_settings.lua:1726
+msgid "New includes unread books and books modified since they were last opened."
+msgstr "Nuevo incluye los libros no leídos y los modificados desde la última vez que se abrieron."
 
 #. Type: setting
 #. Context: { text = _("New quote"), sub_item_table = {
@@ -3487,19 +3387,19 @@ msgstr "Nueva cita"
 
 #. Type: setting
 #. Context: { id = "manga", text = _("Manga") }, { id = "news", text = _("News") }, { id = "continue", text = _("Continue") },
-#: nav_button_model.lua:17 navbar.lua:254 navbar_settings.lua:169
+#: nav_button_model.lua:17 navbar.lua:260 navbar_settings.lua:169
 msgid "News"
 msgstr "Noticias"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("News folder not found: ") .. (folder_path or config.news_folder), })
-#: navbar.lua:1292
+#: navbar.lua:1323
 msgid "News folder not found: "
 msgstr "Carpeta de noticias no encontrada: "
 
 #. Type: setting
 #. Context: { text = _("Next"), is_enter_default = true,
-#: quickstart_screen.lua:489 navbar.lua:334 zen_bugreporter.lua:205
+#: quickstart_screen.lua:489 navbar.lua:340 zen_bugreporter.lua:208
 msgid "Next"
 msgstr "Siguiente"
 
@@ -3517,25 +3417,25 @@ msgstr "Noche"
 
 #. Type: setting
 #. Context: local title = config.features.brightness_schedule == true and _("Night brightness") or mode_value_label(_("Dark mode"), _("Brightness"))
-#: global_settings.lua:606
+#: global_settings.lua:626
 msgid "Night brightness"
 msgstr "Brillo nocturno"
 
 #. Type: setting
 #. Context: local cfg = get_brightness_schedule_config() utils.show_time_picker(_("Night brightness time"), cfg.night_h, cfg.night_m, function(h, m)
-#: global_settings.lua:575
+#: global_settings.lua:595
 msgid "Night brightness time"
 msgstr "Hora de activación del brillo nocturno"
 
 #. Type: setting
 #. Context: local cfg = get_brightness_schedule_config() return _("Night brightness time: ") .. utils.fmt_time(cfg.night_h, cfg.night_m) end,
-#: global_settings.lua:567
+#: global_settings.lua:587
 msgid "Night brightness time: "
 msgstr "Hora de activación del brillo nocturno: "
 
 #. Type: setting
 #. Context: if config.features.brightness_schedule == true then return _("Night brightness: ") .. cfg.night_value end
-#: global_settings.lua:592
+#: global_settings.lua:612
 msgid "Night brightness: "
 msgstr "Brillo nocturno: "
 
@@ -3547,61 +3447,67 @@ msgstr "Modo nocturno"
 
 #. Type: setting
 #. Context: local cfg = get_night_schedule_config() utils.show_time_picker(_("Night mode off time"), cfg.night_off_h, cfg.night_off_m,
-#: global_settings.lua:452
+#: global_settings.lua:472
 msgid "Night mode off time"
 msgstr "Hora de desactivación del modo oscuro"
 
 #. Type: setting
 #. Context: local cfg = get_night_schedule_config() return _("Night mode off: ") .. utils.fmt_time(cfg.night_off_h, cfg.night_off_m) end,
-#: global_settings.lua:444
+#: global_settings.lua:464
 msgid "Night mode off: "
 msgstr "Modo nocturno apagado: "
 
 #. Type: setting
 #. Context: local cfg = get_night_schedule_config() utils.show_time_picker(_("Night mode on time"), cfg.night_on_h, cfg.night_on_m,
-#: global_settings.lua:427
+#: global_settings.lua:447
 msgid "Night mode on time"
 msgstr "Hora de activación del modo oscuro"
 
 #. Type: setting
 #. Context: local cfg = get_night_schedule_config() return _("Night mode on: ") .. utils.fmt_time(cfg.night_on_h, cfg.night_on_m) end,
-#: global_settings.lua:419
+#: global_settings.lua:439
 msgid "Night mode on: "
 msgstr "Modo nocturno encendido: "
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Night mode schedule"), sub_item_table = {
-#: global_settings.lua:399
+#: global_settings.lua:419
 msgid "Night mode schedule"
 msgstr "Activar programación del modo oscuro"
 
 #. Type: setting
 #. Context: local title = config.features.warmth_schedule == true and _("Night warmth") or mode_value_label(_("Dark mode"), _("Warmth"))
-#: global_settings.lua:760
+#: global_settings.lua:780
 msgid "Night warmth"
 msgstr "Calidez nocturna"
 
 #. Type: setting
 #. Context: local cfg = get_warmth_schedule_config() utils.show_time_picker(_("Night warmth time"), cfg.night_h, cfg.night_m, function(h, m)
-#: global_settings.lua:729
+#: global_settings.lua:749
 msgid "Night warmth time"
 msgstr "Hora de activación de la calidez nocturna"
 
 #. Type: setting
 #. Context: local cfg = get_warmth_schedule_config() return _("Night warmth time: ") .. utils.fmt_time(cfg.night_h, cfg.night_m) end,
-#: global_settings.lua:721
+#: global_settings.lua:741
 msgid "Night warmth time: "
 msgstr "Hora de activación de la calidez nocturna: "
 
 #. Type: setting
 #. Context: if config.features.warmth_schedule == true then return _("Night warmth: ") .. cfg.night_value end
-#: global_settings.lua:746
+#: global_settings.lua:766
 msgid "Night warmth: "
 msgstr "Calidez nocturna: "
 
+#. Type: dialog
+#. Context: UIManager:show(ConfirmBox:new{ text = _("No archive folder is set. Set one now?"), ok_text = _("Set archive folder"),
+#: archive_actions.lua:161
+msgid "No archive folder is set. Set one now?"
+msgstr "No hay ninguna carpeta de archivo configurada. ¿Desea configurar una ahora?"
+
 #. Type: message
 #. Context: end return _("No background image selected.") end
-#: library_settings.lua:1244
+#: library_settings.lua:1242
 msgid "No background image selected."
 msgstr "No se ha seleccionado ninguna imagen de fondo."
 
@@ -3649,8 +3555,7 @@ msgstr "No se han encontrado libros con metadatos de etiquetas"
 
 #. Type: message
 #. Context: if type(notes) ~= "string" then return _("No changelog provided.") end
-#: zen_updater.lua:213 zen_updater.lua:218 zen_updater.lua:805
-#: zen_updater.lua:818
+#: zen_updater.lua:213 zen_updater.lua:218 zen_updater.lua:805 zen_updater.lua:818
 msgid "No changelog provided."
 msgstr "No se ha proporcionado registro de cambios."
 
@@ -3662,14 +3567,13 @@ msgstr "Sin descripción."
 
 #. Type: dialog
 #. Context: local InfoMessage = require("ui/widget/infomessage") UIManager:show(InfoMessage:new{ text = _("No KOReader submenus found") }) return
-#: app_launcher_settings.lua:413 menu_settings.lua:410 navbar_settings.lua:472
+#: app_launcher_settings.lua:413 menu_settings.lua:410 navbar_settings.lua:482
 msgid "No KOReader submenus found"
 msgstr "No se han encontrado submenús de KOReader"
 
 #. Type: dialog
 #. Context: local InfoMessage = require("ui/widget/infomessage") UIManager:show(InfoMessage:new{ text = _("No launchable plugin menus found") }) return
-#: app_launcher_settings.lua:311 app_launcher_settings.lua:381
-#: menu_settings.lua:387 navbar_settings.lua:450
+#: app_launcher_settings.lua:311 app_launcher_settings.lua:381 menu_settings.lua:387 navbar_settings.lua:460
 msgid "No launchable plugin menus found"
 msgstr "No se han encontrado menús de complementos ejecutables"
 
@@ -3693,7 +3597,7 @@ msgstr "No hay proveedores de metadatos habilitados. ¿Abrir los configuración?
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("No network connection. Please connect to Wi-Fi and try again."), })
-#: zen_bugreporter.lua:173
+#: zen_bugreporter.lua:176
 msgid "No network connection. Please connect to Wi-Fi and try again."
 msgstr "Sin conexión de red. Conéctate al Wi-Fi e inténtalo de nuevo."
 
@@ -3717,7 +3621,7 @@ msgstr "Sin datos de lectura"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = _("No table of contents available."), })
-#: dispatch_action.lua:336 zen_toc_widget.lua:537
+#: dispatch_action.lua:340 zen_toc_widget.lua:537
 msgid "No table of contents available."
 msgstr "No hay ninguna tabla de contenido disponible."
 
@@ -3767,9 +3671,7 @@ msgstr "Normal"
 #. Context: text = T( _("Not enough Home space: %1/%2 units used; this widget needs %3."), used,
 #: home_settings.lua:448
 msgid "Not enough Home space: %1/%2 units used; this widget needs %3."
-msgstr ""
-"No hay suficiente espacio en Inicio: unidades %1/%2 utilizadas; este widget "
-"necesita %3."
+msgstr "No hay suficiente espacio en Inicio: unidades %1/%2 utilizadas; este widget necesita %3."
 
 #. Type: setting
 #. Context: local function masked_credential(value) if value == "" then return _("Not set") end if #value <= 4 then return "••••" end
@@ -3779,14 +3681,13 @@ msgstr "Sin configurar"
 
 #. Type: setting
 #. Context: annotations = _("Annotations"), note = _("Note"), navigate_to_tag = _("Navigate to tag"),
-#: library_settings.lua:1512
+#: library_settings.lua:1510
 msgid "Note"
 msgstr "Nota"
 
 #. Type: setting
 #. Context: local text = Dispatcher:menuTextFunc(entry.action) if text and text ~= "" and text ~= _("Nothing") then return icon_utils.stripZenPrefix(text)
-#: app_launcher_settings.lua:158 menu_settings.lua:742 home_settings.lua:1437
-#: navbar_settings.lua:325
+#: app_launcher_settings.lua:158 menu_settings.lua:742 home_settings.lua:1437 navbar_settings.lua:335
 msgid "Nothing"
 msgstr "Nada"
 
@@ -3804,21 +3705,13 @@ msgstr "NotionSync"
 
 #. Type: setting
 #. Context: { text = _("Off"), radio = true,
-#: status_bar.lua:395 incognito_mode.lua:248 reader_top_status_bar.lua:191
-#: library_settings.lua:1455 home_settings.lua:474 home_settings.lua:485
+#: status_bar.lua:395 incognito_mode.lua:248 reader_top_status_bar.lua:191 library_settings.lua:1453 home_settings.lua:474 home_settings.lua:485
 msgid "Off"
 msgstr "Apagado"
 
 #. Type: button
 #. Context: no_ok_button = true, cancel_text = _("OK"), })
-#: coverbrowser_check.lua:46 zen_bugreporter.lua:348 zen_updater.lua:1277
-#: zen_updater.lua:1285 zen_updater.lua:1290 zen_updater.lua:1295
-#: zen_updater.lua:1301 zen_updater.lua:1321 zen_updater.lua:1371
-#: zen_updater.lua:1373 zen_updater.lua:1375 zen_updater.lua:1382
-#: zen_updater.lua:1384 zen_updater.lua:1539 zen_updater.lua:1559
-#: zen_updater.lua:1677 zen_updater.lua:1689 zen_updater.lua:1695
-#: zen_updater.lua:1701 zenpm_installer.lua:350 zenpm_installer.lua:358
-#: zenpm_installer.lua:361 zenpm_installer.lua:369 zenpm_installer.lua:378
+#: coverbrowser_check.lua:46 zen_bugreporter.lua:351 zen_updater.lua:1277 zen_updater.lua:1285 zen_updater.lua:1290 zen_updater.lua:1295 zen_updater.lua:1301 zen_updater.lua:1321 zen_updater.lua:1371 zen_updater.lua:1373 zen_updater.lua:1375 zen_updater.lua:1382 zen_updater.lua:1384 zen_updater.lua:1539 zen_updater.lua:1559 zen_updater.lua:1677 zen_updater.lua:1689 zen_updater.lua:1695 zen_updater.lua:1701 zenpm_installer.lua:350 zenpm_installer.lua:358 zenpm_installer.lua:361 zenpm_installer.lua:369 zenpm_installer.lua:378
 msgid "OK"
 msgstr "Aceptar"
 
@@ -3830,14 +3723,13 @@ msgstr "Oliva"
 
 #. Type: setting
 #. Context: { text = _("On"), radio = true,
-#: library_settings.lua:1467
+#: library_settings.lua:1465
 msgid "On"
 msgstr "Activado"
 
 #. Type: status
 #. Context: elseif display_status == "abandoned" then status_label = _("On hold") progress_str = "\u{F03E4}"
-#: nav_button_model.lua:34 browser_list_item_layout.lua:454 context_menu.lua:738
-#: context_menu.lua:2060 context_menu.lua:2319
+#: nav_button_model.lua:34 browser_list_item_layout.lua:454 context_menu.lua:763 context_menu.lua:2145 context_menu.lua:2404
 msgid "On hold"
 msgstr "En espera"
 
@@ -3855,7 +3747,7 @@ msgstr "Uno por línea"
 
 #. Type: setting
 #. Context: { text = _("Only in Zen mode"), radio = true,
-#: library_settings.lua:1461
+#: library_settings.lua:1459
 msgid "Only in Zen mode"
 msgstr "Solo en modo Zen"
 
@@ -3867,7 +3759,7 @@ msgstr "Mostrar solo durante la lectura"
 
 #. Type: setting
 #. Context: text_func = function() return string.format("%s: %d%%", _("Opacity"), ensure_lib_bg().opacity)
-#: library_settings.lua:1330 library_settings.lua:1340
+#: library_settings.lua:1328 library_settings.lua:1338
 msgid "Opacity"
 msgstr "Opacidad"
 
@@ -3885,14 +3777,13 @@ msgstr "OPDS"
 
 #. Type: button
 #. Context: text = _("Open this file?") .. "\n\n" .. filename, ok_text = _("Open"), cancel_text = _("Cancel"),
-#: home_page.lua:2174 opening_banner.lua:548
+#: home_page.lua:2193 opening_banner.lua:548
 msgid "Open"
 msgstr "Abrir"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Open folder"), keep_menu_open = true,
-#: app_launcher_settings.lua:540 app_launcher_settings.lua:595
-#: navbar_settings.lua:1124 navbar_settings.lua:1126
+#: app_launcher_settings.lua:540 app_launcher_settings.lua:595 navbar_settings.lua:1134 navbar_settings.lua:1136
 msgid "Open folder"
 msgstr "Abrir carpeta"
 
@@ -3916,25 +3807,25 @@ msgstr "Abrir menú en el Lanzador"
 
 #. Type: button
 #. Context: next_file_btn = Button:new{ text = _("Open next file"), width = action_width,
-#: book_status.lua:239
+#: book_status.lua:240
 msgid "Open next file"
 msgstr "Abrir archivo siguiente"
 
 #. Type: setting
 #. Context: { text = _("Open QuickRSS"), checked_func = function()
-#: navbar_settings.lua:1241
+#: navbar_settings.lua:1251
 msgid "Open QuickRSS"
 msgstr "Abrir QuickRSS"
 
 #. Type: setting
 #. Context: { text = _("Open Rakuyomi"), checked_func = function() return config.navbar.manga_action ~= "folder" end,
-#: navbar_settings.lua:1210
+#: navbar_settings.lua:1220
 msgid "Open Rakuyomi"
 msgstr "Abrir Rakuyomi"
 
 #. Type: setting
 #. Context: { text = _("Open RSS Reader"), checked_func = function() return config.navbar.news_action == "rssreader" end,
-#: navbar_settings.lua:1252
+#: navbar_settings.lua:1262
 msgid "Open RSS Reader"
 msgstr "Abrir lector RSS"
 
@@ -3946,7 +3837,7 @@ msgstr "Abrir configuración"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Open this file?") .. "\n\n" .. filename, ok_text = _("Open"),
-#: home_page.lua:2173 opening_banner.lua:547
+#: home_page.lua:2192 opening_banner.lua:547
 msgid "Open this file?"
 msgstr "¿Abrir este archivo?"
 
@@ -3960,9 +3851,7 @@ msgstr "Abrir con…"
 #. Context: UIManager:show(InfoMessage:new{ text = _("Open Zen UI Settings → Library → Metadata to configure providers."), })
 #: metadata_editor.lua:98
 msgid "Open Zen UI Settings → Library → Metadata to configure providers."
-msgstr ""
-"Abre Configuración de Zen UI → Biblioteca → Metadatos para configurar los "
-"proveedores."
+msgstr "Abre Configuración de Zen UI → Biblioteca → Metadatos para configurar los proveedores."
 
 #. Type: label
 #. Context: local tw = TextWidget:new{ text = self.label or _("Opening"), face = Font:getFace("cfont", Screen:scaleBySize(7)),
@@ -3978,13 +3867,15 @@ msgstr "Naranja"
 
 #. Type: title
 #. Context: require("common/ui/zen_arrange_list").show{ title = _("Order"), item_table = items,
-#: tbr_index.lua:873 tbr_index.lua:881 context_menu.lua:2199
-#: context_menu.lua:2259 group_view.lua:631 group_view.lua:676
-#: group_view.lua:890 app_launcher_settings.lua:60
-#: app_launcher_settings.lua:1027 home_settings.lua:1157
-#: navbar_settings.lua:1266
+#: tbr_index.lua:873 tbr_index.lua:881 context_menu.lua:2284 context_menu.lua:2344 group_view.lua:631 group_view.lua:676 group_view.lua:888 app_launcher_settings.lua:60 app_launcher_settings.lua:1027 home_settings.lua:1157 navbar_settings.lua:1276
 msgid "Order"
 msgstr "Orden"
+
+#. Type: label
+#. Context: order_buttons[#order_buttons + 1] = {{ text = "\u{F0DC} " .. _("Order TBR"), align = "left",
+#: group_view.lua:917
+msgid "Order TBR"
+msgstr "Ordenar los libros por leer"
 
 #. Type: setting
 #. Context: { id = "divider", text = _("Divider") }, { id = "outline", text = _("Outline") }, { id = "none", text = _("None") },
@@ -4041,19 +3932,16 @@ msgid "Page x / y"
 msgstr "Página x / y"
 
 #. Type: unit
-#. Context: { text = _("Pages"), radio = true,
-#: reading_goals.lua:127 stats_page.lua:76 stats_page.lua:917 stats_page.lua:926
-#: stats_page.lua:934 stats_page.lua:1342 stats_page.lua:1423
-#: app_launcher_settings.lua:79 library_settings.lua:1514 stats_settings.lua:102
-msgid "Pages"
-msgstr "Páginas"
-
-#. Type: unit
 #. Context: function M.formatPageCount(pages, long) local label = long and __("pages") or __("p.") return tostring(pages) .. "\u{00A0}" .. label
-#: utils.lua:345 context_menu.lua:1139 stats_page.lua:430 reading_goals.lua:92
-#: reading_goals.lua:267 book_details_page.lua:226
+#: utils.lua:345 context_menu.lua:1169 stats_page.lua:430 reading_goals.lua:92 reading_goals.lua:267 book_details_page.lua:226
 msgid "pages"
 msgstr "páginas"
+
+#. Type: unit
+#. Context: { text = _("Pages"), radio = true,
+#: reading_goals.lua:128 stats_page.lua:76 stats_page.lua:917 stats_page.lua:926 stats_page.lua:934 stats_page.lua:1352 stats_page.lua:1433 app_launcher_settings.lua:79 library_settings.lua:1512 stats_settings.lua:102
+msgid "Pages"
+msgstr "Páginas"
 
 #. Type: label
 #. Context: blockCard{ width = c4_w, height = card_h, value = formatLongTime(book.total_time), label = _("Total time") }, blockCard{ width = c4_w, height = card_h, value = tostring(book.pages_read or 0), label = _("Pages read") }, blockCard{ width =...
@@ -4069,8 +3957,7 @@ msgstr "Páginas de esta semana"
 
 #. Type: setting
 #. Context: time_remaining = _("Time remaining"), pages_today = _("Pages today"), time_today = _("Time today"),
-#: stats_page.lua:909 stats_triplet.lua:51 book_details_page.lua:208
-#: app_launcher_settings.lua:77 home_settings.lua:2223
+#: stats_page.lua:909 stats_triplet.lua:51 book_details_page.lua:208 app_launcher_settings.lua:77 home_settings.lua:2223
 msgid "Pages today"
 msgstr "Páginas leídas hoy"
 
@@ -4088,13 +3975,13 @@ msgstr "Actualización parcial de páginas"
 
 #. Type: label
 #. Context: {{ text = "\u{F0192} " .. C_("File", "Paste"), align = "left",
-#: context_menu.lua:1595 context_menu.lua:1631
+#: context_menu.lua:1625 context_menu.lua:1661
 msgid "Paste"
 msgstr "Pegar"
 
 #. Type: title
 #. Context: action_dialog = new_context_menu_dialog{ title = _("Paste selected files"), title_align = "center",
-#: context_menu.lua:1471
+#: context_menu.lua:1501
 msgid "Paste selected files"
 msgstr "Pegar archivos seleccionados"
 
@@ -4104,61 +3991,57 @@ msgstr "Pegar archivos seleccionados"
 msgid "Percent"
 msgstr "Porcentaje"
 
-#. Type: label
-#. Context: all_time = _("All Time"), personal_records = _("Personal Records"), library = _("Library"),
-#: stats_page.lua:65
-msgid "Personal Records"
-msgstr "Registros personales"
-
 #. Type: setting
 #. Context: all_time = _("All time"), personal_records = _("Personal records"), library = _("Library"),
 #: stats_settings.lua:32
 msgid "Personal records"
 msgstr "Registros personales"
 
+#. Type: label
+#. Context: all_time = _("All Time"), personal_records = _("Personal Records"), library = _("Library"),
+#: stats_page.lua:65
+msgid "Personal Records"
+msgstr "Registros personales"
+
 #. Type: message
 #. Context: end, help_text = _("Place pack folders or ZIP files in /koreader/icons/zen. ZIP files are installed automatically."), enabled_func = function()
 #: extras_settings.lua:229
-msgid ""
-"Place pack folders or ZIP files in /koreader/icons/zen. ZIP files are "
-"installed automatically."
-msgstr ""
-"Coloca carpetas de paquetes o archivos ZIP en /koreader/icons/zen. Los "
-"archivos ZIP se instalan automáticamente."
+msgid "Place pack folders or ZIP files in /koreader/icons/zen. ZIP files are installed automatically."
+msgstr "Coloca carpetas de paquetes o archivos ZIP en /koreader/icons/zen. Los archivos ZIP se instalan automáticamente."
 
 #. Type: message
 #. Context: text = _("Project: Title is not compatible with ZenOS.") .. "\n\n" .. _("Please delete the Project: Title plugin from your plugins folder and restart KOReader."), show_icon = false,
 #: incompatible_plugins_check.lua:180
-msgid ""
-"Please delete the Project: Title plugin from your plugins folder and restart "
-"KOReader."
-msgstr ""
-"Elimina el complemento Project: Title de la carpeta de complementos y "
-"reinicia KOReader."
+msgid "Please delete the Project: Title plugin from your plugins folder and restart KOReader."
+msgstr "Elimina el complemento Project: Title de la carpeta de complementos y reinicia KOReader."
 
 #. Type: setting
 #. Context: or cb.plugin_title or _("Plugin"), visible_func = function()
-#: nav_button_model.lua:150 quick_settings.lua:1100 menu_settings.lua:455
-#: menu_settings.lua:729 home_settings.lua:1490 navbar_settings.lua:318
-#: navbar_settings.lua:498
+#: nav_button_model.lua:150 quick_settings.lua:1100 menu_settings.lua:455 menu_settings.lua:729 home_settings.lua:1490 navbar_settings.lua:328 navbar_settings.lua:508
 msgid "Plugin"
 msgstr "Complemento"
 
 #. Type: setting
+#. Context: { text = _("Plugin actions"), checked_func = function()
+#: library_settings.lua:1761
+msgid "Plugin actions"
+msgstr "Acciones del plugin"
+
+#. Type: setting
 #. Context: table.insert(items, { text = _("Plugin management"), sub_item_table_func = function()
-#: advanced_settings.lua:160
+#: advanced_settings.lua:175
 msgid "Plugin management"
 msgstr "Gestión de complementos"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Plugin Menu"), keep_menu_open = true,
-#: app_launcher_settings.lua:573 menu_settings.lua:680 navbar_settings.lua:1408
+#: app_launcher_settings.lua:573 menu_settings.lua:680 navbar_settings.lua:1418
 msgid "Plugin Menu"
 msgstr "Menú de complementos"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Plugin: %1"), entry.label or _("(none)")) end,
-#: app_launcher_settings.lua:845 menu_settings.lua:774 navbar_settings.lua:770
+#: app_launcher_settings.lua:845 menu_settings.lua:774 navbar_settings.lua:780
 msgid "Plugin: %1"
 msgstr "Complemento: %1"
 
@@ -4188,20 +4071,19 @@ msgstr "Posición"
 
 #. Type: title
 #. Context: dlg = InputDialog:new{ title = _("Preset name"), input = "",
-#: global_settings.lua:299 reader_settings.lua:1009 home_settings.lua:2029
-#: home_settings.lua:2107
+#: global_settings.lua:300 reader_settings.lua:1009 home_settings.lua:2029 home_settings.lua:2107
 msgid "Preset name"
 msgstr "Nombre del preajuste"
 
 #. Type: setting
 #. Context: table.insert(sub, { text = _("Presets"), sub_item_table_func = build_preset_items,
-#: global_settings.lua:790 home_settings.lua:2658
+#: global_settings.lua:810 home_settings.lua:2658
 msgid "Presets"
 msgstr "Preajustes"
 
 #. Type: label
 #. Context: local prev_tw = TextWidget:new{ text = _("Prev"), face = Font:getFace("cfont", 20),
-#: quickstart_screen.lua:464 navbar.lua:329
+#: quickstart_screen.lua:464 navbar.lua:335
 msgid "Prev"
 msgstr "Anterior"
 
@@ -4213,7 +4095,7 @@ msgstr "Página anterior"
 
 #. Type: setting
 #. Context: icon = "quick_stats_progress", label = _("Progress"), visible_func = function() return hasPlugin("statistics") end,
-#: quick_settings.lua:972 library_settings.lua:1515 home_settings.lua:1030
+#: quick_settings.lua:972 library_settings.lua:1513 home_settings.lua:1030
 msgid "Progress"
 msgstr "Progreso"
 
@@ -4279,7 +4161,7 @@ msgstr "QuickRSS"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("QuickRSS plugin is not installed."), })
-#: navbar.lua:1319 quick_settings.lua:728
+#: navbar.lua:1350 quick_settings.lua:728
 msgid "QuickRSS plugin is not installed."
 msgstr "El complemento QuickRSS no está instalado."
 
@@ -4333,13 +4215,13 @@ msgstr "Uso de RAM"
 
 #. Type: setting
 #. Context: { text = _("Range"), sub_item_table_func = function()
-#: stats_page.lua:1427 stats_settings.lua:116
+#: stats_page.lua:1437 stats_settings.lua:116
 msgid "Range"
 msgstr "Rango"
 
 #. Type: setting
 #. Context: language = _("Language"), rating = _("Rating"), annotations = _("Annotations"),
-#: library_settings.lua:1510
+#: library_settings.lua:1508
 msgid "Rating"
 msgstr "Valoración"
 
@@ -4351,13 +4233,13 @@ msgstr "Leer ahora"
 
 #. Type: title
 #. Context: status_dialog = new_context_menu_dialog{ title = _("Read status"), title_align = "center",
-#: quickstart_pages.lua:306 context_menu.lua:1963 context_menu.lua:2054
+#: quickstart_pages.lua:306 context_menu.lua:2048 context_menu.lua:2139
 msgid "Read status"
 msgstr "Estado de lectura"
 
 #. Type: setting
 #. Context: local labels = { read_time = _("Read time"), time_remaining = _("Time remaining"),
-#: stats_page.lua:943 app_launcher_settings.lua:75 library_settings.lua:1516
+#: stats_page.lua:943 app_launcher_settings.lua:75 library_settings.lua:1514
 msgid "Read time"
 msgstr "Tiempo de lectura"
 
@@ -4375,8 +4257,7 @@ msgstr "Lectura: %s"
 
 #. Type: title
 #. Context: { title = _("Reader"), description = _("Font, margins, contrast, line spacing etc - tested together for the best reading experience"),
-#: quickstart_pages.lua:773 action_filter.lua:66 zen_settings.lua:151
-#: global_settings.lua:881
+#: quickstart_pages.lua:773 action_filter.lua:66 zen_settings.lua:151 global_settings.lua:901
 msgid "Reader"
 msgstr "Lector"
 
@@ -4394,16 +4275,9 @@ msgstr "Temas de lectura"
 
 #. Type: status
 #. Context: else status_label = _("Reading") end
-#: nav_button_model.lua:32 browser_list_item_layout.lua:460 context_menu.lua:736
-#: context_menu.lua:2058 context_menu.lua:2317 stats_page.lua:955
+#: nav_button_model.lua:32 browser_list_item_layout.lua:460 context_menu.lua:761 context_menu.lua:2143 context_menu.lua:2402 stats_page.lua:955
 msgid "Reading"
 msgstr "Leyendo"
-
-#. Type: label
-#. Context: goal_progress = _("Reading goals"), calendar = _("Reading Calendar"), }
-#: stats_page.lua:70
-msgid "Reading Calendar"
-msgstr "Calendario de lectura"
 
 #. Type: setting
 #. Context: goal_progress = _("Reading goals"), calendar = _("Reading calendar"), }
@@ -4411,10 +4285,15 @@ msgstr "Calendario de lectura"
 msgid "Reading calendar"
 msgstr "Calendario de lectura"
 
+#. Type: label
+#. Context: goal_progress = _("Reading goals"), calendar = _("Reading Calendar"), }
+#: stats_page.lua:70
+msgid "Reading Calendar"
+msgstr "Calendario de lectura"
+
 #. Type: title
 #. Context: align = "left", title = _("Reading goals"), title_face = Font:getFace("smallinfofontbold", Screen:scaleBySize(10)),
-#: stats_page.lua:69 reading_goals.lua:156 reading_goals.lua:184
-#: stats_settings.lua:36
+#: stats_page.lua:69 reading_goals.lua:156 reading_goals.lua:184 stats_settings.lua:36
 msgid "Reading goals"
 msgstr "Objetivos de lectura"
 
@@ -4430,12 +4309,6 @@ msgstr "Tamaño de fuente de los objetivos de lectura"
 msgid "Reading stats"
 msgstr "Estadísticas de lectura"
 
-#. Type: setting
-#. Context: current_book = _("Current book"), trend_graph = _("Reading trend"), goal_progress = _("Reading goals"),
-#: stats_settings.lua:35
-msgid "Reading trend"
-msgstr "Tendencia de lectura"
-
 #. Type: label
 #. Context: current_book = _("Current Book"), trend_graph = _("Reading Trend"), goal_progress = _("Reading goals"),
 #: stats_page.lua:68
@@ -4443,9 +4316,14 @@ msgid "Reading Trend"
 msgstr "Tendencia de lectura"
 
 #. Type: setting
+#. Context: current_book = _("Current book"), trend_graph = _("Reading trend"), goal_progress = _("Reading goals"),
+#: stats_settings.lua:35
+msgid "Reading trend"
+msgstr "Tendencia de lectura"
+
+#. Type: setting
 #. Context: local labels = { recent = _("Recent"), favorites = _("Favorites"), to_be_read = _("To Be Read"), authors = _("Authors"),
-#: nav_button_model.lua:6 home_settings.lua:1073 home_settings.lua:1080
-#: home_settings.lua:1083
+#: nav_button_model.lua:6 home_settings.lua:1073 home_settings.lua:1080 home_settings.lua:1083
 msgid "Recent"
 msgstr "Recientes"
 
@@ -4457,14 +4335,13 @@ msgstr "Filtros de Recientes"
 
 #. Type: setting
 #. Context: if kind == "to_be_read" then return _("To Be Read") end return _("Recently read") end
-#: context_menu.lua:2169 group_view.lua:833 home_settings.lua:959
-#: home_settings.lua:997
+#: context_menu.lua:2254 group_view.lua:833 home_settings.lua:959 home_settings.lua:997
 msgid "Recently read"
 msgstr "Leído recientemente"
 
 #. Type: setting
 #. Context: { text = _("Amber"), r = 0xF0, g = 0xD0, b = 0x80 }, { text = _("Red"), r = 0xDD, g = 0x99, b = 0x99 }, },
-#: library_settings.lua:573 reader_settings.lua:59 navbar_settings.lua:1643
+#: library_settings.lua:573 reader_settings.lua:59 navbar_settings.lua:1653
 msgid "Red"
 msgstr "Rojo"
 
@@ -4476,7 +4353,7 @@ msgstr "Documentos reajustables (epub, fb2, txt…)"
 
 #. Type: label
 #. Context: { text = icons.refresh .. " " .. _("Refresh"), align = "left",
-#: context_menu.lua:1658 context_menu.lua:2073
+#: context_menu.lua:1688 context_menu.lua:2158
 msgid "Refresh"
 msgstr "Actualizar"
 
@@ -4500,7 +4377,7 @@ msgstr "Restante: %s"
 
 #. Type: button
 #. Context: text = _("Remove this book from history?"), ok_text = _("Remove"), ok_callback = function()
-#: context_menu.lua:2412 library_settings.lua:1404
+#: context_menu.lua:2511 library_settings.lua:1402
 msgid "Remove"
 msgstr "Eliminar"
 
@@ -4511,16 +4388,28 @@ msgid "Remove default"
 msgstr "Eliminar predeterminado"
 
 #. Type: label
+#. Context: return {{ text = icons.archive .. " " .. _("Remove from archive"), align = "left",
+#: archive_actions.lua:177 archive_actions.lua:187
+msgid "Remove from archive"
+msgstr "Eliminar del archivo"
+
+#. Type: label
 #. Context: { text = "\u{F04D2} " .. _("Remove from collection"), align = "left",
-#: context_menu.lua:1877
+#: context_menu.lua:1962
 msgid "Remove from collection"
 msgstr "Quitar de la colección"
 
 #. Type: label
 #. Context: { text = icons.delete .. " " .. _("Remove from history"), align = "left",
-#: context_menu.lua:2405 history.lua:301
+#: context_menu.lua:2504 history.lua:301
 msgid "Remove from history"
 msgstr "Eliminar del historial"
+
+#. Type: action
+#. Context: Hold a book in the book switcher to remove it from that list.
+#: book_switcher_page.lua:401
+msgid "Remove from switcher"
+msgstr "Quitar del selector de libros"
 
 #. Type: label
 #. Context: return text == _("Add to vocabulary builder") or text == _("Remove from vocabulary builder") or text == _("Long-press to add to vocabulary builder")
@@ -4528,15 +4417,21 @@ msgstr "Eliminar del historial"
 msgid "Remove from vocabulary builder"
 msgstr "Eliminar del constructor de vocabulario"
 
+#. Type: message
+#. Context: end confirm_action(_("Remove this book from archive?"), _("Remove from archive"), function()
+#: archive_actions.lua:187
+msgid "Remove this book from archive?"
+msgstr "¿Eliminar este libro del archivo?"
+
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Remove this book from history?"), ok_text = _("Remove"),
-#: context_menu.lua:2411
+#: context_menu.lua:2510
 msgid "Remove this book from history?"
 msgstr "¿Eliminar este libro del historial?"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Remove this folder from additional home folders?") .. "\n" .. dir, ok_text = _("Remove"),
-#: library_settings.lua:1403
+#: library_settings.lua:1401
 msgid "Remove this folder from additional home folders?"
 msgstr "¿Eliminar esta carpeta de las carpetas de inicio adicionales?"
 
@@ -4548,8 +4443,7 @@ msgstr "Eliminar: "
 
 #. Type: setting
 #. Context: { text = _("Rename"), is_enter_default = true,
-#: collections.lua:363 context_menu.lua:1754 home_settings.lua:2039
-#: home_settings.lua:2164
+#: collections.lua:363 context_menu.lua:1839 home_settings.lua:2039 home_settings.lua:2164
 msgid "Rename"
 msgstr "Renombrar"
 
@@ -4573,14 +4467,13 @@ msgstr "Requerir doble toque para abrir libros"
 
 #. Type: setting
 #. Context: { text = _("Require hold to toggle buttons"), checked_func = function()
-#: global_settings.lua:857
+#: global_settings.lua:877
 msgid "Require hold to toggle buttons"
 msgstr "Mantener pulsado para activar botones"
 
 #. Type: button
 #. Context: text = _("Reset font family and size to default?"), ok_text = _("Reset"), ok_callback = function()
-#: library_settings.lua:308 menu_settings.lua:1188 reader_settings.lua:86
-#: home_settings.lua:1789
+#: library_settings.lua:308 menu_settings.lua:1188 reader_settings.lua:86 home_settings.lua:1789
 msgid "Reset"
 msgstr "Restablecer"
 
@@ -4616,7 +4509,7 @@ msgstr "Reiniciar"
 
 #. Type: button
 #. Context: local restart_book_btn = Button:new{ text = _("Restart Book"), width = action_width,
-#: book_status.lua:222
+#: book_status.lua:223
 msgid "Restart Book"
 msgstr "Reiniciar libro"
 
@@ -4628,8 +4521,7 @@ msgstr "Reinicia KOReader para aplicar el paquete activo actualizado"
 
 #. Type: button
 #. Context: no_ok_button = true, cancel_text = _("Restart now"), cancel_callback = function()
-#: incompatible_plugins_check.lua:288 zen_bugreporter.lua:155
-#: zen_settings_apply.lua:88 zenpm_installer.lua:385 global_settings.lua:47
+#: incompatible_plugins_check.lua:288 zen_bugreporter.lua:155 zen_settings_apply.lua:88 zenpm_installer.lua:385 global_settings.lua:47
 msgid "Restart now"
 msgstr "Reiniciar ahora"
 
@@ -4645,6 +4537,12 @@ msgstr "Reiniciando"
 msgid "Restore"
 msgstr "Restaurar"
 
+#. Type: message
+#. Context: text = _("Allow dragging reader modals"), help_text = _("Restore KOReader's default draggable modal behavior."), checked_func = function()
+#: advanced_settings.lua:66
+msgid "Restore KOReader's default draggable modal behavior."
+msgstr "Restaura el comportamiento predeterminado de KOReader para los diálogos arrastrables."
+
 #. Type: setting
 #. Context: table.insert(items, IconItem.decorate({ text = _("Restore library location on exit"), checked_func = function()
 #: reader_settings.lua:1267
@@ -4655,8 +4553,7 @@ msgstr "Restaurar ubicación de la biblioteca al salir"
 #. Context: text = self:isDirty() and _("Restore the previous metadata and discard your unsaved changes?") or _("Restore the previous metadata for this book?"),
 #: metadata_editor.lua:1223
 msgid "Restore the previous metadata and discard your unsaved changes?"
-msgstr ""
-"¿Restaurar los metadatos anteriores y descartar los cambios sin guardar?"
+msgstr "¿Restaurar los metadatos anteriores y descartar los cambios sin guardar?"
 
 #. Type: message
 #. Context: and _("Restore the previous metadata and discard your unsaved changes?") or _("Restore the previous metadata for this book?"), cancel_text = _("Cancel"),
@@ -4684,7 +4581,7 @@ msgstr "Volver a la lista de capítulos al salir"
 
 #. Type: title
 #. Context: local stats_header = self:genHeader(_("Statistics")) local review_header = self:genHeader(_("Review")) local status_header = self:genHeader(self.readonly and _("Book Status") or _("Update Status"))
-#: book_status.lua:209
+#: book_status.lua:210
 msgid "Review"
 msgstr "Reseña"
 
@@ -4732,15 +4629,13 @@ msgstr "Filas"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("RSS Reader plugin is not installed."), })
-#: navbar.lua:1305
+#: navbar.lua:1336
 msgid "RSS Reader plugin is not installed."
 msgstr "El complemento RSS Reader no está instalado."
 
 #. Type: setting
 #. Context: { text = _("Save"), is_enter_default = true,
-#: metadata_editor.lua:663 metadata_editor.lua:928 metadata_editor.lua:1046
-#: metadata_editor.lua:1240 global_settings.lua:308 reader_settings.lua:1018
-#: home_settings.lua:2117 metadata_settings.lua:43
+#: metadata_editor.lua:663 metadata_editor.lua:928 metadata_editor.lua:1046 metadata_editor.lua:1240 global_settings.lua:309 reader_settings.lua:1018 home_settings.lua:2117 metadata_settings.lua:43
 msgid "Save"
 msgstr "Guardar"
 
@@ -4752,7 +4647,7 @@ msgstr "Guardar página de inicio actual como preajuste"
 
 #. Type: setting
 #. Context: table.insert(preset_items, { text = _("Save current settings as preset"), keep_menu_open = true,
-#: global_settings.lua:293 reader_settings.lua:1003
+#: global_settings.lua:294 reader_settings.lua:1003
 msgid "Save current settings as preset"
 msgstr "Guardar configuración actual como preajuste"
 
@@ -4771,11 +4666,8 @@ msgstr "¿Guardar estos cambios dentro del EPUB?"
 #. Type: message
 #. Context: text = keep_backup and _("Save these changes inside the EPUB? ZenOS will keep one restorable backup.") or _("Save these changes inside the EPUB?"),
 #: metadata_editor.lua:1174
-msgid ""
-"Save these changes inside the EPUB? ZenOS will keep one restorable backup."
-msgstr ""
-"¿Guardar estos cambios dentro del EPUB? ZenOS conservará una copia de "
-"seguridad restaurable."
+msgid "Save these changes inside the EPUB? ZenOS will keep one restorable backup."
+msgstr "¿Guardar estos cambios dentro del EPUB? ZenOS conservará una copia de seguridad restaurable."
 
 #. Type: error
 #. Context: if not ok then self:showError(err or _("Saving metadata failed.")) return true
@@ -4791,7 +4683,7 @@ msgstr "Guardando metadatos…"
 
 #. Type: setting
 #. Context: { text = _("Schedules"), sub_item_table = {
-#: global_settings.lua:941
+#: global_settings.lua:961
 msgid "Schedules"
 msgstr "Programación horaria"
 
@@ -4827,17 +4719,13 @@ msgstr "Barra de desplazamiento"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Search") .. (catalog_name ~= "" and " " .. catalog_name or ""), input_hint = _("Alexandre Dumas"),
-#: nav_button_model.lua:21 quickstart_pages.lua:691 collections.lua:649
-#: metadata_editor.lua:958 navbar.lua:309 navbar.lua:314 search.lua:64
-#: opds.lua:1293 opds.lua:1487 opds.lua:1491 native_menu.lua:9
-#: quick_settings.lua:710 quick_settings.lua:750 page_browser.lua:2757
-#: global_settings.lua:380 navbar_settings.lua:180
+#: nav_button_model.lua:21 quickstart_pages.lua:691 collections.lua:649 metadata_editor.lua:958 navbar.lua:315 navbar.lua:320 search.lua:64 opds.lua:1293 opds.lua:1487 opds.lua:1491 native_menu.lua:9 quick_settings.lua:710 quick_settings.lua:750 page_browser.lua:2773 global_settings.lua:381 navbar_settings.lua:180
 msgid "Search"
 msgstr "Búsqueda"
 
 #. Type: title
 #. Context: self.input_dialog = InputDialog:new{ title = _("Search Book"), width = math.floor(math.min(Screen_s:getWidth(), Screen_s:getHeight()) * 0.9),
-#: page_browser.lua:2748
+#: page_browser.lua:2757
 msgid "Search Book"
 msgstr "Buscar libro"
 
@@ -4867,14 +4755,13 @@ msgstr "Buscar en la configuración"
 
 #. Type: dialog
 #. Context: if owns_notice then active_metadata_notice = InfoMessage:new{ text = _("Searching metadata…") } UIManager:show(active_metadata_notice)
-#: metadata_editor.lua:484 metadata_editor.lua:578 metadata_editor.lua:731
-#: metadata_editor.lua:873
+#: metadata_editor.lua:484 metadata_editor.lua:578 metadata_editor.lua:731 metadata_editor.lua:873
 msgid "Searching metadata…"
 msgstr "Buscando metadatos…"
 
 #. Type: label
 #. Context: { text = "\u{F0489} " .. _("Select"), align = "left",
-#: context_menu.lua:1641
+#: context_menu.lua:1671
 msgid "Select"
 msgstr "Seleccionar"
 
@@ -4908,21 +4795,17 @@ msgstr "Separador"
 msgid "Separator: "
 msgstr "Separador: "
 
-#. Type: label
-#. Context: subtitle = count == 1 and _("1 series") or (tostring(count) .. " " .. _("series")) end
-#: group_view.lua:1334
-msgid "series"
-msgstr "series"
-
 #. Type: title
 #. Context: dialog = MultiInputDialog:new{ title = _("Series"), fields = {
-#: nav_button_model.lua:10 quickstart_pages.lua:689 metadata_editor.lua:48
-#: metadata_editor.lua:510 metadata_editor.lua:1071 context_menu.lua:2168
-#: group_view.lua:1311 group_view.lua:1360 navbar.lua:284
-#: library_settings.lua:393 library_settings.lua:1507 home_settings.lua:838
-#: home_settings.lua:1075 navbar_settings.lua:175
+#: nav_button_model.lua:10 quickstart_pages.lua:689 metadata_editor.lua:48 metadata_editor.lua:510 metadata_editor.lua:1071 context_menu.lua:2253 group_view.lua:1307 group_view.lua:1356 navbar.lua:290 library_settings.lua:393 library_settings.lua:1505 home_settings.lua:838 home_settings.lua:1075 navbar_settings.lua:175
 msgid "Series"
 msgstr "Series"
+
+#. Type: label
+#. Context: subtitle = count == 1 and _("1 series") or (tostring(count) .. " " .. _("series")) end
+#: group_view.lua:1330
+msgid "series"
+msgstr "series"
 
 #. Type: label
 #. Context: local SORT_OPTIONS = { { key = "series_index", text = "\u{F0CB} " .. _("Series number") }, { key = "title", text = "\u{F031} " .. _("Title") },
@@ -4944,24 +4827,33 @@ msgstr "Páginas de la sesión"
 
 #. Type: setting
 #. Context: { text = _("Set"), is_enter_default = true,
-#: zen_settings_utils.lua:542 app_launcher_settings.lua:192
-#: menu_settings.lua:901 menu_settings.lua:1004 reader_settings.lua:119
-#: reader_settings.lua:212 reader_settings.lua:688 home_settings.lua:1208
-#: navbar_settings.lua:850 navbar_settings.lua:980 navbar_settings.lua:1051
-#: navbar_settings.lua:1187 status_bar_settings.lua:278
-#: status_bar_settings.lua:374
+#: zen_settings_utils.lua:542 app_launcher_settings.lua:192 menu_settings.lua:901 menu_settings.lua:1004 reader_settings.lua:119 reader_settings.lua:212 reader_settings.lua:688 home_settings.lua:1208 navbar_settings.lua:860 navbar_settings.lua:990 navbar_settings.lua:1061 navbar_settings.lua:1197 status_bar_settings.lua:278 status_bar_settings.lua:374
 msgid "Set"
 msgstr "Establecer"
 
+#. Type: message
+#. Context: or lfs.attributes(destination, "mode") ~= "directory" then show_message(_("Set a HOME folder in File Manager first.")) return
+#: archive_actions.lua:184
+msgid "Set a HOME folder in File Manager first."
+msgstr "Primero, configure una carpeta HOME en el Administrador de archivos."
+
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Set all gestures to pass-through? Top-right corner in reader will be kept as Toggle bookmark."), ok_text = _("Clear"),
-#: advanced_settings.lua:133
-msgid ""
-"Set all gestures to pass-through? Top-right corner in reader will be kept as "
-"Toggle bookmark."
-msgstr ""
-"¿Hacer que todos los gestos pasen directamente a KOReader? La esquina "
-"superior derecha del lector se mantendrá como «Alternar marcador»."
+#: advanced_settings.lua:148
+msgid "Set all gestures to pass-through? Top-right corner in reader will be kept as Toggle bookmark."
+msgstr "¿Hacer que todos los gestos pasen directamente a KOReader? La esquina superior derecha del lector se mantendrá como «Alternar marcador»."
+
+#. Type: message
+#. Context: or lfs.attributes(archive, "mode") ~= "directory" then show_message(_("Set an archive folder with Move to archive first.")) return false
+#: archive_actions.lua:227
+msgid "Set an archive folder with Move to archive first."
+msgstr "Establezca una carpeta de archivo con Mover a archivo primero."
+
+#. Type: button
+#. Context: text = _("No archive folder is set. Set one now?"), ok_text = _("Set archive folder"), ok_callback = function()
+#: archive_actions.lua:162
+msgid "Set archive folder"
+msgstr "Establecer carpeta de archivo"
 
 #. Type: label
 #. Context: and ("\u{F04D2} " .. _("Remove default")) or ("\u{F04CE} " .. _("Set as default")), align = "left",
@@ -4977,13 +4869,13 @@ msgstr "Establecer tipos de archivo para sincronizar"
 
 #. Type: title
 #. Context: name = "folder_cover_picker", title = options.title or _("Set folder cover"), subtitle = options.subtitle or (type(options.path) == "string"
-#: folder_cover_picker.lua:461 context_menu.lua:1528 context_menu.lua:1671
+#: folder_cover_picker.lua:461 context_menu.lua:1558 context_menu.lua:1701
 msgid "Set folder cover"
 msgstr "Establecer portada de carpeta"
 
 #. Type: setting
 #. Context: { text = _("Set home folder"), callback = function()
-#: library_settings.lua:1421
+#: library_settings.lua:1419
 msgid "Set home folder"
 msgstr "Establecer carpeta de inicio"
 
@@ -5001,9 +4893,7 @@ msgstr "Establecer carpeta de sincronización"
 
 #. Type: title
 #. Context: else self.item_table._zen_title = self._displayed_title or self.title or _("Settings") end
-#: native_menu.lua:10 zen_settings_page.lua:179 zen_settings_page.lua:204
-#: zen_settings_page.lua:261 zen_settings_page.lua:696 zen_settings_page.lua:867
-#: zen_settings_page.lua:869
+#: native_menu.lua:10 zen_settings_page.lua:179 zen_settings_page.lua:204 zen_settings_page.lua:261 zen_settings_page.lua:696 zen_settings_page.lua:867 zen_settings_page.lua:869
 msgid "Settings"
 msgstr "Configuración"
 
@@ -5069,8 +4959,7 @@ msgstr "Mostrar títulos de libros"
 
 #. Type: setting
 #. Context: _("12-hour time"), _("Show bottom border"), _("Bold text"),
-#: zen_settings.lua:88 reader_settings.lua:527 home_settings.lua:893
-#: status_bar_settings.lua:296
+#: zen_settings.lua:88 reader_settings.lua:527 home_settings.lua:893 status_bar_settings.lua:296
 msgid "Show bottom border"
 msgstr "Mostrar borde inferior"
 
@@ -5094,7 +4983,7 @@ msgstr "Mostrar nombre de carpeta"
 
 #. Type: menu
 #. Context: { text = _("Show goal"), checked_func = function() return has_period(goals, period.id) end,
-#: reading_goals.lua:110
+#: reading_goals.lua:111
 msgid "Show goal"
 msgstr "Mostrar objetivo"
 
@@ -5106,13 +4995,13 @@ msgstr "Mostrar código QR de la página del token de Hardcover"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Show hidden files"), checked_func = function()
-#: advanced_settings.lua:65
+#: advanced_settings.lua:80
 msgid "Show hidden files"
 msgstr "Mostrar archivos ocultos"
 
 #. Type: setting
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Icons"), { _("Show icons"), _("Icon size:"),
-#: zen_settings.lua:122 navbar_settings.lua:1553
+#: zen_settings.lua:122 navbar_settings.lua:1563
 msgid "Show icons"
 msgstr "Mostrar iconos"
 
@@ -5136,8 +5025,7 @@ msgstr "Mostrar KOAssistant"
 
 #. Type: setting
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Labels"), { _("Show labels"), _("Label size:"),
-#: zen_settings.lua:117 app_launcher_settings.lua:1014 menu_settings.lua:1139
-#: navbar_settings.lua:1501
+#: zen_settings.lua:117 app_launcher_settings.lua:1014 menu_settings.lua:1139 navbar_settings.lua:1511
 msgid "Show labels"
 msgstr "Mostrar etiquetas"
 
@@ -5157,8 +5045,7 @@ msgstr "Mostrar otros elementos"
 #. Context: text = _("Show other items"), help_text = _("Show other KOReader quick lookup options alongside Zen buttons."), checked_func = function()
 #: reader_settings.lua:1154
 msgid "Show other KOReader quick lookup options alongside Zen buttons."
-msgstr ""
-"Mostrar otras opciones de búsqueda rápida de KOReader junto a los botones Zen."
+msgstr "Mostrar otras opciones de búsqueda rápida de KOReader junto a los botones Zen."
 
 #. Type: setting
 #. Context: { text = _("Show page count"), checked_func = function()
@@ -5210,7 +5097,7 @@ msgstr "Mostrar título debajo de la portada (mosaico)"
 
 #. Type: setting
 #. Context: _("Active tab"), _("Show top border"), })
-#: zen_settings.lua:106 navbar_settings.lua:1649
+#: zen_settings.lua:106 navbar_settings.lua:1659
 msgid "Show top border"
 msgstr "Mostrar borde superior"
 
@@ -5251,8 +5138,14 @@ msgid "Show Zen icon - white background"
 msgstr "Mostrar icono Zen - fondo blanco"
 
 #. Type: setting
+#. Context: { text = _("Single tap to open context menu"), enabled_func = function()
+#: advanced_settings.lua:64
+msgid "Single tap to open context menu"
+msgstr "Un toque para abrir el menú contextual"
+
+#. Type: setting
 #. Context: { text = _("Skip"), id = "close",
-#: quickstart_pages.lua:840 zen_bugreporter.lua:261
+#: quickstart_pages.lua:840 zen_bugreporter.lua:264
 msgid "Skip"
 msgstr "Omitir"
 
@@ -5270,7 +5163,7 @@ msgstr "Saltar 20 páginas"
 
 #. Type: setting
 #. Context: icon = "quick_sleep", label = _("Sleep"), callback = function(touch_menu)
-#: quick_settings.lua:696 global_settings.lua:779 menu_settings.lua:77
+#: quick_settings.lua:696 global_settings.lua:799 menu_settings.lua:77
 msgid "Sleep"
 msgstr "Modo de suspensión"
 
@@ -5288,7 +5181,7 @@ msgstr "Rompecabezas deslizante"
 
 #. Type: label
 #. Context: table.insert(buttons, {{ text = "\u{F04BF} " .. _("Sort") .. " " .. submenu_arrow, align = "left",
-#: collections.lua:462 collections.lua:554 context_menu.lua:710
+#: collections.lua:462 collections.lua:554 context_menu.lua:735
 msgid "Sort"
 msgstr "Orden"
 
@@ -5300,7 +5193,7 @@ msgstr "Ordenar autores"
 
 #. Type: title
 #. Context: sort_dialog = ButtonDialog:new{ title = _("Sort books by"), title_align = "center",
-#: group_view.lua:927
+#: group_view.lua:925
 msgid "Sort books by"
 msgstr "Ordenar libros por"
 
@@ -5312,13 +5205,13 @@ msgstr "Ordenar por"
 
 #. Type: label
 #. Context: { text = "\u{F04BF} " .. _("Sort folder") .. " " .. submenu_arrow, align = "left",
-#: context_menu.lua:2236
+#: context_menu.lua:2321
 msgid "Sort folder"
 msgstr "Ordenar carpeta"
 
 #. Type: title
 #. Context: sort_dialog = new_context_menu_dialog{ title = _("Sort folder by"), title_align = "center",
-#: context_menu.lua:2287
+#: context_menu.lua:2372
 msgid "Sort folder by"
 msgstr "Ordenar carpeta por"
 
@@ -5330,19 +5223,19 @@ msgstr "Ordenar idiomas"
 
 #. Type: label
 #. Context: { text = "\u{F04BF} " .. _("Sort library") .. " " .. submenu_arrow, align = "left",
-#: context_menu.lua:2177
+#: context_menu.lua:2262
 msgid "Sort library"
 msgstr "Ordenar biblioteca"
 
 #. Type: title
 #. Context: sort_dialog = new_context_menu_dialog{ title = _("Sort library by"), title_align = "center",
-#: context_menu.lua:2217
+#: context_menu.lua:2302
 msgid "Sort library by"
 msgstr "Ordenar biblioteca por"
 
 #. Type: title
 #. Context: order_dialog = ButtonDialog:new{ title = _("Sort order"), title_align = "center",
-#: group_view.lua:918
+#: group_view.lua:916
 msgid "Sort order"
 msgstr "Orden de clasificación"
 
@@ -5354,9 +5247,7 @@ msgstr "Ordenar series"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Specific tag"), keep_menu_open = true,
-#: app_launcher_settings.lua:547 app_launcher_settings.lua:602
-#: menu_settings.lua:675 home_settings.lua:1078 home_settings.lua:1110
-#: home_settings.lua:1457 navbar_settings.lua:1398
+#: app_launcher_settings.lua:547 app_launcher_settings.lua:602 menu_settings.lua:675 home_settings.lua:1078 home_settings.lua:1110 home_settings.lua:1457 navbar_settings.lua:1408
 msgid "Specific tag"
 msgstr "Etiqueta específica"
 
@@ -5392,7 +5283,7 @@ msgstr "Espacio de estadística "
 
 #. Type: title
 #. Context: local stats_header = self:genHeader(_("Statistics")) local review_header = self:genHeader(_("Review"))
-#: book_status.lua:208
+#: book_status.lua:209
 msgid "Statistics"
 msgstr "Estadísticas"
 
@@ -5404,9 +5295,7 @@ msgstr "El calendario de estadísticas no está disponible"
 
 #. Type: setting
 #. Context: { text = _("Extras"), occurrence = 1 }, { text = _("Stats"), occurrence = 1 }, }, _("Widgets"), { id })
-#: nav_button_model.lua:23 quickstart_pages.lua:692 navbar.lua:319
-#: stats_settings.lua:304 stats_settings.lua:328 stats_settings.lua:357
-#: navbar_settings.lua:182
+#: nav_button_model.lua:23 quickstart_pages.lua:692 navbar.lua:325 stats_settings.lua:304 stats_settings.lua:328 stats_settings.lua:357 navbar_settings.lua:182
 msgid "Stats"
 msgstr "Estadísticas"
 
@@ -5448,7 +5337,7 @@ msgstr "Elementos de la barra de estado"
 
 #. Type: description
 #. Context: title = _("Bug description (optional)"), description = _("Steps to reproduce, expected vs. actual behavior"), input = "",
-#: zen_bugreporter.lua:226
+#: zen_bugreporter.lua:229
 msgid "Steps to reproduce, expected vs. actual behavior"
 msgstr "Pasos para reproducirlo, comportamiento esperado y real"
 
@@ -5466,29 +5355,25 @@ msgstr "Transmisión desde la página"
 
 #. Type: setting
 #. Context: _("Tabs") .. " \u{25B8}", _("Styling"), _("Default tab: "),
-#: zen_settings.lua:98 zen_settings.lua:102 navbar_settings.lua:1495
+#: zen_settings.lua:98 zen_settings.lua:102 navbar_settings.lua:1505
 msgid "Styling"
 msgstr "Estilo"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Subfolder flat view was disabled because the home folder is the device storage root."), })
-#: library_settings.lua:1436
-msgid ""
-"Subfolder flat view was disabled because the home folder is the device "
-"storage root."
-msgstr ""
-"La vista plana de subcarpetas se ha desactivado porque la carpeta de inicio "
-"es la raíz del almacenamiento del dispositivo."
+#: library_settings.lua:1434
+msgid "Subfolder flat view was disabled because the home folder is the device storage root."
+msgstr "La vista plana de subcarpetas se ha desactivado porque la carpeta de inicio es la raíz del almacenamiento del dispositivo."
 
 #. Type: setting
 #. Context: { text = _("Submit"), is_enter_default = true,
-#: zen_bugreporter.lua:236 zen_bugreporter.lua:269
+#: zen_bugreporter.lua:239 zen_bugreporter.lua:272
 msgid "Submit"
 msgstr "Enviar"
 
 #. Type: dialog
 #. Context: -- Let the notice paint before starting the blocking network work. local spinner = InfoMessage:new{ text = _("Submitting report…") } UIManager:show(spinner)
-#: zen_bugreporter.lua:290
+#: zen_bugreporter.lua:293
 msgid "Submitting report…"
 msgstr "Enviando informe…"
 
@@ -5501,28 +5386,14 @@ msgstr "Domingo"
 #. Type: description
 #. Context: title = _("Quick Settings"), description = _("Swipe down from the top to reach quick settings like brightness, Wi-Fi, night mode, zen mode and more.") .. "\n\n" .. _("Add custom buttons for other plugins or actions."),
 #: quickstart_pages.lua:709
-msgid ""
-"Swipe down from the top to reach quick settings like brightness, Wi-Fi, night "
-"mode, zen mode and more."
-msgstr ""
-"Desliza hacia abajo desde la parte superior para acceder a la configuración "
-"rápida como el brillo, las redes Wi-Fi, el modo oscuro, el modo Zen y mucho "
-"más."
+msgid "Swipe down from the top to reach quick settings like brightness, Wi-Fi, night mode, zen mode and more."
+msgstr "Desliza hacia abajo desde la parte superior para acceder a la configuración rápida como el brillo, las redes Wi-Fi, el modo oscuro, el modo Zen y mucho más."
 
 #. Type: description
 #. Context: title = _("Page Browser"), description = _("Swipe up from the bottom while reading to open the Page Browser.\n\nSkim through pages or skip chapters, browse the table of contents, manage bookmarks, adjust fonts and more.") .. "\n\n" .. _(...
 #: quickstart_pages.lua:796
-msgid ""
-"Swipe up from the bottom while reading to open the Page Browser.\n"
-"\n"
-"Skim through pages or skip chapters, browse the table of contents, manage "
-"bookmarks, adjust fonts and more."
-msgstr ""
-"Desliza hacia arriba desde la parte inferior mientras lees para abrir el "
-"Explorador de páginas.\n"
-"\n"
-"Hojea páginas o salta capítulos, navega por el índice, gestiona marcadores, "
-"ajusta fuentes y más."
+msgid "Swipe up from the bottom while reading to open the Page Browser.\n\nSkim through pages or skip chapters, browse the table of contents, manage bookmarks, adjust fonts and more."
+msgstr "Desliza hacia arriba desde la parte inferior mientras lees para abrir el Explorador de páginas.\n\nHojea páginas o salta capítulos, navega por el índice, gestiona marcadores, ajusta fuentes y más."
 
 #. Type: label
 #. Context: steps = {{ text = _("Swipe up to open the Page Browser"), position = "bottom",
@@ -5544,7 +5415,7 @@ msgstr "Sincronizar todos los catálogos"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Tab"), keep_menu_open = true,
-#: home_settings.lua:1450 navbar_settings.lua:1383
+#: home_settings.lua:1450 navbar_settings.lua:1393
 msgid "Tab"
 msgstr "Pestaña"
 
@@ -5556,42 +5427,37 @@ msgstr "Tabla de contenido"
 
 #. Type: title
 #. Context: ZenArrangeList.show{ title = _("Tabs"), item_table = sort_items,
-#: zen_settings.lua:97 home_settings.lua:1512 home_settings.lua:1521
-#: home_settings.lua:1609 home_settings.lua:1766 navbar_settings.lua:1419
-#: navbar_settings.lua:1490
+#: zen_settings.lua:97 home_settings.lua:1512 home_settings.lua:1521 home_settings.lua:1609 home_settings.lua:1766 navbar_settings.lua:1429 navbar_settings.lua:1500
 msgid "Tabs"
 msgstr "Pestañas"
 
 #. Type: setting
 #. Context: if cb.type == "tag" then return cb.tag or _("Tag") end
-#: nav_button_model.lua:143 menu_settings.lua:735 navbar_settings.lua:309
+#: nav_button_model.lua:143 menu_settings.lua:735 navbar_settings.lua:319
 msgid "Tag"
 msgstr "Etiqueta"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Tag: %1"), entry.tag or _("(none)")) end,
-#: app_launcher_settings.lua:774 menu_settings.lua:817 navbar_settings.lua:730
+#: app_launcher_settings.lua:774 menu_settings.lua:817 navbar_settings.lua:740
 msgid "Tag: %1"
 msgstr "Etiqueta: %1"
 
 #. Type: label
 #. Context: subtitle = count == 1 and _("1 tag") or (tostring(count) .. " " .. _("tags")) else
-#: group_view.lua:1331
+#: group_view.lua:1327
 msgid "tags"
 msgstr "etiquetas"
 
 #. Type: title
 #. Context: elseif tab_id == "tags" then title = _("Tags") else
-#: nav_button_model.lua:12 nav_button_model.lua:140 group_view.lua:601
-#: group_view.lua:1311 group_view.lua:1358 navbar.lua:294
-#: library_settings.lua:1508 home_settings.lua:1075 navbar_settings.lua:178
+#: nav_button_model.lua:12 nav_button_model.lua:140 group_view.lua:601 group_view.lua:1307 group_view.lua:1354 navbar.lua:300 library_settings.lua:1506 home_settings.lua:1075 navbar_settings.lua:178
 msgid "Tags"
 msgstr "Etiquetas"
 
 #. Type: title
 #. Context: end item.sub_title = _("Tailscale") item.sub_item_table_func = function()
-#: quick_settings.lua:827 menu_settings.lua:88 menu_settings.lua:617
-#: menu_settings.lua:619
+#: quick_settings.lua:827 menu_settings.lua:88 menu_settings.lua:617 menu_settings.lua:619
 msgid "Tailscale"
 msgstr "Tailscale"
 
@@ -5599,9 +5465,7 @@ msgstr "Tailscale"
 #. Context: title = _("Context Menu"), description = _("Tap and hold any book or folder in your library to reveal details."), },
 #: quickstart_pages.lua:673
 msgid "Tap and hold any book or folder in your library to reveal details."
-msgstr ""
-"Mantén pulsado cualquier libro o carpeta de la biblioteca para ver los "
-"detalles."
+msgstr "Mantén pulsado cualquier libro o carpeta de la biblioteca para ver los detalles."
 
 #. Type: setting
 #. Context: table.insert(edit_items, { text_func = function() return _("Text color") .. ": " .. editable_theme.text end, keep_menu_open = true,
@@ -5618,12 +5482,8 @@ msgstr "Estilos de texto"
 #. Type: description
 #. Context: finale = true, description = _("The best interface is the one you forget is there.\nNow go get lost in a good book."), },
 #: quickstart_pages.lua:813
-msgid ""
-"The best interface is the one you forget is there.\n"
-"Now go get lost in a good book."
-msgstr ""
-"La mejor interfaz es aquella que olvidas que está ahí.\n"
-"Ahora, sumérgete en un buen libro."
+msgid "The best interface is the one you forget is there.\nNow go get lost in a good book."
+msgstr "La mejor interfaz es aquella que olvidas que está ahí.\nAhora, sumérgete en un buen libro."
 
 #. Type: error
 #. Context: os.remove(original) editor:showError(_("The cover image could not be saved.")) return
@@ -5659,9 +5519,7 @@ msgstr "No se ha podido borrar el token de Hardcover."
 #. Context: title = _("Google Books API key"), description = _("The key is stored locally as plain text and is never logged."), invalid = _("Enter a valid Google Books API key without spaces."),
 #: metadata_settings.lua:131
 msgid "The key is stored locally as plain text and is never logged."
-msgstr ""
-"La clave se guarda localmente como texto sin formato y nunca se escribe en "
-"los registros."
+msgstr "La clave se guarda localmente como texto sin formato y nunca se escribe en los registros."
 
 #. Type: message
 #. Context: missing_language = _("An EPUB language is required."), sidecar_write_failed = _("The KOReader metadata override could not be saved."), }
@@ -5686,6 +5544,12 @@ msgstr "Fuente del tema"
 #: reader_settings.lua:767 reader_settings.lua:770
 msgid "Theme name"
 msgstr "Nombre del tema"
+
+#. Type: message
+#. Context: if is_in_archive(file, archive) then show_message(_("This book is already in the archive.")) return false
+#: archive_actions.lua:231
+msgid "This book is already in the archive."
+msgstr "Este libro ya se encuentra en el archivo."
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("This change requires a restart to take effect."), ok_text = _("Restart now"),
@@ -5714,20 +5578,14 @@ msgstr "Este archivo ya no está disponible."
 #. Type: message
 #. Context: }, "\n\n") local ZEN_SETTINGS_TEXT = _("This is Zen Settings. ZenOS settings/updates and common KOReader settings live here.")
 #: menu_tour.lua:14
-msgid ""
-"This is Zen Settings. ZenOS settings/updates and common KOReader settings "
-"live here."
-msgstr ""
-"Esta es la configuración de Zen. Aquí encontrarás las actualizaciones y "
-"opciones de ZenOS, junto con las configuraciones habituales de KOReader."
+msgid "This is Zen Settings. ZenOS settings/updates and common KOReader settings live here."
+msgstr "Esta es la configuración de Zen. Aquí encontrarás las actualizaciones y opciones de ZenOS, junto con las configuraciones habituales de KOReader."
 
 #. Type: message
 #. Context: if provider.credential and credential == "" then offer_metadata_settings(_("This metadata provider needs an API credential. Open settings?")) return
 #: metadata_editor.lua:546
 msgid "This metadata provider needs an API credential. Open settings?"
-msgstr ""
-"Este proveedor de metadatos necesita una credencial de API. ¿Abrir la "
-"configuración?"
+msgstr "Este proveedor de metadatos necesita una credencial de API. ¿Abrir la configuración?"
 
 #. Type: label
 #. Context: this_week = _("This Week"), this_month = _("This Month"), this_year = _("This Year"),
@@ -5744,13 +5602,8 @@ msgstr "Este mes"
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("This option is disabled when a home folder is the device storage root. Set home folders to narrower books folders first."), })
 #: library_settings.lua:1148
-msgid ""
-"This option is disabled when a home folder is the device storage root. Set "
-"home folders to narrower books folders first."
-msgstr ""
-"Esta opción está desactivada cuando la carpeta de inicio es la raíz del "
-"almacenamiento del dispositivo. Establece primero una carpeta de libros más "
-"concreta como carpeta de inicio."
+msgid "This option is disabled when a home folder is the device storage root. Set home folders to narrower books folders first."
+msgstr "Esta opción está desactivada cuando la carpeta de inicio es la raíz del almacenamiento del dispositivo. Establece primero una carpeta de libros más concreta como carpeta de inicio."
 
 #. Type: label
 #. Context: today = _("Today"), this_week = _("This Week"), this_month = _("This Month"),
@@ -5778,9 +5631,7 @@ msgstr "Este año"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Time") .. " " .. _("font size"), value = mcfg.max_font_size,
-#: reading_goals.lua:133 stats_page.lua:1343 stats_page.lua:1423
-#: reader_settings.lua:154 stats_settings.lua:108 home_settings.lua:653
-#: home_settings.lua:670 home_settings.lua:672 status_bar_settings.lua:34
+#: reading_goals.lua:134 stats_page.lua:1353 stats_page.lua:1433 reader_settings.lua:154 stats_settings.lua:108 home_settings.lua:653 home_settings.lua:670 home_settings.lua:672 status_bar_settings.lua:34
 msgid "Time"
 msgstr "Hora"
 
@@ -5792,7 +5643,7 @@ msgstr "Formato de hora"
 
 #. Type: setting
 #. Context: read_time = _("Read time"), time_remaining = _("Time remaining"), pages_today = _("Pages today"),
-#: app_launcher_settings.lua:76 library_settings.lua:1517
+#: app_launcher_settings.lua:76 library_settings.lua:1515
 msgid "Time remaining"
 msgstr "Tiempo restante"
 
@@ -5852,27 +5703,19 @@ msgstr "Temporizador: %1 s"
 
 #. Type: title
 #. Context: local FIELD_SPECS = { title = { label = _("Title") }, authors = { label = _("Authors"), list = true },
-#: metadata_editor.lua:46 metadata_editor.lua:508 context_menu.lua:2164
-#: group_view.lua:659 group_view.lua:830 metadata_editor.lua:953
-#: app_launcher_settings.lua:835 app_launcher_settings.lua:839
-#: home_settings.lua:836
+#: metadata_editor.lua:46 metadata_editor.lua:508 context_menu.lua:2249 group_view.lua:659 group_view.lua:830 metadata_editor.lua:953 app_launcher_settings.lua:835 app_launcher_settings.lua:839 home_settings.lua:836
 msgid "Title"
 msgstr "Título"
 
 #. Type: label
 #. Context: BookList.collates.title_natural = { text = _("Title natural"), menu_order = 100,
-#: add_sort_title_natural.lua:29 context_menu.lua:2165 group_view.lua:660
-#: group_view.lua:831
+#: add_sort_title_natural.lua:29 context_menu.lua:2250 group_view.lua:660 group_view.lua:831
 msgid "Title natural"
 msgstr "Título natural"
 
 #. Type: setting
 #. Context: if kind == "custom" then return _("Custom") end if kind == "to_be_read" then return _("To Be Read") end return _("Recently read")
-#: nav_button_model.lua:8 nav_button_model.lua:33 quickstart_pages.lua:690
-#: browser_list_item_layout.lua:448 context_menu.lua:737 context_menu.lua:2059
-#: context_menu.lua:2318 group_view.lua:1292 group_view.lua:1578 navbar.lua:299
-#: home_settings.lua:958 home_settings.lua:998 home_settings.lua:1074
-#: navbar_settings.lua:179
+#: nav_button_model.lua:8 nav_button_model.lua:33 quickstart_pages.lua:690 browser_list_item_layout.lua:448 context_menu.lua:762 context_menu.lua:2144 context_menu.lua:2403 group_view.lua:1288 group_view.lua:1574 navbar.lua:305 home_settings.lua:958 home_settings.lua:998 home_settings.lua:1074 navbar_settings.lua:179
 msgid "To Be Read"
 msgstr "Por leer"
 
@@ -5939,16 +5782,8 @@ msgstr "Tiempo total"
 #. Type: description
 #. Context: image = img("onboarding/zen_mode.png"), description = _("Turn on Zen mode to strip KOReader down to its bare essentials.\n\nRemove visual clutter for a focused, distraction-free reading experience. Exit at anytime from Settings.") .. "\n...
 #: quickstart_pages.lua:717
-msgid ""
-"Turn on Zen mode to strip KOReader down to its bare essentials.\n"
-"\n"
-"Remove visual clutter for a focused, distraction-free reading experience. "
-"Exit at anytime from Settings."
-msgstr ""
-"Activa el modo Zen para dejar KOReader en lo esencial.\n"
-"\n"
-"Reduce los elementos visuales innecesarios y disfruta de una lectura sin "
-"distracciones. Puedes salir en cualquier momento desde Configuración."
+msgid "Turn on Zen mode to strip KOReader down to its bare essentials.\n\nRemove visual clutter for a focused, distraction-free reading experience. Exit at anytime from Settings."
+msgstr "Activa el modo Zen para dejar KOReader en lo esencial.\n\nReduce los elementos visuales innecesarios y disfruta de una lectura sin distracciones. Puedes salir en cualquier momento desde Configuración."
 
 #. Type: setting
 #. Context: { text = _("Two rows"), checked_func = function() return mcfg.two_rows == true end,
@@ -5976,13 +5811,13 @@ msgstr "Paquete no disponible: %1"
 
 #. Type: setting
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Active tab"), { _("Underline"), _("Underline above icon"),
-#: zen_settings.lua:110 navbar_settings.lua:1602
+#: zen_settings.lua:110 navbar_settings.lua:1612
 msgid "Underline"
 msgstr "Subrayado"
 
 #. Type: setting
 #. Context: _("Underline"), _("Underline above icon"), _("Colored"),
-#: zen_settings.lua:111 navbar_settings.lua:1610
+#: zen_settings.lua:111 navbar_settings.lua:1620
 msgid "Underline above icon"
 msgstr "Subrayado sobre el icono"
 
@@ -5992,17 +5827,17 @@ msgstr "Subrayado sobre el icono"
 msgid "Uniform covers"
 msgstr "Portadas uniformes"
 
-#. Type: title
-#. Context: elseif not no_fallback then if title == "" then title = _("Unknown") end if authors == "" then authors = _("Unknown Author") end
-#: cover_utils.lua:238
-msgid "Unknown"
-msgstr "Desconocido"
-
 #. Type: setting
 #. Context: local function render_release_text(entry) local label = entry.version ~= "" and ("v" .. entry.version) or (entry.tag or _("unknown")) local lines = {}
 #: zen_updater.lua:236
 msgid "unknown"
 msgstr "desconocido"
+
+#. Type: title
+#. Context: elseif not no_fallback then if title == "" then title = _("Unknown") end if authors == "" then authors = _("Unknown Author") end
+#: cover_utils.lua:238
+msgid "Unknown"
+msgstr "Desconocido"
 
 #. Type: message
 #. Context: if title == "" then title = _("Unknown") end if authors == "" then authors = _("Unknown Author") end elseif bookinfo_found and authors == "" then
@@ -6010,17 +5845,17 @@ msgstr "desconocido"
 msgid "Unknown Author"
 msgstr "Autor desconocido"
 
+#. Type: dialog
+#. Context: require("ui/uimanager"):show(InfoMessage:new{ text = _("Failed to clear cache:") .. "\n" .. (err or _("Unknown error")), })
+#: metadata_editor.lua:1315 kindle_virtual_library.lua:324
+msgid "Unknown error"
+msgstr "Error desconocido"
+
 #. Type: subtitle
 #. Context: else screen:update{ subtitle = _("Download failed: ") .. (err or _("unknown error")), button = _("OK"), dismissable = true } end
 #: zen_updater.lua:1384
 msgid "unknown error"
 msgstr "error desconocido"
-
-#. Type: dialog
-#. Context: require("ui/uimanager"):show(InfoMessage:new{ text = _("Failed to clear cache:") .. "\n" .. (err or _("Unknown error")), })
-#: metadata_editor.lua:1315 kindle_virtual_library.lua:312
-msgid "Unknown error"
-msgstr "Error desconocido"
 
 #. Type: setting
 #. Context: local prefix = active == preset_name and "* " or "" return prefix .. (preset_name or _("Unnamed preset")) end,
@@ -6030,10 +5865,15 @@ msgstr "Preajuste sin nombre"
 
 #. Type: label
 #. Context: local STATUSES = { { key = "new", label = _("Unread") }, { key = "reading", label = _("Reading") },
-#: nav_button_model.lua:31 context_menu.lua:735 context_menu.lua:2057
-#: context_menu.lua:2316
+#: nav_button_model.lua:31 context_menu.lua:760 context_menu.lua:2142 context_menu.lua:2401
 msgid "Unread"
 msgstr "No leído"
+
+#. Type: setting
+#. Context: text = _("Unified brightness/warmth slider"),
+#: menu_settings.lua
+msgid "Unified brightness/warmth slider"
+msgstr "Barra unificada de brillo/calidez"
 
 #. Type: setting
 #. Context: return { text = icons.update .. " " .. _("Update available"), zen_button = true,
@@ -6069,48 +5909,37 @@ msgstr "Se ha producido un error en la actualización y la reversión."
 #. Context: os.remove(zip_path) fail_with(_("Update failed: active plugin folder not found.")) return
 #: zen_updater.lua:1467
 msgid "Update failed: active plugin folder not found."
-msgstr ""
-"Se ha producido un error en la actualización: no se ha encontrado la carpeta "
-"activa del complemento"
+msgstr "Se ha producido un error en la actualización: no se ha encontrado la carpeta activa del complemento"
 
 #. Type: error
 #. Context: os.remove(zip_path) fail_with(_("Update failed: corrupted update package.")) return
 #: zen_updater.lua:1408
 msgid "Update failed: corrupted update package."
-msgstr ""
-"Se ha producido un error en la actualización: paquete de actualización dañado."
+msgstr "Se ha producido un error en la actualización: paquete de actualización dañado."
 
 #. Type: error
 #. Context: if rollback_active_from_backup() then fail_with(_("Update failed: could not activate new version.")) else
 #: zen_updater.lua:1485
 msgid "Update failed: could not activate new version."
-msgstr ""
-"Se ha producido un error en la actualización: no se ha podido activar la "
-"nueva versión."
+msgstr "Se ha producido un error en la actualización: no se ha podido activar la nueva versión."
 
 #. Type: error
 #. Context: os.remove(zip_path) fail_with(_("Update failed: could not create backup.")) return
 #: zen_updater.lua:1475
 msgid "Update failed: could not create backup."
-msgstr ""
-"Se ha producido un error en la actualización: no se ha podido crear la copia "
-"de seguridad."
+msgstr "Se ha producido un error en la actualización: no se ha podido crear la copia de seguridad."
 
 #. Type: error
 #. Context: os.remove(zip_path) fail_with(_("Update failed: could not prepare staging area.")) return
 #: zen_updater.lua:1441
 msgid "Update failed: could not prepare staging area."
-msgstr ""
-"Se ha producido un error en la actualización: no se ha podido preparar el "
-"área temporal."
+msgstr "Se ha producido un error en la actualización: no se ha podido preparar el área temporal."
 
 #. Type: error
 #. Context: os.remove(zip_path) fail_with(_("Update failed: could not restore previous plugin backup.")) return
 #: zen_updater.lua:1432
 msgid "Update failed: could not restore previous plugin backup."
-msgstr ""
-"Se ha producido un error en la actualización: no se ha podido restaurar la "
-"copia de seguridad anterior del complemento."
+msgstr "Se ha producido un error en la actualización: no se ha podido restaurar la copia de seguridad anterior del complemento."
 
 #. Type: error
 #. Context: os.remove(zip_path) fail_with(_("Update failed: could not unpack update package.")) return
@@ -6122,39 +5951,31 @@ msgstr "No se ha podido extraer el paquete."
 #. Context: logger.warn("rejected update zip layout:", tostring(zip_reason)) fail_with(_("Update failed: invalid package layout.")) return
 #: zen_updater.lua:1416
 msgid "Update failed: invalid package layout."
-msgstr ""
-"Se ha producido un error en la actualización: la estructura del paquete no es "
-"válida."
+msgstr "Se ha producido un error en la actualización: la estructura del paquete no es válida."
 
 #. Type: subtitle
 #. Context: logger.warn("install abort invalid/missing sha256") screen:update{ subtitle = _("Update failed: missing checksum."), button = _("OK"), dismissable = true } return
 #: zen_updater.lua:1295
 msgid "Update failed: missing checksum."
-msgstr ""
-"Se ha producido un error en la actualización: falta la suma de comprobación."
+msgstr "Se ha producido un error en la actualización: falta la suma de comprobación."
 
 #. Type: subtitle
 #. Context: logger.warn("install abort no network") screen:update{ subtitle = _("Update failed: network connection lost."), button = _("OK"), dismissable = true } return
 #: zen_updater.lua:1301 zen_updater.lua:1373 zen_updater.lua:1382
 msgid "Update failed: network connection lost."
-msgstr ""
-"Se ha producido un error en la actualización: se ha perdido la conexión de "
-"red."
+msgstr "Se ha producido un error en la actualización: se ha perdido la conexión de red."
 
 #. Type: error
 #. Context: if rollback_active_from_backup() then fail_with(_("Update failed: new version is invalid.")) else
 #: zen_updater.lua:1499
 msgid "Update failed: new version is invalid."
-msgstr ""
-"Se ha producido un error en la actualización: la nueva versión no es válida."
+msgstr "Se ha producido un error en la actualización: la nueva versión no es válida."
 
 #. Type: error
 #. Context: os.remove(zip_path) fail_with(_("Update failed: plugin directory is not writable.")) return
 #: zen_updater.lua:1402
 msgid "Update failed: plugin directory is not writable."
-msgstr ""
-"Se ha producido un error en la actualización: no se puede escribir en el "
-"directorio del complemento."
+msgstr "Se ha producido un error en la actualización: no se puede escribir en el directorio del complemento."
 
 #. Type: error
 #. Context: os.remove(zip_path) fail_with(_("Update failed: staged plugin validation failed.")) return
@@ -6182,7 +6003,7 @@ msgstr "Actualizar ahora"
 
 #. Type: title
 #. Context: local review_header = self:genHeader(_("Review")) local status_header = self:genHeader(self.readonly and _("Book Status") or _("Update Status"))
-#: book_status.lua:210
+#: book_status.lua:211
 msgid "Update Status"
 msgstr "Estado de la actualización"
 
@@ -6212,21 +6033,15 @@ msgstr "USB"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Use a narrower books folder instead of the device storage root."), })
-#: library_settings.lua:1377
+#: library_settings.lua:1375
 msgid "Use a narrower books folder instead of the device storage root."
-msgstr ""
-"Usa una carpeta de libros más específica en lugar de la raíz del "
-"almacenamiento del dispositivo."
+msgstr "Usa una carpeta de libros más específica en lugar de la raíz del almacenamiento del dispositivo."
 
 #. Type: description
 #. Context: title = _("Hardcover API token"), description = _("Use a token limited to read:catalog. It is stored locally as plain text and is never logged."), invalid = _("Enter a valid Hardcover token without spaces."),
 #: metadata_settings.lua:105
-msgid ""
-"Use a token limited to read:catalog. It is stored locally as plain text and "
-"is never logged."
-msgstr ""
-"Usa un token limitado a read:catalog. Se almacena localmente como texto sin "
-"formato y nunca se registra."
+msgid "Use a token limited to read:catalog. It is stored locally as plain text and is never logged."
+msgstr "Usa un token limitado a read:catalog. Se almacena localmente como texto sin formato y nunca se registra."
 
 #. Type: setting
 #. Context: { text = _("Use border as progress bar"), checked_func = function()
@@ -6236,7 +6051,7 @@ msgstr "Usar borde como barra de progreso"
 
 #. Type: setting
 #. Context: { text = _("Use current folder"), callback = function()
-#: navbar_settings.lua:1111
+#: navbar_settings.lua:1121
 msgid "Use current folder"
 msgstr "Usar carpeta actual"
 
@@ -6248,26 +6063,31 @@ msgstr "Usar fuente predeterminada"
 
 #. Type: setting
 #. Context: { text = _("Use default style"), callback = function(touchmenu_instance)
-#: library_settings.lua:1654 home_settings.lua:614 home_settings.lua:796
-#: home_settings.lua:1737
+#: library_settings.lua:1652 home_settings.lua:614 home_settings.lua:796 home_settings.lua:1737
 msgid "Use default style"
 msgstr "Usar estilo predeterminado"
 
 #. Type: setting
 #. Context: { text = _("Use home folder"), callback = function()
-#: navbar_settings.lua:1099
+#: navbar_settings.lua:1109
 msgid "Use home folder"
 msgstr "Usar carpeta de inicio"
 
 #. Type: setting
 #. Context: { text = _("Use last folder"), callback = function()
-#: navbar_settings.lua:1105
+#: navbar_settings.lua:1115
 msgid "Use last folder"
 msgstr "Usar última carpeta"
 
+#. Type: message
+#. Context: text = _("Enable Zen Search"), help_text = _("Use Zen Search in the file browser and reader. Disable to use KOReader's default search."), checked_func = function()
+#: global_settings.lua:385
+msgid "Use Zen Search in the file browser and reader. Disable to use KOReader's default search."
+msgstr "Usa Zen Search en el explorador de archivos y el lector. Desactívalo para usar la búsqueda predeterminada de KOReader."
+
 #. Type: setting
 #. Context: input = "", input_hint = _("username"), buttons = {{
-#: zen_bugreporter.lua:258
+#: zen_bugreporter.lua:261
 msgid "username"
 msgstr "nombre de usuario"
 
@@ -6279,7 +6099,7 @@ msgstr "Vista"
 
 #. Type: label
 #. Context: or nil local virtual_folder_str = is_series_group and _("Virtual folder") or nil dialog_title = folder_name_str
-#: context_menu.lua:1272
+#: context_menu.lua:1302
 msgid "Virtual folder"
 msgstr "Carpeta virtual"
 
@@ -6291,9 +6111,7 @@ msgstr "Vocabulario"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Warmth"), enabled_func = function() return Device:hasNaturalLight() end,
-#: warmth_slider.lua:47 global_settings.lua:625 global_settings.lua:645
-#: global_settings.lua:692 global_settings.lua:705 global_settings.lua:748
-#: global_settings.lua:761
+#: warmth_slider.lua:47 global_settings.lua:645 global_settings.lua:665 global_settings.lua:712 global_settings.lua:725 global_settings.lua:768 global_settings.lua:781
 msgid "Warmth"
 msgstr "Calidez"
 
@@ -6336,34 +6154,20 @@ msgstr "Novedades"
 #. Type: message
 #. Context: text = _("Enable custom icons"), help_text = _("When enabled, loose icons or a selected ZenOS icon pack override supported icons. Missing icons fall back to ZenOS, then KOReader."), checked_func = function()
 #: extras_settings.lua:138
-msgid ""
-"When enabled, loose icons or a selected ZenOS icon pack override supported "
-"icons. Missing icons fall back to ZenOS, then KOReader."
-msgstr ""
-"Al activarlo, los iconos individuales o de un paquete de iconos de ZenOS "
-"sustituyen a los iconos compatibles. Si faltan iconos, se utilizan primero "
-"los de ZenOS y después los de KOReader."
+msgid "When enabled, loose icons or a selected ZenOS icon pack override supported icons. Missing icons fall back to ZenOS, then KOReader."
+msgstr "Al activarlo, los iconos individuales o de un paquete de iconos de ZenOS sustituyen a los iconos compatibles. Si faltan iconos, se utilizan primero los de ZenOS y después los de KOReader."
 
 #. Type: message
-#. Context: text = _("Match whole words"), help_text = _("When enabled, search matches whole words only. When disabled, substring matching is used (e.g., 'fish' matches 'fishing')."), checked_func = function()
-#: global_settings.lua:384
-msgid ""
-"When enabled, search matches whole words only. When disabled, substring "
-"matching is used (e.g., 'fish' matches 'fishing')."
-msgstr ""
-"Si está activado, la búsqueda coincide solo con palabras completas. Si está "
-"desactivado, se usan coincidencias parciales (p. ej., 'fish' coincide con "
-"'fishing')."
+#. Context: text = _("Match whole words"), help_text = _("When enabled, search matches whole words only. When disabled, substring matching is used (e.g., 'fish' matches 'fishing')."), enabled_func = function()
+#: global_settings.lua:400
+msgid "When enabled, search matches whole words only. When disabled, substring matching is used (e.g., 'fish' matches 'fishing')."
+msgstr "Si está activado, la búsqueda coincide solo con palabras completas. Si está desactivado, se usan coincidencias parciales (p. ej., 'fish' coincide con 'fishing')."
 
 #. Type: message
 #. Context: text = _("Require double tap to open books"), help_text = _("When enabled, tap the same book twice in rapid succession to open it. Keyboard controls are unchanged."), checked_func = function()
 #: advanced_settings.lua:51
-msgid ""
-"When enabled, tap the same book twice in rapid succession to open it. "
-"Keyboard controls are unchanged."
-msgstr ""
-"Cuando esté activado, toca rápidamente dos veces el mismo libro para abrirlo. "
-"Los controles del teclado no cambian."
+msgid "When enabled, tap the same book twice in rapid succession to open it. Keyboard controls are unchanged."
+msgstr "Cuando esté activado, toca rápidamente dos veces el mismo libro para abrirlo. Los controles del teclado no cambian."
 
 #. Type: description
 #. Context: title = _("Time Format"), description = _("Which time format do you prefer?"), choice_type = "radio",
@@ -6379,22 +6183,19 @@ msgstr "Blanco"
 
 #. Type: setting
 #. Context: icon = "quick_wifi", label = _("Wi-Fi"), label_func = function()
-#: quick_settings.lua:540 quick_settings.lua:548 menu_settings.lua:64
-#: reader_settings.lua:159 status_bar_settings.lua:29
+#: quick_settings.lua:540 quick_settings.lua:548 menu_settings.lua:64 reader_settings.lua:159 status_bar_settings.lua:29
 msgid "Wi-Fi"
 msgstr "Wi-Fi"
 
 #. Type: action
 #. Context: buttons[#buttons + 1] = {{ text = icons.settings .. " " .. _("Widget settings"), callback = function()
-#: context_menu.lua:2437 stats_page.lua:1446
+#: context_menu.lua:2536 stats_page.lua:1456
 msgid "Widget settings"
 msgstr "Configuración de widgets"
 
 #. Type: title
 #. Context: require("common/ui/zen_arrange_list").show{ title = _("Widgets"), item_table = sort_items,
-#: stats_settings.lua:239 stats_settings.lua:305 stats_settings.lua:329
-#: stats_settings.lua:361 home_settings.lua:1521 home_settings.lua:1981
-#: home_settings.lua:2614 home_settings.lua:2630 home_settings.lua:2643
+#: stats_settings.lua:239 stats_settings.lua:305 stats_settings.lua:329 stats_settings.lua:361 home_settings.lua:1521 home_settings.lua:1981 home_settings.lua:2614 home_settings.lua:2630 home_settings.lua:2643
 msgid "Widgets"
 msgstr "Widgets"
 
@@ -6478,13 +6279,13 @@ msgstr "El modo Zen está activado. Los menús de KOReader están ocultos."
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = features.zen_mode and _("Zen Mode: Enabled") or _("Zen Mode: Disabled"), timeout = 2,
-#: dispatch_action.lua:557
+#: dispatch_action.lua:561
 msgid "Zen Mode: Disabled"
 msgstr "Modo Zen: desactivado"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = features.zen_mode and _("Zen Mode: Enabled") or _("Zen Mode: Disabled"), timeout = 2,
-#: dispatch_action.lua:557
+#: dispatch_action.lua:561
 msgid "Zen Mode: Enabled"
 msgstr "Modo Zen: activado"
 
@@ -6520,8 +6321,7 @@ msgstr "ZenFM"
 
 #. Type: title
 #. Context: UIManager:show(ZenScreen:new{ title = _("ZenOS"), title_icon = true,
-#: main.lua:507 zen_settings.lua:171 zen_updater.lua:1537 zen_updater.lua:1557
-#: zen_updater.lua:1570 zen_updater.lua:1581
+#: main.lua:507 zen_settings.lua:171 zen_updater.lua:1537 zen_updater.lua:1557 zen_updater.lua:1570 zen_updater.lua:1581
 msgid "ZenOS"
 msgstr "ZenOS"
 
@@ -6545,109 +6345,109 @@ msgstr "ZenOS: "
 
 #. Type: title
 #. Context: event = "ShowZenUIAuthors", title = _("ZenOS: Authors"), general = true,
-#: dispatch_action.lua:502
+#: dispatch_action.lua:506
 msgid "ZenOS: Authors"
 msgstr "ZenOS: Autores"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = _("ZenOS: folder not found: ") .. folder, })
-#: dispatch_action.lua:150 navbar.lua:1239 navbar.lua:1253
+#: dispatch_action.lua:150 navbar.lua:1270 navbar.lua:1284
 msgid "ZenOS: folder not found: "
 msgstr "ZenOS: carpeta no encontrada: "
 
 #. Type: title
 #. Context: event = "ShowZenUIHome", title = _("ZenOS: Home"), general = true,
-#: dispatch_action.lua:490
+#: dispatch_action.lua:494
 msgid "ZenOS: Home"
 msgstr "ZenOS: Inicio"
 
 #. Type: title
 #. Context: event = "ShowZenUILibrary", title = _("ZenOS: Library"), general = true,
-#: dispatch_action.lua:496
+#: dispatch_action.lua:500
 msgid "ZenOS: Library"
 msgstr "ZenOS: Biblioteca"
 
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = _("ZenOS: no folder set for this action."), })
-#: dispatch_action.lua:167 navbar.lua:1240 navbar.lua:1254
+#: dispatch_action.lua:171 navbar.lua:1271 navbar.lua:1285
 msgid "ZenOS: no folder set for this action."
 msgstr "ZenOS: no hay ninguna carpeta configurada para esta acción."
 
 #. Type: title
 #. Context: event = "ShowZenUIFolder", title = _("ZenOS: Open folder"), args = {},
-#: dispatch_action.lua:392 dispatch_action.lua:394 dispatch_action.lua:532
+#: dispatch_action.lua:396 dispatch_action.lua:398 dispatch_action.lua:536
 msgid "ZenOS: Open folder"
 msgstr "ZenOS: Abrir carpeta"
 
 #. Type: title
 #. Context: event = "ShowZenUISeries", title = _("ZenOS: Series"), general = true,
-#: dispatch_action.lua:508
+#: dispatch_action.lua:512
 msgid "ZenOS: Series"
 msgstr "ZenOS: Series"
 
 #. Type: title
 #. Context: event = "ShowZenUIStats", title = _("ZenOS: Stats"), general = true,
-#: dispatch_action.lua:520
+#: dispatch_action.lua:524
 msgid "ZenOS: Stats"
 msgstr "ZenOS: Estadísticas"
 
 #. Type: title
 #. Context: event = "ZenUIKOSyncSync", title = _("ZenOS: Sync progress (pull + push)"), general = true,
-#: dispatch_action.lua:540
+#: dispatch_action.lua:544
 msgid "ZenOS: Sync progress (pull + push)"
 msgstr "ZenOS: Progreso de sincronización (descarga + subida)"
 
 #. Type: title
 #. Context: event = "ShowZenUIToc", title = _("ZenOS: Table of contents"), reader = true,
-#: dispatch_action.lua:484
+#: dispatch_action.lua:488
 msgid "ZenOS: Table of contents"
 msgstr "ZenOS: Tabla de contenido"
 
 #. Type: title
 #. Context: event = "ShowZenUITags", title = _("ZenOS: Tags"), general = true,
-#: dispatch_action.lua:514
+#: dispatch_action.lua:518
 msgid "ZenOS: Tags"
 msgstr "ZenOS: Etiquetas"
 
 #. Type: title
 #. Context: event = "ToggleReaderBottomStatusBar", title = _("ZenOS: Toggle bottom reader status bar"), reader = true,
-#: dispatch_action.lua:470
+#: dispatch_action.lua:474
 msgid "ZenOS: Toggle bottom reader status bar"
 msgstr "ZenOS: Activar/desactivar barra de estado inferior del lector"
 
 #. Type: title
 #. Context: event = "ToggleIncognitoMode", title = _("ZenOS: Toggle Incognito Mode"), general = true,
-#: dispatch_action.lua:449
+#: dispatch_action.lua:453
 msgid "ZenOS: Toggle Incognito Mode"
 msgstr "ZenOS: Activar/desactivar el modo incógnito"
 
 #. Type: title
 #. Context: event = "ToggleLockdownMode", title = _("ZenOS: Toggle Lockdown Mode"), general = true,
-#: dispatch_action.lua:442
+#: dispatch_action.lua:446
 msgid "ZenOS: Toggle Lockdown Mode"
 msgstr "ZenOS: Activar/desactivar modo de bloqueo"
 
 #. Type: title
 #. Context: event = "ToggleReaderStatusBars", title = _("ZenOS: Toggle reader status bars"), reader = true,
-#: dispatch_action.lua:477
+#: dispatch_action.lua:481
 msgid "ZenOS: Toggle reader status bars"
 msgstr "ZenOS: Activar/desactivar barras de estado del lector"
 
 #. Type: title
 #. Context: event = "ToggleReaderThemes", title = _("ZenOS: Toggle reader themes"), reader = true,
-#: dispatch_action.lua:463
+#: dispatch_action.lua:467
 msgid "ZenOS: Toggle reader themes"
 msgstr "ZenOS: Activar/desactivar temas de lectura"
 
 #. Type: title
 #. Context: event = "ToggleReaderTopStatusBar", title = _("ZenOS: Toggle top reader status bar"), reader = true,
-#: dispatch_action.lua:456
+#: dispatch_action.lua:460
 msgid "ZenOS: Toggle top reader status bar"
 msgstr "ZenOS: Activar/desactivar barra de estado superior del lector"
 
 #. Type: title
 #. Context: event = "ToggleZenMode", title = _("ZenOS: Toggle Zen Mode"), general = true,
-#: dispatch_action.lua:435
+#: dispatch_action.lua:439
 msgid "ZenOS: Toggle Zen Mode"
 msgstr "ZenOS: Activar/desactivar modo Zen"
 
@@ -6663,26 +6463,86 @@ msgstr "ZenPM"
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPM se ha instalado. Reinicia KOReader para usarlo."
 
-#. Type: setting
-#. Context: table.insert(items, { text = _("Allow dragging reader modals"), help_text = _("Restore KOReader's default draggable modal behavior."),
-#: advanced_settings.lua:65
-msgid "Allow dragging reader modals"
-msgstr "Permitir arrastrar los diálogos del lector"
+#. Reader page count separator
+msgid "of"
+msgstr "de"
+
+#. Reader page count format
+msgid "%1 of %2"
+msgstr "%1 de %2"
 
 #. Type: setting
-#. Context: { text = _("Enable Zen Search"), help_text = _("Use Zen Search in the file browser and reader. Disable to use KOReader's default search."),
-#: global_settings.lua:384
-msgid "Enable Zen Search"
-msgstr "Activar Zen Search"
+msgid "Color"
+msgstr "Color"
 
-#. Type: message
-#. Context: text = _("Allow dragging reader modals"), help_text = _("Restore KOReader\'s default draggable modal behavior."), checked_func = function()
-#: advanced_settings.lua:66
-msgid "Restore KOReader's default draggable modal behavior."
-msgstr "Restaura el comportamiento predeterminado de KOReader para los diálogos arrastrables."
+#. Type: setting
+msgid "Color picker"
+msgstr "Selector de color"
 
-#. Type: message
-#. Context: text = _("Enable Zen Search"), help_text = _("Use Zen Search in the file browser and reader. Disable to use KOReader's default search."), checked_func = function()
-#: global_settings.lua:385
-msgid "Use Zen Search in the file browser and reader. Disable to use KOReader's default search."
-msgstr "Usa Zen Search en el explorador de archivos y el lector. Desactívalo para usar la búsqueda predeterminada de KOReader."
+#. Type: setting
+msgid "Highlight"
+msgstr "Subrayado"
+
+#. Type: setting
+msgid "Highlight color: %1"
+msgstr "Color subrayado: %1"
+
+#. Type: menu
+msgid "Bluetooth devices"
+msgstr "Dispositivos Bluetooth"
+
+#. Type: menu
+msgid "Searching for devices…"
+msgstr "Buscando dispositivos…"
+
+#. Type: menu
+msgid "No Bluetooth devices found."
+msgstr "No se encontraron dispositivos Bluetooth."
+
+#. Type: menu
+msgid "Turning on Bluetooth…"
+msgstr "Activando Bluetooth…"
+
+#. Type: menu
+msgid "Could not turn on Bluetooth."
+msgstr "No se pudo activar Bluetooth."
+
+#. Type: menu
+msgid "Bluetooth scan failed."
+msgstr "Falló la búsqueda de Bluetooth."
+
+#. Type: menu
+msgid "Could not read Bluetooth devices."
+msgstr "No se pudieron leer los dispositivos Bluetooth."
+
+#. Type: menu
+msgid "Updating…"
+msgstr "Actualizando…"
+
+#. Type: menu
+msgid "Could not connect"
+msgstr "No se pudo conectar"
+
+#. Type: menu
+msgid "Could not update %1."
+msgstr "No se pudo actualizar %1."
+
+#. Type: menu
+msgid "Address"
+msgstr "Dirección"
+
+#. Type: menu
+msgid "Paired"
+msgstr "Emparejado"
+
+#. Type: menu
+msgid "Pair"
+msgstr "Emparejar"
+
+#. Type: menu
+msgid "Forget Bluetooth device %1?"
+msgstr "¿Olvidar el dispositivo Bluetooth %1?"
+
+#. Type: menu
+msgid "Bluetooth device management is unavailable on this device."
+msgstr "La gestión de dispositivos Bluetooth no está disponible en este dispositivo."

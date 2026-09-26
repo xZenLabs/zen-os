@@ -4,13 +4,14 @@ local M = {}
 
 local last_path
 local last_tap_at
+local pending_menu
 
-local function is_enabled()
+local function is_enabled(key)
     local ok, ConfigManager = pcall(require, "config/manager")
     local config = ok and ConfigManager and ConfigManager.get and ConfigManager.get()
     return type(config) == "table"
         and type(config.developer) == "table"
-        and config.developer.double_tap_to_open_books == true
+        and config.developer[key or "double_tap_to_open_books"] == true
 end
 
 local function double_tap_interval()
@@ -22,6 +23,10 @@ local function double_tap_interval()
 end
 
 function M.reset()
+    if pending_menu then
+        require("ui/uimanager"):unschedule(pending_menu)
+        pending_menu = nil
+    end
     last_path = nil
     last_tap_at = nil
 end
@@ -38,7 +43,7 @@ function M.willOpen(path, tap_at)
     return is_second_tap(path, tap_at or time.now())
 end
 
-function M.shouldOpen(path, tap_at)
+function M.shouldOpen(path, tap_at, on_single_tap)
     if not is_enabled() then
         M.reset()
         return true
@@ -56,8 +61,18 @@ function M.shouldOpen(path, tap_at)
         return true
     end
 
+    M.reset()
     last_path = path
     last_tap_at = now
+    if on_single_tap and is_enabled("single_tap_to_open_context_menu") then
+        pending_menu = function()
+            M.reset()
+            if is_enabled() and is_enabled("single_tap_to_open_context_menu") then
+                on_single_tap()
+            end
+        end
+        require("ui/uimanager"):scheduleIn(time.to_s(double_tap_interval()), pending_menu)
+    end
     return false
 end
 

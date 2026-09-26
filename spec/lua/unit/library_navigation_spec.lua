@@ -85,6 +85,33 @@ describe("library navigation", function()
         assert.are.equal("history", _G.__ZEN_UI_OPEN_TARGET_TAB)
     end)
 
+    it("runs a post-close action after releasing the document and before opening its folder", function()
+        local order = {}
+        ZenSpec.replace("MangaReader", {
+            is_showing = true,
+            onReturn = function() error("archive must close ReaderUI") end,
+        })
+        local ui = reader("/library/Fiction/Book.epub")
+        function ui:onClose()
+            order[#order + 1] = "close"
+            self.document = nil
+        end
+        function ui:showFileManager()
+            order[#order + 1] = "open"
+        end
+
+        Navigation.showFromReader(ui, nil, {
+            target_folder = "/library/Fiction/",
+            after_close = function()
+                assert.is_nil(ui.document)
+                order[#order + 1] = "move"
+            end,
+        })
+
+        assert.are.same({ "close", "move", "open" }, order)
+        assert.are.equal("/library/Fiction/", _G.__ZEN_UI_OPEN_TARGET_FOLDER)
+    end)
+
     it("returns to the file manager with a requested specific tag", function()
         local ui = reader()
         local plugin = { config = { features = { restore_library_view = true } } }
@@ -120,6 +147,26 @@ describe("library navigation", function()
         assert.are.same({ "Science" }, tags)
         assert.is_nil(_G.__ZEN_UI_OPEN_TARGET_FOLDER)
         assert.is_nil(_G.__ZEN_UI_OPEN_TARGET_TAG)
+    end)
+
+    it("treats a dispatched Archive folder as a direct root without Navbar", function()
+        local chooser = {
+            changeToPath = function(self, path) self.path = path end,
+        }
+        ZenSpec.replace("apps/filemanager/filemanager", { instance = {
+            file_chooser = chooser,
+        } })
+        local Paths = require("common/paths")
+        Paths.getArchiveDir = function() return "/archive" end
+        Paths.isArchiveRoot = function(path) return path == "/archive" end
+
+        Navigation.showFromReader(reader(), {
+            config = { features = { restore_library_view = true } },
+        }, { target_folder = "/archive" })
+
+        assert.are.equal("/archive", chooser.path)
+        assert.are.equal("/archive", chooser._zen_direct_archive_root)
+        assert.is_true(chooser._zen_opening_archive_root)
     end)
 
     it("uses Navbar folder navigation when FileManager survives Reader teardown", function()

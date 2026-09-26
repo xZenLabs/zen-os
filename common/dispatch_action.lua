@@ -157,6 +157,10 @@ local function show_folder_from_filemanager(folder)
     local open_folder = rawget(_G, "__ZEN_UI_NAVBAR_OPEN_FOLDER")
     if type(open_folder) == "function" then return open_folder(folder) == true end
     require("common/utils").closeWidgetsAbove(fm)
+    local paths = require("common/paths")
+    local direct_archive = paths.isArchiveRoot(folder)
+    fm.file_chooser._zen_direct_archive_root = direct_archive and paths.getArchiveDir() or nil
+    fm.file_chooser._zen_opening_archive_root = direct_archive or nil
     fm.file_chooser:changeToPath(folder)
     return true
 end

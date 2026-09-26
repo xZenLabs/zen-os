@@ -12,6 +12,7 @@ local showcase_quote
 local showcase_picker
 local showcase_picker_wrapped
 local metadata_showcase_editor
+local network_showcase_restore
 
 local function get_zen_plugin()
     local PluginLoader = require("pluginloader")
@@ -1246,6 +1247,7 @@ end
 
 local function reset_showcase_ui(session)
     showcase_picker = nil
+    if network_showcase_restore then network_showcase_restore() end
     local settings_page = rawget(_G, "__ZEN_UI_SETTINGS_PAGE")
     if settings_page and type(settings_page.onClose) == "function" then
         pcall(settings_page.onClose, settings_page)
@@ -1588,6 +1590,79 @@ local function open_quickstart()
     return true
 end
 
+local function show_network_switcher_fixture(names)
+    if type(names) ~= "table" or #names < 2 then
+        return false, "network switcher fixture needs Wi-Fi names"
+    end
+    local Device = require("device")
+    local NetworkMgr = require("ui/network/manager")
+    local networks = {}
+    local states = {
+        { connected = true, password = "fixture-password", flags = "WPA2", signal_quality = 96 },
+        { password = "fixture-password", flags = "WPA2", signal_quality = 86 },
+        { flags = "WPA2", signal_quality = 76 },
+        { flags = "", signal_quality = 64 },
+        { flags = "WPA2", signal_quality = 52 },
+        { flags = "SAE", signal_quality = 41 },
+    }
+    for index, name in ipairs(names) do
+        if type(name) ~= "string" or name == "" then
+            return false, "network switcher fixture has an invalid Wi-Fi name"
+        end
+        local state = states[index] or states[#states]
+        networks[#networks + 1] = {
+            connected = state.connected,
+            flags = state.flags,
+            password = state.password,
+            signal_quality = state.signal_quality,
+            ssid = name,
+        }
+    end
+
+    local original_has_wifi_manager = Device.hasWifiManager
+    local original_get_network_list = NetworkMgr.getNetworkList
+    local restore
+    restore = function()
+        Device.hasWifiManager = original_has_wifi_manager
+        NetworkMgr.getNetworkList = original_get_network_list
+        if network_showcase_restore == restore then network_showcase_restore = nil end
+    end
+    network_showcase_restore = restore
+    Device.hasWifiManager = function() return true end
+    NetworkMgr.getNetworkList = function()
+        restore()
+        return networks
+    end
+
+    local ok_open, opened = pcall(function()
+        return require("modules/menu/network_switcher").open(nil, false, get_zen_plugin())
+    end)
+    if not ok_open or opened ~= true then
+        restore()
+        return false, tostring(opened)
+    end
+    return true
+end
+
+local function network_switcher_fixture_state()
+    local stack = UIManager._window_stack or {}
+    for index = #stack, 1, -1 do
+        local menu = stack[index] and stack[index].widget
+        if menu and menu.name == "network_switcher" then
+            local labels = {}
+            for _i, item in ipairs(menu.item_table or {}) do
+                labels[#labels + 1] = item.text
+            end
+            return {
+                labels = labels,
+                open = true,
+                status_visible = menu.title_bar and menu.title_bar.status_widget ~= nil,
+            }
+        end
+    end
+    return { labels = {}, open = false, status_visible = false }
+end
+
 local function dimen_bounds(dimen)
     if not (dimen and tonumber(dimen.x) and tonumber(dimen.y)
             and tonumber(dimen.w) and tonumber(dimen.h)) then return nil end
@@ -1725,6 +1800,13 @@ function Driver:handleCommand(command)
     if kind == "open_quickstart" then
         local ok, err = open_quickstart()
         return { ok = ok == true, error = err }
+    end
+    if kind == "show_network_switcher_fixture" then
+        local ok, err = show_network_switcher_fixture(params.names)
+        return { ok = ok == true, error = err }
+    end
+    if kind == "network_switcher_fixture_state" then
+        return { ok = true, network_switcher = network_switcher_fixture_state() }
     end
     if kind == "showcase_bounds" and type(params.target) == "string" then
         local bounds, err = showcase_bounds(params.target, params.label)

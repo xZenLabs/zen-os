@@ -3,6 +3,7 @@ local Blitbuffer = require("ffi/blitbuffer")
 local Device = require("device")
 local Font = require("ui/font")
 local Geom = require("ui/geometry")
+local RenderText = require("ui/rendertext")
 local TextBoxWidget = require("ui/widget/textboxwidget")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local InputContainer = require("ui/widget/container/inputcontainer")
@@ -13,6 +14,17 @@ local _ = require("gettext")
 local AUTOMATIC_MIN_LINE_HEIGHT = 0.1
 local LAYOUT_CACHE_MAX = 32
 local layout_cache = { values = {}, order = {} }
+
+local function text_ink_bounds(widget)
+    local size = widget:getSize()
+    local line_height = widget:getLineHeight()
+    local line_count = math.max(1, math.floor((size.h - 1) / line_height) + 1)
+    local metrics = RenderText:sizeUtf8Text(
+        0, false, widget.face, widget.text, true, widget.bold)
+    local baseline = widget:getBaseline()
+    return math.max(0, baseline - metrics.y_top), math.min(
+        size.h, baseline + (line_count - 1) * line_height + metrics.y_bottom)
+end
 
 local function get_cached_layout(key)
     return layout_cache.values[key]
@@ -326,14 +338,21 @@ return {
         end
         local available_h = math.max(0, height - content_h)
         local content_top = math.floor(available_h / 2)
+        local quote_ink_top, quote_ink_bottom = text_ink_bounds(quote_widget)
+        local content_ink_top = content_top + quote_ink_top
+        local content_ink_bottom = content_top + quote_ink_bottom
+        if author_widget then
+            local author_ink_bottom = select(2, text_ink_bounds(author_widget))
+            content_ink_bottom = content_top + quote_height + author_gap + author_ink_bottom
+        end
+        local visual_shift = 0
         if type(ctx.setContentBounds) == "function" then
             ctx.setContentBounds{
-                top = 0,
-                bottom = height,
-                min_shift = 0,
-                max_shift = 0,
-                lock_shift = true,
-                set_shift = function() end,
+                top = content_ink_top,
+                bottom = content_ink_bottom,
+                min_shift = -content_ink_top,
+                max_shift = height - content_ink_bottom,
+                set_shift = function(shift) visual_shift = shift end,
             }
         end
         local content = WidgetResources.managedPaintWidget{
@@ -341,7 +360,7 @@ return {
             resources = { quote_widget, author_widget },
             paintTo = function(_self, bb, x, y)
                 local quote_x = x + math.floor((width - content_w) / 2)
-                local quote_y = y + content_top
+                local quote_y = y + content_top + visual_shift
                 quote_widget:paintTo(bb, quote_x, quote_y)
                 if author_widget then
                     local author_x = x + math.floor((width - content_w) / 2)

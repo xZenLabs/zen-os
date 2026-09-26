@@ -112,6 +112,20 @@ function M.build(ctx)
             text = _("Rakuyomi"),
             sub_item_table = {
                 {
+                    text = _("Exclude from Home"),
+                    checked_func = function()
+                        return config.rakuyomi.exclude_from_home == true
+                    end,
+                    callback = function(touchmenu_instance)
+                        config.rakuyomi.exclude_from_home =
+                            config.rakuyomi.exclude_from_home ~= true
+                        plugin:saveConfig()
+                        local home = settings_apply.get_shared(plugin, "home")
+                        if home and home.rebuildActive then home.rebuildActive() end
+                        if touchmenu_instance then touchmenu_instance:updateItems() end
+                    end,
+                },
+                {
                     text = _("Return to chapter list on exit"),
                     checked_func = function()
                         return config.rakuyomi.return_to_chapter_list_on_exit ~= false

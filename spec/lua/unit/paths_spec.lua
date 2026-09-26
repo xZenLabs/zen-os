@@ -34,4 +34,16 @@ describe("paths", function()
         assert.are.equal("/storage/emulated/0", Paths.getHomeDir())
         assert.is_true(Paths.isInHomeDir("/storage/emulated/0/Book.epub"))
     end)
+
+    it("themes the external archive without treating it as a library root", function()
+        local original_get_archive_dir = Paths.getArchiveDir
+        Paths.getArchiveDir = function() return "/storage/emulated/0/Archive" end
+
+        assert.is_true(Paths.isInThemedDir("/sdcard/Archive/Book.epub"))
+        assert.is_true(Paths.isArchiveRoot("/sdcard/Archive/"))
+        assert.is_false(Paths.isInHomeDir("/sdcard/Archive/Book.epub"))
+        assert.is_false(Paths.isHomeRoot("/sdcard/Archive"))
+
+        Paths.getArchiveDir = original_get_archive_dir
+    end)
 end)

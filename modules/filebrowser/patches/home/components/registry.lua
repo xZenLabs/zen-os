@@ -304,6 +304,16 @@ function M.equalSpacingShifts(items, options)
         return math.min(first, second), math.max(first, second)
     end
 
+    local pinned_first_shift
+    if type(options) == "table" and type(options.top) == "number" then
+        local first = items[1]
+        local min_shift, max_shift = configured_shift_bounds(first)
+        pinned_first_shift = math.floor(options.top
+            - (first.row_y or 0) - (first.top or 0) + 0.5)
+        pinned_first_shift = math.max(min_shift,
+            math.min(max_shift, pinned_first_shift))
+    end
+
     local pinned_last_shift
     if type(options) == "table" and type(options.bottom) == "number" then
         local last = items[count]
@@ -315,6 +325,9 @@ function M.equalSpacingShifts(items, options)
     end
 
     local function shift_bounds(item, index)
+        if pinned_first_shift ~= nil and index == 1 then
+            return pinned_first_shift, pinned_first_shift
+        end
         if pinned_last_shift ~= nil and index == count then
             return pinned_last_shift, pinned_last_shift
         end
@@ -336,7 +349,8 @@ function M.equalSpacingShifts(items, options)
         max_gap = max_gap
             + max_shift - min_shift
     end
-    max_gap = math.floor(max_gap + math.abs(pinned_last_shift or 0))
+    max_gap = math.floor(max_gap + math.abs(pinned_first_shift or 0)
+        + math.abs(pinned_last_shift or 0))
 
     local best_shifts
     local best_cost
@@ -429,7 +443,7 @@ function M.equalSpacingShifts(items, options)
         if not changed then break end
     end
     local overlap = score()
-    if overlap > 0 and pinned_last_shift ~= nil then
+    if overlap > 0 and (pinned_first_shift ~= nil or pinned_last_shift ~= nil) then
         return M.equalSpacingShifts(items)
     end
     return shifts

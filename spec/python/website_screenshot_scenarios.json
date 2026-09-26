@@ -1,29 +1,271 @@
 [
-  {"id": "zen_home", "group": "home", "session": "general", "action": "home_preset", "preset": "Zen Default", "navbar": "zen_home_icons", "docs": ["docs/home.md"]},
-  {"id": "home_bookshelf", "group": "home", "session": "general", "action": "home_preset", "preset": "Bookshelf", "navbar": "library_home_text", "docs": ["docs/home.md"]},
-  {"id": "home_simple", "group": "home", "session": "general", "action": "home_simple", "navbar": "text_only", "docs": ["docs/home.md"]},
-
-  {"id": "library_covers_full", "group": "library", "session": "general", "action": "library", "mode": "mosaic_image", "navbar": "regular", "docs": ["docs/library.md"]},
-  {"id": "library_list_full", "group": "library", "session": "general", "action": "library", "mode": "list_image_meta", "navbar": "icons_only", "visible_books": ["Project Hail Mary: A Novel", "Never Split the Difference", "The Creative Habit", "Atomic Habits: An Easy and Proven Way to Build Good Habits and Break Bad Ones", "Clean Coder"], "docs": ["docs/library.md"]},
-  {"id": "context_menu", "group": "library", "session": "general", "action": "context", "book_role": "featured", "navbar": "few_items", "docs": ["docs/library.md"]},
-  {"id": "metadata_editor", "group": "library", "session": "general", "action": "metadata_editor", "book_title": "Deep Work", "docs": ["docs/library.md"]},
-  {"id": "stats", "group": "library", "session": "general", "action": "stats", "navbar": "library_home_text", "docs": []},
-
-  {"id": "launcher", "group": "menus", "session": "general", "action": "menu_tab", "tab": "app_launcher", "background": "home_simple", "navbar": "library_home_icons", "docs": ["docs/launcher.md"]},
-  {"id": "quicksettings", "group": "menus", "session": "general", "action": "menu_tab", "tab": "quicksettings", "navbar": "library_home_icons", "docs": ["docs/controls.md", "docs/zen-mode.md"]},
-  {"id": "quickstart", "group": "menus", "session": "general", "action": "quickstart", "docs": ["docs/installation.md"]},
-  {"id": "zen_settings", "group": "menus", "session": "general", "action": "zen_settings", "docs": ["docs/advanced.md"]},
-  {"id": "launcher_add_plugin_menu", "group": "menus", "session": "general", "action": "launcher_add_plugin_menu", "docs": ["docs/launcher.md"]},
-  {"id": "launcher_add_koreader_menu", "group": "menus", "session": "general", "action": "launcher_add_koreader_menu", "docs": ["docs/launcher.md"]},
-  {"id": "controls_buttons_settings", "group": "menus", "session": "general", "action": "controls_buttons_settings", "docs": ["docs/controls.md"]},
-  {"id": "navbar_buttons_settings", "group": "menus", "session": "general", "action": "navbar_buttons_settings", "navbar": "navbar_settings", "docs": ["docs/library.md"]},
-
-  {"id": "reader", "group": "reader", "session": "reader", "action": "reader", "book_role": "reader", "docs": ["docs/reader.md"]},
-  {"id": "reader_launcher_book_switcher", "group": "reader", "session": "reader", "action": "reader_control", "control": "launcher_book_switcher", "docs": ["docs/launcher.md"]},
-  {"id": "reader_launcher_book_details", "group": "reader", "session": "reader", "action": "reader_control", "control": "launcher_book_details", "docs": ["docs/launcher.md"]},
-  {"id": "reader_book_details", "group": "reader", "session": "reader", "action": "reader_control", "control": "launcher_book_details_fullscreen", "docs": ["docs/launcher.md", "docs/reader.md"]},
-  {"id": "page_browser_grid", "group": "reader", "session": "reader", "action": "reader_control", "control": "page_browser_grid", "docs": ["docs/reader.md", "docs/faq.md"]},
-  {"id": "page_browser_carousel", "group": "reader", "session": "reader", "action": "reader_control", "control": "page_browser_carousel", "docs": ["docs/reader.md"]},
-  {"id": "reader_dict", "group": "reader", "session": "reader", "action": "reader_control", "control": "highlight_dictionary", "footer_preset": "pages_bar_percent", "docs": ["docs/reader.md"]},
-  {"id": "reader_highlight", "group": "reader", "session": "reader", "action": "reader_control", "control": "show_highlight_menu", "docs": ["docs/reader.md"]}
+  {
+    "id": "zen_home",
+    "group": "home",
+    "session": "general",
+    "action": "home_preset",
+    "preset": "Zen Default",
+    "navbar": "zen_home_icons",
+    "docs": [
+      "docs/home.md"
+    ]
+  },
+  {
+    "id": "home_bookshelf",
+    "group": "home",
+    "session": "general",
+    "action": "home_preset",
+    "preset": "Bookshelf",
+    "navbar": "library_home_text",
+    "docs": [
+      "docs/home.md"
+    ]
+  },
+  {
+    "id": "home_simple",
+    "group": "home",
+    "session": "general",
+    "action": "home_simple",
+    "navbar": "text_only",
+    "docs": [
+      "docs/home.md"
+    ]
+  },
+  {
+    "id": "library_covers_full",
+    "group": "library",
+    "session": "general",
+    "action": "library",
+    "mode": "mosaic_image",
+    "navbar": "regular",
+    "docs": [
+      "docs/library.md"
+    ]
+  },
+  {
+    "id": "library_list_full",
+    "group": "library",
+    "session": "general",
+    "action": "library",
+    "mode": "list_image_meta",
+    "navbar": "icons_only",
+    "visible_books": [
+      "Project Hail Mary: A Novel",
+      "Never Split the Difference",
+      "The Creative Habit",
+      "Atomic Habits: An Easy and Proven Way to Build Good Habits and Break Bad Ones",
+      "Clean Coder"
+    ],
+    "docs": [
+      "docs/library.md"
+    ]
+  },
+  {
+    "id": "context_menu",
+    "group": "library",
+    "session": "general",
+    "action": "context",
+    "book_role": "featured",
+    "navbar": "few_items",
+    "docs": [
+      "docs/library.md"
+    ]
+  },
+  {
+    "id": "metadata_editor",
+    "group": "library",
+    "session": "general",
+    "action": "metadata_editor",
+    "book_title": "Deep Work",
+    "docs": [
+      "docs/library.md"
+    ]
+  },
+  {
+    "id": "stats",
+    "group": "library",
+    "session": "general",
+    "action": "stats",
+    "navbar": "library_home_text",
+    "docs": []
+  },
+  {
+    "id": "launcher",
+    "group": "menus",
+    "session": "general",
+    "action": "menu_tab",
+    "tab": "app_launcher",
+    "background": "home_simple",
+    "navbar": "library_home_icons",
+    "docs": [
+      "docs/launcher.md"
+    ]
+  },
+  {
+    "id": "quicksettings",
+    "group": "menus",
+    "session": "general",
+    "action": "menu_tab",
+    "tab": "quicksettings",
+    "navbar": "library_home_icons",
+    "docs": [
+      "docs/controls.md",
+      "docs/zen-mode.md"
+    ]
+  },
+  {
+    "id": "network_switcher",
+    "group": "menus",
+    "session": "general",
+    "action": "network_switcher",
+    "wifi_names": [
+      "Moonlit Library",
+      "Pixel Harbor",
+      "Cedar & Static",
+      "Orbital Guest",
+      "Coffee Then Wi-Fi",
+      "NebulaNet"
+    ],
+    "docs": [
+      "docs/controls.md"
+    ]
+  },
+  {
+    "id": "quickstart",
+    "group": "menus",
+    "session": "general",
+    "action": "quickstart",
+    "docs": [
+      "docs/installation.md"
+    ]
+  },
+  {
+    "id": "zen_settings",
+    "group": "menus",
+    "session": "general",
+    "action": "zen_settings",
+    "docs": [
+      "docs/advanced.md"
+    ]
+  },
+  {
+    "id": "launcher_add_plugin_menu",
+    "group": "menus",
+    "session": "general",
+    "action": "launcher_add_plugin_menu",
+    "docs": [
+      "docs/launcher.md"
+    ]
+  },
+  {
+    "id": "launcher_add_koreader_menu",
+    "group": "menus",
+    "session": "general",
+    "action": "launcher_add_koreader_menu",
+    "docs": [
+      "docs/launcher.md"
+    ]
+  },
+  {
+    "id": "controls_buttons_settings",
+    "group": "menus",
+    "session": "general",
+    "action": "controls_buttons_settings",
+    "docs": [
+      "docs/controls.md"
+    ]
+  },
+  {
+    "id": "navbar_buttons_settings",
+    "group": "menus",
+    "session": "general",
+    "action": "navbar_buttons_settings",
+    "navbar": "navbar_settings",
+    "docs": [
+      "docs/library.md"
+    ]
+  },
+  {
+    "id": "reader",
+    "group": "reader",
+    "session": "reader",
+    "action": "reader",
+    "book_role": "reader",
+    "docs": [
+      "docs/reader.md"
+    ]
+  },
+  {
+    "id": "reader_launcher_book_switcher",
+    "group": "reader",
+    "session": "reader",
+    "action": "reader_control",
+    "control": "launcher_book_switcher",
+    "docs": [
+      "docs/launcher.md"
+    ]
+  },
+  {
+    "id": "reader_launcher_book_details",
+    "group": "reader",
+    "session": "reader",
+    "action": "reader_control",
+    "control": "launcher_book_details",
+    "docs": [
+      "docs/launcher.md"
+    ]
+  },
+  {
+    "id": "reader_book_details",
+    "group": "reader",
+    "session": "reader",
+    "action": "reader_control",
+    "control": "launcher_book_details_fullscreen",
+    "docs": [
+      "docs/launcher.md",
+      "docs/reader.md"
+    ]
+  },
+  {
+    "id": "page_browser_grid",
+    "group": "reader",
+    "session": "reader",
+    "action": "reader_control",
+    "control": "page_browser_grid",
+    "docs": [
+      "docs/reader.md",
+      "docs/faq.md"
+    ]
+  },
+  {
+    "id": "page_browser_carousel",
+    "group": "reader",
+    "session": "reader",
+    "action": "reader_control",
+    "control": "page_browser_carousel",
+    "docs": [
+      "docs/reader.md"
+    ]
+  },
+  {
+    "id": "reader_dict",
+    "group": "reader",
+    "session": "reader",
+    "action": "reader_control",
+    "control": "highlight_dictionary",
+    "footer_preset": "pages_bar_percent",
+    "docs": [
+      "docs/reader.md"
+    ]
+  },
+  {
+    "id": "reader_highlight",
+    "group": "reader",
+    "session": "reader",
+    "action": "reader_control",
+    "control": "show_highlight_menu",
+    "docs": [
+      "docs/reader.md"
+    ]
+  }
 ]

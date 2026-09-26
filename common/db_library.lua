@@ -28,7 +28,10 @@ local LibraryDB = {}
 -- In-memory cache so the expensive sidecar scan only runs once per cache
 -- window (default 5 minutes).  Call LibraryDB.invalidateCache() to force a
 -- rescan on the next getBookCounts() call.
-local _cache = { book_counts = nil, cache_time = 0 }
+local _cache = {
+    all = { book_counts = nil, cache_time = 0 },
+    without_comics = { book_counts = nil, cache_time = 0 },
+}
 local CACHE_TTL = 300  -- seconds
 
 -- Per-sidecar summary cache.  Key is sidecar path + modification time + size,
@@ -49,8 +52,10 @@ end
 
 -- Invalidate the cache so the next getBookCounts() call forces a fresh scan.
 function LibraryDB.invalidateCache()
-    _cache.book_counts = nil
-    _cache.cache_time  = 0
+    for _key, cached in pairs(_cache) do
+        cached.book_counts = nil
+        cached.cache_time = 0
+    end
 end
 
 -- Returns { finished = N, reading = N, total = N, finished_this_month = N, finished_this_year = N }
@@ -60,11 +65,12 @@ end
 -- All three counts come from the same ReadHistory walk so reading + finished
 -- is always <= total.
 -- Results are cached for CACHE_TTL seconds to avoid rescanning on every open.
-function LibraryDB.getBookCounts()
+function LibraryDB.getBookCounts(exclude_cbz_cbr)
     local now = os.time()
-    if _cache.book_counts and (now - _cache.cache_time) < CACHE_TTL then
+    local cached = _cache[exclude_cbz_cbr == true and "without_comics" or "all"]
+    if cached.book_counts and (now - cached.cache_time) < CACHE_TTL then
         logger.info("returning cached book counts")
-        return _cache.book_counts
+        return cached.book_counts
     end
 
     local counts = {
@@ -95,6 +101,9 @@ function LibraryDB.getBookCounts()
             local file = entry.file
             -- Skip books outside home_dir (SD card, other folders, etc.)
             if file and home_dir and not paths.isInHomeDir(file) then
+                file = nil
+            end
+            if file and exclude_cbz_cbr == true and file:lower():match("%.cb[rz]$") then
                 file = nil
             end
             if file then
@@ -151,8 +160,8 @@ function LibraryDB.getBookCounts()
     logger.info("finished=", counts.finished,
                 "reading=", counts.reading,
                 "total=", counts.total)
-    _cache.book_counts = counts
-    _cache.cache_time  = now
+    cached.book_counts = counts
+    cached.cache_time = now
     return counts
 end
 

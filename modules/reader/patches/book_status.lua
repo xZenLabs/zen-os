@@ -12,6 +12,7 @@ local function apply_book_status()
 
     -- Always use the ZenOS custom Book Status layout (home + close buttons, cleaner stats)
     local BookStatusWidget = require("ui/widget/bookstatuswidget")
+    local archive_actions = require("common/archive_actions")
     local book_status = require("common/book_status")
     local library_navigation = require("common/library_navigation")
     local utils = require("common/utils")
@@ -243,18 +244,41 @@ local function apply_book_status()
                 callback = open_next_file_callback,
             }
         end
+        local file = self.ui and self.ui.document and self.ui.document.file
+        local archive_button
+        if not self.readonly and archive_actions.canArchive(file) then
+            archive_button = Button:new{
+                text = _("Archive"),
+                width = action_width,
+                show_parent = self,
+                callback = function()
+                    local reader_status = self.ui and self.ui.status
+                    if reader_status then
+                        archive_actions.markCompleteAndArchive(reader_status, self)
+                    end
+                end,
+            }
+        end
         local orig_generateRateGroup = BookStatusWidget.generateRateGroup
         self.generateRateGroup = function(s, w, h, rating)
+            local restart_stack = restart_book_btn
+            if archive_button then
+                restart_stack = VerticalGroup:new{
+                    restart_book_btn,
+                    VerticalSpan:new{ width = action_gap },
+                    archive_button,
+                }
+            end
             local btn_row
             if next_file_btn then
                 btn_row = HorizontalGroup:new{
                     align = "center",
-                    restart_book_btn,
+                    restart_stack,
                     HorizontalSpan:new{ width = action_gap },
                     next_file_btn,
                 }
             else
-                btn_row = restart_book_btn
+                btn_row = restart_stack
             end
             if is_landscape then
                 local btn_row_width = action_width
@@ -278,6 +302,9 @@ local function apply_book_status()
             end
             local stars = orig_generateRateGroup(s, w, h, rating)
             local btn_h = restart_book_btn:getSize().h
+            if archive_button then
+                btn_h = btn_h + action_gap + archive_button:getSize().h
+            end
             return VerticalGroup:new{
                 CenterContainer:new{
                     dimen = Geom:new{ w = w, h = btn_h },
@@ -308,18 +335,27 @@ local function apply_book_status()
         table.insert(self.layout, 1, { close_btn, home_btn })
         table.insert(self.layout, 2, { restart_book_btn })
         self.selected.y = self.selected.y + 2
+        if archive_button then
+            table.insert(self.layout, 3, { archive_button })
+            self.selected.y = self.selected.y + 1
+        end
 
-        local content = VerticalGroup:new{
+        local content_items = {
             align = "left",
             title_bar,
             book_info_group,
+        }
+        for _i, widget in ipairs({
             stats_header,
             self:genStatisticsGroup(width),
             review_header,
             summary_group,
             status_header,
             switch_group,
-        }
+        }) do
+            content_items[#content_items + 1] = widget
+        end
+        local content = VerticalGroup:new(content_items)
 
         local headers = { stats_header, review_header, status_header }
         for _i, header in ipairs(headers) do header[1].width = 0 end

@@ -46,7 +46,7 @@ local function showMenuPicker(opts)
     local pad      = Size.padding.default
     local span     = Size.span.vertical_default
     local row_pad  = Screen:scaleBySize(12)
-    local has_secondary, has_images
+    local has_secondary, has_images, max_text_lines
     local base_row_h, row_h, row_face, secondary_face
     local image_h, image_w, image_gap
     local indent_step = Screen:scaleBySize(16)
@@ -88,18 +88,32 @@ local function showMenuPicker(opts)
         + (footer_under_header and footer_area_h or 0)
     local cur_page = 1
 
+    local function itemDetailLines(item)
+        local lines = {}
+        if type(item.detail_lines) == "table" then
+            for _i, line in ipairs(item.detail_lines) do
+                if type(line) == "string" and line ~= "" then
+                    lines[#lines + 1] = line
+                end
+            end
+        elseif type(item.secondary_text) == "string" and item.secondary_text ~= "" then
+            lines[1] = item.secondary_text
+        end
+        return lines
+    end
+
     local function updateGeometry()
-        has_secondary = false
+        max_text_lines = 1
         has_images = false
         for _i, item in ipairs(items) do
-            if type(item.secondary_text) == "string" and item.secondary_text ~= "" then
-                has_secondary = true
-            end
+            max_text_lines = math.max(max_text_lines, 1 + #itemDetailLines(item))
             if type(item.image_file) == "string" and item.image_file ~= "" then
                 has_images = true
             end
         end
-        base_row_h = Screen:scaleBySize((has_secondary or has_images) and 64 or 48)
+        has_secondary = max_text_lines > 1
+        base_row_h = Screen:scaleBySize(math.max(
+            has_images and 64 or 48, 48 + (max_text_lines - 1) * 16))
         row_h = base_row_h
         row_face = Font:getFace("cfont", has_secondary and 21 or 24)
         secondary_face = has_secondary and Font:getFace("smallinfofont", 16) or nil
@@ -201,10 +215,6 @@ local function showMenuPicker(opts)
 
     local function itemText(item)
         return type(item.text) == "string" and item.text or tostring(item.text or "")
-    end
-
-    local function itemSecondaryText(item)
-        return type(item.secondary_text) == "string" and item.secondary_text or ""
     end
 
     local function rowAt(gx, gy)
@@ -484,8 +494,9 @@ local function showMenuPicker(opts)
                     local idx, row_i = rowAt(gx, gy)
                     if idx and row_truncated[idx] then
                         local detail = itemText(items[idx])
-                        local secondary = itemSecondaryText(items[idx])
-                        if secondary ~= "" then detail = detail .. "\n" .. secondary end
+                        for _i, line in ipairs(itemDetailLines(items[idx])) do
+                            detail = detail .. "\n" .. line
+                        end
                         TruncatedTextMessage.show(detail, {
                             y = (dialog.dimen.y or 0) + list_y + row_i * row_h,
                             h = row_h,
@@ -647,9 +658,10 @@ local function showMenuPicker(opts)
             local row_y = list_y + row_i * row_h
             local item = items[idx]
             local text = itemText(item)
-            local secondary = itemSecondaryText(item)
+            local details = itemDetailLines(item)
             local text_indent = math.max(0, tonumber(item.indent_level) or 0) * indent_step
             local leading_width = has_images and image_w + image_gap or 0
+            local max_text_width = content_w - row_pad * 2 - text_indent - leading_width
             local selected = not back_focused
                 and (not Device:isTouchDevice() or Device:hasDPad() or Device:hasKeyboard())
                 and idx == selected_idx
@@ -661,46 +673,44 @@ local function showMenuPicker(opts)
                 text      = text,
                 face      = row_face,
                 bold      = item.bold == true,
-                max_width = content_w - row_pad * 2 - text_indent - leading_width,
+                max_width = max_text_width,
                 padding   = 0,
                 fgcolor   = black_text and Blitbuffer.COLOR_BLACK
                     or (selected and Blitbuffer.COLOR_WHITE or nil),
             }
-            local secondary_tw
-            if secondary ~= "" then
-                secondary_tw = TW:new{
-                    text = secondary,
+            local detail_widgets = {}
+            local group_h = tw:getSize().h
+            row_truncated[idx] = tw:isTruncated()
+            for _i, detail in ipairs(details) do
+                local detail_tw = TW:new{
+                    text = detail,
                     face = secondary_face,
-                    max_width = content_w - row_pad * 2 - text_indent - leading_width,
+                    max_width = max_text_width,
                     padding = 0,
                     fgcolor = black_text and Blitbuffer.COLOR_BLACK
                         or (selected and Blitbuffer.COLOR_WHITE
                             or Blitbuffer.COLOR_DARK_GRAY),
                 }
+                detail_widgets[#detail_widgets + 1] = detail_tw
+                group_h = group_h + detail_tw:getSize().h
+                row_truncated[idx] = row_truncated[idx] or detail_tw:isTruncated()
             end
-            row_truncated[idx] = tw:isTruncated()
-                or (secondary_tw and secondary_tw:isTruncated()) or false
             local sz = tw:getSize()
-            if secondary_tw then
-                local secondary_sz = secondary_tw:getSize()
-                local group_h = sz.h + secondary_sz.h
-                local text_y = row_y + math.floor((row_h - group_h) / 2)
-                local text_x = mirrored
-                    and list_x + content_w - row_pad - text_indent - leading_width - sz.w
-                    or list_x + row_pad + text_indent + leading_width
-                local secondary_x = mirrored
+            local text_y = row_y + math.floor((row_h - group_h) / 2)
+            local text_x = mirrored
+                and list_x + content_w - row_pad - text_indent - leading_width - sz.w
+                or list_x + row_pad + text_indent + leading_width
+            tw:paintTo(bb, text_x, text_y)
+            text_y = text_y + sz.h
+            for _i, detail_tw in ipairs(detail_widgets) do
+                local detail_sz = detail_tw:getSize()
+                local detail_x = mirrored
                     and list_x + content_w - row_pad - text_indent
-                        - leading_width - secondary_sz.w
+                        - leading_width - detail_sz.w
                     or list_x + row_pad + text_indent + leading_width
-                tw:paintTo(bb, text_x, text_y)
-                secondary_tw:paintTo(bb, secondary_x, text_y + sz.h)
-                secondary_tw:free()
-            else
-                local text_x = mirrored
-                    and list_x + content_w - row_pad - text_indent - leading_width - sz.w
-                    or list_x + row_pad + text_indent + leading_width
-                tw:paintTo(bb, text_x,
-                    row_y + math.floor((row_h - sz.h) / 2))
+                detail_tw:paintTo(bb, detail_x, text_y)
+                text_y = text_y + detail_sz.h
+                detail_tw:free()
             end
             if has_images and type(item.image_file) == "string"
                     and item.image_file ~= "" then

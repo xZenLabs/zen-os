@@ -247,10 +247,14 @@ describe("Zen settings page", function()
 
     it("toggles configurable submenu rows only from their outer switch", function()
         local active = false
+        local callback_menu
         local date = {
             text = "Date",
             checked_func = function() return active end,
-            checkmark_callback = function() active = not active end,
+            checkmark_callback = function(touch_menu)
+                callback_menu = touch_menu
+                active = not active
+            end,
             sub_item_table = {{ text = "MM/DD/YY" }},
             _zen_settings_control_bounds = { left = 0.75, right = 0.9 },
         }
@@ -258,6 +262,7 @@ describe("Zen settings page", function()
 
         settings:onMenuSelect(date, { x = 0.8 })
         assert.is_true(active)
+        assert.are.equal(settings, callback_menu)
         assert.are.equal(settings._root_items, settings.item_table)
 
         settings:onMenuSelect(date, { x = 0.95 })
@@ -281,6 +286,21 @@ describe("Zen settings page", function()
         assert.are.equal(settings._root_items, settings.item_table)
         assert.are.equal(0, #settings.item_table_stack)
         assert.is_false(settings.title_bar.back_visible)
+    end)
+
+    it("goes back from submenus on an east swipe starting in the west 33 percent", function()
+        local library = { text = "Library >", sub_item_table = {{ text = "Option" }} }
+        local settings = make_page({ library })
+        settings:onMenuSelect(library)
+
+        assert.is_true(settings:onSwipe(nil, { direction = "east", pos = { x = 198 } }))
+        assert.are.equal(settings._root_items, settings.item_table)
+
+        assert.is_true(settings:onSwipe(nil, { direction = "east", pos = { x = 199 } }))
+        assert.is_true(settings:onSwipe(nil, { direction = "west", pos = { x = 100 } }))
+        assert.is_true(settings:onSwipe(nil, { direction = "east", pos = { x = 100 } }))
+        assert.is_false(settings._closed)
+        assert.are.equal(3, settings.top_menu_swipes)
     end)
 
     it("shows full truncated row text on hold while preserving explicit help", function()

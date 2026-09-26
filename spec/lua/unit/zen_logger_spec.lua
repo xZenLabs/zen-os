@@ -48,4 +48,30 @@ describe("Zen logger branding", function()
         logger.dbg("visible")
         assert.are.equal("ZenOS: [zen_logger_spec] visible", captured[1])
     end)
+
+    it("keeps a debug level enabled before installation", function()
+        backend:setLevel(backend.levels.dbg)
+        local logger = require("common/zen_logger").new("test")
+
+        logger.dbg("visible")
+
+        assert.are.equal("ZenOS: [zen_logger_spec] visible", captured[1])
+    end)
+
+    it("skips stack inspection for disabled debug logging", function()
+        local logger = require("common/zen_logger").new("test")
+        local original_getinfo = debug.getinfo
+        local inspections = 0
+        local getinfo_stub = stub(debug, "getinfo", function(...)
+            inspections = inspections + 1
+            return original_getinfo(...)
+        end)
+
+        logger.dbg("hidden")
+        logger.measure("hidden", 1)
+        logger.perf("hidden", 1)
+        getinfo_stub:revert()
+
+        assert.are.equal(0, inspections)
+    end)
 end)

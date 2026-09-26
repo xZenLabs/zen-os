@@ -787,8 +787,15 @@ local function apply_browser_list_item_layout()
                         rounded = features.browser_cover_rounded_corners == true,
                     })
                 end
-                if dim_finished and self.width and self.height then
-                    bb:lightenRect(x, y, self.width, self.height, 0.3)
+                local frame = self._cover_frame
+                if dim_finished and frame and frame.dimen then
+                    local border = frame.bordersize or 0
+                    local width = frame.dimen.w - 2 * border
+                    local height = frame.dimen.h - 2 * border
+                    if width > 0 and height > 0 then
+                        bb:lightenRect(frame.dimen.x + border, frame.dimen.y + border,
+                            width, height, 0.4)
+                    end
                 end
             end
         end

@@ -26,7 +26,7 @@ Swipe up while in a book, then tap the **Aa** icon.
 
 ## No books found
 
-Set the Home folder to the location where your books are, preferably a dedicated folder such as `/books`, under **Zen Settings > Library > Home folder > Set home folder**. Sideloaded books must use a KOReader-supported, DRM-free format. On Kindle devices, install [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) to browse and prepare books from the device's native Kindle library through ZenOS.
+Set the Home folder to the location where your books are, preferably a dedicated folder such as `/books`, under **Zen Settings > Library > Home folder > Set home folder**. Sideloaded books must use an open, DRM-free format such as EPUB or PDF. ZenOS cannot natively open books delivered through Amazon Send to Kindle or Kindle formats such as KFX and AZW3. On Kindle devices, you can install [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) to access books books from the native Kindle library.
 
 ## How do I open my native Kindle library?
 
@@ -53,6 +53,8 @@ Disable each item before using ZenOS unless its action is **Remove**; those plug
 | QuickUI | Disable |
 | Reader Menu Redesign | Disable |
 | Shortcuts Toolbar | Disable |
+| Page Scrubber | Disable |
+| Neo QuickSettings | Disable |
 
 ## How do I navigate the entire filesystem?
 Set **Zen Settings > Library > Home folder > Lock home folder** to **Off**.

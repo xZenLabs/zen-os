@@ -1,198 +1,277 @@
--- Brightness (frontlight) slider section for the Quick Settings panel.
--- Returns a populated VerticalGroup and registers slider/toggle refs.
---
--- Usage:
---   local build_brightness_slider = require("modules/menu/patches/brightness_slider")
---   local group = build_brightness_slider(touch_menu, {
---       inner_width, slider_width, small_btn_width, toggle_width, slider_gap,
---       medium_font, small_btn_font, powerd, refs,
---   })
+-- One Controls slider for brightness and, when available, warmth.
 
 local Blitbuffer      = require("ffi/blitbuffer")
 local Button          = require("ui/widget/button")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local Device          = require("device")
+local FrameContainer  = require("ui/widget/container/framecontainer")
 local Geom            = require("ui/geometry")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan  = require("ui/widget/horizontalspan")
+local IconWidget      = require("ui/widget/iconwidget")
 local LeftContainer   = require("ui/widget/container/leftcontainer")
+local LineWidget      = require("ui/widget/linewidget")
 local TextWidget      = require("ui/widget/textwidget")
 local UIManager       = require("ui/uimanager")
 local VerticalGroup   = require("ui/widget/verticalgroup")
 local VerticalSpan    = require("ui/widget/verticalspan")
 local ZenSlider       = require("common/ui/zen_slider")
 local library_font    = require("modules/filebrowser/patches/library_font")
+local utils           = require("common/utils")
+local WidgetResources = require("common/widget_resources")
 local _               = require("gettext")
 local Screen          = Device.screen
 
 local function build_brightness_slider(touch_menu, opts)
-    local inner_width     = opts.inner_width
-    local slider_width    = opts.slider_width
-    local small_btn_width = opts.small_btn_width
-    local slider_gap      = opts.slider_gap
-    local medium_font     = opts.medium_font
-    local small_btn_size  = opts.small_btn_size
-    local powerd          = opts.powerd
-    local refs            = opts.refs
-    local show_parent     = touch_menu.show_parent
-
-    local fl = {
+    local powerd = opts.powerd
+    local refs = opts.refs
+    local show_parent = touch_menu.show_parent
+    local show_fl = opts.show_frontlight ~= false
+    local show_nl = opts.show_warmth == true and opts.unified ~= false
+    local fl = show_fl and {
         min = 0,
         hardware_min = powerd.fl_min or 0,
         max = powerd.fl_max,
         cur = powerd:frontlightIntensity(),
     }
-
-    -- Split label: static prefix + fixed-width number box so the prefix
-    -- never shifts when the number changes width (e.g. 9 → 10).
-    local fl_prefix_text = _("Brightness") .. ": "
-    local fl_drag_prefix = TextWidget:new{ text = fl_prefix_text, face = medium_font }
-    local fl_drag_prefix_w = fl_drag_prefix:getSize().w
-    local fl_drag_num = TextWidget:new{ text = tostring(fl.cur), face = medium_font }
-    local fl_max_num_sample = TextWidget:new{ text = tostring(fl.max), face = medium_font }
-    local fl_drag_max_num_w = fl_max_num_sample:getSize().w
-    fl_max_num_sample:free()
-    local fl_drag_ref_w = fl_drag_prefix_w + fl_drag_max_num_w
-    local fl_label_h = fl_drag_prefix:getSize().h
-    local fl_num_box = LeftContainer:new{
-        dimen = Geom:new{ w = fl_drag_max_num_w, h = fl_label_h },
-        fl_drag_num,
+    local nl = show_nl and {
+        min = powerd.fl_warmth_min,
+        max = powerd.fl_warmth_max,
+        cur = powerd:toNativeWarmth(powerd:frontlightWarmth()),
     }
-    local fl_label_group = HorizontalGroup:new{
-        fl_drag_prefix,
-        fl_num_box,
+    local mode = show_fl and "brightness" or "warmth"
+    local selected = fl or nl
+    local labels = { brightness = _("Brightness") .. ": ", warmth = _("Warmth") .. ": " }
+
+    local prefix = TextWidget:new{ text = labels[mode], face = opts.medium_font }
+    local prefix_width = prefix:getSize().w
+    if fl and nl then
+        local sample = TextWidget:new{ text = labels.warmth, face = opts.medium_font }
+        prefix_width = math.max(prefix_width, sample:getSize().w)
+        sample:free()
+    end
+    local number = TextWidget:new{ text = tostring(selected.cur), face = opts.medium_font }
+    local max_value = math.max(fl and fl.max or 0, nl and nl.max or 0)
+    local sample = TextWidget:new{ text = tostring(max_value), face = opts.medium_font }
+    local number_width = math.max(number:getSize().w, sample:getSize().w)
+    sample:free()
+    local label_h = math.max(prefix:getSize().h, number:getSize().h)
+    local label_width = prefix_width + number_width
+    local number_box = LeftContainer:new{ dimen = Geom:new{ w = number_width, h = label_h }, number }
+    local label = HorizontalGroup:new{
+        CenterContainer:new{ dimen = Geom:new{ w = prefix_width, h = label_h }, prefix },
+        number_box,
     }
 
-    local fl_progress = ZenSlider:new{
-        width     = slider_width,
-        value     = fl.cur,
-        value_min = fl.min,
-        value_max = fl.max,
+    local progress = ZenSlider:new{
+        width = opts.slider_width,
+        value = selected.cur,
+        value_min = selected.min,
+        value_max = selected.max,
         show_parent = show_parent,
     }
-    local fl_button_height = fl_progress:getSize().h
 
-    local fl_minus = Button:new{
-        text           = "−",
-        text_font_face = library_font.getFontName(),
-        text_font_size = small_btn_size,
-        text_font_bold = false,
-        width          = small_btn_width,
-        height         = fl_button_height,
-        bordersize     = 0,
-        show_parent    = show_parent,
-        callback       = function() end, -- placeholder, wired below
-    }
+    if fl then
+        fl.prev_non_min = fl.cur > fl.min and fl.cur or math.min(fl.max, fl.min + 1)
+    end
 
-    local fl_label_fn = nil
-    local fl_row  -- forward-declare for on_change closure
-
-    local function setBrightness(intensity)
-        if intensity ~= fl.min and intensity == fl.cur then return end
-        intensity = math.max(fl.min, math.min(fl.max, intensity))
-        if intensity > 0 then intensity = math.max(fl.hardware_min, intensity) end
-        if intensity <= 0 and type(powerd.turnOffFrontlight) == "function" then
-            powerd:turnOffFrontlight()
-        else
-            powerd:setIntensity(intensity)
-            if type(powerd.isFrontlightOff) == "function"
-                    and powerd:isFrontlightOff()
-                    and type(powerd.turnOnFrontlight) == "function" then
-                powerd:turnOnFrontlight()
+    local function setSelected(value)
+        if mode == "brightness" then
+            if value ~= fl.min and value == fl.cur then return end
+            value = math.max(fl.min, math.min(fl.max, value))
+            if value > 0 then value = math.max(fl.hardware_min, value) end
+            if value <= 0 and type(powerd.turnOffFrontlight) == "function" then
+                powerd:turnOffFrontlight()
+            else
+                powerd:setIntensity(value)
+                if type(powerd.isFrontlightOff) == "function"
+                        and powerd:isFrontlightOff()
+                        and type(powerd.turnOnFrontlight) == "function" then
+                    powerd:turnOnFrontlight()
+                end
             end
+            if type(powerd.updateResumeFrontlightState) == "function" then
+                powerd:updateResumeFrontlightState()
+            end
+        else
+            if value == nl.cur then return end
+            value = math.max(nl.min, math.min(nl.max, value))
+            powerd:setWarmth(powerd:fromNativeWarmth(value))
         end
-        if type(powerd.updateResumeFrontlightState) == "function" then
-            powerd:updateResumeFrontlightState()
-        end
-        fl.cur = intensity
-        if fl.cur > fl.min then fl.prev_non_min = fl.cur end
-        if fl_label_fn then UIManager:unschedule(fl_label_fn) ; fl_label_fn = nil end
-        fl_progress:setValue(fl.cur)
-        fl_drag_num:setText(tostring(fl.cur))
+        selected.cur = value
+        if mode == "brightness" and value > fl.min then fl.prev_non_min = value end
+        progress:setValue(value)
+        number:setText(tostring(value))
         UIManager:setDirty(show_parent, "ui", touch_menu.dimen)
     end
 
-    fl.prev_non_min = fl.cur > fl.min and fl.cur or math.min(fl.max, fl.min + 1)
+    progress.on_drag_start = function()
+        if mode == "brightness" then
+            fl.dragging = true
+            if fl.cur > fl.min then fl.prev_non_min = fl.cur end
+        end
+    end
+    progress.on_drag_end = function()
+        if mode == "brightness" then
+            fl.dragging = false
+            if fl.cur > fl.min then fl.prev_non_min = fl.cur end
+        end
+    end
 
-    -- During drag: paint directly to Screen.bb and push A2 refresh via
-    -- setDirty(nil) — bypasses the widget tree entirely, so no competing
-    -- GL16 from other widgets can cause flicker.  A2 completes in ~60ms
-    -- and renders the pure B/W slider content without ghosting.
-    -- On release / tap: full menu GL16 refresh to update label + slider.
-    fl_progress.on_change = function(v)
-        powerd:setIntensity(v)
-        fl.cur = v
-        if fl.cur > fl.min then fl.prev_non_min = fl.cur end
-        if fl_progress._dragging then
-            fl_progress:paintTo(Screen.bb, fl_progress.dimen.x, fl_progress.dimen.y)
-            -- Only repaint the number — prefix is static in the framebuffer.
-            local row_gap_h = Screen:scaleBySize(10)
-            local lh = fl_drag_prefix:getSize().h
-            local row_h = fl_row and fl_row:getSize().h or fl_progress.dimen.h
-            local row_top = fl_progress.dimen.y - math.floor((row_h - fl_progress.dimen.h) / 2)
-            local label_y = row_top - row_gap_h - lh
-            local sx = fl_progress.dimen.x
-            local sw = fl_progress.dimen.w
-            local num_x = sx + math.floor((sw - fl_drag_ref_w) / 2) + fl_drag_prefix_w
-            Screen.bb:paintRect(num_x, label_y, fl_drag_max_num_w, lh, Blitbuffer.COLOR_WHITE)
-            fl_drag_num:setText(tostring(fl.cur))
-            fl_drag_num:paintTo(Screen.bb, num_x, label_y)
-            -- Single A2 covering label + slider (two back-to-back A2 calls
-            -- can race on Kobo, causing the second refresh to be dropped).
+    progress.on_change = function(value)
+        if mode == "brightness" then
+            powerd:setIntensity(value)
+            fl.cur = value
+            if value > fl.min and not fl.dragging then fl.prev_non_min = value end
+        else
+            powerd:setWarmth(powerd:fromNativeWarmth(value))
+            nl.cur = value
+        end
+        if progress._dragging then
+            progress:paintTo(Screen.bb, progress.dimen.x, progress.dimen.y)
+            local number_x, label_y = number_box.dimen.x, number_box.dimen.y
+            Screen.bb:paintRect(number_x, label_y, number_width, label_h, Blitbuffer.COLOR_WHITE)
+            number:setText(tostring(value))
+            number:paintTo(Screen.bb, number_x, label_y)
+            local dirty_x = math.min(progress.dimen.x, number_x)
             UIManager:setDirty(nil, "fast", Geom:new{
-                x = fl_progress.dimen.x,
+                x = dirty_x,
                 y = label_y,
-                w = fl_progress.dimen.w,
-                h = fl_progress.dimen.y + fl_progress.dimen.h - label_y,
+                w = math.max(progress.dimen.x + progress.dimen.w, number_x + number_width) - dirty_x,
+                h = progress.dimen.y + progress.dimen.h - label_y,
             })
         else
-            if fl_label_fn then UIManager:unschedule(fl_label_fn) ; fl_label_fn = nil end
-            fl_drag_num:setText(tostring(fl.cur))
+            number:setText(tostring(value))
             UIManager:setDirty(show_parent, "ui", touch_menu.dimen)
         end
     end
 
-    fl_minus.callback = function() setBrightness(fl.cur - 1) end
-    fl_minus.hold_callback = function() setBrightness(0) end
-    local fl_plus = Button:new{
-        text           = "＋",
-        text_font_face = library_font.getFontName(),
-        text_font_size = small_btn_size,
-        text_font_bold = false,
-        width          = small_btn_width,
-        height         = fl_button_height,
-        bordersize     = 0,
-        show_parent    = show_parent,
-        callback       = function() setBrightness(fl.cur + 1) end,
-    }
-
-    local row_gap = VerticalSpan:new{ width = Screen:scaleBySize(10) }
-
-    local fl_cap_row = CenterContainer:new{
-        dimen = Geom:new{ w = inner_width, h = fl_label_h },
-        fl_label_group,
-    }
-    fl_row = HorizontalGroup:new{
+    local function adjust_button(text, callback, hold_callback)
+        return Button:new{
+            text = text,
+            text_font_face = library_font.getFontName(),
+            text_font_size = opts.small_btn_size,
+            text_font_bold = false,
+            width = opts.small_btn_width,
+            height = progress:getSize().h,
+            bordersize = 0,
+            show_parent = show_parent,
+            callback = callback,
+            hold_callback = hold_callback,
+        }
+    end
+    local minus = adjust_button("−", function() setSelected(selected.cur - 1) end,
+        function() setSelected(0) end)
+    local plus = adjust_button("＋", function()
+        setSelected(mode == "brightness" and selected.cur == fl.min
+            and fl.prev_non_min or selected.cur + 1)
+    end)
+    local row = HorizontalGroup:new{
         align = "center",
-        fl_minus,
-        HorizontalSpan:new{ width = slider_gap },
-        fl_progress,
-        HorizontalSpan:new{ width = slider_gap },
-        fl_plus,
+        minus,
+        HorizontalSpan:new{ width = opts.slider_gap },
+        progress,
+        HorizontalSpan:new{ width = opts.slider_gap },
+        plus,
     }
 
-    refs.fl_progress   = fl_progress
-    refs.fl_state      = fl
-    refs.setBrightness = setBrightness
-    table.insert(refs.sliders, { slider = fl_progress })
+    refs.fl_progress = fl and progress or nil
+    refs.nl_progress = nl and progress or nil
+    refs.fl_state = fl
+    refs.nl_state = nl
+    refs.setBrightness = fl and function(value)
+        if mode == "brightness" then setSelected(value) end
+    end or nil
+    refs.setWarmth = nl and function(value)
+        if mode == "warmth" then setSelected(value) end
+    end or nil
+    table.insert(refs.sliders, { slider = progress })
 
-    local section_pad = VerticalSpan:new{ width = Screen:scaleBySize(10) }
     local group = VerticalGroup:new{ align = "center" }
-    table.insert(group, section_pad)
-    table.insert(group, fl_cap_row)
-    table.insert(group, row_gap)
-    table.insert(group, fl_row)
-    table.insert(group, section_pad)
+    table.insert(group, VerticalSpan:new{ width = Screen:scaleBySize(10) })
+    local label_row
+
+    if fl and nl then
+        local src = debug.getinfo(1, "S").source or ""
+        local root = src:sub(1, 1) == "@" and src:sub(2):match("^(.*)/modules/")
+        local _icons_dir = root and root .. "/icons/"
+        local icon_size = Screen:scaleBySize(24)
+        local pad_v = Screen:scaleBySize(4)
+
+        local function mode_button(icon_name, active)
+            return FrameContainer:new{
+                padding_top = pad_v,
+                padding_bottom = pad_v,
+                padding_left = Screen:scaleBySize(20),
+                padding_right = Screen:scaleBySize(20),
+                bordersize = 0,
+                background = Blitbuffer.COLOR_WHITE,
+                invert = active,
+                IconWidget:new{
+                    file = utils.resolveLocalIcon(_icons_dir, icon_name),
+                    width = icon_size,
+                    height = icon_size,
+                },
+            }
+        end
+
+        local brightness_button = mode_button("brightness", true)
+        local warmth_button = mode_button("warmth", false)
+        local divider = LineWidget:new{
+            dimen = Geom:new{ w = Screen:scaleBySize(1), h = icon_size + pad_v * 2 },
+            background = Blitbuffer.COLOR_DARK_GRAY,
+            direction = "vert",
+        }
+        local switch = FrameContainer:new{
+            padding = 0,
+            margin = 0,
+            bordersize = Screen:scaleBySize(2),
+            background = Blitbuffer.COLOR_WHITE,
+            radius = Screen:scaleBySize(4),
+            HorizontalGroup:new{ align = "center", brightness_button, divider, warmth_button },
+        }
+        WidgetResources.paintFrameBorderOnTop(switch)
+        label_row = HorizontalGroup:new{
+            align = "center",
+            label,
+            HorizontalSpan:new{ width = math.max(0, opts.inner_width - label_width - switch:getSize().w) },
+            switch,
+        }
+
+        local function selectMode(next_mode)
+            if mode == next_mode then return end
+            mode = next_mode
+            selected = mode == "brightness" and fl or nl
+            selected.cur = mode == "brightness" and powerd:frontlightIntensity()
+                or powerd:toNativeWarmth(powerd:frontlightWarmth())
+            if mode == "brightness" and selected.cur > fl.min then
+                fl.prev_non_min = selected.cur
+            end
+            progress.value_min = selected.min
+            progress.value_max = selected.max
+            progress:setValue(selected.cur)
+            prefix:setText(labels[mode])
+            number:setText(tostring(selected.cur))
+            brightness_button.invert = mode == "brightness"
+            warmth_button.invert = mode == "warmth"
+            UIManager:setDirty(show_parent, "ui", touch_menu.dimen)
+        end
+        table.insert(refs.toggles, {
+            toggle = brightness_button,
+            callback = function() selectMode("brightness") end,
+        })
+        table.insert(refs.toggles, {
+            toggle = warmth_button,
+            callback = function() selectMode("warmth") end,
+        })
+    else
+        label_row = CenterContainer:new{ dimen = Geom:new{ w = opts.inner_width, h = label_h }, label }
+    end
+
+    table.insert(group, label_row)
+    table.insert(group, VerticalSpan:new{ width = Screen:scaleBySize(10) })
+    table.insert(group, row)
+    table.insert(group, VerticalSpan:new{ width = Screen:scaleBySize(10) })
     return group
 end
 

@@ -8,6 +8,7 @@ local icon_utils = require("common/utils")
 local Model = require("modules/menu/app_launcher/model")
 local NativeMenu = require("modules/menu/app_launcher/native_menu")
 local PagePlan = require("modules/menu/app_launcher/page_plan")
+local BookSwitcherPage = require("modules/menu/app_launcher/book_switcher_page")
 local PluginScan = require("modules/menu/app_launcher/plugin_scan")
 local DispatcherMenu = require("common/dispatcher_menu")
 local Destination = require("common/library_destination")
@@ -988,6 +989,38 @@ function M.build(ctx)
                     end,
                     callback = function()
                         cfg.book_switcher_reader_only = cfg.book_switcher_reader_only ~= true
+                        save_app_launcher()
+                    end,
+                },
+                {
+                    text_func = function()
+                        return _("Max books shown: ")
+                            .. tostring(BookSwitcherPage.normalizeCount(cfg.book_switcher_count))
+                    end,
+                    keep_menu_open = true,
+                    callback = function(touch_menu)
+                        local SpinWidget = require("ui/widget/spinwidget")
+                        UIManager:show(SpinWidget:new{
+                            title_text = _("Max books shown"),
+                            value = BookSwitcherPage.normalizeCount(cfg.book_switcher_count),
+                            value_min = 1,
+                            value_max = 8,
+                            default_value = BookSwitcherPage.BOOK_COUNT,
+                            callback = function(spin)
+                                cfg.book_switcher_count = spin.value
+                                save_app_launcher()
+                                if touch_menu and touch_menu.updateItems then touch_menu:updateItems() end
+                            end,
+                        })
+                    end,
+                },
+                {
+                    text = _("Hide finished books"),
+                    checked_func = function()
+                        return cfg.book_switcher_hide_finished ~= false
+                    end,
+                    callback = function()
+                        cfg.book_switcher_hide_finished = cfg.book_switcher_hide_finished == false
                         save_app_launcher()
                     end,
                 },

@@ -42,7 +42,7 @@ See the [Home guide](docs/home.md).
 
 ### Controls
 
-Swipe down from anywhere for up to nine configurable controls plus brightness and warmth sliders. Buttons can toggle device features, run dispatcher actions, open plugins or KOReader menus, and expose installed integrations such as Bluetooth, Tailscale, and ZenFM. Tailscale can toggle Wi-Fi with itself, and optional hatching fills the area below the top menu. Hold the minus button on a lighting slider to jump to zero.
+Swipe down from anywhere for up to nine configurable controls plus brightness and warmth sliders. Buttons can toggle device features, run dispatcher actions, open plugins or KOReader menus, and expose installed integrations such as Bluetooth, Tailscale, and ZenFM. Tap Bluetooth to toggle it, or hold it to manage connections on Kindle, Kobo, and PocketBook. Tailscale can toggle Wi-Fi with itself, and optional hatching fills the area below the top menu. Hold the minus button on a lighting slider to jump to zero.
 
 <img src="./images/quickstart/onboarding/quicksettings.png" width="500" alt="Quick Settings">
 
@@ -149,7 +149,7 @@ Registering an existing external ID replaces its builder and options.
 ## Prerequisites
 
 - KOReader 2026.03 or newer must be installed first. ZenOS is tested against KOReader 2026.07 and compatibility-tested against 2026.03. [Install KOReader](https://github.com/koreader/koreader#installation)
-- Disable or remove **Project: Title** before starting ZenOS. ZenOS automatically disables Simple UI, Visual Overhaul Suite (VOS), QuickMenu, Appearance, Burrow, QuickUI, Reader Menu Redesign, Shortcuts Toolbar, and known conflicting user patches, then asks you to restart KOReader.
+- Disable or remove **Project: Title** before starting ZenOS. ZenOS automatically disables Simple UI, Visual Overhaul Suite (VOS), QuickMenu, Appearance, Burrow, QuickUI, Reader Menu Redesign, Shortcuts Toolbar, Page Scrubber, Neo QuickSettings, and known conflicting user patches, then asks you to restart KOReader.
 
 
 ## Installation
@@ -238,7 +238,12 @@ ZenOS is original work, but it wouldn't exist without the broader KOReader commu
 - **[qewer33/koreader-patches](https://github.com/qewer33/koreader-patches)** — The bottom navbar and quick settings components. Additional patch approaches and ideas, particularly around UI customization.
 - **[sebdelsol/KOReader.patches](https://github.com/sebdelsol/KOReader.patches)** — Patches and UI techniques that informed several of ZenOS's features.
 - **[doctorhetfield-cmd/simpleui.koplugin](https://github.com/doctorhetfield-cmd/simpleui.koplugin)** — A fellow KOReader UI plugin that served as an inspiration as well as a model for how to apply language translations throughout the plugin.
+- **[Euphoriyy/appearance.koplugin](https://github.com/Euphoriyy/appearance.koplugin)** — ZenOS's modified color picker is adapted from Appearance's color wheel under the GPL-3.0 License.
+- **[AndyHazz/bookshelf.koplugin](https://github.com/AndyHazz/bookshelf.koplugin)** — Inspiration for the Bookshelf home preset.
 - **[kristianpennacchia/zzz-readermenuredesign.koplugin](https://github.com/kristianpennacchia/zzz-readermenuredesign.koplugin)** — Inspiration for the reader search menu redesign
+- **[OGKevin/kobo.koplugin](https://github.com/OGKevin/kobo.koplugin)** — Reference for Kobo Bluetooth control, including MediaTek D-Bus and Libra 2 BlueZ behavior.
+- **[sabrina553/bluetooth.koplugin](https://github.com/sabrina553/bluetooth.koplugin)** — Reference for PocketBook `netagent` and BlueZ Bluetooth management (GPL-3.0).
+- **[Tharavol/bluetooth.koplugin](https://github.com/Tharavol/bluetooth.koplugin)** — Reference for Kobo Sage Realtek Bluetooth bring-up.
 - **[rameezk/rebind.koplugin](https://github.com/rameezk/rebind.koplugin)** — The EPUB metadata mutation code is adapted from Rebind under the MIT License.
 - **[Phrogz/SLAXML](https://github.com/Phrogz/SLAXML)** — ZenOS vendors SLAXML's parser and DOM serializer under the MIT License.
 - **[certifi](https://github.com/certifi/python-certifi)** — The bundled Mozilla CA certificate data is distributed under the Mozilla Public License 2.0.
@@ -260,7 +265,7 @@ Please follow these guidelines:
 
 ## FAQ/Community
 
-Feel free to join the [Discord Community](https://discord.gg/Tv2PhrCPQ8) if you want to get help/chat/contribute
+Feel free to join the [Zen Discord](https://discord.zen-labs.org) if you want to get help/chat/contribute
 
 ## Security
 

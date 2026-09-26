@@ -101,7 +101,6 @@ local function apply_warmth_schedule()
             local hi = Powerd.fl_warmth_max or 24
             pcall(Powerd.setWarmth, Powerd,
                 Powerd:fromNativeWarmth(math.max(lo, math.min(hi, value))), force)
-            UIManager:setDirty("all", "ui")
         end
     end
 

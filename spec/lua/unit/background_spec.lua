@@ -39,9 +39,13 @@ describe("library background cleanup", function()
             getHeight = function() return 600 end,
         }
         local buffers = {}
+        local file_checks = 0
         ZenSpec.replace("device", { screen = screen })
         ZenSpec.replace("libs/libkoreader-lfs", {
-            attributes = function() return "file" end,
+            attributes = function()
+                file_checks = file_checks + 1
+                return "file"
+            end,
         })
         ZenSpec.replace("ui/widget/imagewidget", {
             new = function(_class, options)
@@ -102,8 +106,10 @@ describe("library background cleanup", function()
 
         assert.is_true(Background.paintScreenRegion(destination,
             0, 0, 0, 0, 800, 600, "/library/background.png"))
+        local checks_after_first_paint = file_checks
         assert.is_true(Background.paintScreenRegion(destination,
             0, 0, 0, 0, 800, 600, "/library/background.png"))
+        assert.are.equal(checks_after_first_paint, file_checks)
         assert.are.equal(1, #buffers)
         assert.are.equal(1, buffers[1].image_paints)
         assert.are.equal(0, buffers[1].inversions)

@@ -13,6 +13,7 @@ describe("file browser navbar navigation", function()
     local dir_mtimes
     local dir_scan_calls
     local home_show_callback
+    local home_refresh_type
     local setup_observation
     local initial_reinject_callback
     local device_input
@@ -22,6 +23,7 @@ describe("file browser navbar navigation", function()
     local real_paths
     local full_repaints
     local device_has_keys
+    local screen_rotation_mode
 
     local function class(methods)
         methods = methods or {}
@@ -59,6 +61,7 @@ describe("file browser navbar navigation", function()
         dir_mtimes = {}
         dir_scan_calls = 0
         home_show_callback = nil
+        home_refresh_type = nil
         setup_observation = nil
         initial_reinject_callback = nil
         native_available = true
@@ -67,6 +70,7 @@ describe("file browser navbar navigation", function()
         real_paths = {}
         full_repaints = 0
         device_has_keys = false
+        screen_rotation_mode = 0
         device_input = {
             disable_double_tap = true,
             tap_interval_override = nil,
@@ -74,8 +78,9 @@ describe("file browser navbar navigation", function()
         original_memory_policy = package.loaded["common/memory_policy"]
         shared = {
             home = {
-                showHomeView = function(inject)
+                showHomeView = function(inject, refresh_type)
                     calls[#calls + 1] = "home"
+                    home_refresh_type = refresh_type
                     if home_show_callback then home_show_callback(inject) end
                 end,
                 closeAll = function() calls[#calls + 1] = "close_home" end,
@@ -121,6 +126,9 @@ describe("file browser navbar navigation", function()
                 calls[#calls + 1] = "base:" .. tostring(path) .. ":" .. tostring(focused)
             end,
             onShowingReader = function() end,
+            onSetRotationMode = function(_, mode)
+                screen_rotation_mode = mode
+            end,
         })
         FileManager.instance = nil
         ZenSpec.replace("apps/filemanager/filemanager", FileManager)
@@ -156,6 +164,7 @@ describe("file browser navbar navigation", function()
                 scaleBySize = function(_, value) return value end,
                 getWidth = function() return 800 end,
                 getHeight = function() return 600 end,
+                getRotationMode = function() return screen_rotation_mode end,
                 isColorScreen = function() return false end,
             },
             hasKeys = function() return device_has_keys end,
@@ -207,6 +216,8 @@ describe("file browser navbar navigation", function()
         })
         ZenSpec.replace("common/paths", {
             getHomeDir = function() return "/library" end,
+            getArchiveDir = function() return "/archive" end,
+            isArchiveRoot = function(path) return path:gsub("/+$", "") == "/archive" end,
             isInHomeDir = function(path) return path:sub(1, 8) == "/library" end,
         })
         ZenSpec.replace("common/plugin_root", "/plugin")
@@ -245,7 +256,8 @@ describe("file browser navbar navigation", function()
         })
         ZenSpec.replace("libs/libkoreader-lfs", {
             attributes = function(path, field)
-                if field == "mode" and (path == "/library" or dir_mtimes[path]) then
+                if field == "mode" and (path == "/library" or path == "/archive"
+                        or dir_mtimes[path]) then
                     return "directory"
                 end
                 if field == "modification" then return dir_mtimes[path] end
@@ -283,13 +295,14 @@ describe("file browser navbar navigation", function()
                 features = { navbar = true, restore_library_view = false },
                 navbar = {
                     show_tabs = {
-                        books = true, folder = true, home = true, authors = true, series = true,
+                        books = true, archive = true, folder = true, home = true,
+                        authors = true, series = true,
                         tags = true, to_be_read = true, history = true,
                         favorites = true, collections = true, search = true,
                         page_left = true, page_right = true, menu = true,
                     },
                     tab_order = {
-                        "home", "books", "authors", "series", "tags", "to_be_read",
+                        "home", "books", "archive", "authors", "series", "tags", "to_be_read",
                         "history", "favorites", "collections", "search",
                         "page_left", "page_right", "menu",
                     },
@@ -317,6 +330,7 @@ describe("file browser navbar navigation", function()
             "__ZEN_UI_OPEN_TARGET_TAB", "__ZEN_UI_FORCE_DEFAULT_LIBRARY_TAB",
             "__ZEN_UI_OPEN_TARGET_FOLDER", "__ZEN_UI_OPEN_TARGET_TAG",
             "__ZEN_UI_HIDDEN_HOME_BOOTSTRAP", "__ZEN_UI_DEFER_FILEMANAGER_LISTING",
+            "__ZEN_UI_ARCHIVE_LISTING_DIRTY",
         }) do
             _G[name] = nil
         end
@@ -357,10 +371,10 @@ describe("file browser navbar navigation", function()
     it("keeps configured tab order and resolves the first enabled default", function()
         assert.are.equal("home", _G.__ZEN_UI_NAVBAR_RESOLVE_DEFAULT_TAB())
         assert.are.same({
-            "home", "books", "authors", "series", "tags", "to_be_read",
+            "home", "books", "archive", "authors", "series", "tags", "to_be_read",
             "history", "favorites", "collections", "search",
             "page_left", "page_right", "menu",
-        }, { unpack(_G.__ZEN_UI_PLUGIN.config.navbar.tab_order, 1, 13) })
+        }, { unpack(_G.__ZEN_UI_PLUGIN.config.navbar.tab_order, 1, 14) })
         assert.are.equal("Home", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
     end)
 
@@ -1229,6 +1243,63 @@ describe("file browser navbar navigation", function()
         assert.are.equal("Library", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
     end)
 
+    it("routes archive folder shortcuts through the Archive tab", function()
+        make_instance()
+        calls = {}
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_FOLDER("/archive"))
+
+        assert.are.same({ "books:/archive" }, calls)
+        assert.are.equal("Archive", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
+        assert.are.equal("/archive", FileManager.instance.file_chooser._zen_direct_archive_root)
+    end)
+
+    it("rescans a retained Archive listing once after an archive change", function()
+        local fm = make_instance()
+        local fc = fm.file_chooser
+        fc.path = "/archive"
+        fc.refreshPath = function() calls[#calls + 1] = "refresh_archive" end
+        fc.onGotoPage = function() calls[#calls + 1] = "redraw_archive" end
+        _G.__ZEN_UI_ARCHIVE_LISTING_DIRTY = true
+        calls = {}
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("archive"))
+        assert.is_nil(_G.__ZEN_UI_ARCHIVE_LISTING_DIRTY)
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("archive"))
+
+        assert.are.same({ "refresh_archive", "redraw_archive" }, calls)
+    end)
+
+    it("resumes deferred covers when Archive replaces a visible Home startup", function()
+        local fm = make_instance()
+        local fc = fm.file_chooser
+        fm._zen_hidden_home_startup = true
+        fc._zen_hidden_home_startup = true
+        local suspended_cover_jobs = 0
+        local cover_resume_calls = 0
+        fc._zen_resume_visible_cover_work = function()
+            cover_resume_calls = cover_resume_calls + 1
+            assert.are.equal(2, suspended_cover_jobs)
+            suspended_cover_jobs = 0
+            return true
+        end
+        fc._zen_cancel_hidden_folder_prewarm = function(_self, _reason, mode)
+            if mode == "discard" then suspended_cover_jobs = 0 end
+        end
+        fc.changeToPath = function(_, path)
+            calls[#calls + 1] = "books:" .. path
+            suspended_cover_jobs = 2
+        end
+        calls = {}
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("archive"))
+
+        assert.are.same({ "books:/archive" }, calls)
+        assert.is_nil(fm._zen_hidden_home_startup)
+        assert.is_nil(fc._zen_hidden_home_startup)
+        assert.are.equal(1, cover_resume_calls)
+    end)
+
     it("keeps Library active when Folder contains the library root", function()
         local fm = make_instance()
         _G.__ZEN_UI_PLUGIN.config.navbar.folder_path = "/"
@@ -1751,7 +1822,7 @@ describe("file browser navbar navigation", function()
             reveal.details)
     end)
 
-    it("uses flashui between Library and Home", function()
+    it("uses one flashui refresh between Library and Home", function()
         local fm = make_instance()
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
         fm.file_chooser.path = "/library"
@@ -1765,8 +1836,14 @@ describe("file browser navbar navigation", function()
         UIManager.setDirty = function(_self, _widget, mode)
             if mode == "flashui" then flash_count = flash_count + 1 end
         end
+        shared.home.resumeActive = function(refresh_type)
+            home_refresh_type = refresh_type
+            UIManager:setDirty(home_widget, refresh_type)
+            return true, "reused"
+        end
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
+        assert.are.equal("flashui", home_refresh_type)
         assert.are.equal(1, flash_count)
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
         assert.are.equal(2, flash_count)
@@ -1911,6 +1988,37 @@ describe("file browser navbar navigation", function()
         assert.is_false(navbar:onTapNavBar(nil, { pos = { x = 1, y = 1 } }))
         assert.is_false(navbar:onTapNavBar(nil, { pos = { x = 799, y = 1 } }))
         assert.are.same({}, calls)
+    end)
+
+    it("refreshes the full screen after file-manager rotation", function()
+        local fm = make_instance()
+        local dirty = {}
+        UIManager.setDirty = function(_, widget, mode)
+            dirty[#dirty + 1] = { widget, mode }
+        end
+        FileManager.onSetRotationMode(fm, 1)
+        assert.are.equal(1, screen_rotation_mode)
+        assert.are.same({ { fm, "full" } }, dirty)
+        FileManager.onSetRotationMode(fm, 1)
+        assert.are.equal(1, #dirty)
+        _G.__ZEN_UI_PLUGIN.config.features.navbar = false
+        FileManager.onSetRotationMode(fm, 2)
+        assert.are.equal(1, #dirty)
+    end)
+
+    it("opens the KOReader plus menu when holding the navbar outside home folders", function()
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+        fm.onShowPlusMenu = function() calls[#calls + 1] = "plus_menu" end
+        _G.__ZEN_UI_REINJECT_FM_NAVBAR()
+        local navbar = fm[1][1][2]
+        assert.is_table(navbar.ges_events.HoldNavBar)
+
+        fm.file_chooser.path = "/outside"
+        assert.is_true(navbar:onHoldNavBar(nil, { pos = { x = 400, y = 1 } }))
+        fm.file_chooser.path = "/library/subfolder"
+        assert.is_false(navbar:onHoldNavBar(nil, { pos = { x = 400, y = 1 } }))
+        assert.are.same({ "plus_menu" }, calls)
     end)
 
     it("activates a focused file-manager navbar tab on Press", function()
@@ -2114,13 +2222,13 @@ describe("file browser navbar navigation", function()
     it("dispatches books and stock file-browser tabs to their intended actions", function()
         make_instance()
         for _i, id in ipairs({
-            "books", "history", "favorites", "collections", "search",
+            "books", "archive", "history", "favorites", "collections", "search",
             "page_left", "page_right", "menu",
         }) do
             assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB(id))
         end
         assert.are.same({
-            "books:/library", "history", "favorites", "collections", "search",
+            "books:/library", "books:/archive", "history", "favorites", "collections", "search",
             "previous", "next", "menu",
         }, calls)
         assert.are.equal("Collections", _G.__ZEN_UI_ACTIVE_TAB_LABEL)

@@ -181,7 +181,9 @@ describe("Zen menu picker", function()
                 values.setText = function(self, text) self.text = text end
                 values.setMaxWidth = function(self, width) self.max_width = width end
                 values.isTruncated = function(self) return self.text == truncated_text end
-                values.paintTo = function(self, _bb, x) self.paint_x = x end
+                values.paintTo = function(self, _bb, x, y)
+                    self.paint_x, self.paint_y = x, y
+                end
                 values.free = function() end
                 text_widgets[#text_widgets + 1] = values
                 return values
@@ -307,6 +309,27 @@ describe("Zen menu picker", function()
         assert.are.equal("Edition", text_widgets[2].text)
         assert.are.equal("Paperback · English", text_widgets[3].text)
         assert.are.equal("white", text_widgets[3].fgcolor)
+    end)
+
+    it("renders optional multi-line row details", function()
+        require("common/ui/zen_menu_picker"){
+            items = {{
+                text = "Title",
+                detail_lines = {
+                    "Author",
+                    "Provider · Hardcover",
+                    "Publisher · English · 500 pages",
+                },
+            }},
+            rows_per_page = 5,
+        }
+
+        shown:paintTo({ paintRect = function() end }, 0, 0)
+        assert.are.equal("Title", text_widgets[2].text)
+        assert.are.equal("Author", text_widgets[3].text)
+        assert.are.equal("Provider · Hardcover", text_widgets[4].text)
+        assert.are.equal("Publisher · English · 500 pages", text_widgets[5].text)
+        assert.is_true(text_widgets[2].paint_y < text_widgets[5].paint_y)
     end)
 
     it("renders an optional image preview and reports the selected item on close", function()

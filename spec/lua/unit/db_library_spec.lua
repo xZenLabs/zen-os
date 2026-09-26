@@ -9,6 +9,8 @@ describe("library statistics", function()
             ["/books/old.epub"] = { status = "complete", modified = old_day },
             ["/books/reading.epub"] = { status = "reading" },
             ["/books/chapter.cbz"] = { status = "complete", modified = today },
+            ["/books/comic.cbz"] = { status = "complete", modified = today },
+            ["/books/archive.CBR"] = { status = "complete", modified = today },
         }
         open_calls = 0
 
@@ -33,6 +35,8 @@ describe("library statistics", function()
                 { file = "/books/old.epub" },
                 { file = "/books/reading.epub" },
                 { file = "/books/chapter.cbz" },
+                { file = "/books/comic.cbz" },
+                { file = "/books/archive.CBR" },
             },
             reload = function() end,
         })
@@ -56,6 +60,14 @@ describe("library statistics", function()
 
     it("counts completed books by date but excludes Rakuyomi chapters", function()
         local counts = require("common/db_library").getBookCounts()
+
+        assert.are.equal(4, counts.finished)
+        assert.are.equal(3, counts.finished_this_month)
+        assert.are.equal(3, counts.finished_this_year)
+    end)
+
+    it("excludes every CBZ and CBR from goal completion counts", function()
+        local counts = require("common/db_library").getBookCounts(true)
 
         assert.are.equal(2, counts.finished)
         assert.are.equal(1, counts.finished_this_month)

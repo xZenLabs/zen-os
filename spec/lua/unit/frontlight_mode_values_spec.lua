@@ -1,10 +1,12 @@
 describe("frontlight light/dark mode values", function()
     local original_plugin
+    local dirty_calls
 
     before_each(function()
         original_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
         _G.__ZEN_UI_BRIGHTNESS_SCHEDULE = nil
         _G.__ZEN_UI_WARMTH_SCHEDULE = nil
+        dirty_calls = 0
     end)
 
     after_each(function()
@@ -28,7 +30,7 @@ describe("frontlight light/dark mode values", function()
 
     local function make_ui_manager()
         return {
-            setDirty = function() end,
+            setDirty = function() dirty_calls = dirty_calls + 1 end,
             scheduleIn = function() end,
             unschedule = function() end,
             nextTick = function(_, callback) callback() end,
@@ -67,6 +69,7 @@ describe("frontlight light/dark mode values", function()
 
         screen:toggleNightMode()
         assert.are.same({ 42, 7 }, powerd.values)
+        assert.are.equal(0, dirty_calls)
     end)
 
     it("lets a mode brightness of zero turn the frontlight off", function()
@@ -219,6 +222,7 @@ describe("frontlight light/dark mode values", function()
 
         screen:toggleNightMode()
         assert.are.same({ 30, 80 }, powerd.values)
+        assert.are.equal(0, dirty_calls)
     end)
 
     it("force reapplies scheduled warmth when the cached value matches", function()

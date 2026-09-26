@@ -128,6 +128,20 @@ local AUTO_DISABLE = {
         fallback_key = "shortcutstoolbar",
         folder_key = "shortcutstoolbar",
     },
+    {
+        sentinel = "page_scrubber_bridge",
+        label = "Page Scrubber",
+        fallback_key = "page_scrubber",
+        folder_key = "page_scrubber",
+        expected_folder_key = "page_scrubber",
+    },
+    {
+        sentinel = "neo_i18n",
+        label = "Neo QuickSettings",
+        fallback_key = "neo_quicksetting",
+        folder_key = "neo_quicksetting",
+        expected_folder_key = "neo_quicksetting",
+    },
 }
 
 local AUTO_DISABLE_PATCHES = {

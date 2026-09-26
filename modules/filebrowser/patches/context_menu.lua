@@ -1,7 +1,7 @@
 local function apply_context_menu()
     --[[
         Replaces the long-hold file/folder context menu with a minimal layout.
-        Always active; delegates to stock KOReader outside home_dir.
+        Always active; delegates to stock KOReader outside themed directories.
     ]]
 
     local BD           = require("ui/bidi")
@@ -13,6 +13,7 @@ local function apply_context_menu()
     local UIManager    = require("ui/uimanager")
     local _            = require("gettext")
     local C_           = _.pgettext
+    local archive_actions = require("common/archive_actions")
     local book_status  = require("common/book_status")
     local ConfigManager = require("config/manager")
     local FolderCoverFiles = require("common/folder_cover_files")
@@ -34,6 +35,13 @@ local function apply_context_menu()
     local Geom            = require("ui/geometry")
     local Blitbuffer      = require("ffi/blitbuffer")
     local library_font    = require("modules/filebrowser/patches/library_font")
+
+    local function archive_context_row(fm, file, is_file)
+        local config = zen_plugin and zen_plugin.config
+        local context_menu = type(config) == "table" and config.context_menu
+        if type(context_menu) ~= "table" or context_menu.show_archive ~= true then return end
+        return archive_actions.contextRow(fm, file, is_file)
+    end
 
     local function apply_button_group_font(button_rows, nominal_size)
         if type(button_rows) ~= "table" then return button_rows end
@@ -332,6 +340,7 @@ local function apply_context_menu()
 
     if type(FileChooser.show_file) == "function" and not FileChooser._zen_status_filter_patched then
         local orig_show_file = FileChooser.show_file
+        local orig_getList = FileChooser.getList
         FileChooser._zen_status_filter_patched = true
 
         function FileChooser:show_file(filename, fullpath)
@@ -357,6 +366,22 @@ local function apply_context_menu()
 
             local display_status = book_status.getDisplayStatusFromFile(fullpath)
             return status_filter[display_status] and true or false
+        end
+
+        if type(orig_getList) == "function" then
+            function FileChooser:getList(path, collate)
+                local dirs, files = orig_getList(self, path, collate)
+                local status_filter = FileChooser.show_filter and FileChooser.show_filter.status
+                if self.name == "filemanager" and collate and status_filter then
+                    for index = #dirs, 1, -1 do
+                        local mandatory = dirs[index] and dirs[index].mandatory
+                        local count = type(mandatory) == "string"
+                            and tonumber(mandatory:match("(%d+)%s*\xef\x80\x96"))
+                        if count == 0 then table.remove(dirs, index) end
+                    end
+                end
+                return dirs, files
+            end
         end
     end
 
@@ -797,6 +822,10 @@ local function apply_context_menu()
                     }})
                 end
 
+                local archive_row = archive_context_row(
+                    FileManager.instance, item.path, item.is_file)
+                if archive_row then table.insert(buttons, archive_row) end
+
                 if item._zen_extra_buttons then
                     for _i, row in ipairs(item._zen_extra_buttons) do
                         table.insert(buttons, row)
@@ -814,7 +843,7 @@ local function apply_context_menu()
             local home_dir = paths.getHomeDir()
             local cur_path = self_fc.path or ""
             if home_dir and not item._zen_collection_name and not item._zen_home_context then
-                if not paths.isInHomeDir(cur_path) then
+                if not paths.isInThemedDir(cur_path) then
                     return orig_showFileDialog(self_fc, item)
                 end
             end
@@ -822,6 +851,7 @@ local function apply_context_menu()
             local file               = item.path
             local is_file            = item.is_file
             local is_kindle_book     = item._zen_kindle_book == true
+            local is_kindle_processed = item._zen_kindle_processed == true
             local is_not_parent_folder = not item.is_go_up
             local is_home_dir = (not is_file) and paths.isHomeRoot(file)
             -- Only the primary library root uses global sort/display; additional
@@ -909,7 +939,7 @@ local function apply_context_menu()
                 end)
             end
 
-            local dialog_title, dialog_cover_widget
+            local dialog_title, dialog_cover_widget, book_props, kindle_series_str
 
             local function showCoverFullscreen(cover_path)
                 local ok2, bim2 = pcall(require, "bookinfomanager")
@@ -1018,6 +1048,15 @@ local function apply_context_menu()
                             max_width = text_col_w,
                         })
                     end
+                    if is_kindle_book then
+                        table.insert(vstack, VerticalSpan:new{ width = Screen:scaleBySize(2) })
+                        table.insert(vstack, TextWidget:new{
+                            text = _("Kindle Library"),
+                            face = library_font.getFace(fs_tags),
+                            fgcolor = Blitbuffer.COLOR_GRAY_3,
+                            max_width = text_col_w,
+                        })
+                    end
                     if series_str_arg then
                         table.insert(vstack, VerticalSpan:new{ width = Screen:scaleBySize(2) })
                         table.insert(vstack, TextWidget:new{
@@ -1107,6 +1146,7 @@ local function apply_context_menu()
                     local title_str, authors_str, tags_str_local, series_str_local
                     if ok then
                         local bookinfo = BookInfoManager:getBookInfo(file, true)
+                        book_props = bookinfo
                         if bookinfo then
                             if not bookinfo.ignore_meta then
                                 if bookinfo.title then
@@ -1163,7 +1203,11 @@ local function apply_context_menu()
                     if title_str then
                         text_str = title_str
                         if authors_str then text_str = text_str .. "\n" .. authors_str end
-                        if series_str_local then text_str = text_str .. "\n" .. series_str_local end
+                        if is_kindle_book then
+                            kindle_series_str = series_str_local
+                        elseif series_str_local then
+                            text_str = text_str .. "\n" .. series_str_local
+                        end
                     end
                     dialog_title = text_str or BD.filename(file:match("([^/]+)$"))
                 else
@@ -1430,6 +1474,24 @@ local function apply_context_menu()
                             max_width = text_col_w,
                         })
                     end
+                    if is_kindle_book then
+                        table.insert(vstack, VerticalSpan2:new{ width = Screen:scaleBySize(2) })
+                        table.insert(vstack, TextWidget2:new{
+                            text = _("Kindle Library"),
+                            face = library_font.getFace(14),
+                            fgcolor = Blitbuffer2.COLOR_GRAY_3,
+                            max_width = text_col_w,
+                        })
+                    end
+                    if kindle_series_str then
+                        table.insert(vstack, VerticalSpan2:new{ width = Screen:scaleBySize(2) })
+                        table.insert(vstack, TextWidget2:new{
+                            text = kindle_series_str,
+                            face = library_font.getFace(17),
+                            fgcolor = Blitbuffer2.COLOR_GRAY_3,
+                            max_width = text_col_w,
+                        })
+                    end
                     if pages_str then
                         table.insert(vstack, VerticalSpan2:new{ width = Screen:scaleBySize(3) })
                         table.insert(vstack, TextWidget2:new{
@@ -1635,7 +1697,9 @@ local function apply_context_menu()
                         },
                     },
                 }
-                if not item._zen_collection_name and not item._zen_disable_select then
+                if is_kindle_processed then edit_buttons = {} end
+                if not is_kindle_processed and not item._zen_collection_name
+                        and not item._zen_disable_select then
                     table.insert(edit_buttons, 1, {
                         {
                             text = "\u{F0489}  " .. _("Select"),
@@ -1708,7 +1772,7 @@ local function apply_context_menu()
                     and type(zen_plugin.config) == "table"
                     and type(zen_plugin.config.context_menu) == "table"
                     and zen_plugin.config.context_menu.allow_delete == true
-                if allow_delete then
+                if allow_delete and not is_kindle_processed then
                     table.insert(edit_buttons, {
                         {
                             text = "\u{F0156}  " .. _("Delete"),
@@ -1726,6 +1790,61 @@ local function apply_context_menu()
                     buttons = apply_button_group_font(edit_buttons),
                 }
                 UIManager:show(edit_dialog)
+            end
+
+            local plugin_action_rows
+            local added_plugin_buttons = file_manager.file_dialog_added_buttons
+                or FileManager.file_dialog_added_buttons
+            local context_menu_config = zen_plugin
+                and type(zen_plugin.config) == "table"
+                and type(zen_plugin.config.context_menu) == "table"
+                and zen_plugin.config.context_menu
+            if context_menu_config and context_menu_config.show_plugin_actions == true
+                    and not is_virtual_folder and type(added_plugin_buttons) == "table" then
+                local rows = {}
+                local hidden_index = added_plugin_buttons.index
+                    and added_plugin_buttons.index.coverbrowser_2
+                for _i = 1, #added_plugin_buttons do
+                    local ok, row
+                    if _i ~= hidden_index then
+                        ok, row = pcall(added_plugin_buttons[_i], file, is_file, book_props)
+                    end
+                    if ok and type(row) == "table" and #row > 0 then
+                        for _j, button in ipairs(row) do
+                            if type(button) == "table" then
+                                local clean_button = {}
+                                for key, value in pairs(button) do clean_button[key] = value end
+                                clean_button.align = "left"
+                                clean_button.icon = nil
+                                clean_button.icon_func = nil
+                                local glyph, text
+                                if type(clean_button.text) == "string" then
+                                    glyph, text = split_inline_icon(clean_button.text)
+                                end
+                                if glyph then clean_button.text = text end
+                                local text_func = clean_button.text_func
+                                if type(text_func) == "function" then
+                                    clean_button.text_func = function()
+                                        local dynamic = text_func()
+                                        if type(dynamic) ~= "string" then return dynamic end
+                                        local dynamic_glyph, dynamic_text = split_inline_icon(dynamic)
+                                        return dynamic_glyph and dynamic_text or dynamic
+                                    end
+                                end
+                                table.insert(rows, { clean_button })
+                            end
+                        end
+                    end
+                end
+                if #rows > 0 then plugin_action_rows = rows end
+            end
+
+            local function showPluginActionsSubmenu()
+                close_dialog()
+                self_fc.file_dialog = ButtonDialog:new{
+                    buttons = apply_button_group_font(plugin_action_rows),
+                }
+                UIManager:show(self_fc.file_dialog)
             end
 
             -- Main dialog buttons
@@ -1867,7 +1986,7 @@ local function apply_context_menu()
             end
 
 
-            if is_file and not is_kindle_book then
+            if is_file then
                 local ReadCollection = require("readcollection")
 
                 if item._zen_collection_name then
@@ -2383,12 +2502,26 @@ local function apply_context_menu()
                 })
             end
 
-            if not is_virtual_folder and not is_kindle_book then
+            if not is_virtual_folder and (not is_kindle_book or is_kindle_processed) then
                 table.insert(buttons, {
                     {
                         text = "\u{F090C}  " .. _("Edit") .. "  " .. submenu_arrow,
                         align = "left",
                         callback = showEditSubmenu,
+                    },
+                })
+            end
+
+            local archive_row = archive_context_row(
+                FileManager.instance, file, is_file)
+            if archive_row then table.insert(buttons, archive_row) end
+
+            if plugin_action_rows then
+                table.insert(buttons, {
+                    {
+                        text = icons.more .. "  " .. _("More") .. "  " .. submenu_arrow,
+                        align = "left",
+                        callback = showPluginActionsSubmenu,
                     },
                 })
             end
@@ -2473,7 +2606,7 @@ local function apply_context_menu()
                 local home_dir_bh = paths.getHomeDir()
                 local cur_path_bh = fc.path or ""
                 if home_dir_bh then
-                    if not paths.isInHomeDir(cur_path_bh) then return false end
+                    if not paths.isInThemedDir(cur_path_bh) then return false end
                 end
                 local ffiUtil_bh = require("ffi/util")
                 local cur_real = ffiUtil_bh.realpath(cur_path_bh) or cur_path_bh

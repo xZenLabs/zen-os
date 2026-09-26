@@ -139,7 +139,7 @@ local function apply_cache_bookinfo_get_doc_props()
         ---@/original
 
         local cache_key = nil
-        if not book_props and not no_open_document then
+        if not book_props then
             cache_key = getFastCacheKey(file)
             local cached_props = getPropsFromCache(cache_key)
             if cached_props then

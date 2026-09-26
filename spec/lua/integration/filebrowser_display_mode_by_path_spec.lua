@@ -67,7 +67,7 @@ describe("filebrowser display mode by path patch", function()
         })
         ZenSpec.replace("common/paths", {
             normPath = function(path) return path:gsub("//+", "/") end,
-            isInHomeDir = function(path)
+            isInThemedDir = function(path)
                 return path == "/library" or path:sub(1, 9) == "/library/"
             end,
             isPrimaryHomeRoot = function(path) return path == "/library" end,

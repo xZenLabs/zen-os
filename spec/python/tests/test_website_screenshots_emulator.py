@@ -34,7 +34,7 @@ def test_representative_home_library_stats_reader_and_page_browser_capture(
         books.append(ResolvedBook(index + 1, title, "Showcase Author", None, path, role, "EPUB"))
     ids = {
         "zen_home", "library_covers_full", "library_list_full", "metadata_editor",
-        "stats", "reader", "page_browser_grid", "page_browser_carousel",
+        "stats", "network_switcher", "reader", "page_browser_grid", "page_browser_carousel",
     }
     scenarios = [scenario for scenario in load_catalog() if scenario.id in ids]
     run_dir = tmp_path / "artifacts"

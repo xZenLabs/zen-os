@@ -3,6 +3,7 @@ describe("reader book status", function()
         "modules/reader/patches/book_status",
         "ui/widget/bookstatuswidget",
         "apps/reader/modules/readerstatus",
+        "common/archive_actions",
         "common/book_status",
         "common/library_navigation",
         "common/plugin_root",
@@ -44,6 +45,8 @@ describe("reader book status", function()
     local top_widget
     local broadcast_events
     local close_widget_calls
+    local archive_available
+    local archive_calls
 
     local function widget_class()
         return {
@@ -159,6 +162,8 @@ describe("reader book status", function()
         top_widget = nil
         broadcast_events = {}
         close_widget_calls = 0
+        archive_available = false
+        archive_calls = 0
         saved_default_tab_icon = rawget(_G, "__ZEN_UI_NAVBAR_DEFAULT_TAB_ICON")
 
         BookStatusWidget = {
@@ -191,6 +196,12 @@ describe("reader book status", function()
         }
         ZenSpec.replace("ui/widget/bookstatuswidget", BookStatusWidget)
         ZenSpec.replace("apps/reader/modules/readerstatus", ReaderStatus)
+        ZenSpec.replace("common/archive_actions", {
+            canArchive = function() return archive_available end,
+            markCompleteAndArchive = function()
+                archive_calls = archive_calls + 1
+            end,
+        })
         ZenSpec.replace("common/book_status", {
             invalidate = function(file) invalidated[#invalidated + 1] = file end,
         })
@@ -342,6 +353,22 @@ describe("reader book status", function()
         assert.same({ buttons[1] }, status.layout[2])
         assert.are.equal("Restart Book", buttons[1].text)
         assert.are.equal(3, status.selected.y)
+    end)
+
+    it("adds the archive action when the current book can be archived", function()
+        archive_available = true
+        require("modules/reader/patches/book_status")()
+        local status = make_status()
+        status.ui.document.file = "/books/current.epub"
+
+        BookStatusWidget.getStatusContent(status, 400)
+
+        assert.are.equal("Archive", buttons[3].text)
+        assert.same(buttons[1], status.generated_rate_group[1][1][1][1])
+        assert.same(buttons[3], status.generated_rate_group[1][1][1][3])
+        assert.same({ buttons[3] }, status.layout[3])
+        buttons[3].callback()
+        assert.are.equal(1, archive_calls)
     end)
 
     it("fits the content to the screen and shrinks the review only when needed", function()

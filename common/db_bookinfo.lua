@@ -16,6 +16,7 @@ local GROUP_CACHE_TTL_S = 300
 local DIRECTORY_METADATA_CACHE_MAX = 32
 local DIRECTORY_METADATA_CACHE_MAX_CONSTRAINED = 4
 local group_cache = {}
+local kindle_metadata_cache
 local cache_hits = 0
 local cache_misses = 0
 
@@ -65,6 +66,7 @@ end
 
 function M.invalidate()
     group_cache = {}
+    kindle_metadata_cache = nil
 end
 
 function M.getCacheStats()
@@ -78,6 +80,53 @@ local function splitAuthors(authors_str)
     local trimmed = authors_str:match("^%s*(.-)%s*$")
     if trimmed == "" then return {} end
     return { trimmed }
+end
+
+local function get_kindle_metadata()
+    local ok_kindle, Kindle = pcall(require,
+        "modules/filebrowser/patches/kindle_virtual_library")
+    if not ok_kindle or type(Kindle.getBookPaths) ~= "function" then return {} end
+    local ok_paths, book_paths = pcall(Kindle.getBookPaths)
+    if not ok_paths or type(book_paths) ~= "table" then return {} end
+
+    local generation = cache_generation() .. "|" .. table.concat(book_paths, "\0")
+    if kindle_metadata_cache and kindle_metadata_cache.generation == generation
+            and kindle_metadata_cache.expires_at > now() then
+        return kindle_metadata_cache.value
+    end
+
+    local books = {}
+    local seen = {}
+    for _i, filepath in ipairs(book_paths) do
+        if type(filepath) == "string" and filepath ~= "" and not seen[filepath]
+                and lfs.attributes(filepath, "mode") == "file" then
+            seen[filepath] = true
+            local ok_info, info
+            if type(Kindle.getBookMetadata) == "function" then
+                ok_info, info = pcall(Kindle.getBookMetadata, filepath)
+            else
+                ok_info, info = pcall(BookInfoManager.getBookInfo,
+                    BookInfoManager, filepath, false)
+            end
+            if ok_info and type(info) == "table" then
+                books[#books + 1] = { file = filepath, info = info }
+            end
+        end
+    end
+    kindle_metadata_cache = not MemoryPolicy.limitGroupCache() and {
+        generation = generation,
+        expires_at = now() + GROUP_CACHE_TTL_S,
+        value = books,
+    } or nil
+    return books
+end
+
+local function add_unseen_file(seen, filepath)
+    local normalized = paths.normPath(filepath)
+    if seen[filepath] or seen[normalized] then return false end
+    seen[filepath] = true
+    seen[normalized] = true
+    return true
 end
 
 local function get_valid_book_path(home_dir, directory, filename)
@@ -117,7 +166,7 @@ end
 
 -- Returns a sorted list of author groups:
 --   { { author="Name", files={"/abs/path", ...} }, ... }
--- Only includes books within home_dir that still exist on disk.
+-- Includes existing books within home_dir and the Kindle virtual library.
 -- Each book appears under every author it has (multi-author support).
 function M.getGroupedByAuthor()
     local started_at = now()
@@ -135,6 +184,7 @@ function M.getGroupedByAuthor()
     local conn = BookInfoManager.db_conn
 
     local author_map = {}  -- author -> { files }
+    local seen_files = {}
 
     local row_count = 0
     local ok2, err = pcall(function()
@@ -147,6 +197,7 @@ function M.getGroupedByAuthor()
             ORDER BY authors
         ]]
         row_count = for_each_valid_book_row(conn, sql, function(raw_filepath, _filename, result, index)
+            add_unseen_file(seen_files, raw_filepath)
             local authors_str = result[3] and result[3][index]
             if authors_str then
                 local author_list = splitAuthors(authors_str)
@@ -158,6 +209,16 @@ function M.getGroupedByAuthor()
                 end
             end
         end)
+        for _i, book in ipairs(get_kindle_metadata()) do
+            if add_unseen_file(seen_files, book.file) then
+                local authors = book.info.authors
+                if type(authors) == "table" then authors = table.concat(authors, "\n") end
+                for _j, author in ipairs(splitAuthors(authors)) do
+                    if not author_map[author] then author_map[author] = {} end
+                    table.insert(author_map[author], book.file)
+                end
+            end
+        end
     end)
 
     if not ok2 then
@@ -175,7 +236,7 @@ end
 
 -- Returns a sorted list of language groups:
 --   { { language="en", files={"/abs/path", ...} }, ... }
--- Only includes books within home_dir that still exist on disk.
+-- Includes existing books within home_dir and the Kindle virtual library.
 function M.getGroupedByLanguage()
     local started_at = now()
     if not bimOk then
@@ -190,6 +251,21 @@ function M.getGroupedByLanguage()
     end
     BookInfoManager:openDbConnection()
     local language_map = {}
+    local seen_files = {}
+
+    local function add_language(filepath, language)
+        language = language and language:match("^%s*(.-)%s*$")
+        if not language or language == "" then return end
+        local code = language:gsub("-", "_"):match("^([^_]+)")
+        if code and (#code == 2 or #code == 3) and code:match("^%a+$") then
+            language = code:lower()
+            if iso_ok and type(IsoLanguage.getBCPLanguageTag) == "function" then
+                language = IsoLanguage:getBCPLanguageTag(language)
+            end
+        end
+        if not language_map[language] then language_map[language] = {} end
+        table.insert(language_map[language], filepath)
+    end
 
     local row_count = 0
     local ok2, err = pcall(function()
@@ -203,21 +279,14 @@ function M.getGroupedByLanguage()
         ]]
         row_count = for_each_valid_book_row(BookInfoManager.db_conn, sql,
             function(raw_filepath, _filename, result, index)
-                local language = result[3] and result[3][index]
-                language = language and language:match("^%s*(.-)%s*$")
-                if language and language ~= "" then
-                    local code = language:gsub("-", "_"):match("^([^_]+)")
-                    if code and (#code == 2 or #code == 3)
-                            and code:match("^%a+$") then
-                        language = code:lower()
-                        if iso_ok and type(IsoLanguage.getBCPLanguageTag) == "function" then
-                            language = IsoLanguage:getBCPLanguageTag(language)
-                        end
-                    end
-                    if not language_map[language] then language_map[language] = {} end
-                    table.insert(language_map[language], raw_filepath)
-                end
+                add_unseen_file(seen_files, raw_filepath)
+                add_language(raw_filepath, result[3] and result[3][index])
             end)
+        for _i, book in ipairs(get_kindle_metadata()) do
+            if add_unseen_file(seen_files, book.file) then
+                add_language(book.file, book.info.language)
+            end
+        end
     end)
 
     if not ok2 then
@@ -235,7 +304,7 @@ end
 -- Returns a sorted list of series groups:
 --   { { series="Name", items={ {file="/abs/path", series_index=N}, ... } }, ... }
 -- Items within each series are sorted by series_index (then filename as tiebreak).
--- Only includes books within home_dir that still exist on disk.
+-- Includes existing books within home_dir and the Kindle virtual library.
 function M.getGroupedBySeries()
     local started_at = now()
     if not bimOk then
@@ -251,6 +320,17 @@ function M.getGroupedBySeries()
     BookInfoManager:openDbConnection()
     local conn = BookInfoManager.db_conn
     local series_map = {}  -- series_name -> { {file, series_index, filename} }
+    local seen_files = {}
+
+    local function add_series(filepath, filename, series, series_index)
+        if not series or series == "" then return end
+        if not series_map[series] then series_map[series] = {} end
+        table.insert(series_map[series], {
+            file = filepath,
+            series_index = tonumber(series_index),
+            filename = filename,
+        })
+    end
 
     local row_count = 0
     local ok2, err = pcall(function()
@@ -263,15 +343,16 @@ function M.getGroupedBySeries()
             ORDER BY series, series_index
         ]]
         row_count = for_each_valid_book_row(conn, sql, function(raw_filepath, filename, result, index)
-            local series = result[3] and result[3][index]
-            if not series then return end
-            if not series_map[series] then series_map[series] = {} end
-            table.insert(series_map[series], {
-                file = raw_filepath,
-                series_index = tonumber(result[4] and result[4][index]),
-                filename = filename,
-            })
+            add_unseen_file(seen_files, raw_filepath)
+            add_series(raw_filepath, filename, result[3] and result[3][index],
+                result[4] and result[4][index])
         end)
+        for _i, book in ipairs(get_kindle_metadata()) do
+            if add_unseen_file(seen_files, book.file) then
+                add_series(book.file, book.file:match("([^/]+)$"), book.info.series,
+                    book.info.series_index)
+            end
+        end
     end)
 
     if not ok2 then
@@ -438,14 +519,58 @@ function M.getLightMetadata(directory)
         logger.warn("light metadata query error:", err)
         return {}
     end
+    for _i, book in ipairs(get_kindle_metadata()) do
+        local normalized = paths.normPath(book.file)
+        if not metadata[book.file] and not metadata[normalized] then
+            put_metadata(metadata, book.file, book.info)
+        end
+    end
     save_cached("light_metadata", metadata)
     return metadata
+end
+
+function M.groupPathsBySeries(files, metadata)
+    local groups, result = {}, {}
+    local series_count, ungrouped_count = 0, 0
+    for _i, file in ipairs(files) do
+        local info = metadata[file]
+        local name = info and info.series
+        if type(name) == "string" and name ~= "" then
+            local group = groups[name]
+            if not group then
+                group = { series = name, files = {} }
+                groups[name] = group
+                result[#result + 1] = group
+                series_count = series_count + 1
+            end
+            group.files[#group.files + 1] = file
+        else
+            result[#result + 1] = file
+            ungrouped_count = ungrouped_count + 1
+        end
+    end
+    if series_count == 1 and ungrouped_count == 0 then return files end
+    for index, item in ipairs(result) do
+        if type(item) == "table" then
+            if #item.files == 1 then
+                result[index] = item.files[1]
+            else
+                table.sort(item.files, function(a, b)
+                    local a_info, b_info = metadata[a], metadata[b]
+                    local a_index = tonumber(a_info and a_info.series_index) or 0
+                    local b_index = tonumber(b_info and b_info.series_index) or 0
+                    return a_index == b_index and a < b or a_index < b_index
+                end)
+            end
+        end
+    end
+    return result
 end
 
 -- Returns a sorted list of tag groups from the keywords (Calibre tags) column:
 --   { { tag="Name", files={"/abs/path", ...} }, ... }
 -- Books may appear under multiple tags. Tags are split by comma and trimmed.
--- Only includes books within home_dir that still exist on disk.
+-- Includes existing books within home_dir and the Kindle virtual library.
 function M.getGroupedByTags()
     local started_at = now()
     if not bimOk then
@@ -461,6 +586,19 @@ function M.getGroupedByTags()
     BookInfoManager:openDbConnection()
     local conn = BookInfoManager.db_conn
     local tag_map = {}  -- tag_name -> { file_paths }
+    local seen_files = {}
+
+    local function add_tags(filepath, keywords)
+        if not keywords then return end
+        local normalized = keywords:gsub(",", "\n")
+        for tag in normalized:gmatch("[^\n]+") do
+            local trimmed = tag:match("^%s*(.-)%s*$")
+            if trimmed and trimmed ~= "" then
+                if not tag_map[trimmed] then tag_map[trimmed] = {} end
+                table.insert(tag_map[trimmed], filepath)
+            end
+        end
+    end
 
     local row_count = 0
     local ok2, err = pcall(function()
@@ -472,22 +610,14 @@ function M.getGroupedByTags()
             ORDER BY filename
         ]]
         row_count = for_each_valid_book_row(conn, sql, function(raw_filepath, _filename, result, index)
-            local kw = result[3] and result[3][index]
-            if kw then
-                -- Split newline-separated tags (KOReader default) and also handle comma-separated.
-                -- Replace commas with newlines so one gmatch handles both formats.
-                local normalized = kw:gsub(",", "\n")
-                for tag in normalized:gmatch("[^\n]+") do
-                    local trimmed = tag:match("^%s*(.-)%s*$")
-                    if trimmed and trimmed ~= "" then
-                        if not tag_map[trimmed] then
-                            tag_map[trimmed] = {}
-                        end
-                        table.insert(tag_map[trimmed], raw_filepath)
-                    end
-                end
-            end
+            add_unseen_file(seen_files, raw_filepath)
+            add_tags(raw_filepath, result[3] and result[3][index])
         end)
+        for _i, book in ipairs(get_kindle_metadata()) do
+            if add_unseen_file(seen_files, book.file) then
+                add_tags(book.file, book.info.keywords)
+            end
+        end
     end)
 
 

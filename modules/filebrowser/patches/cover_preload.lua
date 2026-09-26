@@ -405,6 +405,10 @@ local function apply_cover_preload()
     local function defer_extraction_launch(menu, original, ...)
         local original_nextTick = UIManager.nextTick
         UIManager.nextTick = function(ui, fn, ...)
+            local files_to_index = get_upvalue(fn, "files_to_index")
+            if type(files_to_index) ~= "table" then
+                return original_nextTick(ui, fn, ...)
+            end
             local args = { ... }
             return original_nextTick(ui, function()
                 local queued_at = now()

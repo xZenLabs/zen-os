@@ -11,6 +11,51 @@ local StatsDB = {}
 local FLUSH_MIN_INTERVAL_S = 10
 local last_flush_at = 0
 local STREAK_WINDOW_S = 370 * 86400
+local comic_md5_cache = {}
+
+local function comic_filter_sql()
+    -- ponytail: stats has no paths; persist a format index if cleared history must stay filterable.
+    local ok_history, ReadHistory = pcall(require, "readhistory")
+    local ok_docsettings, DocSettings = pcall(require, "docsettings")
+    local ok_util, util = pcall(require, "util")
+    if not ok_history or not ReadHistory then return "" end
+
+    if type(ReadHistory.reload) == "function" then
+        pcall(ReadHistory.reload, ReadHistory, false)
+    end
+    local hashes = {}
+    for _i, entry in ipairs(ReadHistory.hist or {}) do
+        local file = entry and entry.file
+        if type(file) == "string" and file:lower():match("%.cb[rz]$") then
+            local cached = comic_md5_cache[file]
+            local hash = cached and cached.time == entry.time and cached.hash or nil
+            if not hash and ok_docsettings and DocSettings then
+                local ok_hash, sidecar_hash = pcall(function()
+                    local sidecar = DocSettings:findSidecarFile(file)
+                    local settings = sidecar and DocSettings.openSettingsFile(sidecar)
+                    return settings and settings.data.partial_md5_checksum
+                end)
+                if ok_hash then hash = sidecar_hash end
+            end
+            if not hash and ok_util and util and type(util.partialMD5) == "function" then
+                local ok_hash, computed = pcall(util.partialMD5, file)
+                if ok_hash then hash = computed end
+            end
+            if type(hash) == "string" and #hash == 32 and hash:match("^%x+$") then
+                hash = hash:lower()
+                comic_md5_cache[file] = { time = entry.time, hash = hash }
+                hashes[hash] = true
+            end
+        end
+    end
+
+    local quoted = {}
+    for hash in pairs(hashes) do quoted[#quoted + 1] = "'" .. hash .. "'" end
+    if #quoted == 0 then return "" end
+    table.sort(quoted)
+    return " AND id_book NOT IN (SELECT id FROM book WHERE lower(md5) IN ("
+        .. table.concat(quoted, ",") .. "))"
+end
 
 local function get_stats_plugin()
     local ok_loader, PluginLoader = pcall(require, "pluginloader")
@@ -67,18 +112,19 @@ local function period_starts(now_t)
     }
 end
 
-local function query_period_stats(conn, start_time, need_pages, need_duration)
+local function query_period_stats(conn, start_time, need_pages, need_duration, book_filter)
+    book_filter = book_filter or ""
     if need_pages and need_duration then
         local sql = [[
             SELECT count(*), sum(sum_duration)
             FROM (
                 SELECT sum(duration) AS sum_duration
                 FROM page_stat
-                WHERE start_time >= %d
+                WHERE start_time >= %d%s
                 GROUP BY id_book, page
             );
         ]]
-        local pages, duration = conn:rowexec(string.format(sql, start_time))
+        local pages, duration = conn:rowexec(string.format(sql, start_time, book_filter))
         return tonumber(pages) or 0, tonumber(duration) or 0
     end
     if need_pages then
@@ -87,11 +133,11 @@ local function query_period_stats(conn, start_time, need_pages, need_duration)
             FROM (
                 SELECT 1
                 FROM page_stat
-                WHERE start_time >= %d
+                WHERE start_time >= %d%s
                 GROUP BY id_book, page
             );
         ]]
-        return tonumber(conn:rowexec(string.format(sql, start_time))) or 0, 0
+        return tonumber(conn:rowexec(string.format(sql, start_time, book_filter))) or 0, 0
     end
     if need_duration then
         local sql = [[
@@ -99,11 +145,11 @@ local function query_period_stats(conn, start_time, need_pages, need_duration)
             FROM (
                 SELECT sum(duration) AS sum_duration
                 FROM page_stat
-                WHERE start_time >= %d
+                WHERE start_time >= %d%s
                 GROUP BY id_book, page
             );
         ]]
-        return 0, tonumber(conn:rowexec(string.format(sql, start_time))) or 0
+        return 0, tonumber(conn:rowexec(string.format(sql, start_time, book_filter))) or 0
     end
     return 0, 0
 end
@@ -331,7 +377,7 @@ function StatsDB.queryBookDetails(stats_plugin, fields)
     return result
 end
 
-function StatsDB.queryHomeStats(fields)
+function StatsDB.queryHomeStats(fields, exclude_cbz_cbr)
     local stats = {
         today_pages = 0,
         today_duration = 0,
@@ -355,26 +401,27 @@ function StatsDB.queryHomeStats(fields)
     end
 
     local starts = period_starts()
+    local book_filter = exclude_cbz_cbr == true and comic_filter_sql() or ""
     local ok, query_err = pcall(function()
         if requested.today_pages or requested.today_duration then
             stats.today_pages, stats.today_duration =
                 query_period_stats(conn, starts.start_today,
-                    requested.today_pages, requested.today_duration)
+                    requested.today_pages, requested.today_duration, book_filter)
         end
         if requested.week_pages or requested.week_duration then
             stats.week_pages, stats.week_duration =
                 query_period_stats(conn, starts.period_begin,
-                    requested.week_pages, requested.week_duration)
+                    requested.week_pages, requested.week_duration, book_filter)
         end
         if requested.month_pages or requested.month_duration then
             stats.month_pages, stats.month_duration =
                 query_period_stats(conn, starts.start_month,
-                    requested.month_pages, requested.month_duration)
+                    requested.month_pages, requested.month_duration, book_filter)
         end
         if requested.year_pages or requested.year_duration then
             stats.year_pages, stats.year_duration =
                 query_period_stats(conn, starts.start_year,
-                    requested.year_pages, requested.year_duration)
+                    requested.year_pages, requested.year_duration, book_filter)
         end
         if requested.streak then
             stats.streak = query_streak(conn, starts.one_day)

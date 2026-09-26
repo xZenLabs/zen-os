@@ -133,7 +133,7 @@ local function apply_browser_item_table_cache()
             local value = persisted_cache.values[path]
             if value and value.needs_tree_signature then
                 local ok_signature, signature, signature_mode, signature_reason =
-                    pcall(build_tree_signature, path)
+                    pcall(build_tree_signature, path, value.requires_full_tree)
                 if not ok_signature then
                     signature_reason = tostring(signature)
                     signature = nil
@@ -147,7 +147,7 @@ local function apply_browser_item_table_cache()
                     value.tree_signature = signature
                     value.tree_signature_mode = signature_mode
                     value.needs_tree_signature = nil
-                    if signature_mode ~= "full" then
+                    if signature_mode ~= "full" and value.requires_full_tree then
                         signature_fallbacks = signature_fallbacks + 1
                         logger.warn("Library snapshot signature degraded",
                             "path=", path, "mode=", tostring(signature_mode),
@@ -451,6 +451,7 @@ local function apply_browser_item_table_cache()
             return original_getListItem(self, dirpath, filename, fullpath, attributes, collate)
         end
         if attributes.mode == "directory" and collate
+                and collate ~= (self.collates and self.collates.access)
                 and collate.can_collate_mixed and collate.mandatory_func and not collate.item_func then
             local item = original_getListItem(self, dirpath, filename, fullpath, attributes, collate)
             local mtime = attributes.modification or 0
@@ -517,14 +518,16 @@ local function apply_browser_item_table_cache()
         }, "\31")
     end
 
+    local function attr_signature(attr)
+        return table.concat({
+            tostring(attr.modification or 0), tostring(attr.change or 0),
+            tostring(attr.size or 0), tostring(attr.ino or 0),
+        }, ":")
+    end
+
     local function directory_signature(path)
         local attr = lfs.attributes(path)
-        if type(attr) == "table" then
-            return table.concat({
-                tostring(attr.modification or 0), tostring(attr.change or 0),
-                tostring(attr.size or 0), tostring(attr.ino or 0),
-            }, ":")
-        end
+        if type(attr) == "table" then return attr_signature(attr) end
         return tostring(lfs.attributes(path, "modification") or 0)
     end
 
@@ -571,7 +574,14 @@ local function apply_browser_item_table_cache()
         return ok
     end
 
-    build_tree_signature = function(root)
+    build_tree_signature = function(root, full_tree)
+        if not full_tree then
+            local attr = lfs.attributes(root)
+            if type(attr) ~= "table" or attr.mode ~= "directory" then
+                return nil, "failed", "root_unavailable"
+            end
+            return { [root] = attr_signature(attr) }, "root"
+        end
         local signature = {}
         local directory_count = 0
         local entry_count = 0
@@ -588,10 +598,7 @@ local function apply_browser_item_table_cache()
                 failure_reason = "directory_limit"
                 return false
             end
-            signature[path] = table.concat({
-                tostring(attr.modification or 0), tostring(attr.change or 0),
-                tostring(attr.size or 0), tostring(attr.ino or 0),
-            }, ":")
+            signature[path] = attr_signature(attr)
             if depth >= PERSISTED_TREE_DEPTH then return true end
 
             local ok_dir, iterator, directory = pcall(lfs.dir, path)
@@ -630,12 +637,8 @@ local function apply_browser_item_table_cache()
         if type(root_attr) ~= "table" or root_attr.mode ~= "directory" then
             return nil, "failed", failure_reason or "root_unavailable"
         end
-        return {
-            [root] = table.concat({
-                tostring(root_attr.modification or 0), tostring(root_attr.change or 0),
-                tostring(root_attr.size or 0), tostring(root_attr.ino or 0),
-            }, ":"),
-        }, "root", failure_reason or "tree_unavailable"
+        return { [root] = attr_signature(root_attr) }, "root",
+            failure_reason or "tree_unavailable"
     end
 
     local function tree_signature_matches(signature)

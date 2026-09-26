@@ -11,9 +11,11 @@ describe("reader themes settings", function()
         reader_store = { settings = { footer = { existing = true } } }
         highlight_names_plugin = nil
         ZenSpec.replace("gettext", function(text) return text end)
+        ZenSpec.replace("modules/menu/bluetooth/bluetooth", { isAvailable = function() return false end })
         ZenSpec.replace("ui/uimanager", {
             show = function(_, dialog) shown_dialog = dialog end,
             close = function() end,
+            setDirty = function() end,
         })
         ZenSpec.replace("ui/event", {})
         ZenSpec.replace("common/dispatch_action", {})
@@ -56,6 +58,9 @@ describe("reader themes settings", function()
         ZenSpec.replace("ui/widget/confirmbox", {
             new = function(_, spec) return spec end,
         })
+        ZenSpec.replace("common/ui/color_wheel_widget", {
+            new = function(_, spec) return spec end,
+        })
         ZenSpec.replace("ui/widget/spinwidget", {
             new = function(_, spec) return spec end,
         })
@@ -66,7 +71,7 @@ describe("reader themes settings", function()
         ReaderSettings = require("modules/settings/sections/reader_settings")
     end)
 
-    it("edits and resets highlight names from Highlight / Lookup", function()
+    it("edits and resets highlight names and colors from Highlight / Lookup", function()
         local saved, updates = 0, 0
         local config = {
             features = {
@@ -78,7 +83,7 @@ describe("reader themes settings", function()
                 page_browser = false,
                 restore_library_view = false,
             },
-            highlight_lookup = { color_names = {} },
+            highlight_lookup = { color_names = {}, color_codes = {} },
             reader_themes = { dark_mode = "dark_warm_gray", light_mode = "default" },
         }
         local plugin = {
@@ -93,32 +98,54 @@ describe("reader themes settings", function()
         for _i, item in ipairs(items) do
             if item.text == "Highlight / Lookup" then lookup = item end
         end
-        local names = lookup.sub_item_table[3].sub_item_table_func()
-        local reset, red = names[1], names[2]
+        local highlights = lookup.sub_item_table[3].sub_item_table_func()
+        local reset, red = highlights[1], highlights[2]
+        local name, color = red.sub_item_table[1], red.sub_item_table[2]
         local touchmenu = { updateItems = function() updates = updates + 1 end }
 
-        assert.are.equal("Highlight names", lookup.sub_item_table[3].text)
+        assert.are.equal("Highlight", lookup.sub_item_table[3].text)
         assert.is_false(reset.enabled_func())
         assert.are.equal("Red", red.text_func())
+        assert.are.equal("Name: Red", name.text_func())
+        assert.are.equal("Color: #ff3300", color.text_func())
 
         dialog_input = "  Important  "
-        red.callback(touchmenu)
+        name.callback(touchmenu)
         assert.are.equal("Red", shown_dialog.title)
         assert.are.equal("", shown_dialog.input)
         shown_dialog.buttons[1][2].callback()
 
         assert.are.equal("Important", config.highlight_lookup.color_names.red)
-        assert.are.equal("Red: Important", red.text_func())
+        assert.are.equal("Important", red.text_func())
+        assert.are.equal("Name: Important", name.text_func())
         assert.is_true(reset.enabled_func())
         assert.are.equal(plugin, highlight_names_plugin)
         assert.are.equal(1, saved)
         assert.are.equal(1, updates)
 
-        reset.callback(touchmenu)
-        assert.are.same({}, config.highlight_lookup.color_names)
-        assert.are.equal("Red", red.text_func())
+        color.callback(touchmenu)
+        assert.are.equal("Highlight color: Important", shown_dialog.title_text)
+        assert.are.equal("#ff3300", shown_dialog.hex)
+        shown_dialog.callback("#123456")
+        assert.are.equal("#123456", config.highlight_lookup.color_codes.red)
+        assert.are.equal("Color: #123456", color.text_func())
         assert.are.equal(2, saved)
         assert.are.equal(2, updates)
+
+        color.callback(touchmenu)
+        assert.are.equal("#123456", shown_dialog.hex)
+        shown_dialog.callback("#abcdef")
+        assert.are.equal("#abcdef", config.highlight_lookup.color_codes.red)
+        assert.are.equal(3, saved)
+        assert.are.equal(3, updates)
+
+        reset.callback(touchmenu)
+        assert.are.same({}, config.highlight_lookup.color_names)
+        assert.are.same({}, config.highlight_lookup.color_codes)
+        assert.are.equal("Red", red.text_func())
+        assert.are.equal("Color: #ff3300", color.text_func())
+        assert.are.equal(4, saved)
+        assert.are.equal(4, updates)
     end)
 
     it("creates a named custom copy only after a built-in theme changes", function()
@@ -148,14 +175,13 @@ describe("reader themes settings", function()
         local custom_items = themes.sub_item_table[3].sub_item_table_func()
         local dark_warm_gray = custom_items[2]
 
-        dialog_input = "#1f1f1f"
         dark_warm_gray.sub_item_table[1].callback()
-        shown_dialog.buttons[1][2].callback()
+        assert.are.equal("#1f1f1f", shown_dialog.hex)
+        shown_dialog.callback("#1f1f1f")
         assert.is_nil(config.reader_themes.custom.custom_1)
 
-        dialog_input = "#101010"
         dark_warm_gray.sub_item_table[1].callback()
-        shown_dialog.buttons[1][2].callback()
+        shown_dialog.callback("#101010")
         local custom = config.reader_themes.custom.custom_1
         assert.are.equal("Custom Dark warm gray", custom.name)
         assert.are.equal("#101010", custom.background)
@@ -562,6 +588,27 @@ describe("reader themes settings", function()
         assert.is_not_nil(item_labels["Battery percentage"])
         assert.is_not_nil(item_labels["Current page"])
         assert.is_not_nil(item_labels["Total pages"])
+        assert.is_function(item_labels["Total pages"].callback)
+        local page_settings = item_labels["Current / total pages"].sub_item_table
+        assert.are.equal("Separator", page_settings[1].text)
+        assert.are.equal("Total", page_settings[2].text)
+        local page_separator = page_settings[1].sub_item_table
+        assert.is_true(page_separator[1].radio)
+        assert.is_true(page_separator[2].radio)
+        assert.is_true(page_separator[1].checked_func())
+        page_separator[2].callback()
+        assert.are.equal("of", config.reader_top_status_bar.page_separator)
+        assert.is_true(page_separator[2].checked_func())
+
+        local page_scope = page_settings[2].sub_item_table
+        assert.are.equal("Book", page_scope[1].text)
+        assert.are.equal("Chapter", page_scope[2].text)
+        assert.is_true(page_scope[1].radio)
+        assert.is_true(page_scope[2].radio)
+        assert.is_true(page_scope[1].checked_func())
+        page_scope[2].callback()
+        assert.are.equal("chapter", config.reader_top_status_bar.page_count_scope)
+        assert.is_true(page_scope[2].checked_func())
         assert.is_function(item_labels["Custom text"].checkmark_callback)
         assert.is_function(item_labels["Custom text"].sub_item_table[1].text_func)
         local wifi = item_labels["Wi-Fi"]
@@ -591,6 +638,6 @@ describe("reader themes settings", function()
         assert.is_false(colored.checked_func())
         colored.callback()
         assert.is_true(colored.checked_func())
-        assert.are.equal(3, applies)
+        assert.are.equal(5, applies)
     end)
 end)

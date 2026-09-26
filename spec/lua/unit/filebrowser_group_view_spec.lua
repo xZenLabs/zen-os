@@ -1,3 +1,5 @@
+local group_paths_by_series = require("common/db_bookinfo").groupPathsBySeries
+
 describe("file browser group views", function()
     local SortFixtures = require("sort_fixtures")
     local api
@@ -15,9 +17,11 @@ describe("file browser group views", function()
     local legacy_tbr_calls
     local tbr_collection_changes
     local tbr_get_options
+    local tbr_order_options
     local status_get
     local select_menu_calls
     local home_rebuilds
+    local kindle_context_item
     local saved_modules
     local replaced_modules = {
         "gettext",
@@ -29,6 +33,7 @@ describe("file browser group views", function()
         "common/paths",
         "common/shared_state",
         "modules/filebrowser/patches/standalone_page",
+        "modules/filebrowser/patches/kindle_virtual_library",
         "common/db_bookinfo",
         "common/tbr_index",
         "bookinfomanager",
@@ -67,9 +72,11 @@ describe("file browser group views", function()
         legacy_tbr_calls = 0
         tbr_collection_changes = 0
         tbr_get_options = nil
+        tbr_order_options = nil
         status_get = nil
         select_menu_calls = 0
         home_rebuilds = 0
+        kindle_context_item = nil
 
         local plugin = {
             config = config,
@@ -128,12 +135,26 @@ describe("file browser group views", function()
                 menu._test_back_callback = options.back_callback
             end,
         })
+        ZenSpec.replace("modules/filebrowser/patches/kindle_virtual_library", {
+            isBookPath = function(path) return path == groups.kindle_path end,
+            showBookContextMenu = function(_menu, item)
+                kindle_context_item = item
+                return true
+            end,
+        })
         ZenSpec.replace("common/db_bookinfo", {
             getGroupedByAuthor = function() return groups.authors or {} end,
             getGroupedBySeries = function() return groups.series or {} end,
             getGroupedByLanguage = function() return groups.languages or {} end,
             getGroupedByTags = function() return groups.tags or {} end,
+            getTagBooks = function(tag)
+                for _i, group in ipairs(groups.tags or {}) do
+                    if group.tag == tag then return group.files end
+                end
+                return {}
+            end,
             getLightMetadata = function() return metadata end,
+            groupPathsBySeries = group_paths_by_series,
             getTBRBooks = function()
                 legacy_tbr_calls = legacy_tbr_calls + 1
                 return groups.tbr or {}
@@ -152,6 +173,7 @@ describe("file browser group views", function()
             collectionName = function() return "To Be Read" end,
             isExplicit = function() return false end,
             isAuditComplete = function() return true end,
+            showOrder = function(options) tbr_order_options = options end,
         })
         ZenSpec.replace("bookinfomanager", {
             getSetting = function() return nil end,
@@ -478,6 +500,22 @@ describe("file browser group views", function()
         assert.are.equal(2, find_menu("to_be_read").update_count)
     end)
 
+    it("opens manual TBR ordering from the sort order menu", function()
+        install_group_view({ tbr = { "/a.epub" } })
+        package.loaded.device.isTouchDevice = function() return true end
+        api.showTBRView()
+
+        local menu = assert(find_menu("to_be_read"))
+        menu:onZenTBRBlankHold()
+        file_dialog_args._zen_sort_cb()
+        dialogs[#dialogs].buttons[6][1].callback()
+
+        local order_dialog = dialogs[#dialogs]
+        assert.are.equal("\u{F0DC}  Order TBR", order_dialog.buttons[3][1].text)
+        order_dialog.buttons[3][1].callback()
+        assert.is_table(tbr_order_options)
+    end)
+
     it("names the group metadata when a detail page has no books", function()
         install_group_view({
             authors = { { author = "Ada", files = {} } },
@@ -792,6 +830,47 @@ describe("file browser group views", function()
         assert.is_truthy(sort_dialog.buttons[3][1].text:find("Order", 1, true))
     end)
 
+    it("groups tagged series in both tag entry points when library grouping is enabled", function()
+        install_group_view({
+            tags = { { tag = "Fantasy", files = {
+                "/second.epub", "/solo.epub", "/first.epub",
+            } } },
+        })
+        metadata["/second.epub"] = { title = "Second", series = "Saga", series_index = 2 }
+        metadata["/first.epub"] = { title = "First", series = "Saga", series_index = 1 }
+        metadata["/solo.epub"] = { title = "Solo" }
+
+        api.showTagsView()
+        local root = assert(find_menu("tags"))
+        root.onMenuSelect(root, root.item_table[1])
+        local detail = assert(find_menu("tags_detail"))
+        local group = assert(detail.item_table[1])
+        assert.is_true(group.is_series_group)
+        assert.are.same({ "/first.epub", "/second.epub" }, group._zen_files)
+        detail.onMenuSelect(detail, group)
+        local series = assert(find_menu("series_detail"))
+        assert.are.same({ "/first.epub", "/second.epub" }, {
+            series.item_table[1].path, series.item_table[2].path,
+        })
+        assert.are.equal("Fantasy", api.getActiveDetail().group_name)
+
+        api.closeAll()
+        assert.are.same({ series, detail, root }, {
+            closed[#closed - 2], closed[#closed - 1], closed[#closed],
+        })
+        menus = {}
+        api.showTagDetail("Fantasy")
+        assert.is_true(assert(find_menu("tags_detail")).item_table[1].is_series_group)
+
+        api.closeAll()
+        menus = {}
+        config.features.automatic_series_grouping = false
+        api.showTagDetail("Fantasy")
+        local ungrouped = assert(find_menu("tags_detail"))
+        assert.are.equal(3, #ungrouped.item_table)
+        assert.is_nil(ungrouped.item_table[1].is_series_group)
+    end)
+
     it("restores root and detail pages after returning from the reader", function()
         install_group_view({
             tags = {
@@ -899,5 +978,22 @@ describe("file browser group views", function()
         assert.is_true(book.dim)
         assert.is_true(file_manager.selected_files["/book.epub"])
         assert.are.equal(0, #opened)
+    end)
+
+    it("uses the Kindle context menu for virtual library books", function()
+        install_group_view({
+            authors = { { author = "Writer", files = { "/kindle.epub" } } },
+            kindle_path = "/kindle.epub",
+        })
+
+        api.showAuthorsView()
+        local root = assert(find_menu("authors"))
+        root.onMenuSelect(root, root.item_table[1])
+        local detail = assert(find_menu("authors_detail"))
+        local book = detail.item_table[1]
+
+        assert.is_true(detail.onMenuHold(detail, book))
+        assert.are.equal(book, kindle_context_item)
+        assert.is_nil(file_dialog_args)
     end)
 end)

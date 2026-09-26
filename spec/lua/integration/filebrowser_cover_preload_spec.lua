@@ -2860,11 +2860,9 @@ describe("filebrowser cover preloading", function()
         update_items = function(menu)
             local item = { filepath = "/pending.epub" }
             menu.items_to_update = { item }
+            local files_to_index = { { filepath = item.filepath, cover_specs = menu.cover_specs } }
             UIManager:nextTick(function()
-                BookInfoManager:extractInBackground({ {
-                    filepath = item.filepath,
-                    cover_specs = menu.cover_specs,
-                } })
+                BookInfoManager:extractInBackground(files_to_index)
             end)
             menu.items_update_action = function() end
         end
@@ -3009,11 +3007,9 @@ describe("filebrowser cover preloading", function()
                 dimen = Geom:new{ x = 10, y = 20, w = 90, h = 120 },
             }
             menu.items_to_update = { item }
+            local files_to_index = { { filepath = item.filepath, cover_specs = menu.cover_specs } }
             UIManager:nextTick(function()
-                BookInfoManager:extractInBackground({ {
-                    filepath = item.filepath,
-                    cover_specs = menu.cover_specs,
-                } })
+                BookInfoManager:extractInBackground(files_to_index)
             end)
             menu.items_update_action = function()
                 assert.are.same({ item.filepath }, decode_drops)
@@ -3061,11 +3057,9 @@ describe("filebrowser cover preloading", function()
                 dimen = Geom:new{ x = 10, y = 20, w = 90, h = 120 },
             }
             menu.items_to_update = { item }
+            local files_to_index = { { filepath = path, cover_specs = menu.cover_specs } }
             UIManager:nextTick(function()
-                BookInfoManager:extractInBackground({ {
-                    filepath = path,
-                    cover_specs = menu.cover_specs,
-                } })
+                BookInfoManager:extractInBackground(files_to_index)
             end)
             menu.items_update_action = function()
                 decoded[path] = true
@@ -3204,11 +3198,12 @@ describe("filebrowser cover preloading", function()
     end)
 
     it("coalesces rapid page changes before starting extraction", function()
-        local launches = 0
+        local BookInfoManager = require("bookinfomanager")
         local UIManager = require("ui/uimanager")
         update_items = function()
+            local files_to_index = { { filepath = "/current.epub" } }
             UIManager:nextTick(function()
-                launches = launches + 1
+                BookInfoManager:extractInBackground(files_to_index)
             end)
         end
         local CoverMenu = require("covermenu")
@@ -3227,18 +3222,45 @@ describe("filebrowser cover preloading", function()
         assert.are.equal(1, #scheduled)
         table.remove(scheduled, 1)()
 
-        assert.are.equal(1, launches)
+        assert.are.equal(1, #extraction_launches)
+    end)
+
+    it("keeps extraction scheduled when a short page also requests a repaint", function()
+        local BookInfoManager = require("bookinfomanager")
+        local UIManager = require("ui/uimanager")
+        local repaints = 0
+        update_items = function()
+            local files_to_index = { { filepath = "/archive/book.epub" } }
+            UIManager:nextTick(function()
+                BookInfoManager:extractInBackground(files_to_index)
+            end)
+            UIManager:nextTick(function() repaints = repaints + 1 end)
+        end
+        local CoverMenu = require("covermenu")
+        require("modules/filebrowser/patches/cover_preload")()
+        local menu = {
+            item_table = { { is_file = true, path = "/archive/book.epub" } },
+            page = 1, page_num = 1, perpage = 9,
+            display_mode_type = "mosaic",
+            cover_specs = { max_cover_w = 100, max_cover_h = 150 },
+        }
+
+        CoverMenu.updateItems(menu)
+        assert.are.equal(1, repaints)
+        assert.are.equal(0, #extraction_launches)
+        assert.are.equal(1, #scheduled)
+        table.remove(scheduled, 1)()
+        assert.are.equal(1, #extraction_launches)
+        assert.are.equal("/archive/book.epub", extraction_launches[1][1].filepath)
     end)
 
     it("keeps the active extraction and replaces stale queued pages", function()
         local BookInfoManager = require("bookinfomanager")
         local UIManager = require("ui/uimanager")
         update_items = function(menu)
+            local files_to_index = { { filepath = menu.path, cover_specs = menu.cover_specs } }
             UIManager:nextTick(function()
-                BookInfoManager:extractInBackground({ {
-                    filepath = menu.path,
-                    cover_specs = menu.cover_specs,
-                } })
+                BookInfoManager:extractInBackground(files_to_index)
             end)
         end
         local CoverMenu = require("covermenu")

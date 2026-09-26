@@ -398,9 +398,18 @@ function M.build(ctx, source_key)
                 ctx.registerClockRefresh(function()
                     local next_widget = build_status_widget()
                     if not next_widget then return false end
+                    local refresh_regions
+                    if type(ctx.statusRowRefreshRegions) == "function" then
+                        refresh_regions = ctx.statusRowRefreshRegions(
+                            status_slot[1], next_widget)
+                        if #refresh_regions == 0 then
+                            WidgetResources.free(next_widget)
+                            return false
+                        end
+                    end
                     WidgetResources.replaceChild(status_slot, 1, next_widget)
-                    return true
-                end)
+                    return true, refresh_regions
+                end, status_slot)
             end
             table.insert(top_items, status_slot)
             if status_gap > 0 then
@@ -728,7 +737,9 @@ p { margin: 0; }
         if not tap_self.dimen or not ges or not ges.pos then return false end
         if ctx.openTopMenu and ctx.openTopMenu(ges) then return true end
         if not tap_self.dimen:contains(ges.pos) then return false end
-        if ges.time ~= nil and not BookOpenTap.shouldOpen(book.path, ges.time) then return true end
+        if ges.time ~= nil and not BookOpenTap.shouldOpen(book.path, ges.time, function()
+            tap.onHoldFeatured(tap_self, nil, ges)
+        end) then return true end
         set_opening_banner_cover(cover_widget)
         ctx.openBook(book.path)
         return true
@@ -736,10 +747,12 @@ p { margin: 0; }
     tap.onHoldFeatured = function(tap_self, _arg, ges)
         if not tap_self.dimen or not ges or not ges.pos then return false end
         if not tap_self.dimen:contains(ges.pos) then return false end
+        BookOpenTap.reset()
         if ctx.showBookMenu then return ctx.showBookMenu(book.path) end
         return false
     end
     tap[1] = frame
+    WidgetResources.wrapFree(tap, BookOpenTap.reset)
     return tap
 end
 

@@ -118,4 +118,36 @@ describe("statistics database", function()
             end
         end
     end)
+
+    it("excludes CBZ and CBR book hashes from goal totals", function()
+        local cbz_hash = string.rep("a", 32)
+        local cbr_hash = string.rep("b", 32)
+        ZenSpec.replace("readhistory", {
+            hist = {
+                { file = "/books/comic.CBZ", time = 1 },
+                { file = "/books/archive.cbr", time = 2 },
+                { file = "/books/novel.epub", time = 3 },
+            },
+            reload = function() end,
+        })
+        ZenSpec.replace("docsettings", {
+            findSidecarFile = function(_self, file) return file .. ".sdr" end,
+            openSettingsFile = function(file)
+                return { data = { partial_md5_checksum =
+                    file:find("comic", 1, true) and cbz_hash or cbr_hash } }
+            end,
+        })
+
+        row_values = { 4, 240 }
+        local stats = require("common/db_stats").queryHomeStats({
+            today_pages = true,
+            today_duration = true,
+        }, true)
+
+        assert.are.equal(4, stats.today_pages)
+        assert.are.equal(240, stats.today_duration)
+        assert.is_truthy(sqls[1]:find("lower(md5) IN", 1, true))
+        assert.is_truthy(sqls[1]:find("'" .. cbz_hash .. "'", 1, true))
+        assert.is_truthy(sqls[1]:find("'" .. cbr_hash .. "'", 1, true))
+    end)
 end)

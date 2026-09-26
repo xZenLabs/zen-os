@@ -179,6 +179,23 @@ function M.getBookPaths()
     return paths
 end
 
+function M.getBookMetadata(filepath)
+    local book = kindle_book(filepath)
+    if not book then return nil end
+    local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
+    local info = {}
+    if ok_bim then
+        local ok_info, stored = pcall(BookInfoManager.getBookInfo,
+            BookInfoManager, filepath, false)
+        if ok_info and type(stored) == "table" then info = stored end
+    end
+    info.title = info.title or book.display_name or book.title
+    if not info.authors and type(book.authors) == "table" then
+        info.authors = table.concat(book.authors, "\n")
+    end
+    return info
+end
+
 function M.installMetadataIntegration()
     local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
     if not ok_bim or type(BookInfoManager) ~= "table"
@@ -287,6 +304,11 @@ function M.showBookContextMenu(menu, item, after_change)
     if not ok_book or type(book) ~= "table" then return false end
 
     local cache_manager = manager and manager.cache_manager
+    local is_processed = false
+    if book.open_mode ~= "direct" and type(library.isBookPrepared) == "function" then
+        local ok, prepared = pcall(library.isBookPrepared, library, book)
+        is_processed = ok and prepared == true
+    end
     local file = book.source_path or item.file or item.path
     if book.open_mode ~= "direct" and cache_manager
             and type(cache_manager.getCachePaths) == "function" then
@@ -306,6 +328,15 @@ function M.showBookContextMenu(menu, item, after_change)
             after_change(file)
         elseif manager and type(manager.show) == "function" then
             manager:show(manager.ui, false)
+        end
+    end
+
+    local function refresh_status()
+        if menu and type(menu.updateItems) == "function" then
+            menu._do_center_partial_rows = false
+            menu:updateItems(menu.page or 1, true)
+        else
+            refresh_view()
         end
     end
 
@@ -335,12 +366,13 @@ function M.showBookContextMenu(menu, item, after_change)
         _zen_home_context = true,
         _zen_disable_select = true,
         _zen_kindle_book = true,
+        _zen_kindle_processed = is_processed,
         _zen_extra_buttons = { clear_cache },
         _zen_refresh = function()
             if type(library.refresh) == "function" then library:refresh(true) end
             refresh_view()
         end,
-        _zen_after_status_change = refresh_view,
+        _zen_after_status_change = refresh_status,
     })
     return true
 end
@@ -354,6 +386,7 @@ function M._decorateLibraryView(menu, plugin)
 
     require("common/ui/background").applyToMenu(menu)
     local StandalonePage = require("modules/filebrowser/patches/standalone_page")
+    StandalonePage.enable_filemanager_dispatch(menu)
     StandalonePage.hide_page_arrow(menu)
     StandalonePage.suppress_page_info_tap(menu)
     local SharedState = require("common/shared_state")

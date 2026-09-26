@@ -49,6 +49,23 @@ local function apply_zen_renderer()
     local utils = require("common/utils")
     local now = require("common/zen_logger").now
     local METADATA_TTL_S = 30
+    local background_check_second, background_config_path, background_enabled
+    local background_path = ""
+
+    local function tile_background_path(config)
+        local bg = config.library_background
+        local path = type(bg) == "table" and bg.path or nil
+        local enabled = type(bg) == "table" and bg.enabled or nil
+        local second = os.time()
+        if second ~= background_check_second or path ~= background_config_path
+                or enabled ~= background_enabled then
+            background_check_second = second
+            background_config_path = path
+            background_enabled = enabled
+            background_path = Background.library_path(plugin_ref)
+        end
+        return background_path
+    end
 
     local ZenMosaicItem = InputContainer:extend{
         entry = nil,
@@ -695,12 +712,11 @@ local function apply_zen_renderer()
         local badge = config.browser_cover_badges or {}
         if badge.show_mosaic_progress ~= true or not item._zen_effective_status then return end
         local effective_status = item._zen_effective_status
-        local dim_finished = badge.dim_finished_books == true and effective_status == "complete"
         local is_new = effective_status == "new"
-        local do_check = effective_status == "complete" and not dim_finished
+        local do_check = effective_status == "complete"
         local do_tbr = effective_status == "tbr"
         local do_pause = effective_status == "abandoned"
-        local do_pct = not is_new and not dim_finished and not do_check and not do_tbr and not do_pause
+        local do_pct = not is_new and not do_check and not do_tbr and not do_pause
             and item.percent_finished ~= nil
         if not (do_check or do_tbr or do_pause or do_pct) then return end
 
@@ -850,9 +866,9 @@ local function apply_zen_renderer()
             or menu._zen_tab_id or menu._zen_coll_list or menu._zen_group_view
             or menu._zen_renderer == true)
         if is_library and self.width and self.height then
-            local background_path = Background.library_path(plugin_ref)
-            if background_path == "" or not Background.paintScreenRegion(bb, x, y,
-                    x, y, self.width, self.height, background_path) then
+            local tile_path = tile_background_path(config)
+            if tile_path == "" or not Background.paintScreenRegion(bb, x, y,
+                    x, y, self.width, self.height, tile_path) then
                 bb:paintRect(x, y, self.width, self.height, Blitbuffer.COLOR_WHITE)
             end
         end

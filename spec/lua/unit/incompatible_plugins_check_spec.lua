@@ -12,6 +12,8 @@ describe("incompatible plugin and patch check", function()
     local original_qui_utils
     local original_readermenuredesign_installer
     local original_custom_shortcut_manager
+    local original_page_scrubber_bridge
+    local original_neo_i18n
     local original_suntime
     local original_appearance_setting
     local UIManager
@@ -81,6 +83,8 @@ describe("incompatible plugin and patch check", function()
         original_qui_utils = package.loaded["qui_utils"]
         original_readermenuredesign_installer = package.loaded["readermenuredesign_installer"]
         original_custom_shortcut_manager = package.loaded["custom_shortcut_manager"]
+        original_page_scrubber_bridge = package.loaded["page_scrubber_bridge"]
+        original_neo_i18n = package.loaded["neo_i18n"]
         original_suntime = package.loaded["suntime"]
         original_appearance_setting = package.loaded["lib/setting"]
         package.loaded["ptutil"] = nil
@@ -91,6 +95,8 @@ describe("incompatible plugin and patch check", function()
         package.loaded["qui_utils"] = nil
         package.loaded["readermenuredesign_installer"] = nil
         package.loaded["custom_shortcut_manager"] = nil
+        package.loaded["page_scrubber_bridge"] = nil
+        package.loaded["neo_i18n"] = nil
         package.loaded["suntime"] = nil
         package.loaded["lib/setting"] = nil
         _G.__ZEN_UI_PLUGIN = nil
@@ -163,6 +169,8 @@ describe("incompatible plugin and patch check", function()
         package.loaded["qui_utils"] = original_qui_utils
         package.loaded["readermenuredesign_installer"] = original_readermenuredesign_installer
         package.loaded["custom_shortcut_manager"] = original_custom_shortcut_manager
+        package.loaded["page_scrubber_bridge"] = original_page_scrubber_bridge
+        package.loaded["neo_i18n"] = original_neo_i18n
         package.loaded["suntime"] = original_suntime
         package.loaded["lib/setting"] = original_appearance_setting
         _G.__ZEN_UI_PLUGIN = original_plugin
@@ -284,6 +292,8 @@ describe("incompatible plugin and patch check", function()
         local quickui_dir = plugins_dir .. "/quickui.koplugin"
         local reader_menu_dir = plugins_dir .. "/zzz-readermenuredesign.koplugin"
         local shortcuts_toolbar_dir = plugins_dir .. "/shortcutstoolbar.koplugin"
+        local page_scrubber_dir = plugins_dir .. "/page_scrubber.koplugin"
+        local neo_quicksettings_dir = plugins_dir .. "/neo_quicksetting.koplugin"
         assert.is_true(lfs.mkdir(plugins_dir))
         assert.is_true(lfs.mkdir(simpleui_dir))
         assert.is_true(lfs.mkdir(vos_dir))
@@ -293,6 +303,8 @@ describe("incompatible plugin and patch check", function()
         assert.is_true(lfs.mkdir(quickui_dir))
         assert.is_true(lfs.mkdir(reader_menu_dir))
         assert.is_true(lfs.mkdir(shortcuts_toolbar_dir))
+        assert.is_true(lfs.mkdir(page_scrubber_dir))
+        assert.is_true(lfs.mkdir(neo_quicksettings_dir))
         settings.extra_plugin_paths = { plugins_dir }
         ZenSpec.replace("userpatch", { execution_status = {} })
 
@@ -305,13 +317,16 @@ describe("incompatible plugin and patch check", function()
         assert.is_true(settings.disabled.quickui)
         assert.is_true(settings.disabled["zzz-readermenuredesign"])
         assert.is_true(settings.disabled.shortcutstoolbar)
+        assert.is_true(settings.disabled.page_scrubber)
+        assert.is_true(settings.disabled.neo_quicksetting)
         assert.are.equal(1, settings.flushes)
 
         UIManager.scheduled[1].callback()
         assert.are.equal(
             "Incompatible plugins and patches have been disabled:\n"
                 .. "Simple UI\nVisual Overhaul Suite (VOS)\nQuickMenu\nAppearance\n"
-                .. "Burrow\nQuickUI\nReader Menu Redesign\nShortcuts Toolbar",
+                .. "Burrow\nQuickUI\nReader Menu Redesign\nShortcuts Toolbar\n"
+                .. "Page Scrubber\nNeo QuickSettings",
             UIManager.shown[1].text)
 
         lfs.rmdir(simpleui_dir)
@@ -322,6 +337,8 @@ describe("incompatible plugin and patch check", function()
         lfs.rmdir(quickui_dir)
         lfs.rmdir(reader_menu_dir)
         lfs.rmdir(shortcuts_toolbar_dir)
+        lfs.rmdir(page_scrubber_dir)
+        lfs.rmdir(neo_quicksettings_dir)
         lfs.rmdir(plugins_dir)
     end)
 

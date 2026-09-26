@@ -43,6 +43,9 @@ local function apply_status_on_open()
             require("common/memory_policy").releaseForReader()
         end)
 
+        if not ui then
+            return require("apps/reader/readerui"):showReader(file)
+        end
         return _orig_openFile(ui, file, caller_pre_callback, no_dialog)
     end
 end

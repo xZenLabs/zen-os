@@ -213,6 +213,8 @@ return {
         local row = HorizontalGroup:new{ align = "center" }
         local visual_top
         local visual_bottom
+        local divider_visual_top
+        local divider_visual_bottom
 
         for _i, field in ipairs(fields) do
             local value_widget = TextWidget:new{
@@ -268,6 +270,10 @@ return {
                     local divider_h = math.min(card_h, math.max(1, metric_h - divider_trim))
                     local divider_bottom = metric_top + metric_h
                     local divider_top = divider_bottom - divider_h
+                    divider_visual_top = math.min(
+                        divider_visual_top or divider_top, divider_top)
+                    divider_visual_bottom = math.max(
+                        divider_visual_bottom or divider_bottom, divider_bottom)
                     local divider_shift = divider_top - math.floor((card_h - divider_h) / 2)
                     local divider_container = CenterContainer:new{
                         dimen = Geom:new{ w = gap_w, h = card_h },
@@ -294,8 +300,8 @@ return {
         }
         if type(ctx.setContentBounds) == "function" then
             local fixed = stat_style == "outline"
-            local top = fixed and 0 or visual_top or 0
-            local bottom = fixed and height or visual_bottom or height
+            local top = fixed and 0 or divider_visual_top or visual_top or 0
+            local bottom = fixed and height or divider_visual_bottom or visual_bottom or height
             ctx.setContentBounds{
                 top = top,
                 bottom = bottom,

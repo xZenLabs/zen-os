@@ -61,6 +61,8 @@ Enable **Zen Settings > Extras > Rakuyomi > Return to chapter list on exit** to 
 
 Disable it to return to the Rakuyomi library view instead.
 
+Enable **Exclude from Home** to keep Rakuyomi chapters out of recent Home content.
+
 ## Schedules
 
 Use **Zen Settings > Extras > Schedules** for automatic brightness, night mode, and warmth changes. Brightness and warmth can follow either a clock schedule or KOReader's light/dark mode, with separate values for each state. These two methods are mutually exclusive for each setting: enabling a schedule turns off its light/dark values, and enabling light/dark values turns off its schedule.
@@ -90,6 +92,7 @@ Use **Zen Settings > Extras > Lockdown mode** to configure library, Controls, an
 | Library > Include new books in TBR | Adds books with the New status to the To Be Read tab and Home widgets. New includes unread books and books modified since they were last opened. |
 | Extras > Enable custom icons | Enables loose icon overrides or the selected ZenOS icon pack. |
 | Extras > Custom icon pack | Installs ZIPs from `/koreader/icons/zen` and selects an unpacked pack. |
+| Extras > Rakuyomi > Exclude from Home | Keeps Rakuyomi chapters out of recent Home content. |
 | Extras > Rakuyomi > Return to chapter list on exit | Returns Rakuyomi-owned books to their manga chapter list when exiting the reader. Disable this to return to Rakuyomi library view. |
 | Extras > Search > Match whole words | Uses whole-word search instead of substring search. |
 | Extras > Schedules > Brightness > Enable brightness schedule | Enables automatic frontlight brightness changes and sets day/night times and values. |

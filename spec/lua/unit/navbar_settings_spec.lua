@@ -112,6 +112,7 @@ describe("navbar settings", function()
         })
         ZenSpec.replace("common/paths", {
             getHomeDir = function() return "/home" end,
+            getArchiveDir = function() end,
         })
         ZenSpec.replace("util", {
             splitFilePathName = function(path)

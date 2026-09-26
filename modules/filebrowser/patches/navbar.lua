@@ -97,6 +97,7 @@ local function apply_navbar()
     local config_default = {
         show_tabs = {
             books = true,
+            archive = false,
             folder = false,
             kindle = false,
             manga = true,
@@ -233,6 +234,11 @@ local function apply_navbar()
             id = "books",
             label = getBooksLabel(),
             icon = "library",
+        },
+        {
+            id = "archive",
+            label = _("Archive"),
+            icon = utils.resolveLocalIcon(_icons_dir, "archive"),
         },
         {
             id = "folder",
@@ -455,6 +461,7 @@ local function apply_navbar()
     local function tabStaysInFileManager(id)
         local custom_folder = getCustomFolderTab(id)
         return id == "books"
+            or (id == "archive" and paths.getArchiveDir() ~= nil)
             or (id == "folder" and normalizeFolderPath(config.folder_path) ~= nil)
             or (id == "manga" and config.manga_action == "folder" and config.manga_folder ~= "")
             or (id == "news" and config.news_action == "folder" and config.news_folder ~= "")
@@ -1048,7 +1055,9 @@ local function apply_navbar()
     end
 
     local function revealFileManager(fm, fc)
-        local was_hidden = fileManagerIsHidden(fm, fc)
+        local revealed = fileManagerIsHidden(fm, fc)
+            or fm and fm._zen_hidden_home_startup == true
+            or fc and fc._zen_hidden_home_startup == true
         local fm_parent = fm and fm.show_parent
         local fc_parent = fc and fc.show_parent
         local function reveal(widget)
@@ -1061,7 +1070,7 @@ local function apply_navbar()
         reveal(fc)
         reveal(fm_parent)
         reveal(fc_parent)
-        return was_hidden
+        return revealed
     end
 
     local function onTabBooks()
@@ -1173,18 +1182,25 @@ local function apply_navbar()
         local function buildFolder()
             fc._zen_needs_full_listing = nil
             fc._zen_needs_cover_refresh = nil
+            local archive_root = normalizeFolderPath(paths.getArchiveDir())
+            local direct_archive = tab_id == "archive" and paths.isArchiveRoot(folder_path)
+            fc._zen_direct_archive_root = direct_archive and archive_root or nil
             local current_path = normalizeFolderPath(fc.path)
+            local archive_dirty = tab_id == "archive"
+                and rawget(_G, "__ZEN_UI_ARCHIVE_LISTING_DIRTY") == true
             if current_path == folder_path then
-                if listing_deferred and type(fc.refreshPath) == "function" then
+                if (listing_deferred or archive_dirty)
+                        and type(fc.refreshPath) == "function" then
                     fc:refreshPath()
                 elseif type(fc.onGotoPage) == "function" then
                     fc:onGotoPage(1)
                 end
             else
                 fc.path_items[folder_path] = nil
+                fc._zen_opening_archive_root = direct_archive or nil
                 fc:changeToPath(folder_path)
             end
-            setActiveTab(tab_id)
+            if tab_id == "archive" then _G.__ZEN_UI_ARCHIVE_LISTING_DIRTY = nil end
         end
         if was_hidden then
             local original_set_dirty = UIManager.setDirty
@@ -1198,13 +1214,32 @@ local function apply_navbar()
 
         local revealed = revealFileManager(fm, fc)
         utils.closeWidgetsAbove(fm_stack_widget or fm)
-        if revealed then UIManager:setDirty(fm_stack_widget or fm, "ui") end
+        if revealed then
+            if type(fc._zen_resume_visible_cover_work) == "function" then
+                fc:_zen_resume_visible_cover_work()
+            end
+        end
+        setActiveTab(tab_id)
         return true, folder_path
     end
 
     local function fallbackToLibrary()
         setActiveTab("books")
         onTabBooks()
+    end
+
+    local function onTabArchive()
+        local archive_dir = paths.getArchiveDir()
+        if not archive_dir then return false end
+        local opened, folder_path = openFileManagerFolder(archive_dir, "archive")
+        if not opened then
+            fallbackToLibrary()
+            local InfoMessage = require("ui/widget/infomessage")
+            UIManager:show(InfoMessage:new{
+                text = ffiUtil.template(_("Archive folder not found: %1"), folder_path),
+            })
+        end
+        return opened
     end
 
     local function onTabKindle()
@@ -1448,7 +1483,7 @@ local function apply_navbar()
         end)
     end
 
-    local function onTabHome()
+    local function onTabHome(refresh_type)
         if resetHomeStripPages() then return end
         local Home = get_shared("home")
         if not Home then return end
@@ -1470,10 +1505,10 @@ local function apply_navbar()
             local strips_reset = type(Home.resetStripPages) == "function"
                 and Home.resetStripPages() == true
             local resumed, resume_mode = true, "reused"
-            if can_resume then resumed, resume_mode = Home.resumeActive() end
+            if can_resume then resumed, resume_mode = Home.resumeActive(refresh_type) end
             if not resumed then
                 if type(Home.closeAll) == "function" then Home.closeAll() end
-                Home.showHomeView(injectStandaloneNavbar)
+                Home.showHomeView(injectStandaloneNavbar, refresh_type)
                 measureLibraryToHomeReveal(fm, "rebuilt", false)
             else
                 local rebuilt = resume_mode == "rebuilt" or strips_reset
@@ -1482,7 +1517,7 @@ local function apply_navbar()
             if not scheduleHiddenLibraryWarm(fm) then scheduleGroupPrewarm() end
             return
         end
-        Home.showHomeView(injectStandaloneNavbar)
+        Home.showHomeView(injectStandaloneNavbar, refresh_type)
         measureLibraryToHomeReveal(fm, "rebuilt", false)
         if not scheduleHiddenLibraryWarm(fm) then scheduleGroupPrewarm() end
     end
@@ -1564,6 +1599,7 @@ local function apply_navbar()
 
     local tab_callbacks = {
         books = onTabBooks,
+        archive = onTabArchive,
         folder = onTabFolder,
         kindle = onTabKindle,
         manga = onTabManga,
@@ -1589,6 +1625,7 @@ local function apply_navbar()
 
     local default_tab_whitelist = {
         books = true,
+        archive = true,
         folder = true,
         kindle = true,
         manga = true,
@@ -1606,6 +1643,7 @@ local function apply_navbar()
 
     local active_tab_whitelist = {
         books = true,
+        archive = true,
         folder = true,
         kindle = true,
         manga = true,
@@ -1630,6 +1668,7 @@ local function apply_navbar()
 
     local function is_tab_enabled(tab_id)
         return config.show_tabs[tab_id] == true
+            and (tab_id ~= "archive" or paths.getArchiveDir() ~= nil)
             and (tab_id ~= "kindle" or Kindle.isAvailable())
     end
 
@@ -1694,8 +1733,8 @@ local function apply_navbar()
             local flash_library_home = fm and (
                 (tab_id == "home" and fm._zen_library_to_home_started_at)
                 or (tab_id == "books" and fm._zen_home_to_library_started_at))
-            cb()
-            if flash_library_home then
+            cb(flash_library_home and tab_id == "home" and "flashui" or nil)
+            if flash_library_home and tab_id == "books" then
                 UIManager:nextTick(function() UIManager:setDirty(nil, "flashui") end)
             end
             if tab_id ~= "home" and not tabStaysInFileManager(tab_id) then
@@ -2237,6 +2276,12 @@ local function apply_navbar()
                         range = Geom:new{ x = 0, y = 0, w = screen_w, h = Screen:getHeight() },
                     },
                 },
+                HoldNavBar = {
+                    GestureRange:new{
+                        ges = "hold",
+                        range = Geom:new{ x = 0, y = 0, w = screen_w, h = Screen:getHeight() },
+                    },
+                },
             },
         }
 
@@ -2268,6 +2313,18 @@ local function apply_navbar()
                 setActiveTab(tapped_id)
             end
             runTabCallback(tapped_id)
+            return true
+        end
+
+        navbar.onHoldNavBar = function(self, _, ges)
+            if not self:getTappedTabId(ges.pos) then return false end
+            local fm = FileManager.instance
+            local fc = fm and fm.file_chooser
+            if not (fc and fc.path) or paths.isInHomeDir(fc.path)
+                    or type(fm.onShowPlusMenu) ~= "function" then
+                return false
+            end
+            fm:onShowPlusMenu()
             return true
         end
 
@@ -2456,6 +2513,7 @@ local function apply_navbar()
         if home_dir and normalizeFolderPath(path) == normalizeFolderPath(home_dir) then
             return "books"
         end
+        if isInFolderPath(path, paths.getArchiveDir()) then return "archive" end
 
         local active_custom, active_folder = getCustomFolderTab(active_tab)
         if active_custom and isInFolderPath(path, active_folder) then
@@ -2522,6 +2580,17 @@ local function apply_navbar()
     end
 
     -- Inject navbar into FM after all plugins finish init.
+
+    FileManager.onSetRotationMode = (function(original)
+        return function(self, mode)
+            local rotated = mode ~= nil and mode ~= Screen:getRotationMode()
+            local result = original(self, mode)
+            if rotated and FileManager.instance == self and is_navbar_enabled() then
+                UIManager:setDirty(self, "full")
+            end
+            return result
+        end
+    end)(FileManager.onSetRotationMode)
 
     local function resizeFileChooser(file_chooser, target_height)
         if not file_chooser or target_height <= 0 then

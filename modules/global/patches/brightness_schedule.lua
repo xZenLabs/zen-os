@@ -116,7 +116,6 @@ local function apply_brightness_schedule()
             if type(Powerd.updateResumeFrontlightState) == "function" then
                 pcall(Powerd.updateResumeFrontlightState, Powerd)
             end
-            UIManager:setDirty("all", "ui")
         end
     end
 

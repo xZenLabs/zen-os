@@ -46,43 +46,16 @@ local function refresh_active_pages(plugin)
     if home and home.rebuildActive then home.rebuildActive() end
 end
 
-local function is_filemanager_menu_open()
-    local ok_fm, FileManager = pcall(require, "apps/filemanager/filemanager")
-    if not ok_fm or not FileManager or not FileManager.instance then return false end
-    local menu = FileManager.instance.menu
-    if not menu then return false end
-    local menu_container = menu.menu_container
-    local stack = UIManager._window_stack
-    if not stack then return menu_container ~= nil end
-    for _i, entry in ipairs(stack) do
-        local widget = entry and entry.widget
-        if widget == menu or (menu_container and widget == menu_container) then return true end
-    end
-    return false
-end
-
 function M.build(ctx)
     local plugin = ctx and ctx.plugin or rawget(_G, "__ZEN_UI_PLUGIN")
-    local active_pages_refresh_pending = false
-    local active_pages_refresh_poll_active = false
+    local settings_apply = ctx and ctx.settings_apply
+        or require("modules/settings/zen_settings_apply")
 
     local function refresh_active_pages_on_menu_close()
-        active_pages_refresh_pending = true
-        if active_pages_refresh_poll_active then return end
-        active_pages_refresh_poll_active = true
-
-        local function tick()
-            if is_filemanager_menu_open() then
-                UIManager:scheduleIn(0.25, tick)
-                return
-            end
-            active_pages_refresh_poll_active = false
-            if not active_pages_refresh_pending then return end
-            active_pages_refresh_pending = false
+        if not settings_apply.defer_until_settings_close then return end
+        settings_apply.defer_until_settings_close("stats_pages", function()
             refresh_active_pages(plugin)
-        end
-
-        UIManager:scheduleIn(0.25, tick)
+        end)
     end
 
     local function save(settings)

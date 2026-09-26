@@ -136,11 +136,11 @@ local _zen_plugin_ref = nil
 -- so the on_update_found callback can rebuild their tab_item_table dynamically.
 local _zen_menu_instances = setmetatable({}, { __mode = "k" })
 
-local function refresh_home_date_dependent(plugin)
+local function refresh_home_date_dependent(plugin, force)
     local ok_shared, SharedState = pcall(require, "common/shared_state")
     local home = ok_shared and SharedState.get(plugin, "home") or nil
     if home and type(home.refreshDateDependentActive) == "function" then
-        home.refreshDateDependentActive()
+        home.refreshDateDependentActive(force)
     end
 end
 
@@ -341,7 +341,18 @@ function ZenUI:init()
 
     self:_initModules()
     -- TBR is a normal KOReader collection; create it for standard pickers.
-    pcall(function() require("common/tbr_index").ensureCollection() end)
+    pcall(function()
+        local tbr_index = require("common/tbr_index")
+        tbr_index.ensureCollection()
+        if not self.config._meta.tbr_collection_migrated then
+            tbr_index.scheduleAudit(nil, function()
+                if tbr_index.isAuditComplete() then
+                    tbr_index.getAll({ include_new = false })
+                    tbr_index.refreshViews(self)
+                end
+            end)
+        end
+    end)
     logger.perf("Core initialization completed", (os.clock() - started_at) * 1000)
 
     local function schedule_quickstart_menu_tour(delay)
@@ -570,8 +581,13 @@ function ZenUI:init()
         local _cfg = _zen_plugin_ref and _zen_plugin_ref.config
         local _lc = _cfg and _cfg.lockdown
         local _ft = _cfg and _cfg.features
-        return type(_lc) == "table" and _lc.disable_settings_panel == true
+        local _qs = _cfg and _cfg.quick_settings
+        local _buttons = type(_qs) == "table" and _qs.show_buttons
+        local hidden_by_lockdown = type(_lc) == "table" and _lc.disable_settings_panel == true
             and type(_ft) == "table" and _ft.lockdown_mode == true
+        return hidden_by_lockdown
+            or type(_ft) == "table" and _ft.quick_settings == true
+                and type(_buttons) == "table" and _buttons.zen_settings == true
     end
 
     local function flip_lh_rh_icons()
@@ -835,6 +851,10 @@ function ZenUI:init()
         local orig_show = menu_class.onShowMenu
         if type(orig_show) == "function" then
             menu_class.onShowMenu = function(m_self, ...)
+                local refresh_settings = rawget(_G, "__ZEN_UI_REFRESH_SETTINGS")
+                if type(refresh_settings) == "function" then
+                    refresh_settings()
+                end
                 refresh_zen_menu_tabs(m_self)
                 return orig_show(m_self, ...)
             end
@@ -872,6 +892,29 @@ function ZenUI:init()
     end
     zen_updater._on_update_found = update_icon
 
+    -- Settings whose availability depends on external KOReader state (such as
+    -- the configured archive folder) can ask us to rebuild the cached Zen tab.
+    local archive_was_available = paths.getArchiveDir() ~= nil
+    _G.__ZEN_UI_REFRESH_SETTINGS = function(force)
+        local archive_available = paths.getArchiveDir() ~= nil
+        if not force and archive_available == archive_was_available then return end
+        if archive_available and not archive_was_available then
+            _zen_plugin_ref.config.navbar.show_tabs.archive = false
+            _zen_plugin_ref:saveConfig()
+        end
+        archive_was_available = archive_available
+        for m_instance in pairs(_zen_menu_instances) do
+            refresh_zen_menu_tabs(m_instance)
+        end
+        local settings_page = rawget(_G, "__ZEN_UI_SETTINGS_PAGE")
+        if settings_page and type(settings_page.updateItems) == "function" then
+            settings_page:updateItems()
+        end
+        local reinject = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
+            or rawget(_G, "__ZEN_UI_REINJECT_FM_NAVBAR")
+        if type(reinject) == "function" then reinject() end
+    end
+
     -- Trigger background update check on fresh startup too, not only on resume.
     zen_updater.schedule_wakeup_check()
 
@@ -900,9 +943,6 @@ function ZenUI:onResume()
         Incognito.onResume(self)
     end
     local UIManager = require("ui/uimanager")
-    UIManager:scheduleIn(0.5, function()
-        refresh_home_date_dependent(self)
-    end)
     UIManager:scheduleIn(1.5, function()
         refresh_home_date_dependent(self)
     end)
@@ -915,7 +955,7 @@ local function invalidate_annotation_quotes(plugin)
     if ok_quotes and HomeQuotes and HomeQuotes.invalidateAnnotations then
         HomeQuotes.invalidateAnnotations()
     end
-    refresh_home_date_dependent(plugin)
+    refresh_home_date_dependent(plugin, true)
 end
 
 function ZenUI:onAnnotationsModified()
@@ -941,6 +981,7 @@ end
 function ZenUI:onSuspend()
     if self._zenos_brand_inert then return end
     zen_updater.cancel_wakeup_check()
+    require("modules/menu/bluetooth/bluetooth").onSuspend()
     local ok_incognito, Incognito = pcall(require, "modules/global/patches/incognito_mode")
     if ok_incognito and type(Incognito.onSuspend) == "function" then
         Incognito.onSuspend()

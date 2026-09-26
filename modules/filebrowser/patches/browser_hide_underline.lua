@@ -74,19 +74,17 @@ local function apply_browser_hide_underline()
         })
     end
 
-    -- Patch Menu.updateItems at the class level so ALL menu views
-    -- (classic mode, collections, history, favorites, etc.) get underlines hidden.
-    -- CoverMenu.updateItems (mosaic/list) is a separate override and is patched
-    -- inside patchCoverBrowser above; this catches everything else.
-    -- Exception: classic file browser (name=="filemanager", no display_mode_type)
-    -- keeps its natural separators so items are visually distinct.
+    -- Patch the stock Menu path used by ZenOS library views. CoverMenu's
+    -- mosaic/list path is handled separately above; unrelated menus keep their
+    -- own separators.
     local Menu = require("ui/widget/menu")
     if not Menu._zen_hide_underline_patched then
         Menu._zen_hide_underline_patched = true
         local orig_menu_updateItems = Menu.updateItems
         function Menu:updateItems(...)
             orig_menu_updateItems(self, ...)
-            -- Classic mode menus (file browser or group view): leave underlines visible.
+            if self.name ~= "history" and self.name ~= "collections"
+                    and self.display_mode_type == nil then return end
             if self.name == "filemanager" or self.display_mode_type == "classic" then return end
             hide_menu_underlines(self)
         end

@@ -50,7 +50,7 @@ SESSIONS = frozenset(("general", "reader"))
 EXPECTED_IDS = frozenset((
     "zen_home", "home_bookshelf", "home_simple",
     "library_covers_full", "library_list_full", "context_menu", "metadata_editor", "stats",
-    "launcher", "quicksettings", "quickstart", "zen_settings",
+    "launcher", "quicksettings", "network_switcher", "quickstart", "zen_settings",
     "launcher_add_plugin_menu", "launcher_add_koreader_menu",
     "controls_buttons_settings", "navbar_buttons_settings",
     "reader", "reader_launcher_book_switcher",
@@ -1557,6 +1557,19 @@ class CaptureWorkflow:
             if options.get("show_lockdown_control") is True:
                 _require_ok(driver.command("showcase_lockdown_control"), action)
             _require_ok(driver.command("menu_tab_layout", tab_id=options["tab"]), action)
+            return
+        if action == "network_switcher":
+            names = options.get("wifi_names")
+            if not isinstance(names, list) or len(names) < 2:
+                raise CaptureError("network switcher fixture needs fictional Wi-Fi names")
+            names = [str(name) for name in names]
+            _require_ok(driver.command("show_network_switcher_fixture", names=names), action)
+            _wait_for(
+                lambda: driver.command("network_switcher_fixture_state"),
+                lambda value: value.get("network_switcher", {}).get("labels") == names
+                and value.get("network_switcher", {}).get("status_visible") is True,
+                scenario.id,
+            )
             return
         if action == "quickstart":
             _require_ok(driver.command("open_quickstart"), action)

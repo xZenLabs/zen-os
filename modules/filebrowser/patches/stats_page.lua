@@ -1024,16 +1024,26 @@ local function buildContent(blocks_config, data, page_w, h_padding, top_padding,
         if type(config) ~= "table" then config = {} end
         local goals = type(config.goals) == "table" and config.goals or {}
         local metrics = type(goals.metrics) == "table" and goals.metrics or {}
+        local goal_stats = stats
+        if goals.exclude_cbz_cbr == true then
+            if not data.goal_stats then
+                data.goal_stats = StatsDB.queryHomeStats({
+                    "today_pages", "today_duration", "week_pages", "week_duration",
+                    "month_pages", "month_duration", "year_pages", "year_duration",
+                }, true)
+            end
+            goal_stats = data.goal_stats
+        end
         if metrics.monthly == "books" or metrics.yearly == "books" then
-            local counts = LibraryDB.getBookCounts()
-            stats.finished_this_month = counts.finished_this_month or 0
-            stats.finished_this_year = counts.finished_this_year or 0
+            local counts = LibraryDB.getBookCounts(goals.exclude_cbz_cbr)
+            goal_stats.finished_this_month = counts.finished_this_month or 0
+            goal_stats.finished_this_year = counts.finished_this_year or 0
         end
         return HomeGoals.build{
             width = content_w,
             height = height,
             font_size = block.font_size or 11,
-            data = { stats = stats },
+            data = { stats = goal_stats },
             config = config,
         }
     end
@@ -1092,7 +1102,11 @@ local function buildContent(blocks_config, data, page_w, h_padding, top_padding,
             installCalendarDaySummary(self_cal, stats_plugin, stat_style)
             clearStatsBackgrounds(self_cal)
             refreshEmbeddedCalendarLayout(self_cal)
-            UIManager:setDirty(self_cal, "ui")
+            -- The embedded calendar is not a window, so a dirty mark on it is never
+            -- painted (UIManager only checks top-level widgets). Refresh the windows
+            -- over the calendar's own rectangle instead: this is what makes a month
+            -- swipe show up without reopening the page.
+            UIManager:setDirty("all", function() return "ui", self_cal.dimen end)
             return result
         end
         installCalendarDaySummary(calendar, stats_plugin, stat_style)

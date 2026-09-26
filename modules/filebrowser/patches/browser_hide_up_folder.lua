@@ -45,19 +45,28 @@ local function apply_browser_hide_up_folder()
     end
 
     local orig_FileChooser_genItemTable = FileChooser.genItemTable
+    local orig_FileChooser_changeToPath = FileChooser.changeToPath
+
+    function FileChooser:changeToPath(path, ...)
+        if self._zen_opening_archive_root ~= true then
+            self._zen_direct_archive_root = nil
+        end
+        self._zen_opening_archive_root = nil
+        return orig_FileChooser_changeToPath(self, path, ...)
+    end
 
     function FileChooser:genItemTable(dirs, files, path)
         local item_table = orig_FileChooser_genItemTable(self, dirs, files, path)
-        if self._dummy or self.name ~= "filemanager" then
+        if self._dummy or self.name ~= "filemanager" or type(path) ~= "string" then
             return item_table
         end
 
-        -- Force-hide up-folder at home root when the configured lock mode is active.
-        local at_home_root = paths.isHomeRoot(path)
-        local force_hide_at_home = at_home_root and paths.isHomeLocked()
+        local normalized = paths.normPath(path:gsub("/*$", ""))
+        local force_hide_at_root = normalized == self._zen_direct_archive_root
+            or paths.isHomeRoot(path) and paths.isHomeLocked()
 
         local enabled = is_enabled()
-        if not enabled and not force_hide_at_home then
+        if not enabled and not force_hide_at_root then
             return item_table
         end
 
@@ -68,8 +77,8 @@ local function apply_browser_hide_up_folder()
                 table.insert(items, item)
             elseif item.is_go_up or item.text:find("\u{2B06} ..") then
                 -- hide when at locked/zen home root, or when the setting says to
-                if force_hide_at_home or (enabled and config.hide_up_folder) then
-                    if not force_hide_at_home then
+                if force_hide_at_root or (enabled and config.hide_up_folder) then
+                    if not force_hide_at_root then
                         is_sub_folder = true  -- deeper level: show back icon
                     end
                 else

@@ -99,3 +99,9 @@ jobs:
             --repo xZenLabs/repo \
             --ref main \
             --field package=zen-ui
+
+      - name: Deploy ZenLabs website
+        if: steps.version_check.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.ZENLABS_WEBSITE_TOKEN }}
+        run: gh workflow run deploy.yml --repo xZenLabs/zen-labs-website --ref main

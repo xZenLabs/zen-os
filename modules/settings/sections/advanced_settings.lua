@@ -36,6 +36,7 @@ function M.build(ctx)
 
     table.insert(items, {
         text = _("Partial pages refresh"),
+        help_text = _("Flash the screen in the library when a page is not full of books to prevent ghosting."),
         checked_func = function()
             return config.features.partial_page_repaint == true
         end,
@@ -46,7 +47,7 @@ function M.build(ctx)
         end,
     })
 
-    table.insert(items, {
+    local double_tap_item = {
         text = _("Require double tap to open books"),
         help_text = _("When enabled, tap the same book twice in rapid succession to open it. Keyboard controls are unchanged."),
         checked_func = function()
@@ -59,7 +60,28 @@ function M.build(ctx)
                 config.developer.double_tap_to_open_books ~= true
             plugin:saveConfig()
         end,
-    })
+        sub_item_table = {
+            {
+                text = _("Single tap to open context menu"),
+                enabled_func = function()
+                    return type(config.developer) == "table"
+                        and config.developer.double_tap_to_open_books == true
+                end,
+                checked_func = function()
+                    return type(config.developer) == "table"
+                        and config.developer.single_tap_to_open_context_menu == true
+                end,
+                callback = function()
+                    if type(config.developer) ~= "table" then config.developer = {} end
+                    config.developer.single_tap_to_open_context_menu =
+                        config.developer.single_tap_to_open_context_menu ~= true
+                    plugin:saveConfig()
+                end,
+            },
+        },
+    }
+    double_tap_item.checkmark_callback = double_tap_item.callback
+    table.insert(items, double_tap_item)
 
     table.insert(items, {
         text = _("Allow dragging reader modals"),

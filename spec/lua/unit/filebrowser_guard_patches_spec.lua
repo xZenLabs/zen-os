@@ -296,18 +296,24 @@ describe("file browser guard patches", function()
         local with_cover = BookInfoManager:getBookInfo(source, true)
         assert.are.equal(cover, with_cover.cover_bb)
         assert.are.equal(1, render_calls)
+        local cached_metadata = Kindle.getBookMetadata(cached)
+        assert.is_true(cached_metadata.stock)
+        assert.are.equal("Catalog Title", cached_metadata.title)
+        assert.are.equal("First Author\nSecond Author", cached_metadata.authors)
         assert.is_true(BookInfoManager:getBookInfo(cached, false).stock)
         assert.is_true(BookInfoManager:getBookInfo("/library/normal.epub", true).stock)
-        assert.are.equal(2, stock_calls)
+        assert.are.equal(3, stock_calls)
     end)
 
     it("decorates Kindle Library like a regular folder view", function()
         local shown, saved_mode, reopened, updated, status_options, file_dialog_args
+        local update_calls = 0
         ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
         ZenSpec.replace("common/ui/background", {
             applyToMenu = function(menu) menu.background_applied = true end,
         })
         ZenSpec.replace("modules/filebrowser/patches/standalone_page", {
+            enable_filemanager_dispatch = function(menu) menu.fm_dispatch_enabled = true end,
             hide_page_arrow = function(menu) menu.arrow_hidden = true end,
             suppress_page_info_tap = function(menu) menu.page_info_suppressed = true end,
             apply_status_row = function(_, options) status_options = options end,
@@ -351,6 +357,10 @@ describe("file browser guard patches", function()
                 getBook = function(_, key)
                     if key == catalog_book.id then return catalog_book end
                 end,
+                isBookPrepared = function(_, book)
+                    assert.are.equal(catalog_book, book)
+                    return true
+                end,
                 refresh = function(_, force)
                     assert.is_true(force)
                     refreshed = refreshed + 1
@@ -377,12 +387,14 @@ describe("file browser guard patches", function()
             name = "kindle_library",
             _manager = manager,
             updateItems = function(_, page, no_resize)
+                update_calls = update_calls + 1
                 updated = { page, no_resize }
             end,
         }
 
         assert.is_true(Kindle._decorateLibraryView(menu, {}))
         assert.is_true(menu.background_applied)
+        assert.is_true(menu.fm_dispatch_enabled)
         assert.is_false(menu._do_center_partial_rows)
         assert.are.same({ 1, true }, updated)
         assert.are.equal("Kindle Library", status_options.label)
@@ -392,6 +404,14 @@ describe("file browser guard patches", function()
         assert.is_true(menu:onMenuHold(book))
         assert.are.equal("/cache/book.epub", file_dialog_args.path)
         assert.is_true(file_dialog_args._zen_kindle_book)
+        assert.is_true(file_dialog_args._zen_kindle_processed)
+        assert.are.equal(1, #file_dialog_args._zen_extra_buttons)
+        assert.matches("Clear cache", file_dialog_args._zen_extra_buttons[1][1].text, 1, true)
+        file_dialog_args._zen_after_status_change()
+        assert.are.equal(2, update_calls)
+        assert.are.same({ 1, true }, updated)
+        assert.is_nil(reopened)
+
         file_dialog_args._zen_refresh()
         assert.are.equal(1, refreshed)
         file_dialog_args._zen_extra_buttons[1][1].callback()
@@ -412,6 +432,7 @@ describe("file browser guard patches", function()
         ZenSpec.replace("ui/widget/filechooser", FileChooser)
         ZenSpec.replace("ui/bidi", { mirroredUILayout = function() return false end })
         ZenSpec.replace("common/paths", {
+            normPath = function(path) return path end,
             isHomeRoot = function(path) return path == "/library" end,
             isHomeLocked = function() return home_locked end,
         })
@@ -439,6 +460,9 @@ describe("file browser guard patches", function()
         }
         setmetatable(chooser, { __index = FileChooser })
 
+        local search_items = FileChooser.genItemTable(chooser, {}, {})
+        assert.are.equal(2, #search_items)
+
         local items = FileChooser.genItemTable(chooser, {}, {}, "/library/series")
         assert.are.equal(1, #items)
         assert.are.equal("Book", items[1].text)
@@ -454,6 +478,7 @@ describe("file browser guard patches", function()
         ZenSpec.replace("ui/widget/filechooser", FileChooser)
         ZenSpec.replace("ui/bidi", { mirroredUILayout = function() return false end })
         ZenSpec.replace("common/paths", {
+            normPath = function(path) return path end,
             isHomeRoot = function() return true end,
             isHomeLocked = function() return true end,
         })
@@ -481,6 +506,56 @@ describe("file browser guard patches", function()
         local items = FileChooser.genItemTable(chooser, {}, {}, "/library")
         assert.are.equal(1, #items)
         assert.are.equal("home", button.icon)
+    end)
+
+    it("hides folder-up only when Archive was opened directly", function()
+        local FileChooser = {
+            genItemTable = function(self) return self.stock_items end,
+            changeToPath = function(self, path) self.path = path end,
+        }
+        ZenSpec.replace("ui/widget/filechooser", FileChooser)
+        ZenSpec.replace("ui/bidi", { mirroredUILayout = function() return false end })
+        ZenSpec.replace("common/paths", {
+            normPath = function(path) return path end,
+            isHomeRoot = function() return false end,
+            isHomeLocked = function() return false end,
+        })
+        _G.__ZEN_UI_PLUGIN = {
+            config = {
+                features = { browser_hide_up_folder = false },
+                browser_hide_up_folder = { hide_up_folder = false },
+            },
+        }
+
+        apply_patch("modules/filebrowser/patches/browser_hide_up_folder")
+        local button = { setIcon = function(self, icon) self.icon = icon end }
+        local chooser = {
+            name = "filemanager",
+            _zen_direct_archive_root = "/archive",
+            stock_items = {
+                { path = "/archive/..", text = "\u{2B06} ..", is_go_up = true },
+                { path = "/archive/book.epub", text = "Book" },
+            },
+            title_bar = {
+                left_button = button,
+                left_icon_tap_callback = function() return "home" end,
+            },
+        }
+        setmetatable(chooser, { __index = FileChooser })
+
+        local items = FileChooser.genItemTable(chooser, {}, {}, "/archive")
+
+        assert.are.equal(1, #items)
+        assert.are.equal("home", button.icon)
+
+        chooser._zen_opening_archive_root = true
+        chooser:changeToPath("/archive")
+        assert.are.equal("/archive", chooser._zen_direct_archive_root)
+
+        chooser:changeToPath("/library/archive")
+        assert.is_nil(chooser._zen_direct_archive_root)
+        items = FileChooser.genItemTable(chooser, {}, {}, "/archive")
+        assert.are.equal(2, #items)
     end)
 
     it("makes every movable container unmovable and consumes drag callbacks", function()
@@ -566,6 +641,10 @@ describe("file browser guard patches", function()
         Menu.updateItems({ name = "history", layout = { { hidden } } })
         assert.are.equal("white", hidden._underline_container.color)
 
+        local unrelated = { _underline_container = { color = "black" } }
+        Menu.updateItems({ layout = { { unrelated } } })
+        assert.are.equal("black", unrelated._underline_container.color)
+
         local classic = { _underline_container = { color = "black" } }
         Menu.updateItems({ name = "filemanager", layout = { { classic } } })
         assert.are.equal("black", classic._underline_container.color)
@@ -583,7 +662,7 @@ describe("file browser guard patches", function()
         assert.are.equal("white", list_item._underline_container.color)
         ListMenuItem.onFocus(list_item)
         assert.are.equal("black", list_item._underline_container.color)
-        assert.are.same({ 2, 1 }, { menu_updates, cover_updates })
+        assert.are.same({ 3, 1 }, { menu_updates, cover_updates })
     end)
 
     it("avoids repainting one-page menus but delegates multi-page navigation", function()
@@ -616,7 +695,7 @@ describe("file browser guard patches", function()
             abandoned = "abandoned",
             complete = "complete",
         }
-        local saved, cached, opened, invalidated = {}, {}, {}, {}
+        local saved, cached, opened, invalidated, fallback_opened = {}, {}, {}, {}, {}
         local tbr_books = { tbr = true }
         local reader_releases = 0
         local filemanagerutil = {
@@ -656,6 +735,12 @@ describe("file browser guard patches", function()
         ZenSpec.replace("common/memory_policy", {
             releaseForReader = function() reader_releases = reader_releases + 1 end,
         })
+        ZenSpec.replace("apps/reader/readerui", {
+            showReader = function(_, file)
+                fallback_opened[#fallback_opened + 1] = file
+                return "reader-opened"
+            end,
+        })
 
         apply_patch("modules/filebrowser/patches/status_on_open")
         assert.are.equal("opened", filemanagerutil.openFile({}, "new"))
@@ -671,6 +756,8 @@ describe("file browser guard patches", function()
         assert.same({ "new", "tbr", "abandoned", "complete" }, opened)
         assert.same({ "new", "tbr", "abandoned" }, invalidated)
         assert.is_false(tbr_books.tbr)
-        assert.are.equal(4, reader_releases)
+        assert.are.equal("reader-opened", filemanagerutil.openFile(nil, "complete"))
+        assert.same({ "complete" }, fallback_opened)
+        assert.are.equal(5, reader_releases)
     end)
 end)

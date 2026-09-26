@@ -56,7 +56,7 @@ describe("home strip widget", function()
         ZenSpec.replace("common/ui/background", { tile_bg = function(color) return color end })
         ZenSpec.replace("ffi/blitbuffer", {
             COLOR_BLACK = "black", COLOR_WHITE = "white", COLOR_LIGHT_GRAY = "lightgray",
-            COLOR_GRAY_6 = "gray6",
+            COLOR_GRAY_6 = "gray6", COLOR_DARK_GRAY = "darkgray",
         })
         ZenSpec.replace("common/ui/corner_banner", { paint = function() end })
         ZenSpec.replace("ui/geometry", {
@@ -159,8 +159,9 @@ describe("home strip widget", function()
                 folder_calls.builds[#folder_calls.builds + 1] = build
                 local pending = folder_needs_hydration and options.cached_only == true
                 if options.cached_only == false then folder_needs_hydration = false end
+                local paths = entry._zen_files or {}
                 local entries = {}
-                for _i, path in ipairs(entry._zen_files or {}) do
+                for _i, path in ipairs(paths) do
                     entries[#entries + 1] = { is_file = true, path = path }
                 end
                 return {
@@ -169,7 +170,7 @@ describe("home strip widget", function()
                         height = height + 4,
                     },
                     title = title,
-                    count = #entry._zen_files,
+                    count = #paths,
                     cover_count = pending and 0 or 1,
                     entries = entries,
                     mode = "normal",
@@ -324,6 +325,42 @@ describe("home strip widget", function()
         assert.are.same(expected, dimmed)
     end)
 
+    it("shows enabled status badges on dimmed finished covers", function()
+        rawset(_G, "__ZEN_UI_PLUGIN", {
+            config = {
+                browser_cover_badges = {
+                    dim_finished_books = true,
+                    show_mosaic_progress = true,
+                },
+            },
+        })
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        Strip.build({
+            width = 600,
+            height = 300,
+            component_id = "strip",
+            module_cfg = { count = 3, interactive = false, show_badges = true },
+            data = {
+                getBooksForStrip = function()
+                    return {{ path = "/library/finished.epub", status = "complete" }}
+                end,
+            },
+        })
+
+        local badge_rects = 0
+        for _i, widget in ipairs(created) do
+            if widget.kind == "cover" then
+                widget:paintTo({
+                    lightenRect = function() end,
+                    paintRect = function() end,
+                    paintRectRGB32 = function() badge_rects = badge_rects + 1 end,
+                }, 0, 0)
+                break
+            end
+        end
+        assert.is_true(badge_rects > 0)
+    end)
+
     it("reduces the page size when the strip is too narrow for readable covers", function()
         local requested = {}
         local Strip = require("modules/filebrowser/patches/home/widgets/strip")
@@ -451,7 +488,8 @@ describe("home strip widget", function()
                 cover_heights[#cover_heights + 1] = widget.height
             end
         end
-        assert.are.same({ 160, 160, 160, 160, 160, 160, 160, 160 },
+        -- (400 - 48 controls - 18 controls gap - 22 page dots band - 14 row gaps) / 2
+        assert.are.same({ 149, 149, 149, 149, 149, 149, 149, 149 },
             cover_heights)
     end)
 
@@ -495,9 +533,9 @@ describe("home strip widget", function()
         local partial_covers, partial_gaps, partial_bounds = layout(3)
         local single_covers, single_gaps, single_bounds = layout(1)
 
-        assert.are.same({ 80, 160 }, full_covers[1])
-        assert.are.same({ 80, 160 }, partial_covers[1])
-        assert.are.same({ 80, 160 }, single_covers[1])
+        assert.are.same({ 80, 149 }, full_covers[1])
+        assert.are.same({ 80, 149 }, partial_covers[1])
+        assert.are.same({ 80, 149 }, single_covers[1])
         assert.are.same({ full_gaps[1], full_gaps[2] }, partial_gaps)
         assert.are.same({}, single_gaps)
         assert.are.equal(full_bounds.top, partial_bounds.top)
@@ -582,7 +620,8 @@ describe("home strip widget", function()
                     and widget.height == 30 and widget.bordersize == 2 then
                 controls_width = widget.width
             elseif widget.kind == "ui/widget/container/leftcontainer"
-                    and widget.dimen.w == 580 and widget.dimen.h == 205 then
+                    -- 300 - 48 controls - 18 gap - 8 pads - 22 page dots band - 8 row pads
+                    and widget.dimen.w == 580 and widget.dimen.h == 196 then
                 row_width = widget.dimen.w
             end
         end
@@ -609,7 +648,7 @@ describe("home strip widget", function()
             })
             for i = first_created, #created do
                 local widget = created[i]
-                if widget.dimen.w == 580 and widget.dimen.h == 205 then
+                if widget.dimen.w == 580 and widget.dimen.h == 196 then
                     return widget.kind
                 end
             end
@@ -647,9 +686,10 @@ describe("home strip widget", function()
             return heights
         end
 
-        assert.are.same({ 205, 205, 205, 205 }, cover_heights(4))
-        assert.are.same({ 205, 205 }, cover_heights(2))
-        assert.are.same({ 205 }, cover_heights(1))
+        -- Height-limited once the page dots band is reserved: 300 - 48 - 18 - 8 - 22 - 8.
+        assert.are.same({ 196, 196, 196, 196 }, cover_heights(4))
+        assert.are.same({ 196, 196 }, cover_heights(2))
+        assert.are.same({ 196 }, cover_heights(1))
     end)
 
     it("keeps controls and covers in one fixed-gap visual group", function()
@@ -676,7 +716,7 @@ describe("home strip widget", function()
         assert.is_table(content_bounds)
         assert.are.equal(18, content_bounds.top)
         assert.are.equal(8, content_bounds.bottom_anchor_offset)
-        assert.are.equal(30 + 18 + 205,
+        assert.are.equal(30 + 18 + 205 + 20,
             content_bounds.bottom - content_bounds.top)
         assert.are.equal(-content_bounds.top, content_bounds.min_shift)
         assert.are.equal(400 - content_bounds.bottom, content_bounds.max_shift)
@@ -767,7 +807,8 @@ describe("home strip widget", function()
 
         local safe_bottom_shift = 400 - content_bounds.bottom
         assert.is_true(content_bounds.lock_shift)
-        assert.are.equal(400, content_bounds.bottom)
+        -- A sparse two-row page claims the cover area and reserved dots.
+        assert.are.equal(400 - 2, content_bounds.bottom)
         assert.are.equal(safe_bottom_shift, content_bounds.min_shift)
         assert.are.equal(safe_bottom_shift, content_bounds.max_shift)
         assert.is_true(safe_bottom_shift < 400)
@@ -1295,6 +1336,66 @@ describe("home strip widget", function()
         }, remembered)
     end)
 
+    it("keeps a borrowed Home offset when switching between books and paged tags", function()
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        local menu, bounds, targets = {}, nil, nil
+        local books, groups = {}, {}
+        for i = 1, 4 do
+            books[i] = { path = "/library/" .. i .. ".epub" }
+            groups[i] = {
+                is_group = true, group_kind = "tags", group_label = "Tag " .. i,
+                group_files = { books[i].path }, group_count = 1,
+            }
+        end
+        local ctx = {
+            width = 600,
+            height = 300,
+            menu = menu,
+            component_id = "strip",
+            row_space_below = 64,
+            module_cfg = {
+                count = 4,
+                controls = {
+                    enabled = true, order = { "recent", "tags" },
+                    show_buttons = { recent = true, tags = true },
+                    labels = {}, custom_buttons = {},
+                },
+            },
+            data = {
+                getStripItemsForPage = function(_self, source)
+                    return source.kind == "tags" and groups or books
+                end,
+                getStripPageInfo = function(_self, source)
+                    return { total_pages = source.kind == "tags" and 2 or 1 }
+                end,
+            },
+            prepareHomeFocusTarget = function(_target, child) return child end,
+            activateStripFocusTargets = function(value) targets = value end,
+            setContentBounds = function(value) bounds = value end,
+        }
+        menu._home_rebuild = function()
+            Strip.build(ctx)
+            bounds.set_shift(bounds.max_shift)
+        end
+        Strip.build(ctx)
+        local original = {
+            top = bounds.top, bottom = bounds.bottom,
+            shift = bounds.max_shift + ctx.row_space_below,
+        }
+        bounds.set_shift(original.shift)
+        for _i, key in ipairs({ "strip-control:tags", "strip-control:recent" }) do
+            local control
+            for _j, target in ipairs(targets) do
+                if target.key == key then control = target end
+            end
+            assert.is_true(control.activate())
+            assert.are.equal(original.top, bounds.top)
+            assert.are.equal(original.bottom, bounds.bottom)
+            assert.are.equal(original.shift, menu._zen_home_strip_runtime._visual_shift)
+        end
+        assert.are.equal(4, #folder_calls.builds)
+    end)
+
     it("uses the previous and next controls to page the strip", function()
         local current_page = 0
         local shifted = {}
@@ -1584,6 +1685,51 @@ describe("home strip widget", function()
         assert.are.equal(2, resets)
     end)
 
+    it("returns from a Home tag series to its tag", function()
+        local menu = {
+            _zen_home_strip_runtime = {
+                source = { kind = "tags", drill = { label = "Science" } },
+                active_id = "tags",
+            },
+            _home_rebuild = function() return true end,
+        }
+        local targets
+        local ctx = {
+            width = 600,
+            height = 300,
+            menu = menu,
+            component_id = "strip",
+            module_cfg = {
+                default_source = { kind = "tags" },
+                controls = {
+                    enabled = true,
+                    order = { "tags" },
+                    show_buttons = { tags = true },
+                    labels = { tags = "Tags" }, custom_buttons = {},
+                },
+            },
+            data = { getStripItemsForPage = function() return {} end },
+            prepareHomeFocusTarget = function(_target, widget) return widget end,
+            activateStripFocusTargets = function(value) targets = value end,
+        }
+        require("modules/filebrowser/patches/home/widgets/strip").build(ctx)
+
+        assert.is_true(ctx.openStripGroup({
+            is_group = true,
+            group_kind = "series",
+            group_label = "Saga",
+            group_files = { "/books/first.epub", "/books/second.epub" },
+        }))
+        assert.are.equal("Saga", menu._zen_home_strip_runtime.source.drill.label)
+        assert.are.equal("Science", menu._zen_home_strip_runtime.source.drill.parent.label)
+        local tag_control
+        for _i, target in ipairs(targets) do
+            if target.key == "strip-control:tags" then tag_control = target end
+        end
+        assert(tag_control).activate()
+        assert.are.equal("Science", menu._zen_home_strip_runtime.source.drill.label)
+    end)
+
     it("uses Home's active config for group-label corner styling", function()
         rawset(_G, "__ZEN_UI_PLUGIN", {
             config = {
@@ -1627,6 +1773,53 @@ describe("home strip widget", function()
         assert.is_false(folder_calls.build.options.uniform)
     end)
 
+    it("renders and opens physical subfolders", function()
+        local menu = { _home_rebuild = function() return true end }
+        local targets
+        local remembered_path
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        Strip.build({
+            width = 600,
+            height = 240,
+            menu = menu,
+            component_id = "strip",
+            module_cfg = {
+                count = 4,
+                show_strip_titles = true,
+                default_source = { kind = "folder", value = "/library" },
+                controls = { enabled = false },
+            },
+            data = {
+                getStripItemsForPage = function()
+                    return {{
+                        is_group = true,
+                        is_folder = true,
+                        group_kind = "folder",
+                        group_label = "Subfolder",
+                        folder_path = "/library/Subfolder",
+                    }}
+                end,
+                resetStripPages = function() end,
+            },
+            registerHomeFocusTarget = function(_target, widget) return widget end,
+            prepareHomeFocusTarget = function(_target, widget) return widget end,
+            activateStripFocusTargets = function(value) targets = value end,
+            rememberStripState = function(runtime)
+                remembered_path = runtime.source.drill and runtime.source.drill.path
+            end,
+        })
+
+        assert.are.equal("/library/Subfolder", folder_calls.build.entry.path)
+        assert.is_true(folder_calls.build.entry.is_directory)
+        assert.is_true(has_text("Subfolder"))
+
+        assert.is_true(targets[1].activate())
+        assert.are.equal("/library/Subfolder", remembered_path)
+        assert.are.equal("/library/Subfolder",
+            menu._zen_home_strip_runtime.source.drill.path)
+        assert.is_nil(menu._zen_home_strip_runtime.source.drill.files)
+    end)
+
     it("exposes vertical slack for Home gap balancing", function()
         local books = {
             { path = "/library/a.epub" },
@@ -1652,14 +1845,86 @@ describe("home strip widget", function()
     it("reports its width-limited preferred height to Home", function()
         local Strip = require("modules/filebrowser/patches/home/widgets/strip")
 
-        assert.are.equal(223, Strip.preferredHeight{
+        -- Covers plus the 22 px page dots band (12 above, 8 tall, 2 below at scale 1).
+        assert.are.equal(223 + 22, Strip.preferredHeight{
             width = 600,
             module_cfg = { count = 4 },
         })
-        assert.are.equal(428, Strip.preferredHeight{
+        assert.are.equal(428 + 22, Strip.preferredHeight{
             width = 600,
             module_cfg = { count = 8, two_rows = true },
         })
+        assert.are.equal(223, Strip.preferredHeight{
+            width = 600,
+            module_cfg = { count = 4, show_page_indicator = false },
+        })
+    end)
+
+    it("reserves a page dots band and paints Library-style dots for a multi-page source", function()
+        local books = {}
+        for i = 1, 4 do
+            books[i] = { path = "/library/" .. tostring(i) .. ".epub" }
+        end
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        local function build(page_info)
+            local content_bounds
+            local first_created = #created + 1
+            Strip.build({
+                width = 600,
+                height = 400,
+                component_id = "strip",
+                module_cfg = { count = 4, interactive = false },
+                data = {
+                    getBooksForStrip = function() return books end,
+                    getStripPageInfo = page_info and function() return page_info end or nil,
+                },
+                setContentBounds = function(bounds) content_bounds = bounds end,
+            })
+            local frame
+            for i = first_created, #created do
+                local widget = created[i]
+                if widget.kind == "ui/widget/container/framecontainer"
+                        and widget.width == 600 and widget.height == 400 then
+                    frame = widget
+                end
+            end
+            return content_bounds, frame
+        end
+
+        local plain_bounds, plain_frame = build(nil)
+        local single_bounds = build({ total = 4, total_pages = 1, current_page = 1 })
+        local paged_bounds, paged_frame = build({ total = 7, total_pages = 2, current_page = 2 })
+
+        -- Reserve the same bounds even when the dots are hidden.
+        assert.are.equal(plain_bounds.bottom, single_bounds.bottom)
+        assert.are.equal(plain_bounds.bottom, paged_bounds.bottom)
+        assert.are.equal(400 - paged_bounds.bottom, paged_bounds.max_shift)
+
+        -- Dots are scanline pills like the Library pager's "dots" style: 8 px,
+        -- 12 px apart, current page black, the others dark gray.
+        local rows = {}
+        local bb = {
+            paintRect = function(_bb, x, y, w, h, color)
+                rows[#rows + 1] = { x = x, y = y, w = w, h = h, color = color }
+            end,
+        }
+        plain_frame:paintTo(bb, 0, 0)
+        assert.are.same({}, rows)
+        paged_frame:paintTo(bb, 0, 0)
+        assert.are.equal(16, #rows)
+        local dot_top = paged_bounds.bottom - 8
+        -- two dots span 8 + 12 + 8 = 28 px centred in 600: x = 286 and 306
+        local extents = { darkgray = { 286, 294 }, black = { 306, 314 } }
+        local per_color = { darkgray = 0, black = 0 }
+        for _i, row in ipairs(rows) do
+            local span = extents[row.color]
+            assert.is_table(span, "unexpected dot color " .. tostring(row.color))
+            per_color[row.color] = per_color[row.color] + 1
+            assert.are.equal(1, row.h)
+            assert.is_true(row.y >= dot_top and row.y < dot_top + 8, "row outside the dot band")
+            assert.is_true(row.x >= span[1] and row.x + row.w <= span[2], "row outside its dot")
+        end
+        assert.are.same({ darkgray = 8, black = 8 }, per_color)
     end)
 
     it("supplies the selected strip cover before opening its book", function()
@@ -1764,10 +2029,44 @@ describe("home strip widget", function()
         assert.are.same({ 0.05 }, scheduled_delays)
         run_scheduled()
 
-        assert.are.same({ book = book, width = 80, height = 144 }, warmed)
+        -- 160 - 8 pads - 22 page dots band - 8 row pads
+        assert.are.same({ book = book, width = 80, height = 122 }, warmed)
         assert.are.equal(2, #cover_books)
         assert.are.equal(1, refreshed)
         assert.are.equal(0, #scheduled)
+    end)
+
+    it("stops visible cover hydration while retained Home is suspended", function()
+        local menu = {}
+        local warm_requests = 0
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        local widget = Strip.build({
+            width = 600,
+            height = 160,
+            menu = menu,
+            component_id = "strip",
+            module_cfg = { count = 4, interactive = true },
+            data = {
+                getBooksForStripPage = function()
+                    return {{
+                        path = "/library/pending.epub",
+                        is_cover_pending = true,
+                    }}, false
+                end,
+                warmStripCover = function()
+                    warm_requests = warm_requests + 1
+                    return "pending"
+                end,
+            },
+        })
+
+        widget:paintTo({}, 0, 0)
+        menu._zen_home_suspended = true
+        run_scheduled()
+
+        assert.are.equal(0, warm_requests)
+        assert.are.equal(0, #scheduled)
+        assert.is_true(menu._zen_home_needs_rebuild)
     end)
 
     it("hydrates grouped folder previews after the first paint", function()
@@ -1805,7 +2104,7 @@ describe("home strip widget", function()
         assert.are.equal(0, #scheduled)
     end)
 
-    it("refreshes a grouped preview when one of its pending covers is ready", function()
+    it("waits for cover-ready notification instead of polling pending covers", function()
         folder_needs_hydration = true
         local member_covers_pending = true
         local cover_listener
@@ -1840,7 +2139,7 @@ describe("home strip widget", function()
         widget:paintTo({}, 0, 0)
         run_scheduled()
         assert.are.equal(1, #folder_calls.builds)
-        assert.are.same({ 0.4 }, scheduled_delays)
+        assert.are.equal(0, #scheduled)
         assert.are.equal(0, refreshed)
 
         member_covers_pending = false

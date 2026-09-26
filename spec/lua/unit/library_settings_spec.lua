@@ -300,13 +300,15 @@ describe("library settings", function()
     end)
 
     it("rebuilds Home when the folder cover mode changes", function()
-        local scheduled
+        local deferred
         local saves = 0
         local refreshes = 0
         local rebuilds = 0
-        package.loaded["ui/uimanager"].scheduleIn = function(_self, delay, callback)
-            scheduled = { delay = delay, callback = callback }
-        end
+        package.loaded["modules/settings/zen_settings_apply"].defer_until_settings_close =
+            function(key, callback)
+                assert.are.equal("home_rebuild", key)
+                deferred = callback
+            end
         package.loaded["common/shared_state"].get = function()
             return { rebuildActive = function() rebuilds = rebuilds + 1 end }
         end
@@ -346,20 +348,19 @@ describe("library settings", function()
         assert.are.equal(1, saves)
         assert.are.equal(1, refreshes)
         assert.are.equal(0, rebuilds)
-        assert.are.equal(0.25, scheduled.delay)
+        assert.is_function(deferred)
 
-        scheduled.callback()
+        deferred()
         assert.are.equal(1, rebuilds)
     end)
 
     it("rebuilds Home when spine lines or rounded corners change", function()
-        local scheduled
+        local deferred
         local saves = 0
         local refreshes = 0
         local rebuilds = 0
-        package.loaded["ui/uimanager"].scheduleIn = function(_self, delay, callback)
-            scheduled = { delay = delay, callback = callback }
-        end
+        package.loaded["modules/settings/zen_settings_apply"].defer_until_settings_close =
+            function(_key, callback) deferred = callback end
         package.loaded["common/shared_state"].get = function()
             return { rebuildActive = function() rebuilds = rebuilds + 1 end }
         end
@@ -393,12 +394,12 @@ describe("library settings", function()
         end
 
         find_item(items, "Show spine lines").callback()
-        assert.are.equal(0.25, scheduled.delay)
-        scheduled.callback()
+        assert.is_function(deferred)
+        deferred()
 
         find_item(items, "Rounded cover corners").callback()
-        assert.are.equal(0.25, scheduled.delay)
-        scheduled.callback()
+        assert.is_function(deferred)
+        deferred()
 
         assert.is_true(config.browser_folder_cover.show_spine_lines)
         assert.is_false(config.features.browser_cover_rounded_corners)
@@ -605,9 +606,12 @@ describe("library settings", function()
             end
         package.loaded["modules/settings/zen_settings_apply"].reinit_filemanager_on_menu_close =
             function() reinitializations = reinitializations + 1 end
-        package.loaded["ui/uimanager"].scheduleIn = function()
-            scheduled = scheduled + 1
-        end
+        local deferred = {}
+        package.loaded["modules/settings/zen_settings_apply"].defer_until_settings_close =
+            function(key, callback)
+                if not deferred[key] then scheduled = scheduled + 1 end
+                deferred[key] = callback
+            end
         ZenSpec.replace("common/ui/background", {
             clearCache = function() cache_clears = cache_clears + 1 end,
         })
@@ -677,6 +681,12 @@ describe("library settings", function()
         end
         package.loaded["modules/settings/zen_settings_apply"].reinit_filemanager_on_menu_close =
             function() reinitializations = reinitializations + 1 end
+        local deferred = {}
+        package.loaded["modules/settings/zen_settings_apply"].defer_until_settings_close =
+            function(key, callback)
+                if not deferred[key] then scheduled = scheduled + 1 end
+                deferred[key] = callback
+            end
         ZenSpec.replace("ui/widget/infomessage", {
             new = function(_, spec) return spec end,
         })
@@ -755,5 +765,43 @@ describe("library settings", function()
             changeToPath = function(_, path) home_path = path end,
         }))
         assert.are.equal("/koreader/resources/wallpapers", home_path)
+    end)
+
+    it("puts archive and plugin actions off by default under Context menu", function()
+        local saves = 0
+        local config = {
+            browser_hide_up_folder = {},
+            context_menu = { allow_delete = true },
+            features = {},
+        }
+        local items = require("modules/settings/sections/library_settings").build({
+            config = config,
+            plugin = { saveConfig = function() saves = saves + 1 end },
+            save_and_apply = function() end,
+        })
+
+        local context_menu = items[#items]
+        assert.are.equal("Context menu", context_menu.text)
+        assert.are.equal(2, #context_menu.sub_item_table)
+        local archive = context_menu.sub_item_table[1]
+        assert.are.equal("Archive", archive.text)
+        assert.are.equal("Plugin actions", context_menu.sub_item_table[2].text)
+        local allow_delete
+        for _i, item in ipairs(items) do
+            if item.text == "Allow delete" then allow_delete = item end
+        end
+        assert.is_not_nil(allow_delete)
+        assert.is_true(allow_delete.checked_func())
+        local plugin_actions = context_menu.sub_item_table[2]
+        assert.is_false(archive.checked_func())
+        assert.is_false(plugin_actions.checked_func())
+        assert.is_false(require("config/defaults").context_menu.show_archive)
+        assert.is_false(require("config/defaults").context_menu.show_plugin_actions)
+
+        archive.callback()
+        assert.is_true(archive.checked_func())
+        plugin_actions.callback()
+        assert.is_true(plugin_actions.checked_func())
+        assert.are.equal(2, saves)
     end)
 end)
