@@ -660,14 +660,18 @@ def test_home_tags_drill_from_tag_folders_into_books(
             wait_for_socket(socket_path)
             driver = ZenDriver(socket_path)
             assert driver.command("activate_navbar_tab", id="home")["ok"] is True
-            reading = _wait_for_home(driver, minimum_widget_count=minimum_widgets)
+            reading = _wait_for_home(
+                driver, minimum_widget_count=minimum_widgets,
+                required_state_keys={"strip_control_top"},
+            )
             reading_top = int(reading["strip_control_top"])
 
             assert driver.command(
                 "activate_home_target", key="strip-control:tags"
             )["ok"] is True
             groups = _wait_for_home(
-                driver, {"Focus", "Testing"}, minimum_widget_count=minimum_widgets
+                driver, {"Focus", "Testing"}, minimum_widget_count=minimum_widgets,
+                required_state_keys={"strip_control_top"},
             )
             controls_top = int(groups["strip_control_top"])
             assert abs(controls_top - reading_top) <= 1, groups
@@ -685,6 +689,7 @@ def test_home_tags_drill_from_tag_folders_into_books(
             books = _wait_for_home(
                 driver, {"Focus"}, required_book_paths={book_path},
                 minimum_widget_count=minimum_widgets,
+                required_state_keys={"strip_control_top"},
             )
             assert abs(int(books["strip_control_top"]) - controls_top) <= 1, books
             assert book_path in books["book_paths"]
