@@ -231,18 +231,12 @@ local function build_brightness_slider(touch_menu, opts)
             HorizontalGroup:new{ align = "center", brightness_button, divider, warmth_button },
         }
         WidgetResources.paintFrameBorderOnTop(switch)
-        if opts.centered then
-            table.insert(group, switch)
-            table.insert(group, VerticalSpan:new{ width = Screen:scaleBySize(10) })
-            label_row = CenterContainer:new{ dimen = Geom:new{ w = opts.inner_width, h = label_h }, label }
-        else
-            label_row = HorizontalGroup:new{
-                align = "center",
-                label,
-                HorizontalSpan:new{ width = math.max(0, opts.inner_width - label_width - switch:getSize().w) },
-                switch,
-            }
-        end
+        label_row = HorizontalGroup:new{
+            align = "center",
+            label,
+            HorizontalSpan:new{ width = math.max(0, opts.inner_width - label_width - switch:getSize().w) },
+            switch,
+        }
 
         local function selectMode(next_mode)
             if mode == next_mode then return end

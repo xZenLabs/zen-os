@@ -1126,7 +1126,6 @@ function M.build(ctx)
         config.quick_settings.show_frontlight = def.show_frontlight
         config.quick_settings.show_warmth = def.show_warmth
         config.quick_settings.unified_light_slider = def.unified_light_slider
-        config.quick_settings.unified_light_slider_centered = def.unified_light_slider_centered
         config.quick_settings.background_hatching = def.background_hatching
         config.quick_settings.flip_lh_rh_icon = def.flip_lh_rh_icon
         config.quick_settings.gyro_label = def.gyro_label
@@ -1233,25 +1232,11 @@ function M.build(ctx)
                 text = _("Unified brightness/warmth slider"),
                 show_func = function() return can_unify_light end,
                 checked_func = unifiedLightEnabled,
-                checkmark_callback = function()
+                callback = function()
                     config.quick_settings.unified_light_slider =
                         config.quick_settings.unified_light_slider == false
                     save_and_apply_quick_settings()
                 end,
-                sub_item_table = {
-                    IconItem.decorate({
-                        text = _("Centered"),
-                        enabled_func = unifiedLightEnabled,
-                        checked_func = function()
-                            return config.quick_settings.unified_light_slider_centered == true
-                        end,
-                        callback = function()
-                            config.quick_settings.unified_light_slider_centered =
-                                config.quick_settings.unified_light_slider_centered ~= true
-                            save_and_apply_quick_settings()
-                        end,
-                    }, icons.settings_layout),
-                },
             }, icons.schedule_brightness),
             IconItem.decorate({
                 text = _("Flip LH/RH icon"),

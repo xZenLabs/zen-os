@@ -1020,12 +1020,6 @@ msgstr "居中显示书籍"
 msgid "Center items"
 msgstr "中间项目"
 
-#. Type: setting
-#. Context: text = _("Centered"),
-#: menu_settings.lua
-msgid "Centered"
-msgstr "居中"
-
 #. Type: action
 #. Context: local item_ref = item table.insert(buttons, {{ text = "\u{F07C} " .. _("Change folder"), align = "left", bold = true, callback = function()
 #: opds.lua:1727

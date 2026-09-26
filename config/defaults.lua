@@ -184,7 +184,6 @@ local defaults = {
         show_frontlight = true,
         show_warmth = true,
         unified_light_slider = true,
-        unified_light_slider_centered = false,
         flip_lh_rh_icon = false,
         gyro_label = "",
         gyro_icon = "quick_rotate",

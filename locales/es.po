@@ -1021,12 +1021,6 @@ msgstr "Centrar libros"
 msgid "Center items"
 msgstr "Elementos centrales"
 
-#. Type: setting
-#. Context: text = _("Centered"),
-#: menu_settings.lua
-msgid "Centered"
-msgstr "Centrado"
-
 #. Type: action
 #. Context: local item_ref = item table.insert(buttons, {{ text = "\u{F07C} " .. _("Change folder"), align = "left", bold = true, callback = function()
 #: opds.lua:1727

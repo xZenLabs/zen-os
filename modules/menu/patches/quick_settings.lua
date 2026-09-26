@@ -137,7 +137,6 @@ local function apply_quick_settings()
         show_frontlight = true,
         show_warmth = true,
         unified_light_slider = true,
-        unified_light_slider_centered = false,
         gyro_label = "",
         gyro_icon = "quick_rotate",
         zen_settings_label = "",
@@ -1571,7 +1570,6 @@ local function apply_quick_settings()
             show_frontlight = has_frontlight and (use_unified or panel_config.show_frontlight),
             show_warmth     = has_warmth and (use_unified or panel_config.show_warmth),
             unified         = use_unified,
-            centered        = panel_config.unified_light_slider_centered == true,
         }
 
         local light_group

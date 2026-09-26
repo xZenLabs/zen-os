@@ -327,22 +327,4 @@ describe("frontlight slider", function()
         assert.are.equal(60, require("device").screen.bb.last_paint_y)
         assert.are.same({ { widget = nil, mode = "fast", region = { x = 130, y = 60, w = 320, h = 90 } } }, dirty_calls)
     end)
-
-    it("stacks and centers the unified controls when requested", function()
-        local opts = slider_opts(power_device())
-        opts.show_frontlight = true
-        opts.show_warmth = true
-        opts.centered = true
-
-        local group = require("modules/menu/patches/brightness_slider")(touch_menu(), opts)
-        local label = find_widget(group, function(widget) return widget.text == "Brightness: " end)
-
-        assert.are.equal(2, child_index(group, opts.refs.toggles[1].toggle))
-        assert.are.equal(4, child_index(group, label))
-        assert.are.equal(opts.inner_width, group[4].dimen.w)
-        assert.are.equal(1, #opts.refs.sliders)
-
-        opts.refs.toggles[2].callback()
-        assert.is_true(has_label(group, "Warmth"))
-    end)
 end)
