@@ -5,6 +5,9 @@ local paths = require("common/paths")
 local M = {}
 
 local EXTENSIONS = { "jpg", "jpeg" }
+local NAME_CACHE_MAX = 32
+local NAME_CACHE_TTL_S = 2
+local name_cache = { values = {}, order = {} }
 local SUPPORTED_EXTENSIONS = {}
 for _i, extension in ipairs(EXTENSIONS) do
     SUPPORTED_EXTENSIONS[extension] = true
@@ -23,8 +26,8 @@ local function canonical(path)
     return paths.normPath(ok and resolved or path)
 end
 
-local function attributes(path)
-    local ok, result = pcall(lfs.attributes, path)
+local function attributes(path, field)
+    local ok, result = pcall(lfs.attributes, path, field)
     return ok and result or nil
 end
 
@@ -40,6 +43,14 @@ local function split_managed_name(filename)
 end
 
 local function directory_names(folder)
+    local modification = attributes(folder, "modification")
+    local checked_at = os.time()
+    local cached = name_cache.values[folder]
+    if modification and cached and cached.modification == modification
+            and checked_at >= cached.checked_at
+            and checked_at - cached.checked_at < NAME_CACHE_TTL_S then
+        return cached.names
+    end
     local names = {}
     local ok, iter, dir_obj = pcall(lfs.dir, folder)
     if not ok or type(iter) ~= "function" then return names end
@@ -52,7 +63,27 @@ local function directory_names(folder)
             end
         end
     end
+    if modification then
+        if not cached then name_cache.order[#name_cache.order + 1] = folder end
+        name_cache.values[folder] = {
+            modification = modification, checked_at = checked_at, names = names,
+        }
+        while #name_cache.order > NAME_CACHE_MAX do
+            name_cache.values[table.remove(name_cache.order, 1)] = nil
+        end
+    end
     return names
+end
+
+local function invalidate_names(folder)
+    if not name_cache.values[folder] then return end
+    name_cache.values[folder] = nil
+    for index = #name_cache.order, 1, -1 do
+        if name_cache.order[index] == folder then
+            table.remove(name_cache.order, index)
+            break
+        end
+    end
 end
 
 local function find_stem(folder, names, stems)
@@ -232,6 +263,7 @@ function M.clear(folder, mode, slot)
     local slots = previous_slots
     if type(slots) ~= "table" then
         slots = {}
+        invalidate_names(folder)
         local fallback = managed_covers(folder, "gallery")
         for fallback_slot = 1, M.slotCount("gallery") do
             if fallback_slot ~= slot and fallback[fallback_slot] then

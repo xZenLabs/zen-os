@@ -4050,8 +4050,11 @@ function M.resetStripPages()
     return _home_menu:_zen_home_reset_strip_pages()
 end
 
-function M.refreshDateDependentActive()
+function M.refreshDateDependentActive(force)
     if not (M.isActiveOnTop() and _home_menu and _home_menu._home_rebuild) then
+        return false
+    end
+    if not force and _home_menu._zen_home_built_day == os.date("%Y-%j") then
         return false
     end
     local cfg = load_zen_config()

@@ -20,6 +20,7 @@ describe("file browser item-table cache", function()
     local home_invalidations
     local fake_now
     local attributes_calls
+    local directory_reads
 
     local module_names = {
         "common/cover_utils",
@@ -104,6 +105,7 @@ describe("file browser item-table cache", function()
         home_invalidations = {}
         fake_now = 0
         attributes_calls = 0
+        directory_reads = 0
         saved_modules = {}
         for _i, name in ipairs(module_names) do
             saved_modules[name] = package.loaded[name]
@@ -142,6 +144,7 @@ describe("file browser item-table cache", function()
                 return field and attr[field] or attr
             end,
             dir = function(path)
+                directory_reads = directory_reads + 1
                 local entries = { ".", ".." }
                 for _i, child in ipairs(directory_entries[path] or {}) do
                     entries[#entries + 1] = child
@@ -422,6 +425,16 @@ describe("file browser item-table cache", function()
         assert.are.equal("New/", second[2].text)
     end)
 
+    it("skips child-folder scans for history-based access sorting", function()
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        local item = chooser:getListItem("/library", "series", "/library/series",
+            { mode = "directory", modification = 1, access = 2 }, FileChooser.collates.access)
+
+        assert.are.equal(0, directory_reads)
+        assert.are.equal(0, attributes_calls)
+        assert.are.equal(2, item.attr.access)
+    end)
+
     it("restores a scalar-only listing snapshot in a fresh cache instance", function()
         source_items["/library"] = {
             {
@@ -469,7 +482,7 @@ describe("file browser item-table cache", function()
             incompatible_chooser._zen_last_item_table_cache_result.cache)
     end)
 
-    it("rejects a persisted root when a depth-two directory changed", function()
+    it("reuses normal listings when only a grandchild directory changed", function()
         directory_entries["/library"] = { "series" }
         directory_entries["/library/series"] = { "volume" }
         directory_entries["/library/series/volume"] = { "Book.epub" }
@@ -485,16 +498,40 @@ describe("file browser item-table cache", function()
         local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
         chooser:genItemTableFromPath("/library")
         run_scheduled()
+        assert.are.equal(0, directory_reads)
+        assert.are.equal("root", persisted_store.data.values["/library"].tree_signature_mode)
 
         directory_mtimes["/library/series/volume"] = 2
         local restored_chooser = apply_new_filechooser()
+        restored_chooser:genItemTableFromPath("/library")
+
+        assert.are.equal(1, generated["/library"])
+        assert.are.equal("disk_hit", restored_chooser._zen_last_item_table_cache_result.cache)
+    end)
+
+    it("rejects a recursive flat listing when a depth-two directory changed", function()
+        directory_entries["/library"] = { "series" }
+        directory_entries["/library/series"] = { "volume" }
+        directory_mtimes["/library/series/volume"] = 1
+        source_items["/library"] = {
+            { text = "Book.epub", path = "/library/series/volume/Book.epub", is_file = true },
+        }
+        local chooser = setmetatable({ name = "filemanager", show_flat_view = true },
+            { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        run_scheduled()
+        assert.are.equal("full", persisted_store.data.values["/library"].tree_signature_mode)
+
+        directory_mtimes["/library/series/volume"] = 2
+        local restored_chooser = apply_new_filechooser()
+        restored_chooser.show_flat_view = true
         restored_chooser:genItemTableFromPath("/library")
 
         assert.are.equal(2, generated["/library"])
         assert.are.equal("miss", restored_chooser._zen_last_item_table_cache_result.cache)
     end)
 
-    it("keeps a root-validated snapshot when the tree exceeds signature bounds", function()
+    it("persists a normal listing without traversing a large tree", function()
         directory_entries["/library"] = {}
         for index = 1, 257 do
             directory_entries["/library"][index] = "folder" .. index
@@ -510,6 +547,7 @@ describe("file browser item-table cache", function()
         local saved = persisted_store.data.values["/library"]
         assert.is_not_nil(saved)
         assert.are.equal("root", saved.tree_signature_mode)
+        assert.are.equal(0, directory_reads)
         assert.are.equal(1, #persisted_store.data.order)
 
         local restored_chooser = apply_new_filechooser()
@@ -531,6 +569,7 @@ describe("file browser item-table cache", function()
         local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
         chooser:genItemTableFromPath("/library")
         run_scheduled()
+        assert.are.equal("root", persisted_store.data.values["/library"].tree_signature_mode)
 
         directory_mtime = 2
         local restored_chooser = apply_new_filechooser()
@@ -569,7 +608,8 @@ describe("file browser item-table cache", function()
         source_items["/library"] = {
             { text = "Book.epub", path = "/library/Book.epub", is_file = true },
         }
-        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        local chooser = setmetatable({ name = "filemanager", show_flat_view = true },
+            { __index = FileChooser })
 
         chooser:genItemTableFromPath("/library")
         run_scheduled()
@@ -579,6 +619,7 @@ describe("file browser item-table cache", function()
         assert.are.equal("full", saved.tree_signature_mode)
 
         local restored_chooser = apply_new_filechooser()
+        restored_chooser.show_flat_view = true
         restored_chooser:genItemTableFromPath("/library")
         assert.are.equal(1, generated["/library"])
         assert.are.equal("disk_hit",

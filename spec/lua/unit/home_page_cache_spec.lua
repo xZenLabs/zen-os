@@ -262,6 +262,38 @@ describe("home data and book caches", function()
         error("home menu upvalue not found")
     end
 
+    it("refreshes date-dependent Home once per day but allows explicit refreshes", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        for index = 1, 30 do
+            local name = debug.getupvalue(Home.refreshDateDependentActive, index)
+            if name == "load_zen_config" then
+                debug.setupvalue(Home.refreshDateDependentActive, index, function() return {} end)
+            elseif name == "ensure_home_cfg" then
+                debug.setupvalue(Home.refreshDateDependentActive, index, function() return {} end)
+            elseif name == "resolve_rows" then
+                debug.setupvalue(Home.refreshDateDependentActive, index,
+                    function() return { { id = "quotes" } } end)
+            end
+        end
+        local rebuilds = 0
+        local menu = {
+            _zen_home_built_day = os.date("%Y-%j"),
+            _home_rebuild = function(self)
+                rebuilds = rebuilds + 1
+                self._zen_home_built_day = os.date("%Y-%j")
+            end,
+        }
+        set_home_menu(Home, menu)
+        require("ui/uimanager")._window_stack = { { widget = menu } }
+
+        assert.is_false(Home.refreshDateDependentActive())
+        menu._zen_home_built_day = "1900-001"
+        assert.is_true(Home.refreshDateDependentActive())
+        assert.is_false(Home.refreshDateDependentActive())
+        assert.is_true(Home.refreshDateDependentActive(true))
+        assert.are.equal(2, rebuilds)
+    end)
+
     it("keeps shifted goal rows inside the focus border", function()
         local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
         local build_home_content = select(2, get_compute_row_heights(Home))

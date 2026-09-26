@@ -136,11 +136,11 @@ local _zen_plugin_ref = nil
 -- so the on_update_found callback can rebuild their tab_item_table dynamically.
 local _zen_menu_instances = setmetatable({}, { __mode = "k" })
 
-local function refresh_home_date_dependent(plugin)
+local function refresh_home_date_dependent(plugin, force)
     local ok_shared, SharedState = pcall(require, "common/shared_state")
     local home = ok_shared and SharedState.get(plugin, "home") or nil
     if home and type(home.refreshDateDependentActive) == "function" then
-        home.refreshDateDependentActive()
+        home.refreshDateDependentActive(force)
     end
 end
 
@@ -344,7 +344,14 @@ function ZenUI:init()
     pcall(function()
         local tbr_index = require("common/tbr_index")
         tbr_index.ensureCollection()
-        tbr_index.scheduleAudit(function() tbr_index.refreshViews(self) end)
+        if not self.config._meta.tbr_collection_migrated then
+            tbr_index.scheduleAudit(nil, function()
+                if tbr_index.isAuditComplete() then
+                    tbr_index.getAll({ include_new = false })
+                    tbr_index.refreshViews(self)
+                end
+            end)
+        end
     end)
     logger.perf("Core initialization completed", (os.clock() - started_at) * 1000)
 
@@ -936,9 +943,6 @@ function ZenUI:onResume()
         Incognito.onResume(self)
     end
     local UIManager = require("ui/uimanager")
-    UIManager:scheduleIn(0.5, function()
-        refresh_home_date_dependent(self)
-    end)
     UIManager:scheduleIn(1.5, function()
         refresh_home_date_dependent(self)
     end)
@@ -951,7 +955,7 @@ local function invalidate_annotation_quotes(plugin)
     if ok_quotes and HomeQuotes and HomeQuotes.invalidateAnnotations then
         HomeQuotes.invalidateAnnotations()
     end
-    refresh_home_date_dependent(plugin)
+    refresh_home_date_dependent(plugin, true)
 end
 
 function ZenUI:onAnnotationsModified()

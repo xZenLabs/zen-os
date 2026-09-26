@@ -2581,6 +2581,17 @@ local function apply_navbar()
 
     -- Inject navbar into FM after all plugins finish init.
 
+    FileManager.onSetRotationMode = (function(original)
+        return function(self, mode)
+            local rotated = mode ~= nil and mode ~= Screen:getRotationMode()
+            local result = original(self, mode)
+            if rotated and FileManager.instance == self and is_navbar_enabled() then
+                UIManager:setDirty(self, "full")
+            end
+            return result
+        end
+    end)(FileManager.onSetRotationMode)
+
     local function resizeFileChooser(file_chooser, target_height)
         if not file_chooser or target_height <= 0 then
             return

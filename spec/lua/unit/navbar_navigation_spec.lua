@@ -23,6 +23,7 @@ describe("file browser navbar navigation", function()
     local real_paths
     local full_repaints
     local device_has_keys
+    local screen_rotation_mode
 
     local function class(methods)
         methods = methods or {}
@@ -69,6 +70,7 @@ describe("file browser navbar navigation", function()
         real_paths = {}
         full_repaints = 0
         device_has_keys = false
+        screen_rotation_mode = 0
         device_input = {
             disable_double_tap = true,
             tap_interval_override = nil,
@@ -124,6 +126,9 @@ describe("file browser navbar navigation", function()
                 calls[#calls + 1] = "base:" .. tostring(path) .. ":" .. tostring(focused)
             end,
             onShowingReader = function() end,
+            onSetRotationMode = function(_, mode)
+                screen_rotation_mode = mode
+            end,
         })
         FileManager.instance = nil
         ZenSpec.replace("apps/filemanager/filemanager", FileManager)
@@ -159,6 +164,7 @@ describe("file browser navbar navigation", function()
                 scaleBySize = function(_, value) return value end,
                 getWidth = function() return 800 end,
                 getHeight = function() return 600 end,
+                getRotationMode = function() return screen_rotation_mode end,
                 isColorScreen = function() return false end,
             },
             hasKeys = function() return device_has_keys end,
@@ -1982,6 +1988,22 @@ describe("file browser navbar navigation", function()
         assert.is_false(navbar:onTapNavBar(nil, { pos = { x = 1, y = 1 } }))
         assert.is_false(navbar:onTapNavBar(nil, { pos = { x = 799, y = 1 } }))
         assert.are.same({}, calls)
+    end)
+
+    it("refreshes the full screen after file-manager rotation", function()
+        local fm = make_instance()
+        local dirty = {}
+        UIManager.setDirty = function(_, widget, mode)
+            dirty[#dirty + 1] = { widget, mode }
+        end
+        FileManager.onSetRotationMode(fm, 1)
+        assert.are.equal(1, screen_rotation_mode)
+        assert.are.same({ { fm, "full" } }, dirty)
+        FileManager.onSetRotationMode(fm, 1)
+        assert.are.equal(1, #dirty)
+        _G.__ZEN_UI_PLUGIN.config.features.navbar = false
+        FileManager.onSetRotationMode(fm, 2)
+        assert.are.equal(1, #dirty)
     end)
 
     it("opens the KOReader plus menu when holding the navbar outside home folders", function()

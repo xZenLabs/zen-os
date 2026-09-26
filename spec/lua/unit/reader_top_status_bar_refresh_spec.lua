@@ -20,6 +20,8 @@ describe("reader top status bar refresh", function()
     local disabled_reader
     local NetworkMgr
     local bluetooth_enabled
+    local clock_text
+    local battery_capacity
 
     local dependencies = {
         "apps/reader/modules/readerview",
@@ -100,6 +102,8 @@ describe("reader top status bar refresh", function()
         saved_settings = G_reader_settings
         scheduled = {}
         unscheduled = {}
+        clock_text = "12:34"
+        battery_capacity = 73
         reset_paint_log()
 
         local screen_bb = {
@@ -174,13 +178,13 @@ describe("reader top status bar refresh", function()
         replace("common/zen_logger", {
             new = function() return { dbg = function() end } end,
         })
-        replace("datetime", {})
+        replace("datetime", { secondsToHour = function() return clock_text end })
         replace("device", {
             screen = screen,
             hasBattery = function() return true end,
             getPowerDevice = function()
                 return {
-                    getCapacity = function() return 73 end,
+                    getCapacity = function() return battery_capacity end,
                     getBatterySymbol = function() return "B" end,
                     isCharged = function() return false end,
                     isCharging = function() return false end,
@@ -600,7 +604,7 @@ describe("reader top status bar refresh", function()
         assert.are.equal(handlers.onClose, ReaderUI.onClose)
 
         scheduled[1].callback()
-        assert.are.equal(2, #paint_rects)
+        assert.are.equal(0, #paint_rects)
         collectgarbage("collect")
         collectgarbage("collect")
         assert.is_nil(weak_first[1])
@@ -645,12 +649,20 @@ describe("reader top status bar refresh", function()
         assert.same({ x = 474, y = 20, w = 2, h = 1, color = "black" }, paint_rects[4])
     end)
 
-    it("refreshes only the dynamic item's slot and restores the dogear", function()
+    it("skips unchanged minute values and refreshes only changed slots", function()
         make_view()
 
         scheduled[1].callback()
-        assert.are.equal(2, #paint_rects)
-        assert.same({ 250, 500 }, { paint_rects[1].x, paint_rects[2].x })
+        assert.are.equal(0, #paint_rects)
+
+        clock_text = "12:35"
+        scheduled[2].callback()
+        assert_single_slot(250)
+
+        reset_paint_log()
+        battery_capacity = 72
+        scheduled[3].callback()
+        assert_single_slot(500)
 
         reset_paint_log()
         ReaderUI.onNetworkConnected({})
@@ -692,6 +704,7 @@ describe("reader top status bar refresh", function()
         _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar.right_order = {}
         make_view()
 
+        clock_text = "12:35"
         scheduled[1].callback()
 
         assert.are.equal("sepia", paint_rects[1].color)

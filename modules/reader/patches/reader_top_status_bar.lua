@@ -88,6 +88,9 @@ local function apply_reader_top_status_bar()
         "frontlight", "ram", "disk", "incognito",
     }
     local MINUTE_REFRESH_ITEMS = { "time", "battery", "battery_icon", "battery_percent" }
+    local MINUTE_REFRESH_SET = {
+        time = true, battery = true, battery_icon = true, battery_percent = true,
+    }
 
     -- === Separator value map (bar-specific spacing; labels live in common/constants.lua) ===
 
@@ -416,6 +419,7 @@ local function apply_reader_top_status_bar()
                 if icon ~= nil then
                     local text = label and (icon .. label) or icon
                     table.insert(texts, {
+                        key = key,
                         text = text,
                         icon = icon,
                         label = label,
@@ -641,6 +645,17 @@ local function apply_reader_top_status_bar()
         return slots
     end
 
+    local function minuteItemValues(cfg, view)
+        local values = {}
+        for _i, key in ipairs(MINUTE_REFRESH_ITEMS) do
+            if #slotsContaining(cfg, { key }) > 0 then
+                local entry = collectItemTexts({ key }, view)[1]
+                values[key] = entry and (entry.text .. "\0" .. tostring(entry.color)) or false
+            end
+        end
+        return values
+    end
+
     -- Builds the header widget from current config.
     -- doc_ctx: ReaderView (or nil); needed for book_title, author, chapter items.
     -- Returns header, widgets, height, width, and per-slot regions; or nil if empty.
@@ -689,6 +704,19 @@ local function apply_reader_top_status_bar()
         local left_texts = collectItemTexts(left_order, doc_ctx)
         local center_texts = collectItemTexts(center_order, doc_ctx)
         local right_texts = collectItemTexts(right_order, doc_ctx)
+        local minute_values = {}
+        for _i, order in ipairs({ left_order, center_order, right_order }) do
+            for _j, key in ipairs(order) do
+                if MINUTE_REFRESH_SET[key] then minute_values[key] = false end
+            end
+        end
+        for _i, texts in ipairs({ left_texts, center_texts, right_texts }) do
+            for _j, entry in ipairs(texts) do
+                if MINUTE_REFRESH_SET[entry.key] then
+                    minute_values[entry.key] = entry.text .. "\0" .. tostring(entry.color)
+                end
+            end
+        end
 
         local left_has = #left_texts > 0
         local center_has = #center_texts > 0
@@ -850,7 +878,7 @@ local function apply_reader_top_status_bar()
             }
         end
 
-        return header, all_widgets, header_h, screen_width, slot_regions
+        return header, all_widgets, header_h, screen_width, slot_regions, minute_values
     end
 
     local function offsetSlotRegions(slot_regions, x, y)
@@ -901,7 +929,7 @@ local function apply_reader_top_status_bar()
         local cfg2 = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
         local target_slots = slotsContaining(cfg2, item_keys)
         if #target_slots == 0 then return end
-        local header, all_widgets, header_h, screen_width, relative_slots = buildHeader(view)
+        local header, all_widgets, header_h, screen_width, relative_slots, minute_values = buildHeader(view)
         if not header then
             DBG("repaintHeaderSlots SKIP: buildHeader returned nil")
             return
@@ -921,6 +949,7 @@ local function apply_reader_top_status_bar()
         end
         if #refresh_regions == 0 then
             view._zen_header_slots = current_slots
+            view._zen_header_minute_values = minute_values or minuteItemValues(cfg2, view)
             freeWidgets(all_widgets)
             return
         end
@@ -942,6 +971,7 @@ local function apply_reader_top_status_bar()
             UIManager:setDirty(nil, "ui", region, refresh_dither)
         end
         view._zen_header_slots = current_slots
+        view._zen_header_minute_values = minute_values or minuteItemValues(cfg2, view)
         freeWidgets(all_widgets)
     end
 
@@ -967,10 +997,18 @@ local function apply_reader_top_status_bar()
             return
         end
         if is_view_active_top(view) then
-            repaintHeaderSlots(view, MINUTE_REFRESH_ITEMS)
+            local current = minuteItemValues(cfg2, view)
+            local previous = view._zen_header_minute_values
+            local changed = {}
+            for key, value in pairs(current) do
+                if not previous or previous[key] ~= value then changed[#changed + 1] = key end
+            end
+            if #changed > 0 then
+                repaintHeaderSlots(view, changed)
+            end
         end
         local t = os.date("*t")
-        UIManager:scheduleIn(60 - t.sec, autoRefresh)
+        UIManager:scheduleIn(61 - t.sec, autoRefresh)
     end
 
     local function armAutoRefresh()
@@ -985,7 +1023,7 @@ local function apply_reader_top_status_bar()
         if _autoRefresh then return end
         _autoRefresh = autoRefresh
         local t = os.date("*t")
-        UIManager:scheduleIn(60 - t.sec, _autoRefresh)
+        UIManager:scheduleIn(61 - t.sec, _autoRefresh)
     end
 
     local function cancelRefreshTimers(clear_auto_refresh)
@@ -1051,7 +1089,7 @@ local function apply_reader_top_status_bar()
             UIManager:scheduleIn(0.6, _resume_refresh_timer_1)
             UIManager:scheduleIn(1.8, _resume_refresh_timer_2)
             local now_t = os.date("*t")
-            UIManager:scheduleIn(60 - now_t.sec, _autoRefresh)
+            UIManager:scheduleIn(61 - now_t.sec, _autoRefresh)
         end
 
         local orig_onCharging = ReaderUI.onCharging
@@ -1152,7 +1190,7 @@ local function apply_reader_top_status_bar()
             return
         end
 
-        local header, all_widgets, header_h, screen_width, slot_regions = buildHeader(self)
+        local header, all_widgets, header_h, screen_width, slot_regions, minute_values = buildHeader(self)
         if not header then
             DBG("paintTo: buildHeader returned nil, skipping header paint")
             return
@@ -1168,13 +1206,14 @@ local function apply_reader_top_status_bar()
         -- Store geometry for slot-scoped autonomous refreshes.
         self._zen_header_dimen = Geom:new{ x = x, y = y, w = screen_width, h = header_h }
         self._zen_header_slots = offsetSlotRegions(slot_regions, x, y)
+        self._zen_header_minute_values = minute_values or minuteItemValues(cfg2, self)
 
         -- Free FFI-backed TextWidget memory immediately after paint.
         for _i, w in ipairs(all_widgets) do
             if w.free then w:free() end
         end
 
-        -- Periodic refresh aligned to the top of each minute.
+        -- Periodic refresh aligned with KOReader's footer minute tick.
         armAutoRefresh()
     end
 end

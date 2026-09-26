@@ -34,6 +34,9 @@ local revision = 0
 local audit
 local reconciled_scope
 local collection_signature
+local collection_members
+local explicit_cache
+local explicit_checked_at
 local resolved_collection_name
 local count_result_key
 local count_result
@@ -141,6 +144,7 @@ end
 
 local function clear_results(bump_revision)
     result_cache = {}
+    explicit_cache = nil
     count_result_key, count_result, count_result_revision = nil, nil, nil
     status_buckets = nil
     status_bucket_mode = nil
@@ -362,10 +366,28 @@ end
 
 local function explicit_paths()
     ensure_collection()
-    local files = {}
     local coll = ReadCollection.coll and ReadCollection.coll[collection_name()] or {}
+    local members = {}
+    local changed = collection_members == nil
     for filepath, entry in pairs(coll) do
         local path = type(entry) == "table" and entry.file or filepath
+        members[filepath] = path
+        if not collection_members or collection_members[filepath] ~= path then
+            changed = true
+        end
+    end
+    if not changed then
+        for filepath in pairs(collection_members) do
+            if members[filepath] == nil then changed = true; break end
+        end
+    end
+    -- ponytail: Recheck external file removals after five seconds without a change notice.
+    if not changed and explicit_cache and now() - explicit_checked_at < 5 then
+        return explicit_cache
+    end
+
+    local files = {}
+    for _filepath, path in pairs(members) do
         local in_library = type(path) == "string" and paths.isInHomeDir(path)
         local is_kindle = false
         if type(path) == "string" and not in_library then
@@ -385,6 +407,9 @@ local function explicit_paths()
         clear_results(true)
     end
     collection_signature = signature
+    collection_members = members
+    explicit_cache = files
+    explicit_checked_at = now()
     return files
 end
 
@@ -478,20 +503,30 @@ local function read_status(path, doc_settings)
 end
 
 local function status_for(path, attr, doc_settings)
+    if doc_settings then
+        local cached = get_status_row(path)
+        local status = read_status(path, doc_settings)
+        if not status then return cached or { effective_status = "unknown" } end
+        if not cached or cached.status ~= status.status
+                or cached.percent_finished ~= status.percent_finished
+                or cached.effective_status ~= status.effective_status then
+            local signature = cached and cached.signature or table.concat({
+                tostring(attr and attr.size or 0),
+                tostring(attr and attr.modification or 0),
+                "open-doc",
+            }, "\31")
+            write_status_row(path, signature, status.status, status.percent_finished,
+                status.effective_status)
+        end
+        return status
+    end
     local signature = sidecar_signature(path, attr)
-    if not signature and not doc_settings then
+    if not signature then
         return { effective_status = "new" }
     end
-    if not signature then
-        signature = table.concat({
-            tostring(attr and attr.size or 0),
-            tostring(attr and attr.modification or 0),
-            "open-doc",
-        }, "\31")
-    end
     local cached = get_status_row(path)
-    if not doc_settings and cached and cached.signature == signature then return cached end
-    local status = read_status(path, doc_settings)
+    if cached and cached.signature == signature then return cached end
+    local status = read_status(path)
     if not status then return cached or { effective_status = "unknown" } end
     write_status_row(path, signature, status.status, status.percent_finished,
         status.effective_status)
@@ -945,9 +980,19 @@ function M.refreshPath(path, doc_settings, candidate)
     end
     local previous = get_status_row(path)
     local current = status_for(path, attr, doc_settings)
-    clear_results(true)
-    return not previous or previous.status ~= current.status
+    local changed = not previous or previous.status ~= current.status
         or previous.effective_status ~= current.effective_status
+    local access_sorted = false
+    if not changed then
+        for key in pairs(result_cache) do
+            if key:find("\30access\30", 1, true) then
+                access_sorted = true
+                break
+            end
+        end
+    end
+    if changed or access_sorted then clear_results(true) end
+    return changed
 end
 
 function M.removePath(path)
@@ -1015,7 +1060,8 @@ function M.isAuditRunning()
 end
 
 function M.isAuditComplete()
-    return reconciled_scope == configured_scope().key
+    return inventory ~= nil and inventory.complete == true
+        and reconciled_scope == configured_scope().key
 end
 
 function M.isPreparing()

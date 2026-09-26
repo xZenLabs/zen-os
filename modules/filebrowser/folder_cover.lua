@@ -200,6 +200,24 @@ local function retain_candidate(candidates, item, limit, less)
     if #candidates > limit then table.remove(candidates) end
 end
 
+local function visible_book(menu, path, name, needs_attributes)
+    if name == "." or name == ".." or name:sub(1, 2) == "._"
+            or (name:sub(1, 1) == "." and not (menu and menu.show_hidden == true))
+            or not DOC_EXTENSIONS[name:lower():match("%.([^%.]+)$")] then
+        return nil
+    end
+    local fullpath = path .. "/" .. name
+    local attr = needs_attributes and lfs.attributes(fullpath) or { mode = "file" }
+    if needs_attributes and (type(attr) ~= "table" or attr.mode ~= "file") then
+        return nil
+    end
+    if menu and type(menu.show_file) == "function" then
+        local ok_show, shown = pcall(menu.show_file, menu, name, fullpath)
+        if ok_show and shown == false then return nil end
+    end
+    return fullpath, attr
+end
+
 local function scan_descriptor(menu, path, max_covers, fallback_count, allow_expensive)
     local status_filter = menu and menu.show_filter and menu.show_filter.status
     local count_known = not status_filter and type(fallback_count) == "number"
@@ -213,47 +231,30 @@ local function scan_descriptor(menu, path, max_covers, fallback_count, allow_exp
     if not ok then
         return { count = fallback_count or 0, entries = candidates, exact = true }
     end
-    local show_hidden = menu and menu.show_hidden == true
     local collate_id, collate, history, less = candidate_sort(menu, path)
     local metadata
     local exact = true
     local needs_attributes = collate_id == "access" or collate_id == "date"
         or collate_id == "size"
     for name in iter, dir_obj do
-        if name ~= "." and name ~= ".."
-                and (show_hidden or name:sub(1, 1) ~= ".")
-                and name:sub(1, 2) ~= "._" then
-            local fullpath = path .. "/" .. name
-            local lower_name = name:lower()
-            local extension = lower_name:match("%.([^%.]+)$")
-            if extension and DOC_EXTENSIONS[extension] then
-                local attr = needs_attributes and lfs.attributes(fullpath)
-                    or { mode = "file" }
-                local visible = not needs_attributes
-                    or (type(attr) == "table" and attr.mode == "file")
-                if visible and menu and type(menu.show_file) == "function" then
-                    local ok_show, shown = pcall(menu.show_file, menu, name, fullpath)
-                    if ok_show and shown == false then visible = false end
-                end
-                if visible then
-                    if not count_known then count = count + 1 end
-                    if METADATA_COLLATES[collate_id] and metadata == nil then
-                        metadata = sort_metadata(path)
-                    end
-                    local candidate = {
-                        is_file = true,
-                        file = fullpath,
-                        path = fullpath,
-                        text = name,
-                        attr = attr,
-                    }
-                    if not prepare_candidate(menu, candidate, collate_id, collate,
-                            metadata or {}, history, allow_expensive) then
-                        exact = false
-                    end
-                    retain_candidate(candidates, candidate, target, less)
-                end
+        local fullpath, attr = visible_book(menu, path, name, needs_attributes)
+        if fullpath then
+            if not count_known then count = count + 1 end
+            if METADATA_COLLATES[collate_id] and metadata == nil then
+                metadata = sort_metadata(path)
             end
+            local candidate = {
+                is_file = true,
+                file = fullpath,
+                path = fullpath,
+                text = name,
+                attr = attr,
+            }
+            if not prepare_candidate(menu, candidate, collate_id, collate,
+                    metadata or {}, history, allow_expensive) then
+                exact = false
+            end
+            retain_candidate(candidates, candidate, target, less)
         end
     end
     return { count = count, entries = candidates, exact = exact }
@@ -419,6 +420,22 @@ function M.allBooksFinished(menu, entry, entries, count)
     count = tonumber(count) or 0
     if count < 1 then return false end
     if type(entries) ~= "table" or #entries < count then
+        if is_directory(entry) and not is_virtual(entry, menu) and entry.path then
+            local ok, iter, dir_obj = pcall(lfs.dir, entry.path)
+            if not ok then return false end
+            local collate_id = sort_policy(menu, entry.path)
+            local needs_attributes = collate_id == "access" or collate_id == "date"
+                or collate_id == "size"
+            local seen = 0
+            for name in iter, dir_obj do
+                local path = visible_book(menu, entry.path, name, needs_attributes)
+                if path then
+                    seen = seen + 1
+                    if member_status({ path = path }) ~= "complete" then return false end
+                end
+            end
+            return seen > 0
+        end
         local loaded = { M.entries(menu, entry, true, count) }
         entries = loaded[1]
         count = tonumber(loaded[3]) or (type(entries) == "table" and #entries or 0)
@@ -540,7 +557,8 @@ function M.build(menu, entry, menu_text, max_w, max_h, options)
     if load_covers and physical and entry and entry.path
             and not (entry.is_go_up or entry._zen_empty_placeholder) then
         local explicit_started_at = now()
-        local explicit_covers, explicit_found = CoverUtils.loadExplicitCovers(entry.path, mode)
+        local explicit_covers, explicit_found = CoverUtils.loadExplicitCovers(
+            entry.path, mode, max_w, max_h)
         has_explicit = explicit_found == true
             or (type(explicit_covers) == "table" and #explicit_covers > 0)
         append_covers(covers, explicit_covers, max_covers)

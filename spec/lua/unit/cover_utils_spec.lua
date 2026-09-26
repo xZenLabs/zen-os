@@ -171,6 +171,55 @@ describe("cover utility policy", function()
         assert.is_true(image_options.alpha)
     end)
 
+    it("reuses explicit JPEG decodes until the source signature changes", function()
+        local modification, size = 1, 100
+        local decodes, scales = 0, 0
+        local cached_signature
+        local function buffer(width, height)
+            return {
+                getWidth = function() return width end,
+                getHeight = function() return height end,
+            }
+        end
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function()
+                return { mode = "file", modification = modification, size = size }
+            end,
+        })
+        ZenSpec.replace("common/cover_decode_cache", {
+            get = function(_self, _key, signature)
+                return signature == cached_signature and buffer(400, 300) or nil
+            end,
+            put = function(_self, _key, signature)
+                cached_signature = signature
+            end,
+        })
+        ZenSpec.replace("ui/renderimage", {
+            renderImageFile = function()
+                decodes = decodes + 1
+                return buffer(4000, 3000)
+            end,
+            scaleBlitBuffer = function(_self, _bb, width, height)
+                scales = scales + 1
+                return buffer(width, height)
+            end,
+        })
+        ZenSpec.unload("common/cover_utils")
+        CoverUtils = require("common/cover_utils")
+
+        local cover = CoverUtils.loadExplicitCover("/cover.jpg", 200, 300)
+        assert.are.same({ 400, 300 }, { cover.w, cover.h })
+        assert.is_table(CoverUtils.loadExplicitCover("/cover.jpg", 200, 300))
+        assert.are.equal(1, decodes)
+        assert.are.equal(1, scales)
+        modification = 2
+        assert.is_table(CoverUtils.loadExplicitCover("/cover.jpg", 200, 300))
+        assert.are.equal(2, decodes)
+        size = 101
+        assert.is_table(CoverUtils.loadExplicitCover("/cover.jpg", 200, 300))
+        assert.are.equal(3, decodes)
+    end)
+
     it("keeps tiny synthetic covers to one bulk fill", function()
         local paints = {}
         local pixels = 0

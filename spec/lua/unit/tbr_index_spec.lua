@@ -14,6 +14,7 @@ describe("TBR path inventory", function()
     local updated_collection_order
     local arrange_options
     local view_refreshes
+    local tick
 
     local function add_book(path, status, sidecar_mtime)
         local directory, name = path:match("^(.*)/([^/]+)$")
@@ -231,7 +232,7 @@ describe("TBR path inventory", function()
                 end
             end,
         })
-        local tick = 0
+        tick = 0
         ZenSpec.replace("common/zen_logger", {
             now = function() tick = tick + 0.001; return tick end,
             new = function()
@@ -485,6 +486,51 @@ describe("TBR path inventory", function()
         assert.are.equal(3, opens)
     end)
 
+    it("reuses explicit paths without restatting and sees collection additions", function()
+        add_book("/books/a.epub")
+        add_book("/books/b.epub")
+        local Index = require("common/tbr_index")
+        assert.is_true(Index.setExplicit("/books/a.epub", true))
+        assert.same({ "/books/a.epub" }, Index.getAll())
+
+        local library_lfs = require("libs/libkoreader-lfs")
+        local original_attributes = library_lfs.attributes
+        local attribute_calls = 0
+        library_lfs.attributes = function(...)
+            attribute_calls = attribute_calls + 1
+            return original_attributes(...)
+        end
+        assert.same({ "/books/a.epub" }, Index.getAll())
+        assert.are.equal(0, attribute_calls)
+
+        ReadCollection:addItem("/books/b.epub", Index.collectionName())
+        assert.same({ "/books/b.epub", "/books/a.epub" }, Index.getAll())
+        assert.is_true(attribute_calls > 0)
+    end)
+
+    it("drops a removed explicit book after a path notification", function()
+        add_book("/books/a.epub")
+        local Index = require("common/tbr_index")
+        assert.is_true(Index.setExplicit("/books/a.epub", true))
+        assert.same({ "/books/a.epub" }, Index.getAll())
+
+        attrs["/books/a.epub"] = nil
+        assert.is_true(Index.refreshPath("/books/a.epub"))
+        assert.same({}, Index.getAll())
+    end)
+
+    it("rechecks explicit files after the cache interval", function()
+        add_book("/books/a.epub")
+        local Index = require("common/tbr_index")
+        assert.is_true(Index.setExplicit("/books/a.epub", true))
+        assert.same({ "/books/a.epub" }, Index.getAll())
+
+        attrs["/books/a.epub"] = nil
+        assert.same({ "/books/a.epub" }, Index.getAll())
+        tick = tick + 5
+        assert.same({}, Index.getAll())
+    end)
+
     it("migrates legacy abandoned statuses into the collection once", function()
         config._meta.tbr_collection_migrated = false
         add_book("/books/a.epub", "abandoned", 1)
@@ -495,6 +541,18 @@ describe("TBR path inventory", function()
         assert.is_nil(docs["/books/a.epub"].summary.status)
         assert.is_true(config._meta.tbr_collection_migrated)
         assert.is_true(Index.isExplicit("/books/a.epub"))
+    end)
+
+    it("migrates against a completed startup audit", function()
+        config._meta.tbr_collection_migrated = false
+        add_book("/books/a.epub", "abandoned", 1)
+        local Index = require("common/tbr_index")
+
+        assert.is_true(Index.scheduleAudit())
+        run_scheduled()
+        assert.is_true(Index.isAuditComplete())
+        assert.same({ "/books/a.epub" }, Index.getAll())
+        assert.is_true(config._meta.tbr_collection_migrated)
     end)
 
     it("keeps a cached classification when a changed sidecar cannot be read", function()
@@ -539,6 +597,36 @@ describe("TBR path inventory", function()
         assert.same({ "/books/a.epub" }, Index.getAll({ include_new = true }))
     end)
 
+    it("keeps results on duplicate open notifications without sidecar lookups", function()
+        add_book("/books/a.epub", "reading", 1)
+        local Index = require("common/tbr_index")
+        assert.same({}, Index.getAll({ include_new = true }))
+        local lookups = sidecar_lookups
+        local revision = Index.getRevision()
+
+        assert.is_false(Index.refreshPath("/books/a.epub", docs["/books/a.epub"]))
+        assert.is_false(Index.refreshPath("/books/a.epub", docs["/books/a.epub"]))
+        assert.are.equal(lookups, sidecar_lookups)
+        assert.are.equal(revision, Index.getRevision())
+    end)
+
+    it("reorders cached access-sorted books after an unchanged status update", function()
+        add_book("/books/a.epub", "reading", 1)
+        add_book("/books/b.epub", "reading", 1)
+        attrs["/books/a.epub"].access = 2
+        local Index = require("common/tbr_index")
+        assert.is_true(Index.setExplicit("/books/a.epub", true))
+        assert.is_true(Index.setExplicit("/books/b.epub", true))
+        Index.getByStatuses({ reading = true })
+        assert.same({ "/books/a.epub", "/books/b.epub" },
+            Index.getAll({ include_new = true, collate = "access" }))
+
+        attrs["/books/b.epub"].access = 3
+        assert.is_false(Index.refreshPath("/books/b.epub", docs["/books/b.epub"]))
+        assert.same({ "/books/b.epub", "/books/a.epub" },
+            Index.getAll({ include_new = true, collate = "access" }))
+    end)
+
     it("coalesces scheduled reconciliation callbacks", function()
         add_book("/books/a.epub")
         local Index = require("common/tbr_index")
@@ -550,6 +638,14 @@ describe("TBR path inventory", function()
         run_scheduled()
         assert.are.equal(2, completed)
         assert.is_true(Index.isAuditComplete())
+    end)
+
+    it("keeps a failed startup audit incomplete for a later migration", function()
+        attrs["/books"] = nil
+        local Index = require("common/tbr_index")
+        assert.is_true(Index.scheduleAudit())
+        run_scheduled()
+        assert.is_false(Index.isAuditComplete())
     end)
 
     it("scans a cold nested inventory over multiple UI ticks", function()

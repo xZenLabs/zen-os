@@ -160,6 +160,29 @@ describe("managed folder cover files", function()
             FolderCoverFiles.find("/library/folder", "normal")[1])
     end)
 
+    it("reuses managed names until the directory changes", function()
+        files["/library/folder"].modification = 1
+        add_file("/library/folder/cover.jpg")
+        local lfs = require("libs/libkoreader-lfs")
+        local dir = lfs.dir
+        local scans = 0
+        lfs.dir = function(folder)
+            scans = scans + 1
+            return dir(folder)
+        end
+
+        assert.are.equal("/library/folder/cover.jpg",
+            FolderCoverFiles.find("/library/folder", "normal")[1])
+        assert.is_true(FolderCoverFiles.has("/library/folder", "normal"))
+        assert.are.equal(1, scans)
+
+        add_file("/library/folder/cover2.jpg")
+        files["/library/folder"].modification = 2
+        assert.are.equal("/library/folder/cover2.jpg",
+            FolderCoverFiles.find("/library/folder", "gallery")[2])
+        assert.are.equal(2, scans)
+    end)
+
     it("reports folders without managed covers", function()
         add_file("/library/folder/poster.jpg")
         files["/library/folder/cover.jpg"] = { mode = "directory" }

@@ -212,7 +212,7 @@ function M.paint(bb, x, y, w, h, path)
 end
 
 local function get_screen_buffer(path, w, h, bb_type)
-    if not ImageWidget or not file_exists(path) or w <= 0 or h <= 0 then
+    if not ImageWidget or w <= 0 or h <= 0 then
         return nil
     end
     local night_key = Screen.night_mode and "night" or "day"
@@ -221,6 +221,7 @@ local function get_screen_buffer(path, w, h, bb_type)
         tostring(bb_type), night_key, opacity)
     local cached = _buffer_cache[key]
     if cached then return cached end
+    if not file_exists(path) then return nil end
 
     local out
     local ok = pcall(function()

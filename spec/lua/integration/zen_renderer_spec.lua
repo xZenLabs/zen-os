@@ -720,6 +720,39 @@ describe("Zen renderer", function()
         assert.are.same({ menu }, background_menus)
     end)
 
+    it("checks a mosaic background once per second and after its setting changes", function()
+        require("modules/filebrowser/patches/zen_renderer")()
+        local Background = require("common/ui/background")
+        local checks = 0
+        Background.library_path = function()
+            checks = checks + 1
+            return "/library/background.jpg"
+        end
+        Background.paintScreenRegion = function() return true end
+        local config = _G.__ZEN_UI_PLUGIN.config
+        config.library_background = { enabled = true, path = "/library/background.jpg" }
+        local item = setmetatable({
+            menu = { name = "filemanager" }, width = 100, height = 150,
+            _zen_cover_frame = {},
+        }, { __index = MosaicMenu._zen_mosaic_item_class })
+        local tick = 100
+        local original_time = os.time
+        rawset(os, "time", function() return tick end)
+        local ok, err = pcall(function()
+            item:paintTo({}, 0, 0)
+            item:paintTo({}, 0, 0)
+            assert.are.equal(1, checks)
+            config.library_background.path = "/library/other.jpg"
+            item:paintTo({}, 0, 0)
+            assert.are.equal(2, checks)
+            tick = 101
+            item:paintTo({}, 0, 0)
+        end)
+        rawset(os, "time", original_time)
+        assert.is_true(ok, tostring(err))
+        assert.are.equal(3, checks)
+    end)
+
     it("bounds two-line folder name labels to their cover when title strips are off", function()
         _G.__ZEN_UI_PLUGIN.config.browser_folder_cover = { name_opaque = true }
         _G.__ZEN_UI_PLUGIN.config.features.browser_cover_rounded_corners = true
