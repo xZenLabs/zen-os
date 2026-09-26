@@ -36,6 +36,8 @@ describe("Controls destination settings", function()
                 zen_settings_icon = "zen_ui",
                 launcher_label = "",
                 launcher_icon = "app_launcher",
+                unified_light_slider = true,
+                unified_light_slider_centered = false,
                 tailscale_toggle_wifi = false,
                 background_hatching = false,
             },
@@ -60,9 +62,12 @@ describe("Controls destination settings", function()
         })
         ZenSpec.replace("config/defaults", { quick_settings = {
             button_order = {}, show_buttons = {},
+            show_frontlight = true, show_warmth = true,
             gyro_label = "", gyro_icon = "quick_rotate",
             zen_settings_label = "", zen_settings_icon = "zen_ui",
             launcher_label = "", launcher_icon = "app_launcher",
+            unified_light_slider = true,
+            unified_light_slider_centered = false,
             tailscale_toggle_wifi = false,
             background_hatching = false,
         } })
@@ -338,5 +343,83 @@ describe("Controls destination settings", function()
         hatching.callback()
         assert.is_true(hatching.checked_func())
         assert.are.equal(1, saves)
+    end)
+
+    it("keeps unified controls in a submenu and restores them on reset", function()
+        local device = require("device")
+        device.hasFrontlight = function() return true end
+        device.hasNaturalLight = function() return true end
+        config.quick_settings.show_frontlight = false
+        config.quick_settings.show_warmth = false
+        ZenSpec.replace("ui/widget/confirmbox", {
+            new = function(_self, options) return options end,
+        })
+        local saves = 0
+        local section = require("modules/settings/sections/menu_settings").build({
+            config = config,
+            plugin = {},
+            save_and_apply = function(feature)
+                assert.are.equal("quick_settings", feature)
+                saves = saves + 1
+            end,
+        })
+        local setting, brightness, warmth, reset
+        for _i, item in ipairs(section.sub_item_table) do
+            if item.text == "Unified brightness/warmth slider" then setting = item end
+            if item.text == "Show brightness slider" then brightness = item end
+            if item.text == "Show warmth slider" then warmth = item end
+            if item.text == "Reset to defaults" then reset = item end
+        end
+        assert.is_table(setting)
+        local centered = setting.sub_item_table[1]
+        assert.is_true(setting.show_func())
+        assert.is_table(centered)
+        assert.are.equal("Centered", centered.text)
+        assert.is_true(setting.checked_func())
+        assert.is_false(brightness.enabled_func())
+        assert.is_false(warmth.enabled_func())
+        assert.is_true(brightness.checked_func())
+        assert.is_true(warmth.checked_func())
+        assert.is_true(centered.enabled_func())
+        assert.is_false(centered.checked_func())
+        centered.callback()
+        assert.is_true(centered.checked_func())
+        assert.are.equal(1, saves)
+
+        setting.checkmark_callback()
+        assert.is_false(setting.checked_func())
+        assert.is_true(brightness.enabled_func())
+        assert.is_true(warmth.enabled_func())
+        assert.is_false(brightness.checked_func())
+        assert.is_false(warmth.checked_func())
+        assert.is_false(centered.enabled_func())
+        assert.are.equal(2, saves)
+
+        reset.callback()
+        shown_widget.ok_callback()
+        assert.is_true(setting.checked_func())
+        assert.is_false(brightness.enabled_func())
+        assert.is_false(warmth.enabled_func())
+        assert.is_true(centered.enabled_func())
+        assert.is_false(centered.checked_func())
+        assert.are.equal(3, saves)
+    end)
+
+    it("hides unified controls on brightness-only devices", function()
+        local device = require("device")
+        device.hasFrontlight = function() return true end
+        device.hasNaturalLight = function() return false end
+        local section = require("modules/settings/sections/menu_settings").build({
+            config = config,
+            plugin = {},
+            save_and_apply = function() end,
+        })
+        local setting, brightness
+        for _i, item in ipairs(section.sub_item_table) do
+            if item.text == "Unified brightness/warmth slider" then setting = item end
+            if item.text == "Show brightness slider" then brightness = item end
+        end
+        assert.is_false(setting.show_func())
+        assert.is_true(brightness.enabled_func())
     end)
 end)

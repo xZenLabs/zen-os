@@ -1125,6 +1125,8 @@ function M.build(ctx)
         config.quick_settings.show_labels = def.show_labels
         config.quick_settings.show_frontlight = def.show_frontlight
         config.quick_settings.show_warmth = def.show_warmth
+        config.quick_settings.unified_light_slider = def.unified_light_slider
+        config.quick_settings.unified_light_slider_centered = def.unified_light_slider_centered
         config.quick_settings.background_hatching = def.background_hatching
         config.quick_settings.flip_lh_rh_icon = def.flip_lh_rh_icon
         config.quick_settings.gyro_label = def.gyro_label
@@ -1183,6 +1185,11 @@ function M.build(ctx)
         return items
     end
 
+    local can_unify_light = Device:hasFrontlight() and Device:hasNaturalLight()
+    local function unifiedLightEnabled()
+        return can_unify_light and config.quick_settings.unified_light_slider ~= false
+    end
+
     return {
         text = _("Controls"),
         _zen_search_items_func = arrange_search_items,
@@ -1202,7 +1209,10 @@ function M.build(ctx)
             }, icons.keywords),
             IconItem.decorate({
                 text = _("Show brightness slider"),
-                checked_func = function() return config.quick_settings.show_frontlight == true end,
+                enabled_func = function() return not unifiedLightEnabled() end,
+                checked_func = function()
+                    return unifiedLightEnabled() or config.quick_settings.show_frontlight == true
+                end,
                 callback = function()
                     config.quick_settings.show_frontlight = config.quick_settings.show_frontlight ~= true
                     save_and_apply_quick_settings()
@@ -1210,12 +1220,39 @@ function M.build(ctx)
             }, icons.schedule_brightness),
             IconItem.decorate({
                 text = _("Show warmth slider"),
-                checked_func = function() return config.quick_settings.show_warmth == true end,
+                enabled_func = function() return not unifiedLightEnabled() end,
+                checked_func = function()
+                    return unifiedLightEnabled() or config.quick_settings.show_warmth == true
+                end,
                 callback = function()
                     config.quick_settings.show_warmth = config.quick_settings.show_warmth ~= true
                     save_and_apply_quick_settings()
                 end,
             }, icons.schedule_warmth),
+            IconItem.decorate({
+                text = _("Unified brightness/warmth slider"),
+                show_func = function() return can_unify_light end,
+                checked_func = unifiedLightEnabled,
+                checkmark_callback = function()
+                    config.quick_settings.unified_light_slider =
+                        config.quick_settings.unified_light_slider == false
+                    save_and_apply_quick_settings()
+                end,
+                sub_item_table = {
+                    IconItem.decorate({
+                        text = _("Centered"),
+                        enabled_func = unifiedLightEnabled,
+                        checked_func = function()
+                            return config.quick_settings.unified_light_slider_centered == true
+                        end,
+                        callback = function()
+                            config.quick_settings.unified_light_slider_centered =
+                                config.quick_settings.unified_light_slider_centered ~= true
+                            save_and_apply_quick_settings()
+                        end,
+                    }, icons.settings_layout),
+                },
+            }, icons.schedule_brightness),
             IconItem.decorate({
                 text = _("Flip LH/RH icon"),
                 checked_func = function() return config.quick_settings.flip_lh_rh_icon == true end,

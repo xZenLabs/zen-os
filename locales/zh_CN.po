@@ -1020,6 +1020,12 @@ msgstr "居中显示书籍"
 msgid "Center items"
 msgstr "中间项目"
 
+#. Type: setting
+#. Context: text = _("Centered"),
+#: menu_settings.lua
+msgid "Centered"
+msgstr "居中"
+
 #. Type: action
 #. Context: local item_ref = item table.insert(buttons, {{ text = "\u{F07C} " .. _("Change folder"), align = "left", bold = true, callback = function()
 #: opds.lua:1727
@@ -5849,6 +5855,12 @@ msgstr "未命名预设"
 #: nav_button_model.lua:31 context_menu.lua:760 context_menu.lua:2142 context_menu.lua:2401
 msgid "Unread"
 msgstr "未读"
+
+#. Type: setting
+#. Context: text = _("Unified brightness/warmth slider"),
+#: menu_settings.lua
+msgid "Unified brightness/warmth slider"
+msgstr "亮度/色温统一滑块"
 
 #. Type: setting
 #. Context: return { text = icons.update .. " " .. _("Update available"), zen_button = true,

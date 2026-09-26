@@ -15,6 +15,7 @@ describe("quick settings plugin controls", function()
     local launcher_opens
     local settings_shows
     local save_calls
+    local slider_options
 
     local module_names = {
         "ffi/blitbuffer",
@@ -77,6 +78,7 @@ describe("quick settings plugin controls", function()
         launcher_opens = 0
         settings_shows = 0
         save_calls = 0
+        slider_options = nil
 
         local no_op = {}
         local function widget_class()
@@ -179,7 +181,9 @@ describe("quick settings plugin controls", function()
         ZenSpec.replace("modules/menu/bluetooth/bluetooth", {
             isAvailable = function() return false end,
         })
-        ZenSpec.replace("modules/menu/patches/brightness_slider", function() end)
+        ZenSpec.replace("modules/menu/patches/brightness_slider", function(_menu, opts)
+            slider_options = opts
+        end)
         ZenSpec.replace("modules/menu/patches/warmth_slider", function() end)
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("dispatcher", {
@@ -386,6 +390,32 @@ describe("quick settings plugin controls", function()
 
         _G.__ZEN_UI_PLUGIN.config._meta.quickstart_menu_tour_pending = false
         assert.are.same({ "tailscale" }, rendered_ids())
+    end)
+
+    it("shows both unified controls while preserving separate visibility choices", function()
+        local device = require("device")
+        device.hasFrontlight = function() return true end
+        device.hasNaturalLight = function() return true end
+        local config = _G.__ZEN_UI_PLUGIN.config.quick_settings
+        config.show_frontlight = false
+        config.show_warmth = false
+        config.unified_light_slider = true
+        local menu = {}
+        FileManagerMenu.setUpdateItemTable(menu)
+        menu.tab_item_table[1].panel({ item_width = 600 })
+
+        assert.is_true(slider_options.unified)
+        assert.is_true(slider_options.show_frontlight)
+        assert.is_true(slider_options.show_warmth)
+        assert.is_false(config.show_frontlight)
+        assert.is_false(config.show_warmth)
+
+        device.hasNaturalLight = function() return false end
+        config.show_frontlight = true
+        menu.tab_item_table[1].panel({ item_width = 600 })
+        assert.is_false(slider_options.unified)
+        assert.is_true(slider_options.show_frontlight)
+        assert.is_false(slider_options.show_warmth)
     end)
 
     it("uses configured labels and icons", function()

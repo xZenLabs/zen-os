@@ -29,7 +29,7 @@ local function apply_quick_settings()
     local ButtonLabelWidth = require("common/ui/button_label_width")
     local Bluetooth = require("modules/menu/bluetooth/bluetooth")
     local build_brightness_slider = require("modules/menu/patches/brightness_slider")
-    local build_warmth_slider     = require("modules/menu/patches/warmth_slider")
+    local build_warmth_slider = require("modules/menu/patches/warmth_slider")
     local _ = require("gettext")
     local Screen = Device.screen
     local Dispatcher = require("dispatcher")
@@ -136,6 +136,8 @@ local function apply_quick_settings()
         show_labels = true,
         show_frontlight = true,
         show_warmth = true,
+        unified_light_slider = true,
+        unified_light_slider_centered = false,
         gyro_label = "",
         gyro_icon = "quick_rotate",
         zen_settings_label = "",
@@ -1544,35 +1546,40 @@ local function apply_quick_settings()
             end
         end
 
-        -- ----- Frontlight / warmth sliders -----
+        -- ----- Frontlight / warmth controls -----
 
         local medium_size     = Font.sizemap and Font.sizemap["ffont"] or 24
         local medium_font     = library_font.getFace(medium_size)
         local small_btn_size  = Screen:scaleBySize(14)
         local small_btn_width = Screen:scaleBySize(56)
-        local toggle_width    = Screen:scaleBySize(56)
         local slider_gap      = Screen:scaleBySize(4)
         local slider_width    = inner_width - 2 * small_btn_width - 2 * slider_gap
 
+        local has_frontlight = Device:hasFrontlight()
+        local has_warmth = Device:hasNaturalLight()
+        local use_unified = has_frontlight and has_warmth
+            and panel_config.unified_light_slider ~= false
         local slider_opts = {
             inner_width     = inner_width,
             slider_width    = slider_width,
             small_btn_width = small_btn_width,
-            toggle_width    = toggle_width,
             slider_gap      = slider_gap,
             medium_font     = medium_font,
             small_btn_size  = small_btn_size,
             powerd          = powerd,
             refs            = refs,
+            show_frontlight = has_frontlight and (use_unified or panel_config.show_frontlight),
+            show_warmth     = has_warmth and (use_unified or panel_config.show_warmth),
+            unified         = use_unified,
+            centered        = panel_config.unified_light_slider_centered == true,
         }
 
-        local fl_group = VerticalGroup:new{ align = "center" }
-        if panel_config.show_frontlight and Device:hasFrontlight() then
-            fl_group = build_brightness_slider(touch_menu, slider_opts)
+        local light_group
+        if slider_opts.show_frontlight then
+            light_group = build_brightness_slider(touch_menu, slider_opts)
         end
-
-        local warmth_group = VerticalGroup:new{ align = "center" }
-        if panel_config.show_warmth and Device:hasNaturalLight() then
+        local warmth_group
+        if slider_opts.show_warmth and (not slider_opts.show_frontlight or not use_unified) then
             warmth_group = build_warmth_slider(touch_menu, slider_opts)
         end
 
@@ -1605,10 +1612,10 @@ local function apply_quick_settings()
             table.insert(panel, VerticalSpan:new{ width = Screen:scaleBySize(8) })
         end
 
-        if #fl_group > 0 then
-            table.insert(panel, fl_group)
+        if light_group then
+            table.insert(panel, light_group)
         end
-        if #warmth_group > 0 then
+        if warmth_group then
             table.insert(panel, warmth_group)
         end
         table.insert(panel, VerticalSpan:new{ width = Screen:scaleBySize(8) })

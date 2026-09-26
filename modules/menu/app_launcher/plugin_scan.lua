@@ -169,6 +169,7 @@ local function add_candidate(out, seen, key, mod, pending_index)
         local path = normalized_path(mod.path)
         pending = pending_index.paths[path]
             or pending_index.names[plugin_root_name(path)]
+            or (not path and pending_index.names[key .. ".koplugin"])
         if not pending then return end
     end
     local method = find_method(mod, key)

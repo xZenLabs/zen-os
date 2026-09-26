@@ -1020,6 +1020,12 @@ msgstr "Center books"
 msgid "Center items"
 msgstr "Center items"
 
+#. Type: setting
+#. Context: text = _("Centered"),
+#: menu_settings.lua
+msgid "Centered"
+msgstr "Centered"
+
 #. Type: action
 #. Context: local item_ref = item table.insert(buttons, {{ text = "\u{F07C} " .. _("Change folder"), align = "left", bold = true, callback = function()
 #: opds.lua:1727
@@ -5855,6 +5861,12 @@ msgstr "Unnamed preset"
 #: nav_button_model.lua:31 context_menu.lua:760 context_menu.lua:2142 context_menu.lua:2401
 msgid "Unread"
 msgstr "Unread"
+
+#. Type: setting
+#. Context: text = _("Unified brightness/warmth slider"),
+#: menu_settings.lua
+msgid "Unified brightness/warmth slider"
+msgstr "Unified brightness/warmth slider"
 
 #. Type: setting
 #. Context: return { text = icons.update .. " " .. _("Update available"), zen_button = true,
