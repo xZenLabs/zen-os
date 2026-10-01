@@ -48,6 +48,10 @@ local function fmt_time(secs)
 end
 
 local FIELD_MAP = {
+    book_days = { id = "book_days", label = _("Days reading this book"), get = function(s) return s.book_days or "—" end },
+    book_duration = { id = "book_duration", label = _("Reading time"), get = function(s) return s.book_duration or "—" end },
+    book_page_minutes = { id = "book_page_minutes", label = _("Minutes per page"), get = function(s) return s.book_page_minutes or "—" end },
+    book_daily_minutes = { id = "book_daily_minutes", label = _("Minutes per reading day"), get = function(s) return s.book_daily_minutes or "—" end },
     today_pages = { id = "today_pages", label = _("Pages today"), get = function(s) return tostring(s.today_pages or 0) end },
     today_duration = { id = "today_duration", label = _("Read today"), get = function(s) return fmt_time(s.today_duration or 0) end },
     streak = { id = "streak", label = _("Day streak"), get = function(s) return tostring(s.streak or 0) end },

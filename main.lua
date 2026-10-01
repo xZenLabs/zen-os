@@ -1049,6 +1049,10 @@ function ZenUI:deletePluginSettings()
     zen_updater._on_update_found = nil
     cancel_item_table_cache_persist()
 
+    if G_reader_settings:readSetting("end_document_action") == "zen_end_book" then
+        G_reader_settings:saveSetting("end_document_action", "book_status")
+    end
+
     pcall(BrandMigration.deletePluginSettings)
 
     logger.info("deletePluginSettings completed")

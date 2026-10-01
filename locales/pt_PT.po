@@ -6995,3 +6995,99 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:381
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "O ZenPM foi instalado. Reinicie o KOReader para o utilizar."
+
+#. Type: message
+msgid "Book status"
+msgstr "Estado do livro"
+
+#. Type: message
+msgid "Book titles"
+msgstr "Títulos dos livros"
+
+#. Type: message
+msgid "Books per page"
+msgstr "Livros por página"
+
+#. Type: message
+msgid "Days reading this book"
+msgstr "Dias de leitura deste livro"
+
+#. Type: message
+msgid "Default source"
+msgstr "Fonte predefinida"
+
+#. Type: message
+msgid "End of book"
+msgstr "Fim do livro"
+
+#. Type: message
+msgid "Finished on %s"
+msgstr "Terminado em %s"
+
+#. Type: message
+msgid "Finished reading"
+msgstr "Leitura terminada"
+
+#. Type: message
+msgid "Highlights"
+msgstr "Destaques"
+
+#. Type: message
+msgid "Highlights and notes"
+msgstr "Destaques e notas"
+
+#. Type: message
+msgid "Minutes per page"
+msgstr "Minutos por página"
+
+#. Type: message
+msgid "Minutes per reading day"
+msgstr "Minutos por dia de leitura"
+
+#. Type: message
+msgid "Next in series"
+msgstr "Próximo da série"
+
+#. Type: message
+msgid "No highlights in this book."
+msgstr "Sem destaques neste livro."
+
+#. Type: message
+msgid "Other series"
+msgstr "Outras séries"
+
+#. Type: message
+msgid "Page %s"
+msgstr "Página %s"
+
+#. Type: message
+msgid "Preview"
+msgstr "Pré-visualização"
+
+#. Type: message
+msgid "Reading progress"
+msgstr "Progresso da leitura"
+
+#. Type: message
+msgid "Reading statistics"
+msgstr "Estatísticas de leitura"
+
+#. Type: message
+msgid "Reading time"
+msgstr "Tempo de leitura"
+
+#. Type: message
+msgid "Same author"
+msgstr "Mesmo autor"
+
+#. Type: message
+msgid "Use at end of book"
+msgstr "Usar no fim do livro"
+
+#. Type: message
+msgid "Zen end of book"
+msgstr "Fim do livro Zen"
+
+#. Type: message
+msgid "No books to show."
+msgstr "Sem livros para mostrar."

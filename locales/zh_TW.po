@@ -6995,3 +6995,99 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:381
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPM 已安裝。重新啟動 KOReader 即可使用。"
+
+#. Type: message
+msgid "Book status"
+msgstr "書籍狀態"
+
+#. Type: message
+msgid "Book titles"
+msgstr "書名"
+
+#. Type: message
+msgid "Books per page"
+msgstr "每頁書籍數"
+
+#. Type: message
+msgid "Days reading this book"
+msgstr "本書閱讀天數"
+
+#. Type: message
+msgid "Default source"
+msgstr "預設來源"
+
+#. Type: message
+msgid "End of book"
+msgstr "全書結束"
+
+#. Type: message
+msgid "Finished on %s"
+msgstr "讀完日期：%s"
+
+#. Type: message
+msgid "Finished reading"
+msgstr "已讀完"
+
+#. Type: message
+msgid "Highlights"
+msgstr "標註"
+
+#. Type: message
+msgid "Highlights and notes"
+msgstr "標註與筆記"
+
+#. Type: message
+msgid "Minutes per page"
+msgstr "每頁分鐘數"
+
+#. Type: message
+msgid "Minutes per reading day"
+msgstr "每個閱讀日的分鐘數"
+
+#. Type: message
+msgid "Next in series"
+msgstr "系列下一本"
+
+#. Type: message
+msgid "No highlights in this book."
+msgstr "本書沒有標註。"
+
+#. Type: message
+msgid "Other series"
+msgstr "其他系列"
+
+#. Type: message
+msgid "Page %s"
+msgstr "第 %s 頁"
+
+#. Type: message
+msgid "Preview"
+msgstr "預覽"
+
+#. Type: message
+msgid "Reading progress"
+msgstr "閱讀進度"
+
+#. Type: message
+msgid "Reading statistics"
+msgstr "閱讀統計"
+
+#. Type: message
+msgid "Reading time"
+msgstr "閱讀時間"
+
+#. Type: message
+msgid "Same author"
+msgstr "同一作者"
+
+#. Type: message
+msgid "Use at end of book"
+msgstr "讀完書後使用"
+
+#. Type: message
+msgid "Zen end of book"
+msgstr "Zen 讀完畫面"
+
+#. Type: message
+msgid "No books to show."
+msgstr "沒有可顯示的書籍。"

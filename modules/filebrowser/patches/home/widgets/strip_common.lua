@@ -829,7 +829,7 @@ function M.build_strip(ctx, source_key)
         local gap = math.max(4, Screen:scaleBySize(8))
         local message_w = math.max(1, width - cover_w - gap)
         local empty_message = TextBoxWidget:new{
-            text = cover_common.get_empty_message(source_name),
+            text = ctx.empty_message or cover_common.get_empty_message(source_name),
             face = Font:getFace("smallinfofont", Screen:scaleBySize(10)),
             width = message_w,
             alignment = "left",

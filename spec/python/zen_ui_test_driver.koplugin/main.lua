@@ -1964,6 +1964,53 @@ function Driver:handleCommand(command)
     if kind == "reader_state" then
         return { ok = true, reader = reader_state() }
     end
+    if kind == "end_book" then
+        local reader = require("apps/reader/readerui").instance
+        local plugin = get_zen_plugin()
+        if params.annotations and reader then
+            local position = reader.document:getXPointer()
+            reader.annotation.annotations = {
+                { page = position, pos0 = position, pos1 = position, drawer = "lighten",
+                    text = "Some gardens remind us who we once were.", note = "A note from this book." },
+                { page = position, pos0 = position, pos1 = position, drawer = "lighten", text = "Second highlight." },
+            }
+            reader.annotation:updatePageNumbers(true)
+        end
+        if params.finish and reader then
+            reader:handleEvent(Event:new("GotoPage", reader.document:getPageCount()))
+        end
+        if params.action then
+            G_reader_settings:saveSetting("end_document_action", params.action)
+            G_reader_settings:flush()
+        end
+        if params.show and reader then reader.status:onEndOfBook() end
+        local page = UIManager:getTopmostVisibleWidget()
+        local active = page and page.name == "zen_end_book"
+        if active and params.source then
+            page.source = params.source
+            page:rebuild()
+        end
+        if active and params.next_quote then page.data:nextQuote() end
+        if active and params.open_quote then page.data:openQuote(page.data:getCurrentQuote()) end
+        if active and params.widget then
+            plugin.config.end_book.rows.enabled[params.widget] = params.enabled
+            page:rebuild()
+        end
+        local state = {
+            ok = true, active = active == true,
+            action = G_reader_settings:readSetting("end_document_action"),
+            initialized = plugin.config._meta.end_book_default_applied,
+        }
+        if active then
+            state.quote = page.data:getCurrentQuote()
+            state.stats = page.data.stats
+            state.recommendations = page.data:getRecommendations()
+            state.rows = plugin.config.end_book.rows.order
+            state.source = page.source
+            if params.close then page:onClose() end
+        end
+        return state
+    end
     if kind == "customize_reader_footer" then
         local ok, err = customize_reader_footer()
         return { ok = ok == true, error = err }

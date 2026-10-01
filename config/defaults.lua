@@ -21,6 +21,7 @@ local defaults = {
         library_font_hyperreadable_default_migrated = false,
         lookup_plugin_items_default_migrated = false,
         tbr_collection_migrated = false,
+        end_book_default_applied = false,
     },
     updater = {
         just_updated_version = "",
@@ -28,6 +29,30 @@ local defaults = {
         update_available = false,
         update_channel = "stable",
         update_auto_check = true,
+    },
+    end_book = {
+        rows = {
+            order = { "stats_triplet", "featured", "quotes", "strip" },
+            enabled = { stats_triplet = true, featured = true, quotes = true, strip = true },
+        },
+        middle_stats_triplet = { "book_days", "book_duration", "book_page_minutes" },
+        quotes = { show_author = false, show_title = true, automatic_font_size = true, max_font_size = 18 },
+        modules = {
+            stats_triplet = { automatic_font_size = true, max_font_size = 24, stat_style = "divider" },
+            featured = {
+                interactive = false,
+                show_description = true,
+                show_progress = true,
+                progress_meta = { left = "percent", right = "current_total" },
+                text_styles = {
+                    title = { font_size = 22, bold = true },
+                    author = { font_size = 16 },
+                    description = { font_size = 12 },
+                },
+            },
+            strip = { count = 3, show_strip_titles = true, center_books = true },
+        },
+        strip_source = "next_series",
     },
     rakuyomi = {
         exclude_from_home = false,

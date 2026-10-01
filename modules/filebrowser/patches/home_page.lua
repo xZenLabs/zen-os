@@ -1396,6 +1396,10 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         return book
     end
 
+    function provider:getBook(path, metadata_only)
+        return get_book(path, false, metadata_only)
+    end
+
     local function get_tbr_index()
         if tbr_index_checked then return tbr_index end
         tbr_index_checked = true
@@ -2515,6 +2519,8 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
 
     return provider
 end
+
+M.newDataProvider = build_data_provider
 
 local function compute_row_heights(rows, body_h, row_gap, capacity, width, modules, config, data)
     local specs = {}

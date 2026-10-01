@@ -203,6 +203,10 @@ modules/menu/patches/touch_menu_panel.lua|integration
 modules/menu/patches/warmth_slider.lua|integration
 modules/menu/patches/zen_mode.lua|integration
 modules/reader/patches/book_status.lua|integration
+modules/reader/patches/end_book.lua|unit
+modules/reader/end_book.lua|integration
+modules/reader/end_book_data.lua|unit
+modules/settings/sections/end_book_settings.lua|integration
 modules/reader/patches/bookmarks.lua|integration
 modules/reader/patches/dict_quick_lookup.lua|integration
 modules/reader/patches/highlight_names.lua|integration
