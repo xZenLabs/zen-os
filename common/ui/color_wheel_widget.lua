@@ -159,11 +159,11 @@ function ColorWheel:_renderToBuffer(x, y)
             local s = sat_t[idx]
             if s >= 0 then
                 if sat_t[idx] >= 1 - Size.border.window / dr then
-                    buf:setPixel(dr + 1 + px, dr + 1 + py, bordercolor)
+                    buf:setPixel(dr + px, dr + py, bordercolor)
                 else -- Draw colors
                     local r, g, b = hsvToRgb(hue_t[idx], s, v)
                     if nm then r, g, b = 255 - r, 255 - g, 255 - b end
-                    buf:setPixel(dr + 1 + px, dr + 1 + py,
+                    buf:setPixel(dr + px, dr + py,
                         Blitbuffer.ColorRGB32(r, g, b, 0xFF))
                 end
             end

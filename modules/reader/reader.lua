@@ -80,7 +80,7 @@ function M.init(logger, plugin)
         run_feature(logger, plugin, "opening_banner", opening_banner_fn)
     end
 
-    -- Always apply: custom Book Status layout + sets native end_document_action
+    -- Always apply: custom Book Status layout.
     local book_status_fn = load_patch("book_status")
     if book_status_fn then
         run_feature(logger, plugin, "book_status", book_status_fn)

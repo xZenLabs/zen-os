@@ -1,9 +1,10 @@
 local function apply_book_status()
     local zen_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
 
-    -- Use KOReader's native "show Book Status at end of book" setting rather
-    -- than hooking onEndOfBook ourselves.
-    G_reader_settings:saveSetting("end_document_action", "book_status")
+    -- Default to Book Status without overwriting a saved KOReader action.
+    if G_reader_settings:readSetting("end_document_action") == nil then
+        G_reader_settings:saveSetting("end_document_action", "book_status")
+    end
 
     -- Auto-mark the book as finished (summary.status = "complete") when the
     -- reader hits the end. ReaderStatus:onEndOfBook checks this before showing

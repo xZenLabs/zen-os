@@ -3,6 +3,7 @@ describe("color picker opacity", function()
     local Blitbuffer
     local saved_modules
     local saved_settings
+    local new_buffer_stub
     local module_names = {
         "ffi/blitbuffer", "device", "gettext", "ui/font", "ui/geometry", "ui/gesturerange",
         "ui/size", "ui/uimanager", "ui/widget/button", "ui/widget/container/centercontainer",
@@ -58,6 +59,7 @@ describe("color picker opacity", function()
         ZenSpec.replace("ui/font", { getFace = function() return {} end })
         ZenSpec.replace("device", {
             screen = {
+                bb = { getPixel = function() return Blitbuffer.COLOR_WHITE end },
                 getWidth = function() return 600 end,
                 getHeight = function() return 800 end,
                 scaleBySize = function(_self, value) return value end,
@@ -67,7 +69,7 @@ describe("color picker opacity", function()
         })
         ZenSpec.replace("ui/size", {
             padding = { large = 10, default = 5, button = 4 },
-            border = { button = 1, thick = 2 },
+            border = { button = 1, thick = 2, window = 1 },
             radius = { button = 3 },
             item = { height_large = 40 },
         })
@@ -80,8 +82,34 @@ describe("color picker opacity", function()
     end)
 
     after_each(function()
+        if new_buffer_stub then
+            new_buffer_stub:revert()
+            new_buffer_stub = nil
+        end
         _G.G_reader_settings = saved_settings
         for _i, name in ipairs(module_names) do package.loaded[name] = saved_modules[name] end
+    end)
+
+    it("keeps color-wheel pixel writes within the allocated buffer", function()
+        local picker = Picker:new{ hex = "#0000FF", opacity = 60 }
+        local writes = 0
+        new_buffer_stub = stub(Blitbuffer, "new", function(width, height)
+            return {
+                paintRectRGB32 = function() end,
+                setPixel = function(_self, x, y)
+                    assert(x >= 0 and x < width, "pixel x outside color-wheel buffer")
+                    assert(y >= 0 and y < height, "pixel y outside color-wheel buffer")
+                    writes = writes + 1
+                end,
+                free = function() end,
+            }
+        end)
+        for _i, radius in ipairs({ 1, picker.color_wheel.draw_radius }) do
+            picker.color_wheel.draw_radius = radius
+            picker.color_wheel:_renderToBuffer(10, 10)
+        end
+        assert.is_true(writes > 0)
+        picker:onCloseWidget()
     end)
 
     it("keeps opacity absent for ordinary color pickers", function()
