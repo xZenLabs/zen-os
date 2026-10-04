@@ -269,15 +269,109 @@ local function apply_responsive_keyboard()
         UIManager:scheduleIn(0.15, release)
     end
 
-    local function finish_cursor_move(key)
+    local cursor_key
+
+    local function stop_cursor_repeat(key)
+        if key._zen_cursor_repeat then
+            UIManager:unschedule(key._zen_cursor_repeat)
+            key._zen_cursor_repeat = nil
+        end
+    end
+
+    local function finish_cursor_move(key, ges)
         if not key or not key._zen_cursor_x then return false end
+        if ges and ges.ges == "hold_release" then key:onZenCursorHoldPan(nil, ges) end
+        stop_cursor_repeat(key)
+        cursor_key = nil
         key.keyboard._zen_cursor_key = nil
         key._zen_cursor_x = nil
         key._zen_cursor_remainder = nil
+        key._zen_cursor_direction = nil
         key.ignore_key_release = nil
         logger.dbg("Zen keyboard cursor end")
         repaint(key, false)
         return true
+    end
+
+    local function cursor_region(text_widget)
+        if not text_widget or not text_widget.dimen or not text_widget.cursor_line
+                or not text_widget.cursor_restore_x then return nil end
+        local size = text_widget.cursor_line.dimen
+        return Geom:new{
+            x = text_widget.dimen.x + text_widget.cursor_restore_x,
+            y = text_widget.dimen.y + text_widget.cursor_restore_y,
+            w = size.w,
+            h = size.h,
+        }
+    end
+
+    local function move_cursor(key, chars)
+        local inputbox = key.keyboard.inputbox
+        local position = inputbox.charpos
+        local target = math.max(1, math.min(#inputbox.charlist + 1, position + chars))
+        if target == position then return false end
+        local text_widget = inputbox.text_widget
+        text_widget = text_widget and (text_widget.text_widget or text_widget)
+        local old_region = cursor_region(text_widget)
+        local fast_cursor = Device:isKobo() and old_region ~= nil
+        local region
+        if fast_cursor then
+            local old_line = text_widget.virtual_line_num
+            local original_set_dirty = UIManager.setDirty
+            -- Stock cursor refreshes would otherwise promote our fast update back to ui.
+            UIManager.setDirty = function(ui, widget, mode, area, dither)
+                if widget == (text_widget.dialog or "all") then
+                    local refresh = mode
+                    mode = function()
+                        local kind, bounds, hint = refresh, area, dither
+                        if type(refresh) == "function" then kind, bounds, hint = refresh() end
+                        if fast_cursor and kind == "ui" and region and region:contains(bounds) then
+                            kind = "fast"
+                        end
+                        return kind, bounds, hint
+                    end
+                end
+                return original_set_dirty(ui, widget, mode, area, dither)
+            end
+            local ok, err = pcall(inputbox.moveCursorToCharPos, inputbox, target)
+            UIManager.setDirty = original_set_dirty
+            if not ok then error(err) end
+            fast_cursor = text_widget.virtual_line_num == old_line
+        else
+            inputbox:moveCursorToCharPos(target)
+        end
+        region = cursor_region(text_widget)
+        if region then
+            if old_region then region = region:combine(old_region) end
+            -- Avoid overlapping e-ink updates leaving earlier cursor positions visible.
+            UIManager:setDirty(text_widget.dialog or "all", fast_cursor and "fast" or "[ui]", region)
+        end
+        logger.dbg("Zen keyboard cursor move", "chars=", chars, "position=", target)
+        return inputbox.charpos ~= position
+    end
+
+    local original_hold_state = Contact.holdState
+    function Contact:holdState(new_hold)
+        -- Cursor mode needs small pans, including movement back inside the usual dead zone.
+        if cursor_key and not new_hold and not self.buddy_contact
+                and self.down and self.current_tev.id ~= -1 then
+            local gesture = self:handlePan()
+            gesture.ges = "hold_pan"
+            return gesture
+        end
+        return original_hold_state(self, new_hold)
+    end
+
+    local original_add_keys = VirtualKeyboard.addKeys
+    function VirtualKeyboard:addKeys(...)
+        finish_cursor_move(self._zen_cursor_key)
+        return original_add_keys(self, ...)
+    end
+
+    local original_close_widget = VirtualKeyboard.onCloseWidget
+    function VirtualKeyboard:onCloseWidget(...)
+        finish_cursor_move(self._zen_cursor_key)
+        return original_close_widget(self, ...)
     end
 
     local function key_at(keyboard, pos)
@@ -292,6 +386,7 @@ local function apply_responsive_keyboard()
     end
 
     function VirtualKey:onTapSelect(skip_flash, ges)
+        finish_cursor_move(cursor_key)
         Device:performHapticFeedback("KEYBOARD_TAP")
         self.keyboard.ignore_first_hold_release = false
         self.keyboard._zen_double_space = nil
@@ -347,6 +442,7 @@ local function apply_responsive_keyboard()
     end
 
     function VirtualKey:onHoldSelect(_arg, ges)
+        finish_cursor_move(cursor_key)
         Device:performHapticFeedback("LONG_PRESS")
         self.keyboard._zen_space_tap = nil
         self.keyboard._zen_double_space = nil
@@ -357,20 +453,20 @@ local function apply_responsive_keyboard()
             end
             self.keyboard.ignore_first_hold_release = false
             self.keyboard._zen_cursor_key = self
+            cursor_key = self
             self.ignore_key_release = true
             self._zen_cursor_x = ges.pos.x
             self._zen_cursor_remainder = 0
             self.ges_events.ZenCursorHoldPan = {
                 GestureRange:new{
                     ges = "hold_pan",
-                    range = function() return self.keyboard.dimen end,
+                    rate = Device:hasEinkScreen() and 10 or 30,
                 },
             }
             self.ges_events.ZenCursorRelease = {
-                GestureRange:new{
-                    ges = "hold_release",
-                    range = function() return self.keyboard.dimen end,
-                },
+                GestureRange:new{ ges = "hold_release" },
+                GestureRange:new{ ges = "two_finger_hold_release" },
+                GestureRange:new{ ges = "two_finger_hold_pan_release" },
             }
             logger.dbg("Zen keyboard cursor start", "x=", ges.pos.x)
             repaint(self, true)
@@ -387,30 +483,52 @@ local function apply_responsive_keyboard()
 
     function VirtualKey:onZenCursorHoldPan(_arg, ges)
         if not self._zen_cursor_x or not ges or not ges.pos then return false end
-        local step = math.max(1, math.floor(self.dimen.h * 0.25))
-        local delta = ges.pos.x - self._zen_cursor_x + self._zen_cursor_remainder
+        local step = math.max(1, math.floor(self.dimen.h * 0.15))
+        local delta = ges.pos.x - self._zen_cursor_x
+        if delta * self._zen_cursor_remainder < 0 then self._zen_cursor_remainder = 0 end
+        delta = delta + self._zen_cursor_remainder
         local chars = delta >= 0 and math.floor(delta / step) or math.ceil(delta / step)
         self._zen_cursor_x = ges.pos.x
         self._zen_cursor_remainder = delta - chars * step
-        if chars ~= 0 then
-            local inputbox = self.keyboard.inputbox
-            local target = math.max(1, math.min(#inputbox.charlist + 1, inputbox.charpos + chars))
-            if target ~= inputbox.charpos then
-                inputbox:moveCursorToCharPos(target)
-                logger.dbg("Zen keyboard cursor move", "chars=", chars, "position=", target)
+        if chars ~= 0 then move_cursor(self, chars) end
+
+        local bounds = self.keyboard.dimen
+        local edge = math.min(self.dimen.h, bounds.w * 0.2)
+        local direction
+        if ges.pos.y >= bounds.y and ges.pos.y < bounds.y + bounds.h then
+            if ges.pos.x <= bounds.x + edge then direction = -1
+            elseif ges.pos.x >= bounds.x + bounds.w - edge then direction = 1 end
+        end
+        if direction == self._zen_cursor_direction then return true end
+        stop_cursor_repeat(self)
+        self._zen_cursor_direction = direction
+        if direction then
+            local function repeat_cursor()
+                if self._zen_cursor_repeat ~= repeat_cursor then return end
+                if type(self.keyboard.isVisible) == "function" and not self.keyboard:isVisible() then
+                    finish_cursor_move(self)
+                    return
+                end
+                if move_cursor(self, direction) then
+                    UIManager:scheduleIn(0.1, repeat_cursor)
+                else
+                    stop_cursor_repeat(self)
+                end
             end
+            self._zen_cursor_repeat = repeat_cursor
+            UIManager:scheduleIn(0.3, repeat_cursor)
         end
         return true
     end
 
-    function VirtualKey:onZenCursorRelease()
-        return finish_cursor_move(self)
+    function VirtualKey:onZenCursorRelease(_arg, ges)
+        return finish_cursor_move(self, ges)
     end
 
     local original_hold_release = VirtualKey.onHoldReleaseKey
-    function VirtualKey:onHoldReleaseKey(...)
-        if finish_cursor_move(self.keyboard and self.keyboard._zen_cursor_key) then return true end
-        return original_hold_release(self, ...)
+    function VirtualKey:onHoldReleaseKey(arg, ges, ...)
+        if finish_cursor_move(self.keyboard and self.keyboard._zen_cursor_key, ges) then return true end
+        return original_hold_release(self, arg, ges, ...)
     end
 
     function VirtualKey:onSwipeKey(_arg, ges)

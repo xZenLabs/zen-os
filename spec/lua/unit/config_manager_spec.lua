@@ -71,10 +71,17 @@ describe("config manager folder-path migration", function()
         local config = Manager.load()
 
         assert.is_true(config.features.navbar)
+        assert.is_true(config.navbar.active_tab_underline)
+        assert.is_false(config.navbar.active_tab_filled)
+        assert.are.same({ 255, 255, 255 }, config.navbar.filled_outline_color)
+        assert.are.same({ 0x4F, 0x6F, 0x8F }, config.navbar.filled_background_color)
+        assert.are.equal(60, config.navbar.filled_background_opacity)
         assert.is_true(config.features.quick_settings)
         assert.is_true(config.features.app_launcher)
         assert.is_true(config.features.zen_mode)
         assert.is_true(config.features.status_bar)
+        assert.is_true(config.features.reader_status_bar_margins)
+        assert.are.same({ "bluetooth", "wifi", "battery" }, config.status_bar.right_order)
         assert.are.equal("90", config.quick_settings.rotate_action)
         assert.are.equal("", config.quick_settings.gyro_label)
         assert.are.equal("quick_rotate", config.quick_settings.gyro_icon)
@@ -93,6 +100,30 @@ describe("config manager folder-path migration", function()
         assert.is_false(config.metadata.epub_backup)
         assert.are.equal(1, google_key_ensures)
         assert.is_false(config._meta.quickstart_shown_for_version)
+    end)
+
+    it("preserves disabled reader margin alignment", function()
+        settings_file.data = { features = { reader_status_bar_margins = false } }
+        assert.is_false(Manager.load().features.reader_status_bar_margins)
+    end)
+
+    it("preserves existing default status layouts", function()
+        settings_file.data = {
+            status_bar = { left_order = { "time" }, center_order = {}, right_order = { "wifi", "battery" } },
+        }
+        local config = Manager.load()
+        assert.are.same({ "time" }, config.status_bar.left_order)
+        assert.are.same({}, config.status_bar.center_order)
+        assert.are.same({ "wifi", "battery" }, config.status_bar.right_order)
+    end)
+
+    it("preserves customized status layouts when applying new defaults", function()
+        settings_file.data = {
+            status_bar = { left_order = { "bluetooth", "time" }, center_order = {}, right_order = { "wifi", "battery" } },
+        }
+        local config = Manager.load()
+        assert.are.same({ "bluetooth", "time" }, config.status_bar.left_order)
+        assert.are.same({ "wifi", "battery" }, config.status_bar.right_order)
     end)
 
     it("defaults search matching for the interface script", function()
@@ -127,6 +158,77 @@ describe("config manager folder-path migration", function()
         assert.is_nil(saved)
         assert.are.equal("disk full", err)
         assert.is_nil(Manager.get())
+    end)
+
+    it("removes the legacy reader config after saving it to the dedicated file", function()
+        local flushes = 0
+        settings_file.file = "/tmp/zen-ui-spec/config.lua"
+        settings_file.backup = function() return false end
+        _G.G_reader_settings:saveSetting("zen_ui_config", {
+            navbar = { icon_size = 42 },
+        })
+        _G.G_reader_settings.flush = function()
+            assert.are.equal(42, settings_file.data.navbar.icon_size)
+            assert.is_string(written_settings)
+            flushes = flushes + 1
+        end
+
+        assert.are.equal(42, Manager.load().navbar.icon_size)
+
+        assert.is_nil(G_reader_settings:readSetting("zen_ui_config"))
+        assert.are.equal(1, flushes)
+    end)
+
+    it("cleans up a leftover legacy config without replacing the current config", function()
+        settings_file.data = { navbar = { icon_size = 38 } }
+        _G.G_reader_settings:saveSetting("zen_ui_config", {
+            navbar = { icon_size = 42 },
+        })
+        Manager.load()
+        _G.G_reader_settings:saveSetting("zen_ui_config", {
+            navbar = { icon_size = 42 },
+        })
+
+        assert.are.equal(38, Manager.load().navbar.icon_size)
+
+        assert.is_nil(G_reader_settings:readSetting("zen_ui_config"))
+    end)
+
+    it("keeps the legacy config when saving the dedicated file fails", function()
+        _G.G_reader_settings:saveSetting("zen_ui_config", {
+            navbar = { icon_size = 42 },
+        })
+        settings_file.flush = function() return false end
+
+        Manager.load()
+
+        assert.are.equal(42, G_reader_settings:readSetting("zen_ui_config").navbar.icon_size)
+    end)
+
+    it("keeps the legacy config when a verified migration write fails", function()
+        _G.G_reader_settings:saveSetting("zen_ui_config", {
+            navbar = { icon_size = 42 },
+        })
+        settings_file.file = "/tmp/zen-ui-spec/config.lua"
+        settings_file.backup = function() return false end
+        write_error = "disk full"
+
+        Manager.load()
+
+        assert.are.equal(42, G_reader_settings:readSetting("zen_ui_config").navbar.icon_size)
+    end)
+
+    it("keeps the legacy config when migration readback verification fails", function()
+        _G.G_reader_settings:saveSetting("zen_ui_config", {
+            navbar = { icon_size = 42 },
+        })
+        settings_file.file = "/tmp/zen-ui-spec/config.lua"
+        settings_file.backup = function() return false end
+        require("util").readFromFile = function() return "truncated" end
+
+        Manager.load()
+
+        assert.are.equal(42, G_reader_settings:readSetting("zen_ui_config").navbar.icon_size)
     end)
 
     it("accepts a verified settings write only after reading it back", function()

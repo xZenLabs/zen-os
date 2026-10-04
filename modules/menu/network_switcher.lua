@@ -2,8 +2,9 @@ local M = {}
 
 local VERIFY_ATTEMPTS = 60
 local VERIFY_DELAY_US = 250 * 1000
+local NETWORK_NAME_RETRIES = 8
 
-function M.toggleWifi(touch_menu, on_connected, settings_subpage, plugin)
+function M.toggleWifi(touch_menu, on_connected, settings_subpage, plugin, show_networks)
     local UIManager = require("ui/uimanager")
     local NetworkMgr = require("ui/network/manager")
     local KindleNetworkAdapter = require("modules/menu/network_adapters/kindle")
@@ -15,14 +16,35 @@ function M.toggleWifi(touch_menu, on_connected, settings_subpage, plugin)
     local Device = require("device")
     local kindle = KindleNetworkAdapter.isSupported(Device)
     local kobo = KoboNetworkAdapter.isSupported(Device)
+    show_networks = show_networks or function()
+        return M.open(on_connected, settings_subpage, plugin)
+    end
+    if not connected and (NetworkMgr.pending_connection or NetworkMgr.pending_connectivity_check) then
+        logger.dbg("Wi-Fi toggle cancelling pending connection", "wifi_on=", wifi_on)
+        if wifi_on then
+            NetworkMgr:toggleWifiOff(function() touch_menu:updateItems() end, true)
+            return
+        end
+        -- Background shutdowns can leave KOReader's connection checks pending.
+        NetworkMgr:disableWifi(nil, true)
+    end
+    if Device.isPocketBook and Device:isPocketBook() then
+        -- PocketBook reconnects using firmware-saved networks.
+        logger.dbg("PocketBook Wi-Fi power toggle", "wifi_on=", wifi_on)
+        local refresh = function() touch_menu:updateItems() end
+        if wifi_on then
+            return NetworkMgr:toggleWifiOff(refresh, true)
+        end
+        return NetworkMgr:toggleWifiOn(refresh, false, true)
+    end
     if not connected then
         local no_saved = not kindle and not kobo and not wifi_on
             and next(NetworkMgr:getAllSavedNetworks().data) == nil
         logger.dbg("Wi-Fi toggle", "wifi_on=", wifi_on, "connected=", connected,
             "kindle=", kindle, "settings=", settings_subpage == true,
-            "open_switcher=", kindle or no_saved)
-        if kindle or no_saved then
-            return M.open(on_connected, settings_subpage, plugin)
+            "open_switcher=", no_saved)
+        if no_saved then
+            return show_networks()
         end
     end
 
@@ -32,7 +54,13 @@ function M.toggleWifi(touch_menu, on_connected, settings_subpage, plugin)
     local shown_before = {}
     for widget in UIManager:topdown_widgets_iter() do shown_before[widget] = true end
 
-    NetworkMgr:getWifiMenuTable().callback(touch_menu)
+    if kobo and NetworkMgr._zen_nonblocking_wifi and wifi_on and not connected then
+        NetworkMgr:toggleWifiOff(function() touch_menu:updateItems() end, true)
+    elseif (kindle or kobo and NetworkMgr._zen_nonblocking_wifi) and not connected then
+        NetworkMgr:toggleWifiOn(function() touch_menu:updateItems() end, false, true, show_networks)
+    else
+        NetworkMgr:getWifiMenuTable().callback(touch_menu)
+    end
 
     local NetworkSetting = package.loaded["ui/widget/networksetting"]
     local network_dialog, failure_notice
@@ -60,7 +88,7 @@ function M.toggleWifi(touch_menu, on_connected, settings_subpage, plugin)
         logger.dbg("Kobo picker replaced", "pending_connection=",
             NetworkMgr.pending_connection == true)
     end
-    return M.open(on_connected, settings_subpage, plugin)
+    return show_networks()
 end
 
 local function is_secured(network)
@@ -68,7 +96,7 @@ local function is_secured(network)
     return flags:find("WPA", 1, true) ~= nil or flags:find("SAE", 1, true) ~= nil
 end
 
-local function verify_connection(NetworkMgr, ssid, old_ip, address_released, ffiutil, get_ip)
+local function verify_connection(NetworkMgr, ssid, old_ip, address_released, ffiutil, get_ip, reconnecting)
     local saw_released_address = old_ip == nil or address_released
     local last_ip
     local last_ssid
@@ -85,6 +113,8 @@ local function verify_connection(NetworkMgr, ssid, old_ip, address_released, ffi
                 return ip
             end
             local ok_route, has_route = pcall(NetworkMgr.hasDefaultRoute, NetworkMgr)
+            -- Reconnecting can keep the same DHCP lease or static IP.
+            if reconnecting and ok_ip and ip and ok_route and has_route then return ip end
             if saw_released_address and ok_route and has_route then return true end
         end
         ffiutil.usleep(VERIFY_DELAY_US)
@@ -155,7 +185,11 @@ function M.open(on_connected, settings_subpage, plugin)
     local render_networks
     local show_network_actions
     local start_scan
+    local refresh_networks
+    local toggle_wifi
     local scanning = false
+    local changing_power = false
+    local refresh_attempts = 0
     local settings_font_size = IconItem.getSettingsFontSize()
 
     local function status_items(text)
@@ -185,6 +219,10 @@ function M.open(on_connected, settings_subpage, plugin)
             file = utils.resolveLocalIcon(plugin_root and plugin_root .. "/icons/", "quick_sync"),
             callback = function() start_scan() end,
         },
+        toggle = {
+            value_func = function() return NetworkMgr:isWifiOn() end,
+            callback = function() toggle_wifi() end,
+        },
     }
     menu = Menu:new{
         name = "network_switcher",
@@ -199,6 +237,7 @@ function M.open(on_connected, settings_subpage, plugin)
         close_callback = function()
             title_bar:clearStatusRefresh()
             closed = true
+            UIManager:unschedule(refresh_networks)
             if adapter then adapter.close() end
         end,
     }
@@ -251,6 +290,11 @@ function M.open(on_connected, settings_subpage, plugin)
         return false, ok_turn_on and _("Could not turn on Wi-Fi.") or tostring(status)
     end
 
+    local function run_async(action, callback, queued_only)
+        if NetworkMgr.runWifiAsync then return NetworkMgr:runWifiAsync(action, callback, queued_only) end
+        return callback(action())
+    end
+
     local function disconnect_profile(network, preserve)
         if kobo_adapter then return kobo_adapter.disconnect(network, preserve) end
         return NetworkMgr:disconnectNetwork(network)
@@ -260,20 +304,29 @@ function M.open(on_connected, settings_subpage, plugin)
     local function forget_network(network)
         if kobo then
             local saved = NetworkMgr:getAllSavedNetworks():readSetting(network.ssid)
-            logger.dbg("Kobo forget requested", "ssid=", network.ssid,
-                "connected=", network.connected == true,
+            logger.dbg("Kobo forget requested", "connected=", network.connected == true,
                 "saved=", saved ~= nil,
                 "supplicant_id=", network.wpa_supplicant_id ~= nil)
         end
+        local kobo_removed
         if adapter then
             local deleted, delete_error = adapter.forgetNetwork(network)
             if not deleted then
-                logger.warn("could not forget Wi-Fi profile",
-                    "ssid=", network.ssid, "error=", delete_error)
+                logger.warn("could not forget Wi-Fi profile", "error_present=", delete_error ~= nil)
                 show_status(_("Could not forget the Wi-Fi network."))
                 return false
             end
-        elseif network.connected and not disconnect_network(network, true) then
+        elseif kobo then
+            local deleted, delete_error
+            deleted, delete_error, kobo_removed = kobo_adapter.forgetNetwork(network)
+            if not deleted then
+                logger.warn("could not forget Kobo Wi-Fi profile", "error_present=", delete_error ~= nil)
+                UIManager:show(InfoMessage:new{text = _("Could not forget the Wi-Fi network.")})
+                return false
+            end
+        end
+        if not adapter and network.connected
+                and not disconnect_network(network, true, kobo_removed) then
             return false
         end
         NetworkMgr:deleteNetwork(network)
@@ -288,9 +341,9 @@ function M.open(on_connected, settings_subpage, plugin)
             connected_network = nil
         end
         network.connected = false
-        logger.dbg("Wi-Fi network forgotten", "ssid=", network.ssid)
+        logger.dbg("Wi-Fi network forgotten")
         if kobo then
-            logger.dbg("Kobo forget result", "ssid=", network.ssid,
+            logger.dbg("Kobo forget result",
                 "saved=", NetworkMgr:getAllSavedNetworks():readSetting(network.ssid) ~= nil,
                 "connected=", NetworkMgr:isConnected() == true)
         end
@@ -304,54 +357,58 @@ function M.open(on_connected, settings_subpage, plugin)
         local ok_current, current = pcall(NetworkMgr.getCurrentNetwork, NetworkMgr)
         if ok_current and current and current.ssid == previous_network.ssid then return end
         restore_started = true
-        logger.dbg("restoring previous network", "ssid=", previous_network.ssid)
+        logger.dbg("restoring previous network")
         show_status(T(_("Restoring %1…"), previous_network.ssid))
         UIManager:broadcastEvent(Event:new("NetworkConnecting"))
-        local authenticated = NetworkMgr:authenticateNetwork(previous_network)
-        if authenticated then
-            NetworkMgr:obtainIP()
-            if type(NetworkMgr.scheduleConnectivityCheck) == "function" then
-                NetworkMgr:scheduleConnectivityCheck(function()
-                    show_status(T(_("Connected to %1."), previous_network.ssid))
-                end)
+        run_async(function()
+            local authenticated
+            if kobo_adapter then
+                authenticated = kobo_adapter.connect(previous_network)
+            else
+                authenticated = NetworkMgr:authenticateNetwork(previous_network)
             end
-        else
-            logger.warn("could not restore previous network", "ssid=", previous_network.ssid)
-        end
+            if authenticated then NetworkMgr:obtainIP() end
+            return authenticated
+        end, function(authenticated)
+            if authenticated then
+                if type(NetworkMgr.scheduleConnectivityCheck) == "function" then
+                    NetworkMgr:scheduleConnectivityCheck(function()
+                        show_status(T(_("Connected to %1."), previous_network.ssid))
+                    end)
+                end
+            else
+                logger.warn("could not restore previous network")
+            end
+        end)
     end
 
     local prompt_password
-    local function connect(network, use_password)
-        show_status(_("Connecting to ") .. network.ssid .. "…")
-        logger.dbg("connection attempt", "ssid=", network.ssid,
-            "saved_credentials=", network.password ~= nil)
-        if kobo then
-            local saved = NetworkMgr:getAllSavedNetworks():readSetting(network.ssid)
-            logger.dbg("Kobo credentials before auth", "ssid=", network.ssid,
-                "row_psk=", network.psk ~= nil,
-                "stored_password=", saved ~= nil and saved.password ~= nil,
-                "stored_psk=", saved ~= nil and saved.psk ~= nil)
+    local function perform_connection(network, use_password, switching)
+        if adapter and use_password then
+            local replaced = adapter.replaceNetwork(network)
+            if not replaced then
+                logger.warn("could not replace Wi-Fi profile")
+                return { profile_error = true }
+            end
         end
         local powered_on, power_error = turn_on_wifi()
         if not powered_on then
-            logger.warn("could not turn on Wi-Fi for connection", power_error)
-            show_status(power_error)
-            return false
+            logger.warn("could not turn on Wi-Fi for connection")
+            return { power_error = power_error }
         end
+        local ok_active, active = pcall(NetworkMgr.getCurrentNetwork, NetworkMgr)
+        local reconnecting = ok_active and active and active.ssid == network.ssid
         local old_ip = previous_ip or get_ip()
         local address_released = get_ip() == nil
 
-        if not adapter and connected_network
-                and connected_network.ssid ~= network.ssid then
-            UIManager:broadcastEvent(Event:new("NetworkDisconnecting"))
+        if switching then
             disconnect_profile(connected_network, true)
             NetworkMgr:releaseIP()
             NetworkMgr.lease_ssid = nil
             address_released = get_ip() == nil
-            UIManager:broadcastEvent(Event:new("NetworkDisconnected"))
+            reconnecting = false
         end
 
-        UIManager:broadcastEvent(Event:new("NetworkConnecting"))
         local authenticated, auth_error
         if adapter then
             authenticated, auth_error = adapter.connect(network)
@@ -360,20 +417,47 @@ function M.open(on_connected, settings_subpage, plugin)
         else
             authenticated, auth_error = NetworkMgr:authenticateNetwork(network)
         end
-        logger.dbg("authentication request completed", "ssid=", network.ssid,
-            "accepted=", authenticated == true, "error=", auth_error)
+        logger.dbg("authentication request completed", "accepted=", authenticated == true,
+            "error_present=", authenticated ~= true and auth_error ~= nil)
         if authenticated then NetworkMgr:obtainIP() end
         local connection, failure, actual_ssid, actual_ip
         if authenticated then
             connection, failure, actual_ssid, actual_ip = verify_connection(
-                NetworkMgr, network.ssid, old_ip, address_released, ffiutil, get_ip
+                NetworkMgr, network.ssid, old_ip, address_released, ffiutil, get_ip, reconnecting
             )
         else
             failure = "authentication"
         end
+        return {
+            connection = connection, failure = failure, auth_error = auth_error,
+            actual_ssid = actual_ssid, actual_ip = actual_ip,
+            psk = network.psk, wpa_supplicant_id = network.wpa_supplicant_id,
+        }
+    end
+
+    local function complete_connection(network, switching, result, worker_error)
+        if not result or result.power_error then
+            local reason = worker_error or result and result.power_error or _("Connection failed")
+            show_status(reason)
+            return false, reason
+        end
+        if result.profile_error then
+            local reason = _("Could not replace the saved Wi-Fi password.")
+            if not closed then prompt_password(network, reason) end
+            return false, reason
+        end
+        if switching then
+            UIManager:broadcastEvent(Event:new("NetworkDisconnected"))
+            UIManager:broadcastEvent(Event:new("NetworkConnecting"))
+        end
+        network.psk = result.psk or network.psk
+        network.wpa_supplicant_id = result.wpa_supplicant_id or network.wpa_supplicant_id
+        local connection, failure, actual_ssid, actual_ip = result.connection, result.failure,
+            result.actual_ssid, result.actual_ip
 
         if not connection then
-            local reason = auth_error
+            if closed then return false end
+            local reason = failure == "authentication" and result.auth_error
             if type(reason) ~= "string" or reason == "" then
                 if failure == "no_address" then
                     reason = T(_("Connected to %1, but no IP address or default route was assigned."),
@@ -385,15 +469,16 @@ function M.open(on_connected, settings_subpage, plugin)
                     reason = _("Authentication failed. The password may be incorrect.")
                 end
             end
-            logger.warn("connection failed", "ssid=", network.ssid, "reason=", reason,
-                "actual_ssid=", actual_ssid, "actual_ip=", actual_ip)
-            if is_secured(network) and failure ~= "no_address" then
+            logger.warn("connection failed", "reason=", failure,
+                "target_matched=", actual_ssid == network.ssid, "ip_assigned=", actual_ip ~= nil)
+            if is_secured(network) and failure ~= "no_address"
+                    and (not kobo or result.auth_error == _("Failed to authenticate")) then
                 prompt_password(network, reason)
             else
                 restore_previous_network()
                 show_status(reason)
             end
-            return false
+            return false, reason
         end
 
         NetworkMgr.lease_ssid = network.ssid
@@ -401,11 +486,10 @@ function M.open(on_connected, settings_subpage, plugin)
         NetworkMgr.wifi_was_on = true
         G_reader_settings:saveSetting("wifi_was_on", true)
         UIManager:broadcastEvent(Event:new("NetworkConnected"))
-        logger.dbg("connection verified", "ssid=", network.ssid,
-            "ip=", type(connection) == "string" and connection or nil)
+        logger.dbg("connection verified", "ip_assigned=", type(connection) == "string")
         if kobo then
             local saved = NetworkMgr:getAllSavedNetworks():readSetting(network.ssid)
-            logger.dbg("Kobo connection result", "ssid=", network.ssid,
+            logger.dbg("Kobo connection result",
                 "saved=", saved ~= nil, "saved_password=", saved ~= nil and saved.password ~= nil,
                 "saved_psk=", saved ~= nil and saved.psk ~= nil,
                 "wifi_was_on=", G_reader_settings:isTrue("wifi_was_on"))
@@ -413,15 +497,13 @@ function M.open(on_connected, settings_subpage, plugin)
                 UIManager:scheduleIn(3, function()
                     local ok_current, current = pcall(NetworkMgr.getCurrentNetwork, NetworkMgr)
                     local ok_route, route = pcall(NetworkMgr.hasDefaultRoute, NetworkMgr)
-                    local ok_online, online = pcall(NetworkMgr.isOnline, NetworkMgr)
-                    logger.dbg("Kobo connection follow-up", "ssid=", network.ssid,
+                    logger.dbg("Kobo connection follow-up",
                         "wifi_on=", NetworkMgr:isWifiOn() == true,
                         "connected=", NetworkMgr:isConnected() == true,
-                        "current_ssid=", ok_current and current and current.ssid or "none",
-                        "ip=", get_ip() or "none",
+                        "target_matched=", ok_current and current ~= nil and current.ssid == network.ssid,
+                        "ip_assigned=", get_ip() ~= nil,
                         "route_check_ok=", ok_route, "default_route=", route == true,
-                        "dns_check_ok=", ok_online, "dns_resolves=", online == true,
-                        "lease_ssid=", NetworkMgr.lease_ssid or "none")
+                        "lease_matched=", NetworkMgr.lease_ssid == network.ssid)
                 end)
             end
         end
@@ -439,9 +521,41 @@ function M.open(on_connected, settings_subpage, plugin)
         return true
     end
 
+    local function connect(network, use_password)
+        show_status(_("Connecting to ") .. network.ssid .. "…")
+        logger.dbg("connection attempt", "saved_credentials=", network.password ~= nil)
+        if kobo then
+            local saved = NetworkMgr:getAllSavedNetworks():readSetting(network.ssid)
+            logger.dbg("Kobo credentials before auth",
+                "row_psk=", network.psk ~= nil,
+                "stored_password=", saved ~= nil and saved.password ~= nil,
+                "stored_psk=", saved ~= nil and saved.psk ~= nil)
+        end
+        if not NetworkMgr:isWifiOn() and NetworkMgr.showWifiStarting then NetworkMgr:showWifiStarting() end
+        local switching = not adapter and connected_network
+            and connected_network.ssid ~= network.ssid
+        if switching then
+            UIManager:broadcastEvent(Event:new("NetworkDisconnecting"))
+            NetworkMgr.lease_ssid = nil
+        else
+            UIManager:broadcastEvent(Event:new("NetworkConnecting"))
+        end
+        return run_async(function()
+            return perform_connection(network, use_password, switching)
+        end, function(result, worker_error)
+            local connected, reason = complete_connection(network, switching, result, worker_error)
+            if connected and NetworkMgr.showWifiConnected then
+                NetworkMgr:showWifiConnected(network.ssid)
+            elseif NetworkMgr.showWifiNotice then
+                NetworkMgr:showWifiNotice(connected and T(_("Connected to %1."):gsub("%.$", ""):gsub("。$", ""), network.ssid)
+                    or reason or _("Error connecting to the network"), reason and 8 or 2)
+            end
+            return connected
+        end)
+    end
+
     prompt_password = function(network, reason)
-        logger.dbg("password requested", "ssid=", network.ssid,
-            "retry=", reason ~= nil)
+        logger.dbg("password requested", "retry=", reason ~= nil)
         local dialog
         local buttons = {
             {
@@ -453,7 +567,7 @@ function M.open(on_connected, settings_subpage, plugin)
                 end,
             },
         }
-        if network.password ~= nil then
+        if network.password ~= nil or network.kobo_configured then
             buttons[#buttons + 1] = {
                 text = _("Forget"),
                 callback = function()
@@ -473,20 +587,10 @@ function M.open(on_connected, settings_subpage, plugin)
                 end
                 network.password = password
                 network.psk = nil
-                if adapter then
-                    local replaced, replace_error = adapter.replaceNetwork(network)
-                    if not replaced then
-                        logger.warn("could not replace Wi-Fi profile",
-                            "ssid=", network.ssid, "error=", replace_error)
-                        UIManager:show(InfoMessage:new{
-                            text = _("Could not replace the saved Wi-Fi password."),
-                        })
-                        return
-                    end
-                else
+                if not adapter then
                     NetworkMgr:saveNetwork(network)
                     if kobo then
-                        logger.dbg("Kobo credentials saved", "ssid=", network.ssid,
+                        logger.dbg("Kobo credentials saved",
                             "stored=", NetworkMgr:getAllSavedNetworks():readSetting(network.ssid) ~= nil)
                     end
                 end
@@ -540,11 +644,13 @@ function M.open(on_connected, settings_subpage, plugin)
         UIManager:show(InfoMessage:new{text = table.concat(lines, "\n")})
     end
 
-    disconnect_network = function(network, quiet)
+    disconnect_network = function(network, quiet, profile_removed)
         UIManager:broadcastEvent(Event:new("NetworkDisconnecting"))
         local ok_disconnect, status, disconnect_error
         if adapter then
             ok_disconnect, status = adapter.disconnect(network)
+        elseif profile_removed then
+            ok_disconnect, status = true, true
         else
             ok_disconnect, status, disconnect_error = pcall(
                 disconnect_profile, network, not quiet)
@@ -552,8 +658,8 @@ function M.open(on_connected, settings_subpage, plugin)
         if not ok_disconnect or status == false or disconnect_error then
             local reason = disconnect_error or (ok_disconnect and _("Could not disconnect from the Wi-Fi network."))
                 or tostring(status)
-            logger.warn("could not disconnect Wi-Fi", "ssid=", network.ssid,
-                "error=", reason)
+            logger.warn("could not disconnect Wi-Fi", "request_completed=", ok_disconnect,
+                "accepted=", status == true, "error_present=", disconnect_error ~= nil)
             UIManager:show(InfoMessage:new{text = reason})
             return false
         end
@@ -566,10 +672,10 @@ function M.open(on_connected, settings_subpage, plugin)
         restore_started = true
         if type(NetworkMgr.queryNetworkState) == "function" then NetworkMgr:queryNetworkState() end
         UIManager:broadcastEvent(Event:new("NetworkDisconnected"))
-        logger.dbg("Wi-Fi disconnected", "ssid=", network.ssid)
+        logger.dbg("Wi-Fi disconnected")
         if kobo then
             local saved = NetworkMgr:getAllSavedNetworks():readSetting(network.ssid)
-            logger.dbg("Kobo disconnect result", "ssid=", network.ssid,
+            logger.dbg("Kobo disconnect result",
                 "row_password=", network.password ~= nil,
                 "saved_password=", saved ~= nil and saved.password ~= nil)
         end
@@ -606,7 +712,7 @@ function M.open(on_connected, settings_subpage, plugin)
                 disconnect_network(network)
             end)
         end
-        if network.password ~= nil or network.saved then
+        if network.password ~= nil or network.saved or network.kobo_configured then
             add(icons.delete .. "  " .. _("Forget"), function()
                 UIManager:show(ConfirmBox:new{
                     text = T(_("Forget Wi-Fi network %1?"), network.ssid),
@@ -702,7 +808,7 @@ function M.open(on_connected, settings_subpage, plugin)
     end
 
     local function scan_networks()
-        if closed then return end
+        if closed or not scanning then return end
         show_status(_("Searching for networks…"))
 
         if adapter and not previous_network then
@@ -710,29 +816,34 @@ function M.open(on_connected, settings_subpage, plugin)
             if ok_current and current and current.ssid and current.ssid ~= "" then
                 previous_network = current
                 previous_ip = get_ip()
-                logger.dbg("remembering current Wi-Fi", "ssid=", current.ssid,
-                    "ip=", previous_ip)
+                logger.dbg("remembering current Wi-Fi", "ip_assigned=", previous_ip ~= nil)
             end
         end
 
         logger.dbg("scan started", "adapter=", adapter and adapter.id)
-        local function load_results(scanned, scan_error)
-            if closed then return end
+        local function load_results(scanned, result, worker_error)
+            if closed or not scanning then return end
             scanning = false
             if scanned == false then
-                logger.warn("adapter scan failed", scan_error)
+                logger.warn("adapter scan failed")
                 show_status(_("Scanning for Wi-Fi networks timed out."))
                 return
             end
-            local scanned_networks
+            local scanned_networks, scan_error
             if adapter then
                 scanned_networks, scan_error = adapter.getNetworkList()
+            elseif result then
+                scanned_networks, scan_error = result.networks, result.error
+            elseif worker_error then
+                scan_error = worker_error
+            elseif kobo_adapter then
+                scanned_networks, scan_error = kobo_adapter.getNetworkList()
             else
                 scanned_networks, scan_error = NetworkMgr:getNetworkList()
             end
             if closed then return end
             if not scanned_networks then
-                logger.warn("scan failed", scan_error)
+                logger.warn("scan failed")
                 restore_previous_network()
                 show_status(scan_error or _("Could not scan Wi-Fi networks."))
                 return
@@ -742,14 +853,26 @@ function M.open(on_connected, settings_subpage, plugin)
                 return (tonumber(left.signal_quality) or 0) > (tonumber(right.signal_quality) or 0)
             end)
             logger.dbg("scan complete", "networks=", #network_list)
-            if kobo_adapter then kobo_adapter.annotateScan(network_list) end
+            if kobo_adapter then network_list = kobo_adapter.annotateScan(network_list) end
             render_networks()
         end
-        if adapter then adapter.scan(load_results) else load_results(true) end
+        if adapter then
+            adapter.scan(load_results)
+        elseif kobo_adapter and NetworkMgr.runWifiAsync then
+            run_async(function()
+                local networks, err = kobo_adapter.getNetworkList()
+                return { networks = networks, error = err }
+            end, function(result, err)
+                load_results(true, result, err or not result and _("Scanning for Wi-Fi networks timed out."))
+            end, true)
+        else
+            load_results(true)
+        end
     end
 
     start_scan = function()
-        if closed or scanning then return end
+        if closed or scanning or changing_power then return end
+        UIManager:unschedule(refresh_networks)
         scanning = true
         if NetworkMgr:isWifiOn() then
             scan_networks()
@@ -757,21 +880,72 @@ function M.open(on_connected, settings_subpage, plugin)
         end
 
         show_status(_("Turning on Wi-Fi…"))
+        if NetworkMgr.showWifiStarting then NetworkMgr:showWifiStarting() end
         logger.dbg("turning on Wi-Fi for scan")
-        local powered_on, reason = turn_on_wifi()
-        if not powered_on then
-            scanning = false
-            logger.warn("could not turn on Wi-Fi for scan", reason)
-            show_status(reason)
-            return
-        end
-        UIManager:nextTick(scan_networks)
+        run_async(function()
+            local powered_on, reason = turn_on_wifi()
+            return { powered_on = powered_on, reason = reason }
+        end, function(result, worker_error)
+            if closed or not scanning then return end
+            if not result or not result.powered_on then
+                scanning = false
+                local reason = worker_error or result and result.reason or _("Could not turn on Wi-Fi.")
+                logger.warn("could not turn on Wi-Fi for scan")
+                show_status(reason)
+                if NetworkMgr.showWifiNotice then NetworkMgr:showWifiNotice(_("Error connecting to the network")) end
+                return
+            end
+            UIManager:nextTick(scan_networks)
+        end)
     end
 
-    UIManager:show(menu)
-    UIManager:forceRePaint()
-    UIManager:tickAfterNext(function()
-        if closed then return end
+    toggle_wifi = function()
+        if closed or changing_power then return end
+        UIManager:unschedule(refresh_networks)
+        scanning = false
+        refresh_attempts = 0
+        if not NetworkMgr:isWifiOn() then
+            changing_power = true
+            show_status(_("Turning on Wi-Fi…"))
+            local refreshed = false
+            local function refresh()
+                refreshed = true
+                changing_power = false
+                if closed then return end
+                refresh_networks()
+                if on_connected then on_connected() end
+            end
+            M.toggleWifi({ updateItems = refresh }, on_connected, settings_subpage, plugin, refresh)
+            changing_power = false
+            if not refreshed and not NetworkMgr.pending_connection then
+                if NetworkMgr:isWifiOn() then refresh() else show_status(_("Off")) end
+            end
+            return
+        end
+        changing_power = true
+        if adapter then
+            adapter.close()
+            adapter = KindleNetworkAdapter.new(NetworkMgr)
+        end
+        NetworkMgr:toggleWifiOff(function()
+            changing_power = false
+            if closed then return end
+            if NetworkMgr:isWifiOn() then
+                render_networks()
+            else
+                network_list = {}
+                previous_network, previous_ip, connected_network = nil, nil, nil
+                restore_started = true
+                show_status(_("Off"))
+            end
+            if menu._zen_status_refresh then menu:_zen_status_refresh() end
+            if on_connected then on_connected() end
+        end, true)
+    end
+
+    refresh_networks = function(external_change)
+        if closed or scanning or changing_power then return end
+        UIManager:unschedule(refresh_networks)
         if NetworkMgr:isWifiOn() then
             local has_connection_check = type(NetworkMgr.isConnected) == "function"
             local connected = has_connection_check and NetworkMgr:isConnected()
@@ -780,14 +954,27 @@ function M.open(on_connected, settings_subpage, plugin)
                 and current.ssid ~= ""
             if connected or (not has_connection_check and has_ssid) then
                 if has_ssid then
+                    refresh_attempts = 0
                     if adapter then
                         previous_network = current
                         previous_ip = get_ip()
                     end
+                    if external_change then
+                        restore_started = false
+                        local found = false
+                        for _i, network in ipairs(network_list) do
+                            network.connected = network.ssid == current.ssid
+                            found = found or network.connected
+                        end
+                        if found then
+                            render_networks(current.ssid)
+                            return
+                        end
+                    end
                     local saved = adapter and adapter.getSavedNetwork(current.ssid)
                         or NetworkMgr:getAllSavedNetworks():readSetting(current.ssid)
                     if kobo then
-                        logger.dbg("Kobo active network", "ssid=", current.ssid,
+                        logger.dbg("Kobo active network",
                             "saved=", saved ~= nil, "saved_password=", saved ~= nil and saved.password ~= nil,
                             "supplicant_id=", (current.wpa_supplicant_id or current.id) ~= nil)
                     end
@@ -803,13 +990,49 @@ function M.open(on_connected, settings_subpage, plugin)
                     }}
                     render_networks()
                 else
-                    show_status(_("Connected"))
+                    if refresh_attempts == 0 then show_status(_("Connected")) end
+                    -- Kindle can report an address before wifid publishes the SSID.
+                    if adapter and refresh_attempts < NETWORK_NAME_RETRIES then
+                        refresh_attempts = refresh_attempts + 1
+                        UIManager:scheduleIn(5 / NETWORK_NAME_RETRIES, refresh_networks)
+                    end
                 end
                 return
             end
         end
+        if external_change then
+            previous_network, previous_ip, connected_network = nil, nil, nil
+            restore_started = true
+            if not NetworkMgr:isWifiOn() then
+                network_list = {}
+                show_status(_("Off"))
+            elseif #network_list > 0 then
+                for _i, network in ipairs(network_list) do network.connected = false end
+                render_networks()
+            else
+                menu:updateItems()
+            end
+            return
+        end
         start_scan()
-    end)
+    end
+    menu.onNetworkConnected = function()
+        if closed then return end
+        for widget in UIManager:topdown_widgets_iter() do
+            if not widget.toast and not widget.invisible then
+                if widget == menu then
+                    UIManager:setDirty(menu, "ui", menu.dimen)
+                    refresh_networks(true)
+                end
+                return
+            end
+        end
+    end
+    menu.onNetworkDisconnected = menu.onNetworkConnected
+    menu.onNetworkStateChanged = menu.onNetworkConnected
+    UIManager:show(menu)
+    UIManager:forceRePaint()
+    UIManager:tickAfterNext(refresh_networks)
     return true
 end
 

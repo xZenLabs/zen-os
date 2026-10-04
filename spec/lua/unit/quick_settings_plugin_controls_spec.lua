@@ -468,6 +468,27 @@ describe("quick settings plugin controls", function()
         assert.is_false(slider_options.show_warmth)
     end)
 
+    it("renders pending Wi-Fi gray even when the radio is still connected", function()
+        local Blitbuffer = require("ffi/blitbuffer")
+        Blitbuffer.COLOR_GRAY, Blitbuffer.COLOR_BLACK = "gray", "black"
+        NetworkMgr.isWifiChanging = function() return true end
+        local config = _G.__ZEN_UI_PLUGIN.config.quick_settings
+        config.button_order = { "wifi" }
+        config.show_buttons.wifi = true
+        local menu, touch_menu = {}, { item_width = 600 }
+        FileManagerMenu.setUpdateItemTable(menu)
+        menu.tab_item_table[1].panel(touch_menu)
+        assert.are.equal("gray", touch_menu._zen_panel_refs.buttons[1].widget.background)
+
+        NetworkMgr.isWifiChanging = function() return false end
+        menu.tab_item_table[1].panel(touch_menu)
+        assert.are.equal("black", touch_menu._zen_panel_refs.buttons[1].widget.background)
+
+        NetworkMgr.connected = false
+        menu.tab_item_table[1].panel(touch_menu)
+        assert.are.equal("gray", touch_menu._zen_panel_refs.buttons[1].widget.background)
+    end)
+
     it("uses configured labels and icons", function()
         local config = _G.__ZEN_UI_PLUGIN.config.quick_settings
         config.gyro_label = "Turn with device"
@@ -554,16 +575,32 @@ describe("quick settings plugin controls", function()
         assert.are.same({ { airplanemode_toggle = true } }, dispatched_actions)
     end)
 
-    it("opens Zen Settings from its control", function()
+    it("closes Controls and opens Zen Settings in the same UI tick", function()
         local closes = 0
+        local callbacks = {}
+        local UIManager = require("ui/uimanager")
+        UIManager.nextTick = function(_self, callback)
+            callbacks[#callbacks + 1] = callback
+        end
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("zen_settings", {
-            closeMenu = function() closes = closes + 1 end,
+            closeMenu = function()
+                closes = closes + 1
+                UIManager:nextTick(function()
+                    assert.are.equal(1, settings_shows)
+                end)
+            end,
             updateItems = function() end,
             item_table = { panel = true },
         }))
 
+        assert.are.equal(0, closes)
+        assert.are.equal(0, settings_shows)
+        assert.are.equal(1, #callbacks)
+        callbacks[1]()
         assert.are.equal(1, closes)
         assert.are.equal(1, settings_shows)
+        assert.are.equal(2, #callbacks)
+        callbacks[2]()
     end)
 
     it("keeps the Zen Settings control inert when Lockdown disables settings", function()

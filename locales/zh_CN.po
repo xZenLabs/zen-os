@@ -336,6 +336,11 @@ msgstr "活动标签颜色"
 msgid "Active tab color: "
 msgstr "活动标签颜色: "
 
+#. Type: setting
+#: navbar_settings.lua:1669
+msgid "Active tab outline color"
+msgstr "活动标签轮廓颜色"
+
 #. Type: title
 #. Context: end, dialog_title = _("Active tab RGB"), presets = {
 #: navbar_settings.lua:1650
@@ -413,6 +418,12 @@ msgstr "添加到合集"
 #: dict_quick_lookup.lua:74
 msgid "Add to vocabulary builder"
 msgstr "添加到生词本"
+
+#. Type: setting
+#. Context: table.insert(items, { text = _("Align status bars with book margins"), checked_func = function()
+#: reader_settings.lua:1523
+msgid "Align status bars with book margins"
+msgstr "将状态栏与书籍页边距对齐"
 
 #. Type: label
 #. Context: .. (already_in and " \u{2713}" or ""), mandatory = already_in and _("added") or nil, dim = already_in,
@@ -1620,6 +1631,12 @@ msgstr "当前书籍"
 msgid "Current capacity"
 msgstr "当前容量"
 
+#. Type: setting
+#. Context: row(_("Battery health"), stats.health and string.format("%.0f%%", stats.health) or missing), row(_("Current charge"), stats.level and stats.level .. "%" or missing), row(_("Current capacity"), stats.current_mah and string.format("%.0f mA...
+#: battery_stats_menu.lua:24
+msgid "Current charge"
+msgstr "当前电量"
+
 #. Type: title
 #. Context: local filemanagerutil = require("apps/filemanager/filemanagerutil") local title_header = _("Current home folder:") local current_path = paths.getHomeDir()
 #: library_settings.lua:1423
@@ -2323,10 +2340,16 @@ msgid "Enter your GitHub username to be tagged in the issue"
 msgstr "输入您的 GitHub 用户名以在 issue 中被提及"
 
 #. Type: setting
-#. Context: }, { text = _("Estimated time remaining"), mandatory = duration(stats.remaining), keep_menu_open = true }, { text = _("Time since last charge"),
-#: battery_stats_menu.lua:71
-msgid "Estimated time remaining"
-msgstr "预计剩余续航时间"
+#. Context: }, { text = _("Estimated battery life"), mandatory = duration(stats.remaining), keep_menu_open = true }, { text = _("Settings"), sub_item_table = settings_items },
+#: battery_stats_menu.lua:83
+msgid "Estimated battery life"
+msgstr "预计电池续航时间"
+
+#. Type: setting
+#. Context: if stats.charging then table.insert(charging_items, 1, row(_("Estimated time to complete charge"), duration(stats.time_to_full))) end
+#: battery_stats_menu.lua:44
+msgid "Estimated time to complete charge"
+msgstr "预计充满所需时间"
 
 #. Type: label
 #. Context: parts[#parts + 1] = provider_label(work._provider) if work.exact_edition then parts[#parts + 1] = _("Exact ISBN match") end parts[#parts + 1] = table.concat(
@@ -2459,6 +2482,16 @@ msgstr "Filebrowser 插件未安装。"
 #: metadata_editor.lua:514 metadata_editor.lua:962 context_menu.lua:2616 group_view.lua:863
 msgid "Filename"
 msgstr "文件名"
+
+#. Type: setting
+#: navbar_settings.lua:1658
+msgid "Fill color"
+msgstr "填充颜色"
+
+#. Type: setting
+#: navbar_settings.lua:1648
+msgid "Filled"
+msgstr "填充"
 
 #. Type: label
 #. Context: table.insert(buttons, {{ text = icons.filter .. " " .. _("Filter") .. (n_gf > 0 and " (" .. n_gf .. ")" or "")
@@ -4231,6 +4264,11 @@ msgid "Outline"
 msgstr "大纲"
 
 #. Type: setting
+#: navbar_settings.lua:1657
+msgid "Outline color"
+msgstr "轮廓颜色"
+
+#. Type: setting
 #. Context: { text = _("Outlined boxes"), radio = true,
 #: home_settings.lua:2314
 msgid "Outlined boxes"
@@ -4457,6 +4495,18 @@ msgstr "预设"
 #: quickstart_screen.lua:464 navbar.lua:335
 msgid "Prev"
 msgstr "上一个"
+
+#. Type: setting
+#. Context: local charging_items = { row(_("Previous charge, per hour"), rate(stats.charge_rate)), row(_("Previous charge, total"), stats.charge_gain and stats.charge_gain .. "%" or missing),
+#: battery_stats_menu.lua:37
+msgid "Previous charge, per hour"
+msgstr "上次充电，每小时"
+
+#. Type: setting
+#. Context: row(_("Previous charge, per hour"), rate(stats.charge_rate)), row(_("Previous charge, total"), stats.charge_gain and stats.charge_gain .. "%" or missing), row(_("Total time to full charge"), duration(stats.full_charge_time)),
+#: battery_stats_menu.lua:38
+msgid "Previous charge, total"
+msgstr "上次充电，总计"
 
 #. Type: setting
 #. Context: { id = "exit", text = _("Exit") }, { id = "page_left", text = _("Previous page") }, { id = "page_right", text = _("Next page") },
@@ -6097,6 +6147,12 @@ msgid "Time since last charge"
 msgstr "距上次充电时间"
 
 #. Type: setting
+#. Context: row(_("Time since last charge"), stats.charging and _("Charging") or duration(stats.since_charge)), row(_("Time since last full charge"), duration(stats.since_full_charge)), }
+#: battery_stats_menu.lua:41
+msgid "Time since last full charge"
+msgstr "距上次充满的时间"
+
+#. Type: setting
 #. Context: { id = "week_pages", text = _("Pages this week") }, { id = "week_duration", text = _("Time this week") }, }
 #: stats_triplet.lua:55 home_settings.lua:2214
 msgid "Time this week"
@@ -6227,6 +6283,12 @@ msgstr "总页数"
 #: stats_page.lua:920 stats_page.lua:929 stats_page.lua:936 stats_page.lua:962
 msgid "Total time"
 msgstr "总时间"
+
+#. Type: setting
+#. Context: row(_("Previous charge, total"), stats.charge_gain and stats.charge_gain .. "%" or missing), row(_("Total time to full charge"), duration(stats.full_charge_time)), row(_("Time since last charge"), stats.charging and _("Charging") or dura...
+#: battery_stats_menu.lua:39
+msgid "Total time to full charge"
+msgstr "充满所用总时间"
 
 #. Type: setting
 #. Context: local settings_items = { row(_("Tracked samples"), tostring(stats.samples)), {

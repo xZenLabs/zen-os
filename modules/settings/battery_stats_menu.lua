@@ -20,11 +20,11 @@ function M.buildItems()
         return { text = label .. ": " .. value, keep_menu_open = true }
     end
     local health_items = {
-        row(_("Battery percentage"), stats.level and stats.level .. "%" or missing),
+        row(_("Battery health"), stats.health and string.format("%.0f%%", stats.health) or missing),
+        row(_("Current charge"), stats.level and stats.level .. "%" or missing),
         row(_("Current capacity"), stats.current_mah and string.format("%.0f mAh", stats.current_mah) or missing),
         row(_("Full capacity"), stats.full_mah and string.format("%.0f mAh", stats.full_mah) or missing),
         row(_("Design capacity"), stats.design_mah and string.format("%.0f mAh", stats.design_mah) or missing),
-        row(_("Battery health"), stats.health and string.format("%.0f%%", stats.health) or missing),
     }
     local usage_items = {
         row(_("Used per hour"), rate(stats.overall)),
@@ -33,6 +33,16 @@ function M.buildItems()
         row(_("Screen on time"), duration(stats.awake_time)),
         row(_("Screen off time"), duration(stats.asleep_time)),
     }
+    local charging_items = {
+        row(_("Previous charge, per hour"), rate(stats.charge_rate)),
+        row(_("Previous charge, total"), stats.charge_gain and stats.charge_gain .. "%" or missing),
+        row(_("Total time to full charge"), duration(stats.full_charge_time)),
+        row(_("Time since last charge"), stats.charging and _("Charging") or duration(stats.since_charge)),
+        row(_("Time since last full charge"), duration(stats.since_full_charge)),
+    }
+    if stats.charging then
+        table.insert(charging_items, 1, row(_("Estimated time to complete charge"), duration(stats.time_to_full)))
+    end
     local items
     local settings_items = {
         row(_("Tracked samples"), tostring(stats.samples)),
@@ -68,10 +78,12 @@ function M.buildItems()
             mandatory = rate(stats.overall),
             sub_item_table = usage_items,
         },
-        { text = _("Estimated time remaining"), mandatory = duration(stats.remaining), keep_menu_open = true },
-        { text = _("Time since last charge"),
-            mandatory = stats.charging and _("Charging") or duration(stats.since_charge),
-            keep_menu_open = true },
+        {
+            text = _("Charging"),
+            mandatory = stats.charging and duration(stats.time_to_full) or nil,
+            sub_item_table = charging_items,
+        },
+        { text = _("Estimated battery life"), mandatory = duration(stats.remaining), keep_menu_open = true },
         { text = _("Settings"), sub_item_table = settings_items },
     }
     return items

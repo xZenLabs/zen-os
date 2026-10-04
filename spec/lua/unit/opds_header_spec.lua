@@ -1,6 +1,9 @@
 describe("OPDS header", function()
     local Browser, closed, existing_files, inventory_paths, menu_opened, returned, saved, searched
-    local scheduled, subprocess_runs, trapper_wraps
+    local scheduled, subprocess_runs, trapper_wraps, unscheduled
+    local process_done, spawn_failed, pipe_size, pipe_bytes, pipe_reads, fd_closes, terminated, standby
+    local native_ffi, native_util
+    local NetworkMgr, catalog_requests, next_pages, connection_requests, connection_callback, network_notices
     local originals = {}
     local replaced = {
         "opdsbrowser", "ui/bidi", "ffi/blitbuffer",
@@ -13,7 +16,8 @@ describe("OPDS header", function()
         "ui/widget/verticalspan", "common/ui/zen_icon_button",
         "common/ui/zen_modal_close", "common/zen_logger", "device", "opdsparser",
         "common/cover_utils", "common/utils", "common/plugin_root", "common/tbr_index",
-        "libs/libkoreader-lfs", "ui/renderimage", "ui/trapper",
+        "libs/libkoreader-lfs", "ui/renderimage", "ui/trapper", "ffi", "ffi/util",
+        "ui/network/manager", "ui/widget/infomessage", "gettext",
     }
 
     local function get_upvalue(fn, target)
@@ -74,8 +78,22 @@ describe("OPDS header", function()
 
     before_each(function()
         for _i, name in ipairs(replaced) do originals[name] = package.loaded[name] end
+        native_ffi, native_util = require("ffi"), require("ffi/util")
         closed, menu_opened, returned, saved, searched = 0, 0, 0, 0, 0
         scheduled, subprocess_runs, trapper_wraps = {}, 0, 0
+        unscheduled = {}
+        process_done, spawn_failed, pipe_size, pipe_bytes = true, false, 11, "image-bytes"
+        pipe_reads, fd_closes, terminated, standby = 0, 0, 0, 0
+        catalog_requests, next_pages, connection_requests, connection_callback, network_notices = {}, 0, 0, nil, {}
+        NetworkMgr = {
+            connected = true,
+            isConnected = function(self) return self.connected end,
+            runWhenConnected = function(self, callback)
+                connection_requests = connection_requests + 1
+                if self.connected then return callback() end
+                connection_callback = callback
+            end,
+        }
         existing_files = {}
         inventory_paths = {}
 
@@ -101,11 +119,20 @@ describe("OPDS header", function()
             self.layout = { { self.title_bar.left_button }, { self.title_bar.right_button }, { self.item } }
             self.selected = { x = 1, y = 3 }
         end
-        Browser.updateCatalog = function(self)
+        Browser.updateCatalog = function(self, url, paths_updated)
+            catalog_requests[#catalog_requests + 1] = { url = url, paths_updated = paths_updated }
             self.layout = { { self.item } }
             self.selected = { x = 1, y = 1 }
             self:mergeTitleBarIntoLayout()
         end
+        Browser.onMenuSelect = function(self, item)
+            self.stock_selected = item
+            if not (item.acquisitions and item.acquisitions[1]) and item.idx ~= 1 then
+                NetworkMgr:runWhenConnected(function() self:updateCatalog(item.url) end)
+            end
+            return true
+        end
+        Browser.onNextPage = function() next_pages = next_pages + 1; return true end
 
         local Base = widget_class()
         local Menu = {
@@ -141,8 +168,37 @@ describe("OPDS header", function()
             scheduleIn = function(_, delay, callback)
                 scheduled[#scheduled + 1] = { delay = delay, callback = callback }
             end,
-            unschedule = function() end,
+            unschedule = function(_, callback) unscheduled[callback] = true end,
             setDirty = function() end,
+            show = function(_, widget)
+                assert.are.equal("Error connecting to the network", widget.text)
+                network_notices[#network_notices + 1] = widget
+            end,
+            preventStandby = function() standby = standby + 1 end,
+            allowStandby = function() standby = standby - 1 end,
+        })
+        ZenSpec.replace("ui/network/manager", NetworkMgr)
+        ZenSpec.replace("ui/widget/infomessage", Base)
+        ZenSpec.replace("gettext", function(text) return text end)
+        ZenSpec.replace("ffi", {
+            C = { close = function() fd_closes = fd_closes + 1 end },
+        })
+        ZenSpec.replace("ffi/util", {
+            runInSubProcess = function(_, with_pipe)
+                assert.is_true(with_pipe)
+                subprocess_runs = subprocess_runs + 1
+                if spawn_failed then return false, "fork failed" end
+                return subprocess_runs, 10
+            end,
+            isSubProcessDone = function() return process_done end,
+            getNonBlockingReadSize = function() return pipe_size end,
+            readAllFromFD = function()
+                assert.is_true(process_done or pipe_size > 0)
+                pipe_reads = pipe_reads + 1
+                fd_closes = fd_closes + 1
+                return pipe_bytes
+            end,
+            terminateSubProcess = function() terminated = terminated + 1 end,
         })
         ZenSpec.replace("ui/trapper", {
             isWrapped = function() return false end,
@@ -314,6 +370,136 @@ describe("OPDS header", function()
         assert.are.equal(1, saved)
     end)
 
+    it("waits for Wi-Fi startup before retrying the selected catalog", function()
+        for _i, flag in ipairs({ "pending_connection", "pending_connectivity_check" }) do
+            NetworkMgr.connected = false
+            NetworkMgr[flag] = true
+            local browser = setmetatable({}, { __index = Browser })
+            browser:init()
+            local requested = #catalog_requests
+            local connections = connection_requests
+            browser:onMenuSelect({ idx = 2, url = "/catalog-" .. flag })
+            local wait = scheduled[#scheduled].callback
+            wait()
+            assert.are.equal(requested, #catalog_requests)
+            assert.are.equal(connections, connection_requests)
+            assert.are.equal(0, #network_notices)
+
+            NetworkMgr[flag] = false -- Address/gateway readiness can lag behind the startup flag.
+            wait()
+            assert.are.equal(requested, #catalog_requests)
+            NetworkMgr.connected = true
+            wait()
+            wait()
+            assert.are.equal(requested + 1, #catalog_requests)
+            assert.are.equal("/catalog-" .. flag, catalog_requests[#catalog_requests].url)
+            assert.is_nil(browser._zen_network_wait)
+        end
+    end)
+
+    it("waits for the default catalog and preserves its credentials", function()
+        NetworkMgr.connected, NetworkMgr.pending_connection = false, true
+        _G.__ZEN_UI_PLUGIN.config.opds.default_url = "/default"
+        local browser = setmetatable({ servers = {{
+            url = "/default", title = "Server", username = "user", password = "secret",
+        }} }, { __index = Browser })
+        browser:init()
+        assert.are.equal(0, #catalog_requests)
+        assert.are.equal(0, connection_requests)
+        NetworkMgr.connected = true
+        scheduled[1].callback()
+        assert.are.equal("/default", catalog_requests[1].url)
+        assert.are.equal("user", browser.root_catalog_username)
+        assert.are.equal("secret", browser.root_catalog_password)
+    end)
+
+    it("replaces an old queued catalog request and cancels it on close", function()
+        NetworkMgr.connected, NetworkMgr.pending_connection = false, true
+        local browser = setmetatable({ item_table = {} }, { __index = Browser })
+        browser:init()
+        browser:updateCatalog("/first")
+        local first = scheduled[1].callback
+        browser:updateCatalog("/second", true)
+        local second = scheduled[2].callback
+        assert.is_true(unscheduled[first])
+        NetworkMgr.connected = true
+        first()
+        second()
+        assert.are.equal(1, #catalog_requests)
+        assert.are.equal("/second", catalog_requests[1].url)
+        assert.is_true(catalog_requests[1].paths_updated)
+
+        NetworkMgr.connected = false
+        browser:updateCatalog("/closed")
+        local pending = scheduled[#scheduled].callback
+        browser:onCloseWidget()
+        NetworkMgr.connected = true
+        pending()
+        assert.is_true(unscheduled[pending])
+        assert.are.equal(1, #catalog_requests)
+    end)
+
+    it("uses native Wi-Fi setup while protecting its callback from later requests", function()
+        NetworkMgr.connected = false
+        local browser = setmetatable({ item_table = {} }, { __index = Browser })
+        browser:init()
+        browser:updateCatalog("/first")
+        local original_callback = connection_callback
+        assert.are.equal(1, connection_requests)
+        assert.are.equal(0, #scheduled)
+        NetworkMgr.pending_connection = true
+        browser:updateCatalog("/second")
+        NetworkMgr.connected = true
+        original_callback()
+        assert.are.equal(0, #catalog_requests)
+        scheduled[1].callback()
+        assert.are.equal("/second", catalog_requests[1].url)
+
+        NetworkMgr.connected, NetworkMgr.pending_connection = false, false
+        browser:updateCatalog("/closed")
+        browser:onCloseWidget()
+        NetworkMgr.connected = true
+        connection_callback()
+        assert.are.equal(1, #catalog_requests)
+    end)
+
+    it("waits before fetching the next catalog page but keeps local pages available", function()
+        NetworkMgr.connected, NetworkMgr.pending_connection = false, true
+        local browser = setmetatable({ item_table = { hrefs = { next = "/next" } } }, { __index = Browser })
+        browser:init()
+        browser:onNextPage()
+        assert.are.equal(0, next_pages)
+        NetworkMgr.connected = true
+        scheduled[1].callback()
+        assert.are.equal(1, next_pages)
+        NetworkMgr.connected = false
+        browser.item_table.hrefs.next = nil
+        browser:onNextPage()
+        browser:onMenuSelect({ idx = 1 })
+        local book = { acquisitions = {{ href = "/book" }} }
+        browser:onMenuSelect(book)
+        assert.are.equal(2, next_pages)
+        assert.are.equal(book, browser.stock_selected)
+        assert.are.equal(0, connection_requests)
+    end)
+
+    it("stops waiting after 45 seconds without restarting Wi-Fi or contacting the server", function()
+        NetworkMgr.connected, NetworkMgr.pending_connection = false, true
+        local browser = setmetatable({}, { __index = Browser })
+        browser:init()
+        browser:updateCatalog("/timeout")
+        for _i = 1, 90 do
+            assert.are.equal(0.5, scheduled[#scheduled].delay)
+            scheduled[#scheduled].callback()
+        end
+        assert.are.equal(0, #catalog_requests)
+        assert.are.equal(0, connection_requests)
+        assert.are.equal(1, #network_notices)
+        assert.is_nil(browser._zen_network_wait)
+        scheduled[#scheduled].callback()
+        assert.are.equal(1, #network_notices)
+    end)
+
     it("loads covers through a subprocess and keeps only the visible page cache", function()
         local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
         local prune_cover_cache = get_upvalue(Browser.updateItems, "prune_cover_cache")
@@ -328,10 +514,14 @@ describe("OPDS header", function()
             cover_h = 120,
         }})
         scheduled[1].callback()
+        assert.are.equal(0, updated)
+        scheduled[2].callback()
 
-        assert.are.equal(1, trapper_wraps)
+        assert.are.equal(0, trapper_wraps)
         assert.are.equal(1, subprocess_runs)
         assert.are.equal(1, updated)
+        assert.are.equal(1, fd_closes)
+        assert.are.equal(0, standby)
         assert.is_table(entry.cover_bb)
 
         local stale = { free = function(self) self.freed = true end }
@@ -345,5 +535,152 @@ describe("OPDS header", function()
         assert.is_true(stale.freed)
         assert.is_nil(stale_entry.cover_bb)
         assert.are.equal(entry.cover_bb, cover_cache[entry.cover_url].bb)
+    end)
+
+    it("leaves header taps available while a slow cover is downloading", function()
+        process_done, pipe_size = false, 0
+        local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
+        local updated = 0
+        local entry = { cover_url = "https://example.test/slow.jpg" }
+        local browser = setmetatable({
+            paths = {{ url = "/catalog" }},
+            search_url = "/search",
+            onReturn = function() returned = returned + 1 end,
+            searchCatalog = function() searched = searched + 1 end,
+        }, { __index = Browser })
+        browser:init()
+        local halt = start_cover_queue({{
+            entry = entry,
+            widget = { update = function() updated = updated + 1 end },
+            cover_w = 80, cover_h = 120,
+        }})
+        scheduled[1].callback()
+        scheduled[2].callback()
+        browser._zen_opds_header_buttons[1].callback()
+        browser._zen_opds_header_buttons[2].callback()
+
+        assert.are.equal(0, trapper_wraps)
+        assert.are.equal(0, pipe_reads)
+        assert.are.equal(0, updated)
+        assert.are.equal(1, returned)
+        assert.are.equal(1, searched)
+        assert.are.equal(1, standby)
+
+        pipe_size = #pipe_bytes -- The child can still be writing a cover larger than the pipe.
+        scheduled[3].callback()
+        assert.are.equal(1, updated)
+        assert.are.equal(1, pipe_reads)
+        assert.are.equal(0, standby)
+        process_done = true
+        scheduled[4].callback() -- Reap the child after its output was read.
+        halt()
+    end)
+
+    it("cancels pending covers on close without repainting stale widgets", function()
+        process_done, pipe_size = false, 0
+        local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
+        local cover_cache = get_upvalue(start_cover_queue, "_cover_cache")
+        local updated = 0
+        local entry = { cover_url = "https://example.test/cancelled.jpg" }
+        local browser = setmetatable({ item_table = { entry } }, { __index = Browser })
+        browser._zen_halt = start_cover_queue({{
+            entry = entry,
+            widget = { update = function() updated = updated + 1 end },
+            cover_w = 80, cover_h = 120,
+        }})
+        scheduled[1].callback()
+        local poll = scheduled[2].callback
+        browser:onCloseWidget()
+        poll() -- Even an already queued callback must ignore the closed page.
+
+        assert.is_true(unscheduled[poll])
+        assert.are.equal(1, terminated)
+        assert.are.equal(1, fd_closes)
+        assert.are.equal(0, standby)
+        assert.are.equal(0, updated)
+        assert.are.equal(0, pipe_reads)
+        assert.is_nil(cover_cache[entry.cover_url])
+        assert.is_nil(browser._zen_halt)
+        process_done = true
+        scheduled[3].callback()
+    end)
+
+    it("can cancel before the first cover worker starts", function()
+        local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
+        local halt = start_cover_queue({{
+            entry = { cover_url = "https://example.test/not-started.jpg" },
+        }})
+        halt()
+        scheduled[1].callback()
+        assert.are.equal(0, subprocess_runs)
+        assert.are.equal(0, standby)
+    end)
+
+    it("reads a large cover from a real background process after a slow fetch", function()
+        local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
+        local worker_util = get_upvalue(start_cover_queue, "FFIUtil")
+        for name in pairs(worker_util) do worker_util[name] = native_util[name] end
+        worker_util.writeToFD = native_util.writeToFD
+        package.loaded.ffi.C.close = native_ffi.C.close
+        local bytes = string.rep("cover", 128 * 1024)
+        for index = 1, 60 do
+            local name = debug.getupvalue(start_cover_queue, index)
+            if name == "fetch_bytes" then
+                debug.setupvalue(start_cover_queue, index, function()
+                    native_util.usleep(200000)
+                    return bytes
+                end)
+                break
+            end
+        end
+        local updated, received = 0, nil
+        local entry = { cover_url = "https://example.test/large.jpg" }
+        package.loaded["ui/renderimage"].renderImageData = function(_, data)
+            received = data
+            return { free = function() end }
+        end
+        local halt = start_cover_queue({{
+            entry = entry,
+            widget = { update = function() updated = updated + 1 end },
+            cover_w = 80, cover_h = 120,
+        }})
+        scheduled[1].callback()
+        local poll = scheduled[2].callback
+        poll()
+        assert.are.equal(0, updated)
+        assert.are.equal(1, standby)
+        for _i = 1, 20 do
+            native_util.usleep(50000)
+            poll()
+            if updated > 0 then break end
+        end
+        halt()
+        assert.are.equal(1, updated)
+        assert.are.equal(#bytes, received and #received)
+        assert.are.equal(bytes, received)
+        assert.are.equal(0, standby)
+    end)
+
+    it("skips failed workers and empty responses without holding standby", function()
+        local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
+        local cover_cache = get_upvalue(start_cover_queue, "_cover_cache")
+        local updated = 0
+        for _i, failure in ipairs({ "fork", "http" }) do
+            spawn_failed = failure == "fork"
+            pipe_bytes, pipe_size = "", 0
+            local entry = { cover_url = "https://example.test/" .. failure .. ".jpg" }
+            start_cover_queue({{
+                entry = entry,
+                widget = { update = function() updated = updated + 1 end },
+                cover_w = 80, cover_h = 120,
+            }})
+            scheduled[#scheduled].callback()
+            if not spawn_failed then scheduled[#scheduled].callback() end
+            assert.is_true(cover_cache[entry.cover_url].failed)
+            assert.is_nil(entry.cover_bb)
+            assert.are.equal(0, standby)
+        end
+        assert.are.equal(0, updated)
+        assert.are.equal(2, subprocess_runs)
     end)
 end)

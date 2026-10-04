@@ -105,13 +105,14 @@ local function apply_night_mode_schedule()
     -- changed the EPDC inversion flag while KOReader was sleeping.
     local function set_night_mode(enable, force)
         local ReaderThemes = require("common/reader_themes")
-        if not force and Screen.night_mode == enable then return end
+        local changed = Screen.night_mode ~= enable
+        if not force and not changed then return end
         G_reader_settings:saveSetting("night_mode", enable)
         Screen.night_mode = enable
         if type(Screen.setHWNightmode) == "function" then
             pcall(Screen.setHWNightmode, Screen, enable)
         end
-        if ReaderThemes.isEnabled(zen_plugin) then
+        if changed and ReaderThemes.isEnabled(zen_plugin) then
             ReaderThemes.applyCurrent(zen_plugin)
         end
         for _i, name in ipairs({

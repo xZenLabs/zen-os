@@ -84,10 +84,10 @@ describe("General settings", function()
         assert.is_false(wifi.checked_func())
         assert.is_true(wifi._zen_settings_submenu)
         wifi.checkmark_callback(menu)
-        assert.are.equal(menu, toggle_wifi[1])
+        assert.is_function(toggle_wifi[1].updateItems)
         assert.is_true(toggle_wifi[3])
         assert.are.equal(plugin, toggle_wifi[4])
-        toggle_wifi[2]()
+        toggle_wifi[1]:updateItems()
         assert.are.same({ 1, 1 }, { updates, status_refreshes })
         wifi_on = true
         assert.is_true(wifi.checked_func())
@@ -96,14 +96,32 @@ describe("General settings", function()
         assert.is_true(open_wifi[2])
     end)
 
-    it("opens the network switcher from Settings when Kindle is disconnected", function()
+    it("keeps the Settings context when Kindle reconnect needs network selection", function()
         local original_device = package.loaded["device"]
         local original_adapter = package.loaded["modules/menu/network_adapters/kindle"]
+        local original_network_setting = package.loaded["ui/widget/networksetting"]
         local switcher_stub = package.loaded["modules/menu/network_switcher"]
         ZenSpec.replace("device", {})
         ZenSpec.replace("modules/menu/network_adapters/kindle", {
             isSupported = function() return true end,
         })
+        local NetworkSetting = {}
+        ZenSpec.replace("ui/widget/networksetting", NetworkSetting)
+        local UIManager = require("ui/uimanager")
+        UIManager.topdown_widgets_iter = function()
+            local widget = shown
+            return function()
+                local current = widget
+                widget = nil
+                return current
+            end
+        end
+        UIManager.nextTick = function(_self, callback) callback() end
+        UIManager.close = function() shown = nil end
+        package.loaded["ui/network/manager"].toggleWifiOn = function()
+            wifi_on = true
+            UIManager:show(setmetatable({}, NetworkSetting))
+        end
         ZenSpec.unload("modules/menu/network_switcher")
         local switcher = require("modules/menu/network_switcher")
         local opened
@@ -119,6 +137,7 @@ describe("General settings", function()
         assert.are.equal(plugin, opened[3])
         ZenSpec.replace("modules/menu/network_switcher", switcher_stub)
         package.loaded["modules/menu/network_adapters/kindle"] = original_adapter
+        package.loaded["ui/widget/networksetting"] = original_network_setting
         package.loaded["device"] = original_device
     end)
 

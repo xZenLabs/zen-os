@@ -162,6 +162,8 @@ def test_metadata_list_rows_render_all_semantic_values() -> None:
                 "#2 – Semantic Series",
                 "New",
                 "2\N{NO-BREAK SPACE}pages",
+                "EPUB",
+                "CBZ",
             }
             deadline = time.monotonic() + 30
             visible: set[str] = set()

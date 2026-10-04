@@ -336,6 +336,11 @@ msgstr "Couleur de l'onglet actif"
 msgid "Active tab color: "
 msgstr "Couleur de l'onglet actif : "
 
+#. Type: setting
+#: navbar_settings.lua:1669
+msgid "Active tab outline color"
+msgstr "Couleur du contour de l’onglet actif"
+
 #. Type: title
 #. Context: end, dialog_title = _("Active tab RGB"), presets = {
 #: navbar_settings.lua:1650
@@ -413,6 +418,12 @@ msgstr "Ajouter à la collection"
 #: dict_quick_lookup.lua:74
 msgid "Add to vocabulary builder"
 msgstr "Ajouter au créateur de vocabulaire"
+
+#. Type: setting
+#. Context: table.insert(items, { text = _("Align status bars with book margins"), checked_func = function()
+#: reader_settings.lua:1523
+msgid "Align status bars with book margins"
+msgstr "Aligner les barres d’état sur les marges du livre"
 
 #. Type: label
 #. Context: .. (already_in and " \u{2713}" or ""), mandatory = already_in and _("added") or nil, dim = already_in,
@@ -1620,6 +1631,12 @@ msgstr "Livre actuel"
 msgid "Current capacity"
 msgstr "Capacité actuelle"
 
+#. Type: setting
+#. Context: row(_("Battery health"), stats.health and string.format("%.0f%%", stats.health) or missing), row(_("Current charge"), stats.level and stats.level .. "%" or missing), row(_("Current capacity"), stats.current_mah and string.format("%.0f mA...
+#: battery_stats_menu.lua:24
+msgid "Current charge"
+msgstr "Charge actuelle"
+
 #. Type: title
 #. Context: local filemanagerutil = require("apps/filemanager/filemanagerutil") local title_header = _("Current home folder:") local current_path = paths.getHomeDir()
 #: library_settings.lua:1423
@@ -2323,10 +2340,16 @@ msgid "Enter your GitHub username to be tagged in the issue"
 msgstr "Entrez votre nom d'utilisateur GitHub pour être mentionné dans l'issue"
 
 #. Type: setting
-#. Context: }, { text = _("Estimated time remaining"), mandatory = duration(stats.remaining), keep_menu_open = true }, { text = _("Time since last charge"),
-#: battery_stats_menu.lua:71
-msgid "Estimated time remaining"
-msgstr "Autonomie restante estimée"
+#. Context: }, { text = _("Estimated battery life"), mandatory = duration(stats.remaining), keep_menu_open = true }, { text = _("Settings"), sub_item_table = settings_items },
+#: battery_stats_menu.lua:83
+msgid "Estimated battery life"
+msgstr "Autonomie estimée de la batterie"
+
+#. Type: setting
+#. Context: if stats.charging then table.insert(charging_items, 1, row(_("Estimated time to complete charge"), duration(stats.time_to_full))) end
+#: battery_stats_menu.lua:44
+msgid "Estimated time to complete charge"
+msgstr "Temps estimé avant la charge complète"
 
 #. Type: label
 #. Context: parts[#parts + 1] = provider_label(work._provider) if work.exact_edition then parts[#parts + 1] = _("Exact ISBN match") end parts[#parts + 1] = table.concat(
@@ -2459,6 +2482,16 @@ msgstr "Le plugin Filebrowser n'est pas installé."
 #: metadata_editor.lua:514 metadata_editor.lua:962 context_menu.lua:2616 group_view.lua:863
 msgid "Filename"
 msgstr "Nom de fichier"
+
+#. Type: setting
+#: navbar_settings.lua:1658
+msgid "Fill color"
+msgstr "Couleur de remplissage"
+
+#. Type: setting
+#: navbar_settings.lua:1648
+msgid "Filled"
+msgstr "Rempli"
 
 #. Type: label
 #. Context: table.insert(buttons, {{ text = icons.filter .. " " .. _("Filter") .. (n_gf > 0 and " (" .. n_gf .. ")" or "")
@@ -4231,6 +4264,11 @@ msgid "Outline"
 msgstr "Contour"
 
 #. Type: setting
+#: navbar_settings.lua:1657
+msgid "Outline color"
+msgstr "Couleur du contour"
+
+#. Type: setting
 #. Context: { text = _("Outlined boxes"), radio = true,
 #: home_settings.lua:2314
 msgid "Outlined boxes"
@@ -4457,6 +4495,18 @@ msgstr "Préréglages"
 #: quickstart_screen.lua:464 navbar.lua:335
 msgid "Prev"
 msgstr "Précédent"
+
+#. Type: setting
+#. Context: local charging_items = { row(_("Previous charge, per hour"), rate(stats.charge_rate)), row(_("Previous charge, total"), stats.charge_gain and stats.charge_gain .. "%" or missing),
+#: battery_stats_menu.lua:37
+msgid "Previous charge, per hour"
+msgstr "Charge précédente, par heure"
+
+#. Type: setting
+#. Context: row(_("Previous charge, per hour"), rate(stats.charge_rate)), row(_("Previous charge, total"), stats.charge_gain and stats.charge_gain .. "%" or missing), row(_("Total time to full charge"), duration(stats.full_charge_time)),
+#: battery_stats_menu.lua:38
+msgid "Previous charge, total"
+msgstr "Charge précédente, total"
 
 #. Type: setting
 #. Context: { id = "exit", text = _("Exit") }, { id = "page_left", text = _("Previous page") }, { id = "page_right", text = _("Next page") },
@@ -6097,6 +6147,12 @@ msgid "Time since last charge"
 msgstr "Temps depuis la dernière recharge"
 
 #. Type: setting
+#. Context: row(_("Time since last charge"), stats.charging and _("Charging") or duration(stats.since_charge)), row(_("Time since last full charge"), duration(stats.since_full_charge)), }
+#: battery_stats_menu.lua:41
+msgid "Time since last full charge"
+msgstr "Temps depuis la dernière charge complète"
+
+#. Type: setting
 #. Context: { id = "week_pages", text = _("Pages this week") }, { id = "week_duration", text = _("Time this week") }, }
 #: stats_triplet.lua:55 home_settings.lua:2214
 msgid "Time this week"
@@ -6227,6 +6283,12 @@ msgstr "Pages totales"
 #: stats_page.lua:920 stats_page.lua:929 stats_page.lua:936 stats_page.lua:962
 msgid "Total time"
 msgstr "Durée totale"
+
+#. Type: setting
+#. Context: row(_("Previous charge, total"), stats.charge_gain and stats.charge_gain .. "%" or missing), row(_("Total time to full charge"), duration(stats.full_charge_time)), row(_("Time since last charge"), stats.charging and _("Charging") or dura...
+#: battery_stats_menu.lua:39
+msgid "Total time to full charge"
+msgstr "Temps total pour une charge complète"
 
 #. Type: setting
 #. Context: local settings_items = { row(_("Tracked samples"), tostring(stats.samples)), {

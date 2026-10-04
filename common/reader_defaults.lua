@@ -24,6 +24,16 @@ local CRE_DEFAULTS = {
     copt_nightmode_images = 1,
     copt_status_line = 1,
 }
+local KOPT_DEFAULTS = {
+    kopt_contrast = 2.5,
+    kopt_nightmode_document = 1,
+    kopt_page_margin = 0.1,
+    kopt_page_scroll = 0,
+    kopt_saturation = 2,
+    kopt_trim_page = 1,
+    kopt_zoom_mode_genus = 4,
+    kopt_zoom_mode_type = 1,
+}
 
 local function copy_value(value)
     if type(value) ~= "table" then return value end
@@ -112,7 +122,21 @@ local function apply_to_active_reader(preset, use_bundled_fonts, reader, preserv
 
     local document = reader.document
     local configurable = document and document.configurable
-    if not (reader.rolling and configurable) then return false end
+    if not configurable then return false end
+    if reader.paging then
+        for key, value in pairs(KOPT_DEFAULTS) do
+            configurable[key:sub(6)] = value
+        end
+        local Event = require("ui/event")
+        reader:handleEvent(Event:new("GammaUpdate", KOPT_DEFAULTS.kopt_contrast, true))
+        reader:handleEvent(Event:new("SaturationUpdate", KOPT_DEFAULTS.kopt_saturation, true))
+        reader:handleEvent(Event:new("SetScrollMode", false))
+        reader:handleEvent(Event:new("SetZoomMode", "pagewidth"))
+        reader:handleEvent(Event:new("ReZoom"))
+        if type(reader.saveSettings) == "function" then reader:saveSettings() end
+        return true
+    end
+    if not reader.rolling then return false end
 
     for key, value in pairs(CRE_DEFAULTS) do
         if not preserve_status_bars or key ~= "copt_status_line" then
@@ -176,6 +200,9 @@ function M.apply(settings, config)
     end
     for key, value in pairs(CRE_DEFAULTS) do
         settings:saveSetting(key, copy_value(value))
+    end
+    for key, value in pairs(KOPT_DEFAULTS) do
+        settings:saveSetting(key, value)
     end
     ReaderStatusBar.disableKoreaderAltStatusBar(settings)
 

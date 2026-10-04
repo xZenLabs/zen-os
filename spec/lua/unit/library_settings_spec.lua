@@ -1,5 +1,6 @@
 describe("library settings", function()
     local saved_modules
+    local saved_reinject_navbars
 
     local dependencies = {
         "gettext",
@@ -26,6 +27,7 @@ describe("library settings", function()
     }
 
     before_each(function()
+        saved_reinject_navbars = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
         saved_modules = {}
         for _i, name in ipairs(dependencies) do
             saved_modules[name] = package.loaded[name] or false
@@ -57,6 +59,7 @@ describe("library settings", function()
     end)
 
     after_each(function()
+        _G.__ZEN_UI_REINJECT_NAVBARS = saved_reinject_navbars
         ZenSpec.unload("modules/settings/sections/library_settings")
         for _i, name in ipairs(dependencies) do
             package.loaded[name] = saved_modules[name] or nil
@@ -610,6 +613,17 @@ describe("library settings", function()
         local reinitializations = 0
         local scheduled = 0
         local menu_updates = 0
+        local navbar_invalidations = 0
+        local home_rebuilds = 0
+        local navbar_reinjections = 0
+        local home = {
+            invalidateNavbar = function() navbar_invalidations = navbar_invalidations + 1 end,
+            rebuildActive = function() home_rebuilds = home_rebuilds + 1 end,
+        }
+        package.loaded["common/shared_state"].get = function() return home end
+        _G.__ZEN_UI_REINJECT_NAVBARS = function()
+            navbar_reinjections = navbar_reinjections + 1
+        end
         package.loaded["modules/settings/zen_settings_utils"].show_value_picker =
             function(title, value, callback, min, max)
                 picker = {
@@ -700,6 +714,15 @@ describe("library settings", function()
         assert.are.equal(4, cache_clears)
         assert.are.equal(4, reinitializations)
         assert.are.equal(1, scheduled)
+        assert.are.equal(0, navbar_invalidations)
+        assert.are.equal(0, home_rebuilds)
+        assert.are.equal(0, navbar_reinjections)
+
+        deferred.background_surfaces()
+
+        assert.are.equal(1, navbar_invalidations)
+        assert.are.equal(1, home_rebuilds)
+        assert.are.equal(1, navbar_reinjections)
     end)
 
     it("validates the image when enabling the wallpaper parent switch", function()

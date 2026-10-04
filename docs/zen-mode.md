@@ -3,7 +3,7 @@ title: Zen Mode
 category: Interface
 summary: Simplify KOReader
 settingsPath: Zen Settings > Interface > Controls > Buttons > Zen mode
-order: 30
+order: 49
 ---
 
 <!-- Documentation current through ZenOS v3.0.0. -->

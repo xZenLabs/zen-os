@@ -17,6 +17,9 @@ on:
         required: false
         default: full
         type: string
+      ref:
+        required: false
+        type: string
 
 jobs:
   stable:
@@ -29,6 +32,8 @@ jobs:
       KOREADER_CACHE_VERSION: 3
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-python@v5
         with:
@@ -75,8 +80,8 @@ jobs:
             ZEN_UI_RUN_EMULATOR=1 xvfb-run -s '-screen 0 800x600x24' ./spec/run smoke
           fi
 
-      - name: Run legacy upgrade contract on current stable
-        if: ${{ env.REQUESTED_SUITE != 'lua' }}
+      - name: Zen UI to ZenOS migration test (current stable)
+        if: ${{ github.event_name == 'workflow_dispatch' && env.REQUESTED_SUITE != 'lua' }}
         run: xvfb-run -s '-screen 0 800x600x24' ./spec/run legacy-upgrade
 
       - name: Upload test artifacts
@@ -88,15 +93,17 @@ jobs:
           if-no-files-found: ignore
 
   compat:
-    name: KOReader v2026.03 Legacy Upgrade
+    name: Zen UI to ZenOS migration test (KOReader v2026.03)
     needs: stable
-    if: ${{ inputs.suite != 'lua' && github.event.inputs.suite != 'lua' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite != 'lua' && github.event.inputs.suite != 'lua' }}
     runs-on: ubuntu-latest
     env:
       ZEN_UI_KOREADER_CACHE: ${{ github.workspace }}/spec/.cache/koreader
       KOREADER_CACHE_VERSION: 3
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-python@v5
         with:
@@ -132,14 +139,14 @@ jobs:
           path: spec/.cache/koreader/compat/runtime
           key: ${{ steps.compat-koreader-cache.outputs.cache-primary-key }}
 
-      - name: Run legacy upgrade contract
+      - name: Zen UI to ZenOS migration test
         run: xvfb-run -s '-screen 0 800x600x24' ./spec/run legacy-upgrade
 
-      - name: Upload legacy upgrade artifacts
+      - name: Upload Zen UI to ZenOS migration artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v2026.03-legacy-upgrade-artifacts
+          name: v2026.03-zen-ui-to-zenos-migration-artifacts
           path: spec/.artifacts
           if-no-files-found: ignore
 
@@ -152,6 +159,8 @@ jobs:
       ZEN_UI_KOREADER_CACHE: ${{ github.workspace }}/spec/.cache/koreader
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-python@v5
         with:

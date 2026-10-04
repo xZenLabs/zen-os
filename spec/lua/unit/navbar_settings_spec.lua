@@ -2,6 +2,7 @@ describe("navbar settings", function()
     local arrange_options
     local config
     local original_quick_settings
+    local navbar_refreshes
     local saved
     local shown
     local suggested_label
@@ -28,6 +29,7 @@ describe("navbar settings", function()
     before_each(function()
         original_quick_settings = rawget(_G, "__ZEN_UI_QUICK_SETTINGS")
         arrange_options = nil
+        navbar_refreshes = 0
         saved = 0
         shown = {}
         suggested_label = nil
@@ -84,6 +86,9 @@ describe("navbar settings", function()
             new = function(_self, opts) return opts end,
         })
         ZenSpec.replace("ui/widget/infomessage", {
+            new = function(_self, opts) return opts end,
+        })
+        ZenSpec.replace("common/ui/color_wheel_widget", {
             new = function(_self, opts) return opts end,
         })
         ZenSpec.replace("ui/widget/pathchooser", {
@@ -185,11 +190,98 @@ describe("navbar settings", function()
             plugin = plugin,
             save_and_apply = function() end,
             settings_apply = {
-                refresh_navbar_on_menu_close = function() end,
+                refresh_navbar_on_menu_close = function()
+                    navbar_refreshes = navbar_refreshes + 1
+                end,
                 refresh_tbr_on_menu_close = function() end,
             },
         })
     end
+
+    it("selects exclusive active-tab styles with their own submenus", function()
+        local items = build_navbar().sub_item_table[2].sub_item_table[3].sub_item_table
+        local underline, filled = items[1], items[2]
+        assert.are.same({ "Underline", "Filled" }, { underline.text, filled.text })
+        assert.is_true(underline.radio)
+        assert.is_true(filled.radio)
+        assert.is_true(underline.checked_func())
+        assert.is_false(filled.checked_func())
+        local above = underline.sub_item_table[1]
+        assert.are.equal("Underline above icon", above.text)
+        above.callback()
+
+        filled.checkmark_callback(touch_menu)
+        assert.is_false(underline.checked_func())
+        assert.is_true(filled.checked_func())
+        assert.is_false(config.navbar.active_tab_underline)
+        assert.is_false(above.enabled_func())
+        filled.checkmark_callback(touch_menu)
+        assert.is_true(filled.checked_func())
+
+        underline.checkmark_callback(touch_menu)
+        assert.is_true(underline.checked_func())
+        assert.is_false(filled.checked_func())
+        assert.is_false(config.navbar.active_tab_filled)
+        assert.is_true(above.enabled_func())
+        assert.is_true(above.checked_func())
+        assert.are.equal(4, saved)
+    end)
+
+    it("only enables the underline outline color with Colored and Underline", function()
+        config.navbar.active_tab_color = { 10, 20, 30 }
+        local items = build_navbar().sub_item_table[2].sub_item_table[3].sub_item_table
+        local outline = items[4]
+        assert.are.equal("Active tab outline color: #0A141E", outline.text_func())
+        assert.is_false(outline.enabled_func())
+        items[3].callback()
+        assert.is_true(outline.enabled_func())
+        items[2].checkmark_callback()
+        assert.is_false(outline.enabled_func())
+        items[1].checkmark_callback()
+        assert.is_true(outline.enabled_func())
+
+        outline.callback(touch_menu)
+        assert.are.equal("Active tab outline color", shown[1].title_text)
+        assert.is_nil(shown[1].opacity)
+        assert.are.equal("#0A141E", shown[1].hex)
+        shown[1].callback("#112233")
+        assert.are.same({ 0x11, 0x22, 0x33 }, config.navbar.active_tab_color)
+        assert.are.equal(1, touch_menu.update_count)
+        assert.are.equal(4, saved)
+    end)
+
+    it("opens filled color wheels with white outline and blue fill defaults", function()
+        local items = build_navbar().sub_item_table[2].sub_item_table[3].sub_item_table[2].sub_item_table
+        assert.are.equal("Outline color: #FFFFFF", items[1].text_func())
+        assert.are.equal("Fill color: #4F6F8F", items[2].text_func())
+        items[1].callback(touch_menu)
+        assert.are.equal("#FFFFFF", shown[1].hex)
+        assert.is_nil(shown[1].opacity)
+        shown[1].callback("#ABCDEF")
+        assert.are.equal(1, navbar_refreshes)
+        items[2].callback(touch_menu)
+        assert.are.equal("Fill color", shown[2].title_text)
+        assert.are.equal("#4F6F8F", shown[2].hex)
+        assert.are.equal(60, shown[2].opacity)
+        shown[2].callback("#123456", 40)
+        assert.are.equal(2, navbar_refreshes)
+        assert.are.same({ 0xAB, 0xCD, 0xEF }, config.navbar.filled_outline_color)
+        assert.are.same({ 0x12, 0x34, 0x56 }, config.navbar.filled_background_color)
+        assert.are.equal(40, config.navbar.filled_background_opacity)
+        assert.are.equal(2, saved)
+        assert.are.equal(2, touch_menu.update_count)
+    end)
+
+    it("reopens the fill picker with fully transparent opacity", function()
+        config.navbar.filled_background_opacity = 0
+        local items = build_navbar().sub_item_table[2].sub_item_table[3].sub_item_table[2].sub_item_table
+        items[2].callback(touch_menu)
+        assert.are.equal(0, shown[1].opacity)
+        shown[1].callback("#123456", 0)
+        assert.are.equal(0, config.navbar.filled_background_opacity)
+        items[2].callback(touch_menu)
+        assert.are.equal(0, shown[2].opacity)
+    end)
 
     it("keeps the default when its tab is hidden", function()
         local navbar = build_navbar()

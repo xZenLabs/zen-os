@@ -117,26 +117,37 @@ function M.build(ctx)
     -- Color helpers
     -- -------------------------------------------------------------------------
 
-    local function ensure_navbar_color()
-        local c = config.navbar.active_tab_color
-        if type(c) ~= "table" then
-            c = { 0x33, 0x99, 0xFF }
-            config.navbar.active_tab_color = c
+    local function navbar_color_item(label, key, default, enabled_func, opacity_key)
+        local function color_hex()
+            local c = config.navbar[key]
+            if type(c) ~= "table" then c = default end
+            return string.format("#%02X%02X%02X",
+                math.max(0, math.min(255, tonumber(c[1]) or default[1])),
+                math.max(0, math.min(255, tonumber(c[2]) or default[2])),
+                math.max(0, math.min(255, tonumber(c[3]) or default[3])))
         end
-        c[1] = tonumber(c[1]) or 0x33
-        c[2] = tonumber(c[2]) or 0x99
-        c[3] = tonumber(c[3]) or 0xFF
-        c[1] = math.max(0, math.min(255, c[1]))
-        c[2] = math.max(0, math.min(255, c[2]))
-        c[3] = math.max(0, math.min(255, c[3]))
-        return c
-    end
-
-    local function set_navbar_color(r, g, b)
-        config.navbar.active_tab_color = {
-            math.max(0, math.min(255, tonumber(r) or 0)),
-            math.max(0, math.min(255, tonumber(g) or 0)),
-            math.max(0, math.min(255, tonumber(b) or 0)),
+        return {
+            text_func = function() return label .. ": " .. color_hex() end,
+            enabled_func = enabled_func,
+            keep_menu_open = true,
+            callback = function(touchmenu_instance)
+                local ColorWheelWidget = require("common/ui/color_wheel_widget")
+                UIManager:show(ColorWheelWidget:new{
+                    title_text = label,
+                    hex = color_hex(),
+                    opacity = opacity_key and (config.navbar[opacity_key] or 60) or nil,
+                    callback = function(hex, opacity)
+                        config.navbar[key] = {
+                            tonumber(hex:sub(2, 3), 16),
+                            tonumber(hex:sub(4, 5), 16),
+                            tonumber(hex:sub(6, 7), 16),
+                        }
+                        if opacity_key then config.navbar[opacity_key] = opacity end
+                        save_and_defer_navbar_refresh()
+                        if touchmenu_instance then touchmenu_instance:updateItems() end
+                    end,
+                }, "full")
+            end,
         }
     end
 
@@ -1612,22 +1623,43 @@ function M.build(ctx)
                         sub_item_table = {
                             {
                                 text = _("Underline"),
-                                checked_func = function() return config.navbar.active_tab_underline == true end,
-                                callback = function()
-                                    config.navbar.active_tab_underline = config.navbar.active_tab_underline ~= true
-                                    save_and_apply("navbar")
+                                radio = true,
+                                checked_func = function()
+                                    return config.navbar.active_tab_underline ~= false
+                                        and config.navbar.active_tab_filled ~= true
                                 end,
+                                checkmark_callback = function()
+                                    config.navbar.active_tab_underline = true
+                                    config.navbar.active_tab_filled = false
+                                    save_and_apply_navbar()
+                                end,
+                                sub_item_table = {{
+                                    text = _("Underline above icon"),
+                                    checked_func = function() return config.navbar.underline_above == true end,
+                                    enabled_func = function()
+                                        return config.navbar.active_tab_underline ~= false
+                                            and config.navbar.active_tab_filled ~= true
+                                    end,
+                                    callback = function()
+                                        config.navbar.underline_above = config.navbar.underline_above ~= true
+                                        save_and_apply_navbar()
+                                    end,
+                                }},
                             },
                             {
-                                text = _("Underline above icon"),
-                                checked_func = function() return config.navbar.underline_above == true end,
-                                enabled_func = function()
-                                    return config.navbar.active_tab_underline == true
+                                text = _("Filled"),
+                                radio = true,
+                                checked_func = function() return config.navbar.active_tab_filled == true end,
+                                checkmark_callback = function()
+                                    config.navbar.active_tab_filled = true
+                                    config.navbar.active_tab_underline = false
+                                    save_and_apply_navbar()
                                 end,
-                                callback = function()
-                                    config.navbar.underline_above = config.navbar.underline_above ~= true
-                                    save_and_apply("navbar")
-                                end,
+                                sub_item_table = {
+                                    navbar_color_item(_("Outline color"), "filled_outline_color", {0xFF, 0xFF, 0xFF}),
+                                    navbar_color_item(_("Fill color"), "filled_background_color", {0x4F, 0x6F, 0x8F},
+                                        nil, "filled_background_opacity"),
+                                },
                             },
                             {
                                 text = _("Colored"),
@@ -1637,24 +1669,12 @@ function M.build(ctx)
                                     save_and_apply_navbar()
                                 end,
                             },
-                            utils.buildColorSubMenu({
-                                label        = _("Active tab color: "),
-                                get          = ensure_navbar_color,
-                                set          = function(r, g, b)
-                                    set_navbar_color(r, g, b)
-                                    save_and_apply_navbar()
-                                end,
-                                enabled_func = function()
+                            navbar_color_item(_("Active tab outline color"), "active_tab_color", {0x33, 0x99, 0xFF},
+                                function()
                                     return config.navbar.colored == true
-                                end,
-                                dialog_title = _("Active tab RGB"),
-                                presets = {
-                                    { text = _("Blue"),  r = 0x33, g = 0x99, b = 0xFF },
-                                    { text = _("Green"), r = 0x33, g = 0xAA, b = 0x55 },
-                                    { text = _("Amber"), r = 0xFF, g = 0xAA, b = 0x00 },
-                                    { text = _("Red"),   r = 0xDD, g = 0x33, b = 0x33 },
-                                },
-                            }),
+                                        and config.navbar.active_tab_underline ~= false
+                                        and config.navbar.active_tab_filled ~= true
+                                end),
                         },
                     },
                     {

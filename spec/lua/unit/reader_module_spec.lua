@@ -35,6 +35,10 @@ describe("reader module initialization", function()
     before_each(function()
         _G.__ZEN_UI_PLUGIN = nil
         _G.__ZEN_UI_RUNTIME_PATCHES = nil
+        ZenSpec.replace("device", {
+            isKindle = function() return false end,
+            hasColorScreen = function() return false end,
+        })
     end)
 
     after_each(function()
@@ -101,6 +105,20 @@ describe("reader module initialization", function()
         calls = {}
         Reader = prepare_patches(calls)
         Reader.init(logger, { config = { features = { reader_themes = true } } })
+        assert.are.equal("reader_themes", calls[#calls])
+        assert.is_true(_G.__ZEN_UI_RUNTIME_PATCHES.reader_themes)
+    end)
+
+    it("loads reader refresh handling on color Kindles with themes disabled", function()
+        local calls = {}
+        local Reader = prepare_patches(calls)
+        local logger = { dbg = function() end, warn = function() end }
+        ZenSpec.replace("device", {
+            isKindle = function() return true end,
+            hasColorScreen = function() return true end,
+        })
+
+        Reader.init(logger, { config = { features = { reader_themes = false } } })
         assert.are.equal("reader_themes", calls[#calls])
         assert.is_true(_G.__ZEN_UI_RUNTIME_PATCHES.reader_themes)
     end)

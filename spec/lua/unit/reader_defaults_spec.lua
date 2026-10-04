@@ -133,6 +133,61 @@ describe("Reader defaults", function()
         assert.are.equal(1, settings:readSetting("footer").container_bottom_padding)
     end)
 
+    it("saves the Colorsoft CBZ/PDF defaults", function()
+        local settings = ZenSpec.memorySettings({ kopt_contrast = 1, kopt_page_scroll = 1 })
+
+        require("common/reader_defaults").apply(settings, {})
+
+        assert.are.equal(2.5, settings:readSetting("kopt_contrast"))
+        assert.are.equal(1, settings:readSetting("kopt_nightmode_document"))
+        assert.are.equal(0.1, settings:readSetting("kopt_page_margin"))
+        assert.are.equal(0, settings:readSetting("kopt_page_scroll"))
+        assert.are.equal(2, settings:readSetting("kopt_saturation"))
+        assert.are.equal(1, settings:readSetting("kopt_trim_page"))
+        assert.are.equal(4, settings:readSetting("kopt_zoom_mode_genus"))
+        assert.are.equal(1, settings:readSetting("kopt_zoom_mode_type"))
+    end)
+
+    it("applies CBZ/PDF defaults to active and deferred paged readers", function()
+        local ReaderDefaults = require("common/reader_defaults")
+        for _i, deferred in ipairs({ false, true }) do
+            local events = {}
+            local saved = false
+            local reader = {
+                document = { configurable = { text_wrap = 0 } },
+                paging = {},
+                handleEvent = function(_self, event) events[event.handler] = { unpack(event.args) } end,
+                saveSettings = function() saved = true end,
+            }
+            ZenSpec.replace("apps/reader/readerui", { instance = reader })
+
+            local applied
+            if deferred then
+                applied = ReaderDefaults.applyDeferredToReader(reader)
+            else
+                applied = ReaderDefaults.apply(ZenSpec.memorySettings(), {})
+            end
+
+            assert.is_true(applied)
+            assert.is_true(saved)
+            assert.are.equal(2.5, reader.document.configurable.contrast)
+            assert.are.equal(1, reader.document.configurable.nightmode_document)
+            assert.are.equal(0.1, reader.document.configurable.page_margin)
+            assert.are.equal(0, reader.document.configurable.page_scroll)
+            assert.are.equal(2, reader.document.configurable.saturation)
+            assert.are.equal(1, reader.document.configurable.trim_page)
+            assert.are.equal(4, reader.document.configurable.zoom_mode_genus)
+            assert.are.equal(1, reader.document.configurable.zoom_mode_type)
+            assert.are.equal(0, reader.document.configurable.text_wrap)
+            assert.is_nil(reader.document.configurable.font_size)
+            assert.are.same({ 2.5, true }, events.onGammaUpdate)
+            assert.are.same({ 2, true }, events.onSaturationUpdate)
+            assert.are.same({ false }, events.onSetScrollMode)
+            assert.are.same({ "pagewidth" }, events.onSetZoomMode)
+            assert.is_table(events.onReZoom)
+        end
+    end)
+
     it("keeps existing reader and status fonts for unsupported locales", function()
         _G.G_reader_settings = ZenSpec.memorySettings({ language = "ru_RU" })
         local settings = ZenSpec.memorySettings({

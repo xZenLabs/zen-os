@@ -3,6 +3,7 @@ describe("Zen screen", function()
     local saved_modules
     local closed
     local dirty_modes
+    local dirty_regions
     local inverted
     local image_widgets
     local scroll_widgets
@@ -65,6 +66,7 @@ describe("Zen screen", function()
         end
         closed = 0
         dirty_modes = {}
+        dirty_regions = {}
         inverted = {}
         image_widgets = {}
         scroll_widgets = {}
@@ -99,9 +101,10 @@ describe("Zen screen", function()
         ZenSpec.replace("ui/uimanager", {
             close = function() closed = closed + 1 end,
             scheduleIn = function() end,
-            setDirty = function(_self, _widget, mode)
-                if type(mode) == "function" then mode = mode() end
+            setDirty = function(_self, _widget, mode, region)
+                if type(mode) == "function" then mode, region = mode() end
                 dirty_modes[#dirty_modes + 1] = mode
+                dirty_regions[#dirty_regions + 1] = region
             end,
         })
         ZenSpec.replace("ui/widget/container/inputcontainer", InputContainer)
@@ -112,16 +115,24 @@ describe("Zen screen", function()
         ZenSpec.replace("ui/widget/scrolltextwidget", {
             updateScrollBar = function(widget, is_partial)
                 if not widget.for_measurement_only then
-                    dirty_modes[#dirty_modes + 1] = is_partial and "partial" or "ui"
+                    package.loaded["ui/uimanager"]:setDirty(widget.dialog, function()
+                        return is_partial and "partial" or "ui", widget.dimen
+                    end)
                 end
             end,
-            new = function(_self, values)
+            new = function(class, values)
                 scroll_widgets[#scroll_widgets + 1] = {
                     for_measurement_only = values.for_measurement_only,
                 }
                 values.text_widget = { for_measurement_only = values.for_measurement_only }
+                values.updateScrollBar = values.updateScrollBar or class.updateScrollBar
                 values:updateScrollBar()
-                return text_widget(values)
+                values = text_widget(values)
+                values.dimen = { x = 0, y = 0, w = values.width, h = values.height }
+                values.paintTo = function(widget, _bb, x, y)
+                    widget.dimen.x, widget.dimen.y = x, y
+                end
+                return values
             end,
         })
         ZenSpec.replace("ui/widget/textboxwidget", { new = function(_self, values) return text_widget(values) end })
@@ -185,14 +196,27 @@ describe("Zen screen", function()
         assert.are.same({}, dirty_modes)
     end)
 
-    it("uses only a full-screen fast refresh for color-screen changelog updates", function()
+    it("limits color-screen changelog refreshes to the scroll container", function()
         color_screen = true
         local screen = new_screen{ title = "ZenOS", scroll_text = "Changes" }
         screen:paintTo({ paintRect = function() end, invertRect = function() end }, 0, 0)
         dirty_modes = {}
         screen._scroll_text_w:updateScrollBar(true)
+        screen._scroll_text_w:updateScrollBar()
 
-        assert.are.same({ "fast" }, dirty_modes)
+        assert.are.same({ "partial", "ui" }, dirty_modes)
+        assert.are.same({ screen._scroll_rect, screen._scroll_rect }, dirty_regions)
+    end)
+
+    it("limits monochrome changelog refreshes to the scroll container", function()
+        local screen = new_screen{ title = "ZenOS", scroll_text = "Changes" }
+        screen:paintTo({ paintRect = function() end, invertRect = function() end }, 0, 0)
+        dirty_modes = {}
+        screen._scroll_text_w:updateScrollBar(true)
+        screen._scroll_text_w:updateScrollBar()
+
+        assert.are.same({ "partial", "ui" }, dirty_modes)
+        assert.are.same({ screen._scroll_rect, screen._scroll_rect }, dirty_regions)
     end)
 
     it("focuses the primary action and confirms the selected button", function()

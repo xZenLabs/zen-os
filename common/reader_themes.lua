@@ -1,4 +1,5 @@
 local UIManager = require("ui/uimanager")
+local cre_inverts_colors = (require("version"):getNormalizedCurrentVersion() or 0) >= 202607000000
 
 local M = {}
 
@@ -71,9 +72,14 @@ local function valid_color(value)
     return normalize_color(value) ~= nil
 end
 
-local function display_color(value)
+local function display_color(value, document)
     local color = normalize_color(value)
     if not color or not is_dark_mode() then return color end
+    -- Recent CRe already pre-inverts non-gray CSS colors in color rendering.
+    if cre_inverts_colors and document and document.render_color and document._nightmode_images
+            and (color:sub(2, 3) ~= color:sub(4, 5) or color:sub(2, 3) ~= color:sub(6, 7)) then
+        return color
+    end
     return string.format("#%06x", 0xffffff - tonumber(color:sub(2), 16))
 end
 
@@ -109,14 +115,14 @@ local function without_zen_css(css)
     return start and css:sub(1, start - 1) or css
 end
 
-function M.appendCss(plugin, css)
+function M.appendCss(plugin, css, document)
     local base = without_zen_css(css)
     if not is_enabled(plugin) then return base end
 
     local theme = theme_for(plugin)
     if not theme then return base end
-    local background = display_color(theme.background)
-    local text = display_color(theme.text)
+    local background = display_color(theme.background, document)
+    local text = display_color(theme.text, document)
     return base .. "\n" .. CSS_START .. "\n"
         .. "html, body { background-color: " .. background .. " !important; }\n"
         .. "body, body * { color: " .. text .. " !important; }\n"
@@ -190,7 +196,7 @@ function M.applyCurrent(plugin)
     local styletweak = reader.styletweak
     if type(typeset.css) == "string" and styletweak
         and type(styletweak.getCssText) == "function" then
-        reader.document:setStyleSheet(typeset.css, M.appendCss(plugin, styletweak:getCssText()))
+        reader.document:setStyleSheet(typeset.css, M.appendCss(plugin, styletweak:getCssText(), reader.document))
     elseif type(typeset.onApplyStyleSheet) == "function" then
         reader.typeset:onApplyStyleSheet()
     end
@@ -212,6 +218,21 @@ function M.applyCurrent(plugin)
     end
     UIManager:setDirty(reader, "full")
     return true
+end
+
+function M.refreshFull(widget)
+    local Screen = require("device").screen
+    UIManager:setDirty(widget, "full")
+    if is_dark_mode() and Screen.waveform_full then
+        -- Night waveforms can leave UI ghosting on a themed background.
+        local flashnight = Screen.waveform_flashnight
+        Screen.waveform_flashnight = Screen.waveform_full
+        local ok, err = pcall(UIManager.forceRePaint, UIManager)
+        Screen.waveform_flashnight = flashnight
+        if not ok then error(err, 0) end
+    else
+        UIManager:forceRePaint()
+    end
 end
 
 function M.isEnabled(plugin)

@@ -5,6 +5,7 @@ describe("Zen settings page", function()
     local shown_widgets
     local deferred_apply_flushes
     local translation_refreshes
+    local saved_reader_settings
 
     local dependency_names = {
         "gettext",
@@ -27,6 +28,7 @@ describe("Zen settings page", function()
         "common/ui/zen_settings_titlebar",
         "apps/filemanager/filemanager",
         "apps/reader/readerui",
+        "common/reader_themes",
     }
 
     local Menu = {}
@@ -78,6 +80,7 @@ describe("Zen settings page", function()
         shown_widgets = {}
         deferred_apply_flushes = 0
         translation_refreshes = 0
+        saved_reader_settings = G_reader_settings
         for _i, name in ipairs(dependency_names) do
             saved_modules[name] = package.loaded[name] or false
         end
@@ -154,12 +157,14 @@ describe("Zen settings page", function()
             end,
         })
         ZenSpec.unload("common/ui/truncated_text_message")
+        ZenSpec.unload("common/reader_themes")
         ZenSpec.unload("modules/settings/zen_settings_page")
         PageModule = require("modules/settings/zen_settings_page")
         Page = PageModule.Page
     end)
 
     after_each(function()
+        _G.G_reader_settings = saved_reader_settings
         _G.__ZEN_UI_SETTINGS_PAGE = nil
         ZenSpec.unload("modules/settings/zen_settings_page")
         for _i, name in ipairs(dependency_names) do
@@ -175,6 +180,41 @@ describe("Zen settings page", function()
             _root_items = items,
         }
     end
+
+    it("repaints live Wi-Fi toggles on external network changes", function()
+        local wifi_on = false
+        local settings = make_page({{
+            text = "Wi-Fi", checked_func = function() return wifi_on end,
+        }})
+        local UIManager = require("ui/uimanager")
+        local top = settings
+        UIManager.topdown_widgets_iter = function()
+            local widgets = { top, { toast = true } }
+            return function() return table.remove(widgets) end
+        end
+        local painted_states = {}
+        UIManager.setDirty = function(_self, widget, refresh, region)
+            assert.are.equal(settings, widget)
+            assert.are.equal("ui", refresh)
+            assert.are.equal(settings.dimen, region)
+            painted_states[#painted_states + 1] = settings.item_table[1].checked_func()
+        end
+
+        wifi_on = true
+        settings:onNetworkConnected()
+        wifi_on = false
+        settings:onNetworkDisconnected()
+        wifi_on = true
+        settings:onNetworkStateChanged()
+        assert.are.same({ true, false, true }, painted_states)
+
+        top = { covers_fullscreen = true }
+        settings:onNetworkStateChanged()
+        top = settings
+        settings:closeMenu()
+        settings:onNetworkStateChanged()
+        assert.are.same({ true, false, true }, painted_states)
+    end)
 
     it("loads the settings builder only when opening Settings", function()
         local name = "modules/settings/zen_settings"
@@ -290,7 +330,7 @@ describe("Zen settings page", function()
         assert.are.equal("Date", settings.title_bar.title)
     end)
 
-    it("returns to the settings root when the header Back button is held", function()
+    it("returns to the settings root on Back hold without forcing row focus", function()
         local detail = { text = "Detail", sub_item_table = {{ text = "Option" }} }
         local library = { text = "Library >", sub_item_table = { detail } }
         local settings = make_page({ library })
@@ -300,12 +340,14 @@ describe("Zen settings page", function()
         assert.are.equal("Detail", settings.title_bar.title)
         assert.is_function(settings.title_bar.back_hold_callback)
 
+        settings.itemnumber = 2
         settings.title_bar.back_hold_callback()
 
         assert.are.equal("Settings", settings.title_bar.title)
         assert.are.equal(settings._root_items, settings.item_table)
         assert.are.equal(0, #settings.item_table_stack)
         assert.is_false(settings.title_bar.back_visible)
+        assert.is_nil(settings.itemnumber)
     end)
 
     it("goes back from submenus on an east swipe starting in the west 33 percent", function()
@@ -534,15 +576,30 @@ describe("Zen settings page", function()
         assert.are.equal(1, deferred_apply_flushes)
     end)
 
-    it("refreshes the visible status bar after closing settings", function()
+    it("refreshes the visible status bar and full screen after closing settings", function()
         local UIManager = require("ui/uimanager")
         local fm = require("apps/filemanager/filemanager").instance
+        local reader = {}
+        ZenSpec.replace("apps/reader/readerui", { instance = reader })
         local refreshes = 0
+        local full_refreshes = 0
+        UIManager.setDirty = function(_self, widget, refresh, region)
+            if widget == "all" then
+                assert.are.equal("full", refresh)
+                assert.is_nil(region)
+                full_refreshes = full_refreshes + 1
+            else
+                assert.are.equal(reader, widget)
+                assert.are.equal("ui", refresh)
+                refreshes = refreshes + 1
+            end
+        end
         fm._updateStatusBar = function() refreshes = refreshes + 1 end
 
         UIManager._window_stack = { { widget = fm } }
         make_page({}):onCloseWidget()
         assert.are.equal(1, refreshes)
+        assert.are.equal(1, full_refreshes)
 
         local group = { _zen_status_refresh = function()
             refreshes = refreshes + 1
@@ -550,17 +607,83 @@ describe("Zen settings page", function()
         UIManager._window_stack = { { widget = fm }, { widget = group } }
         make_page({}):onCloseWidget()
         assert.are.equal(2, refreshes)
+        assert.are.equal(2, full_refreshes)
 
-        local reader = {}
-        ZenSpec.replace("apps/reader/readerui", { instance = reader })
-        UIManager.setDirty = function(_, widget, refresh)
-            assert.are.equal(reader, widget)
-            assert.are.equal("ui", refresh)
+        local home = { _zen_home_refresh_clock_widgets = function()
             refreshes = refreshes + 1
-        end
-        UIManager._window_stack = { { widget = reader } }
+        end }
+        UIManager._window_stack = { { widget = fm }, { widget = home }, { widget = { toast = true } } }
         make_page({}):onCloseWidget()
         assert.are.equal(3, refreshes)
+        assert.are.equal(3, full_refreshes)
+
+        UIManager._window_stack = { { widget = reader } }
+        make_page({}):onCloseWidget()
+        assert.are.equal(4, refreshes)
+        assert.are.equal(4, full_refreshes)
+    end)
+
+    it("flashes the themed reader after settings have closed", function()
+        _G.G_reader_settings = ZenSpec.memorySettings({ night_mode = true })
+        local UIManager = require("ui/uimanager")
+        local Screen = require("device").screen
+        Screen.night_mode = true
+        Screen.waveform_full = 2
+        Screen.waveform_flashnight = 8
+        local reader = { document = {}, show_parent = {} }
+        ZenSpec.replace("apps/reader/readerui", { instance = reader })
+        local plugin = {
+            config = {
+                features = { reader_themes = true },
+                reader_themes = { dark_mode = "dark_graphite", light_mode = "light_tan" },
+            },
+        }
+        local callback
+        UIManager.nextTick = function(_self, action) callback = action end
+        UIManager.setDirty = function() end
+        local flashes = 0
+        UIManager.forceRePaint = function()
+            flashes = flashes + 1
+            assert.are.equal(Screen.night_mode and 2 or 8, Screen.waveform_flashnight)
+            local top = UIManager._window_stack[#UIManager._window_stack].widget
+            assert.is_true(top == reader or top == reader.show_parent)
+        end
+
+        local function close_settings(top)
+            local settings = make_page({})
+            settings.plugin = plugin
+            UIManager._window_stack = { { widget = reader }, { widget = settings } }
+            local before_close = flashes
+            local night_mode = Screen.night_mode
+            settings:onCloseWidget()
+            assert.are.equal(before_close, flashes)
+            UIManager._window_stack = { { widget = top } }
+            callback()
+            assert.are.equal(8, Screen.waveform_flashnight)
+            assert.are.equal(night_mode, Screen.night_mode)
+        end
+
+        close_settings(reader)
+        assert.are.equal(1, flashes)
+        close_settings(reader.show_parent)
+        assert.are.equal(2, flashes)
+        close_settings(require("apps/filemanager/filemanager").instance)
+        assert.are.equal(2, flashes)
+        plugin.config.features.reader_themes = false
+        close_settings(reader)
+        assert.are.equal(2, flashes)
+        plugin.config.features.reader_themes = true
+        plugin.config.reader_themes.dark_mode = "default"
+        close_settings(reader)
+        assert.are.equal(2, flashes)
+
+        Screen.night_mode = false
+        G_reader_settings:saveSetting("night_mode", false)
+        close_settings(reader)
+        assert.are.equal(3, flashes)
+        ZenSpec.replace("apps/reader/readerui", { instance = nil })
+        close_settings(reader)
+        assert.are.equal(3, flashes)
     end)
 
     it("restores the last page for six seconds after closing", function()

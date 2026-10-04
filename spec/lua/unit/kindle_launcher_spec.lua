@@ -1,7 +1,7 @@
 describe("Kindle launcher installation", function()
     local lfs = require("libs/libkoreader-lfs")
-    local original_db, original_pending, original_launcher, original_storage, original_sqlite
-    local Launcher, root, destination, recorded
+    local original_db, original_pending, original_launcher, original_storage, original_sqlite, original_config
+    local Launcher, root, destination, recorded, config, saved
 
     local function write(path, contents)
         local file = assert(io.open(path, "wb"))
@@ -22,7 +22,16 @@ describe("Kindle launcher installation", function()
         original_launcher = package.loaded["common/kindle_launcher"]
         original_storage = package.loaded["datastorage"]
         original_sqlite = package.loaded["lua-ljsqlite3/init"]
+        original_config = package.loaded["config/manager"]
         recorded = nil
+        config, saved = { _meta = {} }, nil
+        ZenSpec.replace("config/manager", {
+            get = function() return config end,
+            save = function(value)
+                saved = value._meta.kindle_launcher_added
+                return true
+            end,
+        })
         ZenSpec.replace("common/db_connection", {
             isAvailable = function() return false end,
             open = function(path)
@@ -63,6 +72,7 @@ describe("Kindle launcher installation", function()
         package.loaded["common/kindle_launcher"] = original_launcher
         package.loaded["datastorage"] = original_storage
         package.loaded["lua-ljsqlite3/init"] = original_sqlite
+        package.loaded["config/manager"] = original_config
         os.remove(destination)
         os.remove(destination .. ".zenos-tmp")
         os.remove(root .. "/kindle-launcher/ZenReader.sh")
@@ -72,17 +82,38 @@ describe("Kindle launcher installation", function()
         lfs.rmdir(root)
     end)
 
-    it("copies a missing or older script and records its installed version", function()
+    it("copies a missing script and records its installed version", function()
         local bundled = "#!/bin/sh\n# Version: 1.1.0\necho new\n"
         write(root .. "/kindle-launcher/ZenReader.sh", bundled)
         assert.is_true(Launcher.install(root, destination))
         assert.are.equal(bundled, read(destination))
         assert.are.same({ "zen-reader", "ZenOS Launcher", "1.1.0", "ZenLabs", destination },
             { unpack(recorded, 1, 5) })
+        assert.is_true(saved)
+    end)
 
+    it("updates an older script on the first installation", function()
+        local bundled = "#!/bin/sh\n# Version: 1.1.0\necho new\n"
+        write(root .. "/kindle-launcher/ZenReader.sh", bundled)
         write(destination, "#!/bin/sh\n# Version: 1.0.0\necho old\n")
         assert.is_true(Launcher.install(root, destination))
         assert.are.equal(bundled, read(destination))
+    end)
+
+    it("does not reinstall or register a removed launcher after restarting", function()
+        write(root .. "/kindle-launcher/ZenReader.sh", "#!/bin/sh\n# Version: 1.1.0\n")
+        assert.is_true(Launcher.install(root, destination))
+        assert.is_true(saved)
+
+        assert(os.remove(destination))
+        config = { _meta = { kindle_launcher_added = saved } }
+        recorded = nil
+        ZenSpec.unload("common/kindle_launcher")
+        Launcher = require("common/kindle_launcher")
+
+        assert.is_true(Launcher.install(root, destination))
+        assert.is_nil(lfs.attributes(destination, "mode"))
+        assert.is_nil(recorded)
     end)
 
     it("preserves a newer ZenPM install", function()
@@ -101,12 +132,14 @@ describe("Kindle launcher installation", function()
         assert.is_true(Launcher.install(root, destination))
         assert.are.equal(current, read(destination))
         assert.are.equal("1.1.0", recorded[3])
+        assert.is_true(saved)
     end)
 
     it("does not mark an installation when copying fails", function()
         write(root .. "/kindle-launcher/ZenReader.sh", "#!/bin/sh\n# Version: 1.1.0\n")
         assert.is_false(Launcher.install(root, root .. "/missing/ZenReader.sh"))
         assert.is_nil(recorded)
+        assert.is_nil(saved)
     end)
 
     it("prepares ZenPM's database before its first launch", function()

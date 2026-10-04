@@ -9,12 +9,16 @@ function ColorTextWidget:paintTo(bb, x, y)
     self:updateSize()
     if self._is_empty then return end
 
-    if not self.fgcolor or Blitbuffer.isColor8(self.fgcolor) or not Screen:isColorScreen() then
-        TextWidget.paintTo(self, bb, x, y)
-        return
+    local color = self.fgcolor
+    -- Cancel night-mode inversion for configured RGB colors.
+    if color and not Blitbuffer.isColor8(color) and Screen.night_mode then
+        color = color:invert()
     end
-    if not self.use_xtext then
+    if not color or Blitbuffer.isColor8(color) or not Screen:isColorScreen() or not self.use_xtext then
+        local fgcolor = self.fgcolor
+        self.fgcolor = color
         TextWidget.paintTo(self, bb, x, y)
+        self.fgcolor = fgcolor
         return
     end
 
@@ -36,7 +40,7 @@ function ColorTextWidget:paintTo(bb, x, y)
         bb:colorblitFromRGB32(glyph.bb,
             x + pen_x + glyph.l + xglyph.x_offset,
             y + baseline - glyph.t - xglyph.y_offset,
-            0, 0, glyph.bb:getWidth(), glyph.bb:getHeight(), self.fgcolor)
+            0, 0, glyph.bb:getWidth(), glyph.bb:getHeight(), color)
         pen_x = pen_x + xglyph.x_advance
     end
 end

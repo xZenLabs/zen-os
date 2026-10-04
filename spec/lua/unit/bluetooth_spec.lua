@@ -8,12 +8,14 @@ describe("Bluetooth state cache", function()
         for _i, name in ipairs({
             "device", "modules/menu/bluetooth/kobo_bluetooth", "common/zen_logger", "modules/menu/bluetooth/bluetooth",
             "modules/menu/bluetooth_switcher", "modules/menu/bluetooth_adapters/kindle",
-            "ui/uimanager", "liblipclua",
+            "ui/uimanager", "ui/event", "liblipclua",
         }) do
             originals[name] = package.loaded[name] or false
         end
         state, reads = false, 0
         ZenSpec.replace("device", { isKindle = function() return false end })
+        ZenSpec.replace("ui/event", { new = function(_self, name) return { name = name } end })
+        ZenSpec.replace("ui/uimanager", { broadcastEvent = function() end, forceRePaint = function() end })
         ZenSpec.replace("modules/menu/bluetooth/kobo_bluetooth", {
             getState = function()
                 reads = reads + 1
@@ -55,7 +57,8 @@ describe("Bluetooth state cache", function()
             isPocketBook = function() return true end,
         })
         local enabled = false
-        ZenSpec.replace("ui/uimanager", { scheduleIn = function(_self, _delay, callback)
+        ZenSpec.replace("ui/uimanager", { broadcastEvent = function() end, forceRePaint = function() end,
+            scheduleIn = function(_self, _delay, callback)
             callback()
         end })
         local popen_stub = stub(io, "popen", function()
@@ -90,7 +93,8 @@ describe("Bluetooth state cache", function()
         end })
         local request_ok, btenable_ok = true, true
         state = true
-        ZenSpec.replace("ui/uimanager", { scheduleIn = function(_self, _delay, callback)
+        ZenSpec.replace("ui/uimanager", { broadcastEvent = function() end, forceRePaint = function() end,
+            scheduleIn = function(_self, _delay, callback)
             scheduled[#scheduled + 1] = callback
         end })
         ZenSpec.replace("liblipclua", { init = function()
@@ -170,7 +174,8 @@ describe("Bluetooth state cache", function()
         ZenSpec.replace("device", { isKindle = function() return true end })
         local scheduled, requests, delays = {}, {}, {}
         local radio_state = 2
-        ZenSpec.replace("ui/uimanager", { scheduleIn = function(_self, delay, callback)
+        ZenSpec.replace("ui/uimanager", { broadcastEvent = function() end, forceRePaint = function() end,
+            scheduleIn = function(_self, delay, callback)
             scheduled[#scheduled + 1] = callback
             delays[#delays + 1] = delay
         end })
@@ -223,5 +228,49 @@ describe("Bluetooth state cache", function()
         assert.are.same({ true, true, false }, results)
         popen_stub:revert()
         shell_stub:revert()
+    end)
+
+    it("reports pending before requesting Bluetooth power and clears it before completion", function()
+        local Bluetooth = require("modules/menu/bluetooth/bluetooth")
+        local finish
+        local states = {}
+        package.loaded["ui/uimanager"].broadcastEvent = function(_self, event)
+            assert.are.equal("BluetoothStateChanged", event.name)
+            states[#states + 1] = Bluetooth.isChanging()
+        end
+        package.loaded["modules/menu/bluetooth/kobo_bluetooth"].setEnabled = function(_enabled, callback)
+            assert.is_true(Bluetooth.isChanging())
+            finish = callback
+            return true
+        end
+        local completed = 0
+        for _i, success in ipairs({ true, false }) do
+            Bluetooth.setEnabled(true, function(ok)
+                assert.are.equal(success, ok)
+                assert.is_false(Bluetooth.isChanging())
+                completed = completed + 1
+            end)
+            assert.is_true(Bluetooth.isChanging())
+            finish(success)
+            assert.is_false(Bluetooth.isChanging())
+        end
+        assert.are.equal(2, completed)
+        assert.are.same({ true, false, true, false }, states)
+    end)
+
+    it("keeps a newer Bluetooth request pending when the previous request completes", function()
+        local Bluetooth = require("modules/menu/bluetooth/bluetooth")
+        local callbacks = {}
+        package.loaded["modules/menu/bluetooth/kobo_bluetooth"].setEnabled = function(_enabled, callback)
+            callbacks[#callbacks + 1] = callback
+            return true
+        end
+        Bluetooth.setEnabled(true)
+        Bluetooth.setEnabled(false)
+        callbacks[1](true)
+        assert.is_true(Bluetooth.isChanging())
+        callbacks[2](true)
+        assert.is_false(Bluetooth.isChanging())
+        assert.is_false(Bluetooth.getCachedState())
     end)
 end)

@@ -9,7 +9,6 @@ local function apply_reader_footer_time_format()
     local T = require("ffi/util").template
 
     local orig_chapter_time_to_read = ReaderFooter.textGeneratorMap.chapter_time_to_read
-    local orig_filler = ReaderFooter.textGeneratorMap.dynamic_filler
 
     -- Capture at apply time (while __ZEN_UI_PLUGIN is set); fall back to
     -- re-reading the global for late callers (same pattern as reader_top_status_bar.lua).
@@ -26,48 +25,6 @@ local function apply_reader_footer_time_format()
         end
         return rf_config.verbose_chapter_time == true and "full" or "number"
     end
-
-    -- The dynamic_filler formula adds separator_width back to compensate for the
-    -- merged separator, which can push the total over max_width by ~1 space,
-    -- causing TextWidget to truncate adjacent items with "...". By removing 6
-    -- extra spaces (approx 30px), we guarantee it fits safely without truncation.
-    -- Only trim for the longer text formats.
-    --
-    -- Named local so we can reference it in the genAllFooterText patch below.
-    local zen_filler_wrapper = function(footer)
-        local text, merge, is_filler = orig_filler(footer)
-        local format = get_time_format()
-        if (format == "full" or format == "compact")
-                and type(text) == "string" and #text > 0 then
-            local ct = ReaderFooter.textGeneratorMap.chapter_time_to_read(footer)
-            if ct and ct ~= "" then
-                if #text > 8 then
-                    text = text:sub(1, -7) -- removes 6 spaces
-                else
-                    text = text:sub(1, 1)  -- fallback to 1 space
-                end
-            end
-        end
-        return text, merge, is_filler
-    end
-
-    -- On cold/restart start, footerTextGenerators may hold orig_filler while
-    -- footerTextGeneratorMap.dynamic_filler is already zen_filler_wrapper.
-    -- The skip-by-reference check in genAllFooterText then fails, causing
-    -- infinite recursion. Lazily fix up the stale entry on first call.
-    local orig_genAllFooterText = ReaderFooter.genAllFooterText
-    ReaderFooter.genAllFooterText = function(self, skip_gen)
-        if skip_gen == zen_filler_wrapper and self.footerTextGenerators then
-            for i, gen in ipairs(self.footerTextGenerators) do
-                if gen == orig_filler then
-                    self.footerTextGenerators[i] = zen_filler_wrapper
-                end
-            end
-        end
-        return orig_genAllFooterText(self, skip_gen)
-    end
-
-    ReaderFooter.textGeneratorMap.dynamic_filler = zen_filler_wrapper
 
     local function format_short_duration(total_minutes)
         if total_minutes < 1 then return T(_("< %1m"), 1) end

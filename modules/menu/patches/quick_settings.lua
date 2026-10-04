@@ -502,6 +502,7 @@ local function apply_quick_settings()
             and (not network or type(network.ssid) ~= "string" or network.ssid == "")
             and remaining > 0
         then
+            if not retries then refreshQuickSettings(touch_menu) end
             UIManager:scheduleIn(1, function()
                 refreshWifiQuickSettings(touch_menu, remaining - 1)
             end)
@@ -515,9 +516,10 @@ local function apply_quick_settings()
             and (type(NetworkMgr.isConnected) ~= "function" or NetworkMgr:isConnected())
     end
 
-    local function isWifiConnecting()
-        return not isWifiConnected()
-            and (NetworkMgr.pending_connection or NetworkMgr.pending_connectivity_check)
+    local function isWifiDimmed()
+        return NetworkMgr.isWifiChanging and NetworkMgr:isWifiChanging()
+            or not isWifiConnected()
+            and (NetworkMgr:isWifiOn() or NetworkMgr.pending_connection or NetworkMgr.pending_connectivity_check)
     end
 
     -- ============================================================
@@ -541,6 +543,7 @@ local function apply_quick_settings()
             label = _("Bluetooth"),
             visible_func = Bluetooth.isAvailable,
             active_func = Bluetooth.isEnabled,
+            dim_func = Bluetooth.isChanging,
             callback = function(touch_menu)
                 Bluetooth.toggle(function(success, reason)
                     if success then
@@ -573,15 +576,8 @@ local function apply_quick_settings()
                 return _("Wi-Fi")
             end,
             active_func = isWifiConnected,
-            dim_func = isWifiConnecting,
+            dim_func = isWifiDimmed,
             callback = function(touch_menu)
-                if isWifiConnecting() then
-                    require("common/zen_logger").new("quick_settings").dbg(
-                        "Wi-Fi tap ignored during connection",
-                        "pending_connection=", NetworkMgr.pending_connection,
-                        "pending_connectivity_check=", NetworkMgr.pending_connectivity_check)
-                    return
-                end
                 local refresh = function() refreshWifiQuickSettings(touch_menu) end
                 require("modules/menu/network_switcher").toggleWifi({
                     updateItems = refresh,
@@ -844,8 +840,8 @@ local function apply_quick_settings()
                     and type(features) == "table" and features.lockdown_mode == true
             end,
             callback = function(touch_menu)
-                touch_menu:closeMenu()
                 UIManager:nextTick(function()
+                    touch_menu:closeMenu()
                     require("modules/settings/zen_settings_page").show(zen_plugin)
                 end)
             end,
@@ -1519,7 +1515,7 @@ local function apply_quick_settings()
                 local dimmed   = def.dim_func      and def.dim_func()      or false
                 -- Disabled takes priority: don't show active styling on a greyed-out button.
                 local btn_widget, btn_circle = makeActionButton(
-                    def.icon, label_text, active and not disabled, disabled, dimmed
+                    def.icon, label_text, active and not disabled and not dimmed, disabled, dimmed
                 )
 
                 table.insert(refs.buttons, {
@@ -1628,6 +1624,16 @@ local function apply_quick_settings()
     end)
 
     local TouchMenu = require("ui/widget/touchmenu")
+
+    for _i, event_name in ipairs({
+        "onNetworkConnected", "onNetworkDisconnected", "onNetworkStateChanged", "onBluetoothStateChanged",
+    }) do
+        local original = TouchMenu[event_name]
+        TouchMenu[event_name] = function(self, ...)
+            if original then original(self, ...) end
+            refreshQuickSettings(self)
+        end
+    end
 
     -- Open launcher first when requested; otherwise Controls remains the default.
     local orig_init = TouchMenu.init

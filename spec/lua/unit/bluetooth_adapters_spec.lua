@@ -11,6 +11,8 @@ describe("Bluetooth device adapters", function()
         }) do originals[name] = package.loaded[name] or false end
         commands, scheduled, unscheduled = {}, {}, {}
         ZenSpec.replace("ui/uimanager", {
+            broadcastEvent = function() end,
+            forceRePaint = function() end,
             scheduleIn = function(_self, delay, callback)
                 scheduled[#scheduled + 1] = { delay = delay, callback = callback }
             end,

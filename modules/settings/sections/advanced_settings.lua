@@ -45,7 +45,6 @@ function M.build(ctx)
         callback = function()
             config.features.partial_page_repaint = config.features.partial_page_repaint ~= true
             plugin:saveConfig()
-            settings_apply.prompt_restart()
         end,
     })
 

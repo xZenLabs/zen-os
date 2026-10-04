@@ -60,6 +60,39 @@ describe("Zen logger branding", function()
         assert.are.equal("ZenOS: [zen_logger_spec] visible", captured[1])
     end)
 
+    it("omits KOReader network identifiers at every enabled level", function()
+        local logger = require("common/zen_logger").new("test")
+        backend:setLevel(backend.levels.dbg)
+        local upstream_log = assert(loadstring([[return function(level, ...)
+            require("logger")[level](...)
+        end]], "@/koreader/frontend/ui/network/manager.lua"))()
+        local messages = {
+            { "NetworkMgr: interface", "wlan0", "is up @", "10.0.0.86" },
+            { "NetworkMgr: interface", "wlan0", "is up @", "fe80::1234%wlan0" },
+            { "NetworkMgr: lease_ssid set to", "Private Wi-Fi", "after async restore" },
+            { "NetworkMgr: Connected to network", "Private Wi-Fi" },
+            { "NetworkMgr: stale DHCP lease detected (lease_ssid=", "Private Wi-Fi", ")" },
+            { "WpaSupplicant:getCurrentNetwork: Connected network:", { ssid = "Private Wi-Fi" } },
+            { "active network", "ssid=", "Private Wi-Fi" },
+            { '{"ssid": "Private Wi-Fi"}' },
+            { "device address", "2001:db8::" },
+        }
+        for _i, level in ipairs({ "dbg", "info", "warn", "err" }) do
+            for _j, args in ipairs(messages) do
+                captured = nil
+                upstream_log(level, unpack(args))
+                assert.is_nil(captured)
+                logger[level](unpack(args))
+                assert.is_nil(captured)
+            end
+        end
+
+        upstream_log("dbg", "NetworkMgr: socket.udp.setpeername:", "Network is unreachable")
+        assert.are.same({ "NetworkMgr: socket.udp.setpeername:", "Network is unreachable" }, captured)
+        logger.dbg("connection verified", "ip_assigned=", true)
+        assert.is_true(captured[3])
+    end)
+
     it("skips stack inspection for disabled debug logging", function()
         local logger = require("common/zen_logger").new("test")
         local original_getinfo = debug.getinfo

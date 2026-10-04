@@ -18,18 +18,25 @@ on:
 jobs:
   tests:
     name: Full test suite
+    needs: luacheck
     uses: ./.github/workflows/test.yml
     with:
       suite: full
+      ref: ${{ needs.luacheck.outputs.commit }}
 
   luacheck:
     name: LuaCheck
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.head_commit.message, 'ci-skip') }}
+    outputs:
+      commit: ${{ steps.checkout.outputs.commit }}
 
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'dev' || github.sha }}
 
       - name: Run LuaCheck gate
         uses: ./.github/actions/luacheck-gate
@@ -47,6 +54,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.luacheck.outputs.commit }}
 
       - name: Read version from _meta.lua
         id: meta
@@ -143,7 +152,7 @@ jobs:
             --title "ZenOS $TAG" \
             --notes-file release_notes.md \
             --prerelease \
-            --target "${{ github.sha }}"
+            --target "${{ needs.luacheck.outputs.commit }}"
 
       - name: Refresh ZenPM package
         if: steps.version_check.outputs.skip == 'false'

@@ -538,6 +538,7 @@ local function showCalendarDaySummary(stats_plugin, visible_day_ts, stat_style)
     dialog = ButtonDialog:new{
         width = dialog_w,
         buttons = {},
+        _onPageScrollToRow = false, -- Cards have no button rows to refocus after scrolling.
     }
     local width = math.max(Screen:scaleBySize(160), dialog_w - Screen:scaleBySize(28))
     local scroll_w = math.max(

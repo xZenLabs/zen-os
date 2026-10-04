@@ -3,7 +3,7 @@ title: Navbar
 category: Interface
 summary: The customizable bottom navigation bar
 settingsPath: Zen Settings > Interface > Navbar
-order: 35
+order: 48
 ---
 
 <!-- Documentation current through ZenOS v3.3.0. -->
@@ -25,6 +25,10 @@ Navbar settings live under **Zen Settings > Interface > Navbar**.
 - Select the destination used at startup and by the physical Home button.
 - Configure Library, Folder, Home, Manga, and News tab labels or actions.
 - Control active-tab styling, top border, label size, and icon size.
+
+Under **Styling > Active tab**, choose **Underline** or **Filled** using the radio control. Filled appears directly below Underline. Open **Underline** to move the line above the icon. Open **Filled** to pick **Outline color** for the icon and **Fill color** for the squircle behind it; the defaults are a white icon on a muted blue (#4F6F8F) squircle. With icons hidden, the active label uses the fill color. **Active tab outline color** is available when **Colored** and **Underline** are selected.
+
+The **Fill color** picker also has an **Opacity** slider from 0% (transparent) to 100% (opaque), with a default of 60%. Opacity affects the squircle background; icons and labels stay opaque. Color and opacity changes repaint the navbar when settings close.
 
 ## Manga And News Tabs
 

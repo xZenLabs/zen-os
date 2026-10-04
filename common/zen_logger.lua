@@ -11,6 +11,52 @@ local _now
 local LEVELS = { "dbg", "info", "warn", "err" }
 M.SLOW_THRESHOLD_MS = 500
 
+local function has_network_identifiers(...)
+    for i = 1, select("#", ...) do
+        local message = select(i, ...)
+        if type(message) == "string" then
+            local network = message:match("NetworkMgr:%s*(.*)")
+                or message:match("WpaSupplicant:%s*(.*)")
+            if network then
+                network = network:lower()
+                if network:find("ssid", 1, true) or network:find("to network", 1, true)
+                        or network:find("on preferred network", 1, true)
+                        or network:find("connected network:", 1, true)
+                        or network:find("current network:", 1, true)
+                        or network == "interface" or network:find("is up @", 1, true) then
+                    return true
+                end
+            end
+            local lower = message:lower()
+            if lower:find("%f[%w]e?ssid%W*[=:]") or lower:find("%f[%w]ip%W*[=:]")
+                    or message:find("%d+%.%d+%.%d+%.%d+")
+                    or message:find("%f[%w_:%.][%x:]*::[%x:%.]*%f[^%w_:%.]")
+                    or message:find("%f[%w_:%.]%x+:%x+:%x+:%x+:%x+:%x+:%x+:%x+%f[^%w_:%.]") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function M.redactNetworkLog(data)
+    local lines, network_dump = {}, false
+    for line in (data .. "\n"):gmatch("(.-)\n") do
+        if network_dump and line:match("^[%d/%.%-]+%-%d%d:%d%d:%d%d%s") then
+            network_dump = false
+        end
+        if network_dump then
+            if line:match("^}%s*$") then network_dump = false end
+        elseif has_network_identifiers(line) then
+            network_dump = line:find("WpaSupplicant:", 1, true) ~= nil
+                and line:match("{%s*$") ~= nil
+        else
+            lines[#lines + 1] = line
+        end
+    end
+    return table.concat(lines, "\n")
+end
+
 local function get_plugin_root()
     if _plugin_root ~= nil then return _plugin_root end
     local source = debug.getinfo(1, "S").source or ""
@@ -43,6 +89,7 @@ end
 
 local function emit(level, feature, args)
     if not _enabled[level] then return end
+    if has_network_identifiers(unpack(args)) then return end
     if type(args[1]) == "string" then
         args[1] = string.format("ZenOS: [%s] %s", feature, strip_legacy_prefix(args[1]))
     else
@@ -113,6 +160,7 @@ function M.install()
     local function wrap(level)
         return function(...)
             if not _enabled[level] then return end
+            if has_network_identifiers(...) then return end
             local source = debug.getinfo(2, "S").source
             local feature = feature_from_source(source)
             if feature then

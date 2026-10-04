@@ -172,7 +172,10 @@ function M.init(logger, plugin)
         end
     end
 
-    if is_feature_enabled(plugin, "reader_themes") then
+    local Device = require("device")
+    local color_kindle = Device.isKindle and Device:isKindle()
+        and Device.hasColorScreen and Device:hasColorScreen()
+    if is_feature_enabled(plugin, "reader_themes") or color_kindle then
         local fn = load_patch("reader_themes")
         if fn then
             local ok = run_feature(logger, plugin, "reader_themes", fn)

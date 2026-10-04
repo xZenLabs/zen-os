@@ -71,6 +71,48 @@ describe("reader themes settings", function()
         ReaderSettings = require("modules/settings/sections/reader_settings")
     end)
 
+    it("ends reader settings with a margin toggle that saves and refreshes both bars", function()
+        local saved, refreshed, dirty = 0, 0, 0
+        local config = { features = { reader_status_bar_margins = true }, reader_themes = {} }
+        local reader = { view = { footer = {
+            refreshFooter = function(_self, refresh, signal)
+                assert.is_true(refresh)
+                assert.is_true(signal)
+                refreshed = refreshed + 1
+            end,
+        } } }
+        local ReaderUI = { instance = reader }
+        ZenSpec.replace("apps/reader/readerui", ReaderUI)
+        package.loaded["ui/uimanager"].setDirty = function(_self, widget, mode)
+            assert.are.equal(reader, widget)
+            assert.are.equal("ui", mode)
+            dirty = dirty + 1
+        end
+        local items = ReaderSettings.build({
+            config = config,
+            plugin = { saveConfig = function() saved = saved + 1 end },
+            save_and_apply = function() end,
+        })
+        local toggle = items[#items]
+        assert.are.equal("Align status bars with book margins", toggle.text)
+        assert.is_true(toggle.checked_func())
+        toggle.callback()
+        assert.is_false(config.features.reader_status_bar_margins)
+        assert.is_false(toggle.checked_func())
+        toggle.callback()
+        assert.is_true(config.features.reader_status_bar_margins)
+        assert.is_true(toggle.checked_func())
+        assert.are.equal(2, saved)
+        assert.are.equal(2, refreshed)
+        assert.are.equal(2, dirty)
+
+        ReaderUI.instance = nil
+        toggle.callback()
+        assert.is_false(config.features.reader_status_bar_margins)
+        assert.are.equal(3, saved)
+        assert.are.equal(2, refreshed)
+    end)
+
     it("edits and resets highlight names and colors from Highlight / Lookup", function()
         local saved, updates = 0, 0
         local config = {

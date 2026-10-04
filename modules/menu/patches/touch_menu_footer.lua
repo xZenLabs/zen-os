@@ -62,6 +62,7 @@ local function apply_touch_menu_footer()
     local TouchMenu = require("ui/widget/touchmenu")
     local orig_init = TouchMenu.init
     local orig_onShow = TouchMenu.onShow
+    local orig_onCloseWidget = TouchMenu.onCloseWidget
     local orig_paintTo = TouchMenu.paintTo
 
     local function hatching_enabled()
@@ -72,8 +73,22 @@ local function apply_touch_menu_footer()
     function TouchMenu:onShow(...)
         local result = orig_onShow and orig_onShow(self, ...)
         if hatching_enabled() then
-            self.is_fresh = false -- Avoid promoting the backdrop to a fullscreen flash.
-            UIManager:setDirty(nil, "ui")
+            self.is_fresh = false -- Use one screen-wide refresh for the backdrop.
+            UIManager:setDirty(nil, Screen.night_mode and "full" or "ui")
+        end
+        return result
+    end
+
+    function TouchMenu:onCloseWidget(...)
+        local result = orig_onCloseWidget and orig_onCloseWidget(self, ...)
+        if Screen.night_mode or (Device.hasColorScreen and Device:hasColorScreen()) then
+            local FileManager = package.loaded["apps/filemanager/filemanager"]
+            local ReaderUI = package.loaded["apps/reader/readerui"]
+            if (FileManager and FileManager.instance and not FileManager.instance.tearing_down)
+                    or (ReaderUI and ReaderUI.instance and not ReaderUI.instance.tearing_down) then
+                -- Queue the full waveform after painting the uncovered screen.
+                UIManager:setDirty(nil, function() return "full" end)
+            end
         end
         return result
     end

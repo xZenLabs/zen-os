@@ -15,6 +15,8 @@ local function apply_reader_footer()
     local UIManager = require("ui/uimanager")
     local Device = require("device")
     local Screen = Device.screen
+    local ReaderStatusBar = require("common/reader_status_bar")
+    local zen_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
     local _ = require("gettext")
 
     -- In compact_items mode, KOReader's battery generator returns the icon
@@ -335,9 +337,33 @@ local function apply_reader_footer()
     -- LCR+alongside mode. The layout becomes:
     --   [margin | left_text_container | progress_bar | text_container | margin]
     -- where text_container (right section) continues to drive bar width.
+    local function book_margin_width(self)
+        if not ReaderStatusBar.isMarginAlignmentEnabled(zen_plugin) then return end
+        local document = self.ui and self.ui.document
+        local left, right = ReaderStatusBar.getHorizontalMargins(document, nil, zen_plugin)
+        -- KOReader scales progress_margin_width itself; convert rendered pixels back.
+        return left and (left + right) / 2 / (Screen:scaleBySize(1000000) / 1000000)
+    end
+
     local orig_updateFooterContainer = ReaderFooter.updateFooterContainer
     ReaderFooter.updateFooterContainer = function(self)
+        local margin = book_margin_width(self)
+        if margin then
+            self._zen_horizontal_margin = self._zen_horizontal_margin or self.horizontal_margin
+            self.horizontal_margin = Screen:scaleBySize(margin)
+        elseif self._zen_horizontal_margin then
+            self.horizontal_margin = self._zen_horizontal_margin
+            self._zen_horizontal_margin = nil
+        end
         orig_updateFooterContainer(self)
+        if margin then
+            local paintTo = self.vertical_frame.paintTo
+            -- Shift the contents for unequal margins; keep the background full-width.
+            self.vertical_frame.paintTo = function(frame, bb, x, y)
+                local left, right = ReaderStatusBar.getHorizontalMargins(self.ui.document, 0, zen_plugin)
+                paintTo(frame, bb, x + math.floor((left - right) / 2), y)
+            end
+        end
         if self.progress_bar then
             self.progress_bar.fillcolor = Blitbuffer.COLOR_GRAY_5
         end
@@ -405,6 +431,36 @@ local function apply_reader_footer()
                 UIManager:widgetRepaint(self.view.footer, 0, 0)
             end
         end
+    end
+
+    -- Keep book margins out of persisted footer settings.
+    local orig_resetLayout = ReaderFooter.resetLayout
+    ReaderFooter.resetLayout = function(self, ...)
+        local width = self.settings.progress_margin_width
+        self.settings.progress_margin_width = book_margin_width(self) or width
+        local result = orig_resetLayout(self, ...)
+        self.settings.progress_margin_width = width
+        return result
+    end
+
+    local update_footer_text = ReaderFooter._updateFooterText
+    ReaderFooter._updateFooterText = function(self, force_repaint, full_repaint)
+        if force_repaint and self.view.footer_visible then
+            local repaint, repaint_full = self:shouldBeRepainted()
+            force_repaint = repaint
+            full_repaint = full_repaint or repaint_full
+        end
+        local margin = book_margin_width(self)
+        if margin and self.horizontal_margin ~= Screen:scaleBySize(margin)
+                or not margin and self._zen_horizontal_margin then
+            self:updateFooterContainer()
+            self:resetLayout(true)
+        end
+        local width = self.settings.progress_margin_width
+        self.settings.progress_margin_width = margin or width
+        local result = update_footer_text(self, force_repaint, full_repaint)
+        self.settings.progress_margin_width = width
+        return result
     end
 
     -- genAllFooterText: activate L/C/R layout when both dynamic_filler and

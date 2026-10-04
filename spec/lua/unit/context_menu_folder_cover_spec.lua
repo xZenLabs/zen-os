@@ -655,7 +655,78 @@ describe("folder cover context-menu integration", function()
         assert.are.equal(6, home_rebuilds)
     end)
 
-    it("shows plugin actions as an iconless list and preserves Edit ordering", function()
+    it("flashes only the painted context-menu cover and skips closed dialogs", function()
+        local scheduled, flashes = {}, {}
+        local top_widget
+        local opening_calls = 0
+        local ButtonDialog = widget_class()
+        function ButtonDialog:new(options)
+            options.onShow = function() opening_calls = opening_calls + 1 end
+            return options
+        end
+        local FileManager = { setupLayout = function() end, moveFile = function() end }
+        local chooser = { path = "/library", showFileDialog = function() end }
+        local fm = { file_chooser = chooser }
+        FileManager.instance = fm
+        install_stubs({
+            ButtonDialog = ButtonDialog,
+            FileChooser = { show_filter = {}, show_file = function() return true end },
+            FileManager = FileManager,
+            Files = { isManaged = function() return false end },
+            UIManager = {
+                show = function(_self, widget)
+                    top_widget = widget
+                    widget:onShow()
+                end,
+                tickAfterNext = function(_self, callback) scheduled[#scheduled + 1] = callback end,
+                getTopmostVisibleWidget = function() return top_widget end,
+                setDirty = function(_self, widget, mode, region, dither)
+                    flashes[#flashes + 1] = {
+                        widget = widget, mode = mode, region = region, dither = dither,
+                    }
+                end,
+            },
+            Cover = {
+                BORDER_SIZE = 1,
+                getRatio = function() return 2 / 3 end,
+                makeCover = function() return { paintTo = function() end }, 80, 120 end,
+            },
+            BookInfoManager = { getBookInfo = function() return { title = "Book", pages = 100 } end },
+            paths = {
+                getHomeDir = function() return "/library" end,
+                isInHomeDir = function() return true end,
+                isHomeRoot = function() return false end,
+                isPrimaryHomeRoot = function() return false end,
+            },
+        })
+        apply_patch()
+        FileManager.setupLayout(fm)
+
+        local items = {
+            { path = "/library/book.epub", is_file = true, _zen_collection_name = "Test" },
+            { path = "/library/folder", is_file = false },
+            { _zen_group_files = { "/library/book.epub" }, _zen_group_name = "Group" },
+        }
+        for index, item in ipairs(items) do
+            chooser:showFileDialog(item)
+            assert.are.equal(index, opening_calls)
+            assert.are.equal(index, #scheduled)
+            assert.are.equal(index - 1, #flashes)
+            local cover = top_widget._added_widgets[1][1][1]
+            cover.dimen = { x = 100, y = 200, w = 80, h = 120 }
+            scheduled[index]()
+            assert.are.same({ mode = "full", region = cover.dimen, dither = true }, flashes[index])
+        end
+
+        top_widget:onShow()
+        top_widget = nil
+        scheduled[#scheduled]()
+        assert.are.equal(3, #flashes)
+        chooser:showSortOrderDialog({ title = "Sort order" })
+        assert.are.equal(4, #scheduled)
+    end)
+
+    it("keeps inline icons in plugin actions and preserves Edit ordering", function()
         local shown = {}
         local details_options
         local editor_options
@@ -694,6 +765,7 @@ describe("folder cover context-menu integration", function()
                         {
                             text_func = function() return "\u{F140B}  Dynamic action" end,
                         },
+                        { text = "\u{F048A}  ZenFM Send" },
                     }
                 end,
                 function() error("broken plugin") end,
@@ -716,7 +788,21 @@ describe("folder cover context-menu integration", function()
             config = { context_menu = context_menu_config },
         }
 
+        local ButtonDialog = widget_class()
+        function ButtonDialog:new(options)
+            options.buttontable = { buttons_layout = options.buttons }
+            for _i, row in ipairs(options.buttons) do
+                for _j, button in ipairs(row) do
+                    button.text = button.text_func and button.text_func() or button.text
+                    button.label_widget = { face = {}, free = function() end }
+                    button.label_container = { dimen = { w = 400, h = 40 } }
+                end
+            end
+            return options
+        end
+
         install_stubs({
+            ButtonDialog = ButtonDialog,
             FileChooser = FileChooser,
             FileManager = FileManager,
             Files = { isManaged = function() return false end },
@@ -790,13 +876,19 @@ describe("folder cover context-menu integration", function()
         assert.are.equal("/library/book.epub", plugin_args[1])
         assert.is_true(plugin_args[2])
         assert.are.equal("Book", plugin_args[3].title)
-        assert.are.equal(2, #more_dialog.buttons)
+        assert.are.equal(3, #more_dialog.buttons)
         assert.are.equal(1, #more_dialog.buttons[1])
         assert.are.equal(1, #more_dialog.buttons[2])
-        assert.are.equal("Incognito", more_dialog.buttons[1][1].text)
+        assert.are.equal("\u{F05F9}  Incognito", more_dialog.buttons[1][1].text)
+        assert.are.equal("Incognito", more_dialog.buttons[1][1].label_widget.text)
+        assert.is_true(has_widget_text(more_dialog.buttons[1][1].label_container, "\u{F05F9}"))
         assert.is_nil(more_dialog.buttons[1][1].icon)
         assert.are.equal("left", more_dialog.buttons[1][1].align)
-        assert.are.equal("Dynamic action", more_dialog.buttons[2][1].text_func())
+        assert.are.equal("\u{F140B}  Dynamic action", more_dialog.buttons[2][1].text_func())
+        assert.are.equal("Dynamic action", more_dialog.buttons[2][1].label_widget.text)
+        assert.is_true(has_widget_text(more_dialog.buttons[2][1].label_container, "\u{F140B}"))
+        assert.are.equal("ZenFM Send", more_dialog.buttons[3][1].label_widget.text)
+        assert.is_true(has_widget_text(more_dialog.buttons[3][1].label_container, "\u{F048A}"))
         assert(find_button(more_dialog, "Incognito")).callback()
         assert.is_true(plugin_action_called)
 

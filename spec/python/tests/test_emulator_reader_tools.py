@@ -70,6 +70,61 @@ def _frames_differ(first: Path, second: Path) -> bool:
         return difference.getbbox() is not None
 
 
+@pytest.mark.parametrize("dark_mode", [False, True])
+def test_reader_themes_allow_page_turns_after_changing_theme(dark_mode: bool) -> None:
+    runtime = Path(os.environ["KOREADER_DIR"])
+    with tempfile.TemporaryDirectory(prefix="zen-reader-themes-") as temporary:
+        root = Path(temporary)
+        home, library = root / "home", root / "library"
+        home.mkdir()
+        library.mkdir()
+        book = library / "reader-themes.epub"
+        _write_reader_epub(book)
+        (home / "settings.reader.lua").write_text(
+            'return { home_dir = ' + repr(str(library.resolve()))
+            + ', night_mode = ' + str(dark_mode).lower() + ' }\n', encoding="utf-8",
+        )
+        config_dir = home / "settings" / "ZenOS"
+        config_dir.mkdir(parents=True)
+        (config_dir / "config.lua").write_text(
+            "return { updater = { update_auto_check = false }, "
+            "features = { reader_themes = true }, "
+            "reader_themes = { dark_mode = 'default', light_mode = 'default' } }\n",
+            encoding="utf-8",
+        )
+        socket_path = root / "driver.sock"
+        process = launch(runtime, home, socket_path, library, initialize_settings=False)
+        try:
+            wait_for_socket(socket_path)
+            driver = ZenDriver(socket_path)
+            assert driver.open_book(book)["ok"]
+            _wait_command(driver, "reader_state", lambda result: result.get("reader", {}).get("open"))
+            assert driver.command("open_settings_page")["ok"]
+            mode = "Dark mode" if dark_mode else "Light mode"
+            for label in ("Reader", "Reader themes", mode + ": Default", "Light tan"):
+                assert driver.command("settings_page_select", label=label)["ok"]
+            assert driver.command("close_settings_page")["ok"]
+            first_frame = root / "first.png"
+            driver.screenshot(first_frame)
+            for page in (3, 2, 4, 3):
+                assert driver.command("goto_reader_page", page=page)["ok"]
+                _wait_command(driver, "reader_state", lambda result: result["reader"]["page"] == page)
+            last_frame = root / "last.png"
+            driver.screenshot(last_frame)
+            with Image.open(first_frame) as first, Image.open(last_frame) as last:
+                box = (0, first.height // 4, first.width, first.height * 3 // 4)
+                assert ImageChops.difference(
+                    first.convert("RGB").crop(box), last.convert("RGB").crop(box)
+                ).getbbox() is not None
+        finally:
+            process.send_signal(signal.SIGTERM)
+            try:
+                process.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+
+
 def test_reader_page_browser_modes_and_aa_menu_render() -> None:
     runtime = Path(os.environ["KOREADER_DIR"])
     with tempfile.TemporaryDirectory(prefix="zen-reader-tools-") as temporary:

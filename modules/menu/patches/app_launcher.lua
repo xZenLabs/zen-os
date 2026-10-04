@@ -139,7 +139,7 @@
             icon_size * utils.iconOpticalScale(opts.icon) + 0.5)
         local circle_size = opts.circle_size
         local circle_border = opts.circle_border
-        local active = opts.active == true
+        local active = opts.active == true and not opts.dimmed
         local label_face = opts.label_face
         local fg = opts.dim and Blitbuffer.COLOR_DARK_GRAY or Blitbuffer.COLOR_BLACK
         local show_label = opts.show_label ~= false
@@ -165,7 +165,8 @@
             padding = 0,
             bordersize = border,
             radius = math.floor(circle_size / 2),
-            background = active and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_WHITE,
+            background = active and Blitbuffer.COLOR_BLACK
+                or opts.dimmed and Blitbuffer.COLOR_GRAY or Blitbuffer.COLOR_WHITE,
             CenterContainer:new{
                 dimen = Geom:new{
                     w = circle_size - border * 2,
@@ -634,6 +635,9 @@
                 row_counts[#rows] = row_counts[#rows] + 1
                 local dim = not entry._app_back
                     and (not entry_available(entry, touch_menu, cfg) or entry_disabled(entry))
+                local quick_setting_id = entry.quick_setting_id
+                local controls = entry.type == "quick_setting"
+                    and rawget(_G, "__ZEN_UI_QUICK_SETTINGS") or nil
                 local cell = make_cell{
                     cell_w = row_widths[#rows] or uniform_cell_w,
                     cell_h = cell_h,
@@ -647,6 +651,7 @@
                     show_label = show_labels,
                     icon = entry.icon or (entry.type == "folder" and DEFAULT_FOLDER_ICON or DEFAULT_ENTRY_ICON),
                     dim = dim,
+                    dimmed = controls and controls.isDimmed and controls.isDimmed(quick_setting_id),
                     active = not dim and entry_active(entry),
                     callback = not dim and function()
                         activate_entry(touch_menu, entry)
@@ -654,16 +659,13 @@
                 }
                 rows[#rows][#rows[#rows] + 1] = cell
                 layout_rows[#layout_rows][#layout_rows[#layout_rows] + 1] = cell
-                local quick_setting_id = entry.quick_setting_id
-                local controls = entry.type == "quick_setting"
-                    and quick_setting_id == "zenfm"
-                    and rawget(_G, "__ZEN_UI_QUICK_SETTINGS") or nil
                 refs.buttons[#refs.buttons + 1] = {
                     widget = cell,
                     callback = cell.callback and function()
                         cell.callback()
                     end or nil,
-                    hold_callback = not dim and controls and type(controls.hold) == "function"
+                    hold_callback = not dim and quick_setting_id == "zenfm"
+                        and controls and type(controls.hold) == "function"
                         and function()
                             return controls.hold(quick_setting_id, touch_menu)
                         end or nil,

@@ -8,7 +8,10 @@ local PATCH_MODULES = {
     menu_top_swipe         = "modules/global/patches/menu_top_swipe",
     opds                   = "modules/global/patches/opds",
     cloud_storage_home     = "modules/global/patches/cloud_storage_home",
+    kindle_autosuspend_resume = "modules/global/patches/kindle_autosuspend_resume",
     kindle_network_profile_guard = "modules/global/patches/kindle_network_profile_guard",
+    kobo_bluetooth_fix     = "modules/global/patches/kobo_bluetooth_fix",
+    nonblocking_wifi       = "modules/global/patches/nonblocking_wifi",
     lockdown_mode          = "modules/global/patches/lockdown_mode",
     incognito_mode         = "modules/global/patches/incognito_mode",
     menu_font              = "modules/global/patches/menu_font",
@@ -105,6 +108,11 @@ function M.init(logger, plugin)
         run_patch(logger, plugin, "cloud_storage_home", cloud_storage_home_fn)
     end
 
+    local kindle_autosuspend_resume_fn = load_patch("kindle_autosuspend_resume")
+    if kindle_autosuspend_resume_fn then
+        run_patch(logger, plugin, "kindle_autosuspend_resume", kindle_autosuspend_resume_fn)
+    end
+
     local kindle_network_profile_guard_fn = load_patch("kindle_network_profile_guard")
     if kindle_network_profile_guard_fn then
         run_patch(logger, plugin, "kindle_network_profile_guard", kindle_network_profile_guard_fn)
@@ -138,6 +146,19 @@ function M.init(logger, plugin)
     -- going through Device:_afterResume.
     local Device = require("device")
     local UIManager = require("ui/uimanager")
+    if Device.isKobo and Device:isKobo() then
+        require("modules/menu/network_adapters/kobo").install(require("ui/network/manager"))
+        if Device.isMTK and Device:isMTK() then
+            local kobo_bluetooth_fix_fn = load_patch("kobo_bluetooth_fix")
+            if kobo_bluetooth_fix_fn then
+                run_patch(logger, plugin, "kobo_bluetooth_fix", kobo_bluetooth_fix_fn)
+            end
+        end
+    end
+    local nonblocking_wifi_fn = load_patch("nonblocking_wifi")
+    if nonblocking_wifi_fn then
+        run_patch(logger, plugin, "nonblocking_wifi", nonblocking_wifi_fn)
+    end
     local SCHEDULE_STATES = {
         "__ZEN_UI_NIGHT_SCHEDULE",
         "__ZEN_UI_BRIGHTNESS_SCHEDULE",
@@ -153,6 +174,10 @@ function M.init(logger, plugin)
             local state = rawget(_G, name)
             if type(state) == "table" then
                 local fn = state.force_reschedule or state.reschedule
+                -- Avoid redundant synchronous LIPC writes while Kindle powerd is waking.
+                if name ~= "__ZEN_UI_NIGHT_SCHEDULE" and Device.isKindle and Device:isKindle() then
+                    fn = state.reschedule
+                end
                 if type(fn) == "function" then pcall(fn) end
             end
         end

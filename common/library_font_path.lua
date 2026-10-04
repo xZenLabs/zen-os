@@ -38,4 +38,19 @@ function M.toConfig(font_face)
     return font_face
 end
 
+function M.registerFontAliases(Font, FontList)
+    if plugin_root == "" then return end
+    local font_dir = require("ffi/util").realpath(FontList.fontdir)
+    if not font_dir then return end
+    local depth = select(2, font_dir:gsub("[^/]+", ""))
+    local prefix = string.rep("../", depth)
+    local bundled_prefix = plugin_root .. "/fonts/"
+    for _i, path in ipairs(FontList:getFontList()) do
+        if path:sub(1, #bundled_prefix) == bundled_prefix then
+            -- Stable KOReader prepends fontdir even to absolute paths.
+            Font.fontmap[path] = prefix .. path:sub(2)
+        end
+    end
+end
+
 return M

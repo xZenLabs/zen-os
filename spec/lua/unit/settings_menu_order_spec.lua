@@ -20,7 +20,7 @@ describe("settings menu organization", function()
         local time_item = { text = "Time and date", sub_item_table = {} }
 
         replace("gettext", function(text) return text end)
-        local shown_dialog, reset_calls, menu_updates, has_current_capacity, missing_stats
+        local shown_dialog, reset_calls, menu_updates, has_current_capacity, missing_stats, is_charging
         replace("ui/uimanager", { show = function(_, dialog) shown_dialog = dialog end })
         replace("ui/widget/confirmbox", { new = function(_, dialog) return dialog end })
         replace("common/shutdown", {})
@@ -34,10 +34,11 @@ describe("settings menu organization", function()
                 if missing_stats == "none" then return nil end
                 if missing_stats == "partial" then return { samples = 0 } end
                 local overall = reset_calls == 0 and 0.5 or nil
-                return { level = 80, overall = overall, awake = 1, asleep = 0.1,
+                return { level = 80, charging = is_charging, overall = overall, awake = 1, asleep = 0.1,
                     awake_time = 7200, asleep_time = 14400,
                     current_mah = has_current_capacity and 600 or nil,
                     full_mah = 1200, design_mah = 1600, health = 75, remaining = 125100,
+                    charge_rate = 20, charge_gain = 40, time_to_full = 3600, full_charge_time = 7200, since_full_charge = 14400,
                     since_charge = 3600, samples = reset_calls > 0 and 0 or 24 }
             end,
             reset = function() reset_calls = reset_calls + 1 end,
@@ -88,7 +89,7 @@ describe("settings menu organization", function()
                 return { sub_item_table = items({ "Blur menu background" }) }
             end,
         })
-        local font_item, wallpaper_item
+        local font_item, wallpaper_item, status_bar_item
         replace("modules/settings/sections/library_settings", {
             build = function()
                 font_item = {
@@ -97,7 +98,8 @@ describe("settings menu organization", function()
                     sub_item_table = items({ "Font size", "Font", "Reset font" }),
                 }
                 wallpaper_item = { text = "Wallpaper" }
-                return { { text = "Original control" }, font_item, wallpaper_item }
+                status_bar_item = { text = "Status bar", sub_item_table = items({ "Left items", "Right items" }) }
+                return { { text = "Original control" }, font_item, wallpaper_item, status_bar_item }
             end,
         })
         for _i, section in ipairs({ "reader_settings", "updates_settings" }) do
@@ -128,6 +130,7 @@ describe("settings menu organization", function()
         local builder = require("modules/settings/zen_settings")
         for _i, available in ipairs({ false, true }) do
             reset_calls, menu_updates, has_current_capacity, missing_stats = 0, 0, true, nil
+            is_charging = false
             has_bluetooth = available
             local root = builder.build({ config = { features = {} } }).sub_item_table
             assert.are.same({ "Home", "Library", "Reader", "Interface", "Extras", "General", "KOReader", "About" }, labels(root))
@@ -137,12 +140,14 @@ describe("settings menu organization", function()
             local interface = root[4].sub_item_table
             assert.are.equal("interface", root[4]._zen_settings_root)
             assert.are.equal(interface_icon, root[4].icon_glyph)
-            assert.are.same({ "Controls", "Launcher", "Navbar", "Font", "Zen Keyboard", "Zen Search", "Wallpaper", "Blur menu background", "Custom icons" }, labels(interface))
+            assert.are.same({ "Controls", "Launcher", "Navbar", "Status bar", "Font", "Zen Keyboard", "Wallpaper", "Custom icons", "Blur menu background", "Zen Search" }, labels(interface))
             assert.are.equal("launcher", interface[2]._zen_settings_root)
-            assert.are.equal(font_item, interface[4])
+            assert.are.equal(status_bar_item, interface[4])
+            assert.are.same({ "Left items", "Right items" }, labels(interface[4].sub_item_table))
+            assert.are.equal(font_item, interface[5])
             assert.are.equal(wallpaper_item, interface[7])
-            assert.are.equal("Font: Hyperreadable, 24", interface[4].text_func())
-            assert.are.same({ "Font size", "Font", "Reset font" }, labels(interface[4].sub_item_table))
+            assert.are.equal("Font: Hyperreadable, 24", interface[5].text_func())
+            assert.are.same({ "Font size", "Font", "Reset font" }, labels(interface[5].sub_item_table))
             assert.are.equal("gear", root[6].icon_glyph)
             local general = root[6].sub_item_table
             local expected = { "Wi-Fi", "Schedules", "Sleep", "Battery", "Language", "Time and date", "Advanced", "Updates" }
@@ -151,24 +156,35 @@ describe("settings menu organization", function()
             local battery_item = general[available and 5 or 4]
             assert.are.equal("battery_icon", battery_item.icon_glyph)
             local battery = battery_item.sub_item_table_func()
-            assert.are.same({ "Health", "Usage", "Estimated time remaining",
-                "Time since last charge", "Settings" }, labels(battery))
+            assert.are.same({ "Health", "Usage", "Charging", "Estimated battery life", "Settings" }, labels(battery))
             assert.are.equal("75%", battery[1].mandatory)
             assert.are.equal("0.50%/h", battery[2].mandatory)
-            assert.are.equal("1d 10h 45m", battery[3].mandatory)
-            assert.are.equal("1h 0m", battery[4].mandatory)
+            assert.is_nil(battery[3].mandatory)
+            assert.are.equal("1d 10h 45m", battery[4].mandatory)
             local health = battery[1].sub_item_table
             local usage = battery[2].sub_item_table
+            local charging = battery[3].sub_item_table
             local settings = battery[5].sub_item_table
-            assert.are.equal("Battery percentage: 80%", health[1].text)
-            assert.are.equal("Current capacity: 600 mAh", health[2].text)
+            assert.are.equal("Battery health: 75%", health[1].text)
+            assert.are.equal("Current charge: 80%", health[2].text)
+            assert.are.equal("Current capacity: 600 mAh", health[3].text)
             has_current_capacity = false
             assert.are.equal("Current capacity: -",
-                battery_item.sub_item_table_func()[1].sub_item_table[2].text)
+                battery_item.sub_item_table_func()[1].sub_item_table[3].text)
             has_current_capacity = true
-            assert.are.equal("Full capacity: 1200 mAh", health[3].text)
-            assert.are.equal("Design capacity: 1600 mAh", health[4].text)
-            assert.are.equal("Battery health: 75%", health[5].text)
+            assert.are.equal("Full capacity: 1200 mAh", health[4].text)
+            assert.are.equal("Design capacity: 1600 mAh", health[5].text)
+            assert.are.same({ "Previous charge, per hour: 20.00%/h", "Previous charge, total: 40%",
+                "Total time to full charge: 2h 0m", "Time since last charge: 1h 0m",
+                "Time since last full charge: 4h 0m" }, labels(charging))
+            is_charging = true
+            local active_charging = battery_item.sub_item_table_func()[3]
+            assert.are.equal("1h 0m", active_charging.mandatory)
+            assert.are.same({ "Estimated time to complete charge: 1h 0m", "Previous charge, per hour: 20.00%/h",
+                "Previous charge, total: 40%",
+                "Total time to full charge: 2h 0m", "Time since last charge: Charging",
+                "Time since last full charge: 4h 0m" }, labels(active_charging.sub_item_table))
+            is_charging = false
             assert.are.equal("Used per hour: 0.50%/h", usage[1].text)
             assert.are.equal("While asleep: 0.10%/h", usage[3].text)
             assert.are.equal("Screen on time: 2h 0m", usage[4].text)
@@ -187,7 +203,12 @@ describe("settings menu organization", function()
             local missing_rows = battery_item.sub_item_table_func()
             assert.are.equal("-", missing_rows[1].mandatory)
             assert.are.equal("-", missing_rows[2].mandatory)
-            assert.are.equal("Battery percentage: -", missing_rows[1].sub_item_table[1].text)
+            assert.are.equal("Battery health: -", missing_rows[1].sub_item_table[1].text)
+            assert.are.equal("Current charge: -", missing_rows[1].sub_item_table[2].text)
+            assert.is_nil(missing_rows[3].mandatory)
+            assert.are.same({ "Previous charge, per hour: -", "Previous charge, total: -",
+                "Total time to full charge: -", "Time since last charge: -",
+                "Time since last full charge: -" }, labels(missing_rows[3].sub_item_table))
             assert.are.equal("Used per hour: -", missing_rows[2].sub_item_table[1].text)
             missing_stats = "none"
             assert.are.same({ "-" }, labels(battery_item.sub_item_table_func()))

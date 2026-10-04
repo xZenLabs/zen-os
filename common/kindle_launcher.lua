@@ -89,6 +89,10 @@ local function record_installed(path, installed_version, destination)
 end
 
 function M.install(plugin_root, destination)
+    local ConfigManager = require("config/manager")
+    local config = ConfigManager.get() or ConfigManager.load()
+    if config._meta.kindle_launcher_added == true then return true end
+
     local bundled = read_file(plugin_root .. "/kindle-launcher/ZenReader.sh")
     if not bundled then return true end
     local bundled_version = version(bundled)
@@ -117,7 +121,8 @@ function M.install(plugin_root, destination)
         local ok, err = record_installed(path, installed_version, destination)
         if not ok then logger.warn("Could not mark ZenOS Launcher installed in ZenPM:", path, err) end
     end
-    return true
+    config._meta.kindle_launcher_added = true
+    return ConfigManager.save(config)
 end
 
 return M

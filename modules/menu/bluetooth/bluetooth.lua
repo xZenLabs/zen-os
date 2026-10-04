@@ -5,6 +5,7 @@ local logger = require("common/zen_logger").new("bluetooth")
 local M = {}
 local cached_state
 local request_serial = 0
+local changing = false
 
 local SERVICE = "com.lab126.btfd"
 
@@ -95,16 +96,26 @@ function M.getCachedState()
 end
 
 function M.isAvailable()
-    return Kobo.isAvailable() or M.getState() ~= nil
+    return changing or Kobo.isAvailable() or M.getState() ~= nil
 end
 
 function M.isEnabled()
+    if changing then return cached_state == true end
     return M.getState() == true
+end
+
+function M.isChanging()
+    return changing
 end
 
 function M.setEnabled(enabled, complete)
     request_serial = request_serial + 1
     local request_id = request_serial
+    local UIManager = require("ui/uimanager")
+    local Event = require("ui/event")
+    changing = true
+    UIManager:broadcastEvent(Event:new("BluetoothStateChanged"))
+    UIManager:forceRePaint()
     if not enabled then
         local switcher = package.loaded["modules/menu/bluetooth_switcher"]
         if switcher and switcher.cancelScan then switcher.cancelScan() end
@@ -115,12 +126,14 @@ function M.setEnabled(enabled, complete)
         finished = true
         logger.info("power request complete:", "request=", request_id,
             "success=", tostring(success), "reason=", reason or "none")
-        if success then cached_state = enabled else cached_state = nil end
+        if request_id == request_serial then
+            changing = false
+            if success then cached_state = enabled else cached_state = nil end
+            UIManager:broadcastEvent(Event:new("BluetoothStateChanged"))
+        end
         if complete then complete(success, reason) end
     end
     local function verify(delays, fallback)
-        if not complete then return end
-        local UIManager = require("ui/uimanager")
         local attempts = 0
         local check
         check = function()
@@ -255,6 +268,8 @@ end
 
 function M.onSuspend()
     Kobo.onSuspend()
+    request_serial = request_serial + 1
+    changing = false
     cached_state = nil
 end
 

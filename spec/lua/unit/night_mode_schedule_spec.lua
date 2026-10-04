@@ -94,4 +94,25 @@ describe("night mode schedule", function()
         assert.are.equal(1, _G.brightness_mode_reapplies)
         assert.are.equal(1, _G.warmth_mode_reapplies)
     end)
+
+    it("restores hardware inversion on wake without restyling an unchanged reader", function()
+        ReaderUI.instance = { document = {} }
+        require("modules/global/patches/night_mode_schedule")()
+        screen.hw_night_mode = false
+
+        _G.__ZEN_UI_NIGHT_SCHEDULE.force_reschedule()
+
+        assert.is_true(screen.hw_night_mode)
+        assert.are.equal(1, ReaderThemes.applied)
+        assert.are.equal(2, _G.brightness_mode_reapplies)
+        assert.are.equal(2, _G.warmth_mode_reapplies)
+
+        screen.night_mode = false
+        G_reader_settings:saveSetting("night_mode", false)
+        _G.__ZEN_UI_NIGHT_SCHEDULE.force_reschedule()
+
+        assert.is_true(screen.night_mode)
+        assert.is_true(G_reader_settings:isTrue("night_mode"))
+        assert.are.equal(2, ReaderThemes.applied)
+    end)
 end)

@@ -315,10 +315,6 @@ function M.build(ctx, source_key)
     local is_tbr = book.status == "tbr"
     local show_progress = module_cfg.show_progress ~= false
     local progress_percent = (book.status == "new" or is_tbr) and 0 or book.percent
-    if book.status ~= "new" and not is_tbr
-            and book.stable_current_page and book.stable_pages and book.stable_pages > 0 then
-        progress_percent = book.stable_current_page / book.stable_pages
-    end
     local pct = math.floor((progress_percent or 0) * 100 + 0.5)
     local left_progress_text, right_progress_text = "", ""
     if book.status ~= "new" and not is_tbr then

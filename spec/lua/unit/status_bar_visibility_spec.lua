@@ -103,7 +103,10 @@ describe("file manager status bar visibility", function()
         })
         replace("common/status_bar_registry", {})
         replace("common/ui/background", {})
-        replace("modules/menu/bluetooth/bluetooth", {})
+        replace("modules/menu/bluetooth/bluetooth", {
+            getState = function() end,
+            getCachedState = function() end,
+        })
         replace("common/inline_icon_map", {})
         replace("ui/rendertext", {})
         replace("gettext", setmetatable({
@@ -264,6 +267,34 @@ describe("file manager status bar visibility", function()
         assert.are.equal("filemanager_status_bar", unsubscribed)
     end)
 
+    it("defaults Bluetooth before Wi-Fi and hides it when off or unsupported", function()
+        local status_api
+        require("common/shared_state").register = function(_plugin, api) status_api = api end
+        local cached_state
+        local state_reads = 0
+        local Bluetooth = require("modules/menu/bluetooth/bluetooth")
+        Bluetooth.getState = function()
+            state_reads = state_reads + 1
+            cached_state = true
+            return cached_state
+        end
+        Bluetooth.getCachedState = function() return cached_state end
+        require("common/inline_icon_map").bluetooth_on = "bluetooth-on"
+        _G.__ZEN_UI_PLUGIN.config.status_bar = { left_order = { "time" }, center_order = {} }
+        require("modules/filebrowser/patches/status_bar")()
+        assert.are.same({ "bluetooth", "wifi", "battery" }, _G.__ZEN_UI_PLUGIN.config.status_bar.right_order)
+
+        local build_group = get_upvalue(status_api.buildStatusRow, "_buildGroup")
+        assert.are.equal("bluetooth-on", build_group({ "bluetooth" }, { size = 14 }, false)[1].text)
+        assert.are.equal("bluetooth-on", build_group({ "bluetooth" }, { size = 14 }, false)[1].text)
+        assert.are.equal(1, state_reads)
+        cached_state = false
+        assert.is_nil(build_group({ "bluetooth" }, { size = 14 }, false))
+        cached_state = nil
+        assert.is_nil(build_group({ "bluetooth" }, { size = 14 }, false))
+        assert.are.equal(1, state_reads)
+    end)
+
     it("only hides Wi-Fi when it is fully off", function()
         local status_api
         local SharedState = require("common/shared_state")
@@ -283,14 +314,72 @@ describe("file manager status bar visibility", function()
         _G.__ZEN_UI_PLUGIN.config.status_bar.wifi_hide_when_off = true
         NetworkMgr.wifi_on = true
         NetworkMgr.connected = false
+        NetworkMgr.pending_connection = true
         local connecting = build_group({ "wifi" }, { size = 14 }, false)
         assert.are.equal("\u{ECA8}", connecting[1].text)
         assert.is_not_nil(connecting[1].fgcolor)
 
         NetworkMgr.connected = true
+        NetworkMgr.pending_connection = false
         local connected = build_group({ "wifi" }, { size = 14 }, false)
         assert.are.equal("\u{ECA8}", connected[1].text)
         assert.is_nil(connected[1].fgcolor)
+    end)
+
+    it("keeps Wi-Fi gray while changing or disconnected with the radio on", function()
+        local status_api
+        require("common/shared_state").register = function(_plugin, api) status_api = api end
+        local Bluetooth = require("modules/menu/bluetooth/bluetooth")
+        local changing = true
+        Bluetooth.isChanging = function() return changing end
+        NetworkMgr.isWifiChanging = function() return changing end
+        require("common/inline_icon_map").bluetooth_on = "bluetooth-on"
+        _G.__ZEN_UI_PLUGIN.config.status_bar.wifi_hide_when_off = true
+        require("modules/filebrowser/patches/status_bar")()
+        local build_group = get_upvalue(status_api.buildStatusRow, "_buildGroup")
+
+        for _i, wifi_on in ipairs({ false, true }) do
+            NetworkMgr.wifi_on, NetworkMgr.connected = wifi_on, wifi_on
+            assert.is_not_nil(build_group({ "wifi" }, { size = 14 }, false)[1].fgcolor)
+            assert.is_not_nil(build_group({ "bluetooth" }, { size = 14 }, false)[1].fgcolor)
+        end
+        changing = false
+        NetworkMgr.connected = false
+        local failed = build_group({ "wifi" }, { size = 14 }, false)
+        assert.are.equal("\u{ECA8}", failed[1].text)
+        assert.is_not_nil(failed[1].fgcolor)
+        NetworkMgr.wifi_on = false
+        assert.is_nil(build_group({ "wifi" }, { size = 14 }, false))
+        assert.is_nil(build_group({ "bluetooth" }, { size = 14 }, false))
+        assert.is_function(FileManager.onNetworkStateChanged)
+    end)
+
+    it("refreshes the settings Wi-Fi icon after reconnecting while a toast is visible", function()
+        local status_api
+        require("common/shared_state").register = function(_plugin, api) status_api = api end
+        local changing = true
+        NetworkMgr.isWifiChanging = function() return changing end
+        require("modules/filebrowser/patches/status_bar")()
+        local build_group = get_upvalue(status_api.buildStatusRow, "_buildGroup")
+        local icon
+        local refreshes = 0
+        local settings = {
+            _zen_status_refresh = function()
+                icon = build_group({ "wifi" }, { size = 14 }, false)[1]
+                refreshes = refreshes + 1
+            end,
+        }
+        FileManager.instance = FileManager
+        UIManager._window_stack = {
+            { widget = FileManager }, { widget = settings }, { widget = { toast = true } },
+        }
+
+        FileManager:onNetworkConnected()
+        assert.is_not_nil(icon.fgcolor)
+        changing = false
+        FileManager:onNetworkStateChanged()
+        assert.is_nil(icon.fgcolor)
+        assert.are.equal(2, refreshes)
     end)
 
     it("does not repaint behind a Home page that hides its status bar", function()

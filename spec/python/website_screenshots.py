@@ -33,7 +33,7 @@ CATALOG_PATH = Path(__file__).with_name("website_screenshot_scenarios.json")
 DEFAULT_PROFILE = REPO_ROOT / ".website-screenshot-books.json"
 ARTIFACT_ROOT = REPO_ROOT / "spec" / ".artifacts" / "screenshots"
 SHOWCASE_BACKGROUND = (
-    REPO_ROOT / "spec" / "fixtures" / "beach.jpg"
+    REPO_ROOT / "spec" / "fixtures" / "mountain_gray.jpg"
 )
 SCREEN_SIZE = (1272, 1696)
 BB_TYPE_RGB32 = 5

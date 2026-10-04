@@ -224,18 +224,6 @@ function ZenScreen:_ensure_scroll_widget(width, height)
         justified = false,
         -- onShow owns the initial refresh.
         for_measurement_only = true,
-        updateScrollBar = function(widget, is_partial)
-            if not Device.hasColorScreen or not Device:hasColorScreen() then
-                return ScrollTextWidget.updateScrollBar(widget, is_partial)
-            end
-            local for_measurement_only = widget.for_measurement_only
-            widget.for_measurement_only = true
-            ScrollTextWidget.updateScrollBar(widget, is_partial)
-            widget.for_measurement_only = for_measurement_only
-            if not for_measurement_only then
-                UIManager:setDirty(self, function() return "fast", self.dimen end)
-            end
-        end,
     }
     self._scroll_text_w.for_measurement_only = false
     self._scroll_text_w.text_widget.for_measurement_only = false

@@ -78,6 +78,9 @@ end
 
 local function refresh_background_surfaces(plugin)
     local home = SharedState.get(plugin, "home")
+    if home and type(home.invalidateNavbar) == "function" then
+        home.invalidateNavbar()
+    end
     if home and home.rebuildActive then
         home.rebuildActive()
     end

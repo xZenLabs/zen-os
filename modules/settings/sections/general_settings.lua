@@ -23,7 +23,9 @@ function M.build(ctx, extras_items)
                     touch_menu:updateItems()
                     if touch_menu._zen_status_refresh then touch_menu:_zen_status_refresh() end
                 end
-                require("modules/menu/network_switcher").toggleWifi(touch_menu, refresh, true, plugin)
+                require("modules/menu/network_switcher").toggleWifi({
+                    updateItems = refresh,
+                }, refresh, true, plugin)
             end,
             _zen_settings_submenu = true,
             callback = function()

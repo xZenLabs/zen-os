@@ -38,10 +38,11 @@ local function apply_reader_top_status_bar()
     local ReaderTypeset = require("apps/reader/modules/readertypeset")
     local ReaderView = require("apps/reader/modules/readerview")
     local ReaderUI = require("apps/reader/readerui")
+    local ReaderStatusBar = require("common/reader_status_bar")
     local _ReaderView_paintTo_orig = ReaderView.paintTo
     local zen_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
 
-    require("common/reader_status_bar").disableKoreaderAltStatusBar(nil, zen_plugin and zen_plugin.ui)
+    ReaderStatusBar.disableKoreaderAltStatusBar(nil, zen_plugin and zen_plugin.ui)
 
     local logger = require("common/zen_logger").new("reader_top_status_bar")
     local DBG = function(...) logger.dbg("", ...) end
@@ -75,7 +76,7 @@ local function apply_reader_top_status_bar()
             return true
         end
         local parent = top_widget.show_parent
-        return parent == view.ui or parent == view.ui.show_parent
+        return parent ~= nil and (parent == view.ui or parent == view.ui.show_parent)
     end
 
     -- Stable reference so suspend/resume can cancel/restart the timer.
@@ -125,14 +126,13 @@ local function apply_reader_top_status_bar()
     local function getWifiItem()
         local ok, NetworkMgr = pcall(require, "ui/network/manager")
         if not ok then return nil end
-        if NetworkMgr:isWifiOn() then
-            -- Gray while Wi-Fi is on but has no IP yet (searching); gate on
-            -- isConnected() -- the same signal that fires onNetworkConnected ->
-            -- header refresh. ssid presence lags that event, leaving a stuck icon.
-            if NetworkMgr:isConnected() then
-                return "\u{ECA8}", nil, colors.wifi_on
-            end
+        if NetworkMgr.isWifiChanging and NetworkMgr:isWifiChanging()
+                or not NetworkMgr:isConnected()
+                    and (NetworkMgr:isWifiOn() or NetworkMgr.pending_connection or NetworkMgr.pending_connectivity_check) then
             return "\u{ECA8}", nil, colors.wifi_searching, true
+        end
+        if NetworkMgr:isWifiOn() then
+            return "\u{ECA8}", nil, colors.wifi_on
         end
         local cfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
         if type(cfg) == "table" and cfg.wifi_hide_when_off == true then return nil end
@@ -140,6 +140,9 @@ local function apply_reader_top_status_bar()
     end
 
     local function getBluetoothItem()
+        if Bluetooth.isChanging and Bluetooth.isChanging() then
+            return inline_icons.bluetooth_on, nil, colors.wifi_searching, true
+        end
         local get_state = Bluetooth.getCachedState or Bluetooth.getState
         if get_state() then
             return inline_icons.bluetooth_on, nil, colors.wifi_on
@@ -552,17 +555,18 @@ local function apply_reader_top_status_bar()
     end
 
     local function paintBottomBorder(bb, x, y, width, cfg, doc_ctx)
-        local h_margin = Screen:scaleBySize(10)
-        local line_w = math.max(0, width - 2 * h_margin)
+        local document = doc_ctx and doc_ctx.ui and doc_ctx.ui.document
+        local left_margin, right_margin = ReaderStatusBar.getHorizontalMargins(document, Screen:scaleBySize(10), zen_plugin)
+        local line_w = math.max(0, width - left_margin - right_margin)
         if line_w <= 0 then return end
         local line_h = Size.line.medium
         if type(cfg) == "table" and cfg.bottom_border_progress == true then
-            bb:paintRect(x + h_margin, y, line_w, line_h, Blitbuffer.COLOR_LIGHT_GRAY)
+            bb:paintRect(x + left_margin, y, line_w, line_h, Blitbuffer.COLOR_LIGHT_GRAY)
             local percent = getProgressRatio(doc_ctx)
             if percent and percent > 0 then
                 local progress_w = math.ceil(line_w * percent)
                 if progress_w > line_w then progress_w = line_w end
-                bb:paintRect(x + h_margin, y, progress_w, line_h, Blitbuffer.COLOR_GRAY_5)
+                bb:paintRect(x + left_margin, y, progress_w, line_h, Blitbuffer.COLOR_GRAY_5)
             end
             if cfg.show_chapter_marks == true then
                 local ticks, last = getChapterTicks(doc_ctx)
@@ -573,7 +577,7 @@ local function apply_reader_top_status_bar()
                         if ratio and ratio >= 0 and ratio <= 1 then
                             local tick_x = math.floor(line_w * ratio)
                             if tick_x + tick_w > line_w then tick_x = line_w - tick_w end
-                            bb:paintRect(x + h_margin + tick_x, y, tick_w, line_h,
+                            bb:paintRect(x + left_margin + tick_x, y, tick_w, line_h,
                                 Blitbuffer.COLOR_BLACK)
                         end
                     end
@@ -583,7 +587,7 @@ local function apply_reader_top_status_bar()
             local border = LineWidget:new{
                 dimen = Geom:new{ w = line_w, h = line_h },
             }
-            border:paintTo(bb, x + h_margin, y)
+            border:paintTo(bb, x + left_margin, y)
         end
     end
 
@@ -613,7 +617,7 @@ local function apply_reader_top_status_bar()
             and ((footer_settings and footer_settings.text_font_face) or "NotoSans-Regular.ttf")
             or face_cfg
         local font_size = type(cfg) == "table" and cfg.font_size or 14
-        return Font:getFace(font_name, font_size)
+        return Font:getFace(font_name, font_size) or Font:getFace("cfont", font_size)
     end
 
     local function getReservedHeaderHeight(view)
@@ -666,6 +670,9 @@ local function apply_reader_top_status_bar()
 
         local top_pad = Size.padding.small
         local h_pad   = Screen:scaleBySize(10)
+        local align_margins = ReaderStatusBar.isMarginAlignmentEnabled(zen_plugin)
+        local document = doc_ctx and doc_ctx.ui and doc_ctx.ui.document
+        local left_pad, right_pad = ReaderStatusBar.getHorizontalMargins(document, h_pad, zen_plugin)
         -- Include custom dogear sizing and right offsets from companion plugins.
         local dogear = doc_ctx and doc_ctx.dogear
         local dogear_icon = dogear and dogear.icon
@@ -678,6 +685,7 @@ local function apply_reader_top_status_bar()
             and dogear_x + dogear_width > screen_width / 2
         local right_inset = dogear_is_right and screen_width - dogear_x or dogear_width or 0
         right_inset = math.ceil(math.max(0, math.min(screen_width, right_inset)))
+        right_pad = math.max(right_pad, right_inset > 0 and right_inset + h_pad or 0)
 
         local orders = getSlotOrders(cfg)
         local left_order, center_order, right_order = orders.left, orders.center, orders.right
@@ -726,8 +734,10 @@ local function apply_reader_top_status_bar()
         local center_nat = measureTextsWidth(center_texts, face, center_sep)
         local right_nat = measureTextsWidth(right_texts, face, right_sep)
 
-        local left_pad = left_has and h_pad + right_inset or 0
-        local right_pad = right_has and h_pad + right_inset or 0
+        if not align_margins then
+            left_pad = left_has and h_pad + right_inset or 0
+            right_pad = right_has and h_pad + right_inset or 0
+        end
 
         local left_cap = 0
         local center_cap = 0
@@ -742,9 +752,9 @@ local function apply_reader_top_status_bar()
             center_cap = math.min(center_nat, max_center)
             center_w = center_cap
 
-            local side_total = screen_width - center_w
-            left_w = math.floor(side_total / 2)
-            right_w = side_total - left_w
+            local side_total = (align_margins and max_center or screen_width) - center_w
+            left_w = (align_margins and left_pad or 0) + math.floor(side_total / 2)
+            right_w = screen_width - center_w - left_w
 
             left_cap = left_has and math.max(0, left_w - left_pad) or 0
             right_cap = right_has and math.max(0, right_w - right_pad) or 0
@@ -762,10 +772,10 @@ local function apply_reader_top_status_bar()
                 right_w = right_pad + right_cap
                 middle_w = math.max(0, screen_width - left_w - right_w)
             elseif left_has then
-                left_cap = math.max(0, screen_width - left_pad)
+                left_cap = align_margins and side_content_space or math.max(0, screen_width - left_pad)
                 left_w = screen_width
             elseif right_has then
-                right_cap = math.max(0, screen_width - right_pad)
+                right_cap = align_margins and side_content_space or math.max(0, screen_width - right_pad)
                 right_w = screen_width
             end
         end
@@ -957,10 +967,18 @@ local function apply_reader_top_status_bar()
         local refresh_dither = top_widget and top_widget.dithered or nil
         local bb = Screen.bb
         if bb then
+            local page_buffer = view.render_mode == nil and view.document and view.document.buffer
+            local offset = view.state and view.state.offset
             local background = type(ReaderThemes.getBackgroundColor) == "function"
                 and ReaderThemes.getBackgroundColor(zen_plugin) or Blitbuffer.COLOR_WHITE
             for _i, region in ipairs(refresh_regions) do
-                bb:paintRect(region.x, region.y, region.w, region.h, background)
+                if page_buffer and offset then
+                    -- Restore the rendered backdrop with the page's exact colors and inversion.
+                    bb:blitFrom(page_buffer, region.x, region.y,
+                        region.x - dimen.x - offset.x, region.y - dimen.y - offset.y, region.w, region.h)
+                else
+                    bb:paintRectRGB32(region.x, region.y, region.w, region.h, background)
+                end
             end
         end
         UIManager:widgetRepaint(header, dimen.x, dimen.y)
@@ -980,11 +998,17 @@ local function apply_reader_top_status_bar()
         return reader and reader.view
     end
 
-    local function repaintActiveHeaderSlots(item_keys, rui)
+    local function repaintActiveHeaderSlots(item_keys, rui, repaint_reader)
         local view = activeReaderView(rui)
         if not (view and view.ui and view.ui.document) or not should_show(view) then return end
         if is_view_active_top(view) then
-            repaintHeaderSlots(view, item_keys)
+            if repaint_reader then
+                -- Match page turns: repaint the page and transparent header together.
+                DBG("resume reader repaint", "mode=ui")
+                UIManager:setDirty(view.ui.show_parent or view.ui, "ui")
+            else
+                repaintHeaderSlots(view, item_keys)
+            end
         end
     end
 
@@ -1078,15 +1102,21 @@ local function apply_reader_top_status_bar()
             UIManager:unschedule(_autoRefresh)
             if _resume_refresh_timer_1 then UIManager:unschedule(_resume_refresh_timer_1) end
             if _resume_refresh_timer_2 then UIManager:unschedule(_resume_refresh_timer_2) end
-            _resume_refresh_timer_1 = function()
+            local repaint_reader = view.render_mode == nil and Device:isKindle()
+                and Device:hasColorScreen() and ReaderThemes.getBackgroundColor(zen_plugin)
+            if not repaint_reader then
+                _resume_refresh_timer_1 = function()
+                    _resume_refresh_timer_1 = nil
+                    repaintActiveHeaderSlots(RESUME_REFRESH_ITEMS)
+                end
+                UIManager:scheduleIn(0.6, _resume_refresh_timer_1)
+            else
                 _resume_refresh_timer_1 = nil
-                repaintActiveHeaderSlots(RESUME_REFRESH_ITEMS)
             end
             _resume_refresh_timer_2 = function()
                 _resume_refresh_timer_2 = nil
-                repaintActiveHeaderSlots(RESUME_REFRESH_ITEMS)
+                repaintActiveHeaderSlots(RESUME_REFRESH_ITEMS, nil, repaint_reader)
             end
-            UIManager:scheduleIn(0.6, _resume_refresh_timer_1)
             UIManager:scheduleIn(1.8, _resume_refresh_timer_2)
             local now_t = os.date("*t")
             UIManager:scheduleIn(61 - now_t.sec, _autoRefresh)
@@ -1113,6 +1143,12 @@ local function apply_reader_top_status_bar()
         local orig_onNetworkDisconnected = ReaderUI.onNetworkDisconnected
         ReaderUI.onNetworkDisconnected = function(rui, ...)
             if orig_onNetworkDisconnected then orig_onNetworkDisconnected(rui, ...) end
+            repaintActiveHeaderSlots({ "wifi" }, rui)
+        end
+
+        local orig_onNetworkStateChanged = ReaderUI.onNetworkStateChanged
+        ReaderUI.onNetworkStateChanged = function(rui, ...)
+            if orig_onNetworkStateChanged then orig_onNetworkStateChanged(rui, ...) end
             repaintActiveHeaderSlots({ "wifi" }, rui)
         end
 

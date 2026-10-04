@@ -245,7 +245,7 @@ function M.build(ctx)
             else
                 config.status_bar.left_order = { "time" }
                 config.status_bar.center_order = {}
-                config.status_bar.right_order = { "wifi", "battery" }
+                config.status_bar.right_order = { "bluetooth", "wifi", "battery" }
             end
             config.features.status_bar = true
             save_and_apply("status_bar")

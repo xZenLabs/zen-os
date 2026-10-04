@@ -10,6 +10,7 @@ describe("quick settings Wi-Fi", function()
     local transition_closes
     local switcher_calls
     local toggle_calls
+    local bluetooth_changing
 
     local module_names = {
         "ffi/blitbuffer",
@@ -76,6 +77,7 @@ describe("quick settings Wi-Fi", function()
         transition_closes = 0
         switcher_calls = 0
         toggle_calls = 0
+        bluetooth_changing = false
 
         local no_op = {}
         ZenSpec.replace("ffi/blitbuffer", no_op)
@@ -98,7 +100,9 @@ describe("quick settings Wi-Fi", function()
         ZenSpec.replace("common/shutdown", no_op)
         ZenSpec.replace("common/restart", no_op)
         ZenSpec.replace("common/shared_state", { get = function() end })
-        ZenSpec.replace("modules/menu/bluetooth/bluetooth", no_op)
+        ZenSpec.replace("modules/menu/bluetooth/bluetooth", {
+            isChanging = function() return bluetooth_changing end,
+        })
         ZenSpec.replace("modules/menu/patches/brightness_slider", function() end)
         ZenSpec.replace("modules/menu/patches/warmth_slider", function() end)
         ZenSpec.replace("gettext", function(text) return text end)
@@ -241,14 +245,53 @@ describe("quick settings Wi-Fi", function()
         NetworkMgr.connected = true
         NetworkMgr.toggle_callback()
 
-        assert.are.equal(0, updates)
+        assert.are.equal(1, updates)
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isActive("wifi"))
         assert.are.equal(1, #UIManager.scheduled)
         assert.are.equal(1, UIManager.scheduled[1].delay)
 
         NetworkMgr.current_ssid = "Home"
         UIManager.scheduled[1].callback()
-        assert.are.equal(1, updates)
+        assert.are.equal(2, updates)
+    end)
+
+    it("dims both radios during a toggle even while their old state is on", function()
+        local Bluetooth = package.loaded["modules/menu/bluetooth/bluetooth"]
+        local changing = true
+        bluetooth_changing = true
+        Bluetooth.isEnabled = function() return true end
+        NetworkMgr.wifi_on, NetworkMgr.connected = true, true
+        NetworkMgr.isWifiChanging = function() return changing end
+
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isDimmed("wifi"))
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isDimmed("bluetooth"))
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isDisabled("wifi"))
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isDisabled("bluetooth"))
+
+        local updates = 0
+        local touch_menu = setmetatable({
+            item_table = { panel = true },
+            updateItems = function() updates = updates + 1 end,
+        }, { __index = package.loaded["ui/widget/touchmenu"] })
+        touch_menu:onNetworkStateChanged()
+        touch_menu:onBluetoothStateChanged()
+        assert.are.equal(2, updates)
+        changing = false
+        bluetooth_changing = false
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isDimmed("wifi"))
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isDimmed("bluetooth"))
+
+        NetworkMgr.connected = false
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isDimmed("wifi"))
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isDisabled("wifi"))
+        touch_menu:onNetworkDisconnected()
+        assert.are.equal(3, updates)
+        NetworkMgr.wifi_on = false
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isDimmed("wifi"))
+        NetworkMgr.wifi_on, NetworkMgr.connected = true, true
+        touch_menu:onNetworkConnected()
+        assert.are.equal(4, updates)
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isDimmed("wifi"))
     end)
 
     it("keeps Bluetooth tap as power control and opens the manager on hold", function()
@@ -283,12 +326,15 @@ describe("quick settings Wi-Fi", function()
         assert.are.equal(3, updates)
     end)
 
-    it("does not restart an active Wi-Fi connection attempt", function()
+    it("routes taps during on-demand Wi-Fi restores through the shared toggle", function()
         NetworkMgr.pending_connection = true
+        NetworkMgr.pending_connectivity_check = true
 
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isDimmed("wifi"))
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isDisabled("wifi"))
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("wifi", {}))
 
-        assert.are.equal(0, toggle_calls)
+        assert.are.equal(1, toggle_calls)
     end)
 
     it("opens the Zen network switcher on hold", function()

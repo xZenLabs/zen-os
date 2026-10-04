@@ -6,7 +6,8 @@
 
 local JSON = require("json")
 local _ = require("gettext")
-local logger = require("common/zen_logger").new("zen_bugreporter")
+local ZenLogger = require("common/zen_logger")
+local logger = ZenLogger.new("zen_bugreporter")
 local UIManager = require("ui/uimanager")
 local restart = require("common/restart")
 local zen_utils = require("common/utils")
@@ -17,6 +18,7 @@ local UPLOAD_URL = PROXY_URL .. "upload"
 local MAX_CRASH_LOG = 60000
 local MAX_UPLOAD_LOG = 512000
 local MAX_NETWORK_LOG = 64000
+local MAX_BLUETOOTH_LOG = 24000
 local MAX_TITLE     = 500
 local MAX_BODY      = 65536
 
@@ -61,37 +63,44 @@ local function upload_crash_log(log_data)
     return nil
 end
 
---- Read a bounded tail of the crash log, retaining earlier network diagnostics.
+--- Read a bounded tail of the crash log, retaining earlier radio diagnostics.
 local function read_file_content(path)
     local f = io.open(path, "rb")
     if not f then return nil end
     local size = f:seek("end")
-    local network_log = ""
-    if size > MAX_UPLOAD_LOG then
+    local network_log, bluetooth_log = "", ""
+    if size > MAX_CRASH_LOG then
         f:seek("set", 0)
-        while f:seek() < size - MAX_UPLOAD_LOG - 3 do
+        while f:seek() < size - MAX_CRASH_LOG - 3 do
+            local earlier_network = f:seek() < size - MAX_UPLOAD_LOG - 3
             local line = f:read("*l")
             if not line then break end
-            if line:find("ZenOS: [network_switcher]", 1, true)
+            if line:lower():find("bluetooth", 1, true) or line:find("org.bluez", 1, true) then
+                bluetooth_log = zen_utils.utf8SafeSuffix(bluetooth_log .. line .. "\n", MAX_BLUETOOTH_LOG)
+            elseif earlier_network and (line:find("ZenOS: [network_switcher]", 1, true)
                     or line:find("NetworkMgr:", 1, true)
-                    or line:find("WpaSupplicant:", 1, true) then
+                    or line:find("WpaSupplicant:", 1, true)) then
                 network_log = zen_utils.utf8SafeSuffix(network_log .. line .. "\n", MAX_NETWORK_LOG)
             end
         end
     end
-    local tail_size = MAX_UPLOAD_LOG - #network_log
+    local tail_size = size > MAX_UPLOAD_LOG
+        and MAX_UPLOAD_LOG - #network_log - #bluetooth_log or MAX_UPLOAD_LOG
     f:seek("set", math.max(0, size - tail_size - 3))
     local data = f:read(tail_size + 3)
     f:close()
     if not data or data == "" then return nil end
+    if bluetooth_log ~= "" then
+        bluetooth_log = "[earlier bluetooth diagnostics]\n" .. bluetooth_log .. "\n"
+    end
     if size > MAX_UPLOAD_LOG then
         if network_log ~= "" then
             network_log = "[earlier network diagnostics]\n" .. network_log .. "\n"
         end
-        return network_log .. "[truncated - showing last " .. tail_size .. " bytes of " .. size .. " total]\n"
-            .. zen_utils.utf8SafeSuffix(data, tail_size)
+        return bluetooth_log .. network_log .. "[truncated - showing last " .. tail_size .. " bytes of " .. size .. " total]\n"
+            .. zen_utils.utf8SafeSuffix(data, tail_size), bluetooth_log
     end
-    return data
+    return data, bluetooth_log
 end
 
 -- ---------------------------------------------------------------------------
@@ -345,15 +354,21 @@ function M._do_submit(ctx, bug_title, description, github_username)
         -- Read crash.log from the KOReader data directory.
         local ok_ds, DataStorage = pcall(require, "datastorage")
         local data_dir = ok_ds and DataStorage:getDataDir() or nil
-        local crash_log_full = data_dir and read_file_content(data_dir .. "/crash.log")
+        local crash_log_full, bluetooth_log
+        if data_dir then crash_log_full, bluetooth_log = read_file_content(data_dir .. "/crash.log") end
+        if crash_log_full then
+            crash_log_full = ZenLogger.redactNetworkLog(crash_log_full)
+            bluetooth_log = ZenLogger.redactNetworkLog(bluetooth_log)
+        end
 
         -- Upload the bounded log; shorten it further for inline fallback.
         local log_url = crash_log_full and upload_crash_log(crash_log_full)
         local crash_log_inline
         if not log_url and crash_log_full then
             if #crash_log_full > MAX_CRASH_LOG then
-                crash_log_inline = "[truncated - showing last " .. MAX_CRASH_LOG .. " chars of " .. #crash_log_full .. " total]\n"
-                                 .. zen_utils.utf8SafeSuffix(crash_log_full, MAX_CRASH_LOG)
+                local tail_size = MAX_CRASH_LOG - #bluetooth_log
+                crash_log_inline = bluetooth_log .. "[truncated - showing last " .. tail_size .. " chars of " .. #crash_log_full .. " total]\n"
+                                 .. zen_utils.utf8SafeSuffix(crash_log_full, tail_size)
             else
                 crash_log_inline = crash_log_full
             end

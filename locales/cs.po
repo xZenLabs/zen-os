@@ -2323,10 +2323,10 @@ msgid "Enter your GitHub username to be tagged in the issue"
 msgstr "Zadejte jméno uživatele pro GitHub, které bude uvedeno u chyby"
 
 #. Type: setting
-#. Context: }, { text = _("Estimated time remaining"), mandatory = duration(stats.remaining), keep_menu_open = true }, { text = _("Time since last charge"),
-#: battery_stats_menu.lua:71
-msgid "Estimated time remaining"
-msgstr "Odhadovaný zbývající čas"
+#. Context: }, { text = _("Estimated battery life"), mandatory = duration(stats.remaining), keep_menu_open = true }, { text = _("Settings"), sub_item_table = settings_items },
+#: battery_stats_menu.lua:83
+msgid "Estimated battery life"
+msgstr "Odhadovaná výdrž baterie"
 
 #. Type: label
 #. Context: parts[#parts + 1] = provider_label(work._provider) if work.exact_edition then parts[#parts + 1] = _("Exact ISBN match") end parts[#parts + 1] = table.concat(

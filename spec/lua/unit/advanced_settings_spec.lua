@@ -89,6 +89,27 @@ describe("Advanced settings", function()
         assert.are.equal(3, saved)
     end)
 
+    it("toggles partial pages refresh without requesting a restart", function()
+        local saved = 0
+        local config = { features = { partial_page_repaint = false }, developer = {} }
+        local items = require("modules/settings/sections/advanced_settings").build({
+            config = config,
+            plugin = { saveConfig = function() saved = saved + 1 end },
+            settings_apply = { prompt_restart = function() error("unexpected restart prompt") end },
+        })
+        local refresh_item
+        for _i, item in ipairs(items) do
+            if item.text == "Partial pages refresh" then refresh_item = item end
+        end
+
+        assert.is_false(refresh_item.checked_func())
+        refresh_item.callback()
+        assert.is_true(refresh_item.checked_func())
+        refresh_item.callback()
+        assert.is_false(refresh_item.checked_func())
+        assert.are.equal(2, saved)
+    end)
+
     it("enables modal dragging only after an explicit toggle", function()
         local saved, restart_prompts = 0, 0
         local config = { features = {}, developer = {} }

@@ -355,6 +355,19 @@ function ZenSettingsPage:updateItems(...)
     return Menu.updateItems(self, ...)
 end
 
+function ZenSettingsPage:onNetworkConnected()
+    if self._closed or self.invisible then return end
+    for widget in UIManager:topdown_widgets_iter() do
+        if not widget.toast and not widget.invisible then
+            if widget == self then UIManager:setDirty(self, "ui", self.dimen) end
+            return
+        end
+    end
+end
+
+ZenSettingsPage.onNetworkDisconnected = ZenSettingsPage.onNetworkConnected
+ZenSettingsPage.onNetworkStateChanged = ZenSettingsPage.onNetworkConnected
+
 function ZenSettingsPage:mergeTitleBarIntoLayout()
     local title_bar = self.title_bar
     if title_bar and title_bar.installFocusLayout then
@@ -599,7 +612,7 @@ function ZenSettingsPage:backToRootMenu()
     self.item_table = self._root_items
     self.parent_id = nil
     self._pending_navigation_title = nil
-    self.itemnumber = 1
+    self.itemnumber = nil
     self.page = 1
     self:updateItems(1)
     return true
@@ -737,10 +750,15 @@ function ZenSettingsPage:onCloseWidget()
                 local ReaderUI = package.loaded["apps/reader/readerui"]
                 local reader = ReaderUI and ReaderUI.instance
                 if reader and (top == reader or top == reader.show_parent) then
+                    local ReaderThemes = require("common/reader_themes")
+                    if reader.document and ReaderThemes.isActive(self.plugin) then
+                        return ReaderThemes.refreshFull("all")
+                    end
                     UIManager:setDirty(reader, "ui")
                 end
             end
         end
+        UIManager:setDirty("all", "full")
     end)
     return Menu.onCloseWidget(self)
 end

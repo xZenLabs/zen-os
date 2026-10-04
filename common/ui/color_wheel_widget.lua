@@ -35,6 +35,7 @@ local ColorWheelWidget = FocusManager:extend {
     hue                  = 0, -- 0..360
     saturation           = 1,
     value                = 1,
+    opacity              = nil, -- 0..100; nil hides the slider
 
     invert_in_night_mode = true,
 
@@ -247,6 +248,11 @@ local function makeLivePreview(parent, preview_size)
             and G_reader_settings:isTrue("night_mode")
         if nm then r, g, b = 255 - r, 255 - g, 255 - b end
         self.background = Blitbuffer.ColorRGB32(r, g, b, 0xFF)
+        if parent.opacity ~= nil then
+            local background = Blitbuffer.COLOR_WHITE:getColorRGB32()
+            background:blend(self.background, math.floor(parent.opacity * 255 / 100 + 0.5))
+            self.background = background
+        end
         SolidCircle.paintTo(self, bb, x, y)
     end
 
@@ -298,6 +304,9 @@ function ColorWheelWidget:init()
     local hue, saturation, value = ReaderThemes.colorToHsv(self.hex)
     if hue then
         self.hue, self.saturation, self.value = hue, saturation, value
+    end
+    if self.opacity ~= nil then
+        self.opacity = math.max(0, math.min(100, math.floor((tonumber(self.opacity) or 100) + 0.5)))
     end
 
     if not self.width then
@@ -357,6 +366,7 @@ function ColorWheelWidget:_freeChildren()
     self._live_hex = nil
     self._hex_frame = nil
     self.brightness_slider = nil
+    self.opacity_slider = nil
 end
 
 function ColorWheelWidget:onCloseWidget()
@@ -413,22 +423,81 @@ function ColorWheelWidget:update()
         show_parent      = self,
     }
 
-    local value_label = TextWidget:new {
-        text = _("Brightness") .. ": " .. math.floor(self.value * 100 + 0.5) .. "%",
-        face = self.medium_font_face,
-    }
     local button_width = Screen:scaleBySize(44)
     local slider_width = math.max(1, self.width - 2 * button_width - 4 * small_gap)
-    local brightness_slider = ZenSlider:new {
-        width     = slider_width,
-        value     = math.floor(self.value * 100 + 0.5),
-        value_min = 0,
-        value_max = 100,
-    }
+    self.layout = {}
+    local function make_slider(title, value, on_change)
+        local label = TextWidget:new {
+            text = title .. ": " .. value .. "%",
+            face = self.medium_font_face,
+        }
+        local slider = ZenSlider:new {
+            width     = slider_width,
+            value     = value,
+            value_min = 0,
+            value_max = 100,
+        }
+        local function set_value(new_value)
+            slider:setValue(new_value)
+            on_change(slider:getValue())
+            label:setText(title .. ": " .. slider:getValue() .. "%")
+            UIManager:setDirty(self, "ui")
+        end
+        slider.on_change = set_value
+        local buttons = {}
+        for _i, step in ipairs({ -1, 1 }) do
+            buttons[#buttons + 1] = Button:new {
+                text           = step < 0 and "−" or "＋",
+                text_font_face = "infofont",
+                text_font_size = 22,
+                text_font_bold = false,
+                width          = button_width,
+                height         = slider:getSize().h,
+                bordersize     = 0,
+                show_parent    = self,
+                callback       = function() set_value(slider:getValue() + step) end,
+            }
+        end
+        self.layout[#self.layout + 1] = buttons
+        return slider, VerticalGroup:new {
+            align = "center",
+            CenterContainer:new {
+                dimen = Geom:new { w = self.screen_width, h = label:getSize().h },
+                label,
+            },
+            VerticalSpan:new { width = small_gap },
+            CenterContainer:new {
+                dimen = Geom:new { w = self.screen_width, h = slider:getSize().h },
+                HorizontalGroup:new {
+                    align = "center",
+                    buttons[1],
+                    HorizontalSpan:new { width = small_gap },
+                    slider,
+                    HorizontalSpan:new { width = small_gap },
+                    buttons[2],
+                },
+            },
+        }
+    end
+
+    local brightness_group
+    self.brightness_slider, brightness_group = make_slider(_("Brightness"),
+        math.floor(self.value * 100 + 0.5), function(value)
+            self.value = value / 100
+            self.color_wheel.value = self.value
+            self.color_wheel._needs_redraw = true
+        end)
+    local slider_controls = VerticalGroup:new { align = "center", brightness_group }
+    if self.opacity ~= nil then
+        local opacity_group
+        self.opacity_slider, opacity_group = make_slider(_("Opacity"), self.opacity,
+            function(value) self.opacity = value end)
+        table.insert(slider_controls, VerticalSpan:new { width = pad })
+        table.insert(slider_controls, opacity_group)
+    end
     local apply_height = Size.item.height_large
-    local fixed_height = title_bar:getSize().h + value_label:getSize().h
-        + brightness_slider:getSize().h + apply_height + 4 * pad
-        + small_gap + Size.padding.default
+    local fixed_height = title_bar:getSize().h + slider_controls:getSize().h
+        + apply_height + 4 * pad + Size.padding.default
     local wheel_size = math.min(self.width - 2 * pad,
         math.max(Screen:scaleBySize(80), math.floor((self.screen_height - fixed_height) / 1.25)))
     local preview_size = math.floor(wheel_size / 6)
@@ -451,49 +520,6 @@ function ColorWheelWidget:update()
         padding    = Size.padding.button,
         self._live_hex,
     }
-    local function set_brightness(value)
-        brightness_slider:setValue(value)
-        self.value = brightness_slider:getValue() / 100
-        self.color_wheel.value = self.value
-        self.color_wheel._needs_redraw = true
-        value_label:setText(_("Brightness") .. ": " .. brightness_slider:getValue() .. "%")
-        UIManager:setDirty(self, "ui")
-    end
-    brightness_slider.on_change = set_brightness
-
-    local value_minus = Button:new {
-        text           = "−",
-        text_font_face = "infofont",
-        text_font_size = 22,
-        text_font_bold = false,
-        width          = button_width,
-        height         = brightness_slider:getSize().h,
-        bordersize     = 0,
-        show_parent    = self,
-        callback       = function() set_brightness(brightness_slider:getValue() - 1) end,
-    }
-
-    local value_plus = Button:new {
-        text           = "＋",
-        text_font_face = "infofont",
-        text_font_size = 22,
-        text_font_bold = false,
-        width          = button_width,
-        height         = brightness_slider:getSize().h,
-        bordersize     = 0,
-        show_parent    = self,
-        callback       = function() set_brightness(brightness_slider:getValue() + 1) end,
-    }
-
-    local slider_group = HorizontalGroup:new {
-        align = "center",
-        value_minus,
-        HorizontalSpan:new { width = small_gap },
-        brightness_slider,
-        HorizontalSpan:new { width = small_gap },
-        value_plus,
-    }
-
     local preview_group = HorizontalGroup:new {
         align = "center",
         self._live_preview,
@@ -517,8 +543,7 @@ function ColorWheelWidget:update()
     ok_button._doFeedbackHighlight = function() end
     ok_button._undoFeedbackHighlight = function() end
 
-    self.brightness_slider = brightness_slider
-    self.layout = { { value_minus, value_plus }, { ok_button } }
+    self.layout[#self.layout + 1] = { ok_button }
 
     local vgroup = VerticalGroup:new {
         align = "center",
@@ -527,17 +552,9 @@ function ColorWheelWidget:update()
         CenterContainer:new {
             dimen = Geom:new {
                 w = self.screen_width,
-                h = value_label:getSize().h,
+                h = slider_controls:getSize().h,
             },
-            value_label,
-        },
-        VerticalSpan:new { width = small_gap },
-        CenterContainer:new {
-            dimen = Geom:new {
-                w = self.screen_width,
-                h = brightness_slider:getSize().h,
-            },
-            slider_group,
+            slider_controls,
         },
         VerticalSpan:new { width = pad },
         CenterContainer:new {
@@ -582,6 +599,9 @@ function ColorWheelWidget:onTapColorWheel(arg, ges_ev)
     if self.brightness_slider and self.brightness_slider:handleTap(ges_ev) then
         return true
     end
+    if self.opacity_slider and self.opacity_slider:handleTap(ges_ev) then
+        return true
+    end
     if not self.color_wheel or not self.color_wheel.dimen then return true end
 
     if ges_ev.pos:intersectWith(self.color_wheel.dimen) then
@@ -597,6 +617,9 @@ end
 
 function ColorWheelWidget:onPanColorWheel(arg, ges_ev)
     if self.brightness_slider and self.brightness_slider:handlePan(ges_ev) then
+        return true
+    end
+    if self.opacity_slider and self.opacity_slider:handlePan(ges_ev) then
         return true
     end
     if not self.color_wheel or not self.color_wheel.dimen then return false end
@@ -621,6 +644,10 @@ function ColorWheelWidget:onPanReleaseColorWheel(arg, ges_ev)
             and self.brightness_slider:handlePanRelease(ges_ev, self, self.dimen) then
         return true
     end
+    if self.opacity_slider
+            and self.opacity_slider:handlePanRelease(ges_ev, self, self.dimen) then
+        return true
+    end
     if not self.color_wheel or not self.color_wheel.dimen then return false end
 
     if ges_ev.pos:intersectWith(self.color_wheel.dimen) then
@@ -631,8 +658,11 @@ function ColorWheelWidget:onPanReleaseColorWheel(arg, ges_ev)
 end
 
 function ColorWheelWidget:onSwipeColorWheel(arg, ges_ev)
-    if self.brightness_slider then
-        return self.brightness_slider:handleSwipe(ges_ev, self, self.dimen)
+    if self.brightness_slider and self.brightness_slider:handleSwipe(ges_ev, self, self.dimen) then
+        return true
+    end
+    if self.opacity_slider then
+        return self.opacity_slider:handleSwipe(ges_ev, self, self.dimen)
     end
     return false
 end
@@ -641,7 +671,7 @@ function ColorWheelWidget:onApply()
     UIManager:close(self)
     if self.callback then
         local r, g, b = hsvToRgb(self.hue, self.saturation, self.value)
-        self.callback(string.format("#%02X%02X%02X", r, g, b))
+        self.callback(string.format("#%02X%02X%02X", r, g, b), self.opacity)
     end
     if self.close_callback then self.close_callback() end
     return true

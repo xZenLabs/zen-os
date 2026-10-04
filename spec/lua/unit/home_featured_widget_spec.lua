@@ -643,6 +643,37 @@ describe("home featured widget", function()
         assert.equals(2, labels)
     end)
 
+    it("uses saved progress with stable page labels", function()
+        local BookProgress = require("common/ui/book_progress")
+        local progress_bar = spy.on(BookProgress, "bar")
+        local Featured = require("modules/filebrowser/patches/home/widgets/featured_common")
+        Featured.build({
+            width = 600,
+            height = 220,
+            module_cfg = { progress_meta = { left = "percent", right = "current_total" } },
+            data = {
+                getFeaturedBook = function()
+                    return {
+                        path = "/library/alpha.epub",
+                        title = "Alpha",
+                        status = "reading",
+                        percent = 0.25,
+                        stable_current_page = 45,
+                        stable_pages = 120,
+                        stable_current_label = "45",
+                        stable_last_label = "120",
+                    }
+                end,
+            },
+        }, "recently_read")
+
+        assert.is_true(has_text("25%"))
+        assert.is_true(has_text("45 / 120"))
+        assert.spy(progress_bar).was_called_with(0.25,
+            progress_bar_width("25%", "45 / 120"),
+            progress_bar_height("25%", "45 / 120"))
+    end)
+
     it("hides the complete progress row when disabled", function()
         local Featured = require("modules/filebrowser/patches/home/widgets/featured_common")
         Featured.build({

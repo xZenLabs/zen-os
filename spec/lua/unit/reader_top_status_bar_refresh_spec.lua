@@ -1,3 +1,5 @@
+local Blitbuffer = require("ffi/blitbuffer")
+
 describe("reader top status bar refresh", function()
     local ReaderUI
     local ReaderTypeset
@@ -22,6 +24,7 @@ describe("reader top status bar refresh", function()
     local bluetooth_enabled
     local clock_text
     local battery_capacity
+    local color_kindle
 
     local dependencies = {
         "apps/reader/modules/readerview",
@@ -102,6 +105,7 @@ describe("reader top status bar refresh", function()
         saved_settings = G_reader_settings
         scheduled = {}
         unscheduled = {}
+        color_kindle = false
         clock_text = "12:34"
         battery_capacity = 73
         reset_paint_log()
@@ -112,6 +116,16 @@ describe("reader top status bar refresh", function()
                 paint_order[#paint_order + 1] = "clear"
             end,
         }
+        screen_bb.paintRectRGB32 = function(self, ...)
+            self:paintRect(...)
+            paint_rects[#paint_rects].rgb = true
+        end
+        screen_bb.blitFrom = function(_self, source, x, y, sx, sy, w, h)
+            paint_rects[#paint_rects + 1] = {
+                source = source, x = x, y = y, sx = sx, sy = sy, w = w, h = h,
+            }
+            paint_order[#paint_order + 1] = "restore"
+        end
         local screen = {
             bb = screen_bb,
             getWidth = function() return 600 end,
@@ -181,6 +195,8 @@ describe("reader top status bar refresh", function()
         replace("datetime", { secondsToHour = function() return clock_text end })
         replace("device", {
             screen = screen,
+            isKindle = function() return color_kindle end,
+            hasColorScreen = function() return color_kindle end,
             hasBattery = function() return true end,
             getPowerDevice = function()
                 return {
@@ -245,7 +261,11 @@ describe("reader top status bar refresh", function()
         })
 
         G_reader_settings = ZenSpec.memorySettings({ footer = {} })
+        ZenSpec.unload("common/reader_status_bar")
+        local reader_status_bar = require("common/reader_status_bar")
         replace("common/reader_status_bar", {
+            getHorizontalMargins = reader_status_bar.getHorizontalMargins,
+            isMarginAlignmentEnabled = reader_status_bar.isMarginAlignmentEnabled,
             disableKoreaderAltStatusBar = function(settings, reader)
                 settings = settings or G_reader_settings
                 settings:saveSetting("copt_status_line", 1)
@@ -324,7 +344,7 @@ describe("reader top status bar refresh", function()
 
     local function assert_single_slot(expected_x)
         assert.are.equal(1, #paint_rects)
-        assert.same({ x = expected_x, y = 0, w = 100, h = 20, color = "white" }, paint_rects[1])
+        assert.same({ x = expected_x, y = 0, w = 100, h = 20, color = "white", rgb = true }, paint_rects[1])
         assert.are.equal(1, #dirty_calls)
         assert.is_nil(dirty_calls[1].widget)
         assert.are.equal("ui", dirty_calls[1].mode)
@@ -333,6 +353,27 @@ describe("reader top status bar refresh", function()
         assert.is_true(dirty_calls[1].dither)
         assert.same({ "clear", "header", "dogear", "dirty" }, paint_order)
     end
+
+    it("uses the default header face when the selected or inherited font is unavailable", function()
+        local get_header_face = get_upvalue(build_header, "getHeaderFace")
+        local Font = get_upvalue(get_header_face, "Font")
+        local fallback = {}
+        local calls = {}
+        Font.getFace = function(_self, name, size)
+            calls[#calls + 1] = { name, size }
+            if name == "cfont" then return fallback end
+        end
+        local missing = "/missing/Hyperreadable-SemiBold.ttf"
+
+        assert.are.equal(fallback, get_header_face({ font_face = missing, font_size = 14 }))
+        local footer = _G.G_reader_settings:readSetting("footer")
+        _G.G_reader_settings:saveSetting("footer", { text_font_face = missing })
+        local inherited = get_header_face({ font_face = "default", font_size = 14 })
+        _G.G_reader_settings:saveSetting("footer", footer)
+        assert.are.equal(fallback, inherited)
+        assert.same({ { missing, 14 }, { "cfont", 14 },
+            { missing, 14 }, { "cfont", 14 } }, calls)
+    end)
 
     local function make_typeset(view_mode)
         local document = {}
@@ -479,7 +520,40 @@ describe("reader top status bar refresh", function()
         assert.is_nil(item_fetchers.wifi())
 
         NetworkMgr.wifi_on = true
+        NetworkMgr.pending_connection = true
         assert.are.equal("\u{ECA8}", item_fetchers.wifi())
+    end)
+
+    it("keeps both radios gray while changing, including before startup and during shutdown", function()
+        local changing = true
+        NetworkMgr.isWifiChanging = function() return changing end
+        package.loaded["modules/menu/bluetooth/bluetooth"].isChanging = function() return changing end
+        _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar.wifi_hide_when_off = true
+        for _i, enabled in ipairs({ false, true }) do
+            NetworkMgr.wifi_on, NetworkMgr.connected = enabled, enabled
+            bluetooth_enabled = enabled
+            local wifi, _suffix, color, gray = item_fetchers.wifi()
+            assert.are.equal("\u{ECA8}", wifi)
+            assert.is_nil(_suffix)
+            assert.are.equal("dark_gray", color)
+            assert.is_true(gray)
+            local bluetooth
+            bluetooth, _suffix, color, gray = item_fetchers.bluetooth()
+            assert.are.equal("BT", bluetooth)
+            assert.is_nil(_suffix)
+            assert.are.equal("dark_gray", color)
+            assert.is_true(gray)
+        end
+        changing = false
+        NetworkMgr.connected, bluetooth_enabled = false, false
+        local wifi, _suffix, color, gray = item_fetchers.wifi()
+        assert.are.equal("\u{ECA8}", wifi)
+        assert.are.equal("dark_gray", color)
+        assert.is_true(gray)
+        NetworkMgr.wifi_on = false
+        assert.is_nil(item_fetchers.wifi())
+        assert.is_nil(item_fetchers.bluetooth())
+        assert.is_function(ReaderUI.onNetworkStateChanged)
     end)
 
     it("shows Bluetooth only while powered and refreshes its slot on state changes", function()
@@ -515,7 +589,7 @@ describe("reader top status bar refresh", function()
         assert.is_nil(collect_item_texts({ "battery" })[1].color)
     end)
 
-    it("matches the left and right dogear spacing", function()
+    it("follows reader margins while keeping right items clear of the dogear", function()
         local cfg = _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar
         for _i, name in ipairs({
             "ui/widget/container/centercontainer",
@@ -527,19 +601,76 @@ describe("reader top status bar refresh", function()
         }) do
             package.loaded[name].new = function(_self, values) return values or {} end
         end
-        assert.is_true(replace_upvalue(build_header, "buildGroupFromTexts", function(texts)
+        local caps = {}
+        assert.is_true(replace_upvalue(build_header, "buildGroupFromTexts", function(texts, _face, _sep, cap)
+            caps[#caps + 1] = cap
             if #texts == 0 then return nil, {} end
             return { getSize = function() return { w = 10, h = 18 } end }, {}
         end))
 
         for _i, center_order in ipairs({ {}, { "wifi" } }) do
             cfg.center_order = center_order
-            local header, _, _, _, slots = build_header({
+            local view = {
+                ui = { document = { configurable = { h_page_margins = { 30, 40 } } } },
                 dogear = { icon = { dimen = { x = 550, w = 50 } } },
-            })
-            assert.are.equal(60, header[1][1][1].width)
+            }
+            _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = nil
+            local original_header, _, _, _, original_slots = build_header(view)
+            assert.are.equal(60, original_header[1][1][1].width)
+            assert.are.equal(60, original_header[#original_header][1][2].width)
+            assert.are.equal(70, original_slots.left.w)
+            assert.are.equal(70, original_slots.right.w)
+            if #center_order > 0 then assert.are.equal(295, original_slots.center.x) end
+
+            _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = true
+            local header, _, _, _, slots = build_header(view)
+            assert.are.equal(30, header[1][1][1].width)
             assert.are.equal(60, header[#header][1][2].width)
-            assert.are.equal(slots.left.w, slots.right.w)
+            assert.are.equal(40, slots.left.w)
+            assert.are.equal(70, slots.right.w)
+            if #center_order > 0 then assert.are.equal(280, slots.center.x) end
+
+            local rendered_header = build_header({
+                ui = { document = {
+                    configurable = { h_page_margins = { 100, 100 } },
+                    getPageMargins = function() return { left = 20, right = 80 } end,
+                } },
+            })
+            assert.are.equal(20, rendered_header[1][1][1].width)
+            assert.are.equal(80, rendered_header[#rendered_header][1][2].width)
+
+            local wider_margin_header = build_header({
+                ui = { document = { configurable = { h_page_margins = { 30, 90 } } } },
+                dogear = { icon = { width = 50, dimen = { x = 530, w = 50 } } },
+            })
+            assert.are.equal(30, wider_margin_header[1][1][1].width)
+            assert.are.equal(90, wider_margin_header[#wider_margin_header][1][2].width)
+
+            _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = false
+            local restored_header, _, _, _, restored_slots = build_header(view)
+            assert.are.equal(60, restored_header[1][1][1].width)
+            assert.are.equal(60, restored_header[#restored_header][1][2].width)
+            assert.same(original_slots, restored_slots)
+        end
+
+        assert.is_true(replace_upvalue(build_header, "measureTextsWidth", function(texts)
+            return #texts > 0 and 1000 or 0
+        end))
+        for _i, slot in ipairs({ "left", "center", "right" }) do
+            cfg.left_order, cfg.center_order, cfg.right_order = {}, {}, {}
+            cfg[slot .. "_order"] = { "wifi" }
+            local view = {
+                ui = { document = { configurable = { h_page_margins = { 30, 40 } } } },
+                dogear = { dogear_size = 50 },
+            }
+            _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = false
+            caps = {}
+            build_header(view)
+            assert.are.equal(slot == "center" and 600 or 540, caps[_i])
+            _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = true
+            caps = {}
+            build_header(view)
+            assert.are.equal(510, caps[_i])
         end
     end)
 
@@ -637,6 +768,7 @@ describe("reader top status bar refresh", function()
             percent_finished = 0.5,
         }
         view.ui.document = {
+            configurable = { h_page_margins = { 30, 50 } },
             getPageCount = function() return 10 end,
             hasHiddenFlows = function() return false end,
         }
@@ -647,6 +779,14 @@ describe("reader top status bar refresh", function()
         assert.same({ x = 10, y = 20, w = 290, h = 1, color = "gray_5" }, paint_rects[2])
         assert.same({ x = 126, y = 20, w = 2, h = 1, color = "black" }, paint_rects[3])
         assert.same({ x = 474, y = 20, w = 2, h = 1, color = "black" }, paint_rects[4])
+
+        _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = true
+        reset_paint_log()
+        ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+
+        assert.same({ x = 30, y = 20, w = 260, h = 1, color = "gray_5" }, paint_rects[2])
+        assert.same({ x = 134, y = 20, w = 2, h = 1, color = "black" }, paint_rects[3])
+        assert.same({ x = 446, y = 20, w = 2, h = 1, color = "black" }, paint_rects[4])
     end)
 
     it("skips unchanged minute values and refreshes only changed slots", function()
@@ -708,8 +848,134 @@ describe("reader top status bar refresh", function()
         scheduled[1].callback()
 
         assert.are.equal("sepia", paint_rects[1].color)
+        assert.is_true(paint_rects[1].rgb)
         assert.is_nil(dirty_calls[1].widget)
         assert.is_true(dirty_calls[1].dither)
         assert.same({ "clear", "header", "dogear", "dirty" }, paint_order)
+    end)
+
+    it("restores only changed slots from the rendered page on resume and minute updates", function()
+        local view = make_view()
+        view.state = { offset = { x = -10, y = -5 } }
+        view._zen_header_dimen.x, view._zen_header_dimen.y = 30, 20
+        for _i, slot in pairs(view._zen_header_slots) do
+            slot.x, slot.y = slot.x + 30, slot.y + 20
+        end
+        for _i, background in ipairs({ "sepia", "dark_gray" }) do
+            local buffer = { background = background }
+            view.document.buffer = buffer
+            package.loaded["common/reader_themes"].getBackgroundColor = function() return "different" end
+            ReaderUI.onResume({})
+            reset_paint_log()
+            scheduled[#scheduled - 2].callback()
+            scheduled[#scheduled - 1].callback()
+
+            assert.are.equal(6, #paint_rects)
+            assert.are.equal(6, #dirty_calls)
+            for _j, rect in ipairs(paint_rects) do
+                assert.are.equal(buffer, rect.source)
+                assert.are.equal(100, rect.w)
+                assert.are.equal(20, rect.h)
+                assert.are.equal(rect.x - 20, rect.sx)
+                assert.are.equal(20, rect.y)
+                assert.are.equal(5, rect.sy)
+                assert.is_nil(rect.color)
+            end
+            for _j, call in ipairs(dirty_calls) do
+                assert.is_nil(call.widget)
+                assert.are.equal("ui", call.mode)
+                assert.are.equal(100, call.region.w)
+            end
+        end
+
+        reset_paint_log()
+        clock_text = "12:35"
+        scheduled[#scheduled].callback()
+        assert.are.equal(1, #paint_rects)
+        assert.are.equal(view.document.buffer, paint_rects[1].source)
+        assert.same({ "restore", "header", "dogear", "dirty" }, paint_order)
+        assert.are.equal("ui", dirty_calls[1].mode)
+        assert.is_nil(dirty_calls[1].widget)
+    end)
+
+    it("repaints the whole themed Colorsoft reader once after wake without flashing", function()
+        color_kindle = true
+        local view = make_view()
+        for _i, background in ipairs({
+            Blitbuffer.ColorRGB32(0xFF, 0xC7, 0x01, 0xFF),
+            Blitbuffer.ColorRGB32(0x2F, 0x2F, 0x2F, 0xFF),
+        }) do
+            package.loaded["common/reader_themes"].getBackgroundColor = function() return background end
+            local scheduled_before = #scheduled
+            ReaderUI.onResume(view.ui)
+
+            assert.are.equal(scheduled_before + 2, #scheduled) -- Wake repaint and minute timer.
+            assert.are.equal(1.8, scheduled[scheduled_before + 1].delay)
+            assert.are.equal(0, #dirty_calls)
+            scheduled[scheduled_before + 1].callback()
+
+            assert.are.equal(1, #dirty_calls)
+            assert.are.equal(view.ui.show_parent or view.ui, dirty_calls[1].widget)
+            assert.are.equal("ui", dirty_calls[1].mode)
+            assert.is_nil(dirty_calls[1].region)
+            assert.are.equal(0, #paint_rects)
+            reset_paint_log()
+            view.ui.show_parent = {}
+            UIManager._window_stack = { { widget = view.ui.show_parent } }
+        end
+
+        local scheduled_before = #scheduled
+        ReaderUI.onResume(view.ui)
+        local wake_repaint = scheduled[scheduled_before + 1].callback
+        ReaderUI.onSuspend(view.ui)
+        assert.is_true(unscheduled[wake_repaint])
+        UIManager._window_stack[#UIManager._window_stack + 1] = { widget = {} }
+        wake_repaint()
+        assert.are.equal(0, #dirty_calls)
+    end)
+
+    it("keeps non-flashing wake refreshes on other devices and without a theme", function()
+        make_view()
+        for _i, use_color_kindle in ipairs({ false, true }) do
+            color_kindle = use_color_kindle
+            package.loaded["common/reader_themes"].getBackgroundColor = function()
+                return not use_color_kindle and "sepia" or nil
+            end
+            ReaderUI.onResume({})
+            reset_paint_log()
+            scheduled[#scheduled - 2].callback()
+            assert.are.equal(3, #dirty_calls)
+            for _j, call in ipairs(dirty_calls) do
+                assert.are.equal("ui", call.mode)
+                assert.are.equal(100, call.region.w)
+            end
+        end
+    end)
+
+    it("keeps solid slot backgrounds for fixed-layout documents", function()
+        local view = make_view()
+        view.render_mode = 1
+        view.state = { offset = { x = 0, y = 0 } }
+        view.document.buffer = {}
+        package.loaded["common/reader_themes"].getBackgroundColor = function() return "sepia" end
+        clock_text = "12:35"
+
+        scheduled[1].callback()
+
+        assert.are.equal("sepia", paint_rects[1].color)
+        assert.is_nil(paint_rects[1].source)
+    end)
+
+    it("skips the wake repair while another screen covers the reader", function()
+        make_view()
+        package.loaded["common/reader_themes"].getBackgroundColor = function() return "sepia" end
+        ReaderUI.onResume({})
+        UIManager._window_stack[#UIManager._window_stack + 1] = { widget = {} }
+
+        scheduled[#scheduled - 2].callback()
+        scheduled[#scheduled - 1].callback()
+
+        assert.are.equal(0, #paint_rects)
+        assert.are.equal(0, #dirty_calls)
     end)
 end)

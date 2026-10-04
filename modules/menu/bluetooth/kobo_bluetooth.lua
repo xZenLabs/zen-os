@@ -9,6 +9,7 @@ local SAGE_RFKILL = "/sys/devices/platform/bt/rfkill/rfkill0/state"
 local SAGE_HCI_LOG = "/tmp/zenos-rtk-hciattach.log"
 local SAGE_BLUEZ_LOG = "/tmp/zenos-bluetoothd.log"
 local owned = false
+local mtk_bluetooth_used = false
 local standby_locked = false
 local pending
 local discovery_kind, discovery_poll
@@ -416,6 +417,7 @@ local function read_state(device_kind, verbose)
         .. " --dest=org.freedesktop.DBus /org/freedesktop/DBus"
         .. " org.freedesktop.DBus.NameHasOwner string:" .. destination(device_kind),
         "service-owner-" .. device_kind, verbose)
+    if device_kind == "mtk" and owner then mtk_bluetooth_used = true end
     local powered
     if owner == false then
         powered = false
@@ -464,7 +466,8 @@ local function power(device_kind, enabled)
                 .. "killall bluetoothd 2>/dev/null; killall rtk_hciattach 2>/dev/null; "
                 .. "i=0; while [ $i -lt 30 ] && (pgrep bluetoothd >/dev/null"
                 .. " || pgrep rtk_hciattach >/dev/null); do sleep 0.1; i=$((i+1)); done; "
-                .. "echo 0 > " .. SAGE_RFKILL, operation)
+                .. "echo 0 > " .. SAGE_RFKILL
+                .. " && ./luajit frontend/device/kobo/ntx_io.lua 126 0", operation)
         end
         local function start_step(command, operation)
             if command_ok(command, operation) then return true end
@@ -472,9 +475,9 @@ local function power(device_kind, enabled)
             return false
         end
         if enabled then
-            if not start_step("killall rtk_hciattach 2>/dev/null; killall bluetoothd 2>/dev/null; "
-                    .. "hciconfig hci0 down 2>/dev/null; true", "sage-stack-reset") then return false end
-            if not start_step("echo 0 > " .. SAGE_RFKILL .. " && sleep 1 && echo 1 > "
+            if not stop_stack("sage-stack-reset") then return false end
+            -- KOReader's launcher also cuts chip power via ntx_io (126).
+            if not start_step("./luajit frontend/device/kobo/ntx_io.lua 126 1 && sleep 1 && echo 1 > "
                     .. SAGE_RFKILL, "sage-radio-power-cycle") then return false end
             if not start_step("/sbin/rtk_hciattach -n -s 115200 /dev/ttyS1 rtk_h5"
                     .. " > " .. SAGE_HCI_LOG .. " 2>&1 &", "sage-hci-attach") then return false end
@@ -550,6 +553,12 @@ function M.getState()
     return cached_state
 end
 
+function M.needsRebootOnExit()
+    if kind() ~= "mtk" then return false end
+    if not mtk_bluetooth_used then read_state("mtk", false) end
+    return mtk_bluetooth_used
+end
+
 function M.setEnabled(enabled, complete)
     local callback_started = false
     local function finish_callback(success, from_plugin)
@@ -590,6 +599,7 @@ function M.setEnabled(enabled, complete)
             finish_callback(success, true)
         end
         if enabled then
+            if Device.isMTK and Device:isMTK() then mtk_bluetooth_used = true end
             if complete then
                 timeout = function() plugin_done(false) end
                 UIManager:scheduleIn(15, timeout)
@@ -648,6 +658,7 @@ function M.setEnabled(enabled, complete)
     local function finish()
         logger.info("power request executing kind=", device_kind, "requested=", tostring(enabled))
         if not enabled then stop_discovery() end
+        if enabled and device_kind == "mtk" then mtk_bluetooth_used = true end
         local success = power(device_kind, enabled)
         cached_at = nil
         local verified = read_state(device_kind, true)

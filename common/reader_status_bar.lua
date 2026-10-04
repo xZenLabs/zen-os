@@ -1,5 +1,22 @@
 local M = {}
 
+function M.isMarginAlignmentEnabled(plugin)
+    local features = plugin and plugin.config and plugin.config.features
+    return features and features.reader_status_bar_margins == true or false
+end
+
+function M.getHorizontalMargins(document, fallback, plugin)
+    if not M.isMarginAlignmentEnabled(plugin) then return fallback, fallback end
+    if document and type(document.getPageMargins) == "function" then
+        local margins = document:getPageMargins()
+        return margins.left, margins.right
+    end
+    local margins = document and document.configurable and document.configurable.h_page_margins
+    if not margins then return fallback, fallback end
+    local Screen = require("device").screen
+    return Screen:scaleBySize(margins[1]), Screen:scaleBySize(margins[2])
+end
+
 function M.disableKoreaderAltStatusBar(settings, reader)
     settings = settings or rawget(_G, "G_reader_settings")
     if settings and type(settings.saveSetting) == "function" then

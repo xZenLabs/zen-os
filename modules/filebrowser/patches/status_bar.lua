@@ -66,7 +66,7 @@ local function apply_status_bar()
         custom_separator = "  ",
         left_order   = { "time" },
         center_order = {},
-        right_order  = { "wifi", "battery" },
+        right_order  = { "bluetooth", "wifi", "battery" },
         date_format = "short",
         show_bottom_border = true,
         colored = false,
@@ -161,6 +161,7 @@ local function apply_status_bar()
     end
 
     local config = loadConfig()
+    Bluetooth.getState()
 
     local function getSeparator()
         if config.separator_key == "custom" then
@@ -296,14 +297,13 @@ local function apply_status_bar()
     end
 
     local function getWifiInfo()
-        if NetworkMgr:isWifiOn() then
-            -- Gate on isConnected() (has IP), the same signal that fires
-            -- NetworkConnected -> onNetworkConnected -> status bar refresh.
-            -- ssid presence lags/mismatches that event, leaving a stuck gray icon.
-            if NetworkMgr:isConnected() then
-                return "\u{ECA8}", nil, colors.wifi_on
-            end
+        if NetworkMgr.isWifiChanging and NetworkMgr:isWifiChanging()
+                or not NetworkMgr:isConnected()
+                    and (NetworkMgr:isWifiOn() or NetworkMgr.pending_connection or NetworkMgr.pending_connectivity_check) then
             return "\u{ECA8}", nil, colors.wifi_searching, nil, true
+        end
+        if NetworkMgr:isWifiOn() then
+            return "\u{ECA8}", nil, colors.wifi_on
         elseif not config.wifi_hide_when_off then
             return "\u{ECA9}", nil, colors.wifi_off
         end
@@ -311,6 +311,9 @@ local function apply_status_bar()
     end
 
     local function getBluetoothInfo()
+        if Bluetooth.isChanging and Bluetooth.isChanging() then
+            return inline_icons.bluetooth_on, nil, colors.wifi_searching, nil, true
+        end
         local get_state = Bluetooth.getCachedState or Bluetooth.getState
         local enabled = get_state()
         if enabled == nil then return nil end
@@ -1486,6 +1489,7 @@ local function apply_status_bar()
 
     chainHook("onNetworkConnected", { "wifi" })
     chainHook("onNetworkDisconnected", { "wifi" })
+    chainHook("onNetworkStateChanged", { "wifi" })
     chainHook("onBluetoothStateChanged", { "bluetooth" })
 
     -- Charging events arrive in pairs during USB negotiation (NotCharging -> Charging)

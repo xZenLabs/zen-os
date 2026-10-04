@@ -34,6 +34,40 @@ describe("page browser entry", function()
         })
     end
 
+    local function install_android_thumbnail_dependencies()
+        install_widget_dependencies({})
+        ZenSpec.replace("apps/reader/modules/readermenu", {})
+        ZenSpec.replace("apps/reader/modules/readerconfig", {})
+        require("device").isAndroid = function() return true end
+        local ReaderThumbnail = {
+            checkTileGeneration = function() error("unexpected subprocess check") end,
+        }
+        ZenSpec.replace("apps/reader/modules/readerthumbnail", ReaderThumbnail)
+        local function buffer(width, height)
+            return {
+                w = width, h = height, stride = width,
+                getWidth = function() return width end,
+                getHeight = function() return height end,
+                free = function(self) self.freed = true end,
+                viewport = function(_self, _x, _y, w, h) return buffer(w, h) end,
+                copy = function() return buffer(width, height) end,
+            }
+        end
+        ZenSpec.replace("ffi/blitbuffer", { new = buffer })
+        ZenSpec.replace("ui/geometry", { new = function(_, spec) return spec or { x = 0, y = 0 } end })
+        ZenSpec.replace("ui/renderimage", {
+            scaleBlitBuffer = function(_, bb, width, height)
+                if bb.w == width and bb.h == height then return bb end
+                bb:free()
+                return buffer(width, height)
+            end,
+        })
+        ZenSpec.replace("document/tilecacheitem", { new = function(_, spec) return spec end })
+        ZenSpec.replace("logger", logger_stub())
+        require("modules/reader/patches/page_browser")()
+        return ReaderThumbnail, buffer
+    end
+
     before_each(function()
         shown, events, zones = nil, {}, nil
         reader_store = { settings = {}, presets = {} }
@@ -85,35 +119,26 @@ describe("page browser entry", function()
         ZenSpec.unload("common/reader_font")
     end)
 
-    it("renders Android thumbnails without a subprocess", function()
-        local PageBrowserWidget = {}
-        install_widget_dependencies(PageBrowserWidget)
-        ZenSpec.replace("apps/reader/modules/readermenu", {})
-        ZenSpec.replace("apps/reader/modules/readerconfig", {})
-
-        local Device = require("device")
-        Device.isAndroid = function() return true end
-        local stock_check_calls = 0
-        local ReaderThumbnail = {
-            checkTileGeneration = function() stock_check_calls = stock_check_calls + 1 end,
-        }
-        ZenSpec.replace("apps/reader/modules/readerthumbnail", ReaderThumbnail)
-        ZenSpec.replace("ui/renderimage", {
-            scaleBlitBuffer = function(_, _bb, width, height)
-                return { stride = width, h = height }
-            end,
-        })
-        ZenSpec.replace("document/tilecacheitem", {
-            new = function(_, spec) return spec end,
-        })
-        ZenSpec.replace("logger", logger_stub())
-
-        require("modules/reader/patches/page_browser")()
-
+    it("renders Android EPUB thumbnails without changing the live reader", function()
+        local ReaderThumbnail, buffer = install_android_thumbnail_dependencies()
         local inserted, generated, save_calls
         local statistics = {}
+        local position, drawn_page = 160, nil
+        local document = {
+            getCurrentPos = function() return position end,
+            gotoPos = function(_, pos) position = pos end,
+            getHeaderHeight = function() return 20 end,
+            drawCurrentViewByPage = function(_, bb, x, y, rect, page)
+                expect(bb.w == 600 and bb.h == 800 and x == 0 and y == 0)
+                expect(rect.w == 600 and rect.h == 800)
+                drawn_page, position = page, 560
+            end,
+        }
+        local rendering_state = {}
         local ui = setmetatable({
             statistics = statistics,
+            document = document,
+            rolling = { rendering_state = rendering_state },
             view = { footer_visible = true, state = { page = 2, zoom = 3, rotation = 4 } },
         }, {
             __index = {
@@ -123,15 +148,13 @@ describe("page browser entry", function()
         local thumbnail = {
             ui = ui,
             tile_cache = { insert = function(_, hash, tile) inserted = { hash, tile } end },
-            _getPageImage = function(self)
-                self.ui.saveSettings = function() end
-                self.ui.statistics = nil
+            _getPageImage = function(self, page)
                 self.ui.view.footer_visible = false
-                self.ui.view.state.page = 99
-                return {
-                    getWidth = function() return 600 end,
-                    getHeight = function() return 800 end,
-                }
+                self.ui.view.state.page = page
+                self.ui.rolling.rendering_state = nil
+                local bb = buffer(600, 800)
+                document:drawCurrentViewByPage(bb, 0, 0, { w = 600, h = 800 }, page)
+                return bb
             end,
         }
         local request = {
@@ -142,6 +165,8 @@ describe("page browser entry", function()
         }
 
         expect(ReaderThumbnail.startTileGeneration(thumbnail, request) == true)
+        expect(position == 160 and drawn_page == 7)
+        expect(ui.rolling.rendering_state == rendering_state)
         expect(thumbnail.ui.view.footer_visible == true)
         expect(thumbnail.ui.view.state.page == 2)
         expect(thumbnail.ui.view.state.zoom == 3)
@@ -154,7 +179,114 @@ describe("page browser entry", function()
         expect(inserted[1] == "page-7")
         expect(generated[1] == inserted[2])
         expect(generated[2] == 5 and generated[3] == true)
-        expect(stock_check_calls == 0)
+        expect(not generated[1].bb.freed)
+        expect(generated[1].bb.h <= 200)
+        expect(math.abs(generated[1].bb.w / generated[1].bb.h - 600 / 780) < 0.01)
+    end)
+
+    it("renders Android PDF thumbnails at native size and restores reflow settings on failure", function()
+        local ReaderThumbnail, buffer = install_android_thumbnail_dependencies()
+        local configurable = { text_wrap = 1, trim_page = 2, auto_straighten = 5 }
+        local dimen, visible_area, bbox = { w = 600, h = 800 }, {}, {}
+        local highlight = { lighten_factor = 0.2, page_boxes = {}, visible_boxes = {} }
+        local original_page_boxes, original_visible_boxes = highlight.page_boxes, highlight.visible_boxes
+        local highlighted, bookmarked = 0, 0
+        local rendered, fail
+        local ui = {
+            paging = {},
+            bookmark = { isPageBookmarked = function(_, page) return page == 7 end },
+            view = {
+                dimen = dimen, visible_area = visible_area, page_scroll = true, hinting = true,
+                footer_visible = true, flipping_visible = true,
+                state = { page = 2, zoom = 3, rotation = 90, gamma = 1.2, saturation = 0.8, bbox = bbox },
+                highlight_visible = true, highlight = highlight,
+                drawSavedHighlight = function(self, bb)
+                    expect(self.highlight ~= highlight and self.state.page == 7 and self.state.zoom == 0.5)
+                    expect(self.state.offset.x == 0 and self.visible_area.w == bb.w)
+                    expect(self.highlight.lighten_factor == 0.3)
+                    self.highlight.page_boxes[7], self.highlight.visible_boxes = {}, { 7 }
+                    highlighted = highlighted + 1
+                end,
+                dogear = {
+                    dogear_y_offset = 8,
+                    icon = {
+                        getWidth = function() return 20 end,
+                        paintTo = function(_, bb, x, y)
+                            expect(x == bb.w - 20 and y == 8)
+                            bookmarked = bookmarked + 1
+                        end,
+                    },
+                },
+            },
+            document = {
+                configurable = configurable,
+                getPageDimensions = function(_, page, zoom, rotation)
+                    expect(page == 7 and zoom == 1 and rotation == 0)
+                    expect(configurable.text_wrap == false and configurable.trim_page == 3)
+                    expect(configurable.auto_straighten == 0)
+                    return { w = 1200, h = 600 }
+                end,
+                drawPage = function(_, bb, x, y, rect, page, zoom, rotation, gamma, saturation)
+                    rendered = bb
+                    expect(bb.w == 600 and bb.h == 300 and x == 0 and y == 0)
+                    expect(rect.w == 600 and rect.h == 300)
+                    expect(page == 7 and zoom == 0.5 and rotation == 0)
+                    expect(gamma == 1.2 and saturation == 0.8)
+                    if fail then error("render failed") end
+                end,
+            },
+        }
+        local thumbnail = {
+            ui = ui,
+            _getPageImage = function(self, page)
+                configurable.text_wrap, configurable.trim_page, configurable.auto_straighten = false, 3, 0
+                local view = self.ui.view
+                view.dimen, view.visible_area = { w = 600, h = 300 }, {}
+                view.page_scroll, view.hinting, view.footer_visible, view.flipping_visible = false, false, false, false
+                view.state.page, view.state.zoom, view.state.rotation, view.state.bbox = page, 0.5, 0, nil
+                local bb = buffer(600, 300)
+                self.ui.document:drawPage(bb, 0, 0, { w = 600, h = 300 }, page, 0.5, 0, 1.2, 0.8)
+                return bb
+            end,
+        }
+        local request = { page = 7, width = 300, height = 200 }
+        for _i = 1, 2 do
+            expect(ReaderThumbnail.startTileGeneration(thumbnail, request) == not fail)
+            expect(configurable.text_wrap == 1 and configurable.trim_page == 2)
+            expect(configurable.auto_straighten == 5)
+            expect(ui.view.state.page == 2 and ui.view.state.zoom == 3)
+            expect(ui.view.state.rotation == 90)
+            expect(ui.view.dimen == dimen and ui.view.visible_area == visible_area and ui.view.state.bbox == bbox)
+            expect(ui.view.page_scroll and ui.view.hinting and ui.view.footer_visible and ui.view.flipping_visible)
+            expect(highlight.page_boxes == original_page_boxes and highlight.page_boxes[7] == nil)
+            expect(highlight.visible_boxes == original_visible_boxes and highlight.lighten_factor == 0.2)
+            if fail then expect(rendered.freed) end
+            request._zen_sync_tile = nil
+            fail = true
+        end
+        expect(highlighted == 1 and bookmarked == 1)
+    end)
+
+    it("restores the Android EPUB position after a render error", function()
+        local ReaderThumbnail = install_android_thumbnail_dependencies()
+        local position, rendered = 0, nil
+        local thumbnail = {
+            ui = {
+                rolling = {},
+                document = {
+                    getCurrentPos = function() return position end,
+                    gotoPos = function(_, pos) position = pos end,
+                    drawCurrentViewByPage = function(_, bb)
+                        rendered, position = bb, 560
+                        error("render failed")
+                    end,
+                },
+            },
+        }
+        local request = { page = 7, width = 300, height = 200 }
+        expect(ReaderThumbnail.startTileGeneration(thumbnail, request) == false)
+        expect(position == 0 and rendered and rendered.freed)
+        expect(request._zen_sync_tile == nil)
     end)
 
     it("registers the bottom gesture and opens the patched browser only when enabled", function()

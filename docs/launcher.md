@@ -3,7 +3,7 @@ title: Launcher
 category: Interface
 summary: Customizable app launcher with action buttons, plugin buttons, and folders.
 settingsPath: Zen Settings > Interface > Launcher
-order: 40
+order: 47
 ---
 
 <!-- Documentation current through ZenOS v3.0.0. -->

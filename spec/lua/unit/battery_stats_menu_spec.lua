@@ -26,6 +26,7 @@ describe("standalone battery stats", function()
         assert.are.equal("Battery", shown_options.title)
         assert.are.equal("Health", shown_options.root_items[1].text)
         assert.are.equal("Usage", shown_options.root_items[2].text)
+        assert.are.equal("Charging", shown_options.root_items[3].text)
 
         for _i, name in ipairs(names) do package.loaded[name] = originals[name] end
     end)

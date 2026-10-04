@@ -3,7 +3,7 @@ title: Controls
 category: Interface
 summary: All your controls in one place
 settingsPath: Zen Settings > Interface > Controls
-order: 20
+order: 46
 ---
 
 <!-- Documentation current through ZenOS v3.3.0. -->

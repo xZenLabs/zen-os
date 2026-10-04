@@ -1526,6 +1526,24 @@ function M.build(ctx)
         end,
     })
 
+    table.insert(items, {
+        text = _("Align status bars with book margins"),
+        checked_func = function()
+            return config.features.reader_status_bar_margins == true
+        end,
+        callback = function()
+            config.features.reader_status_bar_margins = config.features.reader_status_bar_margins ~= true
+            plugin:saveConfig()
+            local ok, ReaderUI = pcall(require, "apps/reader/readerui")
+            local reader = ok and ReaderUI.instance
+            if reader then
+                local footer = reader.view and reader.view.footer
+                if footer then footer:refreshFooter(true, true) end
+                UIManager:setDirty(reader, "ui")
+            end
+        end,
+    })
+
     IconItem.decorate(items[1], icons.settings_status)
     IconItem.decorate(items[2], icons.reader_themes)
     IconItem.decorate(items[3], icons.title)

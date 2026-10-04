@@ -112,7 +112,7 @@ describe("status bar settings", function()
 
         assert.are.same({ "time" }, config.status_bar.left_order)
         assert.are.same({}, config.status_bar.center_order)
-        assert.are.same({ "wifi", "battery" }, config.status_bar.right_order)
+        assert.are.same({ "bluetooth", "wifi", "battery" }, config.status_bar.right_order)
         assert.is_true(page.checked_func())
     end)
 

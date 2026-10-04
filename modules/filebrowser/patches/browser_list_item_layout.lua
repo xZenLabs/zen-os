@@ -428,7 +428,7 @@ local function apply_browser_list_item_layout()
             self.been_opened = book_info.been_opened
 
             local filename = select(2, util.splitFilePathName(filepath))
-            local filename_without_suffix = filemanagerutil.splitFileNameType(filename)
+            local filename_without_suffix, filetype = filemanagerutil.splitFileNameType(filename)
             local has_description = bookinfo.description ~= nil
             self.has_description = has_description
 
@@ -548,13 +548,25 @@ local function apply_browser_list_item_layout()
                 pages_probe:free()
             end
 
+            local wright_filetype
+            if not self.do_filename_only and filetype ~= "" then
+                wright_filetype = TextWidget:new{
+                    text    = filetype:upper(),
+                    face    = library_font.getFace(fs_pages),
+                    fgcolor = Blitbuffer.COLOR_GRAY_3,
+                    padding = 0,
+                }
+            end
+
             -- Clamp right-column width so oversized fonts do not push content outside row.
             local right_available = math.max(0, self.width - left_offset - 2 * pad_right)
             local max_right_w = math.floor(right_available * 0.45)
-            local wright_w = math.max(status_nat_w, pages_nat_w)
+            local wright_w = math.max(status_nat_w, pages_nat_w,
+                wright_filetype and wright_filetype:getWidth() or 0)
             if max_right_w > 0 then
                 wright_w = math.min(wright_w, max_right_w)
             end
+            if wright_filetype then wright_filetype:setMaxWidth(math.max(1, wright_w)) end
 
             -- ── Step 2: build right-column widgets with clamped width ─────────
             local wright_status, wright_pages
@@ -713,7 +725,7 @@ local function apply_browser_list_item_layout()
                 table.insert(widget, 1, wleft)
             end
 
-            if wright_status or wright_pages then
+            if wright_status or wright_pages or wright_filetype then
                 if wright_status and wright_pages then
                     local right_h = wright_status:getSize().h + wright_pages:getSize().h
                     if right_h > content_h then
@@ -721,10 +733,19 @@ local function apply_browser_list_item_layout()
                         wright_pages = nil
                     end
                 end
+                if wright_filetype then
+                    local right_h = (wright_status and wright_status:getSize().h or 0)
+                        + (wright_pages and wright_pages:getSize().h or 0)
+                    if right_h + wright_filetype:getSize().h > content_h then
+                        wright_filetype:free()
+                        wright_filetype = nil
+                    end
+                end
                 local right_stack = VerticalGroup:new{ align = "right" }
                 table.insert(right_stack, VerticalSpan:new{ width = text_safe_pad_top })
                 if wright_status then table.insert(right_stack, wright_status) end
                 if wright_pages  then table.insert(right_stack, wright_pages)  end
+                if wright_filetype then table.insert(right_stack, wright_filetype) end
                 table.insert(widget, RightContainer:new{
                     dimen = row_dimen,
                     HorizontalGroup:new{

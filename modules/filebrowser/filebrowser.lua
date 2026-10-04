@@ -232,6 +232,7 @@ function M.init(logger, plugin)
 
     for _i, feature in ipairs(FEATURES) do
         if feature == "status_bar" or feature == "browser_hide_up_folder"
+            or feature == "partial_page_repaint"
             or is_feature_enabled(plugin, feature) then
             local fn, err = load_patch(feature)
             if fn then

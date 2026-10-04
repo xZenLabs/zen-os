@@ -20,8 +20,11 @@ local function apply_page_browser()
     -- Boox Android aborts forked thumbnail workers inside ART; render in-process.
     if Device.isAndroid and Device:isAndroid() then
         local ReaderThumbnail = require("apps/reader/modules/readerthumbnail")
+        local Blitbuffer = require("ffi/blitbuffer")
+        local Geom = require("ui/geometry")
         local RenderImage = require("ui/renderimage")
         local TileCacheItem = require("document/tilecacheitem")
+        local Screen = Device.screen
         local logger = require("logger")
 
         if not ReaderThumbnail._zen_android_sync_thumbnail_patch then
@@ -30,44 +33,80 @@ local function apply_page_browser()
 
             ReaderThumbnail.startTileGeneration = function(self, request)
                 local ui = self.ui
-                local view = ui and ui.view
-                local state = view and view.state
-                local saved_save_settings = ui and rawget(ui, "saveSettings")
-                local saved_statistics = ui and rawget(ui, "statistics")
-                local saved_footer = view and view.footer_visible
-                local saved_page = state and state.page
-                local saved_zoom = state and state.zoom
-                local saved_rotation = state and state.rotation
+                local document = ui.document
+                local saved_pos = ui.rolling and document:getCurrentPos()
+                local configurable = document.configurable
+                local saved_wrap, saved_trim, saved_straighten
+                if ui.paging then
+                    saved_wrap = configurable.text_wrap
+                    saved_trim = configurable.trim_page
+                    saved_straighten = configurable.auto_straighten
+                end
+                local bb, tile
 
                 local ok, err = pcall(function()
-                    local bb = self:_getPageImage(request.page)
+                    -- _getPageImage mutates ReaderView and emits events meant only for a disposable worker.
+                    local width, height = Screen:getWidth(), Screen:getHeight()
+                    local zoom = 1
+                    if ui.paging then
+                        configurable.text_wrap = false
+                        configurable.trim_page = 3
+                        configurable.auto_straighten = 0
+                        local dimen = document:getPageDimensions(request.page, 1, 0)
+                        zoom = math.min(width / dimen.w, height / dimen.h)
+                        width, height = math.floor(dimen.w * zoom), math.floor(dimen.h * zoom)
+                    end
+                    bb = Blitbuffer.new(width, height, self.bb_type)
+                    local rect = Geom:new{ w = width, h = height }
+                    if ui.rolling then
+                        document:drawCurrentViewByPage(bb, 0, 0, rect, request.page)
+                    else
+                        local state = ui.view.state
+                        document:drawPage(bb, 0, 0, rect, request.page, zoom, 0, state.gamma, state.saturation)
+                    end
+                    if ui.view.highlight_visible then
+                        local view = setmetatable({
+                            state = { page = request.page, zoom = zoom, rotation = 0, offset = Geom:new() },
+                            page_scroll = false, visible_area = rect,
+                            highlight = setmetatable({
+                                page_boxes = {}, lighten_factor = math.max(ui.view.highlight.lighten_factor, 0.3),
+                            }, { __index = ui.view.highlight }),
+                        }, { __index = ui.view })
+                        view:drawSavedHighlight(bb, 0, 0)
+                    end
+                    local dogear = ui.view.dogear
+                    if dogear and ui.bookmark:isPageBookmarked(ui.paging and request.page or document:getXPointer()) then
+                        local icon_x = require("ui/bidi").mirroredUILayout() and 0 or width - dogear.icon:getWidth()
+                        dogear.icon:paintTo(bb, icon_x, dogear.dogear_y_offset)
+                    end
+                    if ui.rolling then
+                        local header_height = document:getHeaderHeight()
+                        if header_height > 0 then
+                            local cropped = bb:viewport(0, header_height, width, height - header_height):copy()
+                            bb:free()
+                            bb = cropped
+                        end
+                    end
                     local scale = math.min(request.width / bb:getWidth(), request.height / bb:getHeight())
-                    local tile = TileCacheItem:new{
-                        bb = RenderImage:scaleBlitBuffer(bb,
-                            math.floor(bb:getWidth() * scale),
-                            math.floor(bb:getHeight() * scale), true),
-                        pageno = request.page,
-                    }
+                    bb = RenderImage:scaleBlitBuffer(bb,
+                        math.floor(bb:getWidth() * scale),
+                        math.floor(bb:getHeight() * scale), true)
+                    tile = TileCacheItem:new{ bb = bb, pageno = request.page }
                     tile.size = tonumber(tile.bb.stride) * tile.bb.h
-                    request._zen_sync_tile = tile
                 end)
 
-                if ui then
-                    rawset(ui, "saveSettings", saved_save_settings)
-                    rawset(ui, "statistics", saved_statistics)
-                end
-                if view then
-                    view.footer_visible = saved_footer
-                    if state then
-                        state.page = saved_page
-                        state.zoom = saved_zoom
-                        state.rotation = saved_rotation
-                    end
+                if saved_pos then document:gotoPos(saved_pos) end
+                if ui.paging then
+                    configurable.text_wrap = saved_wrap
+                    configurable.trim_page = saved_trim
+                    configurable.auto_straighten = saved_straighten
                 end
                 if not ok then
+                    if bb then bb:free() end
                     logger.warn("ZenOS Android synchronous thumbnail generation failed:", err)
                     return false
                 end
+                request._zen_sync_tile = tile
                 return true
             end
 

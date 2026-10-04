@@ -115,11 +115,14 @@ if _plugin_root then
                 end
                 table.sort(FontList.fontlist)
             end
+            local ok_font, Font = pcall(require, "ui/font")
+            if ok_font and Font then
+                require("common/library_font_path").registerFontAliases(Font, FontList)
+            end
             -- SymbolsNerdFont also serves as glyph fallback for MDI icons.
             -- Skipped when ProjectTitle is active: crengine fails to register
             -- the font on some devices, causing a width=0 crash.
             if not _pt_active then
-                local ok_font, Font = pcall(require, "ui/font")
                 if ok_font and Font and Font.fallbacks then
                     pcall(table.insert, Font.fallbacks, "SymbolsNerdFont-Regular.ttf")
                 end

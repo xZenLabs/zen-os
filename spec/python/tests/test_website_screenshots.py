@@ -308,7 +308,7 @@ def test_showcase_background_is_staged_inside_the_emulator_home(tmp_path: Path) 
     assert destination.read_bytes() == SHOWCASE_BACKGROUND.read_bytes()
     with Image.open(destination) as image:
         assert image.format == "JPEG"
-        assert image.size == (4494, 2493)
+        assert image.size == (1264, 1680)
 
 
 def test_showcase_statistics_uses_koreader_enable_key() -> None:

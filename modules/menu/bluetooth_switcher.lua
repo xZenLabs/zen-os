@@ -230,6 +230,30 @@ function M.open(on_changed, settings_subpage, plugin)
             file = utils.resolveLocalIcon(plugin_root and plugin_root .. "/icons/", "quick_sync"),
             callback = function() start() end,
         },
+        toggle = {
+            value_func = function()
+                local state = Bluetooth.getCachedState()
+                if state ~= nil then return state end
+                return Bluetooth.isEnabled()
+            end,
+            callback = function()
+                if closed or busy then return end
+                if not Bluetooth.isEnabled() then start(); return end
+                busy = true
+                Bluetooth.setEnabled(false, function(ok, err)
+                    if closed then return end
+                    busy = false
+                    if not ok then
+                        show_status(err or _("Could not change Bluetooth power."))
+                        return
+                    end
+                    devices = {}
+                    scan_warning = nil
+                    notify_changed()
+                    show_status(_("Off"))
+                end)
+            end,
+        },
     }
     menu = Menu:new{
         name = "bluetooth_switcher", title = _("Bluetooth devices"),

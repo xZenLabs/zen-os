@@ -39,7 +39,13 @@ describe("Bluetooth switcher", function()
         ZenSpec.replace("device", { isKindle = function() return true end })
         ZenSpec.replace("modules/menu/bluetooth/bluetooth", {
             isEnabled = function() return state end,
-            setEnabled = function(_enabled, done) state = true; done(true); return true end,
+            getCachedState = function() return state end,
+            setEnabled = function(enabled, done)
+                if not enabled then require("modules/menu/bluetooth_switcher").cancelScan() end
+                state = enabled
+                done(true)
+                return true
+            end,
         })
         ZenSpec.replace("modules/menu/bluetooth_adapters/kindle", {
             isSupported = function() return true end, new = function() return adapter end,
@@ -258,6 +264,43 @@ describe("Bluetooth switcher", function()
         assert.are.equal(2, adapter.scanned)
         adapter.scan_done(true)
         assert.are.equal("Speaker", menu.item_table[1].text)
+    end)
+
+    it("toggles Bluetooth from the title bar, cancels discovery, and scans again", function()
+        require("modules/menu/bluetooth_switcher").open(function() changed = changed + 1 end, true)
+        local old_scan = adapter.scan_done
+        adapter.cancelScan = function() adapter.cancelled = true end
+        local toggle = menu.custom_title_bar.toggle
+        assert.is_true(toggle.value_func())
+
+        toggle.callback()
+        assert.is_false(toggle.value_func())
+        assert.is_true(adapter.cancelled)
+        assert.are.equal("Off", menu.item_table[1].text)
+        assert.is_false(menu.item_table[1].select_enabled)
+        assert.are.equal(1, changed)
+        assert.are.equal("BluetoothStateChanged", events[1].name)
+        old_scan(true)
+        assert.are.equal("Off", menu.item_table[1].text)
+
+        toggle.callback()
+        assert.is_true(toggle.value_func())
+        assert.are.equal(2, adapter.scanned)
+        adapter.scan_done(true)
+        assert.are.equal("Speaker", menu.item_table[1].text)
+        assert.are.equal(2, changed)
+        assert.are.equal(1, #shown)
+    end)
+
+    it("keeps the Bluetooth toggle on and shows a failed power-off request", function()
+        require("modules/menu/bluetooth_switcher").open()
+        package.loaded["modules/menu/bluetooth/bluetooth"].setEnabled = function(_enabled, done)
+            done(false, "Power denied")
+        end
+        menu.custom_title_bar.toggle.callback()
+        assert.is_true(menu.custom_title_bar.toggle.value_func())
+        assert.are.equal("Power denied", menu.item_table[1].text)
+        assert.are.same({}, events)
     end)
 
     it("shows devices discovered by the Kindle scan", function()

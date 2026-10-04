@@ -96,8 +96,7 @@ local function delete_profile(ssid)
         if requested then deleted, delete_error = wait_for_profile(ssid, false) end
     end
     if not deleted then return false, delete_error or request_error end
-    logger.dbg("Kindle Wi-Fi profile deleted", "ssid=", ssid,
-        "profile_id=", profile_id)
+    logger.dbg("Kindle Wi-Fi profile deleted", "profile_id=", profile_id)
     return true
 end
 
@@ -150,8 +149,7 @@ local function create_profile(network)
 
     local profile, profile_error = wait_for_profile(network.ssid, true)
     if not profile then return false, profile_error end
-    logger.dbg("Kindle Wi-Fi profile created", "ssid=", network.ssid,
-        "security=", network.flags, "method=", security_method,
+    logger.dbg("Kindle Wi-Fi profile created", "security=", network.flags, "method=", security_method,
         "profile_id=", profile.netid)
     return true
 end
@@ -195,8 +193,7 @@ function M.new(NetworkMgr)
             "com.lab126.wifid", "cmConnect", selector)
         pcall(handle.close, handle)
         if connected then
-            logger.dbg("Kindle Wi-Fi connection requested", "ssid=", network.ssid,
-                "selector=", selector)
+            logger.dbg("Kindle Wi-Fi connection requested", "profile_selector=", profile.netid ~= nil)
         end
         return connected, err
     end
@@ -210,8 +207,7 @@ function M.new(NetworkMgr)
         if ok_current and current and current.ssid == network.ssid then
             local powered_off, power_error = pcall(NetworkMgr.turnOffWifi, NetworkMgr)
             if not powered_off or power_error == false then
-                logger.warn("could not turn off Wi-Fi before forgetting profile",
-                    "ssid=", network.ssid, "error=", power_error)
+                logger.warn("could not turn off Wi-Fi before forgetting profile")
                 return false, power_error
             end
             NetworkMgr:releaseIP()
@@ -287,7 +283,7 @@ function M.new(NetworkMgr)
             local ok_state, state = pcall(handle.get_string_property, handle,
                 "com.lab126.wifid", "scanState")
             if state ~= last_state then
-                logger.dbg("Kindle Wi-Fi scan state", "state=", state)
+                logger.dbg("Kindle Wi-Fi scan state", "state=", ok_state and state or "unavailable")
                 last_state = state
             end
             local scanning = type(state) == "string" and state ~= "idle" and state ~= ""

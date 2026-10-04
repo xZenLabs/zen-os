@@ -1239,21 +1239,19 @@ function M.load()
     local initialized_brand_marker = fresh_config
         and plugin_root:match("/" .. BrandMigration.PLUGIN_DIR .. "$") ~= nil
         and BrandMigration.markConfigMigrationComplete(cfg)
+    local g = rawget(_G, "G_reader_settings")
+    local has_legacy_config = g and g:readSetting(LEGACY_KEY) ~= nil
     if migrated_renamed or migrated_group or migrated_substring or migrated_updater or migrated_fbc or migrated_bim
             or migrated_reader_backup or migrated_qs or migrated_qs_completion or migrated_file_config
             or migrated_settings_files or migrated_reader_presets
             or migrated_changed_defaults or migrated_home_lock
             or migrated_folder_paths or migrated_rakuyomi or migrated_page_browser
             or migrated_brand_paths or migrated_owned or initialized_brand_marker
-            or recovered_fresh_config or installed_plugins_changed then
-        M.save(cfg)
-    end
-    if migrated_file_config then
-        local g = rawget(_G, "G_reader_settings")
-        if g and type(g.delSetting) == "function" then -- luacheck: ignore 542
-            -- TODO: re-enable to delete legacy zen_ui_config key from settings.reader.lua
-            -- pcall(g.delSetting, g, LEGACY_KEY)
-            -- pcall(g.flush, g)
+            or recovered_fresh_config or installed_plugins_changed or has_legacy_config then
+        local saved = M.save(cfg, has_legacy_config)
+        if saved and has_legacy_config and type(g.delSetting) == "function" then
+            pcall(g.delSetting, g, LEGACY_KEY)
+            pcall(g.flush, g)
         end
     end
     _current_config = cfg

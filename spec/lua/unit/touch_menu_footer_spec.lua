@@ -5,6 +5,7 @@ describe("TouchMenu footer", function()
     local original_modules
     local original_plugin
     local module_names = {
+        "apps/filemanager/filemanager",
         "apps/reader/readerui",
         "common/plugin_root",
         "common/ui/hatching",
@@ -43,6 +44,7 @@ describe("TouchMenu footer", function()
         local hatch_args
         local paint_order = {}
         local refresh
+        local close_calls = 0
         local InputContainer = {}
         function InputContainer:extend(definition)
             definition.__index = definition
@@ -67,6 +69,11 @@ describe("TouchMenu footer", function()
                 paint_order[#paint_order + 1] = "menu"
                 return "painted"
             end,
+            onCloseWidget = function(_self, reason)
+                assert.are.equal("closing", reason)
+                close_calls = close_calls + 1
+                return "closed"
+            end,
         }
         _G.G_defaults = { readSetting = function() return 40 end }
         _G.__ZEN_UI_PLUGIN = {
@@ -86,8 +93,8 @@ describe("TouchMenu footer", function()
         ZenSpec.replace("ui/geometry", { new = function(_self, values) return values end })
         ZenSpec.replace("ui/gesturerange", { new = function(_self, values) return values end })
         ZenSpec.replace("ui/uimanager", {
-            setDirty = function(_self, widget, refreshtype)
-                refresh = { widget = widget, refreshtype = refreshtype }
+            setDirty = function(_self, widget, refreshtype, region)
+                refresh = { widget = widget, refreshtype = refreshtype, region = region }
             end,
         })
         ZenSpec.replace("ui/widget/container/horizontalgroup", {
@@ -113,6 +120,13 @@ describe("TouchMenu footer", function()
         assert.is_false(menu.is_fresh)
         assert.is_nil(refresh.widget)
         assert.are.equal("ui", refresh.refreshtype)
+
+        local screen = require("device").screen
+        screen.night_mode = true
+        menu:onShow()
+        assert.are.equal("full", refresh.refreshtype)
+        assert.is_nil(refresh.region)
+        screen.night_mode = false
 
         local result = menu:paintTo({
             hatchRect = function(_self, ...)
@@ -145,6 +159,46 @@ describe("TouchMenu footer", function()
         menu:paintTo({ hatchRect = function() hatch_args = {} end }, 0, 0)
         assert.are.same({ "menu" }, paint_order)
         assert.is_nil(hatch_args)
+        assert.is_nil(refresh)
+
+        local FileManager = { instance = {} }
+        ZenSpec.replace("apps/filemanager/filemanager", FileManager)
+        local ReaderUI = require("apps/reader/readerui")
+        ReaderUI.instance = nil
+        local device = require("device")
+        for _i, mode in ipairs({
+            { color = true, night = false },
+            { color = true, night = true },
+            { color = false, night = true },
+        }) do
+            device.hasColorScreen = function() return mode.color end
+            screen.night_mode = mode.night
+            refresh = nil
+            assert.are.equal("closed", menu:onCloseWidget("closing"))
+            assert.is_nil(refresh.widget)
+            assert.is_nil(refresh.region)
+            assert.is_function(refresh.refreshtype)
+            assert.are.same({ "full" }, { refresh.refreshtype() })
+        end
+        assert.are.equal(3, close_calls)
+
+        screen.night_mode = false
+        refresh = nil
+        menu:onCloseWidget("closing")
+        assert.is_nil(refresh)
+
+        device.hasColorScreen = function() return true end
+        FileManager.instance.tearing_down = true
+        menu:onCloseWidget("closing")
+        assert.is_nil(refresh)
+
+        ReaderUI.instance = {}
+        menu:onCloseWidget("closing")
+        assert.are.equal("full", refresh.refreshtype())
+
+        refresh = nil
+        ReaderUI.instance.tearing_down = true
+        menu:onCloseWidget("closing")
         assert.is_nil(refresh)
     end)
 end)
