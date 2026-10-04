@@ -41,6 +41,7 @@ local function apply_opds()
     local Device          = require("device")
     local OPDSParser      = require("opdsparser")
     local CoverUtils      = require("common/cover_utils")
+    local CoverCache      = require("common/opds_cover_cache")
     local icons           = require("common/inline_icon_map")
     local lfs             = require("libs/libkoreader-lfs")
     local utils           = require("common/utils")
@@ -56,10 +57,21 @@ local function apply_opds()
         search = utils.resolveLocalIcon(_icons_dir, "quick_search"),
         menu = utils.resolveLocalIcon(_icons_dir, "more_vertical"),
         close = utils.resolveLocalIcon(_icons_dir, "close"),
+        refresh = utils.resolveLocalIcon(_icons_dir, "quick_sync"),
     }
 
-    -- Cover cache: [url] → { bb } | { failed = true }  (visible-page scoped)
+    -- Decoded covers stay limited to the visible and next pages; source bytes persist on disk.
     local _cover_cache = {}
+    local _cover_scope
+
+    local function cover_credentials(browser)
+        local root = browser.paths and browser.paths[1]
+        return {
+            url = root and root.url,
+            username = browser.root_catalog_username,
+            password = browser.root_catalog_password,
+        }
+    end
 
     local function prune_cover_cache(keep, entries)
         for _i, entry in ipairs(entries or {}) do
@@ -76,8 +88,90 @@ local function apply_opds()
         end
     end
 
+    local function decode_cover(entry, bytes, cover_w, cover_h, key)
+        local ok, bb = pcall(function()
+            return require("ui/renderimage"):renderImageData(bytes, #bytes, false, cover_w, cover_h)
+        end)
+        if not ok or not bb then return end
+        _cover_cache[entry.cover_url] = { bb = bb, width = cover_w, height = cover_h, key = key }
+        return bb
+    end
+
+    local function cached_cover(entry, cover_w, cover_h, creds)
+        local cached = _cover_cache[entry.cover_url]
+        local key = CoverCache.key(entry.cover_url, creds)
+        if cached and cached.bb and cached.key == key
+                and cached.width == cover_w and cached.height == cover_h then
+            return cached.bb
+        end
+        if cached and cached.bb then
+            cached.bb:free()
+            _cover_cache[entry.cover_url] = nil
+        end
+        local bytes = CoverCache.get(key)
+        if not bytes then return end
+        local bb = decode_cover(entry, bytes, cover_w, cover_h, key)
+        if not bb then CoverCache.remove(key) end
+        return bb
+    end
+
+    local function parse_feed_body(feed)
+        if feed:match("^%s*{") then
+            local ok, catalog = pcall(require("json").decode, feed)
+            if ok and type(catalog) == "table" then
+                catalog.is_opds2 = true
+                return catalog
+            end
+        else
+            return OPDSParser:parse(feed)
+        end
+    end
+
+    local function warm_next_page(browser, queue, keep)
+        local first = browser.page * browser.perpage + 1
+        local last = first + browser.perpage - 1
+        local size = browser._zen_cover_size
+        local function add_cover(entry, target_queue)
+            if not entry.cover_url then return end
+            keep[entry.cover_url] = true
+            target_queue[#target_queue + 1] = {
+                entry = entry, cover_w = size.w, cover_h = size.h,
+            }
+        end
+        for index = first, math.min(last, #browser.item_table) do
+            add_cover(browser.item_table[index], queue)
+        end
+        local next_url = browser.item_table.hrefs and browser.item_table.hrefs.next
+        if last <= #browser.item_table or not next_url then return end
+        local function add_feed_covers(bytes, target_queue)
+            local catalog = parse_feed_body(bytes)
+            if not catalog then return end
+            -- Mapping a prefetched feed must not change the visible title, search, or facets.
+            local scratch = setmetatable({}, { __index = OPDSBrowser })
+            for key, value in pairs(browser) do scratch[key] = value end
+            scratch.sync = true -- Skip OpenSearch descriptor requests while warming covers.
+            scratch._zen_prefetched_feed = nil
+            local items
+            if catalog.is_opds2 then
+                items = scratch:genItemTableFromCatalog2(catalog, next_url)
+            else
+                items = scratch:genItemTableFromCatalog(catalog, next_url)
+            end
+            browser._zen_prefetched_feed = { url = next_url, body = bytes }
+            for index = 1, math.min(last - math.max(first - 1, #browser.item_table), #items) do
+                add_cover(items[index], target_queue)
+            end
+        end
+        local prefetched = browser._zen_prefetched_feed
+        if prefetched and prefetched.url == next_url then
+            add_feed_covers(prefetched.body, queue)
+        elseif NetworkMgr:isConnected() then
+            queue[#queue + 1] = { url = next_url, on_bytes = add_feed_covers }
+        end
+    end
+
     -- HTTP fetch body; callers run it in a subprocess.
-    local function fetch_bytes(cover_url, creds)
+    local function fetch_bytes(cover_url, creds, is_feed)
         local ok_h, http        = pcall(require, "socket.http")
         local ok_l, ltn12       = pcall(require, "ltn12")
         local ok_su, socketutil = pcall(require, "socketutil")
@@ -87,14 +181,37 @@ local function apply_opds()
         end
         logger.dbg("OPDS cover fetch start:", cover_url)
         local chunks = {}
-        if ok_su then socketutil:set_timeout(10, 30) end
-        local _, code = http.request{
-            url      = cover_url,
-            sink     = ok_su and socketutil.table_sink(chunks) or ltn12.sink.table(chunks),
-            user     = creds and creds.username,
-            password = creds and creds.password,
-            headers  = { ["Accept-Encoding"] = "identity" },
-        }
+        local headers = { ["Accept-Encoding"] = "identity" }
+        if is_feed then
+            headers.Accept = "application/opds+json, application/atom+xml"
+            headers["Cache-Control"] = "no-cache"
+            headers.Pragma = "no-cache"
+        end
+        local url = require("socket.url")
+        local origin = creds and creds.url and url.parse(creds.url)
+        local default_ports = { http = "80", https = "443" }
+        local code
+        if ok_su then socketutil:set_timeout(5, 10) end
+        for _i = 1, 6 do
+            local target = url.parse(cover_url)
+            local send_credentials = origin and target and origin.scheme == target.scheme
+                and origin.host and target.host and origin.host:lower() == target.host:lower()
+                and (origin.port or default_ports[origin.scheme]) == (target.port or default_ports[target.scheme])
+            chunks = {}
+            local response_headers
+            code, response_headers = select(2, http.request{
+                url = cover_url, redirect = false,
+                sink = ok_su and socketutil.table_sink(chunks) or ltn12.sink.table(chunks),
+                user = send_credentials and creds.username or nil,
+                password = send_credentials and creds.password or nil,
+                headers = headers,
+            })
+            if not ((code == 301 or code == 302 or code == 303 or code == 307 or code == 308)
+                    and response_headers and response_headers.location) then break end
+            local redirect_url = url.absolute(cover_url, response_headers.location)
+            if target and target.scheme == "https" and url.parse(redirect_url).scheme == "http" then break end
+            cover_url = redirect_url
+        end
         if ok_su then socketutil:reset_timeout() end
         local body = code == 200 and table.concat(chunks) or nil
         logger.dbg("OPDS cover fetch done:", cover_url, "code=", code, "bytes=", body and #body or 0)
@@ -124,26 +241,29 @@ local function apply_opds()
         next_cover = function()
             if stopped or idx > #queue then return end
             local item = queue[idx]; idx = idx + 1
-            local u = item.entry.cover_url
-            local cached = _cover_cache[u]
-            if cached then
+            local u = item.url or item.entry.cover_url
+            local key = not item.url and CoverCache.key(u, creds)
+            local bb = not item.url and cached_cover(item.entry, item.cover_w, item.cover_h, creds)
+            local cached = not item.url and _cover_cache[u]
+            if cached and (bb or cached.failed) then
                 logger.dbg("OPDS cover cache hit:", u, "has_bb=", cached.bb ~= nil)
-                if cached.bb and not item.entry.cover_bb then
-                    item.entry.cover_bb = cached.bb
-                    if not stopped then item.widget:update() end
+                if bb then
+                    item.entry.cover_bb = bb
+                    if item.widget then item.widget:update() end
                 end
                 if not stopped then UIManager:nextTick(next_cover) end
                 return
             end
-            _cover_cache[u] = { loading = true }
+            if not NetworkMgr:isConnected() then return end
+            if not item.url then _cover_cache[u] = { loading = true } end
             UIManager:preventStandby()
             pid, read_fd = FFIUtil.runInSubProcess(function(_pid, write_fd)
-                FFIUtil.writeToFD(write_fd, fetch_bytes(u, creds) or "", true)
+                FFIUtil.writeToFD(write_fd, fetch_bytes(u, creds, item.url ~= nil) or "", true)
             end, true)
             if not pid then
                 read_fd = nil
                 UIManager:allowStandby()
-                _cover_cache[u] = { failed = true }
+                if not item.url then _cover_cache[u] = { failed = true } end
                 logger.warn("OPDS cover subprocess failed:", u)
                 UIManager:nextTick(next_cover)
                 return
@@ -160,25 +280,18 @@ local function apply_opds()
                 local bytes = FFIUtil.readAllFromFD(read_fd)
                 read_fd = nil
                 finish_process()
-                if bytes and #bytes > 0 then
-                    local ok_ri, RI = pcall(require, "ui/renderimage")
-                    logger.dbg("OPDS cover renderimage require ok=", ok_ri, "size=", item.cover_w, "x", item.cover_h)
-                    if ok_ri then
-                        local ok_bb, bb = pcall(function()
-                            return RI:renderImageData(bytes, #bytes, false,
-                                item.cover_w, item.cover_h)
-                        end)
-                        logger.dbg("OPDS cover renderImageData ok=", ok_bb, "bb=", bb ~= nil)
-                        if ok_bb and bb then
-                            _cover_cache[u] = { bb = bb }
-                            item.entry.cover_bb = bb
-                            if not stopped then item.widget:update() end
-                        else
-                            logger.warn("OPDS cover renderImageData failed for:", u, ok_bb, bb)
-                            _cover_cache[u] = { failed = true }
-                        end
+                if item.url then
+                    if bytes and #bytes > 0 then
+                        local ok, err = pcall(item.on_bytes, bytes, queue)
+                        if not ok then logger.warn("OPDS prefetch failed:", err) end
+                    end
+                elseif bytes and #bytes > 0 then
+                    local cover = decode_cover(item.entry, bytes, item.cover_w, item.cover_h, key)
+                    if cover then
+                        CoverCache.put(key, bytes)
+                        item.entry.cover_bb = cover
+                        if item.widget then item.widget:update() end
                     else
-                        logger.warn("OPDS cover: failed to require ui/renderimage")
                         _cover_cache[u] = { failed = true }
                     end
                 else
@@ -813,6 +926,8 @@ local function apply_opds()
 
         -- Deeper catalog pages: cover-aware mosaic/list rendering.
         if self._zen_halt then self._zen_halt(); self._zen_halt = nil end
+        local creds = cover_credentials(self)
+        local scope = CoverCache.scope(creds)
 
         local mosaic_mode = display_mode == "mosaic"
         local ok_bim, BIM = pcall(require, "bookinfomanager")
@@ -837,6 +952,12 @@ local function apply_opds()
         local old_selected = snapshot_focus(self)
         self.layout = {}
         self.item_group:clear()
+        if _cover_scope ~= scope or self._zen_reload_covers then
+            prune_cover_cache(nil, self.item_table)
+            _cover_scope = scope
+            self._zen_reload_covers = nil
+        end
+        for _i, entry in ipairs(self.item_table) do entry.cover_bb = nil end
         self.page_info:resetLayout()
         self.return_button:resetLayout()
         self.content_group:resetLayout()
@@ -871,6 +992,7 @@ local function apply_opds()
                 math.max(1, cover_area_h - 2 * COVER_BORDER))
             local cover_w = inner_w + 2 * COVER_BORDER
             local cover_h = inner_h + 2 * COVER_BORDER
+            self._zen_cover_size = { w = cover_w, h = cover_h }
             self.item_height = cell_h
             self.perpage     = num_cols * num_rows
             self.page_num    = math.max(1, math.ceil(#self.item_table / self.perpage))
@@ -895,8 +1017,7 @@ local function apply_opds()
                         entry.idx = idx
                         if entry.cover_url then
                             active_cover_urls[entry.cover_url] = true
-                            local cached = _cover_cache[entry.cover_url]
-                            if cached and cached.bb then entry.cover_bb = cached.bb end
+                            entry.cover_bb = cached_cover(entry, cover_w, cover_h, creds)
                         end
                         local w = OPDSMosaicItem:new{
                             entry = entry, cover_w = cover_w, cover_h = cover_h,
@@ -948,6 +1069,7 @@ local function apply_opds()
                 math.max(1, self.item_height - PAD_V * 2 - 2 * COVER_BORDER))
             local cover_w = inner_w + 2 * COVER_BORDER
             cover_h = inner_h + 2 * COVER_BORDER
+            self._zen_cover_size = { w = cover_w, h = cover_h }
             self.item_width  = self.inner_dimen.w
             self.item_dimen  = Geom:new{ x = 0, y = 0, w = self.item_width, h = self.item_height }
             logger.dbg("OPDS list: perpage=", self.perpage,
@@ -961,8 +1083,7 @@ local function apply_opds()
                 entry.idx = idx
                 if entry.cover_url then
                     active_cover_urls[entry.cover_url] = true
-                    local cached = _cover_cache[entry.cover_url]
-                    if cached and cached.bb then entry.cover_bb = cached.bb end
+                    entry.cover_bb = cached_cover(entry, cover_w, cover_h, creds)
                 end
                 local w = OPDSItem:new{
                     entry = entry, cover_w = cover_w, cover_h = cover_h,
@@ -990,6 +1111,7 @@ local function apply_opds()
         end
 
         self:updatePageInfo(select_number)
+        warm_next_page(self, pending_covers, active_cover_urls)
         prune_cover_cache(active_cover_urls, self.item_table)
         self:mergeTitleBarIntoLayout()
         restore_focus(self, old_selected)
@@ -998,10 +1120,7 @@ local function apply_opds()
             return "ui", rd
         end)
         if #pending_covers > 0 then
-            self._zen_halt = start_cover_queue(pending_covers, {
-                username = self.root_catalog_username,
-                password = self.root_catalog_password,
-            })
+            self._zen_halt = start_cover_queue(pending_covers, creds)
         end
     end
 
@@ -1009,6 +1128,7 @@ local function apply_opds()
     local orig_onCloseWidget = Menu.onCloseWidget
     function OPDSBrowser:onCloseWidget()
         self._zen_opds_closed = true
+        self._zen_prefetched_feed = nil
         self._zen_network_action = nil
         if self._zen_network_wait then
             UIManager:unschedule(self._zen_network_wait)
@@ -1088,15 +1208,19 @@ local function apply_opds()
         return button
     end
 
+    local install_header_buttons
     local orig_mergeTitleBarIntoLayout = OPDSBrowser.mergeTitleBarIntoLayout
     function OPDSBrowser:mergeTitleBarIntoLayout()
         if not self._zen_opds_header_buttons then
             return orig_mergeTitleBarIntoLayout(self)
         end
+        if self.title_bar and self.title_bar.left_button ~= self._zen_opds_header_buttons[1] then
+            return install_header_buttons(self)
+        end
         merge_header_into_focus(self)
     end
 
-    local function install_header_buttons(browser)
+    install_header_buttons = function(browser)
         local title_bar = browser.title_bar
         if not title_bar then return end
 
@@ -1115,7 +1239,8 @@ local function apply_opds()
         if not title_bar._zen_opds_title_h_padding then
             title_bar._zen_opds_title_h_padding = title_bar.title_h_padding
         end
-        title_bar.title_h_padding = title_bar._zen_opds_title_h_padding + slot_width
+        local in_catalog = #browser.paths > 0
+        title_bar.title_h_padding = title_bar._zen_opds_title_h_padding + slot_width * (in_catalog and 2 or 1)
         -- TitleBar expects stock names; the visible ZenIconButtons use absolute files.
         title_bar.left_icon = "chevron.left"
         title_bar.left_icon_tap_callback = function() return browser:onLeftButtonTap() end
@@ -1136,8 +1261,15 @@ local function apply_opds()
             function() return browser:onLeftButtonTap() end,
             "back", { width = icon_size, height = icon_size, padding = padding, overlap_align = "left" }
         )
-        local in_catalog = #browser.paths > 0
         local action_is_search = in_catalog and browser.search_url ~= nil
+        local refresh_button = in_catalog and make_header_button(
+            browser, header_icon_paths.refresh,
+            function() return browser:refreshCatalog() end,
+            "refresh", {
+                width = icon_size, height = icon_size, padding = padding,
+                overlap_offset = { title_bar.width - 3 * slot_width, 0 },
+            }
+        ) or nil
         local action_button = make_header_button(
             browser, action_is_search and header_icon_paths.search or header_icon_paths.menu,
             function() return activate_right_button(browser) end,
@@ -1160,9 +1292,11 @@ local function apply_opds()
         title_bar.right_button = close_button
         title_bar._zen_opds_action_button = action_button
         table.insert(title_bar, back_button)
+        if refresh_button then table.insert(title_bar, refresh_button) end
         table.insert(title_bar, action_button)
         table.insert(title_bar, close_button)
         browser._zen_opds_header_buttons = { back_button, action_button, close_button }
+        if refresh_button then table.insert(browser._zen_opds_header_buttons, 2, refresh_button) end
         merge_header_into_focus(browser)
     end
 
@@ -1220,6 +1354,8 @@ local function apply_opds()
 
     local orig_init = OPDSBrowser.init
     function OPDSBrowser:init()
+        self._zen_opds_closed = nil
+        self._zen_prefetched_feed = nil
         -- Suppress the empty subtitle Menu.init inserts when title_bar_fm_style=true;
         -- it renders as a blank line adding ~20px of dead space below the title.
         -- false is non-nil (so Menu:init skips overriding it) but falsy (so TitleBar skips it).
@@ -1264,13 +1400,20 @@ local function apply_opds()
 
     -- Tag book items with cover_url for async cover loading.
     function OPDSBrowser:parseFeed(item_url)
-        local feed = self:fetchFeed(item_url)
-        if feed then return OPDSParser:parse(feed) end
+        local prefetched = self._zen_prefetched_feed
+        local feed
+        if prefetched and prefetched.url == item_url then
+            feed = prefetched.body
+            self._zen_prefetched_feed = nil
+        else
+            feed = self:fetchFeed(item_url, false, {
+                ["Cache-Control"] = "no-cache", Pragma = "no-cache",
+            })
+        end
+        if feed then return parse_feed_body(feed) end
     end
 
-    local orig_genItemTableFromCatalog = OPDSBrowser.genItemTableFromCatalog
-    function OPDSBrowser:genItemTableFromCatalog(catalog, item_url)
-        local item_table = orig_genItemTableFromCatalog(self, catalog, item_url)
+    local function tag_catalog_covers(browser, item_table)
         local with_cover = 0
         for _i, item in ipairs(item_table) do
             if item.acquisitions and #item.acquisitions > 0 then
@@ -1285,7 +1428,18 @@ local function apply_opds()
             end
         end
         logger.dbg("OPDS genItemTableFromCatalog: total=", #item_table, "with_cover=", with_cover)
-        return tag_downloaded_items(self, item_table)
+        return tag_downloaded_items(browser, item_table)
+    end
+
+    local orig_genItemTableFromCatalog = OPDSBrowser.genItemTableFromCatalog
+    function OPDSBrowser:genItemTableFromCatalog(catalog, item_url)
+        return tag_catalog_covers(self, orig_genItemTableFromCatalog(self, catalog, item_url))
+    end
+    local orig_genItemTableFromCatalog2 = OPDSBrowser.genItemTableFromCatalog2
+    if orig_genItemTableFromCatalog2 then
+        function OPDSBrowser:genItemTableFromCatalog2(catalog, item_url)
+            return tag_catalog_covers(self, orig_genItemTableFromCatalog2(self, catalog, item_url))
+        end
     end
 
     function OPDSBrowser:runWhenConnected(callback)
@@ -1343,13 +1497,33 @@ local function apply_opds()
     local orig_updateCatalog = OPDSBrowser.updateCatalog
     function OPDSBrowser:updateCatalog(item_url, paths_updated)
         return self:runWhenConnected(function()
+            self._zen_prefetched_feed = nil
+            self._zen_opds_library_filenames = nil
+            if self._zen_halt then self._zen_halt(); self._zen_halt = nil end
             orig_updateCatalog(self, item_url, paths_updated)
             fix_buttons(self)
         end)
     end
 
+    function OPDSBrowser:refreshCatalog()
+        local path = self.paths[#self.paths]
+        if not path then return true end
+        self:runWhenConnected(function()
+            if self._zen_halt then self._zen_halt(); self._zen_halt = nil end
+            -- Close the dialog before releasing any bitmap it may still display.
+            if self.download_dialog then UIManager:close(self.download_dialog); self.download_dialog = nil end
+            CoverCache.clear(cover_credentials(self))
+            self._zen_reload_covers = true
+            self:updateCatalog(path.url, true)
+        end)
+        return true
+    end
+
     local orig_onNextPage = OPDSBrowser.onNextPage
     function OPDSBrowser:onNextPage(fill_only)
+        if not fill_only and self.page and self.page_num and self.page < self.page_num then
+            return Menu.onNextPage(self)
+        end
         local hrefs = self.item_table.hrefs
         if not (hrefs and hrefs.next) then return orig_onNextPage(self, fill_only) end
         self:runWhenConnected(function() orig_onNextPage(self, fill_only) end)
