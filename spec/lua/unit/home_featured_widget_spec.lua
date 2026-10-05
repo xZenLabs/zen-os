@@ -79,6 +79,7 @@ describe("home featured widget", function()
         })
         for _i, name in ipairs({
             "ui/widget/horizontalgroup", "ui/widget/horizontalspan",
+            "ui/widget/linewidget",
             "ui/widget/textboxwidget", "ui/widget/textwidget",
             "ui/widget/verticalgroup", "ui/widget/verticalspan",
             "ui/widget/container/centercontainer", "ui/widget/container/framecontainer",
@@ -643,6 +644,135 @@ describe("home featured widget", function()
         assert.equals(2, labels)
     end)
 
+    it("places end-of-book progress directly below status, with navigation below both", function()
+        local navigation
+        local progress_bar = spy.on(require("common/ui/book_progress"), "bar")
+        require("modules/filebrowser/patches/home/widgets/featured_common").build{
+            width = 600, height = 220,
+            module_cfg = { show_description = false, progress_meta = { left = "percent", right = "current_total" } },
+            showBookStatus = true,
+            data = { getFeaturedBook = function()
+                return { path = "book", title = "Book", status = "complete", percent = 1,
+                    pages = 120, current_page = 120, description = "Finished reading" }
+            end },
+            buildNavigationRow = function(width)
+                navigation = widget_class("navigation"):new{ width = width, height = 40 }
+                return navigation
+            end,
+        }
+        assert.is_true(has_text("100% completed • 120 pages"))
+        assert.is_false(has_text("120 / 120"))
+        assert.spy(progress_bar).was_not_called()
+        assert.is_true(has_text("Finished"))
+        assert.is_false(has_text("Finished reading"))
+        local cover_width = math.min(cover_calls[1].max_w, math.floor(cover_calls[1].max_h * cover_ratio))
+        assert.is_true(navigation:getSize().w < 584 - cover_width)
+        local found = false
+        for _i, widget in ipairs(created) do
+            if widget.kind == "ui/widget/verticalgroup" and widget[#widget] == navigation then
+                found = true
+                assert.equals("Book", widget[1].text)
+                assert.equals(widget[1].width, navigation:getSize().w)
+                local progress_index
+                for index, child in ipairs(widget) do
+                    if child.text == "100% completed • 120 pages" then progress_index = index end
+                end
+                assert.is_truthy(progress_index)
+                assert.equals("Finished", widget[progress_index - 1][1].text)
+                assert.equals(navigation:getSize().w, widget[progress_index].max_width)
+                assert.equals("ui/widget/linewidget", widget[progress_index + 2].kind)
+                assert.equals(navigation:getSize().w, widget[progress_index + 2]:getSize().w)
+                assert.is_true(math.abs(widget[progress_index - 2].width - widget[progress_index + 1].width) <= 1)
+                assert.equals(navigation, widget[progress_index + 3])
+                assert.is_true(progress_index < #widget)
+                assert.is_true(navigation:getSize().h + widget[progress_index]:getSize().h <= cover_calls[1].max_h)
+            end
+        end
+        assert.is_true(found)
+    end)
+
+    it("styles end-screen status independently and uses Progress size for completion and pages", function()
+        require("modules/filebrowser/patches/home/widgets/featured_common").build{
+            width = 600, height = 400, showBookStatus = true,
+            module_cfg = { show_description = false, text_styles = {
+                author = { font_size = 9 },
+                status = { font_face = "StatusFont", font_size = 15, bold = false },
+                progress = { font_face = "ProgressFont", font_size = 14, bold = true },
+            } },
+            data = { getFeaturedBook = function()
+                return { path = "book", title = "Book", authors = "Author", status = "complete", percent = 1, pages = 120 }
+            end },
+        }
+        local status_widget, progress
+        for _i, widget in ipairs(created) do
+            if widget.text == "Finished" then status_widget = widget end
+            if widget.text == "100% completed • 120 pages" then progress = widget end
+        end
+        assert.equals("StatusFont", status_widget.face.name)
+        assert.is_false(status_widget.bold)
+        assert.is_true(status_widget.face.size > text_widget("Author").face.size)
+        assert.equals("ProgressFont", progress.face.name)
+        assert.equals(16, progress.face.size)
+        assert.is_true(progress.bold)
+    end)
+
+    it("uses saved progress and stable page totals for the end-screen text, including Preview", function()
+        local progress_bar = spy.on(require("common/ui/book_progress"), "bar")
+        require("modules/filebrowser/patches/home/widgets/featured_common").build{
+            width = 600, height = 220, showBookStatus = true,
+            module_cfg = { progress_meta = { left = "time_left", right = "current_total" } },
+            data = { getFeaturedBook = function()
+                return { path = "book", title = "Book", status = "reading", percent = 0.254,
+                    pages = 200, stable_pages = 120, stable_current_page = 30 }
+            end },
+        }
+        assert.is_true(has_text("25% completed • 120 pages"))
+        assert.spy(progress_bar).was_not_called()
+    end)
+
+    it("uses context-menu status icons and larger end-screen text without changing Home", function()
+        local Featured = require("modules/filebrowser/patches/home/widgets/featured_common")
+        local icons = require("common/inline_icon_map")
+        local ctx = { width = 600, height = 400, fitToBounds = true,
+            module_cfg = { show_description = false, show_progress = false },
+            data = { getFeaturedBook = function()
+                return { path = "book", title = "Book", authors = "Author", status = "complete" }
+            end },
+        }
+        Featured.build(ctx)
+        local home_title_size = text_widget("Book").face.size
+        assert.is_false(has_text(icons.finished))
+        for _i, status in ipairs({
+            { "new", "Unread", "status" }, { "reading", "Reading", "reading" },
+            { "tbr", "To Be Read", "tbr" }, { "abandoned", "On hold", "on_hold" },
+            { "complete", "Finished", "finished" },
+        }) do
+            created = {}
+            ctx.showBookStatus = true
+            ctx.data.getFeaturedBook = function()
+                return { path = "book", title = "Book", authors = "Author", status = status[1] }
+            end
+            Featured.build(ctx)
+            assert.is_true(has_text(icons[status[3]]))
+            assert.is_true(has_text(status[2]))
+            local status_row
+            for _j, widget in ipairs(created) do
+                if widget.kind == "ui/widget/horizontalgroup" and widget[1] and widget[1].text == status[2] then
+                    status_row = widget
+                end
+            end
+            assert.is_truthy(status_row)
+            assert.equals(icons[status[3]], status_row[3].text)
+            assert.is_true(text_widget("Book").face.size > home_title_size)
+            local separator
+            for _j, widget in ipairs(created) do
+                if widget.kind == "ui/widget/linewidget" then separator = widget end
+            end
+            assert.is_truthy(separator)
+            assert.are.equal(1, separator:getSize().h)
+        end
+    end)
+
     it("uses saved progress with stable page labels", function()
         local BookProgress = require("common/ui/book_progress")
         local progress_bar = spy.on(BookProgress, "bar")
@@ -722,6 +852,25 @@ describe("home featured widget", function()
         assert.is_true(actions.activate())
         assert.are.equal(cover_calls[1].book, book)
         assert.is_not_nil(captured_cover)
+    end)
+
+    it("opens only the cover image when the end-of-book handler is supplied", function()
+        require("device").isTouchDevice = function() return true end
+        local opened = 0
+        local widget = require("modules/filebrowser/patches/home/widgets/featured_common").build{
+            width = 600, height = 220, module_cfg = { interactive = false },
+            data = { getFeaturedBook = function() return { path = "book", title = "Book" } end },
+            openBook = function() error("end-of-book cover opened the book") end,
+            openCover = function() opened = opened + 1; return true end,
+        }
+        assert.is_function(widget.onTapFeatured)
+        for _i, child in ipairs(created) do
+            if child.kind == "cover" then child.dimen = require("ui/geometry"):new(child.dimen) end
+        end
+        assert.is_true(widget:onTapFeatured(nil, { pos = { x = 1, y = 1 }, time = 0 }))
+        assert.are.equal(1, opened)
+        assert.is_true(widget:onTapFeatured(nil, { pos = { x = 500, y = 1 }, time = 0 }))
+        assert.are.equal(1, opened)
     end)
 
     it("renders an empty recent-history state", function()

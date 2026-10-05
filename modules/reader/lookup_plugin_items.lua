@@ -1,5 +1,30 @@
 local M = {}
 
+local function callback_result(ok, ...)
+    if ok then return ... end
+    require("common/zen_logger").new("lookup_plugin_items").err("lookup action failed:", ...)
+    local _ = require("gettext")
+    require("ui/uimanager"):show(require("ui/widget/infomessage"):new{
+        text = _("Dictionary lookup") .. ": " .. _("Unknown error"),
+    })
+end
+
+function M.safeCallback(callback)
+    if type(callback) ~= "function" then return nil end
+    return function(...)
+        return callback_result(pcall(callback, ...))
+    end
+end
+
+function M.protectButtons(buttons)
+    for _i, row in ipairs(buttons) do
+        for _j, button in ipairs(row) do
+            button.callback = M.safeCallback(button.callback)
+            button.hold_callback = M.safeCallback(button.hold_callback)
+        end
+    end
+end
+
 function M.settingForHighlightKey(key)
     if type(key) ~= "string" then return nil end
     local name = key:match("^%d+_(.*)$") or key

@@ -24,12 +24,251 @@ describe("reader lookup menus", function()
             setDirty = function() end,
             nextTick = function(_, callback) callback() end,
         })
+        ZenSpec.replace("ui/widget/infomessage", {
+            new = function(_, spec) return spec end,
+        })
     end)
 
     after_each(function()
         _G.__ZEN_UI_PLUGIN = nil
         ZenSpec.unload("modules/reader/patches/highlight_menu")
         ZenSpec.unload("modules/reader/patches/dict_quick_lookup")
+    end)
+
+    for _i, api in ipairs({ "new", "legacy" }) do
+        describe(api .. " dictionary action safety", function()
+            local online, deferred, errors
+
+            local function layout(assistant, original)
+                local ReaderHighlight = {}
+                local DictQuickLookup = {}
+                if api == "new" then
+                    DictQuickLookup.buildButtonLayout = function() return original or {} end
+                else
+                    DictQuickLookup.init = function(self)
+                        self.buttons = original or {}
+                        self.ui:handleEvent({
+                            handler = "onDictButtonsReady", args = { self, self.buttons },
+                        })
+                    end
+                end
+                ZenSpec.replace("apps/reader/modules/readerhighlight", ReaderHighlight)
+                ZenSpec.replace("ui/widget/dictquicklookup", DictQuickLookup)
+                ZenSpec.replace("ui/translator", {})
+                _G.__ZEN_UI_PLUGIN = {
+                    config = {
+                        features = { dict_quick_lookup = true },
+                        highlight_lookup = { allow_unknown_items = true },
+                    },
+                }
+                require("modules/reader/patches/dict_quick_lookup")()
+                local widget = {
+                    word = "original", lookupword = "lookup",
+                    ui = {
+                        assistant = assistant,
+                        handleEvent = function(_, event)
+                            ReaderHighlight.onDictButtonsReady({}, event.args[1], event.args[2])
+                        end,
+                    },
+                }
+                if api == "new" then return DictQuickLookup.buildButtonLayout(widget) end
+                DictQuickLookup.init(widget)
+                return widget.buttons
+            end
+
+            local function ai_button(buttons)
+                for _j, row in ipairs(buttons) do
+                    for _k, button in ipairs(row) do
+                        if button.id == "zen_ai_assistant" then return button end
+                    end
+                end
+            end
+
+            before_each(function()
+                online, deferred, errors = {}, {}, {}
+                ZenSpec.replace("ui/network/manager", {
+                    runWhenOnline = function(_, callback) online[#online + 1] = callback end,
+                })
+                package.loaded["ui/uimanager"].nextTick = function(_, callback)
+                    deferred[#deferred + 1] = callback
+                end
+                ZenSpec.replace("common/zen_logger", { new = function()
+                    local logger = logger_stub()
+                    logger.err = function(...) errors[#errors + 1] = { ... } end
+                    return logger
+                end })
+            end)
+
+            for _j, method in ipairs({ "showAskDialog", "show" }) do
+                it("opens the AI dialog using " .. method .. " after going online", function()
+                    local called
+                    local dialog = { [method] = function(self, word) called = { self, word } end }
+                    local button = ai_button(layout({
+                        isConfigured = function() return true end, assistant_dialog = dialog,
+                    }))
+                    assert.is_not_nil(button)
+                    assert.are.equal(ZenSpec.root .. "/icons/lookup_ai.svg", button.icon)
+                    button.callback()
+                    assert.is_nil(called)
+                    online[1]()
+                    assert.is_nil(called)
+                    deferred[1]()
+                    assert.same({ dialog, "lookup" }, called)
+                    assert.are.equal(0, #errors)
+                end)
+            end
+
+            it("omits the AI button when the plugin API is unavailable", function()
+                assert.is_nil(ai_button(layout(nil)))
+                assert.is_nil(ai_button(layout({ assistant_dialog = { show = function() end } })))
+                assert.is_nil(ai_button(layout({
+                    isConfigured = function() return true end, assistant_dialog = {},
+                })))
+            end)
+
+            it("does not launch an unconfigured assistant", function()
+                ai_button(layout({
+                    isConfigured = function() return false end,
+                    assistant_dialog = { showAskDialog = function() error("must not open") end },
+                })).callback()
+                assert.are.equal(0, #online)
+                assert.are.equal(0, #errors)
+                assert.is_nil(shown)
+            end)
+
+            it("contains AI failures after the button callback has returned", function()
+                local assistant = {
+                    isConfigured = function() return true end,
+                    assistant_dialog = { showAskDialog = function() error("dialog failed") end },
+                }
+                ai_button(layout(assistant)).callback()
+                online[1]()
+                assert.has_no.errors(deferred[1])
+                assert.are.equal(1, #errors)
+                assert.is_not_nil(shown.text)
+
+                shown = nil
+                ai_button(layout(assistant)).callback()
+                assistant.assistant_dialog = nil
+                online[2]()
+                assert.has_no.errors(deferred[2])
+                assert.are.equal(2, #errors)
+                assert.is_not_nil(shown.text)
+            end)
+
+            it("contains configuration and network scheduling failures", function()
+                ai_button(layout({
+                    isConfigured = function() error("configuration failed") end,
+                    assistant_dialog = { showAskDialog = function() end },
+                })).callback()
+                assert.are.equal(1, #errors)
+                assert.are.equal(0, #online)
+
+                ai_button(layout({
+                    isConfigured = function() return true end,
+                    assistant_dialog = { showAskDialog = function() end },
+                })).callback()
+                package.loaded["ui/uimanager"].nextTick = function() error("scheduling failed") end
+                assert.has_no.errors(online[1])
+                assert.are.equal(2, #errors)
+
+                package.loaded["ui/network/manager"].runWhenOnline = function()
+                    error("network failed")
+                end
+                assert.has_no.errors(ai_button(layout({
+                    isConfigured = function() return true end,
+                    assistant_dialog = { showAskDialog = function() end },
+                })).callback)
+                assert.are.equal(3, #errors)
+            end)
+
+            it("contains failed dictionary tap and hold actions", function()
+                local buttons = layout(nil, {{
+                    { id = "search", callback = function() error("search failed") end },
+                    { id = "third_party", hold_callback = function() error("hold failed") end },
+                }})
+                local failures = 0
+                for _j, row in ipairs(buttons) do
+                    for _k, button in ipairs(row) do
+                        if button.callback then
+                            assert.has_no.errors(button.callback)
+                            failures = failures + 1
+                        end
+                        if button.hold_callback then
+                            assert.has_no.errors(button.hold_callback)
+                            failures = failures + 1
+                        end
+                    end
+                end
+                assert.are.equal(3, failures) -- translation, search, third-party hold
+                assert.are.equal(3, #errors)
+                assert.is_not_nil(shown.text)
+            end)
+        end)
+    end
+
+    it("preserves lookup callback arguments and return values", function()
+        local callback = require("modules/reader/lookup_plugin_items").safeCallback(function(a, b)
+            assert.are.equal("word", a)
+            assert.is_nil(b)
+            return true, nil, "handled"
+        end)
+        local handled, empty, result = callback("word", nil)
+        assert.is_true(handled)
+        assert.is_nil(empty)
+        assert.are.equal("handled", result)
+        assert.is_nil(shown)
+    end)
+
+    it("contains failed highlight tap, hold, and deferred Wikipedia actions", function()
+        local dialog_spec, deferred, errors = nil, nil, {}
+        ZenSpec.replace("ui/widget/buttondialog", {
+            new = function(_, spec) dialog_spec = spec; return spec end,
+        })
+        ZenSpec.replace("common/zen_logger", { new = function()
+            local logger = logger_stub()
+            logger.err = function(...) errors[#errors + 1] = { ... } end
+            return logger
+        end })
+        package.loaded["ui/uimanager"].scheduleIn = function(_, _, callback) deferred = callback end
+        local ReaderHighlight = { onShowHighlightMenu = function() end }
+        ZenSpec.replace("apps/reader/modules/readerhighlight", ReaderHighlight)
+        _G.__ZEN_UI_PLUGIN = {
+            config = {
+                features = { highlight_lookup = true },
+                highlight_lookup = { show_wikipedia = true },
+            },
+        }
+        require("modules/reader/patches/highlight_menu")()
+        ReaderHighlight.onShowHighlightMenu({
+            selected_text = { text = "word" }, hold_pos = {}, ui = {},
+            lookupWikipedia = function() error("Wikipedia failed") end,
+            _highlight_buttons = {
+                ai_assistant = function() return {
+                    callback = function() error("AI failed") end,
+                } end,
+                xray_lookup = function() return {
+                    text = "X-Ray", hold_callback = function() error("X-Ray failed") end,
+                } end,
+            },
+        })
+        local failures = 0
+        for _i, row in ipairs(dialog_spec.buttons) do
+            for _j, button in ipairs(row) do
+                if button.callback then
+                    assert.has_no.errors(button.callback)
+                    failures = failures + 1
+                end
+                if button.hold_callback then
+                    assert.has_no.errors(button.hold_callback)
+                    failures = failures + 1
+                end
+            end
+        end
+        assert.has_no.errors(deferred)
+        assert.are.equal(7, failures)
+        assert.are.equal(7, #errors)
+        assert.is_not_nil(shown.text)
     end)
 
     it("renders the enabled highlight actions and dispatches their callbacks", function()

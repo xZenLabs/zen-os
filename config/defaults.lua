@@ -31,6 +31,7 @@ local defaults = {
         update_auto_check = true,
     },
     end_book = {
+        edit_mode = true,
         rows = {
             order = { "stats_triplet", "featured", "quotes", "strip" },
             enabled = { stats_triplet = true, featured = true, quotes = true, strip = true },
@@ -39,20 +40,18 @@ local defaults = {
         quotes = { show_author = false, show_title = true, automatic_font_size = true, max_font_size = 18 },
         modules = {
             stats_triplet = { automatic_font_size = true, max_font_size = 24, stat_style = "divider" },
-            featured = {
-                interactive = false,
-                show_description = true,
-                show_progress = true,
-                progress_meta = { left = "percent", right = "current_total" },
-                text_styles = {
-                    title = { font_size = 22, bold = true },
-                    author = { font_size = 16 },
-                    description = { font_size = 12 },
-                },
-            },
-            strip = { count = 3, show_strip_titles = true, center_books = true },
+            featured = { show_status_bar = false, show_description = false, navigation_icon_size = 0,
+                show_navigation_labels = true,
+                navigation_icons = {},
+                navigation_actions = { "library", "series", "to_be_read", "home" } },
+            strip = { center_books = false, controls = {
+                enabled = true,
+                order = { "page_left", "next_series", "author", "other_series", "page_right" },
+                show_buttons = { page_left = false, page_right = false,
+                    next_series = true, author = true, other_series = true, continue = false, to_be_read = false },
+                custom_buttons = {}, labels = {},
+            } },
         },
-        strip_source = "next_series",
     },
     rakuyomi = {
         exclude_from_home = false,

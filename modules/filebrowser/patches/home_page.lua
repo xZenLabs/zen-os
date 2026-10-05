@@ -1492,6 +1492,10 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         return get_paths_by_statuses({ [status_key] = true }, limit)
     end
 
+    function provider:getContinuePaths()
+        return get_paths_by_status("reading", HOME_STRIP_MAX_BOOKS)
+    end
+
     local function append_unique_paths(dst, src, limit, include_path)
         if type(src) ~= "table" then return end
         local seen = {}
@@ -2023,6 +2027,7 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
     end
 
     local function descriptor_paths(request)
+        if request.kind == "continue" then return provider:getContinuePaths() end
         if request.kind == "kindle" then
             if not dataset.kindle_paths then
                 dataset.kindle_paths = require(
@@ -2120,10 +2125,10 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             end
             return items, adjacent
         end
-        if kind == "kindle" or kind == "favorites" or kind == "tag" or kind == "status"
+        if kind == "continue" or kind == "kindle" or kind == "favorites" or kind == "tag" or kind == "status"
                 or kind == "custom" then
             local paths = descriptor_paths(request)
-            if normalize_order(order_key) == "reverse" then paths = reverse_copy(paths) end
+            if kind ~= "continue" and normalize_order(order_key) == "reverse" then paths = reverse_copy(paths) end
             if kind == "tag" then paths = group_tag_paths(paths) end
             local page, adjacent = paginate(
                 paths, request, count, order_key, component_id, page_delta)
@@ -2585,6 +2590,8 @@ local function compute_row_heights(rows, body_h, row_gap, capacity, width, modul
     end
     return specs
 end
+
+M.computeRowHeights = compute_row_heights
 
 local function paint_focus_rect(bb, x, y, w, h, color)
     if not (bb and x and y and w and h and w > 2 and h > 2) then return end

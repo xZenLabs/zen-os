@@ -30,15 +30,23 @@ return function()
     end
 
     local _ = require("gettext")
-    local items = require("ui/elements/common_settings_menu_table").document_end_action.sub_item_table
-    table.insert(items, 2, {
-        text = _("Zen end of book"),
-        radio = true,
-        checked_func = function()
-            return G_reader_settings:readSetting("end_document_action") == "zen_end_book"
-        end,
-        callback = function()
-            G_reader_settings:saveSetting("end_document_action", "zen_end_book")
-        end,
-    })
+    local MenuSorter = require("ui/menusorter")
+    local mergeAndSort = MenuSorter.mergeAndSort
+    function MenuSorter:mergeAndSort(prefix, menu_items, ...)
+        -- KOReader rebuilds common settings with dofile() for each menu.
+        local action = menu_items.document_end_action
+        if action then
+            table.insert(action.sub_item_table, 2, {
+                text = _("Zen end of book"),
+                radio = true,
+                checked_func = function()
+                    return G_reader_settings:readSetting("end_document_action") == "zen_end_book"
+                end,
+                callback = function()
+                    G_reader_settings:saveSetting("end_document_action", "zen_end_book")
+                end,
+            })
+        end
+        return mergeAndSort(self, prefix, menu_items, ...)
+    end
 end

@@ -526,6 +526,31 @@ describe("config manager folder-path migration", function()
         assert.are.equal("default", Manager.load().library_font.font_face)
     end)
 
+    it("removes the end-of-book default source while preserving tab order", function()
+        local order = { "to_be_read", "continue", "author" }
+        settings_file.data = { end_book = { strip_source = "author",
+            modules = { strip = { controls = { order = order } } } } }
+        local config = Manager.load()
+        assert.is_nil(config.end_book.strip_source)
+        assert.is_nil(settings_file.data.end_book.strip_source)
+        assert.same(order, config.end_book.modules.strip.controls.order)
+    end)
+
+    it("updates end-of-book appearance defaults once and preserves later choices", function()
+        settings_file.data = { end_book = { modules = {
+            featured = { show_description = true }, strip = { center_books = true },
+        } } }
+        local config = Manager.load()
+        assert.is_false(config.end_book.modules.featured.show_description)
+        assert.is_false(config.end_book.modules.strip.center_books)
+        config.end_book.modules.featured.show_description = true
+        config.end_book.modules.strip.center_books = true
+        Manager.save(config)
+        config = Manager.load()
+        assert.is_true(config.end_book.modules.featured.show_description)
+        assert.is_true(config.end_book.modules.strip.center_books)
+    end)
+
     it("enables recognized lookup plugins once and preserves later choices", function()
         settings_file.data = {
             highlight_lookup = {

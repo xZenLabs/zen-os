@@ -7071,8 +7071,8 @@ msgid "Books per page"
 msgstr "Cărți pe pagină"
 
 #. Type: message
-msgid "Days reading this book"
-msgstr "Zile de lectură pentru această carte"
+msgid "Days"
+msgstr "Zile"
 
 #. Type: message
 msgid "Default source"
@@ -7139,8 +7139,12 @@ msgid "Reading time"
 msgstr "Timp de lectură"
 
 #. Type: message
-msgid "Same author"
-msgstr "Același autor"
+msgid "More by %1"
+msgstr "Alte cărți de %1"
+
+#. Type: message
+msgid "More by author"
+msgstr "Alte cărți de același autor"
 
 #. Type: message
 msgid "Use at end of book"
@@ -7153,3 +7157,19 @@ msgstr "Sfârșitul cărții Zen"
 #. Type: message
 msgid "No books to show."
 msgstr "Nicio carte de afișat."
+
+#: modules/settings/sections/end_book_settings.lua
+msgid "Not enough space: %1/%2 units used; this widget needs %3."
+msgstr "Spațiu insuficient: %1/%2 unități folosite; acest widget necesită %3."
+
+#. Featured end-of-book action limit
+msgid "Maximum 5 buttons allowed"
+msgstr "Sunt permise maximum 5 butoane"
+
+#. End-of-book featured progress
+msgid "%d%% completed"
+msgstr "%d%% finalizat"
+
+#: modules/settings/sections/library_settings/home_settings.lua
+msgid "Button labels"
+msgstr "Etichetele butoanelor"

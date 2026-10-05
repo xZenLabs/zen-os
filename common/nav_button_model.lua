@@ -15,7 +15,7 @@ local BUILTINS = {
     { id = "kindle", label = _("Kindle Library"), source = true },
     { id = "manga", label = _("Manga") },
     { id = "news", label = _("News") },
-    { id = "continue", label = _("Continue") },
+    { id = "continue", label = _("Continue"), source = true },
     { id = "history", label = _("History") },
     { id = "home", label = _("Home") },
     { id = "search", label = _("Search") },

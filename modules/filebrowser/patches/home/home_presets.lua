@@ -548,7 +548,7 @@ local function ensure_strip_shape(strip)
     local valid_sources = {
         recent = true, favorites = true, to_be_read = true, authors = true,
         series = true, languages = true, tags = true, collections = true, tag = true,
-        status = true, folder = true, custom = true, kindle = true,
+        status = true, folder = true, custom = true, kindle = true, continue = true,
     }
     if not valid_sources[strip.default_source.kind]
             or strip.default_source.kind == "status"

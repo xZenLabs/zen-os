@@ -7071,8 +7071,8 @@ msgid "Books per page"
 msgstr "每頁書籍數"
 
 #. Type: message
-msgid "Days reading this book"
-msgstr "本書閱讀天數"
+msgid "Days"
+msgstr "天數"
 
 #. Type: message
 msgid "Default source"
@@ -7139,8 +7139,12 @@ msgid "Reading time"
 msgstr "閱讀時間"
 
 #. Type: message
-msgid "Same author"
-msgstr "同一作者"
+msgid "More by %1"
+msgstr "%1 的更多作品"
+
+#. Type: message
+msgid "More by author"
+msgstr "作者的更多作品"
 
 #. Type: message
 msgid "Use at end of book"
@@ -7153,3 +7157,19 @@ msgstr "Zen 讀完畫面"
 #. Type: message
 msgid "No books to show."
 msgstr "沒有可顯示的書籍。"
+
+#: modules/settings/sections/end_book_settings.lua
+msgid "Not enough space: %1/%2 units used; this widget needs %3."
+msgstr "空間不足：已使用 %1/%2 單位；此元件需要 %3 單位。"
+
+#. Featured end-of-book action limit
+msgid "Maximum 5 buttons allowed"
+msgstr "最多允許 5 個按鈕"
+
+#. End-of-book featured progress
+msgid "%d%% completed"
+msgstr "已完成 %d%%"
+
+#: modules/settings/sections/library_settings/home_settings.lua
+msgid "Button labels"
+msgstr "按鈕標籤"

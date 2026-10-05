@@ -7077,8 +7077,8 @@ msgid "Books per page"
 msgstr "Libros por página"
 
 #. Type: message
-msgid "Days reading this book"
-msgstr "Días leyendo este libro"
+msgid "Days"
+msgstr "Días"
 
 #. Type: message
 msgid "Default source"
@@ -7145,8 +7145,12 @@ msgid "Reading time"
 msgstr "Tiempo de lectura"
 
 #. Type: message
-msgid "Same author"
-msgstr "Mismo autor"
+msgid "More by %1"
+msgstr "Más de %1"
+
+#. Type: message
+msgid "More by author"
+msgstr "Más del autor"
 
 #. Type: message
 msgid "Use at end of book"
@@ -7159,3 +7163,19 @@ msgstr "Fin del libro Zen"
 #. Type: message
 msgid "No books to show."
 msgstr "No hay libros para mostrar."
+
+#: modules/settings/sections/end_book_settings.lua
+msgid "Not enough space: %1/%2 units used; this widget needs %3."
+msgstr "No hay suficiente espacio: %1/%2 unidades usadas; este widget necesita %3."
+
+#. Featured end-of-book action limit
+msgid "Maximum 5 buttons allowed"
+msgstr "Se permiten como máximo 5 botones"
+
+#. End-of-book featured progress
+msgid "%d%% completed"
+msgstr "%d%% completado"
+
+#: modules/settings/sections/library_settings/home_settings.lua
+msgid "Button labels"
+msgstr "Etiquetas de los botones"

@@ -48,7 +48,7 @@ local function fmt_time(secs)
 end
 
 local FIELD_MAP = {
-    book_days = { id = "book_days", label = _("Days reading this book"), get = function(s) return s.book_days or "—" end },
+    book_days = { id = "book_days", label = _("Days"), get = function(s) return s.book_days or "—" end },
     book_duration = { id = "book_duration", label = _("Reading time"), get = function(s) return s.book_duration or "—" end },
     book_page_minutes = { id = "book_page_minutes", label = _("Minutes per page"), get = function(s) return s.book_page_minutes or "—" end },
     book_daily_minutes = { id = "book_daily_minutes", label = _("Minutes per reading day"), get = function(s) return s.book_daily_minutes or "—" end },
@@ -104,7 +104,7 @@ local function font_size_fits(candidate, fields, stats, inner_w, inner_h)
     local Screen = Device.screen
     local value_face = Font:getFace("smallinfofont", Screen:scaleBySize(candidate))
     local label_face = Font:getFace("smallinfofont", Screen:scaleBySize(
-        math.max(6, math.floor(candidate * 0.6))))
+        math.max(1, math.floor(candidate * 0.6))))
     for _i, field in ipairs(fields) do
         local value_probe = TextWidget:new{
             text = field.get(stats),
@@ -131,8 +131,8 @@ local function font_size_fits(candidate, fields, stats, inner_w, inner_h)
 end
 
 local function fitting_font_size(fields, stats, inner_w, inner_h, max_font_size)
-    local low, high = MIN_FONT_SIZE, max_font_size
-    local best = MIN_FONT_SIZE
+    local low, high = 1, max_font_size
+    local best = 1
     while low <= high do
         local candidate = math.floor((low + high) / 2)
         if font_size_fits(candidate, fields, stats, inner_w, inner_h) then
@@ -159,7 +159,7 @@ local function preferred_height(ctx)
     local label_probe = TextWidget:new{
         text = "A",
         face = Font:getFace("smallinfofont", Screen:scaleBySize(
-            math.max(6, math.floor(font_size * 0.6)))),
+            math.max(module_cfg.automatic_font_size ~= false and 1 or 6, math.floor(font_size * 0.6)))),
     }
     local value_h = value_probe:getSize().h or 1
     local label_h = label_probe:getSize().h or 1
@@ -213,7 +213,8 @@ return {
                 configured_max_font_size(ctx))
             or configured_font_size(ctx)
         local value_face = Font:getFace("smallinfofont", Screen:scaleBySize(font_size))
-        local label_face = Font:getFace("smallinfofont", Screen:scaleBySize(math.max(6, math.floor(font_size * 0.6))))
+        local label_face = Font:getFace("smallinfofont", Screen:scaleBySize(
+            math.max(module_cfg.automatic_font_size ~= false and 1 or 6, math.floor(font_size * 0.6))))
         local row = HorizontalGroup:new{ align = "center" }
         local visual_top
         local visual_bottom

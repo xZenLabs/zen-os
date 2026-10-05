@@ -35,6 +35,30 @@ describe("home component registry", function()
         _G.__ZEN_UI_UNREGISTER_HOME_ITEM = nil
     end)
 
+    it("gives end-screen quotes Home's height, shrinking featured and strip equally", function()
+        local Registry = require("modules/filebrowser/patches/home/components/registry")
+        local Data = require("modules/reader/end_book_data")
+        local rows = {}
+        for _i, id in ipairs({ "stats_triplet", "featured", "quotes", "strip" }) do
+            local component = Registry.get(id)
+            local units = Data.WIDGET_UNITS[id] or Registry.sizeUnits(component)
+            rows[#rows + 1] = setmetatable({
+                size = Data.WIDGET_UNITS[id] and { units = units } or component.size,
+                _home_units = units,
+            }, { __index = component })
+        end
+        local units = Registry.layoutUnits(rows, 10)
+        assert.same({ 1, 3.75, 1.5, 3.75 }, units)
+        assert.equals(Registry.sizeUnits(Registry.get("quotes")), units[3])
+        local before = Registry.gridHeights({ 1, 4, 1, 4 }, 1000, 10, 10)
+        local after = Registry.gridHeights(units, 1000, 10, 10)
+        assert.is_true(after[3] > before[3])
+        assert.is_true(math.abs((before[2] - after[2]) - (before[4] - after[4])) <= 1)
+        assert.equals(before[1], after[1])
+        table.remove(rows, 3)
+        assert.same({ 1, 4, 4 }, Registry.layoutUnits(rows, 10))
+    end)
+
     it("loads every built-in home widget in its stable order", function()
         local Registry = require("modules/filebrowser/patches/home/components/registry")
         local ids = {}

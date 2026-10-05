@@ -72,6 +72,17 @@ describe("navigation button model", function()
         assert.are.equal("Finished", Model.label(nil, finished))
     end)
 
+    it("exposes Continue as a strip source and preserves its navbar action", function()
+        local Model = require("common/nav_button_model")
+        local entry = Model.find(nil, "continue")
+        assert.is_true(Model.isSource(entry))
+        assert.same({ kind = "continue" }, Model.sourceDescriptor(entry))
+        local opened
+        _G.__ZEN_UI_NAVBAR_OPEN_TAB = function(id) opened = id; return true end
+        assert.is_true(Model.execute(entry))
+        assert.are.equal("continue", opened)
+    end)
+
     it("exposes Kindle as a strip source and navbar action only when available", function()
         local Model = require("common/nav_button_model")
         local kindle = Model.find(nil, "kindle")

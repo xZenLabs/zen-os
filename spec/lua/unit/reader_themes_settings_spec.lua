@@ -71,7 +71,7 @@ describe("reader themes settings", function()
         ReaderSettings = require("modules/settings/sections/reader_settings")
     end)
 
-    it("ends reader settings with a margin toggle that saves and refreshes both bars", function()
+    it("places end-of-book settings last and keeps the margin toggle refreshing both bars", function()
         local saved, refreshed, dirty = 0, 0, 0
         local config = { features = { reader_status_bar_margins = true }, reader_themes = {} }
         local reader = { view = { footer = {
@@ -93,7 +93,8 @@ describe("reader themes settings", function()
             plugin = { saveConfig = function() saved = saved + 1 end },
             save_and_apply = function() end,
         })
-        local toggle = items[#items]
+        assert.are.equal("End of book", items[#items].text)
+        local toggle = items[#items - 1]
         assert.are.equal("Align status bars with book margins", toggle.text)
         assert.is_true(toggle.checked_func())
         toggle.callback()
