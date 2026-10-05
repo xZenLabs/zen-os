@@ -15,6 +15,7 @@ common/clock_timer.lua|unit
 common/constants.lua|unit
 common/cover_decode_cache.lua|unit
 common/cover_render_cache.lua|unit
+common/opds_cover_cache.lua|unit
 common/cover_utils.lua|unit
 common/date_format.lua|unit
 common/db_bookinfo.lua|unit

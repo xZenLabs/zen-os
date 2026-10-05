@@ -4,6 +4,7 @@ describe("OPDS header", function()
     local process_done, spawn_failed, pipe_size, pipe_bytes, pipe_reads, fd_closes, terminated, standby
     local native_ffi, native_util
     local NetworkMgr, catalog_requests, next_pages, connection_requests, connection_callback, network_notices
+    local cover_bytes, cleared_scope
     local originals = {}
     local replaced = {
         "opdsbrowser", "ui/bidi", "ffi/blitbuffer",
@@ -18,6 +19,8 @@ describe("OPDS header", function()
         "common/cover_utils", "common/utils", "common/plugin_root", "common/tbr_index",
         "libs/libkoreader-lfs", "ui/renderimage", "ui/trapper", "ffi", "ffi/util",
         "ui/network/manager", "ui/widget/infomessage", "gettext",
+        "common/opds_cover_cache", "json",
+        "socket.http", "ltn12", "socketutil",
     }
 
     local function get_upvalue(fn, target)
@@ -96,6 +99,24 @@ describe("OPDS header", function()
         }
         existing_files = {}
         inventory_paths = {}
+        cover_bytes, cleared_scope = {}, nil
+        local CoverCache = {
+            scope = function(creds)
+                return creds and (creds.url or "") .. (creds.username or "") .. (creds.password or "") or ""
+            end,
+            key = function(url, creds)
+                return (creds and creds.username or "") .. url
+            end,
+            get = function(key) return cover_bytes[key] end,
+            put = function(key, bytes) cover_bytes[key] = bytes end,
+            remove = function(key) cover_bytes[key] = nil end,
+            clear = function(creds) cleared_scope = creds end,
+        }
+        ZenSpec.replace("common/opds_cover_cache", CoverCache)
+        ZenSpec.replace("json", { decode = function(feed)
+            if feed == "{}" then return { metadata = { title = "JSON catalog" } } end
+            error("Invalid JSON")
+        end })
 
         Browser = {
             getPageNumber = function() return 1 end,
@@ -103,6 +124,12 @@ describe("OPDS header", function()
             updatePageInfo = function() end,
             parseFeed = function() end,
             genItemTableFromCatalog = function(self) return self.catalog_items or {} end,
+            genItemTableFromCatalog2 = function(self, catalog)
+                self.catalog_title = catalog.metadata.title
+                self.search_url = "/next-search"
+                self.facet_groups = { next_page = {} }
+                return self.catalog_items or {}
+            end,
             editCatalogFromInput = function() end,
         }
         Browser.getFileName = function(self, item)
@@ -138,6 +165,7 @@ describe("OPDS header", function()
         local Menu = {
             onCloseWidget = function() end,
             updatePageInfo = function() end,
+            onNextPage = function() next_pages = next_pages + 1; return true end,
         }
         ZenSpec.replace("opdsbrowser", Browser)
         ZenSpec.replace("ui/bidi", { mirroredUILayout = function() return false end })
@@ -238,10 +266,11 @@ describe("OPDS header", function()
             },
             hasKeys = function() return true end,
         })
-        ZenSpec.replace("opdsparser", { parse = function() return {} end })
+        ZenSpec.replace("opdsparser", { parse = function(_, feed) return { body = feed } end })
         ZenSpec.replace("common/cover_utils", {
             BORDER_SIZE = 1,
             getRatio = function() return 2 / 3 end,
+            calcDims = function(w, h) return math.floor(math.min(w, h * 2 / 3)), h end,
         })
         ZenSpec.replace("common/utils", {
             resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end,
@@ -268,7 +297,7 @@ describe("OPDS header", function()
         for _i, name in ipairs(replaced) do package.loaded[name] = originals[name] end
     end)
 
-    it("keeps back, search, and close together in a focusable header row", function()
+    it("keeps back, refresh, search, and close together in a focusable header row", function()
         local browser = setmetatable({
             paths = { { url = "/catalog" } },
             search_url = "/search",
@@ -282,41 +311,44 @@ describe("OPDS header", function()
 
         browser:init()
         local buttons = browser._zen_opds_header_buttons
-        assert.are.equal(3, #buttons)
+        assert.are.equal(4, #buttons)
         assert.are.equal("back", buttons[1]._zen_opds_focus_id)
-        assert.are.equal("search", buttons[2]._zen_opds_focus_id)
-        assert.are.equal("close", buttons[3]._zen_opds_focus_id)
+        assert.are.equal("refresh", buttons[2]._zen_opds_focus_id)
+        assert.are.equal("search", buttons[3]._zen_opds_focus_id)
+        assert.are.equal("close", buttons[4]._zen_opds_focus_id)
         assert.are.equal("/zen-ui/icons/tab_left.svg", buttons[1].file)
-        assert.are.equal("/zen-ui/icons/quick_search.svg", buttons[2].file)
-        assert.are.equal("/zen-ui/icons/close.svg", buttons[3].file)
+        assert.are.equal("/zen-ui/icons/quick_sync.svg", buttons[2].file)
+        assert.are.equal("/zen-ui/icons/quick_search.svg", buttons[3].file)
+        assert.are.equal("/zen-ui/icons/close.svg", buttons[4].file)
         assert.are.equal("chevron.left", browser.title_bar.left_icon)
         assert.are.equal("close", browser.title_bar.right_icon)
         assert.are.equal("left", buttons[1].overlap_align)
-        assert.are.equal("right", buttons[3].overlap_align)
+        assert.are.equal("right", buttons[4].overlap_align)
         assert.is_true(browser.layout[1] == buttons)
         assert.is_true(browser.layout[2][1] == browser.item)
         assert.are.same({ x = 1, y = 2 }, browser.selected)
 
         buttons[1].callback()
-        buttons[2].callback()
         buttons[3].callback()
+        buttons[4].callback()
         assert.are.equal(1, returned)
         assert.are.equal(1, searched)
         assert.are.equal(1, closed)
 
         browser:updateCatalog("/next")
-        assert.are.equal(3, #browser.layout[1])
+        assert.are.equal(4, #browser.layout[1])
         assert.are.equal("back", browser.layout[1][1]._zen_opds_focus_id)
-        assert.are.equal("search", browser.layout[1][2]._zen_opds_focus_id)
-        assert.are.equal("close", browser.layout[1][3]._zen_opds_focus_id)
+        assert.are.equal("refresh", browser.layout[1][2]._zen_opds_focus_id)
+        assert.are.equal("search", browser.layout[1][3]._zen_opds_focus_id)
+        assert.are.equal("close", browser.layout[1][4]._zen_opds_focus_id)
         assert.are.equal("chevron.left", browser.title_bar.left_icon)
         assert.are.equal("close", browser.title_bar.right_icon)
         assert.is_true(browser.layout[2][1] == browser.item)
 
         browser.search_url = nil
         browser:updateCatalog("/without-search")
-        assert.are.equal("menu", browser.layout[1][2]._zen_opds_focus_id)
-        browser.layout[1][2].callback()
+        assert.are.equal("menu", browser.layout[1][3]._zen_opds_focus_id)
+        browser.layout[1][3].callback()
         assert.are.equal(1, menu_opened)
 
         -- appendCatalog changes the title, which rebuilds TitleBar without fix_buttons.
@@ -324,6 +356,241 @@ describe("OPDS header", function()
         browser.title_bar:init()
         assert.are.equal("chevron.left", browser.title_bar.left_button.icon)
         assert.are.equal("close", browser.title_bar.right_button.icon)
+        browser:mergeTitleBarIntoLayout()
+        assert.are.equal(4, #browser._zen_opds_header_buttons)
+        assert.are.equal("refresh", browser.layout[1][2]._zen_opds_focus_id)
+        assert.are.equal("/zen-ui/icons/quick_sync.svg", browser.layout[1][2].file)
+    end)
+
+    it("fetches fresh catalogs without conditional validators and supports OPDS 2", function()
+        local requests = {}
+        local browser = setmetatable({
+            fetchFeed = function(_self, url, headers_only, headers)
+                requests[#requests + 1] = { url = url, headers_only = headers_only, headers = headers }
+                return url == "/json" and "{}" or "<feed>" .. #requests .. "</feed>"
+            end,
+        }, { __index = Browser })
+        assert.are.equal("<feed>1</feed>", browser:parseFeed("/catalog").body)
+        assert.are.equal("<feed>2</feed>", browser:parseFeed("/catalog").body)
+        local catalog = browser:parseFeed("/json")
+        assert.is_true(catalog.is_opds2)
+        assert.are.equal("JSON catalog", catalog.metadata.title)
+        for _i, request in ipairs(requests) do
+            assert.is_false(request.headers_only)
+            assert.are.same({ ["Cache-Control"] = "no-cache", Pragma = "no-cache" }, request.headers)
+        end
+    end)
+
+    it("rescans the current catalog, invalidates its covers, and preserves its path", function()
+        local cleared_items, stopped = 0, 0
+        local browser = setmetatable({
+            paths = { { url = "https://server.test/opds" }, { url = "https://server.test/books" } },
+            item_table = {},
+            item_group = { clear = function() cleared_items = cleared_items + 1 end },
+            root_catalog_username = "user", root_catalog_password = "secret",
+            _zen_prefetched_feed = { url = "/next", body = "stale" },
+            _zen_halt = function() stopped = stopped + 1 end,
+        }, { __index = Browser })
+        browser:init()
+        browser._zen_prefetched_feed = { url = "/next", body = "stale" }
+        browser._zen_opds_library_filenames = { stale = true }
+        browser._zen_opds_header_buttons[2].callback()
+        assert.are.equal(1, stopped)
+        assert.are.equal(0, cleared_items)
+        assert.is_true(browser._zen_reload_covers)
+        assert.are.same({ url = "https://server.test/opds", username = "user", password = "secret" }, cleared_scope)
+        assert.are.equal("https://server.test/books", catalog_requests[1].url)
+        assert.is_true(catalog_requests[1].paths_updated)
+        assert.are.equal(2, #browser.paths)
+        assert.is_nil(browser._zen_prefetched_feed)
+        assert.is_nil(browser._zen_opds_library_filenames)
+    end)
+
+    it("reuses persisted covers after closing and decodes them at the requested size", function()
+        local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
+        local entry = { cover_url = "https://example.test/cached.jpg" }
+        local updated = 0
+        local item = { entry = entry, cover_w = 80, cover_h = 120,
+            widget = { update = function() updated = updated + 1 end } }
+        local halt = start_cover_queue({ item })
+        scheduled[1].callback()
+        scheduled[2].callback()
+        assert.are.equal("image-bytes", cover_bytes[entry.cover_url])
+        local old_bb = entry.cover_bb
+        local browser = setmetatable({ item_table = { entry }, _zen_halt = halt }, { __index = Browser })
+        browser:onCloseWidget()
+        assert.is_true(old_bb.freed)
+        assert.is_nil(entry.cover_bb)
+
+        local width, height
+        package.loaded["ui/renderimage"].renderImageData = function(_self, _bytes, _length, _animated, w, h)
+            width, height = w, h
+            return { free = function() end }
+        end
+        item.cover_w, item.cover_h = 160, 240
+        halt = start_cover_queue({ item })
+        scheduled[#scheduled].callback()
+        halt()
+        assert.are.equal(160, width)
+        assert.are.equal(240, height)
+        assert.are.equal(1, subprocess_runs)
+        assert.are.equal(2, updated)
+        assert.are.equal(0, standby)
+    end)
+
+    it("warms exactly the next local page without repainting it", function()
+        local warm_next_page = get_upvalue(Browser.updateItems, "warm_next_page")
+        local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
+        local browser = { page = 1, perpage = 2, _zen_cover_size = { w = 80, h = 120 }, item_table = {} }
+        for index = 1, 6 do browser.item_table[index] = { cover_url = "https://example.test/" .. index } end
+        local queue, keep = {}, {}
+        warm_next_page(browser, queue, keep)
+        assert.are.equal(2, #queue)
+        assert.are.equal(browser.item_table[3], queue[1].entry)
+        assert.are.equal(browser.item_table[4], queue[2].entry)
+        local halt = start_cover_queue(queue)
+        scheduled[1].callback()
+        scheduled[2].callback()
+        scheduled[3].callback()
+        halt()
+        assert.is_truthy(browser.item_table[3].cover_bb)
+        assert.is_truthy(browser.item_table[4].cover_bb)
+        assert.is_nil(browser.item_table[5].cover_bb)
+        assert.are.equal(2, subprocess_runs)
+        assert.are.equal(0, standby)
+    end)
+
+    it("prefetches one remote feed and its next-page covers without changing the visible catalog", function()
+        local warm_next_page = get_upvalue(Browser.updateItems, "warm_next_page")
+        local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
+        local browser = setmetatable({
+            page = 1, perpage = 2, _zen_cover_size = { w = 80, h = 120 },
+            catalog_title = "Visible", search_url = "/visible-search", facet_groups = { visible = {} },
+            item_table = { {}, {}, hrefs = { next = "/next" } },
+            catalog_items = {
+                { title = "Next 1", thumbnail = "https://example.test/next-1", acquisitions = {{}} },
+                { title = "Next 2", thumbnail = "https://example.test/next-2", acquisitions = {{}} },
+                { title = "Later", thumbnail = "https://example.test/later", acquisitions = {{}} },
+            },
+        }, { __index = Browser })
+        local queue, keep = {}, {}
+        warm_next_page(browser, queue, keep)
+        assert.are.equal(1, #queue)
+        pipe_bytes, pipe_size = "{}", 2
+        local halt = start_cover_queue(queue)
+        scheduled[1].callback()
+        scheduled[2].callback()
+        assert.are.equal(3, #queue)
+        assert.are.equal("Visible", browser.catalog_title)
+        assert.are.equal("/visible-search", browser.search_url)
+        assert.are.same({ visible = {} }, browser.facet_groups)
+        assert.are.equal(2, #browser.item_table)
+        pipe_bytes, pipe_size = "image-bytes", 11
+        scheduled[3].callback()
+        scheduled[4].callback()
+        halt()
+        assert.is_truthy(cover_bytes["https://example.test/next-1"])
+        assert.is_truthy(cover_bytes["https://example.test/next-2"])
+        assert.is_nil(cover_bytes["https://example.test/later"])
+        browser.fetchFeed = function() error("Prefetched feed should be used once") end
+        assert.is_true(browser:parseFeed("/next").is_opds2)
+        assert.is_nil(browser._zen_prefetched_feed)
+    end)
+
+    it("does not start background prefetching while offline", function()
+        NetworkMgr.connected = false
+        local warm_next_page = get_upvalue(Browser.updateItems, "warm_next_page")
+        local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
+        local browser = { page = 1, perpage = 2, _zen_cover_size = { w = 80, h = 120 },
+            item_table = { {}, {}, hrefs = { next = "/next" } } }
+        local queue = {}
+        warm_next_page(browser, queue, {})
+        assert.are.equal(0, #queue)
+        local halt = start_cover_queue({{
+            entry = { cover_url = "https://example.test/offline" }, cover_w = 80, cover_h = 120,
+        }})
+        scheduled[1].callback()
+        halt()
+        assert.are.equal(0, subprocess_runs)
+        assert.are.equal(0, connection_requests)
+        assert.are.equal(0, standby)
+    end)
+
+    it("uses warmed bitmaps immediately on a page turn and retires the previous page", function()
+        local entries = {}
+        for index = 1, 18 do
+            local url = "https://example.test/cover-" .. index
+            entries[index] = { title = "Book " .. index, cover_url = url }
+            cover_bytes[url] = "image-bytes"
+        end
+        local browser = setmetatable({
+            paths = {{ url = "https://example.test/opds" }}, page = 1, item_table = entries,
+            inner_dimen = { w = 600, h = 800 },
+            item_group = { clear = function(self) for index = #self, 1, -1 do self[index] = nil end end },
+            page_info = { resetLayout = function() end },
+            return_button = { resetLayout = function() end },
+            content_group = { resetLayout = function() end },
+            moveFocusTo = function(self, x, y) self.selected = { x = x, y = y } end,
+        }, { __index = Browser })
+        browser:init()
+        browser.title_bar.getHeight = function() return 30 end
+        browser:updateItems()
+        assert.are.equal(9, browser.perpage)
+        assert.is_truthy(entries[1].cover_bb)
+        assert.is_nil(entries[10].cover_bb)
+        scheduled[#scheduled].callback()
+        local previous_bb, warmed_bb = entries[1].cover_bb, entries[10].cover_bb
+        assert.is_truthy(warmed_bb)
+        browser.page = 2
+        browser:updateItems()
+        assert.are.equal(warmed_bb, entries[10].cover_bb)
+        assert.is_false(warmed_bb.freed == true)
+        assert.is_true(previous_bb.freed)
+        assert.is_nil(entries[1].cover_bb)
+        assert.are.equal(0, subprocess_runs)
+        browser:onCloseWidget()
+        assert.is_true(warmed_bb.freed)
+    end)
+
+    it("keeps credentials on their origin, including redirects, and fetches fresh feeds", function()
+        local start_cover_queue = get_upvalue(Browser.updateItems, "start_cover_queue")
+        local fetch_bytes = get_upvalue(start_cover_queue, "fetch_bytes")
+        local requests, redirects = {}, true
+        local function sink(chunks)
+            return function(bytes) if bytes then chunks[#chunks + 1] = bytes end; return 1 end
+        end
+        ZenSpec.replace("ltn12", { sink = { table = sink } })
+        ZenSpec.replace("socketutil", {
+            set_timeout = function(_self, block, total)
+                assert.are.equal(5, block)
+                assert.are.equal(10, total)
+            end,
+            reset_timeout = function() end,
+            table_sink = sink,
+        })
+        ZenSpec.replace("socket.http", { request = function(request)
+            requests[#requests + 1] = request
+            assert.is_false(request.redirect)
+            if redirects and #requests == 1 then
+                return 1, 302, { location = "https://cdn.test/cover.jpg" }
+            end
+            request.sink("fresh bytes")
+            return 1, 200, {}
+        end })
+        local creds = { url = "https://server.test:443/opds", username = "user", password = "secret" }
+        assert.are.equal("fresh bytes", fetch_bytes("https://server.test/cover.jpg", creds))
+        assert.are.equal("user", requests[1].user)
+        assert.are.equal("secret", requests[1].password)
+        assert.is_nil(requests[2].user)
+        assert.is_nil(requests[2].password)
+        redirects = false
+        assert.are.equal("fresh bytes", fetch_bytes("https://server.test/next", creds, true))
+        assert.are.equal("no-cache", requests[3].headers["Cache-Control"])
+        assert.are.equal("no-cache", requests[3].headers.Pragma)
+        assert.are.equal("application/opds+json, application/atom+xml", requests[3].headers.Accept)
+        assert.are.equal("user", requests[3].user)
+        assert.are.equal("fresh bytes", fetch_bytes("https://server.test:444/next", creds, true))
+        assert.is_nil(requests[4].user)
     end)
 
     it("remembers existing downloads by their generated filename", function()
@@ -483,6 +750,24 @@ describe("OPDS header", function()
         assert.are.equal(0, connection_requests)
     end)
 
+    it("turns to an already loaded page without fetching another remote page", function()
+        NetworkMgr.connected, NetworkMgr.pending_connection = false, true
+        local browser = setmetatable({
+            page = 1, page_num = 3, item_table = { hrefs = { next = "/next" } },
+        }, { __index = Browser })
+        browser:init()
+        browser:onNextPage()
+        assert.are.equal(1, next_pages)
+        assert.are.equal(0, #scheduled)
+        assert.are.equal(0, connection_requests)
+        browser:onNextPage(true)
+        assert.are.equal(1, next_pages)
+        assert.are.equal(1, #scheduled)
+        NetworkMgr.connected = true
+        scheduled[1].callback()
+        assert.are.equal(2, next_pages)
+    end)
+
     it("stops waiting after 45 seconds without restarting Wi-Fi or contacting the server", function()
         NetworkMgr.connected, NetworkMgr.pending_connection = false, true
         local browser = setmetatable({}, { __index = Browser })
@@ -557,7 +842,7 @@ describe("OPDS header", function()
         scheduled[1].callback()
         scheduled[2].callback()
         browser._zen_opds_header_buttons[1].callback()
-        browser._zen_opds_header_buttons[2].callback()
+        browser._zen_opds_header_buttons[3].callback()
 
         assert.are.equal(0, trapper_wraps)
         assert.are.equal(0, pipe_reads)
