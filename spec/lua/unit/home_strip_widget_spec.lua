@@ -892,6 +892,38 @@ describe("home strip widget", function()
         assert.is_true(has_text("Start reading a book to fill this space."))
     end)
 
+    it("keeps strip text and icons at their original sizes when font metrics exceed the row height", function()
+        local TextWidget = widget_class("ui/widget/textwidget")
+        ZenSpec.replace("ui/widget/textwidget", { new = function(_self, values)
+            local widget = TextWidget:new(values)
+            widget.getSize = function(self)
+                return { w = #self.text * self.face.size / 2, h = self.face.size * 3 }
+            end
+            return widget
+        end })
+        require("modules/filebrowser/patches/home/widgets/strip_controls").build{
+            width = 600, height = 30, active_id = "to_be_read", active_group = "Group",
+            controls = {
+                order = { "page_left", "recent", "search", "to_be_read", "page_right" },
+                show_buttons = { page_left = true, recent = true, search = true,
+                    to_be_read = true, page_right = true },
+                labels = {}, custom_buttons = {},
+            },
+        }
+        local sizes = {}
+        for _i, widget in ipairs(created) do
+            if widget.kind == "ui/widget/textwidget" and not widget.free_calls then
+                sizes[widget.text] = widget.face.size
+            end
+        end
+        local icons = require("common/inline_icon_map")
+        assert.equals(10, sizes.Recent)
+        assert.equals(10, sizes.Group)
+        for _i, icon in ipairs({ icons.arrow_left, icons.search, icons.arrow_right }) do
+            assert.equals(14, sizes[icon])
+        end
+    end)
+
     it("sizes dynamic tabs evenly between compact page controls", function()
         rawset(_G, "__ZEN_UI_PLUGIN", {
             config = { features = { browser_cover_rounded_corners = true } },

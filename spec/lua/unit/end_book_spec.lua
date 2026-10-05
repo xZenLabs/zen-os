@@ -554,10 +554,10 @@ describe("end of book", function()
         local Data = require("modules/reader/end_book_data")
         local featured = Data.featuredConfig(plugin)
         assert.same(Data.FEATURED_TEXT_STYLES.title, featured.text_styles.title)
-        assert.equals(11, featured.text_styles.author.font_size)
+        assert.equals(12, featured.text_styles.author.font_size)
         assert.equals(9, featured.text_styles.series.font_size)
         assert.equals(9, featured.text_styles.progress.font_size)
-        assert.equals(11, featured.text_styles.status.font_size)
+        assert.equals(featured.text_styles.progress.font_size, featured.text_styles.status.font_size)
         assert.equals(15, featured.text_styles.navigation.font_size)
         assert.equals(11, home.modules.featured.text_styles.title.font_size)
         plugin.config.end_book.modules.featured.text_styles.title.font_size = 11
@@ -587,7 +587,7 @@ describe("end of book", function()
         assert.is_true(original.two_rows)
         assert.is_false(strip.center_books)
         assert.is_true(original.center_books)
-        assert.same({ "page_left", "next_series", "author", "other_series", "page_right" }, strip.controls.order)
+        assert.same({ "page_left", "next_series", "author", "continue", "other_series", "page_right" }, strip.controls.order)
         assert.same({ page_left = false, next_series = false, author = true,
             other_series = false, page_right = false, continue = false, to_be_read = false }, strip.controls.show_buttons)
         assert.same({ kind = "custom", paths = { "book" } }, strip.default_source)
@@ -598,11 +598,13 @@ describe("end of book", function()
         assert.is_nil(Data.stripConfig(recommendations, "author"))
         recommendations.other_series = { "series" }
         original.count = 6
-        strip, source = Data.stripConfig(recommendations, "author")
+        local local_config = { modules = { strip = Data.stripConfig() } }
+        local_config.modules.strip.controls.order = { "page_left", "next_series", "author", "other_series", "page_right" }
+        local_config.modules.strip.controls.show_buttons.other_series = true
+        strip, source = Data.stripConfig(recommendations, "author", local_config)
         assert.are.equal(6, strip.count)
         assert.are.equal("other_series", source)
         assert.is_true(strip.controls.show_buttons.other_series)
-        local local_config = { modules = { strip = Data.stripConfig() } }
         ButtonModel.find(local_config.modules.strip.controls, "author").label = "Same author"
         local_config.modules.strip.controls.show_buttons.page_right = true
         local_config.modules.strip.controls.text_style.font_size = 17
@@ -633,17 +635,25 @@ describe("end of book", function()
         local Data = require("modules/reader/end_book_data")
         local local_config = { modules = { strip = Data.stripConfig() } }
         local controls = local_config.modules.strip.controls
+        assert.is_true(controls.show_buttons.continue)
+        assert.is_false(controls.show_buttons.other_series)
+        controls.labels.continue = "Continue reading"
         controls.order = { "continue", "recent", "favorites" }
         controls.show_buttons = { continue = true, recent = true, favorites = true }
         local recommendations = { next_series = {}, author = {}, other_series = {}, continue = { "reading" } }
         local strip, source = Data.stripConfig(recommendations, "continue", local_config)
         assert.are.equal("continue", source)
         assert.same({ kind = "continue" }, strip.default_source)
+        assert.equals("Continue", require("common/nav_button_model").label(strip.controls,
+            require("common/nav_button_model").find(strip.controls, "continue")))
+        assert.equals("Continue", require("common/nav_button_model").find(nil, "continue").label)
         assert.is_nil(require("common/nav_button_model").find(nil, "continue").paths)
+        controls.labels.continue = "My reading"
         recommendations.continue = {}
         strip, source = Data.stripConfig(recommendations, "continue", local_config)
         assert.are.equal("recent", source)
         assert.same({ kind = "recent" }, strip.default_source)
+        assert.equals("My reading", strip.controls.labels.continue)
         assert.is_true(controls.show_buttons.continue)
     end)
 
@@ -674,6 +684,7 @@ describe("end of book", function()
         local controls = plugin.config.end_book.modules.strip.controls
         controls.order = { "page_left", "next_series", "continue", "author", "other_series" }
         controls.show_buttons.page_left, controls.show_buttons.continue = true, true
+        controls.show_buttons.other_series = true
         local recommendations = { next_series = {}, continue = { "reading" }, author = { "book" }, other_series = { "series" } }
         local function open_page()
             local page = setmetatable({ plugin = plugin, ui = { menu = {} }, rebuild = function(self)

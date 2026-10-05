@@ -31,7 +31,8 @@ def _assert_fits(layout):
     assert layout["body_size"]["w"] <= layout["body_bounds"]["w"], layout
     assert layout["body_size"]["h"] <= layout["body_bounds"]["h"], layout
     assert layout["strip_size"]["h"] <= layout["strip_preferred_height"], layout
-    assert all(label["text_h"] <= label["cell_h"] for label in layout["strip_labels"]), layout["strip_labels"]
+    assert all(label["font_size"] >= layout["strip_min_text_size"]
+               for label in layout["strip_labels"]), layout["strip_labels"]
     featured_bottom = layout["featured_bounds"]["y"] + layout["featured_bounds"]["h"]
     assert all(bounds["y"] + bounds["h"] <= featured_bottom
                for bounds in layout["navigation_bounds"]), json.dumps({
@@ -144,6 +145,10 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert state["book_status"] == "complete"
                 assert state["rows"] == ["stats_triplet", "featured", "strip"]
                 assert state["strip_two_rows"] is False
+                assert state["featured_status_size"] == state["featured_progress_size"]
+                assert [label["label"] for label in state["strip_labels"]] == [
+                    "Next in series", "More by Zen Author", "Continue",
+                ]
                 assert state["quote"]["text"] == "No highlights in this book."
                 assert state["quote"]["text"] not in state["visible_texts"]
                 empty_quote_heights = state["row_heights"]
@@ -315,6 +320,7 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                     else:
                         assert (covers[0]["w"], covers[0]["h"]) == (author_covers[0]["w"], author_covers[0]["h"])
                         assert covers[0]["x"] == author_covers[0]["x"]
+                driver.command("end_book", add_source="other_series")
                 state = driver.command("end_book", select_source="other_series")
                 assert state["source"] == "other_series"
                 state = driver.command("end_book")
@@ -344,7 +350,6 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert all(item["group"] is False for item in state["strip_items"])
                 driver.command("end_book", select_source="other_series")
                 assert driver.command("end_book")["strip_items"][0]["group"] is True
-                driver.command("end_book", add_source="continue")
                 driver.command("end_book", select_source="continue")
                 state = driver.command("end_book")
                 assert state["source"] == "continue"

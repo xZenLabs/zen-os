@@ -1,6 +1,49 @@
 describe("stable page statistics", function()
+    local saved_plugin, saved_settings
+
     before_each(function()
+        saved_plugin, saved_settings = _G.__ZEN_UI_PLUGIN, G_reader_settings
+        _G.__ZEN_UI_PLUGIN = nil
         ZenSpec.unload("modules/reader/patches/stable_page_statistics")
+    end)
+
+    after_each(function()
+        _G.__ZEN_UI_PLUGIN, _G.G_reader_settings = saved_plugin, saved_settings
+    end)
+
+    it("freezes finished books once for fresh and existing installs while preserving later choices", function()
+        for _i, initial in ipairs({ {}, { statistics = {
+            freeze_finished_books = false, is_enabled = false, min_sec = 12, max_sec = 90,
+        } } }) do
+            local defaults = { freeze_finished_books = false, is_enabled = true, min_sec = 5, max_sec = 120 }
+            local expected = initial.statistics or defaults
+            local Statistics = {
+                name = "statistics", settings_key = "statistics", default_settings = defaults,
+                insertDB = function() end,
+            }
+            ZenSpec.replace("pluginloader", { loadPlugins = function() return { Statistics } end })
+            _G.G_reader_settings = ZenSpec.memorySettings(initial)
+            local saves = 0
+            local plugin = { config = { _meta = {} }, saveConfig = function() saves = saves + 1 end }
+            _G.__ZEN_UI_PLUGIN = plugin
+            local apply = require("modules/reader/patches/stable_page_statistics")
+
+            apply()
+            local settings = G_reader_settings:readSetting("statistics")
+            assert.is_table(settings)
+            assert.is_true(settings.freeze_finished_books)
+            assert.equals(expected.is_enabled, settings.is_enabled)
+            assert.equals(expected.min_sec, settings.min_sec)
+            assert.equals(expected.max_sec, settings.max_sec)
+            assert.is_true(plugin.config._meta.statistics_freeze_finished_default_applied)
+
+            settings.freeze_finished_books = false
+            Statistics._zen_stable_page_stats = nil -- Simulate the next KOReader session.
+            ZenSpec.unload("modules/reader/patches/stable_page_statistics")
+            require("modules/reader/patches/stable_page_statistics")()
+            assert.is_false(settings.freeze_finished_books)
+            assert.equals(1, saves)
+        end
     end)
 
     it("uses the active page-map count as KOReader's statistics target", function()

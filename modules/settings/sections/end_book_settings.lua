@@ -9,8 +9,8 @@ M.labels = {
 M.sources = {
     { "next_series", _("Next in series") },
     { "author", _("More by author") },
-    { "other_series", _("Other series") },
     { "continue", _("Continue") },
+    { "other_series", _("Series") },
     { "to_be_read", _("To Be Read") },
 }
 local metrics = {

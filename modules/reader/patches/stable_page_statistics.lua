@@ -50,6 +50,14 @@ return function()
             break
         end
     end
+    local plugin = rawget(_G, "__ZEN_UI_PLUGIN")
+    if Statistics and plugin and not plugin.config._meta.statistics_freeze_finished_default_applied then
+        local settings = G_reader_settings:readSetting(Statistics.settings_key) or Statistics.default_settings
+        settings.freeze_finished_books = true
+        G_reader_settings:saveSetting(Statistics.settings_key, settings)
+        plugin.config._meta.statistics_freeze_finished_default_applied = true
+        plugin:saveConfig()
+    end
     if not Statistics or Statistics._zen_stable_page_stats
             or type(Statistics.insertDB) ~= "function" then return end
     Statistics._zen_stable_page_stats = true

@@ -4,10 +4,10 @@ M.MAX_ACTIONS = 5
 M.WIDGET_UNITS = { featured = 3.75 }
 M.FEATURED_TEXT_STYLES = {
     title = { font_face = "default", font_size = 14, bold = true },
-    author = { font_face = "default", font_size = 11, bold = false },
+    author = { font_face = "default", font_size = 12, bold = false },
     series = { font_face = "default", font_size = 9, bold = false },
     progress = { font_face = "default", font_size = 9, bold = false },
-    status = { font_face = "default", font_size = 11, bold = true },
+    status = { font_face = "default", font_size = 9, bold = true },
     navigation = { font_face = "default", font_size = 15, bold = false },
 }
 
@@ -102,6 +102,7 @@ function M.stripConfig(recommendations, source, config, authors)
     home.modules.strip.controls = nil
     utils.deepmerge(strip, home.modules.strip)
     local controls = strip.controls
+    if controls.labels.continue == "Continue reading" then controls.labels.continue = nil end
     local author_name = (authors or ""):match("^%s*(.-)%s*$"):gsub("%s*\n%s*", ", "):gsub("%s+", " ")
     for _i, entry in ipairs(require("modules/settings/sections/end_book_settings").sources) do
         local button = require("common/nav_button_model").find(controls, entry[1])
@@ -114,6 +115,8 @@ function M.stripConfig(recommendations, source, config, authors)
                 if entry[1] == "author" then
                     button.label = author_name ~= "" and require("ffi/util").template(_("More by %1"), author_name)
                         or entry[2]
+                elseif entry[1] == "other_series" then
+                    button.label = entry[2]
                 end
                 button.paths = recommendations and recommendations[entry[1]] or {}
             end

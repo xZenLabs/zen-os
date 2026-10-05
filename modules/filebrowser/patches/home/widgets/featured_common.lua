@@ -68,7 +68,7 @@ local DEFAULT_TEXT_STYLES = {
     series = { font_face = "default", font_size = 7, bold = false },
     description = { font_face = "default", font_size = 16, bold = false },
     progress = { font_face = "default", font_size = 7, bold = false },
-    status = { font_face = "default", font_size = 11, bold = true },
+    status = { font_face = "default", font_size = 9, bold = true },
 }
 
 local function clamp(v, min_v, max_v)
@@ -305,9 +305,9 @@ function M.build(ctx, source_key)
         local text_budget = 0
         for _i, entry in ipairs({
             { title_style, detail_scale, 1.3, true },
-            { author_style, detail_scale, 0.8, module_cfg.show_author ~= false and (book.authors or "") ~= "" },
+            { author_style, detail_scale, 0.9, module_cfg.show_author ~= false and (book.authors or "") ~= "" },
             { series_style, scale, 0.8, module_cfg.show_series ~= false and format_series(book) ~= "" },
-            { status_style, detail_scale, 0.8, true },
+            { status_style, scale, 1, true, "smallinfofont" },
             { progress_style, scale, 1, module_cfg.show_progress ~= false and book.status ~= "new" and book.status ~= "tbr", "smallinfofont" },
         }) do
             if entry[4] then
@@ -328,7 +328,8 @@ function M.build(ctx, source_key)
                 - (show_status_bar and Screen:scaleBySize(14) or 0)) / fitting_lines))
             if ctx.showBookStatus then
                 if style == title_style then budget = budget * 1.3 end
-                if style == author_style or style == series_style or style == status_style then budget = budget * 0.8 end
+                if style == author_style then budget = budget * 0.9 end
+                if style == series_style then budget = budget * 0.8 end
             end
             local line_h = line_height(style, face)
             if line_h > budget then face = get_text_face(style, math.max(1, math.floor(size * budget / line_h)), default_font) end
@@ -341,7 +342,7 @@ function M.build(ctx, source_key)
     local stats_face = fitting_face(progress_style,
         Screen:scaleBySize(math.floor(progress_style.font_size * scale + 0.5)), "smallinfofont")
     local status_face = ctx.showBookStatus and fitting_face(status_style,
-        Screen:scaleBySize(math.floor(status_style.font_size * detail_scale + 0.5)))
+        Screen:scaleBySize(math.floor(status_style.font_size * scale + 0.5)), "smallinfofont")
     local desc_face = fitting_face(description_style, description_style.font_size)
     if ctx.fitToBounds then description_style.font_size = desc_face.orig_size or description_style.font_size end
     local raw_description = type(book.description) == "string" and book.description or ""

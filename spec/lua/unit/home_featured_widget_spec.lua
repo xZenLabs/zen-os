@@ -649,7 +649,8 @@ describe("home featured widget", function()
         local progress_bar = spy.on(require("common/ui/book_progress"), "bar")
         require("modules/filebrowser/patches/home/widgets/featured_common").build{
             width = 600, height = 220,
-            module_cfg = { show_description = false, progress_meta = { left = "percent", right = "current_total" } },
+            module_cfg = { show_description = false, progress_meta = { left = "percent", right = "current_total" },
+                text_styles = require("modules/reader/end_book_data").FEATURED_TEXT_STYLES },
             showBookStatus = true,
             data = { getFeaturedBook = function()
                 return { path = "book", title = "Book", status = "complete", percent = 1,
@@ -665,6 +666,11 @@ describe("home featured widget", function()
         assert.spy(progress_bar).was_not_called()
         assert.is_true(has_text("Finished"))
         assert.is_false(has_text("Finished reading"))
+        local status_widget
+        for _i, widget in ipairs(created) do
+            if widget.text == "Finished" then status_widget = widget end
+        end
+        assert.equals(text_widget("120 pages\n100% read").face.size, status_widget.face.size)
         local cover_width = math.min(cover_calls[1].max_w, math.floor(cover_calls[1].max_h * cover_ratio))
         assert.is_true(navigation:getSize().w < 584 - cover_width)
         local found = false
@@ -711,7 +717,7 @@ describe("home featured widget", function()
         end
         assert.equals("StatusFont", status_widget.face.name)
         assert.is_false(status_widget.bold)
-        assert.is_true(status_widget.face.size > text_widget("Author").face.size)
+        assert.equals(17, status_widget.face.size)
         assert.equals("ProgressFont", progress.face.name)
         assert.equals(16, progress.face.size)
         assert.is_true(progress.bold)

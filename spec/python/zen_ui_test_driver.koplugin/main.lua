@@ -2169,6 +2169,11 @@ function Driver:handleCommand(command)
                 return widget.text == require("common/inline_icon_map").finished
             end)
             state.featured_finished_icon = finished_icon ~= nil
+            local book_status_label = require("common/nav_button_model").statusLabel(state.book_status)
+            local status_text = find_descendant(page.body_widget[1][3], function(widget)
+                return widget.text == book_status_label and widget.face ~= nil
+            end)
+            state.featured_status_size = status_text and status_text.face.orig_size
             local progress = find_descendant(page.body_widget[1][3], function(widget)
                 return type(widget.text) == "string" and widget.text:match("%d+%% read$") ~= nil
             end)
@@ -2227,6 +2232,7 @@ function Driver:handleCommand(command)
                     width = size.w, module_cfg = strip_config,
                 }
                 state.strip_labels = {}
+                state.strip_min_text_size = require("device").screen:scaleBySize(7)
                 for _i, source in ipairs(require("modules/settings/sections/end_book_settings").sources) do
                     local ButtonModel = require("common/nav_button_model")
                     local label_text = ButtonModel.label(strip_config.controls,
@@ -2238,9 +2244,8 @@ function Driver:handleCommand(command)
                     end)
                     if control then
                         local label = find_descendant(control, function(widget) return widget.text == label_text end)
-                        local label_size, cell_size = label:getSize(), control[1]:getSize()
                         state.strip_labels[#state.strip_labels + 1] = {
-                            text_h = label_size.h, cell_h = cell_size.h,
+                            label = label_text, font_size = label.face.orig_size,
                         }
                     end
                 end
