@@ -7058,3 +7058,119 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:381
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPM установлен. Перезапустите KOReader, чтобы использовать его."
+
+#. Type: message
+msgid "Book status"
+msgstr "Статус книги"
+
+#. Type: message
+msgid "Book titles"
+msgstr "Названия книг"
+
+#. Type: message
+msgid "Books per page"
+msgstr "Книг на странице"
+
+#. Type: message
+msgid "Days"
+msgstr "Дни"
+
+#. Type: message
+msgid "Default source"
+msgstr "Источник по умолчанию"
+
+#. Type: message
+msgid "End of book"
+msgstr "Конец книги"
+
+#. Type: message
+msgid "Finished on %s"
+msgstr "Прочитано %s"
+
+#. Type: message
+msgid "Finished reading"
+msgstr "Чтение завершено"
+
+#. Type: message
+msgid "Highlights"
+msgstr "Выделения"
+
+#. Type: message
+msgid "Highlights and notes"
+msgstr "Выделения и заметки"
+
+#. Type: message
+msgid "Minutes per page"
+msgstr "Минут на страницу"
+
+#. Type: message
+msgid "Minutes per reading day"
+msgstr "Минут в день чтения"
+
+#. Type: message
+msgid "Next in series"
+msgstr "Следующая в серии"
+
+#. Type: message
+msgid "No highlights in this book."
+msgstr "В этой книге нет выделений."
+
+#. Type: message
+msgid "Other series"
+msgstr "Другие серии"
+
+#. Type: message
+msgid "Page %s"
+msgstr "Страница %s"
+
+#. Type: message
+msgid "Preview"
+msgstr "Предпросмотр"
+
+#. Type: message
+msgid "Reading progress"
+msgstr "Прогресс чтения"
+
+#. Type: message
+msgid "Reading statistics"
+msgstr "Статистика чтения"
+
+#. Type: message
+msgid "Reading time"
+msgstr "Время чтения"
+
+#. Type: message
+msgid "More by %1"
+msgstr "Ещё от %1"
+
+#. Type: message
+msgid "More by author"
+msgstr "Ещё от автора"
+
+#. Type: message
+msgid "Use at end of book"
+msgstr "Использовать в конце книги"
+
+#. Type: message
+msgid "Zen end of book"
+msgstr "Конец книги Zen"
+
+#. Type: message
+msgid "No books to show."
+msgstr "Нет книг для отображения."
+
+#: modules/settings/sections/end_book_settings.lua
+msgid "Not enough space: %1/%2 units used; this widget needs %3."
+msgstr "Недостаточно места: использовано %1/%2 единиц; этому виджету требуется %3."
+
+#. Featured end-of-book action limit
+msgid "Maximum 5 buttons allowed"
+msgstr "Допускается не более 5 кнопок"
+
+#. End-of-book featured progress
+msgid "%d%% completed"
+msgstr "%d%% завершено"
+
+#: modules/settings/sections/library_settings/home_settings.lua
+msgid "Button labels"
+msgstr "Подписи кнопок"

@@ -924,6 +924,12 @@ local function find_quote_content_bounds(widget, seen, depth)
     end
 end
 
+local function dimen_bounds(dimen)
+    if not (dimen and tonumber(dimen.x) and tonumber(dimen.y)
+            and tonumber(dimen.w) and tonumber(dimen.h)) then return nil end
+    return { x = dimen.x, y = dimen.y, w = dimen.w, h = dimen.h }
+end
+
 local function home_state()
     local Home, menu = active_home_menu()
     local visible_texts = {}
@@ -932,6 +938,7 @@ local function home_state()
     local widget_heights = {}
     local quote_content_bounds
     local book_paths = {}
+    local strip_covers = {}
     local strip_control_top
     local strip_control_count = 0
     for _i, target in ipairs(menu and menu._zen_home_focus_targets or {}) do
@@ -959,6 +966,12 @@ local function home_state()
             end
         end
         if book_path then book_paths[#book_paths + 1] = book_path end
+        if book_path and target.component_id == "strip" then
+            local cover = find_descendant(target.widget, function(widget)
+                return type(widget.onTapCover) == "function"
+            end)
+            if cover then strip_covers[#strip_covers + 1] = dimen_bounds(cover.dimen) end
+        end
         local dimen = target.component_id == "strip"
             and target.widget and target.widget.dimen or nil
         if dimen and type(dimen.y) == "number" and type(dimen.h) == "number" then
@@ -977,6 +990,7 @@ local function home_state()
         widget_heights = widget_heights,
         quote_content_bounds = quote_content_bounds,
         book_paths = book_paths,
+        strip_covers = strip_covers,
         page_padding = menu and menu._zen_home_page_padding or 0,
         row_gap = menu and menu._zen_home_row_gap or 0,
         body_height = menu and menu.height or 0,
@@ -1766,12 +1780,6 @@ local function switcher_fixture_state(name)
     return { labels = {}, open = false, status_visible = false }
 end
 
-local function dimen_bounds(dimen)
-    if not (dimen and tonumber(dimen.x) and tonumber(dimen.y)
-            and tonumber(dimen.w) and tonumber(dimen.h)) then return nil end
-    return { x = dimen.x, y = dimen.y, w = dimen.w, h = dimen.h }
-end
-
 local function union_bounds(first, second)
     if not first then return second end
     if not second then return first end
@@ -1963,6 +1971,359 @@ function Driver:handleCommand(command)
     end
     if kind == "reader_state" then
         return { ok = true, reader = reader_state() }
+    end
+    if kind == "end_book" then
+        local reader = require("apps/reader/readerui").instance
+        local plugin = get_zen_plugin()
+        if params.auto_mark ~= nil then G_reader_settings:saveSetting("end_document_auto_mark", params.auto_mark) end
+        if params.annotations and reader then
+            local position = reader.document:getXPointer()
+            reader.annotation.annotations = {
+                { page = position, pos0 = position, pos1 = position, drawer = "lighten",
+                    text = "Some gardens remind us who we once were.", note = "A note from this book." },
+                { page = position, pos0 = position, pos1 = position, drawer = "lighten", text = "Second highlight." },
+            }
+            reader.annotation:updatePageNumbers(true)
+        end
+        if params.finish and reader then
+            reader:handleEvent(Event:new("GotoPage", reader.document:getPageCount()))
+        end
+        if params.action then
+            G_reader_settings:saveSetting("end_document_action", params.action)
+            G_reader_settings:flush()
+        end
+        if params.show and reader then reader.status:onEndOfBook() end
+        if params.preview then require("modules/reader/end_book").show(reader, plugin, true) end
+        local page = UIManager:getTopmostVisibleWidget()
+        if params.book_menu_action then
+            for _i, row in ipairs(page.buttons or {}) do
+                for _j, button in ipairs(row) do
+                    if button.text and button.text:find(params.book_menu_action, 1, true) then
+                        button.callback()
+                    end
+                end
+            end
+            page = UIManager:getTopmostVisibleWidget()
+        end
+        if params.dismiss_cover and page and page.fullscreen then
+            page:onTap()
+            page = UIManager:getTopmostVisibleWidget()
+        end
+        local active = page and page.name == "zen_end_book"
+        if active and params.large_widgets ~= nil then
+            local PresetStore = require("config/preset_store")
+            if params.large_widgets then
+                local home = PresetStore.getSettings("home")
+                self.end_book_home_settings = require("common/utils").deepcopy(home)
+                self.end_book_widget_settings = require("common/utils").deepcopy(plugin.config.end_book)
+                local featured = plugin.config.end_book.modules.featured
+                for _key, style in pairs(featured.text_styles) do style.font_size = 40 end
+                featured.navigation_icon_size = 64
+                featured.wrap_description_text = true
+                home.modules.featured.show_status_bar = true
+                home.modules.strip.two_rows = true
+                home.modules.strip.count = 10
+                home.modules.strip.show_strip_titles = true
+                home.modules.strip.controls.text_style.font_size = 24
+                PresetStore.saveSettings("home", home)
+                plugin.config.end_book.modules.stats_triplet.max_font_size = 64
+                plugin.config.end_book.quotes.max_font_size = 32
+                local quote = page.data:getCurrentQuote()
+                quote.text = string.rep(quote.text .. " ", 20)
+            else
+                PresetStore.saveSettings("home", self.end_book_home_settings)
+                plugin.config.end_book = self.end_book_widget_settings
+                self.end_book_home_settings = nil
+                self.end_book_widget_settings = nil
+            end
+            page:rebuild()
+        end
+        if active and params.navigation_icon_size then
+            plugin.config.end_book.modules.featured.navigation_icon_size = params.navigation_icon_size
+            page:rebuild()
+        end
+        if active and params.navigation_actions then
+            plugin.config.end_book.modules.featured.navigation_actions = params.navigation_actions
+            page:rebuild()
+        end
+        if active and params.collate then
+            G_reader_settings:saveSetting("collate", params.collate)
+            page:rebuild()
+        end
+        if active and params.edit_mode ~= nil then
+            plugin.config.end_book.edit_mode = params.edit_mode
+        end
+        if active and params.add_source then
+            local strip = require("modules/reader/end_book_data").stripConfig(nil, nil, plugin.config.end_book)
+            strip.controls.order[#strip.controls.order + 1] = params.add_source
+            strip.controls.show_buttons[params.add_source] = true
+            plugin.config.end_book.modules.strip = strip
+            page:rebuild()
+        end
+        if active and params.source then
+            page.source = params.source
+            page:rebuild()
+        end
+        if active and params.select_source then
+            local strip_config = require("modules/reader/end_book_data").stripConfig(
+                page.data:getRecommendations(), page.source, plugin.config.end_book, page.data.authors)
+            local ButtonModel = require("common/nav_button_model")
+            for _i, source in ipairs(require("modules/settings/sections/end_book_settings").sources) do
+                if source[1] == params.select_source then
+                    local drill = page._zen_home_strip_runtime.source.drill
+                    local label_text = page.source == source[1] and drill and drill.label
+                        or ButtonModel.label(strip_config.controls, ButtonModel.find(strip_config.controls, source[1]))
+                    local control = find_descendant(page, function(widget)
+                        return type(widget.onTapStripControl) == "function" and find_descendant(widget, function(label)
+                            return label.text == label_text
+                        end) ~= nil
+                    end)
+                    if not control then return { ok = false, error = "strip source unavailable" } end
+                    local pos = control.dimen:copy()
+                    pos.x, pos.y = pos.x + pos.w / 2, pos.y + pos.h / 2
+                    control:onTapStripControl(nil, { pos = pos })
+                end
+            end
+        end
+        if active and params.next_quote then page.data:nextQuote() end
+        if active and params.open_quote then page.data:openQuote(page.data:getCurrentQuote()) end
+        if active and params.widget then
+            plugin.config.end_book.rows.enabled[params.widget] = params.enabled
+            page:rebuild()
+        end
+        if active and params.refresh_header then page:_zen_status_refresh() end
+        local state = {
+            ok = true, active = active == true,
+            action = G_reader_settings:readSetting("end_document_action"),
+            initialized = plugin.config._meta.end_book_default_applied,
+            book_status = reader and (reader.doc_settings:readSetting("summary") or {}).status,
+        }
+        if active then
+            state.preview = page.preview == true
+            state.edit_mode = plugin.config.end_book.edit_mode ~= false
+            state.file = page.data.file
+            state.quote = page.data:getCurrentQuote()
+            state.stats = page.data.stats
+            state.recommendations = page.data:getRecommendations()
+            state.rows, state.row_heights = {}, {}
+            for _i, row in ipairs(page.widget_rows) do
+                state.rows[#state.rows + 1] = row.id
+                state.row_heights[row.id] = row.dimen.h
+            end
+            state.source = page.source
+            state.visible_texts = {}
+            collect_texts(page, state.visible_texts, {}, 0)
+            state.status_header = dimen_bounds(page.header_widget.dimen)
+            state.status_header_texts = {}
+            collect_texts(page.header_widget, state.status_header_texts, {}, 0)
+            state.status_back_bounds = dimen_bounds(page.back_button.dimen)
+            state.has_default_button = page.default_tab_button ~= nil
+            state.navigation_icons = {}
+            state.navigation_bounds = {}
+            state.navigation_icon_sizes = {}
+            state.navigation_enabled = {}
+            for _i, button in ipairs(page.featured_navigation_buttons or {}) do
+                state.navigation_icons[#state.navigation_icons + 1] = button.file
+                state.navigation_bounds[#state.navigation_bounds + 1] = dimen_bounds(button.dimen)
+                state.navigation_icon_sizes[#state.navigation_icon_sizes + 1] = button.width
+                state.navigation_enabled[#state.navigation_enabled + 1] = button.enabled
+            end
+            local navigation = page.featured_navigation_row
+            local function navigation_cell_bounds(index)
+                local bounds = dimen_bounds(page.featured_navigation_buttons[index].dimen)
+                local size = navigation[index * 2 - 1]:getSize()
+                bounds.x = bounds.x - math.floor((size.w - bounds.w) / 2)
+                bounds.w, bounds.h = size.w, size.h
+                return bounds
+            end
+            if navigation then
+                state.navigation_first_cell = navigation_cell_bounds(1)
+                state.navigation_last_cell = navigation_cell_bounds(#page.featured_navigation_buttons)
+                local navigation_size = navigation:getSize()
+                state.navigation_row_bounds = {
+                    x = state.navigation_first_cell.x, y = state.navigation_first_cell.y,
+                    w = navigation_size.w, h = navigation_size.h,
+                }
+            end
+            state.navigation_label_sizes = {}
+            for _i, label in ipairs(page.featured_navigation_labels or {}) do
+                state.navigation_label_sizes[#state.navigation_label_sizes + 1] = label.face.orig_size
+            end
+            state.featured_bounds = dimen_bounds(page.body_widget[1][3].dimen)
+            local body_size = page.body_widget[1]:getSize()
+            state.body_size = { w = body_size.w, h = body_size.h }
+            state.body_bounds = dimen_bounds(page.body_widget.dimen)
+            state.has_scroll = find_descendant(page, function(widget)
+                return type(widget.getScrolledOffset) == "function"
+            end) ~= nil
+            local featured_config = require("modules/reader/end_book_data").featuredConfig(plugin)
+            state.featured_status_bar = featured_config.show_status_bar
+            state.featured_description = featured_config.show_description
+            local title = find_descendant(page.body_widget[1][3], function(widget)
+                return widget.text == page.data:getFeaturedBook().title and widget.face ~= nil
+            end)
+            state.featured_title_size = title and title.face.orig_size
+            state.featured_title_bounds = title and dimen_bounds(title.dimen)
+            local finished_icon = find_descendant(page.body_widget[1][3], function(widget)
+                return widget.text == require("common/inline_icon_map").finished
+            end)
+            state.featured_finished_icon = finished_icon ~= nil
+            local progress = find_descendant(page.body_widget[1][3], function(widget)
+                return type(widget.text) == "string" and widget.text:match("^%d+%% completed") ~= nil
+            end)
+            state.featured_progress_text = progress and progress.text
+            state.featured_progress_size = progress and progress.face.orig_size
+            if progress then
+                state.featured_progress_truncated = progress:isTruncated() == true
+            end
+            local details = navigation and find_descendant(page.body_widget[1][3], function(widget)
+                return widget[#widget] == navigation
+            end)
+            for index, child in ipairs(details or {}) do
+                if child == progress then
+                    state.featured_status_padding = {
+                        above = details[index - 2]:getSize().h,
+                        below = details[index + 1]:getSize().h,
+                    }
+                    state.navigation_follows_divider = details[index + 3] == navigation
+                end
+            end
+            local featured_cover = find_descendant(page.body_widget[1][3], function(widget)
+                return widget[1] and widget[1][1] and widget[1][1].image ~= nil
+            end)
+            if featured_cover then state.featured_cover = dimen_bounds(featured_cover.dimen) end
+            state.menu_icon_size = require("device").screen:scaleBySize(G_defaults:readSetting("DGENERIC_ICON_SIZE"))
+            local strip_config = require("modules/reader/end_book_data").stripConfig(
+                state.recommendations, page.source, plugin.config.end_book, page.data.authors)
+            if strip_config and plugin.config.end_book.rows.enabled.strip then
+                local body = page.body_widget[1]
+                state.strip_arrows = strip_config.controls.show_buttons.page_left
+                    or strip_config.controls.show_buttons.page_right
+                local runtime = page._zen_home_strip_runtime
+                state.strip_drill = runtime.source.drill and runtime.source.drill.label
+                state.strip_items = {}
+                local books = page.data:getStripItemsForPage(runtime.source, strip_config.count,
+                    strip_config.order, "strip", 0)
+                for _i, book in ipairs(books) do
+                    state.strip_items[#state.strip_items + 1] = {
+                        group = book.is_group == true, label = book.group_label, path = book.path,
+                    }
+                end
+                local size = body[#body]:getSize()
+                state.strip_size = { w = size.w, h = size.h }
+                state.strip_covers = {}
+                local function collect_covers(widget)
+                    if type(widget.onTapCover) == "function" then
+                        state.strip_covers[#state.strip_covers + 1] = dimen_bounds(widget.dimen)
+                    end
+                    for _i, child in ipairs(widget) do collect_covers(child) end
+                end
+                collect_covers(body[#body])
+                state.strip_centered = strip_config.center_books
+                state.strip_preferred_height = require("modules/filebrowser/patches/home/widgets/strip").preferredHeight{
+                    width = size.w, module_cfg = strip_config,
+                }
+                state.strip_labels = {}
+                for _i, source in ipairs(require("modules/settings/sections/end_book_settings").sources) do
+                    local ButtonModel = require("common/nav_button_model")
+                    local label_text = ButtonModel.label(strip_config.controls,
+                        ButtonModel.find(strip_config.controls, source[1]))
+                    local control = find_descendant(page, function(widget)
+                        return type(widget.onTapStripControl) == "function" and find_descendant(widget, function(label)
+                            return label.text == label_text
+                        end) ~= nil
+                    end)
+                    if control then
+                        local label = find_descendant(control, function(widget) return widget.text == label_text end)
+                        local label_size, cell_size = label:getSize(), control[1]:getSize()
+                        state.strip_labels[#state.strip_labels + 1] = {
+                            text_h = label_size.h, cell_h = cell_size.h,
+                        }
+                    end
+                end
+            end
+            if params.drill_series then
+                local cover = find_descendant(page.body_widget[1][#page.body_widget[1]], function(widget)
+                    return type(widget.onTapCover) == "function"
+                end)
+                local pos = cover.dimen:copy()
+                pos.x, pos.y = pos.x + pos.w / 2, pos.y + pos.h / 2
+                pos.w, pos.h = 0, 0
+                cover:onTapCover(nil, { pos = pos })
+            end
+            if params.tap_cover then
+                local featured = page.body_widget[1][3]
+                local cover = find_descendant(featured, function(widget)
+                    return widget.bordersize ~= nil and widget[1] and widget[1][1]
+                        and widget[1][1].image ~= nil
+                end)
+                local pos = cover.dimen:copy()
+                pos.x, pos.y = pos.x + pos.w / 2, pos.y + pos.h / 2
+                pos.w, pos.h = 0, 0
+                page:handleEvent(Event:new("Gesture", { ges = "tap", pos = pos }))
+                local viewer = UIManager:getTopmostVisibleWidget()
+                state.cover_viewer = viewer ~= page and viewer.fullscreen == true
+            end
+            if params.tap_strip_cover or params.hold_strip_cover then
+                local cover = find_descendant(page.body_widget[1][#page.body_widget[1]], function(widget)
+                    return type(widget.onTapCover) == "function"
+                end)
+                local pos = cover.dimen:copy()
+                pos.x, pos.y = pos.x + pos.w / 2, pos.y + pos.h / 2
+                pos.w, pos.h = 0, 0
+                if params.hold_strip_cover then
+                    state.hold_handled = page:handleEvent(Event:new("Gesture", { ges = "hold", pos = pos })) == true
+                else
+                    cover:onTapCover(nil, { pos = pos, time = require("ui/time").now() })
+                end
+                local viewer = UIManager:getTopmostVisibleWidget()
+                state.cover_viewer = viewer ~= page and viewer.fullscreen == true
+                state.book_menu_buttons = {}
+                for _i, row in ipairs(viewer.buttons or {}) do
+                    for _j, button in ipairs(row) do
+                        state.book_menu_buttons[#state.book_menu_buttons + 1] = button.text
+                    end
+                end
+            end
+            state.opening_banner = find_descendant(UIManager:getTopmostVisibleWidget(), function(widget)
+                return widget._zen_opening_banner == true
+            end) ~= nil
+            if params.menu_activation then reader.menu.activation_menu = params.menu_activation end
+            if params.menu_gesture then
+                page:handleEvent(Event:new("Gesture", {
+                    ges = params.menu_gesture, direction = "south",
+                    pos = require("ui/geometry"):new{
+                        x = require("device").screen:getWidth() / 2, y = 5, w = 0, h = 0,
+                    },
+                }))
+                state.menu_open = reader.menu.menu_container ~= nil
+                if state.menu_open then reader.menu:onCloseReaderMenu() end
+            end
+            if params.tap then
+                if params.tap == "back" then
+                    local pos = page.back_button.dimen:copy()
+                    pos.x, pos.y = pos.x + pos.w / 2, pos.y + pos.h / 2
+                    pos.w, pos.h = 0, 0
+                    page:handleEvent(Event:new("Gesture", { ges = "tap", pos = pos }))
+                else
+                    page.featured_navigation_buttons[tonumber(params.tap)]:onTapIconButton()
+                end
+            end
+            if params.hold_widget then
+                for index, row in ipairs(page.widget_rows) do
+                    if row.id == params.hold_widget then
+                        local bounds = page.body_widget[1][index * 2 - 1].dimen
+                        state.hold_handled = page:handleEvent(Event:new("Gesture", {
+                            ges = "hold", pos = require("ui/geometry"):new{
+                                x = bounds.x + bounds.w / 2, y = bounds.y + bounds.h - 1,
+                            },
+                        })) == true
+                    end
+                end
+            end
+            if params.close then page:onClose() end
+        end
+        return state
     end
     if kind == "customize_reader_footer" then
         local ok, err = customize_reader_footer()
@@ -2431,7 +2792,7 @@ function Driver:handleCommand(command)
         for index = #UIManager._window_stack, 1, -1 do
             local widget = UIManager._window_stack[index].widget
             if getmetatable(widget) == ConfirmBox then
-                widget.ok_callback()
+                if params.accept ~= false then widget.ok_callback() end
                 UIManager:close(widget)
                 return { ok = true }
             end
@@ -2576,7 +2937,7 @@ function Driver:handleCommand(command)
             end
             checked[#checked + 1] = value
             if type(item.sub_item_table) == "table"
-                    or type(item.sub_item_table_func) == "function" then
+                    or type(item.sub_item_table_func) == "function" or item._zen_settings_submenu == true then
                 submenu_indices[#submenu_indices + 1] = item_i
             end
         end
@@ -2872,7 +3233,15 @@ function Driver:handleCommand(command)
         if not widget then return { ok = false, error = "arrange page unavailable" } end
         for _i, row in ipairs(widget.main_content or {}) do
             if row.index == index and type(row.onTap) == "function" then
-                local handled = row:onTap(nil, {})
+                local gesture = {}
+                if params.toggle then
+                    local toggle = row.checkmark_widget
+                    if not toggle then return { ok = false, error = "arrange toggle unavailable" } end
+                    local pos = toggle.dimen:copy()
+                    pos.x, pos.y = pos.x + pos.w / 2, pos.y + pos.h / 2
+                    gesture.pos = pos
+                end
+                local handled = row:onTap(nil, gesture)
                 return { ok = handled == true }
             end
         end

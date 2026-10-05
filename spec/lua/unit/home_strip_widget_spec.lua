@@ -279,6 +279,39 @@ describe("home strip widget", function()
         assert.are.same({ book.path, "recently_read" }, context_args)
     end)
 
+    it("opens cover images in Preview without opening books or showing a banner", function()
+        touch_device = true
+        rawset(_G, "__ZEN_UI_SET_OPENING_BANNER_COVER", function() error("Preview showed an opening banner") end)
+        local opened, target
+        local ctx = {
+            width = 600, height = 300, component_id = "strip", module_cfg = { count = 4 },
+            data = { getBooksForStrip = function() return { { path = "/library/book.epub" } } end },
+            openBook = function() error("Preview opened a book") end,
+            openCover = function(path) opened = path; return true end,
+            registerHomeFocusTarget = function(focus, child) target = focus; return child end,
+        }
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        Strip.build(ctx)
+        for _i, widget in ipairs(created) do
+            if widget.onTapCover then
+                widget.dimen.contains = function() return true end
+                assert.is_true(widget:onTapCover(nil, { pos = { x = 1, y = 1 }, time = 1 }))
+            end
+        end
+        assert.are.equal("/library/book.epub", opened)
+        opened = nil
+        assert.is_true(target.activate())
+        assert.are.equal("/library/book.epub", opened)
+        ctx.openCover = nil
+        ctx.skipOpeningBanner = true
+        ctx.openBook = function(path) opened = path end
+        Strip.build(ctx)
+        opened = nil
+        assert.is_true(target.activate())
+        assert.are.equal("/library/book.epub", opened)
+        rawset(_G, "__ZEN_UI_SET_OPENING_BANNER_COVER", nil)
+    end)
+
     it("dims finished covers even when strip badges are hidden", function()
         rawset(_G, "__ZEN_UI_PLUGIN", {
             config = {
@@ -964,6 +997,38 @@ describe("home strip widget", function()
         end
         assert.are.equal(226, wide_search_width)
         assert.are.same({ 226, 225 }, wide_label_widths)
+    end)
+
+    it("outlines a lone source tab, including when page arrows are visible", function()
+        local StripControls = require("modules/filebrowser/patches/home/widgets/strip_controls")
+        for _i, arrows in ipairs({ false, true }) do
+            local frame, targets = StripControls.build{
+                width = 600, height = 30, active_id = "other_series", active_group = "A Series",
+                controls = {
+                    order = { "page_left", "next_series", "other_series", "page_right" },
+                    show_buttons = { page_left = arrows, page_right = arrows,
+                        next_series = false, other_series = true },
+                    labels = {}, custom_buttons = {
+                        { id = "next_series", type = "custom_source", label = "Next in series", paths = {} },
+                        { id = "other_series", type = "custom_source", label = "Other series", paths = { "book" } },
+                    },
+                },
+                prepare_focus = function(_target, widget) return widget end,
+                on_source = function(entry)
+                    assert.are.equal("other_series", entry.id)
+                    return true
+                end,
+            }
+            local cell = frame[1][arrows and 3 or 1]
+            assert.are.equal(2, frame.bordersize)
+            assert.are.equal("black", frame.color)
+            assert.are.equal("white", cell.background)
+            assert.are.equal("black", cell[1][1].fgcolor)
+            assert.are.equal("A Series", cell[1][1].text)
+            local target = targets[arrows and 2 or 1]
+            assert.are.equal("black", target.focus_color)
+            assert.is_true(target.activate())
+        end
     end)
 
     it("squares strip controls when rounded library covers are disabled", function()

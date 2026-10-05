@@ -77,6 +77,7 @@ describe("folder cover context-menu integration", function()
         replace("common/inline_icon_map", {
             arrow_right = ">",
             settings_covers = "covers-icon",
+            settings = "settings-icon",
             check = "check-icon",
             filename = "filename-icon",
             details = "details-icon",
@@ -920,6 +921,14 @@ describe("folder cover context-menu integration", function()
             "/library/renamed.epub",
             "/library/renamed.epub",
         }, refreshed)
+
+        file_chooser:showFileDialog({
+            path = "/library/book.epub", is_file = true,
+            _zen_home_context = true, _zen_hide_edit = true,
+            _zen_widget_settings = function() end,
+        })
+        assert.is_nil(find_button(shown[#shown], "Edit"))
+        assert.is_table(find_button(shown[#shown], "Widget settings"))
 
         local kindle_refreshes = 0
         file_chooser:showFileDialog({

@@ -7062,68 +7062,118 @@ msgstr "ZenPM"
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPM has been installed. Restart KOReader to use it."
 
-#. Type: label
-#. Context: wcli:close() if connected then return true, _("Authenticated") end if reply and reply:sub(1, 2) == "OK" then
-#: kobo.lua:128
-msgid "Authenticated"
-msgstr ""
+#. Type: message
+msgid "Book status"
+msgstr "Book status"
 
 #. Type: message
-#. Context: and ffiutil.template(_("Connected to %1."):gsub("%.$", ""):gsub("。$", ""), ssid) or _("Connected."):gsub("%.$", ""):gsub("。$", "")) end, true, 15)
-#: nonblocking_wifi.lua:290
-msgid "Connected."
-msgstr ""
-
-#. Type: label
-#. Context: network_dialog = widget elseif widget.text == _("Connection failed") then failure_notice = widget
-#: network_switcher.lua:71 network_switcher.lua:440 kobo.lua:194 kobo.lua:237 kobo.lua:284
-msgid "Connection failed"
-msgstr ""
-
-#. Type: label
-#. Context: if not no_known_networks then self:showWifiNotice(problem or _("Error connecting to the network"), problem and 8 or 2) end
-#: nonblocking_wifi.lua:363 network_switcher.lua:551 network_switcher.lua:895
-msgid "Error connecting to the network"
-msgstr ""
+msgid "Book titles"
+msgstr "Book titles"
 
 #. Type: message
-#. Context: if is_secured(network) and failure ~= "no_address" and (not kobo or result.auth_error == _("Failed to authenticate")) then prompt_password(network, reason)
-#: network_switcher.lua:475 kobo.lua:117 kobo.lua:209
-msgid "Failed to authenticate"
-msgstr ""
-
-#. Type: label
-#. Context: local rejected = false local reason = _("Timed out") local last_state
-#: kobo.lua:94 kobo.lua:221 kobo.lua:271
-msgid "Timed out"
-msgstr ""
+msgid "Books per page"
+msgstr "Books per page"
 
 #. Type: message
-#. Context: if not self:canResolveHostnames() then return _("Wi-Fi connected, but DNS lookup failed. Internet access may be unavailable. Try reconnecting.") end
-#: nonblocking_wifi.lua:269
-msgid "Wi-Fi connected, but DNS lookup failed. Internet access may be unavailable. Try reconnecting."
-msgstr ""
+msgid "Days"
+msgstr "Days"
 
 #. Type: message
-#. Context: if self.interface and not self:ifHasAnAddress() then return _("Wi-Fi connected, but no IP address was assigned. Try reconnecting.") end
-#: nonblocking_wifi.lua:49
-msgid "Wi-Fi connected, but no IP address was assigned. Try reconnecting."
-msgstr ""
+msgid "Default source"
+msgstr "Default source"
 
 #. Type: message
-#. Context: if not self:hasDefaultRoute() then return _("Wi-Fi connected, but no default route is available. Check your router or try reconnecting.") end
-#: nonblocking_wifi.lua:52
-msgid "Wi-Fi connected, but no default route is available. Check your router or try reconnecting."
-msgstr ""
+msgid "End of book"
+msgstr "End of book"
 
 #. Type: message
-#. Context: and _("Wi-Fi connected, but the connection check timed out. Internet access may be unavailable.") or _("Wi-Fi connected, but the connection check failed. Try reconnecting.") end
-#: nonblocking_wifi.lua:280
-msgid "Wi-Fi connected, but the connection check failed. Try reconnecting."
-msgstr ""
+msgid "Finished on %s"
+msgstr "Finished on %s"
 
 #. Type: message
-#. Context: problem = err == "timeout" and _("Wi-Fi connected, but the connection check timed out. Internet access may be unavailable.") or _("Wi-Fi connected, but the connection check failed. Try reconnecting.")
-#: nonblocking_wifi.lua:279
-msgid "Wi-Fi connected, but the connection check timed out. Internet access may be unavailable."
-msgstr ""
+msgid "Finished reading"
+msgstr "Finished reading"
+
+#. Type: message
+msgid "Highlights"
+msgstr "Highlights"
+
+#. Type: message
+msgid "Highlights and notes"
+msgstr "Highlights and notes"
+
+#. Type: message
+msgid "Minutes per page"
+msgstr "Minutes per page"
+
+#. Type: message
+msgid "Minutes per reading day"
+msgstr "Minutes per reading day"
+
+#. Type: message
+msgid "Next in series"
+msgstr "Next in series"
+
+#. Type: message
+msgid "No highlights in this book."
+msgstr "No highlights in this book."
+
+#. Type: message
+msgid "Other series"
+msgstr "Other series"
+
+#. Type: message
+msgid "Page %s"
+msgstr "Page %s"
+
+#. Type: message
+msgid "Preview"
+msgstr "Preview"
+
+#. Type: message
+msgid "Reading progress"
+msgstr "Reading progress"
+
+#. Type: message
+msgid "Reading statistics"
+msgstr "Reading statistics"
+
+#. Type: message
+msgid "Reading time"
+msgstr "Reading time"
+
+#. Type: message
+msgid "More by %1"
+msgstr "More by %1"
+
+#. Type: message
+msgid "More by author"
+msgstr "More by author"
+
+#. Type: message
+msgid "Use at end of book"
+msgstr "Use at end of book"
+
+#. Type: message
+msgid "Zen end of book"
+msgstr "Zen end of book"
+
+#. Type: message
+msgid "No books to show."
+msgstr "No books to show."
+
+#: modules/settings/sections/end_book_settings.lua
+msgid "Not enough space: %1/%2 units used; this widget needs %3."
+msgstr "Not enough space: %1/%2 units used; this widget needs %3."
+
+#. Featured end-of-book action limit
+msgid "Maximum 5 buttons allowed"
+msgstr "Maximum 5 buttons allowed"
+
+#. End-of-book featured progress
+msgid "%d%% completed"
+msgstr "%d%% completed"
+
+#: modules/settings/sections/library_settings/home_settings.lua
+msgid "Button labels"
+msgstr "Button labels"

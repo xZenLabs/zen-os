@@ -5,6 +5,7 @@ describe("reader module initialization", function()
         "stable_page_statistics",
         "opening_banner",
         "book_status",
+        "end_book",
         "status_on_open",
         "screensaver_cover",
         "reader_footer",
@@ -58,6 +59,7 @@ describe("reader module initialization", function()
             "stable_page_statistics",
             "opening_banner",
             "book_status",
+            "end_book",
             "status_on_open",
             "screensaver_cover",
             "reader_footer",
@@ -73,7 +75,7 @@ describe("reader module initialization", function()
         assert.is_nil(_G.__ZEN_UI_RUNTIME_PATCHES.reader_top_status_bar)
 
         assert.is_true(Reader.init(logger, plugin))
-        assert.are.equal(15, #calls)
+        assert.are.equal(16, #calls)
     end)
 
     it("records a successfully enabled runtime status-bar patch", function()
@@ -135,7 +137,7 @@ describe("reader module initialization", function()
 
         assert.is_true(Reader.init(logger, { config = { features = {} } }))
         assert.are.equal(previous, _G.__ZEN_UI_PLUGIN)
-        assert.are.equal("status_on_open", calls[6])
+        assert.are.equal("status_on_open", calls[7])
         assert.are.equal(1, #warnings)
         assert.are.equal("grouped reader feature failed", warnings[1][1])
         assert.are.equal("book_status", warnings[1][2])

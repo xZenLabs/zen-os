@@ -7057,3 +7057,119 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:381
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "O ZenPM foi instalado. Reinicie o KOReader para usá-lo."
+
+#. Type: message
+msgid "Book status"
+msgstr "Status do livro"
+
+#. Type: message
+msgid "Book titles"
+msgstr "Títulos dos livros"
+
+#. Type: message
+msgid "Books per page"
+msgstr "Livros por página"
+
+#. Type: message
+msgid "Days"
+msgstr "Dias"
+
+#. Type: message
+msgid "Default source"
+msgstr "Fonte padrão"
+
+#. Type: message
+msgid "End of book"
+msgstr "Fim do livro"
+
+#. Type: message
+msgid "Finished on %s"
+msgstr "Concluído em %s"
+
+#. Type: message
+msgid "Finished reading"
+msgstr "Leitura concluída"
+
+#. Type: message
+msgid "Highlights"
+msgstr "Destaques"
+
+#. Type: message
+msgid "Highlights and notes"
+msgstr "Destaques e notas"
+
+#. Type: message
+msgid "Minutes per page"
+msgstr "Minutos por página"
+
+#. Type: message
+msgid "Minutes per reading day"
+msgstr "Minutos por dia de leitura"
+
+#. Type: message
+msgid "Next in series"
+msgstr "Próximo da série"
+
+#. Type: message
+msgid "No highlights in this book."
+msgstr "Nenhum destaque neste livro."
+
+#. Type: message
+msgid "Other series"
+msgstr "Outras séries"
+
+#. Type: message
+msgid "Page %s"
+msgstr "Página %s"
+
+#. Type: message
+msgid "Preview"
+msgstr "Prévia"
+
+#. Type: message
+msgid "Reading progress"
+msgstr "Progresso da leitura"
+
+#. Type: message
+msgid "Reading statistics"
+msgstr "Estatísticas de leitura"
+
+#. Type: message
+msgid "Reading time"
+msgstr "Tempo de leitura"
+
+#. Type: message
+msgid "More by %1"
+msgstr "Mais de %1"
+
+#. Type: message
+msgid "More by author"
+msgstr "Mais do autor"
+
+#. Type: message
+msgid "Use at end of book"
+msgstr "Usar ao terminar o livro"
+
+#. Type: message
+msgid "Zen end of book"
+msgstr "Fim do livro Zen"
+
+#. Type: message
+msgid "No books to show."
+msgstr "Nenhum livro para mostrar."
+
+#: modules/settings/sections/end_book_settings.lua
+msgid "Not enough space: %1/%2 units used; this widget needs %3."
+msgstr "Espaço insuficiente: %1/%2 unidades usadas; este widget precisa de %3."
+
+#. Featured end-of-book action limit
+msgid "Maximum 5 buttons allowed"
+msgstr "Permitidos no máximo 5 botões"
+
+#. End-of-book featured progress
+msgid "%d%% completed"
+msgstr "%d%% concluído"
+
+#: modules/settings/sections/library_settings/home_settings.lua
+msgid "Button labels"
+msgstr "Rótulos dos botões"

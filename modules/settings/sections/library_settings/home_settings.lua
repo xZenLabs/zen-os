@@ -85,9 +85,9 @@ local function normalize_order(order)
     return "default"
 end
 
-local function ensure_featured_text_style(mcfg, key)
+local function ensure_featured_text_style(mcfg, key, defaults)
     if type(mcfg.text_styles) ~= "table" then mcfg.text_styles = {} end
-    local defaults = FEATURED_TEXT_STYLE_DEFAULTS[key]
+    defaults = defaults or FEATURED_TEXT_STYLE_DEFAULTS[key]
     if type(defaults) ~= "table" then return nil end
     if type(mcfg.text_styles[key]) ~= "table" then mcfg.text_styles[key] = {} end
     local style = mcfg.text_styles[key]
@@ -320,7 +320,11 @@ end
 
 function M.build(ctx)
     local config = ctx.config
-    local dcfg = ensure_cfg(config)
+    local dcfg = ctx.widget_config or ensure_cfg(config)
+    local featured_defaults = ctx.featured_text_style_defaults or FEATURED_TEXT_STYLE_DEFAULTS
+    local function featured_style(mcfg, key)
+        return ensure_featured_text_style(mcfg, key, featured_defaults[key])
+    end
     local capacity_units = type(Registry.capacityUnits) == "function"
         and Registry.capacityUnits() or Registry.CAPACITY_UNITS
     local schedule_home_rebuild_on_menu_close
@@ -358,6 +362,7 @@ function M.build(ctx)
     end
 
     local function save_home(_mode, opts)
+        if ctx.save_widget_config then ctx.save_widget_config(); return end
         if not (type(opts) == "table" and opts.make_builtin_editable == false) then
             make_builtin_editable()
         end
@@ -396,6 +401,7 @@ function M.build(ctx)
     end
 
     local function used_home_units()
+        if ctx.used_widget_units then return ctx.used_widget_units(dcfg.rows.enabled, dcfg.modules) end
         return Registry.totalUnits(dcfg.rows.enabled, dcfg.modules)
     end
 
@@ -416,7 +422,8 @@ function M.build(ctx)
         local InfoMessage = require("ui/widget/infomessage")
         UIManager:show(InfoMessage:new{
             text = T(
-                _("Not enough Home space: %1/%2 units used; this widget needs %3."),
+                ctx.widget_config and _("Not enough space: %1/%2 units used; this widget needs %3.")
+                    or _("Not enough Home space: %1/%2 units used; this widget needs %3."),
                 used,
                 capacity_units,
                 needed
@@ -660,23 +667,23 @@ function M.build(ctx)
     end
 
     local function featured_text_style_summary(mcfg, key)
-        local style = ensure_featured_text_style(mcfg, key)
+        local style = featured_style(mcfg, key)
         local weight = style.bold and _("bold") or _("regular")
         return string.format("%s, %s, %s", font_label(style.font_face), tostring(style.font_size), weight)
     end
 
     local function build_featured_text_style_items(mcfg, key, label)
-        local defaults = FEATURED_TEXT_STYLE_DEFAULTS[key]
+        local defaults = featured_defaults[key]
         local items = {
             {
                 text_func = function()
-                    local style = ensure_featured_text_style(mcfg, key)
+                    local style = featured_style(mcfg, key)
                     return string.format("%s %s", _("Font size:"), tostring(style.font_size))
                 end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
                     local SpinWidget = require("ui/widget/spinwidget")
-                    local style = ensure_featured_text_style(mcfg, key)
+                    local style = featured_style(mcfg, key)
                     UIManager:show(SpinWidget:new{
                         title_text = string.format("%s %s", label, _("font size")),
                         value = style.font_size,
@@ -693,14 +700,14 @@ function M.build(ctx)
             {
                 _zen_search_text = _("Font"),
                 text_func = function()
-                    local style = ensure_featured_text_style(mcfg, key)
+                    local style = featured_style(mcfg, key)
                     return string.format("%s %s", _("Font:"), font_label(style.font_face))
                 end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
                     local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
                     if not ok_fc then return end
-                    local style = ensure_featured_text_style(mcfg, key)
+                    local style = featured_style(mcfg, key)
                     local default_font = chooser_default_font()
                     local display_face = style.font_face == "default" and default_font or style.font_face
                     UIManager:show(FontChooser:new{
@@ -716,7 +723,7 @@ function M.build(ctx)
                     })
                 end,
                 hold_callback = function(touchmenu_instance)
-                    local style = ensure_featured_text_style(mcfg, key)
+                    local style = featured_style(mcfg, key)
                     if style.font_face ~= "default" then
                         style.font_face = "default"
                         save_featured_text_style(touchmenu_instance)
@@ -726,10 +733,10 @@ function M.build(ctx)
             {
                 text = _("Bold"),
                 checked_func = function()
-                    return ensure_featured_text_style(mcfg, key).bold == true
+                    return featured_style(mcfg, key).bold == true
                 end,
                 callback = function(touchmenu_instance)
-                    local style = ensure_featured_text_style(mcfg, key)
+                    local style = featured_style(mcfg, key)
                     style.bold = style.bold ~= true
                     save_featured_text_style(touchmenu_instance)
                 end,
@@ -812,10 +819,16 @@ function M.build(ctx)
         items[#items + 1] = featured_text_style_item(mcfg, "title", _("Title"))
         items[#items + 1] = featured_text_style_item(mcfg, "author", _("Author"), "show_author")
         items[#items + 1] = featured_text_style_item(mcfg, "series", _("Series"), "show_series")
-        items[#items + 1] = featured_text_style_item(
-            mcfg, "description", _("Description"), "show_description")
+        if not ctx.widget_config then
+            items[#items + 1] = featured_text_style_item(
+                mcfg, "description", _("Description"), "show_description")
+        end
         items[#items + 1] = featured_text_style_item(
             mcfg, "progress", _("Progress labels"))
+        if ctx.widget_config then
+            items[#items + 1] = featured_text_style_item(mcfg, "status", _("Book status"))
+            items[#items + 1] = featured_text_style_item(mcfg, "navigation", _("Button labels"), "show_navigation_labels")
+        end
         return items
     end
 
@@ -1014,7 +1027,8 @@ function M.build(ctx)
                 sub_item_table = build_progress_meta_items(mcfg),
             },
         }
-        if mcfg.default_source.kind == "custom" then
+        if ctx.widget_config then table.remove(items, 1); table.remove(items, 1); table.remove(items, 1) end
+        if not ctx.widget_config and mcfg.default_source.kind == "custom" then
             items[#items + 1] = {
                 text_func = function()
                     return _("Book: ") .. path_label(mcfg.path)
@@ -1049,7 +1063,7 @@ function M.build(ctx)
             recent = _("Recent"), favorites = _("Favorites"),
             to_be_read = _("To Be Read"), authors = _("Authors"),
             series = _("Series"), languages = _("Languages"), tags = _("Tags"),
-            collections = _("Collections"), custom = _("Custom books"),
+            collections = _("Collections"), custom = _("Custom books"), continue = _("Continue"),
         }
         if source.kind == "tag" then return source.value or _("Specific tag") end
         if source.kind == "status" then
@@ -1250,11 +1264,13 @@ function M.build(ctx)
     end
 
     local function reset_strip_tabs(mcfg)
-        local defaults = HomePresets.defaultHomePage().modules.strip.controls
+        local defaults = ctx.strip_controls_defaults
+            and require("common/utils").deepcopy(ctx.strip_controls_defaults)
+            or HomePresets.defaultHomePage().modules.strip.controls
         local controls = mcfg.controls
         for _i, entry in ipairs(controls.custom_buttons) do
             if type(entry) == "table" and type(entry.id) == "string"
-                    and entry.id ~= "" then
+                    and entry.id ~= "" and defaults.show_buttons[entry.id] == nil then
                 defaults.order[#defaults.order + 1] = entry.id
                 defaults.show_buttons[entry.id] = false
             end
@@ -1287,6 +1303,11 @@ function M.build(ctx)
                 }
             end
         end
+        for _i, entry in ipairs(ctx.strip_controls_defaults and ctx.strip_controls_defaults.custom_buttons or {}) do
+            if not selected[entry.id] then
+                items[#items + 1] = { text = entry.label, entry = entry }
+            end
+        end
         local selected_status = {}
         for _i, entry in ipairs(controls.custom_buttons) do
             if selected[entry.id] and entry.type == "status" then
@@ -1316,6 +1337,9 @@ function M.build(ctx)
                 end
                 local entry = item and item.entry
                 if not entry or count_strip_buttons(controls) >= 7 then return end
+                if entry.type == "custom_source" and not ButtonModel.find(controls, entry.id) then
+                    controls.custom_buttons[#controls.custom_buttons + 1] = require("common/utils").deepcopy(entry)
+                end
                 controls.order[#controls.order + 1] = entry.id
                 controls.show_buttons[entry.id] = true
                 save_home("reinit")
@@ -1494,7 +1518,8 @@ function M.build(ctx)
             }
         else
             settings_resume = select(2, settings_page.rememberStandaloneArrangeRoute({
-                { text = _("Home"), occurrence = 1 },
+                { text = ctx.widget_config and _("Reader") or _("Home"), occurrence = 1 },
+                ctx.widget_config and { text = _("End of book") } or nil,
             }, _("Widgets"), { "strip", _("Controls"), _("Tabs") }))
         end
         local sort_items
@@ -1844,6 +1869,7 @@ function M.build(ctx)
                 end,
             },
         }
+        if ctx.widget_config then return items end
         if mcfg.controls.enabled ~= true then
             table.insert(items, 1, {
                 text_func = function()
@@ -2593,6 +2619,8 @@ function M.build(ctx)
         end
         return items
     end
+
+    if ctx.widget_id then return build_widget_settings_items(ctx.widget_id) end
 
     open_widget_settings = function(id, owning_plugin)
         local settings_page = require("modules/settings/zen_settings_page")

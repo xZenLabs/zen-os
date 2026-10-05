@@ -56,25 +56,23 @@ local function get_control_face(style, size)
     return Font:getFace(style.font_face, size) or library_font.getFace(size)
 end
 
-local function fit_face(labels, width, style, maximum, minimum)
+local function fit_face(labels, width, height, style, maximum, minimum)
     local size = maximum or Device.screen:scaleBySize(10)
     minimum = minimum or Device.screen:scaleBySize(7)
-    while size > minimum do
+    while size > 1 do
         local face = get_control_face(style, size)
-        local fits = true
+        local fits, fits_height = true, true
         for _i, label in ipairs(labels) do
             local probe = TextWidget:new{ text = label, face = face, bold = style.bold }
-            local needed = probe:getSize().w
+            local needed = probe:getSize()
             WidgetResources.free(probe)
-            if needed > width - Device.screen:scaleBySize(6) then
-                fits = false
-                break
-            end
+            if needed.w > width - Device.screen:scaleBySize(6) then fits = false end
+            if needed.h > height then fits, fits_height = false, false end
         end
-        if fits then return face end
+        if fits or size <= minimum and fits_height then return face end
         size = size - 1
     end
-    return get_control_face(style, minimum)
+    return get_control_face(style, 1)
 end
 
 local function hitbox_contains(dimen, pos, padding)
@@ -134,8 +132,9 @@ function M.build(opts)
     local inner_height = math.max(1, height - border_size * 2)
     local divider_size = math.max(1, Device.screen:scaleBySize(1))
     local divider_width = math.max(0, #entries - 1) * divider_size
-    local compact_count = 0
+    local compact_count, source_count = 0, 0
     for _i, entry in ipairs(entries) do
+        if ButtonModel.isSource(entry) then source_count = source_count + 1 end
         if COMPACT_IDS[entry.id] then
             compact_count = compact_count + 1
         end
@@ -154,7 +153,7 @@ function M.build(opts)
     local text_style = control_text_style(controls)
     local fit_width = flexible_count > 0
         and math.floor(flexible_width / flexible_count) or 1
-    local face = fit_face(labels, math.max(1, fit_width), text_style,
+    local face = fit_face(labels, math.max(1, fit_width), inner_height, text_style,
         Device.screen:scaleBySize(text_style.font_size))
     local flexible_cell_width = flexible_count > 0
         and math.floor(flexible_width / flexible_count) or 0
@@ -174,7 +173,7 @@ function M.build(opts)
         if not COMPACT_IDS[entry.id] then flexible_index = flexible_index + 1 end
         local cell_width = COMPACT_IDS[entry.id] and compact_width or flexible_cell_width
             + (flexible_index <= flexible_remainder and 1 or 0)
-        local active = entry.id == opts.active_id
+        local active = entry.id == opts.active_id and source_count > 1
         local content
         if icon_entry then
             local icon = entry.id == "page_left" and icons.arrow_left
@@ -183,7 +182,8 @@ function M.build(opts)
                 dimen = Geom:new{ w = cell_width, h = inner_height },
                 TextWidget:new{
                     text = icon,
-                    face = Font:getFace("smallinfofont", Device.screen:scaleBySize(14)),
+                    face = fit_face({ icon }, cell_width, inner_height,
+                        { font_face = "smallinfofont" }, Device.screen:scaleBySize(14)),
                     padding = 0,
                 },
             }
@@ -193,7 +193,7 @@ function M.build(opts)
             local label_face = face
             if entry.id == opts.active_id and opts.active_group then
                 local base_size = face.orig_size or face.size or Device.screen:scaleBySize(10)
-                label_face = fit_face({ label }, cell_width, text_style, base_size,
+                label_face = fit_face({ label }, cell_width, inner_height, text_style, base_size,
                     math.max(Device.screen:scaleBySize(7), base_size - 1))
             end
             content = FrameContainer:new{

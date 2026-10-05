@@ -12,6 +12,9 @@ local function apply()
     local UIManager = require("ui/uimanager")
     local logger = require("common/zen_logger").new("dict_quick_lookup")
     local LookupPluginItems = require("modules/reader/lookup_plugin_items")
+    local utils = require("common/utils")
+    local plugin_root = require("common/plugin_root")
+    local ai_icon = utils.resolveLocalIcon(plugin_root and plugin_root .. "/icons/", "lookup_ai")
     local _ = require("gettext")
 
     local _plugin_ref = rawget(_G, "__ZEN_UI_PLUGIN")
@@ -76,24 +79,31 @@ local function apply()
             or text == _("Long-press to add to vocabulary builder")
     end
 
-    -- AI assistant icon (assistant.koplugin). Built directly against the
-    -- plugin, like the other Zen icons, so it shows whenever the plugin is
-    -- loaded regardless of which buttons it registered itself. Opens the
-    -- main AI dialog with the looked-up word.
+    local function ai_dialog_method(dialog)
+        if not dialog then return nil end
+        if type(dialog.showAskDialog) == "function" then return dialog.showAskDialog end
+        if type(dialog.show) == "function" then return dialog.show end
+    end
+
+    -- Assistant versions expose either showAskDialog or show.
     local function ai_dict_button(dict_widget)
         local assistant = dict_widget.ui and dict_widget.ui.assistant
-        if not assistant or not assistant.assistant_dialog then return nil end
+        if not assistant or type(assistant.isConfigured) ~= "function"
+                or not ai_dialog_method(assistant.assistant_dialog) then return nil end
         return {
             id = "zen_ai_assistant",
-            icon = "lookup.ai",
+            icon = ai_icon,
             callback = function()
                 if not assistant:isConfigured() then return end
                 local NetworkMgr = require("ui/network/manager")
-                NetworkMgr:runWhenOnline(function()
-                    UIManager:nextTick(function()
-                        assistant.assistant_dialog:show(dict_widget.word)
-                    end)
-                end)
+                NetworkMgr:runWhenOnline(LookupPluginItems.safeCallback(function()
+                    UIManager:nextTick(LookupPluginItems.safeCallback(function()
+                        local dialog = assistant.assistant_dialog
+                        local show = ai_dialog_method(dialog)
+                        if not show then error("Assistant dialog is unavailable") end
+                        show(dialog, dict_widget.lookupword or dict_widget.word)
+                    end))
+                end))
             end,
         }
     end
@@ -311,7 +321,9 @@ local function apply()
 
             logger.dbg("new-api icon_row=",
                 #icon_row, "unknown=", #unknown)
-            return #result > 0 and result or buttons
+            result = #result > 0 and result or buttons
+            LookupPluginItems.protectButtons(result)
+            return result
         end
 
         logger.dbg("installed new-API buildButtonLayout override")
@@ -496,6 +508,7 @@ local function apply()
                             end
                         end
                     end
+                    LookupPluginItems.protectButtons(buttons)
                 end
                 return result
             end

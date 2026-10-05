@@ -1617,6 +1617,38 @@ describe("home data and book caches", function()
         assert.are.equal(1, list_calls)
     end)
 
+    it("paginates Continue in recent-read order while excluding finished and unstarted books", function()
+        local statuses = { "reading", "complete", "new", "reading", "abandoned", "reading" }
+        history_items = {}
+        for index, status in ipairs(statuses) do
+            local path = "/library/" .. index .. ".epub"
+            history_items[index] = { file = path }
+            statuses[path] = status
+        end
+        require("readhistory").hist = history_items
+        require("common/book_status").getFileStatusData = function(path)
+            return { effective_status = statuses[path], percent_finished = 0.25 }
+        end
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } }, modules = { strip = {} },
+        })
+        assert.same({ "/library/1.epub", "/library/4.epub", "/library/6.epub" }, provider:getContinuePaths())
+        local source = { kind = "continue" }
+        local books, adjacent = provider:getStripItemsForPage(source, 2, "reverse", "strip", 0)
+        assert.are.equal("/library/1.epub", books[1].path)
+        assert.are.equal("/library/4.epub", books[2].path)
+        assert.is_true(adjacent)
+        assert.same({ total = 3, total_pages = 2, current_page = 1 },
+            provider:getStripPageInfo(source, 2, "reverse", "strip"))
+        assert.is_true(provider:shiftStripItems(source, 2, "reverse", "next", "strip"))
+        books = provider:getStripItemsForPage(source, 2, "reverse", "strip", 0)
+        assert.are.equal(1, #books)
+        assert.are.equal("/library/6.epub", books[1].path)
+        assert.are.equal(2, provider:getStripPageInfo(source, 2, "reverse", "strip").current_page)
+        assert.are.equal(1, history_reload_count)
+    end)
+
     it("loads a named status as a first-class strip source", function()
         local requested
         ZenSpec.replace("common/tbr_index", {

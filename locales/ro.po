@@ -7057,3 +7057,119 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:381
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPM a fost instalat. Reporniți KOReader pentru a-l folosi."
+
+#. Type: message
+msgid "Book status"
+msgstr "Starea cărții"
+
+#. Type: message
+msgid "Book titles"
+msgstr "Titlurile cărților"
+
+#. Type: message
+msgid "Books per page"
+msgstr "Cărți pe pagină"
+
+#. Type: message
+msgid "Days"
+msgstr "Zile"
+
+#. Type: message
+msgid "Default source"
+msgstr "Sursă implicită"
+
+#. Type: message
+msgid "End of book"
+msgstr "Sfârșitul cărții"
+
+#. Type: message
+msgid "Finished on %s"
+msgstr "Terminată pe %s"
+
+#. Type: message
+msgid "Finished reading"
+msgstr "Lectură terminată"
+
+#. Type: message
+msgid "Highlights"
+msgstr "Evidențieri"
+
+#. Type: message
+msgid "Highlights and notes"
+msgstr "Evidențieri și note"
+
+#. Type: message
+msgid "Minutes per page"
+msgstr "Minute pe pagină"
+
+#. Type: message
+msgid "Minutes per reading day"
+msgstr "Minute pe zi de lectură"
+
+#. Type: message
+msgid "Next in series"
+msgstr "Următoarea din serie"
+
+#. Type: message
+msgid "No highlights in this book."
+msgstr "Nicio evidențiere în această carte."
+
+#. Type: message
+msgid "Other series"
+msgstr "Alte serii"
+
+#. Type: message
+msgid "Page %s"
+msgstr "Pagina %s"
+
+#. Type: message
+msgid "Preview"
+msgstr "Previzualizare"
+
+#. Type: message
+msgid "Reading progress"
+msgstr "Progresul lecturii"
+
+#. Type: message
+msgid "Reading statistics"
+msgstr "Statistici de lectură"
+
+#. Type: message
+msgid "Reading time"
+msgstr "Timp de lectură"
+
+#. Type: message
+msgid "More by %1"
+msgstr "Alte cărți de %1"
+
+#. Type: message
+msgid "More by author"
+msgstr "Alte cărți de același autor"
+
+#. Type: message
+msgid "Use at end of book"
+msgstr "Folosește la sfârșitul cărții"
+
+#. Type: message
+msgid "Zen end of book"
+msgstr "Sfârșitul cărții Zen"
+
+#. Type: message
+msgid "No books to show."
+msgstr "Nicio carte de afișat."
+
+#: modules/settings/sections/end_book_settings.lua
+msgid "Not enough space: %1/%2 units used; this widget needs %3."
+msgstr "Spațiu insuficient: %1/%2 unități folosite; acest widget necesită %3."
+
+#. Featured end-of-book action limit
+msgid "Maximum 5 buttons allowed"
+msgstr "Sunt permise maximum 5 butoane"
+
+#. End-of-book featured progress
+msgid "%d%% completed"
+msgstr "%d%% finalizat"
+
+#: modules/settings/sections/library_settings/home_settings.lua
+msgid "Button labels"
+msgstr "Etichetele butoanelor"

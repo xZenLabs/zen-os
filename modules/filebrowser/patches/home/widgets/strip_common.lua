@@ -30,6 +30,7 @@ local _ = require("gettext")
 local logger = require("common/zen_logger").new("home_strip")
 
 local M = {}
+M.CONTROLS_HEIGHT = 30
 M.SIZE = { units = 2.5 }
 local HYDRATE_DELAY_S = 0.05
 local COVER_POLL_S = 0.4
@@ -67,7 +68,7 @@ local function strip_layout_metrics(outer_width, module_cfg)
     local Screen = Device.screen
     local controls = type(module_cfg.controls) == "table" and module_cfg.controls or {}
     local controls_enabled = controls.enabled == true
-    local controls_height = controls_enabled and Screen:scaleBySize(30) or 0
+    local controls_height = controls_enabled and Screen:scaleBySize(M.CONTROLS_HEIGHT) or 0
     local controls_gap = controls_enabled and math.max(12, Screen:scaleBySize(18)) or 0
     local controls_top_gap = controls_gap
     local padding = Screen:scaleBySize(8)
@@ -829,7 +830,7 @@ function M.build_strip(ctx, source_key)
         local gap = math.max(4, Screen:scaleBySize(8))
         local message_w = math.max(1, width - cover_w - gap)
         local empty_message = TextBoxWidget:new{
-            text = cover_common.get_empty_message(source_name),
+            text = ctx.empty_message or cover_common.get_empty_message(source_name),
             face = Font:getFace("smallinfofont", Screen:scaleBySize(10)),
             width = message_w,
             alignment = "left",
@@ -1156,10 +1157,11 @@ function M.build_strip(ctx, source_key)
                         if type(ctx.openStripGroup) == "function" then ctx.openStripGroup(book) end
                         return true
                     end
+                    if ctx.openCover then return ctx.openCover(path) end
                     if ges.time ~= nil and not BookOpenTap.shouldOpen(path, ges.time, function()
                         tap.onHoldCover(tap_self, nil, ges)
                     end) then return true end
-                    set_opening_banner_cover(item.cover)
+                    if not ctx.skipOpeningBanner then set_opening_banner_cover(item.cover) end
                     ctx.openBook(path)
                     return true
                 end
@@ -1194,7 +1196,8 @@ function M.build_strip(ctx, source_key)
                             end
                             return false
                         end
-                        set_opening_banner_cover(item.cover)
+                        if ctx.openCover then return ctx.openCover(path) end
+                        if not ctx.skipOpeningBanner then set_opening_banner_cover(item.cover) end
                         ctx.openBook(path)
                         return true
                     end,

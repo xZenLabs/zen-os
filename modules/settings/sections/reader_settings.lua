@@ -1543,6 +1543,13 @@ function M.build(ctx)
     IconItem.decorate(items[4], icons.search)
     IconItem.decorate(items[9], icons.settings_status)
 
+    items[#items + 1] = {
+        text = _("End of book"),
+        sub_item_table_func = function()
+            return require("modules/settings/sections/end_book_settings").build(ctx)
+        end,
+    }
+
     return items
 end
 

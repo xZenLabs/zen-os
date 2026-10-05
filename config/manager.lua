@@ -204,6 +204,11 @@ local function normalize_renamed_keys(cfg)
         end
     end
 
+    if type(cfg.end_book) == "table" and cfg.end_book.strip_source ~= nil then
+        cfg.end_book.strip_source = nil
+        changed = true
+    end
+
     return cfg, changed
 end
 
@@ -1107,6 +1112,13 @@ local function migrate_changed_defaults(cfg)
         cfg.highlight_lookup.show_koassistant = true
         cfg.highlight_lookup.show_ai_assistant = true
         cfg._meta.lookup_plugin_items_default_migrated = true
+        changed = true
+    end
+
+    if cfg._meta.end_book_appearance_default_migrated ~= true then
+        cfg.end_book.modules.featured.show_description = false
+        cfg.end_book.modules.strip.center_books = false
+        cfg._meta.end_book_appearance_default_migrated = true
         changed = true
     end
 

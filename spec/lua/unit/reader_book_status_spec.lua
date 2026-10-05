@@ -339,16 +339,16 @@ describe("reader book status", function()
         end
     end)
 
-    it("defaults the end-of-document action to Book Status when unset", function()
+    it("leaves the end-of-document default to the End of book patch", function()
         require("modules/reader/patches/book_status")()
 
-        assert.are.equal("book_status", G_reader_settings:readSetting("end_document_action"))
+        assert.is_nil(G_reader_settings:readSetting("end_document_action"))
     end)
 
     it("preserves saved end-of-document actions across launches", function()
         require("modules/reader/patches/book_status")()
         for _i, action in ipairs({
-            "nothing", "pop-up", "book_status", "delete_file", "next_file",
+            "zen_end_book", "nothing", "pop-up", "book_status", "delete_file", "next_file",
             "goto_beginning", "file_browser", "mark_read", "book_status_file_browser",
         }) do
             G_reader_settings:saveSetting("end_document_action", action)

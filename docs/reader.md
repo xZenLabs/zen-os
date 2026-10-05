@@ -119,3 +119,13 @@ The reader has two independent status bars: a top bar and a bottom bar. Each bar
 ## Time until chapter end
 
 Open **Zen Settings > Reader > Time until chapter end** to choose how the current chapter estimate appears: `5 min left in chapter`, `5 min left`, abbreviated `5m`/`1h 5m`, or KOReader's default `hh:mm` format. The abbreviated hour and minute units are localized.
+
+## End of book
+
+The Zen end-of-book screen reuses Home's featured book, statistics, quotes, and book strip widgets. Open **Zen Settings > Reader > End of book > Widgets** to reorder or hide widgets and customize their content independently of Home. **Preview** opens the screen for the current book without marking it finished.
+
+Swipe a highlight left or right to browse this book's highlights and notes; each shows its page label. Tap it to return to that passage. The book strip offers books by the same author, the next unfinished volume in this series, and a next book from each other series already started. Recommendations use the library's indexed metadata.
+
+Statistics cover only the current book: active reading days, recorded reading time, minutes per page, and minutes per reading day. Choose any three in the statistics widget's settings. Missing statistics appear as a dash.
+
+Zen selects **Zen end of book** in KOReader's **End of document action** setting once. Later changes there, including the automatic finished-status option, survive restarts. Book Status remains available from that menu and the screen's footer.

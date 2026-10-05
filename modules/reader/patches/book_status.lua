@@ -1,16 +1,6 @@
 local function apply_book_status()
     local zen_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
 
-    -- Default to Book Status without overwriting a saved KOReader action.
-    if G_reader_settings:readSetting("end_document_action") == nil then
-        G_reader_settings:saveSetting("end_document_action", "book_status")
-    end
-
-    -- Auto-mark the book as finished (summary.status = "complete") when the
-    -- reader hits the end. ReaderStatus:onEndOfBook checks this before showing
-    -- the Book Status widget, so it opens with "Finished" already selected.
-    G_reader_settings:saveSetting("end_document_auto_mark", true)
-
     -- Always use the ZenOS custom Book Status layout (home + close buttons, cleaner stats)
     local BookStatusWidget = require("ui/widget/bookstatuswidget")
     local archive_actions = require("common/archive_actions")

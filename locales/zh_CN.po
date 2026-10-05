@@ -7057,3 +7057,119 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:381
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPM 已安装。重新启动 KOReader 即可使用。"
+
+#. Type: message
+msgid "Book status"
+msgstr "书籍状态"
+
+#. Type: message
+msgid "Book titles"
+msgstr "书名"
+
+#. Type: message
+msgid "Books per page"
+msgstr "每页书籍数"
+
+#. Type: message
+msgid "Days"
+msgstr "天数"
+
+#. Type: message
+msgid "Default source"
+msgstr "默认来源"
+
+#. Type: message
+msgid "End of book"
+msgstr "全书结束"
+
+#. Type: message
+msgid "Finished on %s"
+msgstr "读完日期：%s"
+
+#. Type: message
+msgid "Finished reading"
+msgstr "已读完"
+
+#. Type: message
+msgid "Highlights"
+msgstr "标注"
+
+#. Type: message
+msgid "Highlights and notes"
+msgstr "标注和笔记"
+
+#. Type: message
+msgid "Minutes per page"
+msgstr "每页分钟数"
+
+#. Type: message
+msgid "Minutes per reading day"
+msgstr "每个阅读日的分钟数"
+
+#. Type: message
+msgid "Next in series"
+msgstr "系列下一本"
+
+#. Type: message
+msgid "No highlights in this book."
+msgstr "本书没有标注。"
+
+#. Type: message
+msgid "Other series"
+msgstr "其他系列"
+
+#. Type: message
+msgid "Page %s"
+msgstr "第 %s 页"
+
+#. Type: message
+msgid "Preview"
+msgstr "预览"
+
+#. Type: message
+msgid "Reading progress"
+msgstr "阅读进度"
+
+#. Type: message
+msgid "Reading statistics"
+msgstr "阅读统计"
+
+#. Type: message
+msgid "Reading time"
+msgstr "阅读时间"
+
+#. Type: message
+msgid "More by %1"
+msgstr "%1 的更多作品"
+
+#. Type: message
+msgid "More by author"
+msgstr "作者的更多作品"
+
+#. Type: message
+msgid "Use at end of book"
+msgstr "读完书后使用"
+
+#. Type: message
+msgid "Zen end of book"
+msgstr "Zen 读完界面"
+
+#. Type: message
+msgid "No books to show."
+msgstr "没有可显示的书籍。"
+
+#: modules/settings/sections/end_book_settings.lua
+msgid "Not enough space: %1/%2 units used; this widget needs %3."
+msgstr "空间不足：已使用 %1/%2 单位；此组件需要 %3 单位。"
+
+#. Featured end-of-book action limit
+msgid "Maximum 5 buttons allowed"
+msgstr "最多允许 5 个按钮"
+
+#. End-of-book featured progress
+msgid "%d%% completed"
+msgstr "已完成 %d%%"
+
+#: modules/settings/sections/library_settings/home_settings.lua
+msgid "Button labels"
+msgstr "按钮标签"

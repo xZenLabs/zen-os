@@ -616,7 +616,10 @@ local function apply_context_menu()
 
     FileManager.setupLayout = function(self)
         orig_setupLayout(self)
+        FileManager.setupZenContextMenu(self)
+    end
 
+    function FileManager:setupZenContextMenu()
         local file_chooser = self.file_chooser
         local file_manager = self
         local logger = require("common/zen_logger").new("context_menu")
@@ -1243,7 +1246,7 @@ local function apply_context_menu()
                 end
 
                 local archive_row = archive_context_row(
-                    FileManager.instance, item.path, item.is_file)
+                    file_manager, item.path, item.is_file)
                 if archive_row then table.insert(buttons, archive_row) end
 
                 if item._zen_extra_buttons then
@@ -2835,7 +2838,7 @@ local function apply_context_menu()
                 })
             end
 
-            if not is_virtual_folder and (not is_kindle_book or is_kindle_processed) then
+            if not item._zen_hide_edit and not is_virtual_folder and (not is_kindle_book or is_kindle_processed) then
                 table.insert(buttons, {
                     {
                         text = "\u{F090C}  " .. _("Edit") .. "  " .. submenu_arrow,
@@ -2846,7 +2849,7 @@ local function apply_context_menu()
             end
 
             local archive_row = archive_context_row(
-                FileManager.instance, file, is_file)
+                file_manager, file, is_file)
             if archive_row then table.insert(buttons, archive_row) end
 
             if plugin_action_rows then
@@ -2888,6 +2891,9 @@ local function apply_context_menu()
                                             end
                                             home.rebuildActive()
                                         end)
+                                    end
+                                    if item._zen_after_history_change then
+                                        UIManager:nextTick(item._zen_after_history_change)
                                     end
                                 end,
                             })

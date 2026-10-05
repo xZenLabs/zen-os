@@ -368,6 +368,12 @@ describe("home basic widgets", function()
         ctx.module_cfg.font_size = 18
         component.build(ctx)
         assert.are.equal(10, rendered_label_size())
+
+        created = {}
+        require("device").screen.scaleBySize = function(_self, value) return value * 4 end
+        ctx.module_cfg.automatic_font_size = true
+        component.build(ctx)
+        assert.are.equal(12, rendered_label_size())
     end)
 
     it("insets outlined stats cards to the shared home content width", function()

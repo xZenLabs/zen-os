@@ -5,6 +5,7 @@ local PATCH_MODULES = {
     library_navigation = "modules/reader/patches/library_navigation",
     opening_banner = "modules/reader/patches/opening_banner",
     book_status = "modules/reader/patches/book_status",
+    end_book = "modules/reader/patches/end_book",
     reader_top_status_bar = "modules/reader/patches/reader_top_status_bar",
     reader_themes = "modules/reader/patches/reader_themes",
     screensaver_cover = "modules/reader/patches/screensaver_cover",
@@ -80,10 +81,15 @@ function M.init(logger, plugin)
         run_feature(logger, plugin, "opening_banner", opening_banner_fn)
     end
 
-    -- Always apply: custom Book Status layout.
+    -- Keep Book Status available alongside the end-of-book screen.
     local book_status_fn = load_patch("book_status")
     if book_status_fn then
         run_feature(logger, plugin, "book_status", book_status_fn)
+    end
+
+    local end_book_fn = load_patch("end_book")
+    if end_book_fn then
+        run_feature(logger, plugin, "end_book", end_book_fn)
     end
 
     local status_on_open_fn = load_patch("status_on_open")

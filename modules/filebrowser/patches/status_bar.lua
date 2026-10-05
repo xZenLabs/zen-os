@@ -1074,7 +1074,7 @@ local function apply_status_bar()
         end
 
         if not config.show_bottom_border then
-            return row
+            return row, back_widget
         end
         local border = LineWidget:new{
             dimen      = Geom:new{ w = inner_w, h = Size.line.medium },
@@ -1085,7 +1085,7 @@ local function apply_status_bar()
             dimen = Geom:new{ w = screen_w, h = Size.line.medium },
             border,
         })
-        return vg
+        return vg, back_widget
     end
 
     -- Safe repaint for a titlebar widget: clears the requested regions first,

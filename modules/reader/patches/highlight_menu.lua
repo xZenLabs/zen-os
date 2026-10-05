@@ -140,9 +140,9 @@ local function apply()
             table.insert(buttons[1], {
                 icon = "lookup.wikipedia",
                 callback = function()
-                    UIManager:scheduleIn(0.1, function()
+                    UIManager:scheduleIn(0.1, LookupPluginItems.safeCallback(function()
                         self:lookupWikipedia()
-                    end)
+                    end))
                 end,
             })
         end
@@ -209,6 +209,7 @@ local function apply()
             end
         end
 
+        LookupPluginItems.protectButtons(buttons)
         self.highlight_dialog = ButtonDialog:new{
             buttons = buttons,
             anchor = function()

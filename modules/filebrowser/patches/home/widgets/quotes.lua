@@ -61,13 +61,16 @@ local function quote_content(ctx)
     if show_title and quote.title and quote.title ~= "" then
         attribution_parts[#attribution_parts + 1] = quote.title
     end
+    if quote.page_label and quotes.show_page ~= false then
+        attribution_parts[#attribution_parts + 1] = string.format(_("Page %s"), quote.page_label)
+    end
     local attribution = table.concat(attribution_parts, ",  ")
     if attribution == "" and show_author
             and (not quote.author or quote.author == "")
             and (not quote.title or quote.title == "") then
         attribution = quote.attribution or ""
     end
-    return quote, quotes, '"' .. (quote.text or "") .. '"', attribution
+    return quote, quotes, quote.is_empty and quote.text or '"' .. (quote.text or "") .. '"', attribution
 end
 
 local function configured_quote_font_size(quotes)
