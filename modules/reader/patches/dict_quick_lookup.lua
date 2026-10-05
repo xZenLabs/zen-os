@@ -15,6 +15,9 @@ local function apply()
     local utils = require("common/utils")
     local plugin_root = require("common/plugin_root")
     local ai_icon = utils.resolveLocalIcon(plugin_root and plugin_root .. "/icons/", "lookup_ai")
+    if ai_icon then
+        utils.overrideIcons({ [ai_icon] = ai_icon }, false)
+    end
     local _ = require("gettext")
 
     local _plugin_ref = rawget(_G, "__ZEN_UI_PLUGIN")

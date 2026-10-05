@@ -108,6 +108,9 @@ describe("reader lookup menus", function()
                     }))
                     assert.is_not_nil(button)
                     assert.are.equal(ZenSpec.root .. "/icons/lookup_ai.svg", button.icon)
+                    local icon_widget = { icon = button.icon }
+                    require("ui/widget/iconwidget").init(icon_widget)
+                    assert.are.equal(button.icon, icon_widget.file)
                     button.callback()
                     assert.is_nil(called)
                     online[1]()
@@ -252,6 +255,9 @@ describe("reader lookup menus", function()
                 } end,
             },
         })
+        local icon_widget = { icon = dialog_spec.buttons[1][5].icon }
+        require("ui/widget/iconwidget").init(icon_widget)
+        assert.are.equal(ZenSpec.root .. "/icons/lookup_ai.svg", icon_widget.file)
         local failures = 0
         for _i, row in ipairs(dialog_spec.buttons) do
             for _j, button in ipairs(row) do

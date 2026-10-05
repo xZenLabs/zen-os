@@ -1828,7 +1828,8 @@ function Driver:init()
     self.socket_path = os.getenv("ZEN_UI_TEST_SOCKET")
     self.testing = os.getenv("ZEN_UI_TESTING") == "1"
     if self.testing and self.socket_path and #self.socket_path < SOCKET_PATH_MAX then
-        self:startServer()
+        -- Let FileManager/Reader finish opening and paint before serving commands.
+        UIManager:tickAfterNext(function() self:startServer() end)
     end
 end
 
