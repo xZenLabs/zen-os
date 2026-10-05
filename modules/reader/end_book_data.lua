@@ -92,7 +92,7 @@ end
 
 function M.stripConfig(recommendations, source, config, authors)
     local Presets = require("modules/filebrowser/patches/home/home_presets")
-    local home = Presets.copy(require("config/preset_store").getSettings("home"))
+    local home = Presets.defaultHomePage()
     Presets.normalizeStripConfig(home)
     local utils = require("common/utils")
     local local_cfg = config and config.modules.strip or {}
@@ -132,6 +132,7 @@ function M.stripConfig(recommendations, source, config, authors)
         and ButtonModel.sourceDescriptor(ButtonModel.find(controls, source))
     if not descriptor then descriptor, source = ButtonModel.firstVisibleSource(controls) end
     if not descriptor then return nil end
+    if source == "next_series" then strip.order = "default" end
     strip.default_source = descriptor
     return strip, source
 end
@@ -140,11 +141,12 @@ function M.stats(statistics)
     local summary = statistics and statistics:getStatsBookStatus()
     if not summary then return {} end
     local days, seconds, pages = summary.days or 0, summary.time or 0, summary.pages or 0
+    local format_time = require("datetime").secondsToClockDuration
     return {
         book_days = tostring(days),
-        book_duration = require("datetime").secondsToClockDuration("letters", seconds, false),
-        book_page_minutes = pages > 0 and string.format("%.1f", seconds / pages / 60) or nil,
-        book_daily_minutes = days > 0 and string.format("%.1f", seconds / days / 60) or nil,
+        book_duration = format_time("letters", seconds, false),
+        book_page_minutes = pages > 0 and format_time("letters", seconds / pages, false, false, true) or nil,
+        book_daily_minutes = days > 0 and format_time("letters", seconds / days, false, false, true) or nil,
     }
 end
 
@@ -201,24 +203,12 @@ function M.recommendations(file, book, author_groups, series_groups, get_status)
         return statuses[path]
     end
     for _i, group in ipairs(series_groups) do
-        local current_index = tonumber(book.series_index)
-        local current_position, last_finished, reading
         if group.series == book.series then
-            if not current_index then
-                for index, item in ipairs(group.items) do
-                    if is_current(item.file) then current_position = index; break end
-                end
-            end
-            for index, item in ipairs(group.items) do
-                local follows = current_index and tonumber(item.series_index)
-                    and tonumber(item.series_index) > current_index
-                    or not current_index and current_position and index > current_position
-                if follows and not is_current(item.file) and status(item.file) ~= "complete" then
-                    result.next_series[1] = item.file
-                    break
-                end
+            for _j, item in ipairs(group.items) do
+                if not is_current(item.file) then result.next_series[#result.next_series + 1] = item.file end
             end
         else
+            local last_finished, reading
             for index, item in ipairs(group.items) do
                 local value = status(item.file)
                 if value == "reading" and not reading then reading = item.file end

@@ -23,7 +23,16 @@ do
     end
 end
 
-local flame_icon_path = _icons_dir and utils.resolveLocalIcon(_icons_dir, "flame") or nil
+local calendar_icon_path = utils.resolveLocalIcon(_icons_dir, "calendar")
+local stat_icon_paths = {
+    book_days = calendar_icon_path,
+    book_duration = utils.resolveLocalIcon(_icons_dir, "tab_to_be_read"),
+    book_page_minutes = utils.resolveLocalIcon(
+        require("libs/libkoreader-lfs").currentdir() .. "/resources/icons/mdlight/", "book.opened")
+        or utils.resolveLocalIcon(_icons_dir, "book_open"),
+    book_daily_minutes = calendar_icon_path,
+    streak = utils.resolveLocalIcon(_icons_dir, "flame"),
+}
 local MIN_FONT_SIZE = 8
 local MAX_FONT_SIZE = 64
 local DEFAULT_FONT_SIZE = 16
@@ -49,9 +58,9 @@ end
 
 local FIELD_MAP = {
     book_days = { id = "book_days", label = _("Days"), get = function(s) return s.book_days or "—" end },
-    book_duration = { id = "book_duration", label = _("Reading time"), get = function(s) return s.book_duration or "—" end },
-    book_page_minutes = { id = "book_page_minutes", label = _("Minutes per page"), get = function(s) return s.book_page_minutes or "—" end },
-    book_daily_minutes = { id = "book_daily_minutes", label = _("Minutes per reading day"), get = function(s) return s.book_daily_minutes or "—" end },
+    book_duration = { id = "book_duration", label = _("Total time"), get = function(s) return s.book_duration or "—" end },
+    book_page_minutes = { id = "book_page_minutes", label = _("Per page"), get = function(s) return s.book_page_minutes or "—" end },
+    book_daily_minutes = { id = "book_daily_minutes", label = _("Per day"), get = function(s) return s.book_daily_minutes or "—" end },
     today_pages = { id = "today_pages", label = _("Pages today"), get = function(s) return tostring(s.today_pages or 0) end },
     today_duration = { id = "today_duration", label = _("Read today"), get = function(s) return fmt_time(s.today_duration or 0) end },
     streak = { id = "streak", label = _("Day streak"), get = function(s) return tostring(s.streak or 0) end },
@@ -100,7 +109,7 @@ local function configured_max_font_size(ctx)
         tonumber(module_cfg.max_font_size) or DEFAULT_MAX_FONT_SIZE))
 end
 
-local function font_size_fits(candidate, fields, stats, inner_w, inner_h)
+local function font_size_fits(candidate, fields, stats, inner_w, inner_h, show_icons)
     local Screen = Device.screen
     local value_face = Font:getFace("smallinfofont", Screen:scaleBySize(candidate))
     local label_face = Font:getFace("smallinfofont", Screen:scaleBySize(
@@ -116,7 +125,7 @@ local function font_size_fits(candidate, fields, stats, inner_w, inner_h)
         local label_size = label_probe:getSize()
         local value_w = value_size.w or 0
         local value_h = value_size.h or 1
-        if field.id == "streak" and flame_icon_path then
+        if show_icons and stat_icon_paths[field.id] then
             value_w = value_w + math.max(8, math.floor(value_h * 0.62)) + 3
         end
         local content_h = value_h - math.floor(value_h * 0.18)
@@ -130,12 +139,12 @@ local function font_size_fits(candidate, fields, stats, inner_w, inner_h)
     return true
 end
 
-local function fitting_font_size(fields, stats, inner_w, inner_h, max_font_size)
+local function fitting_font_size(fields, stats, inner_w, inner_h, max_font_size, show_icons)
     local low, high = 1, max_font_size
     local best = 1
     while low <= high do
         local candidate = math.floor((low + high) / 2)
-        if font_size_fits(candidate, fields, stats, inner_w, inner_h) then
+        if font_size_fits(candidate, fields, stats, inner_w, inner_h, show_icons) then
             best = candidate
             low = candidate + 1
         else
@@ -180,6 +189,7 @@ return {
         local height = ctx.height
         local stats = ctx.data.stats or {}
         local module_cfg = ctx.module_cfg or {}
+        local show_icons = module_cfg.show_icons ~= false
         local stat_style = module_cfg.stat_style == "outline" and "outline"
             or module_cfg.stat_style == "none" and "none"
             or "divider"
@@ -210,7 +220,7 @@ return {
         local shift_state = { value = 0 }
         local font_size = module_cfg.automatic_font_size ~= false
             and fitting_font_size(fields, stats, inner_w, inner_h,
-                configured_max_font_size(ctx))
+                configured_max_font_size(ctx), show_icons)
             or configured_font_size(ctx)
         local value_face = Font:getFace("smallinfofont", Screen:scaleBySize(font_size))
         local label_face = Font:getFace("smallinfofont", Screen:scaleBySize(
@@ -228,13 +238,13 @@ return {
                 bold = true,
                 fgcolor = Blitbuffer.COLOR_BLACK,
             }
-            if field.id == "streak" and flame_icon_path then
+            if show_icons and stat_icon_paths[field.id] then
                 local value_size = value_widget:getSize()
                 local icon_size = math.max(8, math.floor((value_size.h or 12) * 0.62))
                 value_widget = HorizontalGroup:new{
                     align = "center",
                     IconWidget:new{
-                        file = flame_icon_path,
+                        file = stat_icon_paths[field.id],
                         width = icon_size,
                         height = icon_size,
                         alpha = true,

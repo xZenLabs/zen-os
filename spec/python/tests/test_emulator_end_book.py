@@ -152,7 +152,9 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert state["quote"]["text"] == "No highlights in this book."
                 assert state["quote"]["text"] not in state["visible_texts"]
                 empty_quote_heights = state["row_heights"]
-                assert state["recommendations"]["next_series"] == [str(books["no_cover"].resolve())]
+                series_paths = [str(books[name].resolve()) for name in ("no_cover", "finale")]
+                assert state["recommendations"]["next_series"] == series_paths
+                assert [item["path"] for item in state["strip_items"]] == series_paths
                 assert set(state["recommendations"]["author"]) == {
                     str(books["no_cover"].resolve()), str(books["finale"].resolve()),
                 }

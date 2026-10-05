@@ -317,6 +317,7 @@ local function clone_cached_book(book, include_internal, include_cover)
         local ok, cover_bb = pcall(book.cover_bb.copy, book.cover_bb)
         if ok then out.cover_bb = cover_bb end
     end
+    if include_cover == false and book.has_real_cover then out.is_cover_pending = true end
     return out
 end
 
@@ -444,6 +445,19 @@ local _cover_upgrade_consumers = {}
 -- through a batch was terminating the whole batch and orphaning the rest.
 local _inflight_cover_upgrade_paths = {}
 
+local function active_cover_menu()
+    local stack = UIManager._window_stack or {}
+    for index = #stack, 1, -1 do
+        local widget = stack[index] and stack[index].widget
+        if widget and not widget.toast then
+            if widget == _home_menu or widget.name == "zen_end_book" and not widget.closed then
+                return widget
+            end
+            return
+        end
+    end
+end
+
 -- Takes everything queued in _pending_cover_upgrade_paths and launches a
 -- single extractInBackground() batch at each path's requested cover size, then
 -- polls until each path's extraction completes (or the subprocess dies),
@@ -467,10 +481,11 @@ local function flush_cover_upgrade_queue()
     end
 
     -- CoverBrowser owns a single extraction subprocess. Do not let a delayed
-    -- home-screen upgrade cancel the file browser's in-flight page batch after
+    -- cover upgrade cancel the file browser's in-flight page batch after
     -- the user has navigated away; those unresolved rows otherwise keep their
     -- loading placeholder until a manual page change creates a new batch.
-    if not M.isActiveOnTop() then
+    local cover_menu = active_cover_menu()
+    if not cover_menu then
         for _i, path in ipairs(paths) do
             invalidate_home_book_cache(path)
             _cover_upgrade_consumers[path] = nil
@@ -525,9 +540,10 @@ local function flush_cover_upgrade_queue()
                 _cover_upgrade_consumers[path] = nil
                 if consumers and consumers.full then needs_full_rebuild = true end
                 if consumers and consumers.strip then
-                    if M.isActiveOnTop()
-                            and _home_menu and _home_menu._zen_home_notify_strip_cover then
-                        _home_menu:_zen_home_notify_strip_cover(path)
+                    local menu = active_cover_menu()
+                    if cover_menu.name == "zen_end_book" and not cover_menu.closed then menu = cover_menu end
+                    if menu and menu._zen_home_notify_strip_cover then
+                        menu:_zen_home_notify_strip_cover(path)
                     else
                         mark_home_rebuild_needed(false, false)
                     end

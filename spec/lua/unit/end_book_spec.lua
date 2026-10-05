@@ -65,6 +65,24 @@ describe("end of book", function()
         return require("modules/reader/end_book")
     end
 
+    it("registers and releases the strip cover-ready listener", function()
+        local EndBook = load_end_book()
+        local page = setmetatable({}, { __index = EndBook })
+        local notified = {}
+        local unregister = page:registerStripCoverListener(function(path)
+            notified[#notified + 1] = path
+        end)
+        page:_zen_home_notify_strip_cover("/library/pending.epub")
+        assert.same({ "/library/pending.epub" }, notified)
+        page.closed = true
+        page:_zen_home_notify_strip_cover("/library/pending.epub")
+        assert.equals(1, #notified)
+        page.closed = false
+        unregister()
+        page:_zen_home_notify_strip_cover("/library/pending.epub")
+        assert.equals(1, #notified)
+    end)
+
     it("reuses the Home book menu in the reader and opens end-of-book strip settings", function()
         local EndBook = load_end_book()
         local item, owner, settings_id, settings_plugin, refreshes = nil, nil, nil, nil, 0
@@ -430,13 +448,29 @@ describe("end of book", function()
     end)
 
     it("uses only current-book statistics and handles missing or empty records", function()
+        local gettext = require("gettext")
+        local time_context = gettext.context.Time
+        finally(function() gettext.context.Time = time_context end)
+        gettext.context.Time = nil
+        ZenSpec.unload("datetime")
         local Data = require("modules/reader/end_book_data")
+        local thin_space, hair_space = "\u{2009}", "\u{200A}"
         assert.same({}, Data.stats(nil))
         local statistics = { getStatsBookStatus = function() return { days = 3, time = 7200, pages = 80 } end }
-        assert.same({ book_days = "3", book_duration = "7200", book_page_minutes = "1.5",
-            book_daily_minutes = "40.0" }, Data.stats(statistics))
+        assert.same({ book_days = "3", book_duration = "2h" .. thin_space .. "0m" .. thin_space .. "0s",
+            book_page_minutes = "1m" .. hair_space .. "30s",
+            book_daily_minutes = "40m" .. hair_space .. "0s" }, Data.stats(statistics))
+        statistics.getStatsBookStatus = function() return { days = 1, time = 35, pages = 1 } end
+        assert.equals("35s", Data.stats(statistics).book_page_minutes)
+        assert.equals("35s", Data.stats(statistics).book_daily_minutes)
+        statistics.getStatsBookStatus = function() return { days = 1, time = 5400, pages = 1 } end
+        assert.equals("1h" .. hair_space .. "30m" .. hair_space .. "0s", Data.stats(statistics).book_page_minutes)
+        assert.equals("1h" .. hair_space .. "30m" .. hair_space .. "0s", Data.stats(statistics).book_daily_minutes)
+        gettext.context.Time = { h = "ч", m = "мин", s = "с", ["%1s"] = "%1с" }
+        assert.equals("1ч" .. hair_space .. "30мин" .. hair_space .. "0с", Data.stats(statistics).book_page_minutes)
+        assert.equals("1ч" .. hair_space .. "30мин" .. hair_space .. "0с", Data.stats(statistics).book_daily_minutes)
         statistics.getStatsBookStatus = function() return { days = 0, time = 0, pages = 0 } end
-        assert.same({ book_days = "0", book_duration = "0" }, Data.stats(statistics))
+        assert.same({ book_days = "0", book_duration = "0с" }, Data.stats(statistics))
     end)
 
     it("includes highlight notes and display page labels without exporting xpointers as pages", function()
@@ -461,7 +495,7 @@ describe("end of book", function()
         assert.are.equal("/xp/1", quotes[1].page)
     end)
 
-    it("selects sequels numerically and only recommends other series already started", function()
+    it("includes other books in the current series and only recommends other series already started", function()
         local Data = require("modules/reader/end_book_data")
         local function group(name, files)
             local items = {}
@@ -483,9 +517,42 @@ describe("end of book", function()
             group("Done", { "d", "e" }),
             group("Unstarted", { "new1", "new2" }),
         }, function(file) return states[file] end)
-        assert.same({ author = { "sequel", "another" }, next_series = { "third" },
+        assert.same({ author = { "sequel", "another" }, next_series = { "sequel", "third" },
             other_series = { { series = "Reading", files = { "a", "b", "later" } },
                 { series = "Started", files = { "c", "next" } } } }, recommendations)
+    end)
+
+    it("includes every other current-series book in series order regardless of status or current index", function()
+        local Data = require("modules/reader/end_book_data")
+        local items = {
+            { file = "z-first", series_index = 1 },
+            { file = "prequel", series_index = 1.5 },
+            { file = "current", series_index = 2 },
+            { file = "a-last", series_index = 10 },
+        }
+        for _i, book in ipairs({ { series = "Series", series_index = 2 }, { series = "Series" } }) do
+            local recommendations = Data.recommendations("current", book, {}, {
+                { series = "Series", items = items },
+            }, function() error("current-series books must not be filtered by status") end)
+            assert.same({ "z-first", "prequel", "a-last" }, recommendations.next_series)
+        end
+    end)
+
+    it("keeps the current series in series order when its strip is reversed", function()
+        local Data = require("modules/reader/end_book_data")
+        local home = require("modules/filebrowser/patches/home/home_presets").defaultHomePage()
+        home.modules.strip.order = "reverse"
+        ZenSpec.replace("config/preset_store", { getSettings = function() return home end })
+        local config = { modules = { strip = { order = "reverse" } } }
+        local recommendations = { next_series = { "first", "last" }, author = { "book" }, other_series = {} }
+        local strip, source = Data.stripConfig(recommendations, "next_series", config)
+        assert.equals("next_series", source)
+        assert.equals("default", strip.order)
+        assert.same({ kind = "custom", paths = recommendations.next_series }, strip.default_source)
+        assert.equals("Next in series", require("common/nav_button_model").find(strip.controls, source).label)
+        assert.equals("reverse", Data.stripConfig(recommendations, "author", config).order)
+        assert.equals("default", Data.stripConfig(recommendations, "author").order)
+        assert.equals("reverse", home.modules.strip.order)
     end)
 
     it("copies the Home appearance once and saves independent featured settings", function()
@@ -565,12 +632,17 @@ describe("end of book", function()
         assert.equals(1, plugin.saves)
     end)
 
-    it("uses Home strip settings with only nonempty end-of-book sources", function()
+    it("keeps strip settings independent of Home with only nonempty end-of-book sources", function()
         local Data = require("modules/reader/end_book_data")
-        local home = require("modules/filebrowser/patches/home/home_presets").defaultHomePage()
+        local Presets = require("modules/filebrowser/patches/home/home_presets")
+        local home = Presets.defaultHomePage()
+        local defaults = Presets.defaultHomePage().modules.strip
         local original = home.modules.strip
         original.count, original.two_rows, original.show_badges = 8, true, true
         original.center_books = true
+        original.show_strip_titles, original.show_page_indicator, original.interactive = true, false, false
+        original.order = "reverse"
+        original.sources.recent.filter_finished = true
         original.controls.text_style = { font_face = "test", font_size = 13, bold = true }
         ZenSpec.replace("config/preset_store", { getSettings = function() return home end })
         local recommendations = { next_series = {}, author = { "book" }, other_series = {} }
@@ -580,9 +652,10 @@ describe("end of book", function()
         assert.are.equal("More by Jane Austen, Mary Shelley", ButtonModel.find(strip.controls, "author").label)
         for _key, key in ipairs({ "count", "show_badges", "show_strip_titles",
             "show_page_indicator", "interactive", "order" }) do
-            assert.are.equal(original[key], strip[key])
+            assert.are.equal(defaults[key], strip[key])
         end
-        assert.same(original.controls.text_style, strip.controls.text_style)
+        assert.same(defaults.sources, strip.sources)
+        assert.same(defaults.controls.text_style, strip.controls.text_style)
         assert.is_false(strip.two_rows)
         assert.is_true(original.two_rows)
         assert.is_false(strip.center_books)
@@ -598,11 +671,13 @@ describe("end of book", function()
         assert.is_nil(Data.stripConfig(recommendations, "author"))
         recommendations.other_series = { "series" }
         original.count = 6
+        original.controls.text_style.font_size = 15
         local local_config = { modules = { strip = Data.stripConfig() } }
         local_config.modules.strip.controls.order = { "page_left", "next_series", "author", "other_series", "page_right" }
         local_config.modules.strip.controls.show_buttons.other_series = true
         strip, source = Data.stripConfig(recommendations, "author", local_config)
-        assert.are.equal(6, strip.count)
+        assert.are.equal(defaults.count, strip.count)
+        assert.are.equal(defaults.controls.text_style.font_size, strip.controls.text_style.font_size)
         assert.are.equal("other_series", source)
         assert.is_true(strip.controls.show_buttons.other_series)
         ButtonModel.find(local_config.modules.strip.controls, "author").label = "Same author"
@@ -767,6 +842,7 @@ describe("end of book", function()
         local Settings = require("modules/settings/sections/end_book_settings")
         local widgets = Settings.build({ plugin = plugin })[2]
         assert.is_true(widgets.keep_menu_open)
+        assert.is_true(widgets._zen_settings_submenu)
         widgets.callback()
         assert.are.equal("End of book", arrange.title)
         assert.are.equal("featured", arrange.item_table[1].orig_item)
@@ -790,17 +866,30 @@ describe("end of book", function()
     it("opens a widget's existing settings directly and saves its changes", function()
         local arrange
         ZenSpec.replace("common/ui/zen_arrange_list", { show = function(opts) arrange = opts end })
-        plugin.config.end_book = { middle_stats_triplet = { "book_days", "book_duration", "book_page_minutes" } }
+        plugin.config.end_book = require("common/utils").deepcopy(require("config/defaults").end_book)
         local Settings = require("modules/settings/sections/end_book_settings")
         assert.is_true(Settings.openWidgetSettings("stats_triplet", plugin))
         assert.are.equal("Reading statistics", arrange.title)
         assert.is_false(arrange.allow_arrange)
         assert.is_true(arrange.hide_footer_cancel)
         assert.are.equal(plugin, arrange.plugin)
-        assert.are.equal(3, #arrange.item_table)
+        assert.are.equal(4, #arrange.item_table)
         arrange.item_table[1].sub_item_table[2].callback()
         assert.are.equal("book_duration", plugin.config.end_book.middle_stats_triplet[1])
         assert.are.equal(1, plugin.saves)
+        local icons = arrange.item_table[4]
+        local config = plugin.config.end_book.modules.stats_triplet
+        assert.are.equal("Show icons", icons.text)
+        assert.is_true(config.show_icons)
+        config.show_icons = nil
+        assert.is_true(icons.checked_func())
+        icons.callback()
+        assert.is_false(config.show_icons)
+        assert.is_false(icons.checked_func())
+        icons.callback()
+        assert.is_true(config.show_icons)
+        assert.is_true(icons.checked_func())
+        assert.are.equal(3, plugin.saves)
     end)
 
     it("saves the navigation icon size alongside the shared featured settings", function()

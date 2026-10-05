@@ -580,12 +580,7 @@ local function apply_zen_renderer()
         return true
     end
 
-    local function paint_circle(bb, cx, cy, radius, color)
-        for row = -radius, radius do
-            local half = math.floor(math.sqrt(math.max(0, radius * radius - row * row)))
-            if half > 0 then bb:paintRectRGB32(cx - half, cy + row, 2 * half, 1, color) end
-        end
-    end
+    local paint_circle = utils.paintBadgeCircle
 
     local function paint_pill(bb, x, y, width, height, color)
         local radius = height / 2
@@ -608,22 +603,7 @@ local function apply_zen_renderer()
         end
     end
 
-    local function paint_check(bb, x, y, width, height, color)
-        local thickness = math.max(2, math.floor(math.min(width, height) / 8))
-        local function line(x0, y0, x1, y1)
-            local steps = math.max(math.abs(x1 - x0), math.abs(y1 - y0))
-            if steps == 0 then steps = 1 end
-            for step = 0, steps do
-                local t = step / steps
-                bb:paintRectRGB32(math.floor(x0 + t * (x1 - x0)),
-                    math.floor(y0 + t * (y1 - y0)), thickness, thickness, color)
-            end
-        end
-        local lx0, ly0 = x + math.floor(width * 0.08), y + math.floor(height * 0.62)
-        local lx1, ly1 = x + math.floor(width * 0.30), y + math.floor(height * 0.82)
-        line(lx0, ly0, lx1, ly1)
-        line(lx1, ly1, x + math.floor(width * 0.82), y + math.floor(height * 0.18))
-    end
+    local paint_check = utils.paintBadgeCheck
 
     local function badge_colors(config)
         local badge = config.browser_cover_badges or {}

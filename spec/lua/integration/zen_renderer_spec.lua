@@ -292,7 +292,7 @@ describe("Zen renderer", function()
                 background_menus[#background_menus + 1] = menu
             end,
         })
-        ZenSpec.replace("common/utils", {
+        ZenSpec.replace("common/utils", setmetatable({
             formatPageCount = function(pages) return pages .. " p." end,
             getStablePageCount = function(_path, pages) return pages end,
             getBadgeColor = function() return 2 end,
@@ -300,7 +300,7 @@ describe("Zen renderer", function()
             getBadgeScale = function(config)
                 return config.browser_cover_badges.badge_size == "extra_large" and 1.5 or 1
             end,
-        })
+        }, { __index = dofile(ZenSpec.root .. "/common/utils.lua") }))
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
             getFontName = function() return "cfont" end,
             getBaseSize = function() return 18 end,

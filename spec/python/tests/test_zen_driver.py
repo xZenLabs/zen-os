@@ -1,15 +1,44 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from PIL import Image
 import pytest
 
 from zen_driver import (
+    ZenDriver,
     compare_frames,
     find_text,
     install_startup_alert_patch,
     normalize_visible_text,
     update_or_compare_golden,
 )
+
+
+def test_command_waits_for_socket_handoff_without_resending(monkeypatch) -> None:
+    client = MagicMock()
+    client.__enter__.return_value = client
+    client.connect.side_effect = [FileNotFoundError(), ConnectionRefusedError(), None]
+    client.makefile.return_value.readline.return_value = '{"ok": true}\n'
+    monkeypatch.setattr("zen_driver.socket.socket", lambda *_args: client)
+    monkeypatch.setattr("zen_driver.time.sleep", lambda _seconds: None)
+
+    assert ZenDriver(Path("driver.sock")).command("reader_state") == {"ok": True}
+    assert client.connect.call_count == 3
+    client.sendall.assert_called_once_with(b'{"type": "reader_state", "params": {}}\n')
+
+
+@pytest.mark.parametrize("error", [FileNotFoundError, ConnectionRefusedError, PermissionError])
+def test_command_stops_on_connection_timeout_or_other_errors(monkeypatch, error) -> None:
+    client = MagicMock()
+    client.__enter__.return_value = client
+    client.connect.side_effect = error
+    monkeypatch.setattr("zen_driver.socket.socket", lambda *_args: client)
+    monkeypatch.setattr("zen_driver.time.monotonic", iter([0, 10]).__next__)
+
+    with pytest.raises(error):
+        ZenDriver(Path("driver.sock")).command("reader_state")
+    client.connect.assert_called_once()
+    client.sendall.assert_not_called()
 
 
 def test_compare_frames_is_exact_and_writes_a_diff(tmp_path: Path) -> None:

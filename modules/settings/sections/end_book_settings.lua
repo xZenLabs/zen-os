@@ -15,9 +15,9 @@ M.sources = {
 }
 local metrics = {
     { "book_days", _("Days") },
-    { "book_duration", _("Reading time") },
-    { "book_page_minutes", _("Minutes per page") },
-    { "book_daily_minutes", _("Minutes per reading day") },
+    { "book_duration", _("Total time") },
+    { "book_page_minutes", _("Time per page") },
+    { "book_daily_minutes", _("Time per day") },
 }
 
 local function show_featured_buttons(plugin, config, save)
@@ -96,6 +96,7 @@ local function widget_items(plugin, config, id, save)
             end
             items[#items + 1] = { text = tostring(slot), sub_item_table = choices }
         end
+        toggle(config.modules.stats_triplet, "show_icons", _("Show icons"))
     elseif id == "quotes" then
         toggle(config.quotes, "show_title", _("Book title"))
         items[#items + 1] = {
@@ -235,7 +236,7 @@ function M.build(ctx)
                 G_reader_settings:saveSetting("end_document_action", "zen_end_book")
             end,
         },
-        { text = _("Widgets"), keep_menu_open = true, callback = function() M.showWidgets(ctx.plugin) end },
+        { text = _("Widgets"), keep_menu_open = true, _zen_settings_submenu = true, callback = function() M.showWidgets(ctx.plugin) end },
         {
             text = _("Edit mode"),
             checked_func = function() return ctx.plugin.config.end_book.edit_mode ~= false end,

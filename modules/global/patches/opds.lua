@@ -566,6 +566,23 @@ local function apply_opds()
         end
     end
 
+    local function paint_downloaded_badge(bb, entry, x, y, width)
+        if not entry._zen_opds_downloaded then return end
+        local plug = _plugin or rawget(_G, "__ZEN_UI_PLUGIN")
+        local config = plug and plug.config
+        local size = math.floor(math.max(Screen:scaleBySize(20), math.floor(width * 0.14))
+            * utils.getBadgeScale(config))
+        local radius = math.floor(size / 2)
+        local inset = utils.getBadgeInset(radius)
+        local cx, cy = x + width - radius - inset, y + radius + inset
+        local foreground = utils.getBadgeTextColor(config)
+        utils.paintBadgeCircle(bb, cx, cy, radius + 2, foreground)
+        utils.paintBadgeCircle(bb, cx, cy, radius, utils.getBadgeColor(config))
+        local square = math.floor(radius * 1.2)
+        utils.paintBadgeCheck(bb, cx - math.floor(square / 2), cy - math.floor(square / 2),
+            square, square, foreground)
+    end
+
     local function build_cover_widget(entry, cover_w, cover_h)
         if entry._zen_opds_folder then
             local inner_w = math.max(1, cover_w - 2 * COVER_BORDER)
@@ -691,10 +708,12 @@ local function apply_opds()
         local cover_y = cover_dimen and cover_dimen.y or y + PAD_V
         dim_downloaded_cover(bb, self.entry, cover_x, cover_y,
             self.cover_w, self.cover_h)
-        if not rounded_corners_enabled() then return end
-        paintCornerMasks(bb, cover_x, cover_y, self.cover_w, self.cover_h, _corner_radius)
-        paintCornerBorderArcs(bb, cover_x, cover_y, self.cover_w, self.cover_h,
-            _corner_radius, COVER_BORDER, cover_border_color(self.entry))
+        if rounded_corners_enabled() then
+            paintCornerMasks(bb, cover_x, cover_y, self.cover_w, self.cover_h, _corner_radius)
+            paintCornerBorderArcs(bb, cover_x, cover_y, self.cover_w, self.cover_h,
+                _corner_radius, COVER_BORDER, cover_border_color(self.entry))
+        end
+        paint_downloaded_badge(bb, self.entry, cover_x, cover_y, self.cover_w)
     end
 
     function OPDSItem:update()
@@ -814,11 +833,13 @@ local function apply_opds()
         local cx = x + math.floor((self.cell_w - self.cover_w) / 2)
         local cy = y + math.floor((cover_area_h - self.cover_h) / 2)
         dim_downloaded_cover(bb, self.entry, cx, cy, self.cover_w, self.cover_h)
-        if not rounded_corners_enabled() then return end
-        -- cover is centered in the cover area (above the strip)
-        paintCornerMasks(bb, cx, cy, self.cover_w, self.cover_h, _corner_radius)
-        paintCornerBorderArcs(bb, cx, cy, self.cover_w, self.cover_h,
-            _corner_radius, COVER_BORDER, cover_border_color(self.entry))
+        if rounded_corners_enabled() then
+            -- cover is centered in the cover area (above the strip)
+            paintCornerMasks(bb, cx, cy, self.cover_w, self.cover_h, _corner_radius)
+            paintCornerBorderArcs(bb, cx, cy, self.cover_w, self.cover_h,
+                _corner_radius, COVER_BORDER, cover_border_color(self.entry))
+        end
+        paint_downloaded_badge(bb, self.entry, cx, cy, self.cover_w)
     end
 
     function OPDSMosaicItem:update()

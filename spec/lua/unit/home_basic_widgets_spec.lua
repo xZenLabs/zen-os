@@ -315,6 +315,55 @@ describe("home basic widgets", function()
         })
     end)
 
+    it("puts existing icons before end-book stats and includes them in auto-sizing", function()
+        ZenSpec.unload("common/utils")
+        local utils = require("common/utils")
+        local text_class = widget_class("ui/widget/textwidget")
+        ZenSpec.replace("ui/widget/textwidget", {
+            new = function(_self, values)
+                values.dimen = { w = #values.text * values.face.size * 0.5, h = values.face.size }
+                return text_class:new(values)
+            end,
+        })
+        ZenSpec.unload("modules/filebrowser/patches/home/widgets/stats_triplet")
+        local component = require("modules/filebrowser/patches/home/widgets/stats_triplet")
+        local ctx = {
+            width = 300, height = 120,
+            config = { middle_stats_triplet = { "book_days", "book_duration", "book_page_minutes" } },
+            data = { stats = { book_days = "3", book_duration = "12345h 45m", book_page_minutes = "1.5" } },
+        }
+        component.build(ctx)
+
+        local icons, values = {}, {}
+        for _i, child in ipairs(created) do
+            if child.kind == "ui/widget/horizontalgroup"
+                    and child[1] and child[1].kind == "ui/widget/iconwidget" then
+                icons[#icons + 1] = child[1].file
+                values[#values + 1] = child[3].text
+                assert.are.equal(16, child[3].face.size)
+                assert.are.equal(3, child[2].width)
+                assert.is_true(child[1].width + child[2].width + child[3]:getSize().w <= 94)
+            end
+        end
+        assert.are.same({ "3", "12345h 45m", "1.5" }, values)
+        assert.are.same({
+            utils.resolveLocalIcon(ZenSpec.root .. "/icons/", "calendar"),
+            utils.resolveLocalIcon(ZenSpec.root .. "/icons/", "tab_to_be_read"),
+            utils.resolveLocalIcon(require("libs/libkoreader-lfs").currentdir()
+                .. "/resources/icons/mdlight/", "book.opened"),
+        }, icons)
+
+        created = {}
+        ctx.module_cfg = { show_icons = false }
+        component.build(ctx)
+        local value_size
+        for _i, child in ipairs(created) do
+            assert.are_not.equal("ui/widget/iconwidget", child.kind)
+            if child.text == "12345h 45m" then value_size = child.face.size end
+        end
+        assert.are.equal(18, value_size)
+    end)
+
     it("auto-sizes stats text while preserving an exact manual size", function()
         ZenSpec.replace("ui/widget/textwidget", {
             new = function(_self, values)

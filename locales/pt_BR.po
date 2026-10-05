@@ -1879,7 +1879,7 @@ msgid "Day warmth: "
 msgstr "Tonalidade quente diurna: "
 
 #. Type: unit
-#. Context: local FIELD_MAP = { book_days = { id = "book_days", label = _("Days"), get = function(s) return s.book_days or "—" end }, book_duration = { id = "book_duration", label = _("Reading time"), get = function(s) return s.book_duration or "—"...
+#. Context: local FIELD_MAP = { book_days = { id = "book_days", label = _("Days"), get = function(s) return s.book_days or "—" end }, book_duration = { id = "book_duration", label = _("Total time"), get = function(s) return s.book_duration or "—"...
 #: stats_triplet.lua:51 end_book_settings.lua:17
 msgid "Days"
 msgstr "Dias"
@@ -3607,18 +3607,6 @@ msgid "Minutes"
 msgstr "Minutos"
 
 #. Type: setting
-#. Context: { "book_duration", _("Reading time") }, { "book_page_minutes", _("Minutes per page") }, { "book_daily_minutes", _("Minutes per reading day") },
-#: stats_triplet.lua:53 end_book_settings.lua:19
-msgid "Minutes per page"
-msgstr "Minutos por página"
-
-#. Type: setting
-#. Context: { "book_page_minutes", _("Minutes per page") }, { "book_daily_minutes", _("Minutes per reading day") }, }
-#: stats_triplet.lua:54 end_book_settings.lua:20
-msgid "Minutes per reading day"
-msgstr "Minutos por dia de leitura"
-
-#. Type: setting
 #. Context: end return T(_("Missing: %1"), active_id) end
 #: extras_settings.lua:189
 msgid "Missing: %1"
@@ -4512,6 +4500,18 @@ msgstr "A senha não pode estar vazia."
 msgid "Paste"
 msgstr "Colar"
 
+#. Type: label
+#. Context: book_page_minutes = { id = "book_page_minutes", label = _("Per page"), get = function(s) return s.book_page_minutes or "—" end }, book_daily_minutes = { id = "book_daily_minutes", label = _("Per day"), get = function(s) return s.book_dai...
+#: stats_triplet.lua:63
+msgid "Per day"
+msgstr "Por dia"
+
+#. Type: label
+#. Context: book_duration = { id = "book_duration", label = _("Total time"), get = function(s) return s.book_duration or "—" end }, book_page_minutes = { id = "book_page_minutes", label = _("Per page"), get = function(s) return s.book_page_minutes o...
+#: stats_triplet.lua:62
+msgid "Per page"
+msgstr "Por página"
+
 #. Type: setting
 #. Context: { id = "off", text = _("Off") }, { id = "percent", text = _("Percent") }, { id = "time_left", text = _("Time to book end") },
 #: home_settings.lua:453
@@ -4871,12 +4871,6 @@ msgstr "Estatísticas de leitura"
 #: stats_triplet.lua:175
 msgid "Reading stats"
 msgstr "Estatísticas de leitura"
-
-#. Type: setting
-#. Context: { "book_days", _("Days") }, { "book_duration", _("Reading time") }, { "book_page_minutes", _("Minutes per page") },
-#: stats_triplet.lua:52 end_book_settings.lua:18
-msgid "Reading time"
-msgstr "Tempo de leitura"
 
 #. Type: setting
 #. Context: current_book = _("Current book"), trend_graph = _("Reading trend"), goal_progress = _("Reading goals"),
@@ -6277,6 +6271,18 @@ msgid "Time Format"
 msgstr "Formato de hora"
 
 #. Type: setting
+#. Context: { "book_page_minutes", _("Time per page") }, { "book_daily_minutes", _("Time per day") }, }
+#: end_book_settings.lua:20
+msgid "Time per day"
+msgstr "Tempo por dia"
+
+#. Type: setting
+#. Context: { "book_duration", _("Total time") }, { "book_page_minutes", _("Time per page") }, { "book_daily_minutes", _("Time per day") },
+#: end_book_settings.lua:19
+msgid "Time per page"
+msgstr "Tempo por página"
+
+#. Type: setting
 #. Context: read_time = _("Read time"), time_remaining = _("Time remaining"), pages_today = _("Pages today"),
 #: app_launcher_settings.lua:79 library_settings.lua:1519
 msgid "Time remaining"
@@ -6426,9 +6432,9 @@ msgstr "Total de livros"
 msgid "Total pages"
 msgstr "Total de páginas"
 
-#. Type: label
-#. Context: blockCard{ width = c4_w, height = card_h, value = formatTime(avg_t), label = _("Time/day") }, blockCard{ width = c4_w, height = card_h, value = formatTime(stats.week_duration), label = _("Total time") }, }, stat_style, card_gap)
-#: stats_page.lua:921 stats_page.lua:930 stats_page.lua:937 stats_page.lua:963
+#. Type: setting
+#. Context: { "book_days", _("Days") }, { "book_duration", _("Total time") }, { "book_page_minutes", _("Time per page") },
+#: stats_page.lua:917 stats_page.lua:926 stats_page.lua:933 stats_page.lua:959 stats_triplet.lua:61 end_book_settings.lua:18
 msgid "Total time"
 msgstr "Tempo total"
 

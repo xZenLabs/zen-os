@@ -107,6 +107,17 @@ function EndBook:showCover(path)
     return true
 end
 
+function EndBook:registerStripCoverListener(listener)
+    self._strip_cover_listener = listener
+    return function()
+        if self._strip_cover_listener == listener then self._strip_cover_listener = nil end
+    end
+end
+
+function EndBook:_zen_home_notify_strip_cover(path)
+    if not self.closed and self._strip_cover_listener then pcall(self._strip_cover_listener, path) end
+end
+
 function EndBook:refreshBookMenu(path)
     if self.closed then return end
     local home = SharedState.get(self.plugin, "home")
@@ -403,6 +414,7 @@ function EndBook:rebuild()
         }
         if id == "strip" then
             ctx.module_cfg = strip_config
+            ctx.registerStripCoverListener = function(listener) return self:registerStripCoverListener(listener) end
             ctx.showBookMenu = function(path, source) return self:showBookMenu(path, source) end
             ctx.skipOpeningBanner = true
             if self.preview then ctx.openCover = function(path) return self:showCover(path) end end

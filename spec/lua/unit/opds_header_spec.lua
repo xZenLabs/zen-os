@@ -43,6 +43,7 @@ describe("OPDS header", function()
             return setmetatable(values, { __index = self })
         end
         function class:new(values) return values or {} end
+        function class:paintTo() end
         return class
     end
 
@@ -272,9 +273,9 @@ describe("OPDS header", function()
             getRatio = function() return 2 / 3 end,
             calcDims = function(w, h) return math.floor(math.min(w, h * 2 / 3)), h end,
         })
-        ZenSpec.replace("common/utils", {
+        ZenSpec.replace("common/utils", setmetatable({
             resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end,
-        })
+        }, { __index = dofile(ZenSpec.root .. "/common/utils.lua") }))
         ZenSpec.replace("common/plugin_root", "/zen-ui")
         ZenSpec.replace("common/tbr_index", {
             getInventoryPaths = function() return inventory_paths end,
@@ -635,6 +636,46 @@ describe("OPDS header", function()
         assert.is_true(items[1]._zen_opds_downloaded)
         assert.is_true(_G.__ZEN_UI_PLUGIN.config.opds.downloaded["Author - Book"])
         assert.are.equal(1, saved)
+    end)
+
+    it("paints a top-right circle and finished check only for downloaded covers in both layouts", function()
+        local classes = {
+            get_upvalue(Browser.updateItems, "OPDSItem"),
+            get_upvalue(Browser.updateItems, "OPDSMosaicItem"),
+        }
+        for _i, class in ipairs(classes) do
+            for _j, rounded in ipairs({ false, true }) do
+                _G.__ZEN_UI_PLUGIN.config.features = { browser_cover_rounded_corners = rounded }
+                local item = class:new{
+                    entry = {}, cover_w = 100, cover_h = 150,
+                    cell_w = 140, cell_h = 200, strip_h = 20,
+                    _zen_cover_widget = { dimen = { x = 50, y = 55 } },
+                }
+                local pixels, dimmed = {}, false
+                local bb = {
+                    paintRect = function() end,
+                    lightenRect = function() dimmed = true end,
+                    paintRectRGB32 = function(_self, x, y, width, height, color)
+                        assert.is_true(dimmed)
+                        for py = y, y + height - 1 do
+                            for px = x, x + width - 1 do
+                                assert.is_true(px >= 124 and px <= 147 and py >= 58 and py <= 80)
+                                pixels[py * 1000 + px] = color
+                            end
+                        end
+                    end,
+                }
+                item:paintTo(bb, 30, 40)
+                assert.are.same({}, pixels)
+                assert.is_false(dimmed)
+
+                item.entry._zen_opds_downloaded = true
+                item:paintTo(bb, 30, 40)
+                assert.are.equal(4, pixels[58 * 1000 + 136]) -- White outline.
+                assert.are.equal(0, pixels[69 * 1000 + 127]) -- Black circle.
+                assert.are.equal(4, pixels[69 * 1000 + 136]) -- White checkmark.
+            end
+        end
     end)
 
     it("waits for Wi-Fi startup before retrying the selected catalog", function()

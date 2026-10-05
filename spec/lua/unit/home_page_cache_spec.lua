@@ -861,6 +861,41 @@ describe("home data and book caches", function()
         assert.are.equal(0, stats.count)
     end)
 
+    it("hydrates real covers when drilling into books already cached with their bitmaps", function()
+        local function cover()
+            return { stride = 6, h = 1, copy = cover,
+                getHeight = function() return 1 end, free = function() end }
+        end
+        require("bookinfomanager").getBookInfo = function(_self, path, get_cover)
+            book_info_reads = book_info_reads + 1
+            local has_cover = path == "/library/alpha.epub"
+            return {
+                title = "Book", cover_fetched = true, has_cover = has_cover,
+                cover_sizetag = "300x450", cover_w = 300, cover_h = 450,
+                cover_bb = has_cover and get_cover and cover() or nil,
+            }
+        end
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = Home.newDataProvider({ browser_cover_badges = {} }, {
+            rows = { enabled = { strip = true } }, modules = {},
+        })
+        assert.is_table(provider:getBook("/library/alpha.epub").cover_bb)
+        assert.is_nil(provider:getBook("/library/no-cover.epub").cover_bb)
+        local books = provider:getStripItemsForPage({ kind = "series", drill = {
+            label = "Series", files = { "/library/alpha.epub", "/library/no-cover.epub" },
+        } }, 4, "default", "strip", 0)
+
+        assert.is_true(books[1].has_real_cover)
+        assert.is_nil(books[1].cover_bb)
+        assert.is_true(books[1].is_cover_pending)
+        assert.is_false(books[2].has_real_cover)
+        assert.is_nil(books[2].is_cover_pending)
+        assert.equals(2, book_info_reads)
+        local full_book = provider:getBook("/library/alpha.epub")
+        assert.is_table(full_book.cover_bb)
+        assert.is_nil(full_book.is_cover_pending)
+    end)
+
     it("warms a strip cover only from scheduled cover work", function()
         local full_cover_reads = 0
         local rendered
@@ -1052,6 +1087,55 @@ describe("home data and book caches", function()
 
         assert.are.same({ "/library/alpha.epub" }, notified)
         assert.are.equal(0, rebuilds)
+    end)
+
+    it("extracts pending end-of-book covers and settles books without covers", function()
+        local scheduled, notified, extracted = {}, {}, 0
+        local fetched = false
+        local UIManager = require("ui/uimanager")
+        UIManager.scheduleIn = function(_self, delay, callback)
+            scheduled[#scheduled + 1] = { delay = delay, callback = callback }
+        end
+        local BookInfoManager = require("bookinfomanager")
+        BookInfoManager.getBookInfo = function()
+            return { title = "Alpha", cover_fetched = fetched, has_cover = false }
+        end
+        BookInfoManager.isExtractingInBackground = function() return false end
+        BookInfoManager.extractInBackground = function(_self, files)
+            assert.equals("/library/alpha.epub", files[1].filepath)
+            extracted = extracted + 1
+            fetched = true
+            return true
+        end
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local home_menu = { _home_rebuild = function() error("rebuilt hidden Home") end }
+        set_home_menu(Home, home_menu)
+        local page = { name = "zen_end_book", _zen_home_notify_strip_cover = function(_self, path)
+            notified[#notified + 1] = path
+        end }
+        UIManager._window_stack = { { widget = home_menu }, { widget = page } }
+        local provider = Home.newDataProvider({ browser_cover_badges = {} }, {
+            rows = { enabled = { strip = true } }, modules = {},
+        })
+        local book = provider:getBooksForStrip("recently_read", 4, "default", "strip")[1]
+        assert.is_true(book.is_cover_pending)
+        assert.equals("pending", provider:warmStripCover(book, 200, 300))
+        table.remove(scheduled, 1).callback()
+        assert.equals(1, extracted)
+        UIManager._window_stack = { { widget = page }, { widget = {} } }
+        table.remove(scheduled, 1).callback()
+        assert.same({ "/library/alpha.epub" }, notified)
+        assert.equals("ready", provider:warmStripCover(book, 200, 300))
+        local settled = provider:getBooksForStrip("recently_read", 4, "default", "strip")[1]
+        assert.is_nil(settled.is_cover_pending)
+        assert.is_false(settled.has_real_cover)
+        assert.equals(0, #scheduled)
+        page.closed = true
+        fetched = false
+        assert.equals("pending", provider:warmStripCover(book, 200, 300))
+        table.remove(scheduled, 1).callback()
+        assert.equals(1, extracted)
+        assert.equals(0, #scheduled)
     end)
 
     it("coalesces featured cover extraction into one batch-completion rebuild", function()

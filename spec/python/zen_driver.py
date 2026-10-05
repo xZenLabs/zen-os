@@ -72,7 +72,16 @@ class ZenDriver:
     def command(self, kind: str, **params: object) -> dict[str, object]:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
             client.settimeout(10)
-            client.connect(str(self.socket_path))
+            deadline = time.monotonic() + 10
+            while True:
+                try:
+                    client.connect(str(self.socket_path))
+                    break
+                except (FileNotFoundError, ConnectionRefusedError):
+                    # Browser/reader transitions briefly recreate the socket.
+                    if time.monotonic() >= deadline:
+                        raise
+                    time.sleep(0.1)
             client.sendall((json.dumps({"type": kind, "params": params}) + "\n").encode())
             response = client.makefile("r", encoding="utf-8").readline()
         return json.loads(response)
