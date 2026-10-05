@@ -334,6 +334,82 @@ describe("home data and book caches", function()
         end
     end)
 
+    it("does not erase shifted book content when painting the goals row", function()
+        ZenSpec.unload("common/ui/background")
+        ZenSpec.replace("ui/widget/imagewidget", {})
+        ZenSpec.replace("libs/libkoreader-lfs", {})
+        ZenSpec.replace("apps/filemanager/filemanagerutil", {})
+        local screen = require("device").screen
+        function screen:scaleBySize(value) return value end
+        local function widget_class(kind)
+            return { new = function(_self, widget)
+                function widget:getSize()
+                    if self.dimen then return self.dimen end
+                    if kind == "span" then return { w = 0, h = self.width } end
+                    local w, h = 0, 0
+                    for _i, child in ipairs(self) do
+                        local size = child:getSize()
+                        w = math.max(w, size.w)
+                        h = kind == "vertical" and h + size.h or math.max(h, size.h)
+                    end
+                    return { w = self.width or w, h = self.height or h }
+                end
+                function widget:paintTo(bb, x, y)
+                    local size = self:getSize()
+                    if self.background then bb:paintRect(x, y, size.w, size.h, self.background) end
+                    for _i, child in ipairs(self) do
+                        if child.paintTo then child:paintTo(bb, x, y) end
+                        if kind == "vertical" then y = y + child:getSize().h end
+                    end
+                end
+                return widget
+            end }
+        end
+        ZenSpec.replace("ui/widget/container/framecontainer", widget_class("frame"))
+        ZenSpec.replace("ui/widget/horizontalgroup", widget_class("horizontal"))
+        ZenSpec.replace("ui/widget/horizontalspan", widget_class("span"))
+        ZenSpec.replace("ui/widget/verticalgroup", widget_class("vertical"))
+        ZenSpec.replace("ui/widget/verticalspan", widget_class("span"))
+        ZenSpec.replace("ui/font", { getFace = function() return {} end })
+        ZenSpec.replace("modules/filebrowser/patches/home/components/registry", {
+            layoutUnits = function() return { 4, 6 } end,
+            gridHeights = function() return { 400, 484 } end,
+            equalSpacingShifts = function() return { 60, 0 } end,
+            setRefreshCallback = function() end,
+        })
+        ZenSpec.unload("modules/filebrowser/patches/home_page")
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local build_home_content = select(2, get_compute_row_heights(Home))
+        local rows = {}
+        for i, id in ipairs({ "featured", "reading_goals" }) do
+            rows[i] = { id = id, build = function(ctx)
+                local shift = 0
+                local top = id == "featured" and 350 or 200
+                ctx.setContentBounds{
+                    top = top, bottom = top + 40,
+                    set_shift = function(value) shift = value end,
+                }
+                return require("ui/widget/container/framecontainer"):new{
+                    width = ctx.width, height = ctx.height, background = "white",
+                    {
+                        getSize = function() return { w = ctx.width, h = ctx.height } end,
+                        paintTo = function(_self, bb, x, y)
+                            bb:paintRect(x, y + top + shift, ctx.width, 40, "black")
+                        end,
+                    },
+                }
+            end }
+        end
+        local content = build_home_content({ height = 900, dimen = { h = 900 } }, {},
+            { show_status_bar = false, modules = {} }, rows, {})
+        local pixel
+        content:paintTo({ paintRect = function(_bb, _x, y, _w, h, color)
+            if y <= 424 and y + h > 424 then pixel = color end
+        end }, 0, 0)
+
+        assert.are.equal("black", pixel)
+    end)
+
     it("keeps preset row heights on their original grids", function()
         ZenSpec.replace("modules/filebrowser/patches/home/components/registry", {
             layoutUnits = function(rows)

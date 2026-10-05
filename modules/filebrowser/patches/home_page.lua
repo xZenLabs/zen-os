@@ -3432,6 +3432,8 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
         set_home_focus(menu, restore_i)
     end
 
+    -- Row backgrounds would erase neighboring content shifted across row boundaries.
+    Background.clearWhiteBackgrounds(children)
     return HorizontalGroup:new{
         HorizontalSpan:new{ width = side_pad },
         FrameContainer:new{
