@@ -171,4 +171,27 @@ describe("native KOReader menu shortcuts", function()
         assert.are.equal(1, #filemanager_menu.tab_item_table)
         package.loaded["modules/settings/koreader_settings"] = original
     end)
+
+    it("copies a selected native setting in reader and library contexts", function()
+        local original = package.loaded["modules/settings/koreader_settings"]
+        finally(function() package.loaded["modules/settings/koreader_settings"] = original end)
+        local copied, owner, setting
+        ZenSpec.replace("modules/settings/koreader_settings", {
+            install = function() end,
+            copyItems = function(items, menu, is_setting)
+                copied, owner, setting = items, menu, is_setting
+                return items
+            end,
+        })
+        local NativeMenu = require("modules/menu/app_launcher/native_menu")
+        assert.equals(reader_menu.tab_item_table[1][1], NativeMenu.settingsItems("active", "style_tweaks")[1])
+        assert.equals(reader_menu, owner)
+        assert.is_true(setting)
+        package.loaded["apps/reader/readerui"].instance = nil
+        assert.equals(filemanager_menu.tab_item_table[1][1], NativeMenu.settingsItems("active", "network")[1])
+        assert.equals(filemanager_menu, owner)
+        assert.is_true(setting)
+        assert.same({}, NativeMenu.settingsItems("active", "missing"))
+        assert.same({}, copied)
+    end)
 end)

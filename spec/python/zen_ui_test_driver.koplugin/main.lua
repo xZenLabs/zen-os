@@ -2096,6 +2096,7 @@ function Driver:handleCommand(command)
         if active and params.refresh_header then page:_zen_status_refresh() end
         local state = {
             ok = true, active = active == true,
+            book_status_active = getmetatable(page) == require("ui/widget/bookstatuswidget"),
             action = G_reader_settings:readSetting("end_document_action"),
             initialized = plugin.config._meta.end_book_default_applied,
             book_status = reader and (reader.doc_settings:readSetting("summary") or {}).status,
@@ -2331,6 +2332,8 @@ function Driver:handleCommand(command)
                 end
             end
             if params.close then page:onClose() end
+        elseif state.book_status_active and params.close then
+            page:onClose()
         end
         return state
     end

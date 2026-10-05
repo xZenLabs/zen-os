@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 from unittest.mock import MagicMock
 
 from PIL import Image
@@ -9,9 +10,46 @@ from zen_driver import (
     compare_frames,
     find_text,
     install_startup_alert_patch,
+    launch,
     normalize_visible_text,
     update_or_compare_golden,
 )
+
+
+@pytest.mark.parametrize("args,foreground", [
+    ([], "0"),
+    (["--fg"], "1"),
+    (["--fg", "unknown"], "1"),
+    (["unknown", "--fg"], "1"),
+])
+def test_runner_accepts_foreground_flag(args, foreground) -> None:
+    runner = Path(__file__).parents[2] / "run"
+    result = subprocess.run(["bash", "-x", str(runner), *args], capture_output=True, text=True)
+    assert result.returncode == 2
+    assert f"+ export SDL_WINDOW_ACTIVATE_WHEN_SHOWN={foreground}" in result.stderr
+
+
+@pytest.mark.parametrize("foreground,background", [("0", "1"), ("1", "0")])
+def test_launch_controls_emulator_focus(tmp_path: Path, monkeypatch, foreground, background) -> None:
+    popen = MagicMock()
+    monkeypatch.setattr("zen_driver.subprocess.Popen", popen)
+    monkeypatch.setenv("ZEN_UI_TEST_FOREGROUND", foreground)
+    monkeypatch.delenv("SDL_MAC_BACKGROUND_APP", raising=False)
+    monkeypatch.delenv("SDL_WINDOW_NO_ACTIVATION_WHEN_SHOWN", raising=False)
+    monkeypatch.delenv("SDL_WINDOW_ACTIVATE_WHEN_SHOWN", raising=False)
+    monkeypatch.delenv("SDL_WINDOW_ACTIVATE_WHEN_RAISED", raising=False)
+
+    assert launch(
+        tmp_path / "runtime", tmp_path / "home", tmp_path / "driver.sock",
+        env_overrides={"EMULATE_READER_W": "400"},
+    ) is popen.return_value
+
+    env = popen.call_args.kwargs["env"]
+    assert env["SDL_MAC_BACKGROUND_APP"] == background
+    assert env["SDL_WINDOW_NO_ACTIVATION_WHEN_SHOWN"] == background
+    assert env["SDL_WINDOW_ACTIVATE_WHEN_SHOWN"] == foreground
+    assert env["SDL_WINDOW_ACTIVATE_WHEN_RAISED"] == foreground
+    assert env["EMULATE_READER_W"] == "400"
 
 
 def test_command_waits_for_socket_handoff_without_resending(monkeypatch) -> None:

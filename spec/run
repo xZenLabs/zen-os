@@ -2,17 +2,33 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMMAND="${1:-}"
+export ZEN_UI_TEST_FOREGROUND=0
+ARGS=()
+for arg in "$@"; do
+  if [[ "$arg" == "--fg" ]]; then
+    export ZEN_UI_TEST_FOREGROUND=1
+  else
+    ARGS+=("$arg")
+  fi
+done
+COMMAND="${ARGS[0]:-}"
 LOCK_FILE="$ROOT/spec/koreader-lock.json"
 ARTIFACTS="$ROOT/spec/.artifacts"
 
+# Set SDL2/SDL3 focus behavior for Lua tests and emulator windows.
+export SDL_MAC_BACKGROUND_APP=$((1 - ZEN_UI_TEST_FOREGROUND))
+export SDL_WINDOW_NO_ACTIVATION_WHEN_SHOWN="$SDL_MAC_BACKGROUND_APP"
+export SDL_WINDOW_ACTIVATE_WHEN_SHOWN="$ZEN_UI_TEST_FOREGROUND"
+export SDL_WINDOW_ACTIVATE_WHEN_RAISED="$ZEN_UI_TEST_FOREGROUND"
+
 usage() {
   cat <<'EOF'
-Usage: ./spec/run <lua|smoke|full|nightly-smoke|legacy-upgrade|update-goldens|package-check|website-screenshots>
+Usage: ./spec/run [--fg] <lua|smoke|full|nightly-smoke|legacy-upgrade|update-goldens|package-check|website-screenshots>
 
 Set KOREADER_DIR to a KOReader emulator/runtime directory containing luajit,
 frontend, and the Busted rocks under spec/rocks. The runtime is never mutated.
 Smoke, full, and nightly-smoke always run the real KOReader emulator.
+Use --fg to allow desktop focus; the default is background mode.
 EOF
 }
 
@@ -370,7 +386,7 @@ case "$COMMAND" in
   nightly-smoke) run_test_suite nightly ;;
   legacy-upgrade) run_legacy_upgrade ;;
   package-check) package_check ;;
-  website-screenshots) run_website_screenshots "${@:2}" ;;
+  website-screenshots) run_website_screenshots "${ARGS[@]:1}" ;;
   full) run_test_suite stable; package_check ;;
   update-goldens)
     ZEN_UI_RUN_EMULATOR=1 ZEN_UI_UPDATE_GOLDENS=1 run_lua

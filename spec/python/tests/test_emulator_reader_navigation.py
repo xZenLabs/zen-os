@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from zen_driver import ZenDriver, install_startup_alert_patch, wait_for_socket
+from zen_driver import ZenDriver, launch, wait_for_socket
 
 
 pytestmark = pytest.mark.skipif(
@@ -105,7 +105,6 @@ def _launch(
 ) -> subprocess.Popen[str]:
     settings_dir = ko_home / "settings" / "ZenOS"
     settings_dir.mkdir(parents=True, exist_ok=True)
-    install_startup_alert_patch(ko_home)
     (ko_home / "settings.reader.lua").write_text(
         'return { ["home_dir"] = ' + repr(str(library.resolve())) + " }\n",
         encoding="utf-8",
@@ -124,15 +123,7 @@ def _launch(
         "tab_order = { 'home', 'authors', 'series', 'books' } } }\n",
         encoding="utf-8",
     )
-    env = os.environ.copy()
-    env.update({
-        "KO_HOME": str(ko_home),
-        "ZEN_UI_TEST_SOCKET": str(socket_path),
-        "ZEN_UI_TESTING": "1",
-    })
-    return subprocess.Popen(
-        [str(runtime / "reader.lua")], cwd=runtime, env=env, text=True
-    )
+    return launch(runtime, ko_home, socket_path, library, initialize_settings=False)
 
 
 def _wait_for_reader(driver: ZenDriver, expected_file: Path) -> dict[str, object]:

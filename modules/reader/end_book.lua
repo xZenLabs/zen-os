@@ -500,7 +500,8 @@ end
 
 function EndBook.show(ui, plugin, preview)
     if not preview and (not ui or not ui.document) then return end
-    if not preview and (ui.doc_settings:readSetting("summary") or {}).status ~= "complete" then
+    if not preview and G_reader_settings:isTrue("end_document_auto_mark")
+            and (ui.doc_settings:readSetting("summary") or {}).status ~= "complete" then
         ui.status:markBook(true)
         ui.doc_settings:flush()
     end

@@ -11,7 +11,7 @@ import pytest
 from fixtures import build_library
 from zen_driver import (
     ZenDriver,
-    install_startup_alert_patch,
+    launch,
     wait_for_socket,
 )
 
@@ -27,7 +27,6 @@ def _launch_flat_view(
 ) -> subprocess.Popen[str]:
     settings_dir = ko_home / "settings" / "ZenOS"
     settings_dir.mkdir(parents=True, exist_ok=True)
-    install_startup_alert_patch(ko_home)
     (ko_home / "settings.reader.lua").write_text(
         'return { ["home_dir"] = ' + repr(str(library.resolve())) + " }\n",
         encoding="utf-8",
@@ -37,15 +36,7 @@ def _launch_flat_view(
         "browser_flat_view = { enabled = true } }\n",
         encoding="utf-8",
     )
-    env = os.environ.copy()
-    env.update({
-        "KO_HOME": str(ko_home),
-        "ZEN_UI_TEST_SOCKET": str(socket_path),
-        "ZEN_UI_TESTING": "1",
-    })
-    return subprocess.Popen(
-        [str(runtime / "reader.lua")], cwd=runtime, env=env, text=True
-    )
+    return launch(runtime, ko_home, socket_path, library, initialize_settings=False)
 
 
 def test_flat_view_pulls_books_out_of_subfolders() -> None:

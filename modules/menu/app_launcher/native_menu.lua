@@ -211,12 +211,16 @@ function M.isSettingsOwner(menu)
         and not (menu.ui and menu.ui.tearing_down)
 end
 
-function M.settingsItems(scope)
+function M.settingsItems(scope, id)
     local menu = live_menu(scope or "active", false)
     local items = menu_tree(menu)
     if not items then return {} end
     local Settings = require("modules/settings/koreader_settings")
     Settings.install()
+    if id then
+        local item = resolve_item(id, scope or "active")
+        return Settings.copyItems(item and { item } or {}, menu, true)
+    end
     local roots = { _zen_native_owner = menu }
     local icons = require("common/inline_icon_map")
     local glyphs = {

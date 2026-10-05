@@ -128,4 +128,4 @@ Swipe a highlight left or right to browse this book's highlights and notes; each
 
 Statistics cover only the current book: active reading days, recorded reading time, minutes per page, and minutes per reading day. Choose any three in the statistics widget's settings. Missing statistics appear as a dash.
 
-Zen selects **Zen end of book** in KOReader's **End of document action** setting once. Later changes there, including the automatic finished-status option, survive restarts. Book Status remains available from that menu and the screen's footer.
+**Zen Settings > Reader > End of book > End of document action** uses KOReader's action setting. **Zen end of book** and **Always mark as finished** are the defaults for unset preferences; saved choices survive restarts. Turning off automatic marking keeps the current status in both Book Status and Zen's end-of-book screen. Book Status remains available from the action menu.

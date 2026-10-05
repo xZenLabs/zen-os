@@ -2,7 +2,9 @@ return function()
     local plugin = rawget(_G, "__ZEN_UI_PLUGIN")
     local config = plugin.config
     if not config._meta.end_book_default_applied then
-        G_reader_settings:saveSetting("end_document_action", "zen_end_book")
+        if G_reader_settings:readSetting("end_document_action") == nil then
+            G_reader_settings:saveSetting("end_document_action", "zen_end_book")
+        end
         if G_reader_settings:readSetting("end_document_auto_mark") == nil then
             G_reader_settings:saveSetting("end_document_auto_mark", true)
         end

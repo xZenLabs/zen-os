@@ -18,6 +18,7 @@ describe("end of book", function()
         "common/plugin_root", "libs/libkoreader-lfs", "common/archive_actions", "ui/event", "common/clock_timer",
         "common/library_navigation", "common/ui/zen_icon_picker", "common/icon_packs",
         "apps/filemanager/filemanager", "apps/filemanager/filemanagerutil", "common/tbr_index",
+        "modules/menu/app_launcher/native_menu",
     }
 
     before_each(function()
@@ -35,6 +36,11 @@ describe("end of book", function()
         shown, native_calls, top = 0, 0, nil
         status = { onEndOfBook = function() native_calls = native_calls + 1 end }
         menu = { document_end_action = { sub_item_table = { { text = "Auto mark" } } } }
+        ZenSpec.replace("modules/menu/app_launcher/native_menu", { settingsItems = function(scope, id)
+            assert.equals("active", scope)
+            assert.equals("document_end_action", id)
+            return { menu.document_end_action }
+        end })
         ZenSpec.replace("apps/reader/modules/readerstatus", status)
         ZenSpec.replace("ui/uimanager", { getTopmostVisibleWidget = function() return top end })
         ZenSpec.replace("ui/quickstart", { quickstart_filename = "/quickstart.epub" })
@@ -353,7 +359,7 @@ describe("end of book", function()
         assert.same({ page, "ui", region }, dirty)
     end)
 
-    it("marks a real book complete before displaying it and keeps Preview read-only", function()
+    it("respects auto-mark before displaying a book and keeps Preview read-only", function()
         local EndBook = load_end_book()
         local summary, marks, flushes, displayed = { status = "reading" }, 0, 0
         local ui = { document = {}, doc_settings = {
@@ -371,6 +377,15 @@ describe("end of book", function()
         assert.are.equal(0, marks)
         assert.are.equal(0, flushes)
         assert.is_true(displayed.preview)
+        EndBook.show(ui, plugin)
+        assert.are.equal("reading", summary.status)
+        assert.are.equal(0, marks)
+        assert.are.equal(0, flushes)
+        assert.is_nil(displayed.preview)
+        G_reader_settings:saveSetting("end_document_auto_mark", true)
+        EndBook.show(ui, plugin, true)
+        assert.are.equal("reading", summary.status)
+        assert.are.equal(0, marks)
         EndBook.show(ui, plugin)
         assert.are.equal("complete", summary.status)
         assert.are.equal(1, marks)
@@ -459,9 +474,10 @@ describe("end of book", function()
         assert.are.equal(1, shown)
     end)
 
-    it("adds the default Zen action to freshly built reader and file browser menus", function()
+    it("adds the Zen action to freshly built menus and preserves a saved action", function()
         G_reader_settings:saveSetting("end_document_action", "book_status")
         require("modules/reader/patches/end_book")()
+        assert.are.equal("book_status", G_reader_settings:readSetting("end_document_action"))
         local sorter = require("ui/menusorter")
         for _i, prefix in ipairs({ "reader", "filemanager", "reader" }) do
             local items = { document_end_action = { sub_item_table = {
@@ -475,6 +491,7 @@ describe("end of book", function()
             assert.are.equal("Always mark as finished", actions[1].text)
             assert.are.equal("Zen end of book", actions[2].text)
             assert.is_true(actions[2].radio)
+            actions[2].callback()
             assert.is_true(actions[2].checked_func())
             actions[3].callback()
             assert.is_false(actions[2].checked_func())
@@ -489,6 +506,21 @@ describe("end of book", function()
         G_reader_settings:saveSetting("end_document_auto_mark", false)
         require("modules/reader/patches/end_book")()
         assert.is_false(G_reader_settings:readSetting("end_document_auto_mark"))
+    end)
+
+    it("maps the End of book setting to the native document-end action menu", function()
+        require("modules/reader/patches/end_book")()
+        local action = menu.document_end_action
+        require("ui/menusorter"):mergeAndSort("reader", menu)
+        menu.document_end_action = action
+        local items = require("modules/settings/sections/end_book_settings").build{ plugin = plugin }
+        assert.are.equal(action, items[1])
+        local zen = items[1].sub_item_table[2]
+        assert.is_true(zen.checked_func())
+        G_reader_settings:saveSetting("end_document_action", "book_status")
+        assert.is_false(zen.checked_func())
+        zen.callback()
+        assert.are.equal("zen_end_book", G_reader_settings:readSetting("end_document_action"))
     end)
 
     it("uses only current-book statistics and handles missing or empty records", function()

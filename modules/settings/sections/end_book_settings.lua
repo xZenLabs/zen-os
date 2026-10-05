@@ -226,16 +226,7 @@ function M.showWidgets(plugin, refresh)
 end
 
 function M.build(ctx)
-    return {
-        {
-            text = _("Use at end of book"),
-            checked_func = function()
-                return G_reader_settings:readSetting("end_document_action") == "zen_end_book"
-            end,
-            callback = function()
-                G_reader_settings:saveSetting("end_document_action", "zen_end_book")
-            end,
-        },
+    local items = {
         { text = _("Widgets"), keep_menu_open = true, _zen_settings_submenu = true, callback = function() M.showWidgets(ctx.plugin) end },
         {
             text = _("Edit mode"),
@@ -253,6 +244,9 @@ function M.build(ctx)
             end,
         },
     }
+    local action = require("modules/menu/app_launcher/native_menu").settingsItems("active", "document_end_action")[1]
+    if action then table.insert(items, 1, action) end
+    return items
 end
 
 return M

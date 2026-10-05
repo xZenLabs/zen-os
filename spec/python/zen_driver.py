@@ -183,10 +183,15 @@ def launch(
             encoding="utf-8",
         )
     env = os.environ.copy()
+    foreground = env.get("ZEN_UI_TEST_FOREGROUND") == "1"
     env.update({
         "KO_HOME": str(ko_home),
         "ZEN_UI_TEST_SOCKET": str(socket_path),
         "ZEN_UI_TESTING": "1",
+        "SDL_MAC_BACKGROUND_APP": "0" if foreground else "1",
+        "SDL_WINDOW_NO_ACTIVATION_WHEN_SHOWN": "0" if foreground else "1",  # SDL2
+        "SDL_WINDOW_ACTIVATE_WHEN_SHOWN": "1" if foreground else "0",  # SDL3
+        "SDL_WINDOW_ACTIVATE_WHEN_RAISED": "1" if foreground else "0",
     })
     if env_overrides:
         env.update(env_overrides)

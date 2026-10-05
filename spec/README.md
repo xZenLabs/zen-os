@@ -17,6 +17,12 @@ runs stage those bundled plugins alongside ZenOS and the test driver. The
 runner never uses a system Lua interpreter for behavior tests and creates a
 temporary `KO_HOME` for every invocation.
 
+Tests keep the emulator in the background without taking desktop focus. Its
+windows still render normally, including framebuffer screenshots. Launching
+KOReader manually is unchanged.
+Pass `--fg` before or after the command to run in the foreground, for example
+`./spec/run smoke --fg` or `./spec/run --fg full`.
+
 Runtime versions live in `koreader-lock.json`. Update a pin deliberately, then
 regenerate the affected goldens and review every PNG diff. Test artifacts belong
 under `spec/.artifacts/` and are ignored by Git.

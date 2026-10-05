@@ -132,6 +132,13 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert state["action"] == ("zen_end_book" if first_run else "nothing")
                 if not first_run:
                     continue
+                assert driver.command("open_settings_page")["ok"]
+                for label in ("Reader", "End of book", "End of document action"):
+                    assert driver.command("settings_page_select", label=label)["ok"]
+                choices = driver.command("settings_page_state")["settings"]
+                for label in ("Always mark as finished", "Zen end of book"):
+                    assert next(item["checked"] for item in choices["items"] if item["label"] == label)
+                assert driver.command("close_settings_page")["ok"]
                 _wait_command(driver, "open_book", lambda result: result.get("ok"), path=str(book))
                 _wait_command(driver, "reader_state", lambda result: result.get("reader", {}).get("open"))
                 reading = driver.command("end_book")["book_status"]
@@ -139,7 +146,20 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 preview = driver.command("end_book", preview=True, auto_mark=False)
                 assert preview["book_status"] == reading
                 driver.command("end_book", close=True)
-                state = driver.command("end_book", show=True)
+                status = driver.command("end_book", show=True, action="book_status")
+                assert status["book_status_active"] is True, status
+                assert status["book_status"] == reading
+                driver.command("end_book", close=True)
+                state = driver.command("end_book", show=True, action="zen_end_book")
+                assert state["active"] is True, state
+                assert state["book_status"] == reading
+                assert not state["featured_finished_icon"]
+                driver.command("end_book", close=True)
+                status = driver.command("end_book", show=True, action="book_status", auto_mark=True)
+                assert status["book_status_active"] is True, status
+                assert status["book_status"] == "complete"
+                driver.command("end_book", close=True)
+                state = driver.command("end_book", show=True, action="zen_end_book")
                 state = _wait_command(driver, "end_book", lambda result: result.get("status_header"))
                 assert state["active"] is True, state
                 assert state["book_status"] == "complete"
@@ -267,6 +287,20 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert driver.command("settings_page_select", label="Reader")["ok"]
                 assert driver.command("settings_page_state")["settings"]["labels"][-1] == "End of book"
                 assert driver.command("settings_page_select", label="End of book")["ok"]
+                assert driver.command("settings_page_select", label="End of document action")["ok"]
+                choices = driver.command("settings_page_state")["settings"]
+                assert {"Always mark as finished", "Zen end of book", "Book status", "Do nothing"} <= set(choices["labels"])
+                for label in ("Always mark as finished", "Zen end of book"):
+                    assert next(item["checked"] for item in choices["items"] if item["label"] == label)
+                assert driver.command("settings_page_select", label="Always mark as finished")["ok"]
+                choices = driver.command("settings_page_state")["settings"]
+                assert not choices["items"][0]["checked"]
+                assert driver.command("settings_page_select", label="Always mark as finished")["ok"]
+                assert driver.command("settings_page_select", label="Book status")["ok"]
+                assert driver.command("end_book")["action"] == "book_status"
+                assert driver.command("settings_page_select", label="Zen end of book")["ok"]
+                assert driver.command("end_book")["action"] == "zen_end_book"
+                assert driver.command("settings_page_back")["ok"]
                 assert "Edit mode" in driver.command("settings_page_state")["settings"]["labels"]
                 assert driver.command("settings_page_select", label="Edit mode")["ok"]
                 assert driver.command("settings_page_select", label="Widgets")["ok"]
