@@ -38,3 +38,23 @@ describe("common utils icon sizing", function()
         assert.are.equal(1, utils.iconOpticalScale(nil))
     end)
 end)
+
+describe("Controls menu tab placement", function()
+    local utils = require("common/utils")
+
+    it("replaces tabs only while Controls is available outside the guided tour", function()
+        local config = {
+            features = { quick_settings = true },
+            quick_settings = { show_buttons = { launcher = true } },
+            _meta = {},
+        }
+        assert.is_true(utils.controlReplacesMenuTab(config, "launcher"))
+        assert.is_false(utils.controlReplacesMenuTab(config, "zen_settings"))
+        config._meta.quickstart_menu_tour_pending = true
+        assert.is_false(utils.controlReplacesMenuTab(config, "launcher"))
+        config._meta.quickstart_menu_tour_pending = false
+        config.features.quick_settings = false
+        assert.is_false(utils.controlReplacesMenuTab(config, "launcher"))
+        assert.is_false(utils.controlReplacesMenuTab(nil, "launcher"))
+    end)
+end)

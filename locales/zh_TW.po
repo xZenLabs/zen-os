@@ -5611,6 +5611,12 @@ msgid "Show hidden files"
 msgstr "顯示隱藏檔案"
 
 #. Type: setting
+#. Context: IconItem.decorate({ text = _("Show Home in Controls"), checked_func = function()
+#: menu_settings.lua:1265
+msgid "Show Home in Controls"
+msgstr "在控制面板中顯示首頁"
+
+#. Type: setting
 #. Context: utils.reorder_nested_items_by_text({ navbar_item }, _("Icons"), { _("Show icons"), _("Icon size:"),
 #: zen_settings.lua:123 navbar_settings.lua:1576
 msgid "Show icons"
@@ -5639,6 +5645,12 @@ msgstr "顯示 KOAssistant"
 #: zen_settings.lua:118 app_launcher_settings.lua:1064 menu_settings.lua:1203 navbar_settings.lua:1524
 msgid "Show labels"
 msgstr "顯示標籤"
+
+#. Type: setting
+#. Context: IconItem.decorate({ text = _("Show Launcher in Controls"), checked_func = function()
+#: menu_settings.lua:1277
+msgid "Show Launcher in Controls"
+msgstr "在控制面板中顯示啟動器"
 
 #. Type: message
 #. Context: text = _("Treat file updates as New"), help_text = _("Show modified books as New until they are opened or their read status is changed."), checked_func = function()
@@ -7277,3 +7289,13 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:381
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPM 已安裝。重新啟動 KOReader 即可使用。"
+
+#. Type: message
+#: battery_stats_menu.lua
+msgid "Charging history and overall usage will be kept."
+msgstr "將保留充電歷史和整體使用統計。"
+
+#. Type: message
+#: battery_stats_menu.lua
+msgid "Could not save battery history. The log was kept."
+msgstr "無法儲存電池歷史。日誌已保留。"

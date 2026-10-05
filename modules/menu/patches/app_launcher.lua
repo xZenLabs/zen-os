@@ -28,6 +28,7 @@
     local ButtonModel = require("common/nav_button_model")
     local ZenButton = require("common/ui/zen_button")
     local SettingsTransition = require("common/settings_transition")
+    local SharedState = require("common/shared_state")
     local utils = require("common/utils")
     local library_font = require("modules/filebrowser/patches/library_font")
 
@@ -44,9 +45,10 @@
         if root then _icons_dir = root .. "/icons/" end
     end
 
-    local function is_enabled()
+    local function is_tab_enabled()
         local features = zen_plugin.config and zen_plugin.config.features
         return type(features) == "table" and features.app_launcher == true
+            and not utils.controlReplacesMenuTab(zen_plugin.config, "launcher")
     end
 
     local DEFAULT_ENTRY_ICON = "lightning"
@@ -403,7 +405,7 @@
         return controls and controls.isDisabled and controls.isDisabled(entry.quick_setting_id)
     end
 
-    local function create_panel(touch_menu)
+    local function create_content_panel(touch_menu, status_height)
         local entries, folder = current_entries(touch_menu)
         local cfg = Model.ensure(zen_plugin.config)
         local show_labels = cfg.show_labels ~= false
@@ -492,7 +494,7 @@
         local bar_h = (touch_menu.bar and touch_menu.bar:getSize().h) or 0
         local footer_h = (touch_menu.footer and touch_menu.footer:getSize().h) or 0
         local footer_margin_h = (touch_menu.footer_top_margin and touch_menu.footer_top_margin:getSize().h) or 0
-        local panel_height = math.max(1, menu_height - bar_h - footer_h - footer_margin_h)
+        local panel_height = math.max(1, menu_height - bar_h - footer_h - footer_margin_h - status_height)
         local items_height = math.max(1, panel_height - pad * 2)
         local rows_per_page = math.max(1, math.floor(items_height / cell_total_h) - 1)
         local button_pages = {}
@@ -703,6 +705,25 @@
         return panel
     end
 
+    local function create_panel(touch_menu)
+        local buildStatusRow = SharedState.get(zen_plugin, "buildStatusRow")
+        local status_row = type(buildStatusRow) == "function"
+            and buildStatusRow(touch_menu.item_width, {
+                padding = Screen:scaleBySize(6),
+                font_name = "x_smallinfofont",
+            })
+        local top_padding = Screen:scaleBySize(8)
+        local content = create_content_panel(touch_menu,
+            status_row and top_padding + status_row:getSize().h or 0)
+        if not status_row then return content end
+        return VerticalGroup:new{
+            align = "left",
+            VerticalSpan:new{ width = top_padding },
+            status_row,
+            content,
+        }
+    end
+
     rawset(_G, "__ZEN_UI_BUILD_APP_LAUNCHER_PREVIEW", function(item_width)
         return create_panel{
             item_width = item_width,
@@ -749,7 +770,7 @@
     local function sync_tab(menu_self, library_context)
         if type(menu_self.tab_item_table) ~= "table" then return end
         local existing = find_tab(menu_self.tab_item_table, "app_launcher")
-        if not is_enabled() then
+        if not is_tab_enabled() then
             if existing then
                 table.remove(menu_self.tab_item_table, existing)
             end
@@ -798,7 +819,7 @@
         local orig_init = TouchMenu.init
         TouchMenu.init = function(self, ...)
             self._app_launcher_page = 1
-            if is_enabled() and Model.ensure().open_first == true then
+            if is_tab_enabled() and Model.ensure().open_first == true then
                 local index = find_tab(self.tab_item_table, "app_launcher")
                 if index then self.last_index = index end
             end

@@ -91,6 +91,16 @@ function M.deepcopy(value)
     return result
 end
 
+function M.controlReplacesMenuTab(config, id)
+    local features = config and config.features
+    local controls = config and config.quick_settings
+    local buttons = type(controls) == "table" and controls.show_buttons
+    local tour_pending = config and config._meta
+        and config._meta.quickstart_menu_tour_pending == true
+    return not tour_pending and type(features) == "table" and features.quick_settings == true
+        and type(buttons) == "table" and buttons[id] == true
+end
+
 -- Returns true when t is a sequential array (no holes, integer keys from 1).
 local function _is_array(t)
     local n = 0

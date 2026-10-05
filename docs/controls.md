@@ -30,6 +30,8 @@ Controls adds a fast control panel to KOReader. It allows you to toggle Wi-Fi, f
 - Optionally turn Wi-Fi on and off with the Tailscale control.
 - Flip the left-hand/right-hand icon used by Controls and the Library/Home menu tab.
 - Show or hide the Zen Settings button in Controls.
+- Move the Home/default navbar button from the menu tab bar into Controls.
+- Move Launcher into Controls and automatically add its button to the arranger.
 - Reset Controls to defaults without deleting saved custom buttons.
 
 ## Setting reference
@@ -65,4 +67,6 @@ Controls adds a fast control panel to KOReader. It allows you to toggle Wi-Fi, f
 | Unified brightness/warmth slider | Combines brightness and warmth into one slider on devices with both controls. |
 | Flip LH/RH icon | Flips the Controls and Library/Home icons. |
 | Show Zen Settings in Controls | Shows or hides the Zen Settings button in Controls. |
+| Show Home in Controls | Moves the Library/Home menu button into Controls. Uses the default navbar tab and existing restore-library behavior when leaving the reader. |
+| Show Launcher in Controls | Moves Launcher into Controls and automatically adds its button. Its label and icon remain editable under Buttons. |
 | Reset to defaults | Restores Controls defaults. Action, plugin, and KOReader menu buttons are disabled and kept in your saved configuration. |

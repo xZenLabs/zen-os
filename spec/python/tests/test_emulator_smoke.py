@@ -103,7 +103,11 @@ def _open_buttons_arrange(driver: ZenDriver) -> None:
     raise AssertionError(f"Buttons arrange page did not open: {attempts}")
 
 
-def test_flip_lh_rh_swaps_both_menu_tab_pairs() -> None:
+@pytest.mark.parametrize("home_in_controls", [False, True])
+@pytest.mark.parametrize("launcher_in_controls", [False, True])
+def test_flip_lh_rh_swaps_both_menu_tab_pairs(
+    home_in_controls: bool, launcher_in_controls: bool
+) -> None:
     runtime = Path(os.environ["KOREADER_DIR"])
     with tempfile.TemporaryDirectory(prefix="zen-ui-flip-tabs-") as temporary:
         root = Path(temporary)
@@ -118,20 +122,35 @@ def test_flip_lh_rh_swaps_both_menu_tab_pairs() -> None:
             library,
             zen_config_source="""return {
   updater = { update_auto_check = false },
-  quick_settings = { flip_lh_rh_icon = true },
+  quick_settings = {
+    flip_lh_rh_icon = true,
+    button_order = { 'library_home' },
+    show_buttons = { library_home = HOME_IN_CONTROLS },
+  },
 }
-""",
+""".replace("HOME_IN_CONTROLS", str(home_in_controls).lower()),
         )
         try:
             wait_for_socket(socket_path)
             driver = ZenDriver(socket_path)
+            if launcher_in_controls:
+                assert driver.command("open_settings_page")["ok"] is True
+                for label in ("Interface", "Controls", "Show Launcher in Controls"):
+                    assert driver.command("settings_page_select", label=label)["ok"] is True
+                assert driver.command("close_settings_page")["ok"] is True
             layout = driver.command("menu_tab_layout")
             assert layout["ok"] is True
-            assert layout["tabs"][:2] == ["zen_library_home", "zen_ui"]
-            assert layout["tabs"][-2:] == ["app_launcher", "quicksettings"]
-            assert layout["group_positions"][-1] - layout["group_positions"][-2] == 2
+            left_tabs = ["zen_ui"] if home_in_controls else ["zen_library_home", "zen_ui"]
+            assert layout["tabs"][:len(left_tabs)] == left_tabs
+            assert ("zen_library_home" in layout["tabs"]) is (not home_in_controls)
+            right_tabs = ["quicksettings"] if launcher_in_controls else ["app_launcher", "quicksettings"]
+            assert layout["tabs"][-len(right_tabs):] == right_tabs
+            assert ("app_launcher" in layout["tabs"]) is (not launcher_in_controls)
+            if not launcher_in_controls:
+                assert layout["group_positions"][-1] - layout["group_positions"][-2] == 2
 
-            for tab_offset, expected_separator_offsets in ((-2, (-1, 1)), (-1, (-1,))):
+            tab_offsets = [(-1, (-1,))] if launcher_in_controls else [(-2, (-1, 1)), (-1, (-1,))]
+            for tab_offset, expected_separator_offsets in tab_offsets:
                 active_tab = layout["tabs"][tab_offset]
                 active = driver.command("menu_tab_layout", tab_id=active_tab)
                 icon_group_position = active["group_positions"][tab_offset]
@@ -140,6 +159,14 @@ def test_flip_lh_rh_swaps_both_menu_tab_pairs() -> None:
                     icon_group_position + offset for offset in expected_separator_offsets
                 ]
                 assert active["empty_segment"] == active["tab_segments"][tab_offset]
+            assert ("launcher" in active["button_ids"]) is launcher_in_controls
+            if launcher_in_controls:
+                assert driver.command("open_settings_page")["ok"] is True
+                assert driver.command("settings_page_select", label="Show Launcher in Controls")["ok"] is True
+                assert driver.command("close_settings_page")["ok"] is True
+                restored = driver.command("menu_tab_layout", tab_id="quicksettings")
+                assert "app_launcher" in restored["tabs"]
+                assert "launcher" not in restored["button_ids"]
         finally:
             process.send_signal(signal.SIGTERM)
             try:

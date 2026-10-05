@@ -26,6 +26,7 @@ local function apply_quick_settings()
     local restart = require("common/restart")
     local SharedState = require("common/shared_state")
     local SettingsTransition = require("common/settings_transition")
+    local LibraryNavigation = require("common/library_navigation")
     local ButtonLabelWidth = require("common/ui/button_label_width")
     local Bluetooth = require("modules/menu/bluetooth/bluetooth")
     local build_brightness_slider = require("modules/menu/patches/brightness_slider")
@@ -117,6 +118,7 @@ local function apply_quick_settings()
             opds = false,
             airplanemode = false,
             zen_settings = false,
+            library_home = false,
             launcher = false,
             filebrowser = false,
             tailscale = false,
@@ -529,6 +531,7 @@ local function apply_quick_settings()
     local open_quick_setting_settings
 
     local function resolveConfiguredIcon(name, fallback)
+        if type(name) == "string" and name:sub(1, 1) == "/" then return name end
         local path = utils.resolveIcon(_icons_dir, name)
         if path then return path end
         for _i, item in ipairs(utils.getIconPickerList(_plugin_root)) do
@@ -823,6 +826,17 @@ local function apply_quick_settings()
                 touch_menu:closeMenu()
                 UIManager:nextTick(function()
                     Dispatcher:execute({ airplanemode_toggle = true })
+                end)
+            end,
+        },
+        library_home = {
+            icon = resolveConfiguredIcon(LibraryNavigation.defaultTabIcon(zen_plugin), "library"),
+            label = _("Home"),
+            callback = function(touch_menu)
+                local ReaderUI = require("apps/reader/readerui")
+                local ui = ReaderUI.instance or getActiveUI()
+                LibraryNavigation.openDefault(ui, zen_plugin, function()
+                    touch_menu:closeMenu()
                 end)
             end,
         },
@@ -1125,6 +1139,8 @@ local function apply_quick_settings()
     }
 
     local function install_custom_button_defs()
+        button_defs.library_home.icon = resolveConfiguredIcon(
+            LibraryNavigation.defaultTabIcon(zen_plugin), "library")
         if type(config.custom_buttons) ~= "table" then return end
         for _i, cb in ipairs(config.custom_buttons) do
             if cb.type == "koreader_menu" and type(cb.koreader_menu) == "table" then

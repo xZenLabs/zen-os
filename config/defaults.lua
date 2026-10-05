@@ -40,7 +40,9 @@ local defaults = {
         middle_stats_triplet = { "book_days", "book_duration", "book_page_minutes" },
         quotes = { show_author = false, show_title = true, automatic_font_size = true, max_font_size = 18 },
         modules = {
-            stats_triplet = { automatic_font_size = true, max_font_size = 24, stat_style = "divider", show_icons = true },
+            stats_triplet = { automatic_font_size = true, max_font_size = 24, stat_style = "divider", show_icons = true,
+                show_label = true, label = "",
+                text_styles = { label = { font_face = "default", font_size = 14, bold = false } } },
             featured = { show_status_bar = false, show_description = false, navigation_icon_size = 0,
                 show_navigation_labels = true,
                 navigation_icons = {},
@@ -205,6 +207,7 @@ local defaults = {
             opds = false,
             airplanemode = false,
             zen_settings = false,
+            library_home = false,
             launcher = false,
             tailscale = false,
             zenfm = false,

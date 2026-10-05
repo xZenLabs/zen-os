@@ -18,6 +18,8 @@ describe("quick settings plugin controls", function()
     local settings_shows
     local save_calls
     local slider_options
+    local library_open
+    local default_tab_icon
 
     local module_names = {
         "ffi/blitbuffer",
@@ -45,6 +47,7 @@ describe("quick settings plugin controls", function()
         "common/restart",
         "common/shared_state",
         "common/settings_transition",
+        "common/library_navigation",
         "common/ui/button_label_width",
         "common/ui/zen_button",
         "modules/menu/bluetooth/bluetooth",
@@ -76,7 +79,12 @@ describe("quick settings plugin controls", function()
 
     local function apply_launcher(plugin)
         ZenSpec.replace("ui/widget/container/inputcontainer", {
-            extend = function(_self, definition) return definition end,
+            extend = function(_self, definition)
+                definition.new = function(_class, values)
+                    return require("ui/widget/container/centercontainer"):new(values)
+                end
+                return definition
+            end,
         })
         for _i, name in ipairs({
             "ui/gesturerange", "common/ui/zen_button",
@@ -109,6 +117,8 @@ describe("quick settings plugin controls", function()
         settings_shows = 0
         save_calls = 0
         slider_options = nil
+        library_open = nil
+        default_tab_icon = "library"
 
         local no_op = {}
         local function widget_class()
@@ -184,6 +194,7 @@ describe("quick settings plugin controls", function()
         ZenSpec.replace("ui/widget/verticalgroup", Widget)
         ZenSpec.replace("ui/widget/verticalspan", Widget)
         ZenSpec.replace("common/utils", {
+            controlReplacesMenuTab = assert(loadfile(ZenSpec.root .. "/common/utils.lua"))().controlReplacesMenuTab,
             deepcopy = function(value)
                 if type(value) ~= "table" then return value end
                 local copy = {}
@@ -203,6 +214,13 @@ describe("quick settings plugin controls", function()
         ZenSpec.replace("common/restart", no_op)
         ZenSpec.replace("common/shared_state", { get = function() end })
         ZenSpec.replace("common/settings_transition", { close = function() end })
+        ZenSpec.replace("common/library_navigation", {
+            defaultTabIcon = function() return default_tab_icon end,
+            openDefault = function(ui, plugin, close_menu)
+                library_open = { ui = ui, plugin = plugin }
+                close_menu()
+            end,
+        })
         ZenSpec.replace("common/ui/button_label_width", {
             equalCellWidth = function(width, count) return width / count end,
             maxWidth = function(width) return width end,
@@ -603,6 +621,32 @@ describe("quick settings plugin controls", function()
         callbacks[2]()
     end)
 
+    it("opens Home from the active reader and refreshes its default navbar icon", function()
+        local reader = { document = {} }
+        require("apps/reader/readerui").instance = reader
+        require("apps/filemanager/filemanager").instance = {}
+        default_tab_icon = "tab_series"
+        local home
+        for _i, item in ipairs(_G.__ZEN_UI_QUICK_SETTINGS.getItems()) do
+            if item.id == "library_home" then home = item end
+        end
+        assert.are.equal("Home", home.label)
+        assert.are.equal("/tmp/zen-ui/icons/tab_series.svg", home.icon)
+        local closes = 0
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("library_home", {
+            closeMenu = function() closes = closes + 1 end,
+        }))
+        assert.are.equal(reader, library_open.ui)
+        assert.are.equal(_G.__ZEN_UI_PLUGIN, library_open.plugin)
+        assert.are.equal(1, closes)
+        default_tab_icon = "/tmp/zen-ui/icons/archive.svg"
+        for _i, item in ipairs(_G.__ZEN_UI_QUICK_SETTINGS.getItems()) do
+            if item.id == "library_home" then
+                assert.are.equal(default_tab_icon, item.icon)
+            end
+        end
+    end)
+
     it("keeps the Zen Settings control inert when Lockdown disables settings", function()
         _G.__ZEN_UI_PLUGIN.config.lockdown = { disable_settings_panel = true }
         _G.__ZEN_UI_PLUGIN.config.features.lockdown_mode = true
@@ -673,8 +717,11 @@ describe("quick settings plugin controls", function()
         local plugin = _G.__ZEN_UI_PLUGIN
         plugin.ui = { file_chooser = {} }
         _G.__ZEN_UI_PLUGIN = nil
-        apply_launcher(plugin)
         local ReaderMenu = require("apps/reader/modules/readermenu")
+        for _i, Menu in ipairs({ FileManagerMenu, ReaderMenu }) do
+            Menu.onShowMenu = function(self) return self.tab_item_table end
+        end
+        apply_launcher(plugin)
         local ReaderUI = require("apps/reader/readerui")
         local PagePlan = require("modules/menu/app_launcher/page_plan")
         local cfg = {
@@ -690,6 +737,7 @@ describe("quick settings plugin controls", function()
         }) do
             ReaderUI.instance = case[2] or nil
             plugin.config.features.app_launcher = true
+            plugin.config.quick_settings.show_buttons.launcher = false
             local menu = setmetatable({ tab_item_table = {} }, { __index = case[1] })
             menu:setUpdateItemTable()
             local launcher
@@ -712,6 +760,110 @@ describe("quick settings plugin controls", function()
             assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("launcher", controls))
             assert.are.same(case[3], PagePlan.build(1, cfg,
                 controls.item_table._zen_app_launcher_library))
+
+            plugin.config.features.app_launcher = true
+            plugin.config.quick_settings.show_buttons.launcher = true
+            menu:setUpdateItemTable()
+            for _j, tab in ipairs(menu:onShowMenu()) do
+                assert.are_not.equal("app_launcher", tab.id)
+            end
+            controls.item_table = { id = "quicksettings" }
+            controls.tab_item_table = menu.tab_item_table
+            assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("launcher", controls))
+            assert.are.equal("app_launcher", controls.item_table.id)
+            assert.are.same(case[3], PagePlan.build(1, cfg,
+                controls.item_table._zen_app_launcher_library))
+        end
+    end)
+
+    it("places the shared status row like Controls and reserves space on every Launcher page", function()
+        local plugin = _G.__ZEN_UI_PLUGIN
+        plugin.config.features.app_launcher = true
+        apply_launcher(plugin)
+        local Widget = require("ui/widget/container/centercontainer")
+        local TextWidget = require("ui/widget/textwidget")
+        local original_new = TextWidget.new
+        TextWidget.new = function(self, values)
+            local widget = original_new(self, values)
+            widget.free = function() end
+            return widget
+        end
+        require("device").screen.getHeight = function() return 600 end
+        local cfg = {
+            entries = {},
+            show_book_details = true,
+            show_book_switcher = true,
+            page_order = { "buttons", "book_details", "book_switcher" },
+        }
+        for index = 1, 18 do
+            cfg.entries[index] = { type = "folder", label = "Folder", children = {} }
+        end
+        local Model = require("modules/menu/app_launcher/model")
+        Model.ensure = function() return cfg end
+        Model.enabled_entries = function(entries) return entries end
+        Model.display_label = function(entry) return entry.label end
+        Model.find_by_id = function() return nil, nil, cfg.entries[1] end
+        local content_height
+        for _i, name in ipairs({ "book_details_page", "book_switcher_page" }) do
+            require("modules/menu/app_launcher/" .. name).build = function(opts)
+                content_height = opts.height
+                return Widget:new{ width = opts.width, height = opts.height },
+                    { buttons = {}, layout_rows = {} }
+            end
+        end
+        local status_row = Widget:new{ width = 600, height = 32 }
+        local status_enabled = true
+        require("common/shared_state").get = function(owner, key)
+            assert.are.equal(plugin, owner)
+            if key == "buildStatusRow" then
+                return function(width, opts)
+                    assert.are.equal(600, width)
+                    assert.are.same({ padding = 6, font_name = "x_smallinfofont" }, opts)
+                    return status_enabled and status_row or nil
+                end
+            end
+        end
+        local menu = {}
+        FileManagerMenu.setUpdateItemTable(menu)
+        local controls = menu.tab_item_table[1].panel({ item_width = 600 })
+        assert.are.equal(8, controls[1].width)
+        assert.are.equal(status_row, controls[2])
+        local launcher = _G.__ZEN_UI_BUILD_APP_LAUNCHER_PREVIEW
+        for _i, enabled in ipairs({ true, false }) do
+            status_enabled = enabled
+            local button_pages = enabled and 2 or 1
+            for page = 1, button_pages + 2 do
+                local touch_menu = {
+                    item_width = 600, height = 504, screen_size = { h = 600 },
+                    bar = Widget:new{ height = 40 },
+                    footer = Widget:new{ height = 40 },
+                    footer_top_margin = Widget:new{ height = 8 },
+                    _app_launcher_page = page,
+                }
+                local panel = menu.tab_item_table[2].panel(touch_menu)
+                assert.are.equal(button_pages + 2, touch_menu._zen_panel_refs.page_num)
+                if enabled then
+                    assert.are.equal(controls[1].width, panel[1].width)
+                    assert.are.equal(status_row, panel[2])
+                end
+                if page > button_pages then
+                    assert.are.equal(enabled and 376 or 416, content_height)
+                end
+            end
+            cfg.entries = {}
+            cfg.show_book_details, cfg.show_book_switcher = false, false
+            local empty = launcher(600)
+            assert.are.equal(enabled and status_row or "Launcher",
+                enabled and empty[2] or empty[2].text)
+            cfg.entries = {{ type = "folder", label = "Folder", children = {} }}
+            local folder_menu = { item_width = 600, _app_launcher_folder_id = "folder" }
+            local folder = menu.tab_item_table[2].panel(folder_menu)
+            assert.are.equal(1, folder_menu._zen_panel_refs.page_num)
+            if enabled then assert.are.equal(status_row, folder[2]) end
+            for index = 2, 18 do
+                cfg.entries[index] = { type = "folder", label = "Folder", children = {} }
+            end
+            cfg.show_book_details, cfg.show_book_switcher = true, true
         end
     end)
 

@@ -115,7 +115,7 @@ run_lua() {
   require_runtime
   local luacheck_bin="$ROOT/.luarocks/bin/luacheck"
   if [[ ! -x "$luacheck_bin" ]]; then luacheck_bin="$(command -v luacheck)"; fi
-  "$luacheck_bin" -q _meta.lua main.lua common config modules spec/lua spec/python/zen_ui_test_driver.koplugin
+  "$luacheck_bin" -q --cache "$ROOT/spec/.cache/luacheck" _meta.lua main.lua common config modules spec/lua spec/python/zen_ui_test_driver.koplugin
   local ko_home
   ko_home="$(mktemp -d "${TMPDIR:-/tmp}/zen-ui-spec-home.XXXXXX")"
   trap "rm -rf '$ko_home'" RETURN

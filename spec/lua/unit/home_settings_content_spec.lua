@@ -577,6 +577,42 @@ describe("Home widget content settings", function()
         assert.are.equal(1, saves)
     end)
 
+    it("reuses title font controls for the statistics label and restores its own defaults", function()
+        ZenSpec.replace("ui/widget/spinwidget", { new = function(_self, opts) return opts end })
+        local saved_fontchooser = package.loaded["ui/widget/fontchooser"]
+        ZenSpec.replace("ui/widget/fontchooser", { new = function(_self, opts) return opts end,
+            getFontNameText = function(file) return file end })
+        local defaults = { font_face = "default", font_size = 14, bold = false }
+        local config, saves, updates = {}, 0, 0
+        local items = require("modules/settings/sections/library_settings/home_settings").buildTextStyleItems(
+            config, "label", "Label", defaults, function() saves = saves + 1 end)
+        local size, font, bold, reset = items[1], items[2], items[3], items[4]
+        assert.equals("Font size: 14", size.text_func())
+        size.callback({ updateItems = function() updates = updates + 1 end })
+        local dialog = shown[#shown]
+        assert.equals(14, dialog.default_value)
+        assert.equals(6, dialog.value_min)
+        assert.equals(40, dialog.value_max)
+        dialog.callback({ value = 20 })
+        assert.equals(20, config.text_styles.label.font_size)
+        font.callback()
+        dialog = shown[#shown]
+        dialog.callback("Custom.ttf")
+        assert.equals("Custom.ttf", config.text_styles.label.font_face)
+        assert.equals("Font: Custom.ttf", font.text_func())
+        font.hold_callback()
+        assert.equals("default", config.text_styles.label.font_face)
+        bold.callback()
+        assert.is_true(config.text_styles.label.bold)
+        assert.is_true(bold.checked_func())
+        reset.callback()
+        assert.same(defaults, config.text_styles.label)
+        assert.is_false(bold.checked_func())
+        assert.equals(5, saves)
+        assert.equals(1, updates)
+        package.loaded["ui/widget/fontchooser"] = saved_fontchooser
+    end)
+
     it("exposes strip control font face, size, and weight settings", function()
         local settings = require("modules/settings/sections/library_settings/home_settings")
         assert.is_true(settings.openWidgetSettings("strip"))

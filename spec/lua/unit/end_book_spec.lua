@@ -18,7 +18,7 @@ describe("end of book", function()
         "common/plugin_root", "libs/libkoreader-lfs", "common/archive_actions", "ui/event", "common/clock_timer",
         "common/library_navigation", "common/ui/zen_icon_picker", "common/icon_packs",
         "apps/filemanager/filemanager", "apps/filemanager/filemanagerutil", "common/tbr_index",
-        "modules/menu/app_launcher/native_menu",
+        "modules/menu/app_launcher/native_menu", "ui/widget/inputdialog",
     }
 
     before_each(function()
@@ -44,6 +44,11 @@ describe("end of book", function()
         ZenSpec.replace("apps/reader/modules/readerstatus", status)
         ZenSpec.replace("ui/uimanager", { getTopmostVisibleWidget = function() return top end })
         ZenSpec.replace("ui/quickstart", { quickstart_filename = "/quickstart.epub" })
+        ZenSpec.replace("modules/settings/sections/library_settings/home_settings", {
+            buildTextStyleItems = function(_config, _key, _label, _defaults, save)
+                return {{ text = "Shared font controls", callback = save }}
+            end,
+        })
         ZenSpec.replace("ui/menusorter", { mergeAndSort = function(_self, _prefix, items)
             local action = items.document_end_action
             items.document_end_action = nil
@@ -955,7 +960,7 @@ describe("end of book", function()
         assert.is_false(arrange.allow_arrange)
         assert.is_true(arrange.hide_footer_cancel)
         assert.are.equal(plugin, arrange.plugin)
-        assert.are.equal(4, #arrange.item_table)
+        assert.are.equal(5, #arrange.item_table)
         arrange.item_table[1].sub_item_table[2].callback()
         assert.are.equal("book_duration", plugin.config.end_book.middle_stats_triplet[1])
         assert.are.equal(1, plugin.saves)
@@ -972,6 +977,53 @@ describe("end of book", function()
         assert.is_true(config.show_icons)
         assert.is_true(icons.checked_func())
         assert.are.equal(3, plugin.saves)
+    end)
+
+    it("saves statistics label text, visibility, and the shared title font controls", function()
+        local arrange, dialog, input, closed, keyboard, updates
+        updates = 0
+        ZenSpec.replace("common/ui/zen_arrange_list", { show = function(opts) arrange = opts end })
+        ZenSpec.replace("ui/widget/inputdialog", { new = function(_self, opts)
+            opts.getInputText = function() return input end
+            opts.onShowKeyboard = function() keyboard = true end
+            return opts
+        end })
+        ZenSpec.replace("ui/uimanager", {
+            show = function(_self, opts) dialog = opts end,
+            close = function(_self, opts) closed = opts end,
+        })
+        plugin.config.end_book = require("common/utils").deepcopy(require("config/defaults").end_book)
+        require("modules/settings/sections/end_book_settings").openWidgetSettings("stats_triplet", plugin)
+        local config = plugin.config.end_book.modules.stats_triplet
+        local submenu = arrange.item_table[5]
+        assert.equals("Label", submenu.text)
+        local label_items = submenu.sub_item_table
+        local show_label, label = submenu, label_items[1]
+        assert.is_true(config.show_label)
+        assert.is_true(show_label.checked_func())
+        show_label.checkmark_callback()
+        assert.is_false(config.show_label)
+        show_label.checkmark_callback()
+        assert.is_true(config.show_label)
+        assert.equals("Label: Statistics", label.text_func())
+        label.callback({ updateItems = function() updates = updates + 1 end })
+        assert.equals("Statistics", dialog.input)
+        assert.is_true(keyboard)
+        input = "My reading"
+        dialog.buttons[1][2].callback()
+        assert.equals(dialog, closed)
+        assert.equals("My reading", config.label)
+        assert.equals("Label: My reading", label.text_func())
+        label.callback()
+        assert.equals("My reading", dialog.input)
+        input = ""
+        dialog.buttons[1][2].callback()
+        assert.equals("", config.label)
+        assert.equals("Label: Statistics", label.text_func())
+        assert.equals(1, updates)
+        assert.equals("Shared font controls", label_items[2].text)
+        label_items[2].callback()
+        assert.equals(5, plugin.saves)
     end)
 
     it("saves the navigation icon size alongside the shared featured settings", function()

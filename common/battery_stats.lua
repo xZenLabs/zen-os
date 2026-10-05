@@ -11,6 +11,66 @@ local sleeping = false
 local timer
 local charge_timer
 local pending_gap = false
+local history
+local history_tail
+local HISTORY_TOTALS = {
+    discharge_loss = "discharge_loss_pct", discharge_time = "discharge_seconds",
+    awake_loss = "awake_loss_pct", awake_discharge_time = "awake_discharge_seconds",
+    asleep_loss = "asleep_loss_pct", asleep_discharge_time = "asleep_discharge_seconds",
+    awake_time = "awake_seconds", asleep_time = "asleep_seconds",
+}
+local HISTORY_READINGS = {
+    full_charge_time = "last_full_charge_seconds",
+    full_mah = "full_capacity_mah", design_mah = "design_capacity_mah", health = "health_pct",
+}
+
+local function nonnegative(value)
+    return type(value) == "number" and value >= 0 and value < math.huge
+end
+
+local function valid_session(session)
+    return type(session) == "table" and nonnegative(session.start_time) and nonnegative(session.time)
+        and session.time >= session.start_time and nonnegative(session.start_level)
+        and nonnegative(session.level) and session.level <= 100 and session.level >= session.start_level
+        and type(session.full) == "boolean"
+end
+
+local function merge_history(summary)
+    if type(summary) ~= "table" or summary.version ~= 1
+        or not nonnegative(summary.start_time) or not nonnegative(summary.end_time)
+        or summary.end_time < summary.start_time then return end
+    local replaced = history_tail and history_tail.start_time == summary.start_time and history_tail
+    if replaced and replaced.end_time > summary.end_time then return end
+    for key, field in pairs(HISTORY_TOTALS) do
+        local value = nonnegative(summary[field]) and summary[field] or 0
+        local old = replaced and nonnegative(replaced[field]) and replaced[field] or 0
+        history[key] = (history[key] or 0) + value - old
+    end
+    for key, field in pairs(HISTORY_READINGS) do
+        if nonnegative(summary[field]) then history[key] = summary[field] end
+    end
+    if nonnegative(summary.last_charge_gain_pct) and summary.last_charge_gain_pct > 0
+        and summary.last_charge_gain_pct <= 100 then
+        history.charge_gain = summary.last_charge_gain_pct
+        history.charge_rate = nonnegative(summary.last_charge_pct_per_hour)
+            and summary.last_charge_pct_per_hour > 0 and summary.last_charge_pct_per_hour or nil
+    end
+    if summary.last_unplug == false or nonnegative(summary.last_unplug) then history.last_unplug = summary.last_unplug end
+    if valid_session(summary.last_full_charge) then history.last_full_charge = summary.last_full_charge end
+    history_tail = summary
+end
+
+local function load_history()
+    history, history_tail = {}, nil
+    local file = io.open(PresetStore.rootDir() .. "/battery_history", "r")
+    if not file then return end
+    local json = require("json")
+    for line in file:lines() do
+        local ok, summary = pcall(json.decode, line)
+        if ok then merge_history(summary) end
+    end
+    file:close()
+end
 
 local function capture()
     local powerd = Device:getPowerDevice()
@@ -84,9 +144,9 @@ local function device_capacity()
     return full_mah, design_mah, health, current_mah
 end
 
-local function trim(events)
-    if #events <= MAX_EVENTS then return end
-    local stats = M.snapshot(false)
+local function archive(events)
+    if #events == 0 then return true end
+    local stats = M.snapshot(false, false)
     local gaps = 0
     for i = 2, #events do
         if events[i].gap then gaps = gaps + 1 end
@@ -106,14 +166,21 @@ local function trim(events)
         awake_seconds = stats.awake_time, asleep_seconds = stats.asleep_time,
         last_charge_pct_per_hour = stats.charge_rate, last_charge_gain_pct = stats.charge_gain,
         last_full_charge_seconds = stats.full_charge_time,
+        last_unplug = settings:readSetting("last_unplug"),
+        last_full_charge = settings:readSetting("last_full_charge"),
         full_capacity_mah = stats.full_mah, design_capacity_mah = stats.design_mah,
         health_pct = stats.health,
     }
     local encoded = require("json").encode(summary)
-    local file, err = io.open(PresetStore.rootDir() .. "/battery_history", "a")
+    local file, err = io.open(PresetStore.rootDir() .. "/battery_history", "a+")
     local saved
     if file then
-        saved, err = file:write(encoded .. "\n")
+        local prefix = ""
+        if file:seek("end") > 0 then
+            file:seek("end", -1)
+            if file:read(1) ~= "\n" then prefix = "\n" end
+        end
+        saved, err = file:write(prefix .. encoded .. "\n")
         if saved then saved, err = file:flush() end
         if saved then
             local ffiutil = require("ffi/util")
@@ -125,9 +192,10 @@ local function trim(events)
     end
     if not saved then
         require("common/zen_logger").new("battery_stats").warn("Could not save battery history:", err)
-        return
+        return false
     end
-    settings:saveSetting("events", { events[#events] }) -- Keep the next window's starting sample.
+    merge_history(summary)
+    return true
 end
 
 local function charging_session(previous, event, session)
@@ -164,17 +232,23 @@ local function sample(gap, charging_event)
     if session and session.full and session.time > session.start_time then
         settings:saveSetting("last_full_charge", session)
     end
+    if session and session.time > session.start_time and session.level > session.start_level
+        and (session.full or not event.charging) then
+        settings:saveSetting("last_charge", session)
+    end
     if previous and not previous.charging and event.level > previous.level then
-        settings:saveSetting("last_unplug", nil)
+        settings:saveSetting("last_unplug", false)
     elseif previous and previous.charging and not event.charging then
         if event.gap then
-            settings:saveSetting("last_unplug", nil)
+            settings:saveSetting("last_unplug", false)
         else
             settings:saveSetting("last_unplug", event.time)
         end
     end
     events[#events + 1] = event
-    trim(events)
+    if #events > MAX_EVENTS and archive(events) then
+        settings:saveSetting("events", { event }) -- Keep the next window's starting sample.
+    end
     settings:flush()
 end
 
@@ -196,6 +270,7 @@ end
 function M.start()
     if settings or not Device:hasBattery() then return end
     settings = LuaSettings:open(PresetStore.rootDir() .. "/battery.lua")
+    load_history()
     local events = settings:readSetting("events")
     if type(events) ~= "table" then events = {} end
     for i = #events, 1, -1 do
@@ -205,6 +280,22 @@ function M.start()
             or type(event.sleeping) ~= "boolean" then
             table.remove(events, i)
         end
+    end
+    if history_tail and events[1] and events[1].time == history_tail.start_time then
+        -- A saved summary may outlive a failed write of the trimmed log.
+        while events[1] and events[1].time < history_tail.end_time do table.remove(events, 1) end
+    end
+    for _i, key in ipairs({ "last_unplug", "last_full_charge" }) do
+        if settings:readSetting(key) == nil then settings:saveSetting(key, history[key]) end
+    end
+    for _i, key in ipairs({ "charge_session", "last_charge", "last_full_charge" }) do
+        if not valid_session(settings:readSetting(key)) then settings:saveSetting(key, nil) end
+    end
+    local session = settings:readSetting("charge_session")
+    if not settings:readSetting("last_charge") and session
+        and session.time > session.start_time and session.level > session.start_level
+        and (session.full or (events[#events] and not events[#events].charging)) then
+        settings:saveSetting("last_charge", session)
     end
     settings:saveSetting("events", events)
     sample(true) -- KOReader may have been closed or the device charged while it was off.
@@ -246,14 +337,16 @@ end
 
 function M.reset()
     if not settings then return false end
-    settings:reset({ events = {} })
+    sample()
+    local events = settings:readSetting("events")
+    if not archive(events) then return false end
+    settings:saveSetting("events", events[#events] and { events[#events] } or {})
     settings:flush()
     if settings.file then os.remove(settings.file .. ".old") end
-    pending_gap = false
     return true
 end
 
-function M.snapshot(include_current)
+function M.snapshot(include_current, include_history)
     if not settings then return nil end
     local events = settings:readSetting("events")
     local current = include_current ~= false and capture() or nil
@@ -268,6 +361,16 @@ function M.snapshot(include_current)
     local charge_time = session and session.time - session.start_time or 0
     local charge_gain = session and session.level - session.start_level or 0
     local charge_rate = charge_time >= 60 and charge_gain > 0 and charge_gain * 3600 / charge_time or nil
+    local last_charge = settings:readSetting("last_charge")
+    if session and session.full and charge_gain > 0 then last_charge = session end
+    local previous_rate, previous_gain = history.charge_rate, history.charge_gain
+    if last_charge then
+        local elapsed = last_charge.time - last_charge.start_time
+        previous_gain = last_charge.level - last_charge.start_level
+        previous_rate = elapsed >= 60 and previous_gain > 0 and previous_gain * 3600 / elapsed or nil
+    elseif not previous_gain then
+        previous_rate, previous_gain = charge_rate, session and charge_gain
+    end
     local awake, asleep, total = { loss = 0, time = 0, elapsed = 0 },
         { loss = 0, time = 0, elapsed = 0 }, { loss = 0, time = 0 }
     local function accumulate(first, second)
@@ -287,6 +390,12 @@ function M.snapshot(include_current)
     if current and #events > 0 and events[#events].charging == current.charging then
         accumulate(events[#events], current)
     end
+    if include_history ~= false then
+        total.loss, total.time = total.loss + (history.discharge_loss or 0), total.time + (history.discharge_time or 0)
+        awake.loss, awake.time = awake.loss + (history.awake_loss or 0), awake.time + (history.awake_discharge_time or 0)
+        asleep.loss, asleep.time = asleep.loss + (history.asleep_loss or 0), asleep.time + (history.asleep_discharge_time or 0)
+        awake.elapsed, asleep.elapsed = awake.elapsed + (history.awake_time or 0), asleep.elapsed + (history.asleep_time or 0)
+    end
     local function rate(bucket, minimum_seconds)
         return bucket.time >= (minimum_seconds or 1) and bucket.loss * 3600 / bucket.time or nil
     end
@@ -297,22 +406,22 @@ function M.snapshot(include_current)
         if not previous.charging and current.level > previous.level then
             unplug = nil
         elseif previous.charging and not current.charging then
-            unplug = current.time
+            unplug = not current.gap and current.time or nil
         end
     end
     return {
         level = current and current.level,
-        full_mah = full_mah,
+        full_mah = full_mah or history.full_mah,
         current_mah = current_mah,
-        design_mah = design_mah,
-        health = health,
+        design_mah = design_mah or history.design_mah,
+        health = health or history.health,
         charging = current and current.charging,
-        charge_rate = charge_rate,
-        charge_gain = session and charge_gain,
+        charge_rate = previous_rate,
+        charge_gain = previous_gain,
         -- ponytail: linear estimate; use charge-level bands if taper accuracy matters.
         time_to_full = current and current.charging and (session.full and 0
             or charge_rate and (100 - current.level) * 3600 / charge_rate) or nil,
-        full_charge_time = last_full and last_full.time - last_full.start_time,
+        full_charge_time = last_full and last_full.time - last_full.start_time or history.full_charge_time,
         since_full_charge = last_full and current and current.time >= last_full.time
             and current.time - last_full.time or nil,
         overall = overall,

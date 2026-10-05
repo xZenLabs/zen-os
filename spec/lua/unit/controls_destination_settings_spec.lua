@@ -289,15 +289,76 @@ describe("Controls destination settings", function()
         assert.are.equal(4, saves)
     end)
 
-    it("edits the Launcher label and icon", function()
-        config.quick_settings.button_order = { "launcher" }
-        config.quick_settings.show_buttons.launcher = true
+    it("toggles Home outside the arranger and keeps it movable without duplicates", function()
+        local saves = 0
+        local section = require("modules/settings/sections/menu_settings").build({
+            config = config,
+            plugin = {},
+            save_and_apply = function(feature)
+                assert.are.equal("quick_settings", feature)
+                saves = saves + 1
+            end,
+        })
+        local setting
+        for _i, item in ipairs(section.sub_item_table) do
+            if item.text == "Show Home in Controls" then setting = item end
+        end
+        assert.is_false(setting.checked_func())
+        setting.callback()
+        assert.is_true(setting.checked_func())
+        section.sub_item_table[1].callback()
+        assert.are.equal("library_home", arrange_options.item_table[1].orig_item)
+        assert.are.equal("Home", arrange_options.item_table[1].text)
+        assert.is_nil(arrange_options.item_table[1].checked_func)
+        assert.is_nil(arrange_options.item_table[1].callback)
+        setting.callback()
+        assert.is_false(setting.checked_func())
+        setting.callback()
+        assert.are.same({ "library_home" }, config.quick_settings.button_order)
+        assert.are.equal(3, saves)
+    end)
+
+    it("keeps Home and Launcher disabled when Controls already has nine visible buttons", function()
+        config.quick_settings.button_order = {
+            "wifi", "night", "gyro", "zen", "lockdown", "incognito", "rotate", "usb", "search",
+        }
+        for _i, id in ipairs(config.quick_settings.button_order) do
+            config.quick_settings.show_buttons[id] = true
+        end
+        ZenSpec.replace("ui/widget/infomessage", {
+            new = function(_self, options) return options end,
+        })
+        local section = require("modules/settings/sections/menu_settings").build({
+            config = config,
+            plugin = {},
+            save_and_apply = function() error("Controls must stay unchanged") end,
+        })
+        for _i, item in ipairs(section.sub_item_table) do
+            if item.text == "Show Home in Controls" or item.text == "Show Launcher in Controls" then
+                item.callback()
+                assert.is_false(item.checked_func())
+            end
+        end
+        assert.is_not_true(config.quick_settings.show_buttons.library_home)
+        assert.are.equal(9, #config.quick_settings.button_order)
+        assert.are.equal("Maximum 9 buttons allowed", shown_widget.text)
+    end)
+
+    it("adds Launcher from the Controls option and keeps its label and icon editable", function()
         local saves = 0
         local section = require("modules/settings/sections/menu_settings").build({
             config = config,
             plugin = {},
             save_and_apply = function() saves = saves + 1 end,
         })
+        local setting
+        for _i, item in ipairs(section.sub_item_table) do
+            if item.text == "Show Launcher in Controls" then setting = item end
+        end
+        assert.is_false(setting.checked_func())
+        setting.callback()
+        assert.is_true(setting.checked_func())
+        assert.are.same({ "launcher" }, config.quick_settings.button_order)
         section.sub_item_table[1].callback()
 
         local launcher
@@ -305,6 +366,8 @@ describe("Controls destination settings", function()
             if item.orig_item == "launcher" then launcher = item end
         end
         assert.is_table(launcher)
+        assert.is_nil(launcher.checked_func)
+        assert.is_nil(launcher.callback)
         assert.are.equal("Launcher", launcher.text_func())
 
         local items = launcher.sub_item_table_func()
@@ -320,7 +383,12 @@ describe("Controls destination settings", function()
         shown_widget.buttons[1][2].callback()
         assert.are.equal("Apps", config.quick_settings.launcher_label)
         assert.are.equal("Apps", launcher.text_func())
-        assert.are.equal(2, saves)
+        setting.callback()
+        assert.is_false(setting.checked_func())
+        setting.callback()
+        assert.is_true(setting.checked_func())
+        assert.are.same({ "launcher" }, config.quick_settings.button_order)
+        assert.are.equal(5, saves)
     end)
 
     it("toggles menu background blur", function()

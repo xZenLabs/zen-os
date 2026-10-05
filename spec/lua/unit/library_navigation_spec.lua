@@ -9,6 +9,7 @@ describe("library navigation", function()
             "__ZEN_UI_KEEP_BOOK_LOCATION", "__ZEN_UI_LAST_READ_FILE",
             "__ZEN_UI_LIBRARY_STATE", "__ZEN_UI_NAVBAR_OPEN_DEFAULT_TAB",
             "__ZEN_UI_NAVBAR_OPEN_FOLDER",
+            "__ZEN_UI_NAVBAR_IS_DEFAULT_TAB_ACTIVE", "__ZEN_UI_NAVBAR_DEFAULT_TAB_ICON",
         }) do
             _G[name] = nil
         end
@@ -22,6 +23,10 @@ describe("library navigation", function()
         ZenSpec.replace("device", { home_dir = "/sdcard" })
         ZenSpec.replace("config/manager", { get = function() return {} end })
         ZenSpec.replace("MangaReader", { is_showing = false })
+        ZenSpec.replace("apps/filemanager/filemanager", {})
+        ZenSpec.replace("ui/uimanager", {
+            scheduleIn = function(_self, _delay, callback) callback() end,
+        })
         ZenSpec.replace("common/utils", {
             closeWidgetsAbove = function(anchor)
                 assert.is_true(anchor.tearing_down)
@@ -53,6 +58,71 @@ describe("library navigation", function()
         end
         return state
     end
+
+    it("opens the default navbar tab after closing the menu and library overlays", function()
+        local order = {}
+        local fm = {}
+        ZenSpec.replace("apps/filemanager/filemanager", { instance = fm })
+        ZenSpec.replace("common/utils", {
+            closeWidgetsAbove = function(anchor)
+                assert.are.equal(fm, anchor)
+                order[#order + 1] = "overlays"
+            end,
+        })
+        _G.__ZEN_UI_NAVBAR_OPEN_DEFAULT_TAB = function() order[#order + 1] = "default" end
+        Navigation.openDefault(fm, nil, function() order[#order + 1] = "menu" end)
+        assert.are.same({ "menu", "overlays", "default" }, order)
+        _G.__ZEN_UI_NAVBAR_IS_DEFAULT_TAB_ACTIVE = function() return true end
+        Navigation.openDefault(fm, nil, function() order[#order + 1] = "menu" end)
+        assert.are.same({ "menu", "overlays", "default", "menu" }, order)
+    end)
+
+    it("returns Home from the reader safely and preserves restore behavior", function()
+        local ui = reader()
+        local callback
+        require("ui/uimanager").scheduleIn = function(_self, delay, scheduled)
+            assert.are.equal(0, delay)
+            callback = scheduled
+        end
+        Navigation.openDefault(ui, {
+            config = { features = { restore_library_view = true } },
+        }, function() assert.is_true(ui.tearing_down) end)
+        assert.is_true(ui.tearing_down)
+        assert.is_nil(ui.closed)
+        callback()
+        assert.is_false(ui.tearing_down)
+        assert.is_true(ui.closed)
+        assert.is_nil(_G.__ZEN_UI_FORCE_DEFAULT_LIBRARY_TAB)
+    end)
+
+    it("forces the default from an outside book even when restore is enabled", function()
+        Navigation.openDefault(reader("/outside/Book.epub"), {
+            config = { features = { restore_library_view = true } },
+        }, function() end)
+        assert.is_true(_G.__ZEN_UI_FORCE_DEFAULT_LIBRARY_TAB)
+        assert.is_nil(_G.__ZEN_UI_KEEP_BOOK_LOCATION)
+    end)
+
+    it("uses the configured home directory when Navbar is disabled", function()
+        local chooser = {
+            path_items = { ["/library"] = 4 },
+            changeToPath = function(self, path) self.path = path end,
+        }
+        local fm = { file_chooser = chooser }
+        ZenSpec.replace("apps/filemanager/filemanager", { instance = fm })
+        ZenSpec.replace("common/utils", { closeWidgetsAbove = function() end })
+        Navigation.openDefault(fm, nil, function() end)
+        assert.are.equal("/library", chooser.path)
+        assert.is_nil(chooser.path_items["/library"])
+    end)
+
+    it("uses the default navbar icon with a Library fallback", function()
+        assert.are.equal("library", Navigation.defaultTabIcon(nil))
+        local plugin = { config = { menu = { library_home_icon = "folder" } } }
+        assert.are.equal("folder", Navigation.defaultTabIcon(plugin))
+        _G.__ZEN_UI_NAVBAR_DEFAULT_TAB_ICON = function() return "tab_series" end
+        assert.are.equal("tab_series", Navigation.defaultTabIcon(plugin))
+    end)
 
     it("closes reader overlays before rebuilding the library", function()
         local ui = reader()

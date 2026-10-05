@@ -361,7 +361,8 @@ function EndBook:rebuild()
     local controls_h = strip_config and strip_config.controls.enabled
         and Screen:scaleBySize(require("modules/filebrowser/patches/home/widgets/strip_common").CONTROLS_HEIGHT) or 0
     local rows, seen = {}, {}
-    local strip_index
+    local strip_index, stats_index
+    local stats_label, stats_label_h
     for _i, id in ipairs(config.rows.order) do
         local widget = Registry.get(id)
         if widget and WIDGETS[id] and not seen[id] and config.rows.enabled[id]
@@ -375,6 +376,18 @@ function EndBook:rebuild()
             }, { __index = widget })
             if id == "strip" then
                 rows[#rows].preferredHeight = function(ctx) return widget.preferredHeight(ctx) - controls_h end
+            elseif id == "stats_triplet" and config.modules[id].show_label ~= false then
+                local label = config.modules[id].label
+                local style = config.modules[id].text_styles.label
+                local font = style.font_face == "default"
+                    and require("modules/filebrowser/patches/library_font").getFontName() or style.font_face
+                stats_label = TextWidget:new{
+                    text = (label or "") ~= "" and label or _("Statistics"),
+                    face = require("ui/font"):getFace(font, Screen:scaleBySize(style.font_size)),
+                    bold = style.bold == true, padding = 0, max_width = content_w,
+                }
+                stats_label_h = stats_label:getSize().h + Screen:scaleBySize(4)
+                stats_index = #rows
             end
             if id == "strip" then strip_index = #rows end
         end
@@ -384,8 +397,9 @@ function EndBook:rebuild()
     if not strip_index then controls_h = 0 end
     -- Reserve strip controls before allocating space to covers and text.
     local heights = SharedState.get(self.plugin, "home").computeRowHeights(
-        rows, available - controls_h, gap, capacity, content_w, config.modules, config, self.data)
+        rows, available - controls_h - (stats_label_h or 0), gap, capacity, content_w, config.modules, config, self.data)
     if strip_index then heights[strip_index].h = heights[strip_index].h + controls_h end
+    if stats_index then heights[stats_index].h = heights[stats_index].h + stats_label_h end
     local body = VerticalGroup:new{ align = "left" }
     self.widget_rows = {}
     local row_y = margin + header_h + gap
@@ -443,7 +457,16 @@ function EndBook:rebuild()
                 return self:buildNavigationRow(nav_width, nav_height, max_height)
             end
         end
+        if id == "stats_triplet" and stats_label then ctx.height = math.max(1, row_height - stats_label_h) end
         local content = widget.build(ctx)
+        if id == "stats_triplet" and stats_label then
+            content = VerticalGroup:new{
+                align = "center",
+                CenterContainer:new{ dimen = Geom:new{ w = content_w, h = stats_label:getSize().h }, stats_label },
+                VerticalSpan:new{ width = Screen:scaleBySize(4) },
+                content,
+            }
+        end
         if id == "featured" and #self.featured_navigation_buttons > 0 then
             self.layout[#self.layout + 1] = self.featured_navigation_buttons
         end

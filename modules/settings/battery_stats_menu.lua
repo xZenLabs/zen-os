@@ -52,10 +52,15 @@ function M.buildItems()
             keep_menu_open = true,
             callback = function(touchmenu)
                 require("ui/uimanager"):show(require("ui/widget/confirmbox"):new{
-                    text = _("Reset battery log") .. "?",
+                    text = _("Reset battery log") .. "?\n\n" .. _("Charging history and overall usage will be kept."),
                     ok_text = _("Reset"),
                     ok_callback = function()
-                        BatteryStats.reset()
+                        if BatteryStats.reset() == false then
+                            require("ui/uimanager"):show(require("ui/widget/infomessage"):new{
+                                text = _("Could not save battery history. The log was kept."),
+                            })
+                            return
+                        end
                         if touchmenu and touchmenu.updateItems then
                             local refreshed = M.buildItems()
                             for i = 1, #items do items[i] = refreshed[i] end

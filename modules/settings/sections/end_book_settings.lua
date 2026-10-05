@@ -78,7 +78,7 @@ end
 local function widget_items(plugin, config, id, save)
     local items = {}
     local function toggle(target, key, label)
-        items[#items + 1] = {
+        return {
             text = label,
             checked_func = function() return target[key] ~= false end,
             callback = function() target[key] = target[key] == false; save() end,
@@ -96,9 +96,47 @@ local function widget_items(plugin, config, id, save)
             end
             items[#items + 1] = { text = tostring(slot), sub_item_table = choices }
         end
-        toggle(config.modules.stats_triplet, "show_icons", _("Show icons"))
+        items[#items + 1] = toggle(config.modules.stats_triplet, "show_icons", _("Show icons"))
+        local stats_config = config.modules.stats_triplet
+        local function label()
+            return (stats_config.label or "") ~= "" and stats_config.label or _("Statistics")
+        end
+        local label_items = {
+            {
+                text_func = function() return _("Label: ") .. label() end,
+                keep_menu_open = true,
+                callback = function(touchmenu)
+                    local dialog
+                    dialog = require("ui/widget/inputdialog"):new{
+                        title = _("Label"), input = label(),
+                        buttons = {{
+                            { text = _("Cancel"), callback = function() UIManager:close(dialog) end },
+                            {
+                                text = _("Set"), is_enter_default = true,
+                                callback = function()
+                                    stats_config.label = dialog:getInputText()
+                                    UIManager:close(dialog)
+                                    save()
+                                    if touchmenu then touchmenu:updateItems() end
+                                end,
+                            },
+                        }},
+                    }
+                    UIManager:show(dialog)
+                    dialog:onShowKeyboard()
+                end,
+            },
+        }
+        local font_items = require("modules/settings/sections/library_settings/home_settings").buildTextStyleItems(
+            stats_config, "label", _("Label"), require("config/defaults").end_book.modules.stats_triplet.text_styles.label, save)
+        for _i, item in ipairs(font_items) do label_items[#label_items + 1] = item end
+        items[#items + 1] = {
+            text = _("Label"), sub_item_table = label_items,
+            checked_func = function() return stats_config.show_label ~= false end,
+            checkmark_callback = function() stats_config.show_label = stats_config.show_label == false; save() end,
+        }
     elseif id == "quotes" then
-        toggle(config.quotes, "show_title", _("Book title"))
+        items[#items + 1] = toggle(config.quotes, "show_title", _("Book title"))
         items[#items + 1] = {
             text = _("Font size"),
             callback = function()

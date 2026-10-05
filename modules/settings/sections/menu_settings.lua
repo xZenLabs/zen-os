@@ -97,6 +97,7 @@ function M.build(ctx)
         { key = "exit",    text = _("Exit")        },
         { key = "sleep",   text = _("Sleep")       },
         { key = "zen_settings", text = getZenSettingsLabel() },
+        { key = "library_home", text = _("Home") },
         { key = "launcher", text = getLauncherLabel() },
         -- Optional: only shown when the plugin/feature is detected.
         { key = "quickrss",       text = _("QuickRSS"),        detect = function() local ok = pcall(require, "modules/ui/feed_view"); return ok end },
@@ -450,7 +451,8 @@ function M.build(ctx)
         end
         local picker_items = {}
         for _i, item in ipairs(quick_button_items) do
-            if item.key ~= "zen_settings" and not selected[item.key] then
+            if item.key ~= "zen_settings" and item.key ~= "library_home"
+                    and item.key ~= "launcher" and not selected[item.key] then
                 picker_items[#picker_items + 1] = { id = item.key, text = item.text }
             end
         end
@@ -623,7 +625,10 @@ function M.build(ctx)
                             end
                         end,
                     }
-                    if id == "zen_settings" then
+                    if id == "library_home" then
+                        item.checked_func = nil
+                        item.callback = nil
+                    elseif id == "zen_settings" then
                         item.checked_func = nil
                         item.callback = nil
                         item.text_func = getZenSettingsLabel
@@ -632,6 +637,8 @@ function M.build(ctx)
                             return build_control_sub_items(id)
                         end
                     elseif id == "launcher" then
+                        item.checked_func = nil
+                        item.callback = nil
                         item.text_func = getLauncherLabel
                         item.sub_title = getLauncherLabel()
                         item.sub_item_table_func = function()
@@ -1257,6 +1264,24 @@ function M.build(ctx)
                     save_and_apply_quick_settings()
                 end,
             }, icons.settings_menu_blur),
+            IconItem.decorate({
+                text = _("Show Home in Controls"),
+                checked_func = function()
+                    return config.quick_settings.show_buttons.library_home == true
+                end,
+                callback = function()
+                    toggleQuickButton("library_home")
+                end,
+            }, icons.settings_home),
+            IconItem.decorate({
+                text = _("Show Launcher in Controls"),
+                checked_func = function()
+                    return config.quick_settings.show_buttons.launcher == true
+                end,
+                callback = function()
+                    toggleQuickButton("launcher")
+                end,
+            }, icons.settings_launcher),
             IconItem.decorate({
                 text = _("Show Zen Settings in Controls"),
                 checked_func = function()

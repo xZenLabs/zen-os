@@ -318,6 +318,143 @@ local function responsive_strip_max_books(two_rows)
     return StripCommon.max_books_for_width(outer_width, two_rows)
 end
 
+local function font_label(face)
+    if face == nil or face == "" or face == "default" then return _("default") end
+    local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
+    return ok_fc and FontChooser.getFontNameText(face) or face
+end
+
+local function chooser_default_font()
+    local font_name = library_font.getFontName()
+    if font_name and font_name ~= "" and font_name ~= "cfont" then
+        return font_name
+    end
+    local footer_settings = G_reader_settings:readSetting("footer") or {}
+    return footer_settings.text_font_face or "NotoSans-Regular.ttf"
+end
+
+function M.buildTextStyleItems(mcfg, key, label, defaults, save)
+    local function get_style()
+        return ensure_featured_text_style(mcfg, key, defaults)
+    end
+    local function save_style(touchmenu)
+        save()
+        if touchmenu then touchmenu:updateItems() end
+    end
+    local items = {
+        {
+            text_func = function()
+                local style = get_style()
+                return string.format("%s %s", _("Font size:"), tostring(style.font_size))
+            end,
+            keep_menu_open = true,
+            callback = function(touchmenu_instance)
+                local SpinWidget = require("ui/widget/spinwidget")
+                local style = get_style()
+                UIManager:show(SpinWidget:new{
+                    title_text = string.format("%s %s", label, _("font size")),
+                    value = style.font_size,
+                    value_min = 6,
+                    value_max = 40,
+                    default_value = defaults.font_size,
+                    callback = function(spin)
+                        style.font_size = math.max(6, math.min(40, spin.value))
+                        save_style(touchmenu_instance)
+                    end,
+                })
+            end,
+        },
+        {
+            _zen_search_text = _("Font"),
+            text_func = function()
+                local style = get_style()
+                return string.format("%s %s", _("Font:"), font_label(style.font_face))
+            end,
+            keep_menu_open = true,
+            callback = function(touchmenu_instance)
+                local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
+                if not ok_fc then return end
+                local style = get_style()
+                local default_font = chooser_default_font()
+                local display_face = style.font_face == "default" and default_font or style.font_face
+                UIManager:show(FontChooser:new{
+                    title = string.format("%s %s", label, _("font")),
+                    font_file = display_face,
+                    default_font_file = default_font,
+                    callback = function(file)
+                        if style.font_face ~= file then
+                            style.font_face = file
+                            save_style(touchmenu_instance)
+                        end
+                    end,
+                })
+            end,
+            hold_callback = function(touchmenu_instance)
+                local style = get_style()
+                if style.font_face ~= "default" then
+                    style.font_face = "default"
+                    save_style(touchmenu_instance)
+                end
+            end,
+        },
+        {
+            text = _("Bold"),
+            checked_func = function()
+                return get_style().bold == true
+            end,
+            callback = function(touchmenu_instance)
+                local style = get_style()
+                style.bold = style.bold ~= true
+                save_style(touchmenu_instance)
+            end,
+        },
+    }
+    if key == "description" then
+        items[#items + 1] = {
+            text = _("Wrap description text"),
+            checked_func = function()
+                return mcfg.wrap_description_text == true
+            end,
+            callback = function()
+                mcfg.wrap_description_text = mcfg.wrap_description_text ~= true
+                save()
+            end,
+        }
+        items[#items + 1] = {
+            text = _("Justify text"),
+            checked_func = function()
+                return mcfg.justify_description_text == true
+            end,
+            callback = function()
+                mcfg.justify_description_text = mcfg.justify_description_text ~= true
+                save()
+            end,
+        }
+        items[#items + 1] = {
+            text = _("HTML"),
+            checked_func = function()
+                return mcfg.format_description_html == true
+            end,
+            callback = function()
+                mcfg.format_description_html = mcfg.format_description_html ~= true
+                save()
+            end,
+        }
+    end
+    items[#items + 1] = {
+        text = _("Use default style"),
+        callback = function(touchmenu_instance)
+            mcfg.text_styles[key] = {
+                font_face = defaults.font_face,
+                font_size = defaults.font_size,
+                bold = defaults.bold,
+            }
+            save_style(touchmenu_instance)
+        end,
+    }
+    return items
+end
+
 function M.build(ctx)
     local config = ctx.config
     local dcfg = ctx.widget_config or ensure_cfg(config)
@@ -499,21 +636,6 @@ function M.build(ctx)
         }
     end
 
-    local function font_label(face)
-        if face == nil or face == "" or face == "default" then return _("default") end
-        local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
-        return ok_fc and FontChooser.getFontNameText(face) or face
-    end
-
-    local function chooser_default_font()
-        local font_name = library_font.getFontName()
-        if font_name and font_name ~= "" and font_name ~= "cfont" then
-            return font_name
-        end
-        local footer_settings = G_reader_settings:readSetting("footer") or {}
-        return footer_settings.text_font_face or "NotoSans-Regular.ttf"
-    end
-
     local function datetime_style_summary(mcfg, key)
         local style = ensure_datetime_text_style(mcfg, key)
         local size = mcfg.automatic_font_size ~= false
@@ -661,11 +783,6 @@ function M.build(ctx)
         }
     end
 
-    local function save_featured_text_style(touchmenu_instance)
-        save_home("reinit")
-        if touchmenu_instance then touchmenu_instance:updateItems() end
-    end
-
     local function featured_text_style_summary(mcfg, key)
         local style = featured_style(mcfg, key)
         local weight = style.bold and _("bold") or _("regular")
@@ -673,119 +790,7 @@ function M.build(ctx)
     end
 
     local function build_featured_text_style_items(mcfg, key, label)
-        local defaults = featured_defaults[key]
-        local items = {
-            {
-                text_func = function()
-                    local style = featured_style(mcfg, key)
-                    return string.format("%s %s", _("Font size:"), tostring(style.font_size))
-                end,
-                keep_menu_open = true,
-                callback = function(touchmenu_instance)
-                    local SpinWidget = require("ui/widget/spinwidget")
-                    local style = featured_style(mcfg, key)
-                    UIManager:show(SpinWidget:new{
-                        title_text = string.format("%s %s", label, _("font size")),
-                        value = style.font_size,
-                        value_min = 6,
-                        value_max = 40,
-                        default_value = defaults.font_size,
-                        callback = function(spin)
-                            style.font_size = math.max(6, math.min(40, spin.value))
-                            save_featured_text_style(touchmenu_instance)
-                        end,
-                    })
-                end,
-            },
-            {
-                _zen_search_text = _("Font"),
-                text_func = function()
-                    local style = featured_style(mcfg, key)
-                    return string.format("%s %s", _("Font:"), font_label(style.font_face))
-                end,
-                keep_menu_open = true,
-                callback = function(touchmenu_instance)
-                    local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
-                    if not ok_fc then return end
-                    local style = featured_style(mcfg, key)
-                    local default_font = chooser_default_font()
-                    local display_face = style.font_face == "default" and default_font or style.font_face
-                    UIManager:show(FontChooser:new{
-                        title = string.format("%s %s", label, _("font")),
-                        font_file = display_face,
-                        default_font_file = default_font,
-                        callback = function(file)
-                            if style.font_face ~= file then
-                                style.font_face = file
-                                save_featured_text_style(touchmenu_instance)
-                            end
-                        end,
-                    })
-                end,
-                hold_callback = function(touchmenu_instance)
-                    local style = featured_style(mcfg, key)
-                    if style.font_face ~= "default" then
-                        style.font_face = "default"
-                        save_featured_text_style(touchmenu_instance)
-                    end
-                end,
-            },
-            {
-                text = _("Bold"),
-                checked_func = function()
-                    return featured_style(mcfg, key).bold == true
-                end,
-                callback = function(touchmenu_instance)
-                    local style = featured_style(mcfg, key)
-                    style.bold = style.bold ~= true
-                    save_featured_text_style(touchmenu_instance)
-                end,
-            },
-        }
-        if key == "description" then
-            items[#items + 1] = {
-                text = _("Wrap description text"),
-                checked_func = function()
-                    return mcfg.wrap_description_text == true
-                end,
-                callback = function()
-                    mcfg.wrap_description_text = mcfg.wrap_description_text ~= true
-                    save_home("reinit")
-                end,
-            }
-            items[#items + 1] = {
-                text = _("Justify text"),
-                checked_func = function()
-                    return mcfg.justify_description_text == true
-                end,
-                callback = function()
-                    mcfg.justify_description_text = mcfg.justify_description_text ~= true
-                    save_home("reinit")
-                end,
-            }
-            items[#items + 1] = {
-                text = _("HTML"),
-                checked_func = function()
-                    return mcfg.format_description_html == true
-                end,
-                callback = function()
-                    mcfg.format_description_html = mcfg.format_description_html ~= true
-                    save_home("reinit")
-                end,
-            }
-        end
-        items[#items + 1] = {
-            text = _("Use default style"),
-            callback = function(touchmenu_instance)
-                mcfg.text_styles[key] = {
-                    font_face = defaults.font_face,
-                    font_size = defaults.font_size,
-                    bold = defaults.bold,
-                }
-                save_featured_text_style(touchmenu_instance)
-            end,
-        }
-        return items
+        return M.buildTextStyleItems(mcfg, key, label, featured_defaults[key], function() save_home("reinit") end)
     end
 
     local function featured_text_style_item(mcfg, key, label, show_key)

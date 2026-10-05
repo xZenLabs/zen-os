@@ -222,7 +222,6 @@ function ZenSettingsTitleBar:init()
                 text_font_size = self.action.text_font_size
                     or TitleStyle.ACTION_FONT_SIZE or 18,
                 text_font_bold = true,
-                allow_flash = false,
                 show_parent = self.show_parent,
                 callback = self.action.callback,
             }
@@ -254,8 +253,12 @@ function ZenSettingsTitleBar:init()
                     UIManager:setDirty(button.show_parent, "fast", button.dimen)
                     return true
                 end
-                self.action_button._doFeedbackHighlight = function() end
-                self.action_button._undoFeedbackHighlight = function() end
+                self.action_button._doFeedbackHighlight = function(button)
+                    button._zen_filled = not button._zen_filled
+                    UIManager:widgetRepaint(button, button.dimen.x, button.dimen.y)
+                    UIManager:setDirty(nil, "fast", button.dimen)
+                end
+                self.action_button._undoFeedbackHighlight = self.action_button._doFeedbackHighlight
             end
         else
             self.action_button = ZenIconButton:new{
@@ -264,7 +267,7 @@ function ZenSettingsTitleBar:init()
                 width = icon_size,
                 height = icon_size,
                 padding = button_padding,
-                allow_flash = false,
+                allow_flash = true,
                 show_parent = self.show_parent,
                 callback = self.action.callback,
             }
@@ -333,8 +336,9 @@ function ZenSettingsTitleBar:init()
         width = icon_size,
         height = icon_size,
         padding = button_padding,
-        allow_flash = false,
+        allow_flash = true,
         show_parent = self.show_parent,
+        onTapIconButton = function() return self:onTapBackTitle() end,
         callback = function()
             if self.back_visible and self.back_callback then return self.back_callback() end
             return true
@@ -481,7 +485,7 @@ function ZenSettingsTitleBar:init()
             width = icon_size,
             height = icon_size,
             padding = button_padding,
-            allow_flash = false,
+            allow_flash = true,
             show_parent = self.show_parent,
             callback = function() return self:openSearch() end,
         }
@@ -499,7 +503,7 @@ function ZenSettingsTitleBar:init()
             -(close_hitbox_inset + close_hitbox_left_inset),
             -close_hitbox_inset,
         },
-        allow_flash = false,
+        allow_flash = true,
         show_parent = self.show_parent,
         callback = function()
             if self.search_expanded then
@@ -582,7 +586,30 @@ end
 
 function ZenSettingsTitleBar:onTapBackTitle()
     if not (self.back_visible and self.back_callback) then return false end
+    local flash = not G_reader_settings:isFalse("flash_ui")
+    if flash then
+        local dimen = title_back_range(self)
+        local button = self.back_button
+        local title = self.title_container
+        local old_invert, old_color = button.image.invert, self.title_widget.fgcolor
+        local function repaint(background)
+            Screen.bb:paintRoundedRect(dimen.x, dimen.y, dimen.w, dimen.h,
+                background, Screen:scaleBySize(8))
+            UIManager:widgetRepaint(button, button.dimen.x, button.dimen.y)
+            UIManager:widgetRepaint(title, title.dimen.x, title.dimen.y)
+            UIManager:setDirty(nil, "fast", dimen)
+        end
+        button.image.invert = true
+        self.title_widget.fgcolor = Blitbuffer.COLOR_WHITE
+        repaint(Blitbuffer.COLOR_BLACK)
+        UIManager:forceRePaint()
+        UIManager:yieldToEPDC()
+        button.image.invert = old_invert
+        self.title_widget.fgcolor = old_color
+        repaint(Blitbuffer.COLOR_WHITE)
+    end
     self.back_callback()
+    if flash then UIManager:forceRePaint() end
     return true
 end
 

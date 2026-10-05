@@ -37,6 +37,48 @@ function M.restoreEnabled(plugin)
     return type(features) == "table" and features.restore_library_view == true
 end
 
+function M.defaultTabIcon(plugin)
+    local get_icon = rawget(_G, "__ZEN_UI_NAVBAR_DEFAULT_TAB_ICON")
+    if type(get_icon) == "function" then
+        local icon = get_icon()
+        if type(icon) == "string" and icon ~= "" then return icon end
+    end
+    local menu = plugin and plugin.config and plugin.config.menu
+    local icon = type(menu) == "table" and menu.library_home_icon
+    return (type(icon) == "string" and icon ~= "") and icon or "library"
+end
+
+function M.openDefault(ui, plugin, close_menu)
+    local was_tearing_down = ui and ui.tearing_down
+    if ui and ui.document then ui.tearing_down = true end
+    require("ui/uimanager"):scheduleIn(0, function()
+        close_menu()
+        if ui and ui.document then ui.tearing_down = was_tearing_down end
+        if not ui then return end
+        if ui.document then
+            M.showFromReader(ui, plugin, {
+                force_default = not M.restoreEnabled(plugin)
+                    or not paths.isInHomeDir(ui.document.file),
+            })
+        else
+            local is_default_active = rawget(_G, "__ZEN_UI_NAVBAR_IS_DEFAULT_TAB_ACTIVE")
+            if type(is_default_active) == "function" and is_default_active() then return end
+            local fm = require("apps/filemanager/filemanager").instance
+            if fm then require("common/utils").closeWidgetsAbove(fm) end
+            local open_default = rawget(_G, "__ZEN_UI_NAVBAR_OPEN_DEFAULT_TAB")
+            if type(open_default) == "function" then
+                open_default()
+            else
+                local home_dir = paths.getHomeDir()
+                if fm and fm.file_chooser and home_dir then
+                    fm.file_chooser.path_items[home_dir] = nil
+                    fm.file_chooser:changeToPath(home_dir)
+                end
+            end
+        end
+    end)
+end
+
 local function rakuyomiReturnToChapterListEnabled(plugin)
     local rakuyomi = plugin and plugin.config and plugin.config.rakuyomi
     if type(rakuyomi) ~= "table" then return true end

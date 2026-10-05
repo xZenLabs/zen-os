@@ -591,19 +591,18 @@ function ZenUI:init()
         return nil, nil
     end
 
+    local function control_replaces_tab(id)
+        return require("common/utils").controlReplacesMenuTab(
+            _zen_plugin_ref and _zen_plugin_ref.config, id)
+    end
+
     local function zen_panel_hidden()
         local _cfg = _zen_plugin_ref and _zen_plugin_ref.config
         local _lc = _cfg and _cfg.lockdown
         local _ft = _cfg and _cfg.features
-        local _qs = _cfg and _cfg.quick_settings
-        local _buttons = type(_qs) == "table" and _qs.show_buttons
-        local tour_pending = _cfg and _cfg._meta
-            and _cfg._meta.quickstart_menu_tour_pending == true
         local hidden_by_lockdown = type(_lc) == "table" and _lc.disable_settings_panel == true
             and type(_ft) == "table" and _ft.lockdown_mode == true
-        return hidden_by_lockdown
-            or not tour_pending and type(_ft) == "table" and _ft.quick_settings == true
-                and type(_buttons) == "table" and _buttons.zen_settings == true
+        return hidden_by_lockdown or control_replaces_tab("zen_settings")
     end
 
     local function flip_lh_rh_icons()
@@ -617,23 +616,14 @@ function ZenUI:init()
     end
 
     local function library_home_icon()
-        local get_default_tab_icon = rawget(_G, "__ZEN_UI_NAVBAR_DEFAULT_TAB_ICON")
-        if type(get_default_tab_icon) == "function" then
-            local icon = get_default_tab_icon()
-            if type(icon) == "string" and icon ~= "" then
-                return icon
-            end
-        end
-        local _cfg = _zen_plugin_ref and _zen_plugin_ref.config
-        local _menu = _cfg and _cfg.menu
-        local icon = type(_menu) == "table" and _menu.library_home_icon
-        return (type(icon) == "string" and icon ~= "") and icon or "library"
+        return library_navigation.defaultTabIcon(_zen_plugin_ref)
     end
 
     local function app_launcher_enabled()
         local _cfg = _zen_plugin_ref and _zen_plugin_ref.config
         local _ft = _cfg and _cfg.features
         return type(_ft) == "table" and _ft.app_launcher == true
+            and not control_replaces_tab("launcher")
     end
 
     local function make_zen_settings_tab(m_self)
@@ -667,6 +657,7 @@ function ZenUI:init()
     end
 
     local function insert_zen_menu_tabs(m_self, panel_hidden)
+        local home_hidden = control_replaces_tab("library_home")
         local qs_pos, qs_tab = take_quicksettings_tab(m_self.tab_item_table)
         local app_tab = select(2, take_tab_by_id(m_self.tab_item_table, "app_launcher"))
         if not app_launcher_enabled() then
@@ -678,9 +669,13 @@ function ZenUI:init()
         local insert_pos = m_self._zen_qs_insert_pos or qs_pos or 1
         insert_pos = math.min(insert_pos, #m_self.tab_item_table + 1)
         if flip_lh_rh_icons() then
-            table.insert(m_self.tab_item_table, insert_pos, m_self._zen_home_tab_item)
+            local next_pos = insert_pos
+            if not home_hidden then
+                table.insert(m_self.tab_item_table, next_pos, m_self._zen_home_tab_item)
+                next_pos = next_pos + 1
+            end
             if not panel_hidden then
-                table.insert(m_self.tab_item_table, insert_pos + 1, m_self._zen_tab_item)
+                table.insert(m_self.tab_item_table, next_pos, m_self._zen_tab_item)
             end
             if app_tab then
                 table.insert(m_self.tab_item_table, app_tab)
@@ -702,7 +697,9 @@ function ZenUI:init()
                 table.insert(m_self.tab_item_table, m_self._zen_tab_item)
             end
             -- Last tab is pushed to far-right by TouchMenuBar's stretch spacer.
-            table.insert(m_self.tab_item_table, m_self._zen_home_tab_item)
+            if not home_hidden then
+                table.insert(m_self.tab_item_table, m_self._zen_home_tab_item)
+            end
         end
     end
 
@@ -824,38 +821,11 @@ function ZenUI:init()
             end
             local home_tab = { id = "zen_library_home", icon = library_home_icon(), remember = false }
             home_tab.callback = function()
-                local ui = m_self.ui
-                local was_tearing_down = ui and ui.tearing_down
-                if ui and ui.document then ui.tearing_down = true end
-                require("ui/uimanager"):scheduleIn(0, function()
+                library_navigation.openDefault(m_self.ui, _zen_plugin_ref, function()
                     local UIManager = require("ui/uimanager")
                     if m_self.menu_container then
                         UIManager:close(m_self.menu_container)
                         m_self.menu_container = nil
-                    end
-                    if ui and ui.document then ui.tearing_down = was_tearing_down end
-                    if not ui then return end
-                    if ui.document then
-                        library_navigation.showFromReader(ui, _zen_plugin_ref,
-                            { force_default = not library_navigation.restoreEnabled(_zen_plugin_ref)
-                                or not paths.isInHomeDir(ui.document.file) })
-                    else
-                        local is_default_active = rawget(_G, "__ZEN_UI_NAVBAR_IS_DEFAULT_TAB_ACTIVE")
-                        if type(is_default_active) == "function" and is_default_active() then
-                            return
-                        end
-                        local fm = require("apps/filemanager/filemanager").instance
-                        if fm then require("common/utils").closeWidgetsAbove(fm) end
-                        local open_default = rawget(_G, "__ZEN_UI_NAVBAR_OPEN_DEFAULT_TAB")
-                        if type(open_default) == "function" then
-                            open_default()
-                        else
-                            local home_dir = require("common/paths").getHomeDir()
-                            if fm and fm.file_chooser and home_dir then
-                                fm.file_chooser.path_items[home_dir] = nil
-                                fm.file_chooser:changeToPath(home_dir)
-                            end
-                        end
                     end
                 end)
             end

@@ -33,13 +33,13 @@ describe("settings menu organization", function()
             snapshot = function()
                 if missing_stats == "none" then return nil end
                 if missing_stats == "partial" then return { samples = 0 } end
-                local overall = reset_calls == 0 and 0.5 or nil
+                local overall = 0.5
                 return { level = 80, charging = is_charging, overall = overall, awake = 1, asleep = 0.1,
                     awake_time = 7200, asleep_time = 14400,
                     current_mah = has_current_capacity and 600 or nil,
                     full_mah = 1200, design_mah = 1600, health = 75, remaining = 125100,
                     charge_rate = 20, charge_gain = 40, time_to_full = 3600, full_charge_time = 7200, since_full_charge = 14400,
-                    since_charge = 3600, samples = reset_calls > 0 and 0 or 24 }
+                    since_charge = 3600, samples = reset_calls > 0 and 1 or 24 }
             end,
             reset = function() reset_calls = reset_calls + 1 end,
         })
@@ -192,11 +192,12 @@ describe("settings menu organization", function()
             local battery_menu = { item_table = settings,
                 updateItems = function() menu_updates = menu_updates + 1 end }
             settings[2].callback(battery_menu)
-            assert.are.equal("Reset battery log?", shown_dialog.text)
+            assert.are.equal("Reset battery log?\n\nCharging history and overall usage will be kept.", shown_dialog.text)
             shown_dialog.ok_callback()
             assert.are.equal(menu_updates, reset_calls)
-            assert.are.equal("Tracked samples: 0", battery_menu.item_table[1].text)
-            assert.are.equal("-", battery[2].mandatory)
+            assert.are.equal("Tracked samples: 1", battery_menu.item_table[1].text)
+            assert.are.equal("0.50%/h", battery[2].mandatory)
+            assert.are.equal("Previous charge, per hour: 20.00%/h", battery[3].sub_item_table[1].text)
             missing_stats = "partial"
             local missing_rows = battery_item.sub_item_table_func()
             assert.are.equal("-", missing_rows[1].mandatory)

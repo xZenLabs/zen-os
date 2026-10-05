@@ -162,7 +162,12 @@ describe("file manager status bar visibility", function()
     it("keeps nested back buttons bound to their own views", function()
         local status_api
         require("common/shared_state").register = function(_plugin, api) status_api = api end
-        replace("ui/widget/button", { new = function(_self, values) return values end })
+        local Button = {
+            _doFeedbackHighlight = function() end,
+            _undoFeedbackHighlight = function() end,
+            new = function(self, values) return setmetatable(values, { __index = self }) end,
+        }
+        replace("ui/widget/button", Button)
         require("modules/filebrowser/patches/status_bar")()
 
         local make_back = assert(get_upvalue(status_api.createStatusRowCustomBack,
@@ -175,6 +180,60 @@ describe("file manager status bar visibility", function()
 
         assert.not_equal(tag_back, series_back)
         assert.are.same({ "tags", "series" }, calls)
+        assert.are.equal(Button._doFeedbackHighlight, tag_back._doFeedbackHighlight)
+        assert.are.equal(Button._undoFeedbackHighlight, tag_back._undoFeedbackHighlight)
+    end)
+
+    it("routes all back hitboxes through the button's tap feedback", function()
+        local status_api
+        require("common/shared_state").register = function(_plugin, api) status_api = api end
+        _G.__ZEN_UI_PLUGIN.config.status_bar = {
+            left_order = {}, center_order = {}, right_order = {}, show_bottom_border = false,
+        }
+        replace("common/paths", {
+            getHomeDir = function() return "/library" end,
+            normPath = function(path) return path end,
+            isHomeLocked = function() return false end,
+        })
+        local Container = {
+            new = function(_self, values)
+                values.getSize = function(self) return self.dimen or { w = 28, h = 28 } end
+                return values
+            end,
+        }
+        for _i, name in ipairs({ "ui/geometry", "ui/gesturerange", "ui/widget/horizontalgroup",
+                "ui/widget/horizontalspan", "ui/widget/overlapgroup", "ui/widget/container/leftcontainer",
+                "ui/widget/container/centercontainer", "ui/widget/container/inputcontainer" }) do
+            replace(name, Container)
+        end
+        local taps, navigations = 0, 0
+        replace("ui/widget/button", {
+            new = function(_self, values)
+                values.onTapSelectButton = function(self)
+                    taps = taps + 1
+                    self.callback()
+                    return true
+                end
+                return Container:new(values)
+            end,
+        })
+        UIManager.scheduleIn = function(_self, _delay, callback) callback() end
+        require("modules/filebrowser/patches/status_bar")()
+        assert.is_true(replace_upvalue(status_api.createStatusRow, "_buildGroup", function() end))
+        assert.is_true(replace_upvalue(status_api.createStatusRowCustomBack, "_buildGroup", function() end))
+        local function navigate() navigations = navigations + 1 end
+        local file_manager = { file_chooser = { item_table = {}, onFolderUp = navigate } }
+        local row = status_api.createStatusRow("/outside", file_manager)
+        assert.is_true(row[#row]:onTapBack())
+        assert.is_true(FileManager.handleEvent(file_manager, {
+            name = "Gesture", args = { { ges = "tap", pos = { x = 5, y = 40 } } },
+        }))
+        file_manager._zen_back_tap_zone.callback()
+        local custom_row = status_api.createStatusRowCustomBack(navigate)
+        assert.is_true(custom_row[#custom_row]:onTapBack())
+
+        assert.are.equal(4, taps)
+        assert.are.equal(4, navigations)
     end)
 
     it("limits embedded refreshes to changed and shifted status items", function()

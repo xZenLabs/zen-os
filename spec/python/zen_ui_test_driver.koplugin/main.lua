@@ -2116,6 +2116,15 @@ function Driver:handleCommand(command)
             state.source = page.source
             state.visible_texts = {}
             collect_texts(page, state.visible_texts, {}, 0)
+            local stats_config = plugin.config.end_book.modules.stats_triplet
+            local label_text = (stats_config.label or "") ~= "" and stats_config.label or require("gettext")("Statistics")
+            local stats_label = find_descendant(page, function(widget)
+                return widget.text == label_text and widget.face ~= nil
+            end)
+            if stats_label then
+                state.statistics_label = { font = stats_label.face.realname,
+                    size = stats_label.face.orig_size, bold = stats_label.bold == true }
+            end
             state.status_header = dimen_bounds(page.header_widget.dimen)
             state.status_header_texts = {}
             collect_texts(page.header_widget, state.status_header_texts, {}, 0)
@@ -2320,9 +2329,9 @@ function Driver:handleCommand(command)
                 end
             end
             if params.hold_widget then
-                for index, row in ipairs(page.widget_rows) do
+                for _i, row in ipairs(page.widget_rows) do
                     if row.id == params.hold_widget then
-                        local bounds = page.body_widget[1][index * 2 - 1].dimen
+                        local bounds = row.dimen
                         state.hold_handled = page:handleEvent(Event:new("Gesture", {
                             ges = "hold", pos = require("ui/geometry"):new{
                                 x = bounds.x + bounds.w / 2, y = bounds.y + bounds.h - 1,
@@ -3642,16 +3651,18 @@ function Driver:pollServer()
             local count = C.read(client, buffer, 65535)
             if count > 0 then
                 local ok, command = pcall(rapidjson.decode, ffi.string(buffer, count))
-                self:reply(client, ok and self:handleCommand(command) or {
+                local payload = ok and self:handleCommand(command) or {
                     ok = false,
                     error = "invalid JSON",
-                })
+                }
+                -- Finish deferred UI callbacks and repaint before the next command.
+                UIManager:tickAfterNext(function() self:reply(client, payload) end)
             else
                 C.close(client)
             end
         end
     end
-    UIManager:scheduleIn(0.1, function() self:pollServer() end)
+    UIManager:scheduleIn(0.02, function() self:pollServer() end)
 end
 
 function Driver:onClose()
