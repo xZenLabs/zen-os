@@ -60,6 +60,7 @@ Use **Lockdown mode** to configure library, Controls, and reader restrictions. S
 | Extras > Install ZenPM | Installs the Zen plugin manager on supported non-Android ARM devices. |
 | Extras > Zen OPDS | Enables ZenOS OPDS enhancements, including cover art, list/mosaic view, hold menu, and navigation changes. |
 | Extras > Zen OPDS > Display mode | Selects mosaic, list, or classic OPDS display mode. |
+| Extras > Zen OPDS > Prefer large covers | In OPDS mosaic mode, prefer higher quality cover images if available. |
 | Extras > Rakuyomi > Exclude from Home | Keeps Rakuyomi chapters out of recent Home content. |
 | Extras > Rakuyomi > Return to chapter list on exit | Returns Rakuyomi-owned books to their manga chapter list when exiting the reader. Disable this to return to Rakuyomi library view. |
 | Extras > Lockdown mode | Configures library, Controls, and reader restrictions for Lockdown Mode. |

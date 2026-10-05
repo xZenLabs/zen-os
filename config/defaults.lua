@@ -263,6 +263,7 @@ local defaults = {
         display_mode = "mosaic", -- "mosaic" | "list" | "classic"
         default_url = "",
         downloaded = {},
+        large_covers = false,
     },
     mosaic_title_strip = {
         show_title  = false,

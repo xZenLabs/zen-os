@@ -373,6 +373,12 @@ local function apply_opds()
         return type(url) == "string" and url ~= "" and url or nil
     end
 
+    local function get_opds_cover_pref()
+        local cfg = get_opds_config()
+        local large_covers = cfg and cfg.large_covers
+        return large_covers
+    end
+
     local function set_opds_default_url(url)
         local plug = _plugin or rawget(_G, "__ZEN_UI_PLUGIN")
         if not (plug and type(plug.config) == "table") then return end
@@ -1417,7 +1423,13 @@ local function apply_opds()
         local with_cover = 0
         for _i, item in ipairs(item_table) do
             if item.acquisitions and #item.acquisitions > 0 then
-                local thumb = item.thumbnail or item.image
+                local thumb
+                -- if enabled and available, prefer the larger image if available and fallback to the thumbnail
+                if get_opds_cover_pref() and item.image then
+                    thumb = item.image or item.thumbnail
+                else
+                    thumb = item.thumbnail or item.image
+                end
                 if thumb then
                     item.cover_url = thumb
                     with_cover = with_cover + 1

@@ -23,7 +23,7 @@ describe("Extras settings", function()
         replace("modules/settings/sections/extras_settings", false)
         local ok, err = pcall(function()
             local saved, updates, restart_prompts = 0, 0, 0
-            local config = { features = {} }
+            local config = { features = {}, opds = { large_covers = true } }
             local items = require("modules/settings/sections/extras_settings").build({
                 config = config,
                 plugin = { saveConfig = function() saved = saved + 1 end },
@@ -38,10 +38,14 @@ describe("Extras settings", function()
             assert.are.equal("opds-icon", opds.icon_glyph)
             assert.are.equal(opds.callback, opds.checkmark_callback)
             assert.is_true(opds.checked_func())
-            assert.are.equal(1, #opds.sub_item_table)
+            assert.are.equal(2, #opds.sub_item_table)
             local display_modes = opds.sub_item_table[1]
             assert.are.equal("Display mode", display_modes.text)
             assert.are.equal(3, #display_modes.sub_item_table)
+            local large_covers = opds.sub_item_table[2]
+            assert.are.equal("Prefer large covers", large_covers.text)
+            assert.are.equal(large_covers.callback, large_covers.checkmark_callback)
+            assert.is_true(large_covers.checked_func())
 
             local menu = { updateItems = function() updates = updates + 1 end }
             opds.checkmark_callback(menu)
