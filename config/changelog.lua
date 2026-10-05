@@ -395,7 +395,8 @@ return {
         "Fix rare bug in autoresume on kindle after deep sleep"
     },
     ["4.1.0"] = {
-        "OPDS improvements",
+        "Add end of book screen",
+        "Add OPDS improvements",
         "Bug fixes"
     }
 }

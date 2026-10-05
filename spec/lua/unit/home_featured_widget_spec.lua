@@ -644,7 +644,7 @@ describe("home featured widget", function()
         assert.equals(2, labels)
     end)
 
-    it("places end-of-book progress directly below status, with navigation below both", function()
+    it("places end-of-book pages above percent read below status, with navigation below both", function()
         local navigation
         local progress_bar = spy.on(require("common/ui/book_progress"), "bar")
         require("modules/filebrowser/patches/home/widgets/featured_common").build{
@@ -660,7 +660,7 @@ describe("home featured widget", function()
                 return navigation
             end,
         }
-        assert.is_true(has_text("100% completed • 120 pages"))
+        assert.is_true(has_text("120 pages\n100% read"))
         assert.is_false(has_text("120 / 120"))
         assert.spy(progress_bar).was_not_called()
         assert.is_true(has_text("Finished"))
@@ -675,11 +675,12 @@ describe("home featured widget", function()
                 assert.equals(widget[1].width, navigation:getSize().w)
                 local progress_index
                 for index, child in ipairs(widget) do
-                    if child.text == "100% completed • 120 pages" then progress_index = index end
+                    if child.text == "120 pages\n100% read" then progress_index = index end
                 end
                 assert.is_truthy(progress_index)
                 assert.equals("Finished", widget[progress_index - 1][1].text)
-                assert.equals(navigation:getSize().w, widget[progress_index].max_width)
+                assert.equals("ui/widget/textboxwidget", widget[progress_index].kind)
+                assert.equals(navigation:getSize().w, widget[progress_index].width)
                 assert.equals("ui/widget/linewidget", widget[progress_index + 2].kind)
                 assert.equals(navigation:getSize().w, widget[progress_index + 2]:getSize().w)
                 assert.is_true(math.abs(widget[progress_index - 2].width - widget[progress_index + 1].width) <= 1)
@@ -706,7 +707,7 @@ describe("home featured widget", function()
         local status_widget, progress
         for _i, widget in ipairs(created) do
             if widget.text == "Finished" then status_widget = widget end
-            if widget.text == "100% completed • 120 pages" then progress = widget end
+            if widget.text == "120 pages\n100% read" then progress = widget end
         end
         assert.equals("StatusFont", status_widget.face.name)
         assert.is_false(status_widget.bold)
@@ -726,7 +727,7 @@ describe("home featured widget", function()
                     pages = 200, stable_pages = 120, stable_current_page = 30 }
             end },
         }
-        assert.is_true(has_text("25% completed • 120 pages"))
+        assert.is_true(has_text("120 pages\n25% read"))
         assert.spy(progress_bar).was_not_called()
     end)
 

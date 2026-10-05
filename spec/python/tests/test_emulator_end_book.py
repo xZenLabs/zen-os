@@ -25,7 +25,8 @@ def _assert_fits(layout):
     assert not layout["has_scroll"], layout
     assert layout["featured_finished_icon"], layout["visible_texts"]
     assert "Finished" in layout["visible_texts"]
-    assert re.fullmatch(r"\d+% completed • \d+\s+pages", layout["featured_progress_text"])
+    assert re.fullmatch(r"\d+\s+pages\n\d+% read", layout["featured_progress_text"])
+    assert layout["featured_progress_lines"] == 2
     assert not layout["featured_progress_truncated"]
     assert layout["body_size"]["w"] <= layout["body_bounds"]["w"], layout
     assert layout["body_size"]["h"] <= layout["body_bounds"]["h"], layout
@@ -142,6 +143,7 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert state["active"] is True, state
                 assert state["book_status"] == "complete"
                 assert state["rows"] == ["stats_triplet", "featured", "strip"]
+                assert state["strip_two_rows"] is False
                 assert state["quote"]["text"] == "No highlights in this book."
                 assert state["quote"]["text"] not in state["visible_texts"]
                 empty_quote_heights = state["row_heights"]

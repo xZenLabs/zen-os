@@ -97,12 +97,10 @@ function M.stripConfig(recommendations, source, config, authors)
     local utils = require("common/utils")
     local local_cfg = config and config.modules.strip or {}
     local strip = Presets.copy(local_cfg)
-    strip.controls = strip.controls or {}
-    utils.deepmerge(strip.controls, require("config/defaults").end_book.modules.strip.controls)
+    utils.deepmerge(strip, require("config/defaults").end_book.modules.strip)
     strip.controls.text_style = strip.controls.text_style or Presets.copy(home.modules.strip.controls.text_style)
     home.modules.strip.controls = nil
     utils.deepmerge(strip, home.modules.strip)
-    if local_cfg.center_books == nil then strip.center_books = false end
     local controls = strip.controls
     local author_name = (authors or ""):match("^%s*(.-)%s*$"):gsub("%s*\n%s*", ", "):gsub("%s+", " ")
     for _i, entry in ipairs(require("modules/settings/sections/end_book_settings").sources) do

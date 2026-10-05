@@ -2022,6 +2022,7 @@ function Driver:handleCommand(command)
                 featured.wrap_description_text = true
                 home.modules.featured.show_status_bar = true
                 home.modules.strip.two_rows = true
+                plugin.config.end_book.modules.strip.two_rows = true
                 home.modules.strip.count = 10
                 home.modules.strip.show_strip_titles = true
                 home.modules.strip.controls.text_style.font_size = 24
@@ -2169,12 +2170,13 @@ function Driver:handleCommand(command)
             end)
             state.featured_finished_icon = finished_icon ~= nil
             local progress = find_descendant(page.body_widget[1][3], function(widget)
-                return type(widget.text) == "string" and widget.text:match("^%d+%% completed") ~= nil
+                return type(widget.text) == "string" and widget.text:match("%d+%% read$") ~= nil
             end)
             state.featured_progress_text = progress and progress.text
             state.featured_progress_size = progress and progress.face.orig_size
             if progress then
-                state.featured_progress_truncated = progress:isTruncated() == true
+                state.featured_progress_lines = #progress.vertical_string_list
+                state.featured_progress_truncated = #progress.vertical_string_list > progress.lines_per_page
             end
             local details = navigation and find_descendant(page.body_widget[1][3], function(widget)
                 return widget[#widget] == navigation
@@ -2199,6 +2201,7 @@ function Driver:handleCommand(command)
                 local body = page.body_widget[1]
                 state.strip_arrows = strip_config.controls.show_buttons.page_left
                     or strip_config.controls.show_buttons.page_right
+                state.strip_two_rows = strip_config.two_rows
                 local runtime = page._zen_home_strip_runtime
                 state.strip_drill = runtime.source.drill and runtime.source.drill.label
                 state.strip_items = {}

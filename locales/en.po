@@ -14,13 +14,13 @@ msgstr " days"
 
 #. Type: format
 #. Context: local name = require("common/language_name").get(code) return name ~= code and T(_("%1 (%2)"), name, code) or code end
-#: metadata_editor.lua:269 opds.lua:1448
+#: metadata_editor.lua:269 opds.lua:1622
 msgid "%1 (%2)"
 msgstr "%1 (%2)"
 
 #. Type: format
 #. Context: local title = count == 1 and _("1 file") or require("ffi/util").template(_("%1 files"), count) local enabled = count > 0
-#: context_menu.lua:637
+#: context_menu.lua:640
 msgid "%1 files"
 msgstr "%1 files"
 
@@ -97,6 +97,12 @@ msgid "%d%% Read"
 msgstr "%d%% Read"
 
 #. Type: format
+#. Context: if ctx.showBookStatus then end_progress_text = string.format(_("%d%% read"), pct) if total_pages then end_progress_text = zen_utils.formatPageCount(total_pages, true) .. "\n" .. end_progress_text end
+#: featured_common.lua:388
+msgid "%d%% read"
+msgstr "%d%% read"
+
+#. Type: format
 #. Context: local title = is_time and string.format(_("%s time goal (min)"), period.text) or is_books and string.format(_("%s books goal"), period.text) or string.format(_("%s pages goal"), period.text)
 #: reading_goals.lua:83
 msgid "%s books goal"
@@ -116,7 +122,7 @@ msgstr "%s goal (%s)"
 
 #. Type: format
 #. Context: percent = tostring(pct) .. "%", time_left = time_left ~= "" and string.format(_("%s left"), time_left) or "", }
-#: featured_common.lua:171
+#: featured_common.lua:173
 msgid "%s left"
 msgstr "%s left"
 
@@ -164,13 +170,13 @@ msgstr "1 author"
 
 #. Type: label
 #. Context: _zen_group_name = display_name, _zen_group_subtitle = book_count == 1 and _("1 book") or (tostring(book_count) .. " " .. _("books")),
-#: collections.lua:442 collections.lua:540 context_menu.lua:1112 context_menu.lua:1735 group_view.lua:1349
+#: collections.lua:442 collections.lua:540 context_menu.lua:1115 context_menu.lua:1738 group_view.lua:1349
 msgid "1 book"
 msgstr "1 book"
 
 #. Type: title
 #. Context: local count = #items local title = count == 1 and _("1 file") or require("ffi/util").template(_("%1 files"), count)
-#: context_menu.lua:636
+#: context_menu.lua:639
 msgid "1 file"
 msgstr "1 file"
 
@@ -302,7 +308,7 @@ msgstr "About"
 
 #. Type: setting
 #. Context: local current = entry.label or "" if entry.label_auto == true or current == "" or current == _("Action") then entry.label = action_label(entry) or _("Action")
-#: app_launcher_settings.lua:171 app_launcher_settings.lua:172 app_launcher_settings.lua:264 app_launcher_settings.lua:563 menu_settings.lua:704 menu_settings.lua:792 home_settings.lua:1413 home_settings.lua:1454 navbar_settings.lua:357 navbar_settings.lua:1410
+#: app_launcher_settings.lua:171 app_launcher_settings.lua:172 app_launcher_settings.lua:264 app_launcher_settings.lua:563 menu_settings.lua:704 menu_settings.lua:792 home_settings.lua:1437 home_settings.lua:1478 navbar_settings.lua:357 navbar_settings.lua:1410
 msgid "Action"
 msgstr "Action"
 
@@ -330,23 +336,15 @@ msgstr "Active tab"
 msgid "Active tab color"
 msgstr "Active tab color"
 
-#. Type: message
-msgid "Active tab color: "
-msgstr "Active tab color: "
-
 #. Type: setting
 #. Context: }, navbar_color_item(_("Active tab outline color"), "active_tab_color", {0x33, 0x99, 0xFF}, function()
 #: navbar_settings.lua:1672
 msgid "Active tab outline color"
 msgstr "Active tab outline color"
 
-#. Type: message
-msgid "Active tab RGB"
-msgstr "Active tab RGB"
-
 #. Type: title
 #. Context: item_table = sort_items, add_title = _("Add"), add_item_table = arrange_add_items(parent),
-#: app_launcher_settings.lua:285 app_launcher_settings.lua:940 menu_settings.lua:695 home_settings.lua:1588 navbar_settings.lua:1444
+#: app_launcher_settings.lua:285 app_launcher_settings.lua:940 menu_settings.lua:695 home_settings.lua:1613 navbar_settings.lua:1444
 msgid "Add"
 msgstr "Add"
 
@@ -358,7 +356,7 @@ msgstr "Add action"
 
 #. Type: setting
 #. Context: local items = {{ text = _("Add book"), enabled_func = function() return #custom.paths < custom_strip_max_books end,
-#: home_settings.lua:1607
+#: home_settings.lua:1632
 msgid "Add book"
 msgstr "Add book"
 
@@ -370,7 +368,7 @@ msgstr "Add buttons"
 
 #. Type: button
 #. Context: buttons = { {{ text = _("Add catalog"), align = "left", callback = function()
-#: opds.lua:1378 opds.lua:1423
+#: opds.lua:1552 opds.lua:1597
 msgid "Add catalog"
 msgstr "Add catalog"
 
@@ -406,21 +404,15 @@ msgstr "Add plugin"
 
 #. Type: title
 #. Context: picker = Menu:new{ title = _("Add to collection"), item_table = items,
-#: quickstart_pages.lua:305 context_menu.lua:562 context_menu.lua:740 context_menu.lua:2396
+#: quickstart_pages.lua:305 context_menu.lua:562 context_menu.lua:743 context_menu.lua:2399
 msgid "Add to collection"
 msgstr "Add to collection"
 
 #. Type: label
 #. Context: end return text == _("Add to vocabulary builder") or text == _("Remove from vocabulary builder")
-#: dict_quick_lookup.lua:74
+#: dict_quick_lookup.lua:77
 msgid "Add to vocabulary builder"
 msgstr "Add to vocabulary builder"
-
-#. Type: setting
-#. Context: table.insert(items, { text = _("Align status bars with book margins"), checked_func = function()
-#: reader_settings.lua:1523
-msgid "Align status bars with book margins"
-msgstr "Align status bars with book margins"
 
 #. Type: label
 #. Context: .. (already_in and " \u{2713}" or ""), mandatory = already_in and _("added") or nil, dim = already_in,
@@ -454,13 +446,19 @@ msgstr "Airplane mode"
 
 #. Type: label
 #. Context: title = _("Search") .. (catalog_name ~= "" and " " .. catalog_name or ""), input_hint = _("Alexandre Dumas"), buttons = {{
-#: opds.lua:1626
+#: opds.lua:1800
 msgid "Alexandre Dumas"
 msgstr "Alexandre Dumas"
 
+#. Type: setting
+#. Context: table.insert(items, { text = _("Align status bars with book margins"), checked_func = function()
+#: reader_settings.lua:1523
+msgid "Align status bars with book margins"
+msgstr "Align status bars with book margins"
+
 #. Type: label
 #. Context: table.insert(fbts, {{ text = _("All") .. (is_all and " " .. icons.check or ""), align = "left",
-#: context_menu.lua:1188 context_menu.lua:2777
+#: context_menu.lua:1191 context_menu.lua:2780
 msgid "All"
 msgstr "All"
 
@@ -472,7 +470,7 @@ msgstr "All settings are in one unified tab. This icon with the dot indicates an
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = entry.id == "tags" and _("All tags") or entry.label, entry = entry,
-#: home_settings.lua:1285 navbar_settings.lua:402
+#: home_settings.lua:1301 navbar_settings.lua:402
 msgid "All tags"
 msgstr "All tags"
 
@@ -520,13 +518,13 @@ msgstr "An EPUB title is required."
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("An item with that name already exists."), icon = "notice-warning",
-#: context_menu.lua:2311
+#: context_menu.lua:2314
 msgid "An item with that name already exists."
 msgstr "An item with that name already exists."
 
 #. Type: setting
 #. Context: rating = _("Rating"), annotations = _("Annotations"), note = _("Note"),
-#: book_details.lua:386 library_settings.lua:1513 home_settings.lua:2454
+#: book_details.lua:386 library_settings.lua:1513 home_settings.lua:2480
 msgid "Annotations"
 msgstr "Annotations"
 
@@ -544,7 +542,7 @@ msgstr "Apply"
 
 #. Type: button
 #. Context: archive_button = Button:new{ text = _("Archive"), width = action_width,
-#: archive_actions.lua:164 archive_actions.lua:207 archive_actions.lua:211 archive_actions.lua:255 navbar.lua:245 book_status.lua:251 library_settings.lua:1753 navbar_settings.lua:204
+#: archive_actions.lua:164 archive_actions.lua:207 archive_actions.lua:211 archive_actions.lua:255 navbar.lua:245 end_book_data.lua:28 book_status.lua:242 library_settings.lua:1753 navbar_settings.lua:204
 msgid "Archive"
 msgstr "Archive"
 
@@ -632,6 +630,12 @@ msgstr "Ascending"
 msgid "At least one tab must be visible"
 msgstr "At least one tab must be visible"
 
+#. Type: label
+#. Context: wcli:close() if connected then return true, _("Authenticated") end if reply and reply:sub(1, 2) == "OK" then
+#: kobo.lua:128
+msgid "Authenticated"
+msgstr "Authenticated"
+
 #. Type: message
 #. Context: else reason = _("Authentication failed. The password may be incorrect.") end
 #: network_switcher.lua:469
@@ -640,7 +644,7 @@ msgstr "Authentication failed. The password may be incorrect."
 
 #. Type: setting
 #. Context: { key = "book_title", text = _("Book title") }, { key = "author", text = _("Author") }, { key = "chapter", text = _("Chapter") },
-#: metadata_editor.lua:964 reader_settings.lua:222 home_settings.lua:813
+#: metadata_editor.lua:964 reader_settings.lua:222 home_settings.lua:820
 msgid "Author"
 msgstr "Author"
 
@@ -652,7 +656,7 @@ msgstr "authors"
 
 #. Type: title
 #. Context: if tab_id == "authors" then title = _("Authors") elseif tab_id == "languages" then
-#: nav_button_model.lua:9 quickstart_pages.lua:688 metadata_editor.lua:47 metadata_editor.lua:509 context_menu.lua:2619 group_view.lua:1365 group_view.lua:1410 navbar.lua:290 library_settings.lua:1508 home_settings.lua:1050 navbar_settings.lua:186
+#: nav_button_model.lua:9 quickstart_pages.lua:688 metadata_editor.lua:47 metadata_editor.lua:509 context_menu.lua:2622 group_view.lua:1365 group_view.lua:1410 navbar.lua:290 library_settings.lua:1508 home_settings.lua:1064 navbar_settings.lua:186
 msgid "Authors"
 msgstr "Authors"
 
@@ -664,13 +668,13 @@ msgstr "Auto-pick best match"
 
 #. Type: setting
 #. Context: local size = mcfg.automatic_font_size ~= false and _("Automatic") or tostring(style.font_size) return font_label(style.font_face) .. ", " .. size
-#: home_settings.lua:513 home_settings.lua:2223
+#: home_settings.lua:520 home_settings.lua:2249
 msgid "Automatic"
 msgstr "Automatic"
 
 #. Type: setting
 #. Context: { text = _("Automatic font size"), checked_func = function() return mcfg.automatic_font_size ~= false end,
-#: home_settings.lua:605 home_settings.lua:2231 home_settings.lua:2486
+#: home_settings.lua:612 home_settings.lua:2257 home_settings.lua:2512
 msgid "Automatic font size"
 msgstr "Automatic font size"
 
@@ -855,20 +859,20 @@ msgid "Blur menu background"
 msgstr "Blur menu background"
 
 #. Type: setting
-#. Context: local style = ensure_featured_text_style(mcfg, key) local weight = style.bold and _("bold") or _("regular") return string.format("%s, %s, %s", font_label(style.font_face), tostring(style.font_size), weight)
-#: home_settings.lua:664 home_settings.lua:1633
+#. Context: local style = featured_style(mcfg, key) local weight = style.bold and _("bold") or _("regular") return string.format("%s, %s, %s", font_label(style.font_face), tostring(style.font_size), weight)
+#: home_settings.lua:671 home_settings.lua:1658
 msgid "bold"
 msgstr "bold"
 
 #. Type: setting
 #. Context: table.insert(font_sub_items, { text = _("Bold"), checked_func = function()
-#: reader_settings.lua:1457 home_settings.lua:727 home_settings.lua:1704
+#: reader_settings.lua:1457 home_settings.lua:734 home_settings.lua:1729
 msgid "Bold"
 msgstr "Bold"
 
 #. Type: setting
 #. Context: _("Show bottom border"), _("Bold text"), _("Colored status icons"),
-#: zen_settings.lua:90 home_settings.lua:879 status_bar_settings.lua:304
+#: zen_settings.lua:90 home_settings.lua:892 status_bar_settings.lua:304
 msgid "Bold text"
 msgstr "Bold text"
 
@@ -880,7 +884,7 @@ msgstr "Book"
 
 #. Type: notification
 #. Context: self._manager.updated = true Notification:notify(_("Book added to download list"), Notification.SOURCE_OTHER)
-#: opds.lua:1856
+#: opds.lua:2030
 msgid "Book added to download list"
 msgstr "Book added to download list"
 
@@ -908,15 +912,21 @@ msgstr "Book moved to archive."
 msgid "Book moved to library."
 msgstr "Book moved to library."
 
+#. Type: setting
+#. Context: if ctx.widget_config then items[#items + 1] = featured_text_style_item(mcfg, "status", _("Book status")) items[#items + 1] = featured_text_style_item(mcfg, "navigation", _("Button labels"), "show_navigation_labels")
+#: home_settings.lua:829
+msgid "Book status"
+msgstr "Book status"
+
 #. Type: title
 #. Context: local review_header = self:genHeader(_("Review")) local status_header = self:genHeader(self.readonly and _("Book Status") or _("Update Status"))
-#: book_status.lua:211
+#: book_status.lua:202
 msgid "Book Status"
 msgstr "Book Status"
 
-#. Type: label
-#. Context: id = "strip", label = _("Book strip"), size = shared.SIZE,
-#: strip.lua:6
+#. Type: setting
+#. Context: stats_triplet = _("Reading statistics"), featured = _("Featured book"), quotes = _("Highlights and notes"), strip = _("Book strip"), }
+#: strip.lua:6 end_book_settings.lua:7
 msgid "Book strip"
 msgstr "Book strip"
 
@@ -933,14 +943,14 @@ msgid "Book Title"
 msgstr "Book Title"
 
 #. Type: setting
-#. Context: { key = "custom_text", text = _("Custom text") }, { key = "book_title", text = _("Book title") }, { key = "author", text = _("Author") },
-#: reader_settings.lua:221
+#. Context: elseif id == "quotes" then toggle(config.quotes, "show_title", _("Book title")) items[#items + 1] = {
+#: end_book_settings.lua:100 reader_settings.lua:221
 msgid "Book title"
 msgstr "Book title"
 
 #. Type: setting
 #. Context: text_func = function() return _("Book: ") .. path_label(mcfg.path) end,
-#: home_settings.lua:1020
+#: home_settings.lua:1034
 msgid "Book: "
 msgstr "Book: "
 
@@ -950,17 +960,17 @@ msgstr "Book: "
 msgid "Bookmarks"
 msgstr "Bookmarks"
 
-#. Type: label
-#. Context: _zen_group_subtitle = book_count == 1 and _("1 book") or (tostring(book_count) .. " " .. _("books")), _zen_sort_cb = function()
-#: collections.lua:443 collections.lua:541 context_menu.lua:1112 context_menu.lua:1735 group_view.lua:1350
-msgid "books"
-msgstr "books"
-
 #. Type: setting
 #. Context: { text = _("Books"), radio = true,
 #: reading_goals.lua:142 browser_list_item_layout.lua:203 reading_goals.lua:106 reading_goals.lua:277 navbar_settings.lua:1024
 msgid "Books"
 msgstr "Books"
+
+#. Type: label
+#. Context: _zen_group_subtitle = book_count == 1 and _("1 book") or (tostring(book_count) .. " " .. _("books")), _zen_sort_cb = function()
+#: collections.lua:443 collections.lua:541 context_menu.lua:1115 context_menu.lua:1738 group_view.lua:1350
+msgid "books"
+msgstr "books"
 
 #. Type: label
 #. Context: blockCard{ width = c4_w, height = card_h, value = formatTime(stats.year_duration), label = _("Total time") }, blockCard{ width = c4_w, height = card_h, value = tostring(stats.books_this_year or 0), label = _("Books read") }, }, stat_styl...
@@ -1016,15 +1026,21 @@ msgstr "Bug report submitted!"
 msgid "Bug report title"
 msgstr "Bug report title"
 
+#. Type: setting
+#. Context: items[#items + 1] = featured_text_style_item(mcfg, "status", _("Book status")) items[#items + 1] = featured_text_style_item(mcfg, "navigation", _("Button labels"), "show_navigation_labels") end
+#: home_settings.lua:830
+msgid "Button labels"
+msgstr "Button labels"
+
 #. Type: title
 #. Context: ZenArrangeList.show{ title = parent and parent.label or _("Buttons"), item_table = sort_items,
-#: app_launcher_settings.lua:54 app_launcher_settings.lua:938 app_launcher_settings.lua:981 menu_settings.lua:693 menu_settings.lua:1198
+#: app_launcher_settings.lua:54 app_launcher_settings.lua:938 app_launcher_settings.lua:981 end_book_settings.lua:73 end_book_settings.lua:143 menu_settings.lua:693 menu_settings.lua:1198
 msgid "Buttons"
 msgstr "Buttons"
 
 #. Type: setting
 #. Context: text = pack.name, help_text = pack.author and T(_("By %1"), pack.author) or nil, radio = true,
-#: extras_settings.lua:216
+#: extras_settings.lua:217
 msgid "By %1"
 msgstr "By %1"
 
@@ -1054,7 +1070,7 @@ msgstr "Calibre Search"
 
 #. Type: button
 #. Context: or _("Restore the previous metadata for this book?"), cancel_text = _("Cancel"), ok_text = _("Restore"),
-#: color_wheel_widget.lua:394 metadata_editor.lua:1228 home_page.lua:2409 metadata_editor.lua:967 metadata_editor.lua:1186 network_switcher.lua:562 zen_bugreporter.lua:191 zen_bugreporter.lua:238 zen_bugreporter.lua:269 zen_settings_utils.lua:564 zen_updater.lua:1349 zen_updater.lua:1652 zenpm_installer.lua:323 app_launcher_settings.lua:189 app_launcher_settings.lua:279 global_settings.lua:303 menu_settings.lua:939 menu_settings.lua:1053 reader_settings.lua:153 reader_settings.lua:271 reader_settings.lua:784 reader_settings.lua:1112 home_settings.lua:1182 home_settings.lua:2021 home_settings.lua:2099 metadata_settings.lua:38 navbar_settings.lua:870 navbar_settings.lua:1000 navbar_settings.lua:1071 navbar_settings.lua:1207 status_bar_settings.lua:273 status_bar_settings.lua:369
+#: color_wheel_widget.lua:394 metadata_editor.lua:1228 home_page.lua:2418 metadata_editor.lua:967 metadata_editor.lua:1186 network_switcher.lua:562 zen_bugreporter.lua:191 zen_bugreporter.lua:238 zen_bugreporter.lua:269 zen_settings_utils.lua:564 zen_updater.lua:1349 zen_updater.lua:1652 zenpm_installer.lua:323 app_launcher_settings.lua:189 app_launcher_settings.lua:279 global_settings.lua:303 menu_settings.lua:939 menu_settings.lua:1053 reader_settings.lua:153 reader_settings.lua:271 reader_settings.lua:784 reader_settings.lua:1112 home_settings.lua:1196 home_settings.lua:2047 home_settings.lua:2125 metadata_settings.lua:38 navbar_settings.lua:870 navbar_settings.lua:1000 navbar_settings.lua:1071 navbar_settings.lua:1207 status_bar_settings.lua:273 status_bar_settings.lua:369
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -1078,7 +1094,7 @@ msgstr "Center"
 
 #. Type: setting
 #. Context: { text = _("Center books"), checked_func = function() return mcfg.center_books == true end,
-#: home_settings.lua:1807
+#: home_settings.lua:1832
 msgid "Center books"
 msgstr "Center books"
 
@@ -1090,7 +1106,7 @@ msgstr "Center items"
 
 #. Type: action
 #. Context: local item_ref = item table.insert(buttons, {{ text = "\u{F07C} " .. _("Change folder"), align = "left", bold = true, callback = function()
-#: opds.lua:1865
+#: opds.lua:2039
 msgid "Change folder"
 msgstr "Change folder"
 
@@ -1156,7 +1172,7 @@ msgstr "Choose an edition"
 
 #. Type: title
 #. Context: require("common/ui/zen_menu_picker"){ title = _("Choose control"), items = picker_items,
-#: app_launcher_settings.lua:477 menu_settings.lua:459 home_settings.lua:1391 navbar_settings.lua:695 navbar_settings.lua:717
+#: app_launcher_settings.lua:477 menu_settings.lua:459 home_settings.lua:1415 navbar_settings.lua:695 navbar_settings.lua:717
 msgid "Choose control"
 msgstr "Choose control"
 
@@ -1174,7 +1190,7 @@ msgstr "Choose item"
 
 #. Type: title
 #. Context: require("common/ui/zen_menu_picker"){ title = _("Choose KOReader menu"), items = found,
-#: app_launcher_settings.lua:420 menu_settings.lua:439 home_settings.lua:1373 navbar_settings.lua:498
+#: app_launcher_settings.lua:420 menu_settings.lua:439 home_settings.lua:1397 navbar_settings.lua:498
 msgid "Choose KOReader menu"
 msgstr "Choose KOReader menu"
 
@@ -1186,13 +1202,13 @@ msgstr "Choose match manually"
 
 #. Type: title
 #. Context: show_menu_picker{ title = _("Choose plugin menu"), items = picker_items,
-#: app_launcher_settings.lua:326 app_launcher_settings.lua:396 menu_settings.lua:424 home_settings.lua:1351 navbar_settings.lua:483
+#: app_launcher_settings.lua:326 app_launcher_settings.lua:396 menu_settings.lua:424 home_settings.lua:1375 navbar_settings.lua:483
 msgid "Choose plugin menu"
 msgstr "Choose plugin menu"
 
 #. Type: title
 #. Context: require("common/ui/zen_menu_picker"){ title = _("Choose tab"), items = items,
-#: home_settings.lua:1304 navbar_settings.lua:423
+#: home_settings.lua:1325 navbar_settings.lua:423
 msgid "Choose tab"
 msgstr "Choose tab"
 
@@ -1222,7 +1238,7 @@ msgstr "Classic (filename only)"
 
 #. Type: button
 #. Context: text = _("Set all gestures to pass-through? Top-right corner in reader will be kept as Toggle bookmark."), ok_text = _("Clear"), ok_callback = function()
-#: folder_cover_picker.lua:52 folder_cover_picker.lua:408 context_menu.lua:2729 metadata_editor.lua:1046 advanced_settings.lua:172 metadata_settings.lua:88
+#: folder_cover_picker.lua:52 folder_cover_picker.lua:408 context_menu.lua:2732 metadata_editor.lua:1046 advanced_settings.lua:172 metadata_settings.lua:88
 msgid "Clear"
 msgstr "Clear"
 
@@ -1234,7 +1250,7 @@ msgstr "Clear all gestures"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Clear book"), enabled_func = function()
-#: home_settings.lua:1033
+#: home_settings.lua:1047
 msgid "Clear book"
 msgstr "Clear book"
 
@@ -1293,8 +1309,8 @@ msgid "Cloud storage"
 msgstr "Cloud storage"
 
 #. Type: setting
-#. Context: series = _("Series"), languages = _("Languages"), tags = _("Tags"), collections = _("Collections"), custom = _("Custom books"), }
-#: nav_button_model.lua:13 quickstart_pages.lua:687 collections.lua:937 collections.lua:949 navbar.lua:285 home_settings.lua:1052 navbar_settings.lua:185
+#. Context: series = _("Series"), languages = _("Languages"), tags = _("Tags"), collections = _("Collections"), custom = _("Custom books"), continue = _("Continue"), }
+#: nav_button_model.lua:13 quickstart_pages.lua:687 collections.lua:937 collections.lua:949 navbar.lua:285 home_settings.lua:1066 navbar_settings.lua:185
 msgid "Collections"
 msgstr "Collections"
 
@@ -1376,15 +1392,23 @@ msgstr "Connected to %1, but no IP address or default route was assigned."
 msgid "Connected to %1."
 msgstr "Connected to %1."
 
+#. Type: message
+#. Context: and ffiutil.template(_("Connected to %1."):gsub("%.$", ""):gsub("。$", ""), ssid) or _("Connected."):gsub("%.$", ""):gsub("。$", "")) end, true, 15)
+#: nonblocking_wifi.lua:290
+msgid "Connected."
+msgstr "Connected."
+
 #. Type: label
 #. Context: local function connect(network, use_password) show_status(_("Connecting to ") .. network.ssid .. "…") logger.dbg("connection attempt", "saved_credentials=", network.password ~= nil)
 #: network_switcher.lua:525
 msgid "Connecting to "
 msgstr "Connecting to "
 
-#. Type: message
-msgid "Connecting to Wi-Fi…"
-msgstr "Connecting to Wi-Fi…"
+#. Type: label
+#. Context: network_dialog = widget elseif widget.text == _("Connection failed") then failure_notice = widget
+#: network_switcher.lua:71 network_switcher.lua:440 kobo.lua:194 kobo.lua:237 kobo.lua:284
+msgid "Connection failed"
+msgstr "Connection failed"
 
 #. Type: setting
 #. Context: icon = "quick_connections", label = _("Connections"), visible_func = function() return hasPlugin("nytconnections") end,
@@ -1394,15 +1418,9 @@ msgstr "Connections"
 
 #. Type: setting
 #. Context: text_func = function() return _("Content: ") .. featured_source_label(mcfg.default_source)
-#: home_settings.lua:984 home_settings.lua:1850
+#: home_settings.lua:997 home_settings.lua:1876
 msgid "Content: "
 msgstr "Content: "
-
-#. Type: title
-#. Context: { title = _("Context Menu"), description = _("Tap and hold any book or folder in your library to reveal details."),
-#: quickstart_pages.lua:672 quickstart_pages.lua:902
-msgid "Context Menu"
-msgstr "Context Menu"
 
 #. Type: setting
 #. Context: table.insert(items, IconItem.decorate({ text = _("Context menu"), sub_item_table = {
@@ -1410,21 +1428,27 @@ msgstr "Context Menu"
 msgid "Context menu"
 msgstr "Context menu"
 
+#. Type: title
+#. Context: { title = _("Context Menu"), description = _("Tap and hold any book or folder in your library to reveal details."),
+#: quickstart_pages.lua:672 quickstart_pages.lua:902
+msgid "Context Menu"
+msgstr "Context Menu"
+
 #. Type: button
 #. Context: .. _("crash.log will be embedded in a public GitHub issue. It may contain file paths and book titles.") .. ("\n\n") .. ("Continue?"), ok_text = _("Continue"), ok_callback = function()
-#: nav_button_model.lua:18 quickstart_pages.lua:684 navbar.lua:270 zen_bugreporter.lua:221 navbar_settings.lua:182
+#: nav_button_model.lua:18 quickstart_pages.lua:684 navbar.lua:270 zen_bugreporter.lua:221 end_book_settings.lua:13 home_settings.lua:1066 navbar_settings.lua:182
 msgid "Continue"
 msgstr "Continue"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Control"), keep_menu_open = true,
-#: app_launcher_settings.lua:570 menu_settings.lua:699 home_settings.lua:1461 navbar_settings.lua:1425
+#: app_launcher_settings.lua:570 menu_settings.lua:699 home_settings.lua:1485 navbar_settings.lua:1425
 msgid "Control"
 msgstr "Control"
 
 #. Type: title
 #. Context: require("modules/menu/app_launcher/menu_host").show{ title = button_defs[id] and button_defs[id].label or _("Control settings"), item_table = items,
-#: quick_settings.lua:1321 app_launcher_settings.lua:813 home_settings.lua:1567 navbar_settings.lua:784
+#: quick_settings.lua:1321 app_launcher_settings.lua:813 home_settings.lua:1592 navbar_settings.lua:784
 msgid "Control settings"
 msgstr "Control settings"
 
@@ -1436,13 +1460,13 @@ msgstr "Control: %1"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = string.format("%s %s", _("Controls"), _("font size")), value = style.font_size,
-#: zen_settings.lua:154 global_settings.lua:872 menu_settings.lua:1194 home_settings.lua:1498 home_settings.lua:1657 home_settings.lua:1684 home_settings.lua:1733
+#: zen_settings.lua:154 global_settings.lua:872 menu_settings.lua:1194 home_settings.lua:1523 home_settings.lua:1682 home_settings.lua:1709 home_settings.lua:1758
 msgid "Controls"
 msgstr "Controls"
 
 #. Type: button
 #. Context: text = pending.cut and _("Move selected files?") or _("Copy selected files?"), ok_text = pending.cut and _("Move") or C_("File", "Copy"), ok_callback = function()
-#: context_menu.lua:504 context_menu.lua:704 context_menu.lua:2074
+#: context_menu.lua:504 context_menu.lua:707 context_menu.lua:2077
 msgid "Copy"
 msgstr "Copy"
 
@@ -1490,7 +1514,7 @@ msgstr "Could not get release from update server."
 
 #. Type: message
 #. Context: pack_items[#pack_items + 1] = { text = T(_("Could not install %1: %2"), err.file, err.message), enabled = false,
-#: extras_settings.lua:244
+#: extras_settings.lua:245
 msgid "Could not install %1: %2"
 msgstr "Could not install %1: %2"
 
@@ -1652,19 +1676,19 @@ msgstr "Current page"
 
 #. Type: setting
 #. Context: { id = "time_left", text = _("Time to book end") }, { id = "current_total", text = _("Current/total pages") }, { id = "total_pages", text = _("Total pages") },
-#: home_settings.lua:448
+#: home_settings.lua:455
 msgid "Current/total pages"
 msgstr "Current/total pages"
 
 #. Type: setting
 #. Context: or (cb_action and next(cb_action) and Dispatcher:menuTextFunc(cb_action)) or _("Custom"), active_func = function()
-#: nav_button_model.lua:137 nav_button_model.lua:145 nav_button_model.lua:154 navbar.lua:2119 quick_settings.lua:1195 menu_settings.lua:200 menu_settings.lua:367 menu_settings.lua:371 menu_settings.lua:373 menu_settings.lua:374 menu_settings.lua:784 menu_settings.lua:790 menu_settings.lua:791 reader_settings.lua:812 home_settings.lua:933 home_settings.lua:975 navbar_settings.lua:242 navbar_settings.lua:334 navbar_settings.lua:349 navbar_settings.lua:355 navbar_settings.lua:356 navbar_settings.lua:540 navbar_settings.lua:545 navbar_settings.lua:547 navbar_settings.lua:548 navbar_settings.lua:1056 status_bar_settings.lua:358
+#: nav_button_model.lua:137 nav_button_model.lua:145 nav_button_model.lua:154 navbar.lua:2119 quick_settings.lua:1195 menu_settings.lua:200 menu_settings.lua:367 menu_settings.lua:371 menu_settings.lua:373 menu_settings.lua:374 menu_settings.lua:784 menu_settings.lua:790 menu_settings.lua:791 reader_settings.lua:812 home_settings.lua:946 home_settings.lua:988 navbar_settings.lua:242 navbar_settings.lua:334 navbar_settings.lua:349 navbar_settings.lua:355 navbar_settings.lua:356 navbar_settings.lua:540 navbar_settings.lua:545 navbar_settings.lua:547 navbar_settings.lua:548 navbar_settings.lua:1056 status_bar_settings.lua:358
 msgid "Custom"
 msgstr "Custom"
 
 #. Type: setting
-#. Context: series = _("Series"), languages = _("Languages"), tags = _("Tags"), collections = _("Collections"), custom = _("Custom books"), }
-#: home_settings.lua:1052 home_settings.lua:1111 home_settings.lua:1873
+#. Context: series = _("Series"), languages = _("Languages"), tags = _("Tags"), collections = _("Collections"), custom = _("Custom books"), continue = _("Continue"), }
+#: home_settings.lua:1066 home_settings.lua:1125 home_settings.lua:1899
 msgid "Custom books"
 msgstr "Custom books"
 
@@ -1676,19 +1700,19 @@ msgstr "Custom button label"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Custom icon pack: %1"), active_pack_name()) end,
-#: extras_settings.lua:253
+#: extras_settings.lua:254
 msgid "Custom icon pack: %1"
 msgstr "Custom icon pack: %1"
 
 #. Type: setting
 #. Context: move_item(filebrowser_items, _("Wallpaper"), interface_items) move_item(extras_items, _("Custom icons"), interface_items) move_item(quick_settings_item.sub_item_table, _("Blur menu background"), interface_items)
-#: zen_settings.lua:172 extras_settings.lua:162
+#: zen_settings.lua:172 extras_settings.lua:163
 msgid "Custom icons"
 msgstr "Custom icons"
 
 #. Type: setting
 #. Context: { text = _("Custom quotes"), sub_item_table_func = custom_quote_items,
-#: home_settings.lua:2449
+#: home_settings.lua:2475
 msgid "Custom quotes"
 msgstr "Custom quotes"
 
@@ -1706,7 +1730,7 @@ msgstr "Custom separator"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Custom tab label"), input = ButtonModel.label(controls, entry),
-#: home_settings.lua:1179 navbar_settings.lua:865
+#: home_settings.lua:1193 navbar_settings.lua:865
 msgid "Custom tab label"
 msgstr "Custom tab label"
 
@@ -1748,7 +1772,7 @@ msgstr "Customize widget"
 
 #. Type: label
 #. Context: { text = "\u{F0190} " .. _("Cut"), align = "left",
-#: context_menu.lua:2063
+#: context_menu.lua:2066
 msgid "Cut"
 msgstr "Cut"
 
@@ -1766,7 +1790,7 @@ msgstr "Cycle"
 
 #. Type: setting
 #. Context: { text = _("Daily"), checked_func = function()
-#: reading_goals.lua:8 reading_goals.lua:235 home_settings.lua:2464
+#: reading_goals.lua:8 reading_goals.lua:235 home_settings.lua:2490
 msgid "Daily"
 msgstr "Daily"
 
@@ -1790,7 +1814,7 @@ msgstr "Dark warm gray"
 
 #. Type: setting
 #. Context: { _zen_search_text = _("Date"), text_func = function()
-#: stats_page.lua:1449 home_settings.lua:648 home_settings.lua:650 home_settings.lua:652 status_bar_settings.lua:35
+#: stats_page.lua:1449 home_settings.lua:655 home_settings.lua:657 home_settings.lua:659 status_bar_settings.lua:35
 msgid "Date"
 msgstr "Date"
 
@@ -1826,7 +1850,7 @@ msgstr "Day brightness: "
 
 #. Type: setting
 #. Context: { id = "today_duration", text = _("Time today") }, { id = "streak", text = _("Day streak") }, { id = "week_pages", text = _("Pages this week") },
-#: stats_page.lua:912 stats_triplet.lua:53 home_settings.lua:2212
+#: stats_page.lua:912 stats_triplet.lua:57 home_settings.lua:2238
 msgid "Day streak"
 msgstr "Day streak"
 
@@ -1854,6 +1878,12 @@ msgstr "Day warmth time: "
 msgid "Day warmth: "
 msgstr "Day warmth: "
 
+#. Type: unit
+#. Context: local FIELD_MAP = { book_days = { id = "book_days", label = _("Days"), get = function(s) return s.book_days or "—" end }, book_duration = { id = "book_duration", label = _("Reading time"), get = function(s) return s.book_duration or "—"...
+#: stats_triplet.lua:51 end_book_settings.lua:17
+msgid "Days"
+msgstr "Days"
+
 #. Type: setting
 #. Context: table.insert(items, { text = _("Debug logging"), help_text = _("Enable KOReader verbose debug logging. Logs are written to koreader.log. Takes effect immediately."),
 #: advanced_settings.lua:141
@@ -1873,16 +1903,16 @@ msgid "Decrease"
 msgstr "Decrease"
 
 #. Type: setting
-#. Context: local function font_name_text(cfg, FontChooser) if cfg.font_face == "default" then return _("default") end return FontChooser.getFontNameText(resolved_library_font(cfg.font_face)) or cfg.font_face
-#: library_settings.lua:32 library_settings.lua:193 library_settings.lua:225 library_settings.lua:1601 reader_settings.lua:511 reader_settings.lua:545 reader_settings.lua:894 reader_settings.lua:1436 home_settings.lua:496
-msgid "default"
-msgstr "default"
-
-#. Type: setting
 #. Context: local label = opts.label local default_text = opts.default_text or _("Default") local reset_text = opts.reset_text or default_text
 #: zen_settings_utils.lua:516 library_settings.lua:557 reader_settings.lua:700 reader_settings.lua:735
 msgid "Default"
 msgstr "Default"
+
+#. Type: setting
+#. Context: local function font_name_text(cfg, FontChooser) if cfg.font_face == "default" then return _("default") end return FontChooser.getFontNameText(resolved_library_font(cfg.font_face)) or cfg.font_face
+#: library_settings.lua:32 library_settings.lua:193 library_settings.lua:225 library_settings.lua:1601 reader_settings.lua:511 reader_settings.lua:545 reader_settings.lua:894 reader_settings.lua:1436 home_settings.lua:503
+msgid "default"
+msgstr "default"
 
 #. Type: setting
 #. Context: default_text = _("Default"), reset_text = _("Default (black)"), dialog_title = _("Badge color RGB"),
@@ -1898,7 +1928,7 @@ msgstr "Default font size:"
 
 #. Type: setting
 #. Context: local source_items = { source_item(_("Default quotes"), "default"), {
-#: home_settings.lua:2447
+#: home_settings.lua:2473
 msgid "Default quotes"
 msgstr "Default quotes"
 
@@ -1922,7 +1952,7 @@ msgstr "Default: Home"
 
 #. Type: button
 #. Context: text = _("Delete selected files?\nIf you delete a file, it is permanently lost.") .. "\n", ok_text = _("Delete"), ok_callback = function()
-#: context_menu.lua:716 context_menu.lua:724 context_menu.lua:2170 opds.lua:1590 opds.lua:1594 countdown_screenshot.lua:160 app_launcher_settings.lua:880 app_launcher_settings.lua:898 global_settings.lua:351 menu_settings.lua:973 menu_settings.lua:1004 menu_settings.lua:1084 menu_settings.lua:1090 reader_settings.lua:926 reader_settings.lua:1156 home_settings.lua:1535 home_settings.lua:1548 home_settings.lua:2070 home_settings.lua:2158 navbar_settings.lua:907 navbar_settings.lua:935 navbar_settings.lua:1321 navbar_settings.lua:1327
+#: context_menu.lua:719 context_menu.lua:727 context_menu.lua:2173 opds.lua:1764 opds.lua:1768 countdown_screenshot.lua:160 app_launcher_settings.lua:880 app_launcher_settings.lua:898 global_settings.lua:351 menu_settings.lua:973 menu_settings.lua:1004 menu_settings.lua:1084 menu_settings.lua:1090 reader_settings.lua:926 reader_settings.lua:1156 home_settings.lua:1560 home_settings.lua:1573 home_settings.lua:2096 home_settings.lua:2184 navbar_settings.lua:907 navbar_settings.lua:935 navbar_settings.lua:1321 navbar_settings.lua:1327
 msgid "Delete"
 msgstr "Delete"
 
@@ -1934,19 +1964,19 @@ msgstr "Delete collection"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Delete OPDS catalog?"), ok_text = _("Delete"),
-#: opds.lua:1593
+#: opds.lua:1767
 msgid "Delete OPDS catalog?"
 msgstr "Delete OPDS catalog?"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Delete preset?") .. "\n\n" .. pname, ok_text = _("Delete"),
-#: global_settings.lua:350 reader_settings.lua:1155 home_settings.lua:2069
+#: global_settings.lua:350 reader_settings.lua:1155 home_settings.lua:2095
 msgid "Delete preset?"
 msgstr "Delete preset?"
 
 #. Type: dialog
 #. Context: local confirmbox = ConfirmBox:new{ text = _("Delete selected files?\nIf you delete a file, it is permanently lost.") .. "\n", ok_text = _("Delete"),
-#: context_menu.lua:723
+#: context_menu.lua:726
 msgid "Delete selected files?\nIf you delete a file, it is permanently lost."
 msgstr "Delete selected files?\nIf you delete a file, it is permanently lost."
 
@@ -1988,7 +2018,7 @@ msgstr "Delete this row break?"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Delete this tab?"), ok_text = _("Delete"),
-#: home_settings.lua:1547 navbar_settings.lua:934 navbar_settings.lua:1326
+#: home_settings.lua:1572 navbar_settings.lua:934 navbar_settings.lua:1326
 msgid "Delete this tab?"
 msgstr "Delete this tab?"
 
@@ -2000,7 +2030,7 @@ msgstr "Descending"
 
 #. Type: title
 #. Context: UIManager:show(FontChooser:new{ title = _("Description") .. " " .. _("font"), font_file = display_face,
-#: metadata_editor.lua:52 metadata_editor.lua:412 metadata_editor.lua:413 metadata_editor.lua:541 opds.lua:1794 library_settings.lua:1520 library_settings.lua:1620 library_settings.lua:1644 home_settings.lua:816
+#: metadata_editor.lua:52 metadata_editor.lua:412 metadata_editor.lua:413 metadata_editor.lua:541 opds.lua:1968 library_settings.lua:1520 library_settings.lua:1620 library_settings.lua:1644 home_settings.lua:824
 msgid "Description"
 msgstr "Description"
 
@@ -2030,7 +2060,7 @@ msgstr "Detailed list with metadata, no images"
 
 #. Type: button
 #. Context: local buttons = { {{ text = "\u{F02FD} " .. _("Details"), align = "left", callback = function() end }}, {{ text = "\u{F01BE} " .. _("Move"), align = "left", callback = function() end }},
-#: quickstart_pages.lua:303 context_menu.lua:2234
+#: quickstart_pages.lua:303 context_menu.lua:2237
 msgid "Details"
 msgstr "Details"
 
@@ -2046,9 +2076,9 @@ msgstr "Device"
 msgid "Device: "
 msgstr "Device: "
 
-#. Type: label
-#. Context: return (dui and dui.doc_props and dui.doc_props.display_title) or _("Dictionary lookup") end
-#: dict_quick_lookup.lua:236 dict_quick_lookup.lua:439
+#. Type: dialog
+#. Context: require("ui/uimanager"):show(require("ui/widget/infomessage"):new{ text = _("Dictionary lookup") .. ": " .. _("Unknown error"), })
+#: lookup_plugin_items.lua:8 dict_quick_lookup.lua:246 dict_quick_lookup.lua:451
 msgid "Dictionary lookup"
 msgstr "Dictionary lookup"
 
@@ -2120,13 +2150,13 @@ msgstr "Disk space"
 
 #. Type: label
 #. Context: table.insert(buttons, {{ text = "\u{F06D0} " .. _("Display") .. " " .. submenu_arrow, align = "left",
-#: collections.lua:455 collections.lua:564 collections.lua:637 context_menu.lua:1145 context_menu.lua:2607
+#: collections.lua:455 collections.lua:564 collections.lua:637 context_menu.lua:1148 context_menu.lua:2610
 msgid "Display"
 msgstr "Display"
 
 #. Type: title
 #. Context: view_dialog = ButtonDialog:new{ title = _("Display mode"), title_align = "center",
-#: collections.lua:425 collections.lua:523 collections.lua:616 context_menu.lua:2594 group_view.lua:576 kindle_virtual_library.lua:280 zen_settings.lua:81 extras_settings.lua:60 library_settings.lua:826
+#: collections.lua:425 collections.lua:523 collections.lua:616 context_menu.lua:2597 group_view.lua:576 kindle_virtual_library.lua:280 zen_settings.lua:81 extras_settings.lua:60 library_settings.lua:826
 msgid "Display mode"
 msgstr "Display mode"
 
@@ -2138,13 +2168,13 @@ msgstr "Divider"
 
 #. Type: setting
 #. Context: { text = _("Dividing lines"), radio = true,
-#: home_settings.lua:2303
+#: home_settings.lua:2329
 msgid "Dividing lines"
 msgstr "Dividing lines"
 
 #. Type: button
 #. Context: end, ok_text = "\u{F012C} " .. _("Done"), ok_callback = function() end,
-#: opds.lua:1778
+#: opds.lua:1952
 msgid "Done"
 msgstr "Done"
 
@@ -2162,7 +2192,7 @@ msgstr "Double tap to open books"
 
 #. Type: action
 #. Context: local fn = filename table.insert(buttons, {{ text = "\u{F01DA} " .. _( "Download") .. " " .. url_mod.unescape(a.title or string.upper(filetype)), align = "left", bold = true, callback = function()
-#: opds.lua:1836
+#: opds.lua:2010
 msgid "Download"
 msgstr "Download"
 
@@ -2180,7 +2210,7 @@ msgstr "Download failed: "
 
 #. Type: label
 #. Context: icon = "notice-info", text = _("Downloaded") .. "\n" .. _item_title, -- cancel = Read now (left), ok = Done (right)
-#: opds.lua:1762
+#: opds.lua:1936
 msgid "Downloaded"
 msgstr "Downloaded"
 
@@ -2210,19 +2240,19 @@ msgstr "Dynamic filler 2"
 
 #. Type: action
 #. Context: {{ text = "\u{F0B64} " .. _("Read status") .. " " .. icons.arrow_right, align = "left", callback = function() end }}, {{ text = "\u{F090C} " .. _("Edit") .. " " .. icons.arrow_right, align = "left", callback = function() end }}, }
-#: quickstart_pages.lua:307 context_menu.lua:2841 opds.lua:1584 network_switcher.lua:706 book_info_widget.lua:115
+#: quickstart_pages.lua:307 context_menu.lua:2844 opds.lua:1758 network_switcher.lua:706 book_info_widget.lua:115
 msgid "Edit"
 msgstr "Edit"
 
 #. Type: title
 #. Context: width = self.width, title = _("Edit metadata"), title_full_width = true,
-#: metadata_editor.lua:647 context_menu.lua:2139
+#: metadata_editor.lua:647 context_menu.lua:2142
 msgid "Edit metadata"
 msgstr "Edit metadata"
 
 #. Type: setting
-#. Context: IconItem.decorate({ text = _("Edit mode"), checked_func = function()
-#: stats_settings.lua:339 home_settings.lua:2635
+#. Context: { text = _("Edit mode"), checked_func = function() return ctx.plugin.config.end_book.edit_mode ~= false end,
+#: end_book_settings.lua:240 stats_settings.lua:339 home_settings.lua:2663
 msgid "Edit mode"
 msgstr "Edit mode"
 
@@ -2270,7 +2300,7 @@ msgstr "Enable warmth schedule"
 
 #. Type: message
 #. Context: text = _("Zen OPDS"), help_text = _("Enable ZenOS enhancements to the OPDS browser: cover art, list view, hold menu, and navigation improvements."), checked_func = function()
-#: extras_settings.lua:80
+#: extras_settings.lua:81
 msgid "Enable ZenOS enhancements to the OPDS browser: cover art, list view, hold menu, and navigation improvements."
 msgstr "Enable ZenOS enhancements to the OPDS browser: cover art, list view, hold menu, and navigation improvements."
 
@@ -2291,6 +2321,12 @@ msgstr "Enabled metadata providers need an API credential. Open settings?"
 #: zen_bugreporter.lua:188
 msgid "Enabling debug logging, restart required. Please reproduce the issue, then submit the report."
 msgstr "Enabling debug logging, restart required. Please reproduce the issue, then submit the report."
+
+#. Type: title
+#. Context: return require("common/ui/zen_arrange_list").show{ title = _("End of book"), plugin = plugin, item_table = items, callback = function()
+#: end_book_settings.lua:217 reader_settings.lua:1547 home_settings.lua:1522
+msgid "End of book"
+msgstr "End of book"
 
 #. Type: message
 #. Context: add(icons.edit .. " " .. _("Edit"), function() prompt_password(network, _("Enter a new Wi-Fi password.")) end)
@@ -2334,6 +2370,12 @@ msgstr "Enter one value per line."
 msgid "Enter your GitHub username to be tagged in the issue"
 msgstr "Enter your GitHub username to be tagged in the issue"
 
+#. Type: label
+#. Context: if not no_known_networks then self:showWifiNotice(problem or _("Error connecting to the network"), problem and 8 or 2) end
+#: nonblocking_wifi.lua:363 network_switcher.lua:551 network_switcher.lua:895
+msgid "Error connecting to the network"
+msgstr "Error connecting to the network"
+
 #. Type: setting
 #. Context: }, { text = _("Estimated battery life"), mandatory = duration(stats.remaining), keep_menu_open = true }, { text = _("Settings"), sub_item_table = settings_items },
 #: battery_stats_menu.lua:86
@@ -2360,7 +2402,7 @@ msgstr "Exclude CBZ/CBR files"
 
 #. Type: setting
 #. Context: { text = _("Exclude from Home"), checked_func = function()
-#: extras_settings.lua:127
+#: extras_settings.lua:128
 msgid "Exclude from Home"
 msgstr "Exclude from Home"
 
@@ -2372,7 +2414,7 @@ msgstr "Exit"
 
 #. Type: label
 #. Context: {{ text = icons.clear .. " " .. _("Exit select mode"), align = "left",
-#: context_menu.lua:755
+#: context_menu.lua:758
 msgid "Exit select mode"
 msgstr "Exit select mode"
 
@@ -2400,6 +2442,12 @@ msgstr "Extract metadata"
 msgid "Extras"
 msgstr "Extras"
 
+#. Type: message
+#. Context: if is_secured(network) and failure ~= "no_address" and (not kobo or result.auth_error == _("Failed to authenticate")) then prompt_password(network, reason)
+#: network_switcher.lua:475 kobo.lua:117 kobo.lua:209
+msgid "Failed to authenticate"
+msgstr "Failed to authenticate"
+
 #. Type: dialog
 #. Context: require("ui/uimanager"):show(InfoMessage:new{ text = _("Failed to clear cache:") .. "\n" .. (err or _("Unknown error")), })
 #: kindle_virtual_library.lua:355
@@ -2408,7 +2456,7 @@ msgstr "Failed to clear cache:"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Failed to clear folder cover."), })
-#: context_menu.lua:2035
+#: context_menu.lua:2038
 msgid "Failed to clear folder cover."
 msgstr "Failed to clear folder cover."
 
@@ -2426,7 +2474,7 @@ msgstr "Failed to move book."
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Failed to set folder cover."), })
-#: context_menu.lua:2017
+#: context_menu.lua:2020
 msgid "Failed to set folder cover."
 msgstr "Failed to set folder cover."
 
@@ -2438,13 +2486,13 @@ msgstr "Failed to submit report: "
 
 #. Type: setting
 #. Context: local labels = { recent = _("Recent"), favorites = _("Favorites"), to_be_read = _("To Be Read"), authors = _("Authors"),
-#: nav_button_model.lua:7 quickstart_pages.lua:686 collections.lua:355 collections.lua:989 collections.lua:1025 context_menu.lua:553 favorites.lua:122 favorites.lua:125 favorites.lua:159 favorites.lua:168 navbar.lua:280 home_settings.lua:1049 navbar_settings.lua:184
+#: nav_button_model.lua:7 quickstart_pages.lua:686 collections.lua:355 collections.lua:989 collections.lua:1025 context_menu.lua:553 favorites.lua:122 favorites.lua:125 favorites.lua:159 favorites.lua:168 navbar.lua:280 home_settings.lua:1063 navbar_settings.lua:184
 msgid "Favorites"
 msgstr "Favorites"
 
-#. Type: label
-#. Context: id = "featured", label = _("Featured book"), size = shared.SIZE,
-#: featured.lua:6
+#. Type: setting
+#. Context: M.labels = { stats_triplet = _("Reading statistics"), featured = _("Featured book"), quotes = _("Highlights and notes"), strip = _("Book strip"),
+#: featured.lua:6 end_book_settings.lua:6
 msgid "Featured book"
 msgstr "Featured Book"
 
@@ -2474,7 +2522,7 @@ msgstr "Filebrowser plugin is not installed."
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Filename"), input = seed,
-#: metadata_editor.lua:514 metadata_editor.lua:962 context_menu.lua:2618 group_view.lua:863
+#: metadata_editor.lua:514 metadata_editor.lua:962 context_menu.lua:2621 group_view.lua:863
 msgid "Filename"
 msgstr "Filename"
 
@@ -2492,13 +2540,13 @@ msgstr "Filled"
 
 #. Type: label
 #. Context: table.insert(buttons, {{ text = icons.filter .. " " .. _("Filter") .. (n_gf > 0 and " (" .. n_gf .. ")" or "")
-#: context_menu.lua:1234 context_menu.lua:2826
+#: context_menu.lua:1237 context_menu.lua:2829
 msgid "Filter"
 msgstr "Filter"
 
 #. Type: title
 #. Context: filter_dialog = new_context_menu_dialog{ title = _("Filter by status"), title_align = "center",
-#: context_menu.lua:1219 context_menu.lua:2811
+#: context_menu.lua:1222 context_menu.lua:2814
 msgid "Filter by status"
 msgstr "Filter by status"
 
@@ -2510,7 +2558,7 @@ msgstr "Find metadata"
 
 #. Type: status
 #. Context: elseif display_status == "complete" then status_label = _("Finished") progress_str = "\u{F012C}" -- MD check
-#: nav_button_model.lua:35 browser_list_item_layout.lua:466 context_menu.lua:681 context_menu.lua:1184 context_menu.lua:2513 context_menu.lua:2772 stats_page.lua:945 stats_page.lua:957
+#: nav_button_model.lua:35 browser_list_item_layout.lua:466 context_menu.lua:684 context_menu.lua:1187 context_menu.lua:2516 context_menu.lua:2775 stats_page.lua:945 stats_page.lua:957
 msgid "Finished"
 msgstr "Finished"
 
@@ -2528,7 +2576,7 @@ msgstr "First cover image"
 
 #. Type: setting
 #. Context: local mode = author_sort.normalize(group_view.authors_collate) local label = mode == "authors_last" and _("Last name") or _("First name") return _("Sort by") .. ": " .. label
-#: author_sort.lua:42 home_settings.lua:1168
+#: author_sort.lua:42 home_settings.lua:1182
 msgid "First name"
 msgstr "First name"
 
@@ -2552,7 +2600,7 @@ msgstr "Flip LH/RH icon"
 
 #. Type: setting
 #. Context: items[#items + 1] = IconItem.decorate({ text = _("Folder"), keep_menu_open = true,
-#: library_destination.lua:6 browser_list_item_layout.lua:197 navbar.lua:229 app_launcher_settings.lua:594 app_launcher_settings.lua:758 menu_settings.lua:709 menu_settings.lua:836 home_settings.lua:1099 home_settings.lua:1443 navbar_settings.lua:166 navbar_settings.lua:762 navbar_settings.lua:1415
+#: library_destination.lua:6 browser_list_item_layout.lua:197 navbar.lua:229 app_launcher_settings.lua:594 app_launcher_settings.lua:758 menu_settings.lua:709 menu_settings.lua:836 home_settings.lua:1113 home_settings.lua:1467 navbar_settings.lua:166 navbar_settings.lua:762 navbar_settings.lua:1415
 msgid "Folder"
 msgstr "Folder"
 
@@ -2588,31 +2636,31 @@ msgstr "Folders"
 
 #. Type: title
 #. Context: UIManager:show(FontChooser:new{ title = _("Font"), font_file = footer_settings.text_font_face or "NotoSans-Regular.ttf",
-#: zen_settings.lua:169 library_settings.lua:189 library_settings.lua:221 library_settings.lua:1597 reader_settings.lua:507 reader_settings.lua:541 reader_settings.lua:1194 reader_settings.lua:1443 reader_settings.lua:1483 home_settings.lua:546 home_settings.lua:694 home_settings.lua:1670 home_settings.lua:1752 home_settings.lua:1754
+#: zen_settings.lua:169 library_settings.lua:189 library_settings.lua:221 library_settings.lua:1597 reader_settings.lua:507 reader_settings.lua:541 reader_settings.lua:1194 reader_settings.lua:1443 reader_settings.lua:1483 home_settings.lua:553 home_settings.lua:701 home_settings.lua:1695 home_settings.lua:1777 home_settings.lua:1779
 msgid "Font"
 msgstr "Font"
 
 #. Type: title
 #. Context: UIManager:show(FontChooser:new{ title = _("Description") .. " " .. _("font"), font_file = display_face,
-#: library_settings.lua:1620 home_settings.lua:560 home_settings.lua:707 home_settings.lua:1684
+#: library_settings.lua:1620 home_settings.lua:567 home_settings.lua:714 home_settings.lua:1709
 msgid "font"
 msgstr "font"
 
 #. Type: title
-#. Context: UIManager:show(SpinWidget:new{ title_text = _("Font size"), value = cfg.font_size,
-#: library_settings.lua:208 reader_settings.lua:526 reader_settings.lua:1331 reader_settings.lua:1415
+#. Context: UIManager:show(require("ui/widget/spinwidget"):new{ title_text = _("Font size"), value = config.quotes.max_font_size, value_min = 8, value_max = 32, value_step = 1,
+#: end_book_settings.lua:102 end_book_settings.lua:105 library_settings.lua:208 reader_settings.lua:526 reader_settings.lua:1331 reader_settings.lua:1415
 msgid "Font size"
 msgstr "Font size"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Description") .. " " .. _("font size"), value = description_font_size(style),
-#: library_settings.lua:1644 stats_settings.lua:121 home_settings.lua:529 home_settings.lua:625 home_settings.lua:681 home_settings.lua:1657
+#: library_settings.lua:1644 stats_settings.lua:121 home_settings.lua:536 home_settings.lua:632 home_settings.lua:688 home_settings.lua:1682
 msgid "font size"
 msgstr "font size"
 
 #. Type: setting
 #. Context: local cfg = ensure_library_font_cfg(config) return string.format("%s %s", _("Font size:"), tostring(cfg.font_size)) end,
-#: library_settings.lua:201 library_settings.lua:1636 reader_settings.lua:520 reader_settings.lua:1324 reader_settings.lua:1408 stats_settings.lua:114 home_settings.lua:522 home_settings.lua:674 home_settings.lua:1650 home_settings.lua:2179 home_settings.lua:2273 home_settings.lua:2530
+#: library_settings.lua:201 library_settings.lua:1636 reader_settings.lua:520 reader_settings.lua:1324 reader_settings.lua:1408 stats_settings.lua:114 home_settings.lua:529 home_settings.lua:681 home_settings.lua:1675 home_settings.lua:2205 home_settings.lua:2299 home_settings.lua:2556
 msgid "Font size:"
 msgstr "Font size:"
 
@@ -2624,19 +2672,19 @@ msgstr "Font, margins, contrast, line spacing etc - tested together for the best
 
 #. Type: setting
 #. Context: or (ok_fc and font_name_text(cfg, FontChooser) or cfg.font_face) return string.format("%s %s, %s", _("Font:"), face_text, tostring(cfg.font_size)) end,
-#: library_settings.lua:195 library_settings.lua:227 library_settings.lua:1603 reader_settings.lua:514 reader_settings.lua:547 reader_settings.lua:1437 home_settings.lua:548 home_settings.lua:697 home_settings.lua:1673
+#: library_settings.lua:195 library_settings.lua:227 library_settings.lua:1603 reader_settings.lua:514 reader_settings.lua:547 reader_settings.lua:1437 home_settings.lua:555 home_settings.lua:704 home_settings.lua:1698
 msgid "Font:"
 msgstr "Font:"
 
 #. Type: action
 #. Context: end }}, {{ text = "\u{F04E6} " .. _("Force sync"), align = "left", callback = function()
-#: opds.lua:1562
+#: opds.lua:1736
 msgid "Force sync"
 msgstr "Force sync"
 
 #. Type: action
 #. Context: end }}, {{ text = _("Force sync all catalogs"), align = "left", callback = function()
-#: opds.lua:1390
+#: opds.lua:1564
 msgid "Force sync all catalogs"
 msgstr "Force sync all catalogs"
 
@@ -2792,7 +2840,7 @@ msgstr "Health"
 
 #. Type: setting
 #. Context: { text = _("Hide finished books"), checked_func = function()
-#: app_launcher_settings.lua:1035 home_settings.lua:1868
+#: app_launcher_settings.lua:1035 home_settings.lua:1894
 msgid "Hide finished books"
 msgstr "Hide finished books"
 
@@ -2810,7 +2858,7 @@ msgstr "Hide in CBZ/PDF files"
 
 #. Type: setting
 #. Context: return { text = _("Hide Kindle Library folder"), checked_func = function()
-#: home_settings.lua:1218 navbar_settings.lua:1246
+#: home_settings.lua:1232 navbar_settings.lua:1246
 msgid "Hide Kindle Library folder"
 msgstr "Hide Kindle Library folder"
 
@@ -2822,7 +2870,7 @@ msgstr "Hide list borders"
 
 #. Type: setting
 #. Context: filter_status_item(recent, "filter_unread", _("Hide unread books")), filter_status_item(recent, "filter_tbr", _("Hide on-hold books")), filter_status_item(recent, "filter_finished", _("Hide finished books")),
-#: home_settings.lua:1867
+#: home_settings.lua:1893
 msgid "Hide on-hold books"
 msgstr "Hide on-hold books"
 
@@ -2834,7 +2882,7 @@ msgstr "Hide reader actions in library"
 
 #. Type: setting
 #. Context: sub_item_table = { filter_status_item(recent, "filter_unread", _("Hide unread books")), filter_status_item(recent, "filter_tbr", _("Hide on-hold books")),
-#: home_settings.lua:1866
+#: home_settings.lua:1892
 msgid "Hide unread books"
 msgstr "Hide unread books"
 
@@ -2869,6 +2917,12 @@ msgid "Highlight color: %1"
 msgstr "Highlight color: %1"
 
 #. Type: setting
+#. Context: stats_triplet = _("Reading statistics"), featured = _("Featured book"), quotes = _("Highlights and notes"), strip = _("Book strip"), }
+#: end_book_settings.lua:7
+msgid "Highlights and notes"
+msgstr "Highlights and notes"
+
+#. Type: setting
 #. Context: { id = "continue", text = _("Continue") }, { id = "history", text = _("History") }, { id = "favorites", text = _("Favorites") },
 #: nav_button_model.lua:19 quickstart_pages.lua:685 history.lua:203 history.lua:224 navbar.lua:275 navbar_settings.lua:183
 msgid "History"
@@ -2882,7 +2936,7 @@ msgstr "Hold to skip"
 
 #. Type: setting
 #. Context: app_launcher_item._zen_settings_root = "launcher" home_item.text = _("Home") IconItem.decorate(home_item, icons.settings_home)
-#: nav_button_model.lua:20 quickstart_pages.lua:683 context_menu.lua:331 navbar.lua:225 zen_settings.lua:159 home_settings.lua:1497 home_settings.lua:1919 home_settings.lua:2600 home_settings.lua:2616 home_settings.lua:2728 navbar_settings.lua:160 navbar_settings.lua:1033
+#: nav_button_model.lua:20 quickstart_pages.lua:683 context_menu.lua:331 navbar.lua:225 end_book_data.lua:27 zen_settings.lua:159 home_settings.lua:1521 home_settings.lua:1945 home_settings.lua:2628 home_settings.lua:2644 home_settings.lua:2756 navbar_settings.lua:160 navbar_settings.lua:1033
 msgid "Home"
 msgstr "Home"
 
@@ -2900,7 +2954,7 @@ msgstr "Home folder"
 
 #. Type: setting
 #. Context: input = preset_name, input_hint = _("Home page preset"), buttons = {{
-#: home_settings.lua:2018 home_settings.lua:2096
+#: home_settings.lua:2044 home_settings.lua:2122
 msgid "Home page preset"
 msgstr "Home page preset"
 
@@ -2918,19 +2972,19 @@ msgstr "Hour"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("HTML"), checked_func = function()
-#: home_settings.lua:760
+#: home_settings.lua:767
 msgid "HTML"
 msgstr "HTML"
 
-#. Type: setting
-#. Context: _("Show icons"), _("Icon size:"), })
-#: zen_settings.lua:124 navbar_settings.lua:1594
+#. Type: title
+#. Context: UIManager:show(require("ui/widget/spinwidget"):new{ title_text = _("Icon size:"), value = icon_size(), value_min = 8, value_max = 64, value_step = 2, default_value = default_size,
+#: zen_settings.lua:124 end_book_settings.lua:128 end_book_settings.lua:132 navbar_settings.lua:1594
 msgid "Icon size:"
 msgstr "Icon size:"
 
 #. Type: setting
 #. Context: text_func = function() return T(_("Icon: %1"), icon_utils.getIconDisplayName(entry.icon or DEFAULT_ENTRY_ICON))
-#: app_launcher_settings.lua:716 menu_settings.lua:907 menu_settings.lua:1028 navbar_settings.lua:840 navbar_settings.lua:1180
+#: app_launcher_settings.lua:716 end_book_settings.lua:55 menu_settings.lua:907 menu_settings.lua:1028 navbar_settings.lua:840 navbar_settings.lua:1180
 msgid "Icon: %1"
 msgstr "Icon: %1"
 
@@ -3044,7 +3098,7 @@ msgstr "Installing ZenPM"
 
 #. Type: setting
 #. Context: return { text = _("Interactive"), checked_func = function()
-#: home_settings.lua:833
+#: home_settings.lua:846
 msgid "Interactive"
 msgstr "Interactive"
 
@@ -3092,7 +3146,7 @@ msgstr "items per page"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Justify text"), checked_func = function()
-#: home_settings.lua:750
+#: home_settings.lua:757
 msgid "Justify text"
 msgstr "Justify text"
 
@@ -3122,7 +3176,7 @@ msgstr "Keep the current file extension."
 
 #. Type: setting
 #. Context: { id = "folder", text_func = get_folder_tab_label }, { id = "kindle", text = _("Kindle Library") }, { id = "manga", text = _("Manga") },
-#: nav_button_model.lua:15 context_menu.lua:1475 context_menu.lua:1901 navbar.lua:255 navbar_settings.lua:179
+#: nav_button_model.lua:15 context_menu.lua:1478 context_menu.lua:1904 navbar.lua:255 navbar_settings.lua:179
 msgid "Kindle Library"
 msgstr "Kindle Library"
 
@@ -3134,7 +3188,7 @@ msgstr "KOReader"
 
 #. Type: setting
 #. Context: or target.title or _("KOReader menu"), disabled_func = function()
-#: nav_button_model.lua:152 quick_settings.lua:1136 app_launcher_settings.lua:584 menu_settings.lua:541 menu_settings.lua:724 menu_settings.lua:778 home_settings.lua:1471 navbar_settings.lua:343 navbar_settings.lua:587 navbar_settings.lua:1435
+#: nav_button_model.lua:152 quick_settings.lua:1136 app_launcher_settings.lua:584 menu_settings.lua:541 menu_settings.lua:724 menu_settings.lua:778 home_settings.lua:1495 navbar_settings.lua:343 navbar_settings.lua:587 navbar_settings.lua:1435
 msgid "KOReader menu"
 msgstr "KOReader menu"
 
@@ -3152,7 +3206,7 @@ msgstr "KOReader: "
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Label"), input = config.navbar.folder_label or "",
-#: home_settings.lua:1528 navbar_settings.lua:1095 navbar_settings.lua:1204
+#: home_settings.lua:1553 navbar_settings.lua:1095 navbar_settings.lua:1204
 msgid "Label"
 msgstr "Label"
 
@@ -3198,17 +3252,17 @@ msgstr "Landscape mosaic: "
 msgid "Language"
 msgstr "Language"
 
-#. Type: title
-#. Context: elseif tab_id == "languages" then title = _("Languages") elseif tab_id == "tags" then
-#: nav_button_model.lua:11 group_view.lua:1366 group_view.lua:1412 navbar.lua:300 home_settings.lua:1051 navbar_settings.lua:188
-msgid "Languages"
-msgstr "Languages"
-
 #. Type: label
 #. Context: subtitle = count == 1 and _("1 language") or (tostring(count) .. " " .. _("languages")) elseif tab_id == "tags" then
 #: group_view.lua:1384
 msgid "languages"
 msgstr "languages"
+
+#. Type: title
+#. Context: elseif tab_id == "languages" then title = _("Languages") elseif tab_id == "tags" then
+#: nav_button_model.lua:11 group_view.lua:1366 group_view.lua:1412 navbar.lua:300 home_settings.lua:1065 navbar_settings.lua:188
+msgid "Languages"
+msgstr "Languages"
 
 #. Type: setting
 #. Context: { label = _("Normal"), value = "normal" }, { label = _("Large"), value = "large" }, { label = _("Extra large"), value = "extra_large" },
@@ -3218,7 +3272,7 @@ msgstr "Large"
 
 #. Type: setting
 #. Context: local mode = author_sort.normalize(group_view.authors_collate) local label = mode == "authors_last" and _("Last name") or _("First name") return _("Sort by") .. ": " .. label
-#: author_sort.lua:43 home_settings.lua:1168
+#: author_sort.lua:43 home_settings.lua:1182
 msgid "Last name"
 msgstr "Last name"
 
@@ -3266,7 +3320,7 @@ msgstr "Leave empty to use action title"
 
 #. Type: setting
 #. Context: text_func = function() return _("Left") .. ": " .. progress_label(mcfg.progress_meta.left) end,
-#: home_settings.lua:482
+#: home_settings.lua:489
 msgid "Left"
 msgstr "Left"
 
@@ -3278,7 +3332,7 @@ msgstr "Left items"
 
 #. Type: setting
 #. Context: local library_item = IconItem.decorate({ text = _("Library"), sub_item_table = filebrowser_items,
-#: nav_button_model.lua:14 navbar.lua:221 stats_page.lua:66 zen_settings.lua:177 global_settings.lua:856 stats_settings.lua:33 navbar_settings.lua:177 navbar_settings.lua:246 navbar_settings.lua:1042
+#: nav_button_model.lua:14 navbar.lua:221 stats_page.lua:66 end_book_data.lua:24 zen_settings.lua:177 global_settings.lua:856 stats_settings.lua:33 navbar_settings.lua:177 navbar_settings.lua:246 navbar_settings.lua:1042
 msgid "Library"
 msgstr "Library"
 
@@ -3326,13 +3380,13 @@ msgstr "List"
 
 #. Type: label
 #. Context: viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"), viewBtn(_("List (basic)"), "\u{F0CA}", "list_image_filename"), }),
-#: collections.lua:430 collections.lua:528 collections.lua:621 context_menu.lua:2599 group_view.lua:581 kindle_virtual_library.lua:285
+#: collections.lua:430 collections.lua:528 collections.lua:621 context_menu.lua:2602 group_view.lua:581 kindle_virtual_library.lua:285
 msgid "List (basic)"
 msgstr "List (basic)"
 
 #. Type: label
 #. Context: viewBtn(_("Mosaic"), "\u{F00A}", "mosaic_image"), viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"), viewBtn(_("List (basic)"), "\u{F0CA}", "list_image_filename"),
-#: collections.lua:429 collections.lua:527 collections.lua:620 context_menu.lua:2598 group_view.lua:580 kindle_virtual_library.lua:284
+#: collections.lua:429 collections.lua:527 collections.lua:620 context_menu.lua:2601 group_view.lua:580 kindle_virtual_library.lua:284
 msgid "List (detailed)"
 msgstr "List (detailed)"
 
@@ -3380,19 +3434,19 @@ msgstr "Lockdown mode"
 
 #. Type: label
 #. Context: or text == _("Remove from vocabulary builder") or text == _("Long-press to add to vocabulary builder") end
-#: dict_quick_lookup.lua:76
+#: dict_quick_lookup.lua:79
 msgid "Long-press to add to vocabulary builder"
 msgstr "Long-press to add to vocabulary builder"
 
 #. Type: setting
 #. Context: local active_id = active_pack_id() if active_id == "" then return _("Loose icons") end for _i, pack in ipairs(IconPacks.getLastScan().packs or {}) do
-#: extras_settings.lua:184
+#: extras_settings.lua:185
 msgid "Loose icons"
 msgstr "Loose icons"
 
 #. Type: setting
 #. Context: { text = _("Loose icons in /koreader/icons"), radio = true,
-#: extras_settings.lua:203
+#: extras_settings.lua:204
 msgid "Loose icons in /koreader/icons"
 msgstr "Loose icons in /koreader/icons"
 
@@ -3434,19 +3488,25 @@ msgstr "Match whole words"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Max books shown"), value = BookSwitcherPage.normalizeCount(cfg.book_switcher_count),
-#: app_launcher_settings.lua:1021 home_settings.lua:1831
+#: app_launcher_settings.lua:1021 home_settings.lua:1856
 msgid "Max books shown"
 msgstr "Max books shown"
 
 #. Type: setting
 #. Context: text_func = function() return _("Max books shown: ") .. tostring(BookSwitcherPage.normalizeCount(cfg.book_switcher_count))
-#: app_launcher_settings.lua:1014 home_settings.lua:1822
+#: app_launcher_settings.lua:1014 home_settings.lua:1847
 msgid "Max books shown: "
 msgstr "Max books shown: "
 
+#. Type: dialog
+#. Context: if not selected[entry.id] and #Data.featuredActions(config) >= Data.MAX_ACTIONS then UIManager:show(require("ui/widget/infomessage"):new{ text = _("Maximum 5 buttons allowed") }) return
+#: end_book_settings.lua:47
+msgid "Maximum 5 buttons allowed"
+msgstr "Maximum 5 buttons allowed"
+
 #. Type: setting
 #. Context: if countEnabledTabs() >= navbar_max_tabs then showTabLimitMessage(_("Maximum 7 tabs allowed")) return false
-#: home_settings.lua:1274 home_settings.lua:1332 navbar_settings.lua:292
+#: home_settings.lua:1290 home_settings.lua:1356 navbar_settings.lua:292
 msgid "Maximum 7 tabs allowed"
 msgstr "Maximum 7 tabs allowed"
 
@@ -3458,13 +3518,13 @@ msgstr "Maximum 9 buttons allowed"
 
 #. Type: setting
 #. Context: text_func = function() return string.format("%s %s", _("Maximum font size:"), tostring(mcfg.max_font_size))
-#: home_settings.lua:617 home_settings.lua:2245 home_settings.lua:2503
+#: home_settings.lua:624 home_settings.lua:2271 home_settings.lua:2529
 msgid "Maximum font size:"
 msgstr "Maximum font size:"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Maximum quote font size"), value = dcfg.quotes.max_font_size or 14,
-#: home_settings.lua:2513
+#: home_settings.lua:2539
 msgid "Maximum quote font size"
 msgstr "Maximum quote font size"
 
@@ -3535,20 +3595,32 @@ msgid "Minute"
 msgstr "Minute"
 
 #. Type: unit
-#. Context: local function metricLabel(metric) return metric == "time" and _("Minutes") or _("Pages") end
-#: stats_page.lua:76
-msgid "Minutes"
-msgstr "Minutes"
-
-#. Type: unit
 #. Context: width = pill_w, height = card_h, stat_style = stat_style, value = minuteCount(minutes), label = _("minutes"), },
 #: stats_page.lua:426
 msgid "minutes"
 msgstr "minutes"
 
+#. Type: unit
+#. Context: local function metricLabel(metric) return metric == "time" and _("Minutes") or _("Pages") end
+#: stats_page.lua:76
+msgid "Minutes"
+msgstr "Minutes"
+
+#. Type: setting
+#. Context: { "book_duration", _("Reading time") }, { "book_page_minutes", _("Minutes per page") }, { "book_daily_minutes", _("Minutes per reading day") },
+#: stats_triplet.lua:53 end_book_settings.lua:19
+msgid "Minutes per page"
+msgstr "Minutes per page"
+
+#. Type: setting
+#. Context: { "book_page_minutes", _("Minutes per page") }, { "book_daily_minutes", _("Minutes per reading day") }, }
+#: stats_triplet.lua:54 end_book_settings.lua:20
+msgid "Minutes per reading day"
+msgstr "Minutes per reading day"
+
 #. Type: setting
 #. Context: end return T(_("Missing: %1"), active_id) end
-#: extras_settings.lua:188
+#: extras_settings.lua:189
 msgid "Missing: %1"
 msgstr "Missing: %1"
 
@@ -3572,13 +3644,25 @@ msgstr "Months"
 
 #. Type: setting
 #. Context: items[#items + 1] = decorate({ text = _("More"), callback = function()
-#: context_menu.lua:2855 koreader_layout.lua:84
+#: context_menu.lua:2858 koreader_layout.lua:84
 msgid "More"
 msgstr "More"
 
+#. Type: label
+#. Context: if entry[1] == "author" then button.label = author_name ~= "" and require("ffi/util").template(_("More by %1"), author_name) or entry[2]
+#: end_book_data.lua:115
+msgid "More by %1"
+msgstr "More by %1"
+
+#. Type: setting
+#. Context: { "next_series", _("Next in series") }, { "author", _("More by author") }, { "other_series", _("Other series") },
+#: end_book_settings.lua:11
+msgid "More by author"
+msgstr "More by author"
+
 #. Type: setting
 #. Context: local display_modes = { { text = _("Mosaic"), mode = "mosaic" }, { text = _("List"), mode = "list" },
-#: collections.lua:428 collections.lua:526 collections.lua:619 context_menu.lua:2597 group_view.lua:579 kindle_virtual_library.lua:283 extras_settings.lua:38
+#: collections.lua:428 collections.lua:526 collections.lua:619 context_menu.lua:2600 group_view.lua:579 kindle_virtual_library.lua:283 extras_settings.lua:38
 msgid "Mosaic"
 msgstr "Mosaic"
 
@@ -3602,13 +3686,13 @@ msgstr "Mosaic with text"
 
 #. Type: button
 #. Context: text = pending.cut and _("Move selected files?") or _("Copy selected files?"), ok_text = pending.cut and _("Move") or C_("File", "Copy"), ok_callback = function()
-#: quickstart_pages.lua:304 context_menu.lua:504 context_menu.lua:710 context_menu.lua:2277
+#: quickstart_pages.lua:304 context_menu.lua:504 context_menu.lua:713 context_menu.lua:2280
 msgid "Move"
 msgstr "Move"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("Move failed."), icon = "notice-warning",
-#: context_menu.lua:2355
+#: context_menu.lua:2358
 msgid "Move failed."
 msgstr "Move failed."
 
@@ -3632,7 +3716,7 @@ msgstr "Move to folder"
 
 #. Type: title
 #. Context: show_files = true, title = _("Move to…"), path = move_home_dir,
-#: context_menu.lua:663 context_menu.lua:2300
+#: context_menu.lua:666 context_menu.lua:2303
 msgid "Move to…"
 msgstr "Move to…"
 
@@ -3704,7 +3788,7 @@ msgstr "Networks with WEP encryption are not supported."
 
 #. Type: status
 #. Context: if is_new then status_label = _("New") elseif display_status == "tbr" then
-#: metadata_editor.lua:610 browser_list_item_layout.lua:461 zen_renderer.lua:844 strip_common.lua:531
+#: metadata_editor.lua:610 browser_list_item_layout.lua:461 zen_renderer.lua:844 strip_common.lua:532
 msgid "New"
 msgstr "New"
 
@@ -3722,7 +3806,7 @@ msgstr "New custom theme"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("New folder"), input = "",
-#: context_menu.lua:2264 app_launcher_settings.lua:275
+#: context_menu.lua:2267 app_launcher_settings.lua:275
 msgid "New folder"
 msgstr "New folder"
 
@@ -3734,7 +3818,7 @@ msgstr "New includes unread books and books modified since they were last opened
 
 #. Type: setting
 #. Context: { text = _("New quote"), sub_item_table = {
-#: home_settings.lua:2461
+#: home_settings.lua:2487
 msgid "New quote"
 msgstr "New quote"
 
@@ -3755,6 +3839,12 @@ msgstr "News folder not found: "
 #: quickstart_screen.lua:489 navbar.lua:345 zen_bugreporter.lua:243
 msgid "Next"
 msgstr "Next"
+
+#. Type: setting
+#. Context: M.sources = { { "next_series", _("Next in series") }, { "author", _("More by author") },
+#: end_book_settings.lua:10
+msgid "Next in series"
+msgstr "Next in series"
 
 #. Type: setting
 #. Context: { id = "page_left", text = _("Previous page") }, { id = "page_right", text = _("Next page") }, { id = "menu", text = _("Menu") },
@@ -3888,6 +3978,12 @@ msgstr "No books found"
 msgid "No books found in the selected folder"
 msgstr "No books found in the selected folder"
 
+#. Type: title
+#. Context: local book = file and (data:getBook(file) or { path = file }) or data:getFeaturedBook("recently_read") book = book or { title = _("No books to show.") } file = book.path
+#: end_book.lua:391 end_book_data.lua:251
+msgid "No books to show."
+msgstr "No books to show."
+
 #. Type: message
 #. Context: local message = TextBoxWidget:new{ text = _("No books to switch to"), face = Font:getFace("smallinfofont", Screen:scaleBySize(18)),
 #: book_switcher_page.lua:255
@@ -3929,6 +4025,12 @@ msgstr "No changelog provided."
 #: book_info_widget.lua:320
 msgid "No description."
 msgstr "No description."
+
+#. Type: message
+#. Context: function data:getCurrentQuote() return quotes[quote_index] or { text = _("No highlights in this book."), is_empty = true } end
+#: end_book_data.lua:287
+msgid "No highlights in this book."
+msgstr "No highlights in this book."
 
 #. Type: dialog
 #. Context: local InfoMessage = require("ui/widget/infomessage") UIManager:show(InfoMessage:new{ text = _("No KOReader submenus found") }) return
@@ -4022,7 +4124,7 @@ msgstr "No ZenPM package is available for this device."
 
 #. Type: setting
 #. Context: { id = "outline", text = _("Outline") }, { id = "none", text = _("None") }, }) do
-#: stats_settings.lua:231 home_settings.lua:893 home_settings.lua:2325
+#: stats_settings.lua:231 home_settings.lua:906 home_settings.lua:2351
 msgid "None"
 msgstr "None"
 
@@ -4039,10 +4141,16 @@ msgid "Normal"
 msgstr "Normal"
 
 #. Type: message
-#. Context: text = T( _("Not enough Home space: %1/%2 units used; this widget needs %3."), used,
-#: home_settings.lua:419
+#. Context: ctx.widget_config and _("Not enough space: %1/%2 units used; this widget needs %3.") or _("Not enough Home space: %1/%2 units used; this widget needs %3."), used,
+#: home_settings.lua:426
 msgid "Not enough Home space: %1/%2 units used; this widget needs %3."
 msgstr "Not enough Home space: %1/%2 units used; this widget needs %3."
+
+#. Type: message
+#. Context: text = require("ffi/util").template( _("Not enough space: %1/%2 units used; this widget needs %3."), used, capacity, needed), })
+#: end_book_settings.lua:204 home_settings.lua:425
+msgid "Not enough space: %1/%2 units used; this widget needs %3."
+msgstr "Not enough space: %1/%2 units used; this widget needs %3."
 
 #. Type: setting
 #. Context: local function masked_credential(value) if value == "" then return _("Not set") end if #value <= 4 then return "••••" end
@@ -4058,7 +4166,7 @@ msgstr "Note"
 
 #. Type: setting
 #. Context: local text = Dispatcher:menuTextFunc(entry.action) if text and text ~= "" and text ~= _("Nothing") then return icon_utils.stripZenPrefix(text)
-#: app_launcher_settings.lua:161 menu_settings.lua:782 home_settings.lua:1413 navbar_settings.lua:347
+#: app_launcher_settings.lua:161 menu_settings.lua:782 home_settings.lua:1437 navbar_settings.lua:347
 msgid "Nothing"
 msgstr "Nothing"
 
@@ -4082,7 +4190,7 @@ msgstr "of"
 
 #. Type: setting
 #. Context: { text = _("Off"), radio = true,
-#: status_bar.lua:390 incognito_mode.lua:248 bluetooth_switcher.lua:253 network_switcher.lua:921 network_switcher.lua:939 network_switcher.lua:1008 reader_top_status_bar.lua:206 library_settings.lua:1457 home_settings.lua:445 home_settings.lua:456
+#: status_bar.lua:390 incognito_mode.lua:248 bluetooth_switcher.lua:253 network_switcher.lua:921 network_switcher.lua:939 network_switcher.lua:1008 reader_top_status_bar.lua:206 library_settings.lua:1457 home_settings.lua:452 home_settings.lua:463
 msgid "Off"
 msgstr "Off"
 
@@ -4106,13 +4214,13 @@ msgstr "On"
 
 #. Type: status
 #. Context: elseif display_status == "abandoned" then status_label = _("On hold") progress_str = "\u{F03E4}"
-#: nav_button_model.lua:34 browser_list_item_layout.lua:469 context_menu.lua:680 context_menu.lua:1183 context_menu.lua:2512 context_menu.lua:2771
+#: nav_button_model.lua:34 browser_list_item_layout.lua:469 context_menu.lua:683 context_menu.lua:1186 context_menu.lua:2515 context_menu.lua:2774
 msgid "On hold"
 msgstr "On hold"
 
 #. Type: setting
 #. Context: { text = _("On Home refresh"), checked_func = function()
-#: home_settings.lua:2474
+#: home_settings.lua:2500
 msgid "On Home refresh"
 msgstr "On Home refresh"
 
@@ -4154,7 +4262,7 @@ msgstr "OPDS"
 
 #. Type: button
 #. Context: text = _("Open this file?") .. "\n\n" .. filename, ok_text = _("Open"), cancel_text = _("Cancel"),
-#: home_page.lua:2408 network_switcher.lua:623 opening_banner.lua:548
+#: home_page.lua:2417 network_switcher.lua:623 opening_banner.lua:548
 msgid "Open"
 msgstr "Open"
 
@@ -4184,7 +4292,7 @@ msgstr "Open menu to Launcher"
 
 #. Type: button
 #. Context: next_file_btn = Button:new{ text = _("Open next file"), width = action_width,
-#: book_status.lua:240
+#: end_book_data.lua:29 book_status.lua:231
 msgid "Open next file"
 msgstr "Open next file"
 
@@ -4214,7 +4322,7 @@ msgstr "Open settings"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Open this file?") .. "\n\n" .. filename, ok_text = _("Open"),
-#: home_page.lua:2407 opening_banner.lua:547
+#: home_page.lua:2416 opening_banner.lua:547
 msgid "Open this file?"
 msgstr "Open this file?"
 
@@ -4244,7 +4352,7 @@ msgstr "Orange"
 
 #. Type: title
 #. Context: require("common/ui/zen_arrange_list").show{ title = _("Order"), item_table = items,
-#: tbr_index.lua:940 tbr_index.lua:948 context_menu.lua:2651 context_menu.lua:2711 group_view.lua:633 group_view.lua:678 group_view.lua:920 app_launcher_settings.lua:63 app_launcher_settings.lua:1077 home_settings.lua:1133 navbar_settings.lua:1288
+#: tbr_index.lua:940 tbr_index.lua:948 context_menu.lua:2654 context_menu.lua:2714 group_view.lua:633 group_view.lua:678 group_view.lua:920 app_launcher_settings.lua:63 app_launcher_settings.lua:1077 home_settings.lua:1147 navbar_settings.lua:1288
 msgid "Order"
 msgstr "Order"
 
@@ -4253,6 +4361,12 @@ msgstr "Order"
 #: group_view.lua:949
 msgid "Order TBR"
 msgstr "Order TBR"
+
+#. Type: setting
+#. Context: { "author", _("More by author") }, { "other_series", _("Other series") }, { "continue", _("Continue") },
+#: end_book_settings.lua:12
+msgid "Other series"
+msgstr "Other series"
 
 #. Type: setting
 #. Context: { id = "divider", text = _("Divider") }, { id = "outline", text = _("Outline") }, { id = "none", text = _("None") },
@@ -4268,7 +4382,7 @@ msgstr "Outline color"
 
 #. Type: setting
 #. Context: { text = _("Outlined boxes"), radio = true,
-#: home_settings.lua:2314
+#: home_settings.lua:2340
 msgid "Outlined boxes"
 msgstr "Outlined boxes"
 
@@ -4290,6 +4404,12 @@ msgstr "p."
 msgid "Page %1 of %2"
 msgstr "Page %1 of %2"
 
+#. Type: format
+#. Context: if quote.page_label and quotes.show_page ~= false then attribution_parts[#attribution_parts + 1] = string.format(_("Page %s"), quote.page_label) end
+#: quotes.lua:65
+msgid "Page %s"
+msgstr "Page %s"
+
 #. Type: title
 #. Context: { title = _("Page Browser"), description = _("Swipe up from the bottom while reading to open the Page Browser.\n\nSkim through pages or skip chapters, browse the table of contents, manage bookmarks, adjust fonts and more.") .. "\n\n"
 #: quickstart_pages.lua:795 quickstart_pages.lua:910
@@ -4310,7 +4430,7 @@ msgstr "Page number format"
 
 #. Type: action
 #. Context: local a = acq table.insert(buttons, {{ text = "\u{F01B} " .. _("Page stream"), align = "left", bold = true, callback = function()
-#: opds.lua:1808
+#: opds.lua:1982
 msgid "Page stream"
 msgstr "Page stream"
 
@@ -4322,7 +4442,7 @@ msgstr "Page x / y"
 
 #. Type: unit
 #. Context: function M.formatPageCount(pages, long) local label = long and __("pages") or __("p.") return tostring(pages) .. "\u{00A0}" .. label
-#: utils.lua:346 context_menu.lua:1600 stats_page.lua:430 reading_goals.lua:102 reading_goals.lua:277 book_details_page.lua:226
+#: utils.lua:346 context_menu.lua:1603 stats_page.lua:430 reading_goals.lua:102 reading_goals.lua:277 book_details_page.lua:226
 msgid "pages"
 msgstr "pages"
 
@@ -4340,13 +4460,13 @@ msgstr "Pages read"
 
 #. Type: setting
 #. Context: { id = "streak", text = _("Day streak") }, { id = "week_pages", text = _("Pages this week") }, { id = "week_duration", text = _("Time this week") },
-#: stats_triplet.lua:54 home_settings.lua:2213
+#: stats_triplet.lua:58 home_settings.lua:2239
 msgid "Pages this week"
 msgstr "Pages this week"
 
 #. Type: setting
 #. Context: time_remaining = _("Time remaining"), pages_today = _("Pages today"), time_today = _("Time today"),
-#: stats_page.lua:910 stats_triplet.lua:51 book_details_page.lua:208 app_launcher_settings.lua:80 home_settings.lua:2210
+#: stats_page.lua:910 stats_triplet.lua:55 book_details_page.lua:208 app_launcher_settings.lua:80 home_settings.lua:2236
 msgid "Pages today"
 msgstr "Pages today"
 
@@ -4388,21 +4508,15 @@ msgstr "Password cannot be empty."
 
 #. Type: label
 #. Context: {{ text = "\u{F0192} " .. C_("File", "Paste"), align = "left",
-#: context_menu.lua:2049 context_menu.lua:2085
+#: context_menu.lua:2052 context_menu.lua:2088
 msgid "Paste"
 msgstr "Paste"
 
 #. Type: setting
 #. Context: { id = "off", text = _("Off") }, { id = "percent", text = _("Percent") }, { id = "time_left", text = _("Time to book end") },
-#: home_settings.lua:446
+#: home_settings.lua:453
 msgid "Percent"
 msgstr "Percent"
-
-#. Type: label
-#. Context: all_time = _("All Time"), personal_records = _("Personal Records"), library = _("Library"),
-#: stats_page.lua:65
-msgid "Personal Records"
-msgstr "Personal Records"
 
 #. Type: setting
 #. Context: all_time = _("All time"), personal_records = _("Personal records"), library = _("Library"),
@@ -4410,9 +4524,15 @@ msgstr "Personal Records"
 msgid "Personal records"
 msgstr "Personal records"
 
+#. Type: label
+#. Context: all_time = _("All Time"), personal_records = _("Personal Records"), library = _("Library"),
+#: stats_page.lua:65
+msgid "Personal Records"
+msgstr "Personal Records"
+
 #. Type: message
 #. Context: end, help_text = _("Place pack folders or ZIP files in /koreader/icons/zen. ZIP files are installed automatically."), enabled_func = function()
-#: extras_settings.lua:255
+#: extras_settings.lua:256
 msgid "Place pack folders or ZIP files in /koreader/icons/zen. ZIP files are installed automatically."
 msgstr "Place pack folders or ZIP files in /koreader/icons/zen. ZIP files are installed automatically."
 
@@ -4424,7 +4544,7 @@ msgstr "Please delete the Project: Title plugin from your plugins folder and res
 
 #. Type: setting
 #. Context: or cb.plugin_title or _("Plugin"), visible_func = function()
-#: nav_button_model.lua:150 quick_settings.lua:1159 menu_settings.lua:480 menu_settings.lua:769 home_settings.lua:1466 navbar_settings.lua:340 navbar_settings.lua:520
+#: nav_button_model.lua:150 quick_settings.lua:1159 menu_settings.lua:480 menu_settings.lua:769 home_settings.lua:1490 navbar_settings.lua:340 navbar_settings.lua:520
 msgid "Plugin"
 msgstr "Plugin"
 
@@ -4484,13 +4604,13 @@ msgstr "Prefer large covers"
 
 #. Type: title
 #. Context: dlg = InputDialog:new{ title = _("Preset name"), input = "",
-#: global_settings.lua:299 reader_settings.lua:1108 home_settings.lua:2016 home_settings.lua:2094
+#: global_settings.lua:299 reader_settings.lua:1108 home_settings.lua:2042 home_settings.lua:2120
 msgid "Preset name"
 msgstr "Preset name"
 
 #. Type: setting
 #. Context: table.insert(sub, { text = _("Presets"), sub_item_table_func = build_preset_items,
-#: global_settings.lua:808 home_settings.lua:2645
+#: global_settings.lua:808 home_settings.lua:2673
 msgid "Presets"
 msgstr "Presets"
 
@@ -4499,6 +4619,12 @@ msgstr "Presets"
 #: quickstart_screen.lua:464 navbar.lua:340
 msgid "Prev"
 msgstr "Prev"
+
+#. Type: setting
+#. Context: { text = _("Preview"), callback = function(touchmenu)
+#: end_book_settings.lua:248
+msgid "Preview"
+msgstr "Preview"
 
 #. Type: setting
 #. Context: local charging_items = { row(_("Previous charge, per hour"), rate(stats.charge_rate)), row(_("Previous charge, total"), stats.charge_gain and stats.charge_gain .. "%" or missing),
@@ -4520,7 +4646,7 @@ msgstr "Previous page"
 
 #. Type: setting
 #. Context: icon = "quick_stats_progress", label = _("Progress"), visible_func = function() return hasPlugin("statistics") end,
-#: quick_settings.lua:1032 library_settings.lua:1517 home_settings.lua:1006
+#: quick_settings.lua:1032 library_settings.lua:1517 home_settings.lua:1019
 msgid "Progress"
 msgstr "Progress"
 
@@ -4537,8 +4663,8 @@ msgid "Progress bar"
 msgstr "Progress bar"
 
 #. Type: setting
-#. Context: items[#items + 1] = featured_text_style_item( mcfg, "progress", _("Progress labels")) return items
-#: home_settings.lua:818
+#. Context: items[#items + 1] = featured_text_style_item( mcfg, "progress", _("Progress labels")) if ctx.widget_config then
+#: home_settings.lua:827
 msgid "Progress labels"
 msgstr "Progress labels"
 
@@ -4604,25 +4730,25 @@ msgstr "Quit KOReader"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Quote font size"), value = quote_font_size(),
-#: home_settings.lua:2539
+#: home_settings.lua:2565
 msgid "Quote font size"
 msgstr "Quote font size"
 
 #. Type: setting
 #. Context: { text = _("Quote sources"), sub_item_table = source_items,
-#: home_settings.lua:2457
+#: home_settings.lua:2483
 msgid "Quote sources"
 msgstr "Quote sources"
 
 #. Type: label
 #. Context: id = "quotes", label = _("Quotes"), size = { units = 1.5 },
-#: quotes.lua:136
+#: quotes.lua:139
 msgid "Quotes"
 msgstr "Quotes"
 
 #. Type: setting
 #. Context: _("Stats"), _("Rakuyomi"), })
-#: zen_settings.lua:151 extras_settings.lua:122
+#: zen_settings.lua:151 extras_settings.lua:123
 msgid "Rakuyomi"
 msgstr "Rakuyomi"
 
@@ -4652,13 +4778,13 @@ msgstr "Rating"
 
 #. Type: button
 #. Context: -- cancel = Read now (left), ok = Done (right) cancel_text = "\u{F0B63} " .. _("Read now"), cancel_callback = function()
-#: opds.lua:1764
+#: opds.lua:1938
 msgid "Read now"
 msgstr "Read now"
 
 #. Type: title
 #. Context: status_dialog = new_context_menu_dialog{ title = _("Read status"), title_align = "center",
-#: quickstart_pages.lua:306 context_menu.lua:696 context_menu.lua:734 context_menu.lua:2415 context_menu.lua:2506
+#: quickstart_pages.lua:306 context_menu.lua:699 context_menu.lua:737 context_menu.lua:2418 context_menu.lua:2509
 msgid "Read status"
 msgstr "Read status"
 
@@ -4670,7 +4796,7 @@ msgstr "Read time"
 
 #. Type: label
 #. Context: blockCard{ width = c3_w, height = card_h, value = tostring(stats.today_pages or 0), label = _("Pages today") }, blockCard{ width = c3_w, height = card_h, value = formatTime(stats.today_duration), label = _("Read today") }, blockCard{ wid...
-#: stats_page.lua:911 stats_triplet.lua:52 book_details_page.lua:210
+#: stats_page.lua:911 stats_triplet.lua:56 book_details_page.lua:210
 msgid "Read today"
 msgstr "Read today"
 
@@ -4682,7 +4808,7 @@ msgstr "Read: %s"
 
 #. Type: title
 #. Context: { title = _("Reader"), description = _("Font, margins, contrast, line spacing etc - tested together for the best reading experience"),
-#: quickstart_pages.lua:773 action_filter.lua:72 zen_settings.lua:185 global_settings.lua:899
+#: quickstart_pages.lua:773 action_filter.lua:72 zen_settings.lua:185 global_settings.lua:899 home_settings.lua:1521
 msgid "Reader"
 msgstr "Reader"
 
@@ -4706,21 +4832,21 @@ msgstr "Reader themes"
 
 #. Type: status
 #. Context: else status_label = _("Reading") end
-#: nav_button_model.lua:32 browser_list_item_layout.lua:475 context_menu.lua:678 context_menu.lua:1181 context_menu.lua:2510 context_menu.lua:2769 stats_page.lua:956
+#: nav_button_model.lua:32 browser_list_item_layout.lua:475 context_menu.lua:681 context_menu.lua:1184 context_menu.lua:2513 context_menu.lua:2772 stats_page.lua:956
 msgid "Reading"
 msgstr "Reading"
-
-#. Type: label
-#. Context: goal_progress = _("Reading goals"), calendar = _("Reading Calendar"), }
-#: stats_page.lua:70
-msgid "Reading Calendar"
-msgstr "Reading Calendar"
 
 #. Type: setting
 #. Context: goal_progress = _("Reading goals"), calendar = _("Reading calendar"), }
 #: stats_settings.lua:37
 msgid "Reading calendar"
 msgstr "Reading calendar"
+
+#. Type: label
+#. Context: goal_progress = _("Reading goals"), calendar = _("Reading Calendar"), }
+#: stats_page.lua:70
+msgid "Reading Calendar"
+msgstr "Reading Calendar"
 
 #. Type: title
 #. Context: align = "left", title = _("Reading goals"), title_face = Font:getFace("smallinfofontbold", Screen:scaleBySize(10)),
@@ -4730,15 +4856,33 @@ msgstr "Reading goals"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Reading goals font size"), value = goals_cfg.font_size or DEFAULT_GOALS_FONT_SIZE,
-#: home_settings.lua:2186
+#: home_settings.lua:2212
 msgid "Reading goals font size"
 msgstr "Reading goals font size"
 
+#. Type: setting
+#. Context: M.labels = { stats_triplet = _("Reading statistics"), featured = _("Featured book"), quotes = _("Highlights and notes"), strip = _("Book strip"),
+#: end_book_settings.lua:6
+msgid "Reading statistics"
+msgstr "Reading statistics"
+
 #. Type: label
 #. Context: id = "stats_triplet", label = _("Reading stats"), size = "xs",
-#: stats_triplet.lua:171
+#: stats_triplet.lua:175
 msgid "Reading stats"
 msgstr "Reading stats"
+
+#. Type: setting
+#. Context: { "book_days", _("Days") }, { "book_duration", _("Reading time") }, { "book_page_minutes", _("Minutes per page") },
+#: stats_triplet.lua:52 end_book_settings.lua:18
+msgid "Reading time"
+msgstr "Reading time"
+
+#. Type: setting
+#. Context: current_book = _("Current book"), trend_graph = _("Reading trend"), goal_progress = _("Reading goals"),
+#: stats_settings.lua:35
+msgid "Reading trend"
+msgstr "Reading trend"
 
 #. Type: label
 #. Context: current_book = _("Current Book"), trend_graph = _("Reading Trend"), goal_progress = _("Reading goals"),
@@ -4747,26 +4891,20 @@ msgid "Reading Trend"
 msgstr "Reading Trend"
 
 #. Type: setting
-#. Context: current_book = _("Current book"), trend_graph = _("Reading trend"), goal_progress = _("Reading goals"),
-#: stats_settings.lua:35
-msgid "Reading trend"
-msgstr "Reading trend"
-
-#. Type: setting
 #. Context: local labels = { recent = _("Recent"), favorites = _("Favorites"), to_be_read = _("To Be Read"), authors = _("Authors"),
-#: nav_button_model.lua:6 home_settings.lua:1049 home_settings.lua:1056 home_settings.lua:1059
+#: nav_button_model.lua:6 home_settings.lua:1063 home_settings.lua:1070 home_settings.lua:1073
 msgid "Recent"
 msgstr "Recent"
 
 #. Type: setting
 #. Context: table.insert(items, 2, { text = _("Recent filters"), sub_item_table = {
-#: home_settings.lua:1864
+#: home_settings.lua:1890
 msgid "Recent filters"
 msgstr "Recent filters"
 
 #. Type: setting
 #. Context: if kind == "to_be_read" then return _("To Be Read") end return _("Recently read") end
-#: context_menu.lua:2621 group_view.lua:864 home_settings.lua:935 home_settings.lua:973
+#: context_menu.lua:2624 group_view.lua:864 home_settings.lua:948 home_settings.lua:986
 msgid "Recently read"
 msgstr "Recently read"
 
@@ -4784,13 +4922,13 @@ msgstr "Reflowable documents (epub, fb2, txt…)"
 
 #. Type: label
 #. Context: { text = icons.refresh .. " " .. _("Refresh"), align = "left",
-#: context_menu.lua:2114 context_menu.lua:2525
+#: context_menu.lua:2117 context_menu.lua:2528
 msgid "Refresh"
 msgstr "Refresh"
 
 #. Type: setting
-#. Context: local style = ensure_featured_text_style(mcfg, key) local weight = style.bold and _("bold") or _("regular") return string.format("%s, %s, %s", font_label(style.font_face), tostring(style.font_size), weight)
-#: home_settings.lua:664 home_settings.lua:1633
+#. Context: local style = featured_style(mcfg, key) local weight = style.bold and _("bold") or _("regular") return string.format("%s, %s, %s", font_label(style.font_face), tostring(style.font_size), weight)
+#: home_settings.lua:671 home_settings.lua:1658
 msgid "regular"
 msgstr "regular"
 
@@ -4808,13 +4946,13 @@ msgstr "Remaining: %s"
 
 #. Type: button
 #. Context: text = _("Remove this book from history?"), ok_text = _("Remove"), ok_callback = function()
-#: context_menu.lua:2878 book_switcher_page.lua:401 library_settings.lua:1406
+#: context_menu.lua:2881 book_switcher_page.lua:401 library_settings.lua:1406
 msgid "Remove"
 msgstr "Remove"
 
 #. Type: label
 #. Context: {{ text = is_default and ("\u{F04D2} " .. _("Remove default")) or ("\u{F04CE} " .. _("Set as default")),
-#: opds.lua:1572
+#: opds.lua:1746
 msgid "Remove default"
 msgstr "Remove default"
 
@@ -4826,19 +4964,19 @@ msgstr "Remove from archive"
 
 #. Type: label
 #. Context: { text = "\u{F04D2} " .. _("Remove from collection"), align = "left",
-#: context_menu.lua:2375
+#: context_menu.lua:2378
 msgid "Remove from collection"
 msgstr "Remove from collection"
 
 #. Type: label
 #. Context: { text = icons.delete .. " " .. _("Remove from history"), align = "left",
-#: context_menu.lua:2871 history.lua:301
+#: context_menu.lua:2874 history.lua:301
 msgid "Remove from history"
 msgstr "Remove from history"
 
 #. Type: label
 #. Context: return text == _("Add to vocabulary builder") or text == _("Remove from vocabulary builder") or text == _("Long-press to add to vocabulary builder")
-#: dict_quick_lookup.lua:75
+#: dict_quick_lookup.lua:78
 msgid "Remove from vocabulary builder"
 msgstr "Remove from vocabulary builder"
 
@@ -4850,7 +4988,7 @@ msgstr "Remove this book from archive?"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Remove this book from history?"), ok_text = _("Remove"),
-#: context_menu.lua:2877
+#: context_menu.lua:2880
 msgid "Remove this book from history?"
 msgstr "Remove this book from history?"
 
@@ -4862,13 +5000,13 @@ msgstr "Remove this folder from additional home folders?"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Remove: ") .. path_label(path), callback = function()
-#: home_settings.lua:1621
+#: home_settings.lua:1646
 msgid "Remove: "
 msgstr "Remove: "
 
 #. Type: setting
 #. Context: { text = _("Rename"), is_enter_default = true,
-#: collections.lua:364 context_menu.lua:2251 home_settings.lua:2026 home_settings.lua:2151
+#: collections.lua:364 context_menu.lua:2254 home_settings.lua:2052 home_settings.lua:2177
 msgid "Rename"
 msgstr "Rename"
 
@@ -4892,7 +5030,7 @@ msgstr "Require hold to toggle buttons"
 
 #. Type: button
 #. Context: text = _("Reset battery log") .. "?", ok_text = _("Reset"), ok_callback = function()
-#: battery_stats_menu.lua:56 library_settings.lua:302 menu_settings.lua:1277 reader_settings.lua:113 home_settings.lua:1768
+#: battery_stats_menu.lua:56 library_settings.lua:302 menu_settings.lua:1277 reader_settings.lua:113 home_settings.lua:1793
 msgid "Reset"
 msgstr "Reset"
 
@@ -4904,7 +5042,7 @@ msgstr "Reset battery log"
 
 #. Type: dialog
 #. Context: UIManager:show(ConfirmBox:new{ text = _("Reset Controls to defaults?"), ok_text = _("Reset"),
-#: menu_settings.lua:1276 home_settings.lua:1767
+#: menu_settings.lua:1276 home_settings.lua:1792
 msgid "Reset Controls to defaults?"
 msgstr "Reset Controls to defaults?"
 
@@ -4922,7 +5060,7 @@ msgstr "Reset font family and size to default?"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Reset to defaults"), separator = true,
-#: menu_settings.lua:1270 home_settings.lua:1761
+#: menu_settings.lua:1270 home_settings.lua:1786
 msgid "Reset to defaults"
 msgstr "Reset to defaults"
 
@@ -4934,13 +5072,13 @@ msgstr "Restart"
 
 #. Type: button
 #. Context: local restart_book_btn = Button:new{ text = _("Restart Book"), width = action_width,
-#: book_status.lua:223
+#: end_book_data.lua:30 book_status.lua:214
 msgid "Restart Book"
 msgstr "Restart Book"
 
 #. Type: setting
 #. Context: pack_items[#pack_items + 1] = { text = _("Restart KOReader to apply the updated active pack"), enabled = false,
-#: extras_settings.lua:236
+#: extras_settings.lua:237
 msgid "Restart KOReader to apply the updated active pack"
 msgstr "Restart KOReader to apply the updated active pack"
 
@@ -5000,25 +5138,25 @@ msgstr "Restoring metadata failed."
 
 #. Type: action
 #. Context: if acq.last_read then table.insert(buttons, {{ text = icons.arrow_right .. " " .. _("Resume from page") .. " " .. acq.last_read, align = "left", bold = true, callback = function()
-#: opds.lua:1823
+#: opds.lua:1997
 msgid "Resume from page"
 msgstr "Resume from page"
 
 #. Type: setting
 #. Context: { text = _("Return to chapter list on exit"), checked_func = function()
-#: extras_settings.lua:141
+#: extras_settings.lua:142
 msgid "Return to chapter list on exit"
 msgstr "Return to chapter list on exit"
 
 #. Type: title
 #. Context: local stats_header = self:genHeader(_("Statistics")) local review_header = self:genHeader(_("Review")) local status_header = self:genHeader(self.readonly and _("Book Status") or _("Update Status"))
-#: book_status.lua:210
+#: book_status.lua:201
 msgid "Review"
 msgstr "Review"
 
 #. Type: setting
 #. Context: text_func = function() return _("Right") .. ": " .. progress_label(mcfg.progress_meta.right) end,
-#: home_settings.lua:488
+#: home_settings.lua:495
 msgid "Right"
 msgstr "Right"
 
@@ -5066,13 +5204,13 @@ msgstr "RSS Reader plugin is not installed."
 
 #. Type: setting
 #. Context: { text = _("Save"), is_enter_default = true,
-#: metadata_editor.lua:663 metadata_editor.lua:928 metadata_editor.lua:1046 metadata_editor.lua:1243 global_settings.lua:308 reader_settings.lua:1117 home_settings.lua:2104 metadata_settings.lua:43
+#: metadata_editor.lua:663 metadata_editor.lua:928 metadata_editor.lua:1046 metadata_editor.lua:1243 global_settings.lua:308 reader_settings.lua:1117 home_settings.lua:2130 metadata_settings.lua:43
 msgid "Save"
 msgstr "Save"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Save current home page as preset"), keep_menu_open = true,
-#: home_settings.lua:2088
+#: home_settings.lua:2114
 msgid "Save current home page as preset"
 msgstr "Save current home page as preset"
 
@@ -5174,7 +5312,7 @@ msgstr "Scroll bar"
 
 #. Type: title
 #. Context: dialog = InputDialog:new{ title = _("Search") .. (catalog_name ~= "" and " " .. catalog_name or ""), input_hint = _("Alexandre Dumas"),
-#: nav_button_model.lua:21 quickstart_pages.lua:691 collections.lua:650 metadata_editor.lua:968 navbar.lua:320 navbar.lua:325 search.lua:109 opds.lua:1432 opds.lua:1625 opds.lua:1629 native_menu.lua:9 quick_settings.lua:721 quick_settings.lua:761 page_browser.lua:2812 navbar_settings.lua:192
+#: nav_button_model.lua:21 quickstart_pages.lua:691 collections.lua:650 metadata_editor.lua:968 navbar.lua:320 navbar.lua:325 search.lua:109 opds.lua:1606 opds.lua:1799 opds.lua:1803 native_menu.lua:9 quick_settings.lua:721 quick_settings.lua:761 page_browser.lua:2812 navbar_settings.lua:192
 msgid "Search"
 msgstr "Search"
 
@@ -5198,7 +5336,7 @@ msgstr "Search metadata"
 
 #. Type: title
 #. Context: UIManager:close(dialog) browser.catalog_title = _("Search results") local search_url = item_url:gsub("%%s", function() return search_str end)
-#: opds.lua:1619
+#: opds.lua:1793
 msgid "Search results"
 msgstr "Search results"
 
@@ -5234,7 +5372,7 @@ msgstr "Security"
 
 #. Type: label
 #. Context: { text = "\u{F0489} " .. _("Select"), align = "left",
-#: context_menu.lua:2097
+#: context_menu.lua:2100
 msgid "Select"
 msgstr "Select"
 
@@ -5270,7 +5408,7 @@ msgstr "Separator: "
 
 #. Type: title
 #. Context: dialog = MultiInputDialog:new{ title = _("Series"), fields = {
-#: nav_button_model.lua:10 quickstart_pages.lua:689 metadata_editor.lua:48 metadata_editor.lua:510 metadata_editor.lua:1071 context_menu.lua:2620 group_view.lua:1367 group_view.lua:1416 navbar.lua:295 library_settings.lua:387 library_settings.lua:1509 home_settings.lua:814 home_settings.lua:1051 navbar_settings.lua:187
+#: nav_button_model.lua:10 quickstart_pages.lua:689 metadata_editor.lua:48 metadata_editor.lua:510 metadata_editor.lua:1071 context_menu.lua:2623 group_view.lua:1367 group_view.lua:1416 navbar.lua:295 end_book_data.lua:25 library_settings.lua:387 library_settings.lua:1509 home_settings.lua:821 home_settings.lua:1065 navbar_settings.lua:187
 msgid "Series"
 msgstr "Series"
 
@@ -5300,7 +5438,7 @@ msgstr "Session pages"
 
 #. Type: setting
 #. Context: { text = _("Set"), is_enter_default = true,
-#: color_wheel_widget.lua:399 zen_settings_utils.lua:569 app_launcher_settings.lua:195 menu_settings.lua:941 menu_settings.lua:1055 reader_settings.lua:158 reader_settings.lua:276 reader_settings.lua:789 home_settings.lua:1184 navbar_settings.lua:872 navbar_settings.lua:1002 navbar_settings.lua:1073 navbar_settings.lua:1209 status_bar_settings.lua:278 status_bar_settings.lua:374
+#: color_wheel_widget.lua:399 zen_settings_utils.lua:569 app_launcher_settings.lua:195 menu_settings.lua:941 menu_settings.lua:1055 reader_settings.lua:158 reader_settings.lua:276 reader_settings.lua:789 home_settings.lua:1198 navbar_settings.lua:872 navbar_settings.lua:1002 navbar_settings.lua:1073 navbar_settings.lua:1209 status_bar_settings.lua:278 status_bar_settings.lua:374
 msgid "Set"
 msgstr "Set"
 
@@ -5330,19 +5468,19 @@ msgstr "Set archive folder"
 
 #. Type: label
 #. Context: and ("\u{F04D2} " .. _("Remove default")) or ("\u{F04CE} " .. _("Set as default")), align = "left",
-#: opds.lua:1573
+#: opds.lua:1747
 msgid "Set as default"
 msgstr "Set as default"
 
 #. Type: action
 #. Context: callback = function() self:setSyncDir() end }}, {{ text = _("Set file types to sync"), align = "left", callback = function() self:setSyncFiletypes() end }},
-#: opds.lua:1401
+#: opds.lua:1575
 msgid "Set file types to sync"
 msgstr "Set file types to sync"
 
 #. Type: title
 #. Context: name = "folder_cover_picker", title = options.title or _("Set folder cover"), subtitle = options.subtitle or (type(options.path) == "string"
-#: folder_cover_picker.lua:461 context_menu.lua:1982 context_menu.lua:2127
+#: folder_cover_picker.lua:461 context_menu.lua:1985 context_menu.lua:2130
 msgid "Set folder cover"
 msgstr "Set folder cover"
 
@@ -5354,13 +5492,13 @@ msgstr "Set home folder"
 
 #. Type: action
 #. Context: end }}, {{ text = _("Set max number of files to sync"), align = "left", callback = function() self:setMaxSyncDownload() end }},
-#: opds.lua:1397
+#: opds.lua:1571
 msgid "Set max number of files to sync"
 msgstr "Set max number of files to sync"
 
 #. Type: action
 #. Context: callback = function() self:setMaxSyncDownload() end }}, {{ text = _("Set sync folder"), align = "left", callback = function() self:setSyncDir() end }},
-#: opds.lua:1399
+#: opds.lua:1573
 msgid "Set sync folder"
 msgstr "Set sync folder"
 
@@ -5402,7 +5540,7 @@ msgstr "Show all files from subfolders"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Show author"), checked_func = function()
-#: home_settings.lua:2557
+#: home_settings.lua:2583
 msgid "Show author"
 msgstr "Show author"
 
@@ -5414,7 +5552,7 @@ msgstr "Show author below cover (mosaic)"
 
 #. Type: setting
 #. Context: { text = _("Show badges"), checked_func = function() return mcfg.show_badges == true end,
-#: home_settings.lua:1791
+#: home_settings.lua:1816
 msgid "Show badges"
 msgstr "Show badges"
 
@@ -5426,13 +5564,13 @@ msgstr "Show Book cover"
 
 #. Type: setting
 #. Context: { text = _("Show book titles"), checked_func = function() return mcfg.show_strip_titles == true end,
-#: home_settings.lua:1783
+#: home_settings.lua:1808
 msgid "Show book titles"
 msgstr "Show book titles"
 
 #. Type: setting
 #. Context: _("12-hour time"), _("Show bottom border"), _("Bold text"),
-#: zen_settings.lua:89 reader_settings.lua:628 home_settings.lua:869 status_bar_settings.lua:296
+#: zen_settings.lua:89 reader_settings.lua:628 home_settings.lua:882 status_bar_settings.lua:296
 msgid "Show bottom border"
 msgstr "Show bottom border"
 
@@ -5528,7 +5666,7 @@ msgstr "Show page count"
 
 #. Type: setting
 #. Context: { text = _("Show page dots"), checked_func = function() return mcfg.show_page_indicator ~= false end,
-#: home_settings.lua:1799
+#: home_settings.lua:1824
 msgid "Show page dots"
 msgstr "Show page dots"
 
@@ -5564,7 +5702,7 @@ msgstr "Show spine lines"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Show title"), checked_func = function()
-#: home_settings.lua:2567
+#: home_settings.lua:2593
 msgid "Show title"
 msgstr "Show title"
 
@@ -5582,7 +5720,7 @@ msgstr "Show top border"
 
 #. Type: setting
 #. Context: { text = _("Show top status bar"), checked_func = function()
-#: home_settings.lua:2649
+#: home_settings.lua:2677
 msgid "Show top status bar"
 msgstr "Show top status bar"
 
@@ -5672,7 +5810,7 @@ msgstr "Slide Puzzle"
 
 #. Type: label
 #. Context: table.insert(buttons, {{ text = "\u{F04BF} " .. _("Sort") .. " " .. submenu_arrow, align = "left",
-#: collections.lua:463 collections.lua:555 context_menu.lua:1155
+#: collections.lua:463 collections.lua:555 context_menu.lua:1158
 msgid "Sort"
 msgstr "Sort"
 
@@ -5690,19 +5828,19 @@ msgstr "Sort books by"
 
 #. Type: setting
 #. Context: _("Items per page"), _("Sort by"), _("Status bar"),
-#: zen_settings.lua:83 home_settings.lua:1169
+#: zen_settings.lua:83 home_settings.lua:1183
 msgid "Sort by"
 msgstr "Sort by"
 
 #. Type: label
 #. Context: { text = "\u{F04BF} " .. _("Sort folder") .. " " .. submenu_arrow, align = "left",
-#: context_menu.lua:2688
+#: context_menu.lua:2691
 msgid "Sort folder"
 msgstr "Sort folder"
 
 #. Type: title
 #. Context: sort_dialog = new_context_menu_dialog{ title = _("Sort folder by"), title_align = "center",
-#: context_menu.lua:2739
+#: context_menu.lua:2742
 msgid "Sort folder by"
 msgstr "Sort folder by"
 
@@ -5714,13 +5852,13 @@ msgstr "Sort languages"
 
 #. Type: label
 #. Context: { text = "\u{F04BF} " .. _("Sort library") .. " " .. submenu_arrow, align = "left",
-#: context_menu.lua:2629
+#: context_menu.lua:2632
 msgid "Sort library"
 msgstr "Sort library"
 
 #. Type: title
 #. Context: sort_dialog = new_context_menu_dialog{ title = _("Sort library by"), title_align = "center",
-#: context_menu.lua:2669
+#: context_menu.lua:2672
 msgid "Sort library by"
 msgstr "Sort library by"
 
@@ -5738,7 +5876,7 @@ msgstr "Sort series"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Specific tag"), keep_menu_open = true,
-#: app_launcher_settings.lua:551 app_launcher_settings.lua:607 menu_settings.lua:714 home_settings.lua:1054 home_settings.lua:1086 home_settings.lua:1433 navbar_settings.lua:1420
+#: app_launcher_settings.lua:551 app_launcher_settings.lua:607 menu_settings.lua:714 home_settings.lua:1068 home_settings.lua:1100 home_settings.lua:1457 navbar_settings.lua:1420
 msgid "Specific tag"
 msgstr "Specific tag"
 
@@ -5762,19 +5900,19 @@ msgstr "Start reading a book to fill this space."
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Stat separators"), sub_item_table_func = style_items,
-#: stats_settings.lua:351 home_settings.lua:2300
+#: stats_settings.lua:351 home_settings.lua:2326
 msgid "Stat separators"
 msgstr "Stat separators"
 
 #. Type: setting
 #. Context: local cur = dcfg.middle_stats_triplet[slot] or "today_pages" return _("Stat slot ") .. tostring(slot) .. ": " .. (stats_field_labels[cur] or stats_field_labels.today_pages)
-#: home_settings.lua:2342
+#: home_settings.lua:2368
 msgid "Stat slot "
 msgstr "Stat slot "
 
 #. Type: title
 #. Context: local stats_header = self:genHeader(_("Statistics")) local review_header = self:genHeader(_("Review"))
-#: book_status.lua:209
+#: book_status.lua:200
 msgid "Statistics"
 msgstr "Statistics"
 
@@ -5798,7 +5936,7 @@ msgstr "Stats default font size"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Stats font size"), value = stats_cfg.max_font_size or DEFAULT_STATS_MAX_FONT_SIZE,
-#: home_settings.lua:2255 home_settings.lua:2283
+#: home_settings.lua:2281 home_settings.lua:2309
 msgid "Stats font size"
 msgstr "Stats font size"
 
@@ -5846,7 +5984,7 @@ msgstr "Streak"
 
 #. Type: action
 #. Context: }}) table.insert(buttons, {{ text = _("Stream from page") .. " \u{23E9}", align = "left", bold = true, callback = function()
-#: opds.lua:1815
+#: opds.lua:1989
 msgid "Stream from page"
 msgstr "Stream from page"
 
@@ -5900,19 +6038,19 @@ msgstr "Swipe up to open the Page Browser"
 
 #. Type: button
 #. Context: buttons = { {{ text = "\u{F04E6} " .. _("Sync"), align = "left", callback = function()
-#: opds.lua:1554 quick_settings.lua:1058 menu_settings.lua:123
+#: opds.lua:1728 quick_settings.lua:1058 menu_settings.lua:123
 msgid "Sync"
 msgstr "Sync"
 
 #. Type: action
 #. Context: {}, {{ text = _("Sync all catalogs"), align = "left", callback = function()
-#: opds.lua:1383
+#: opds.lua:1557
 msgid "Sync all catalogs"
 msgstr "Sync all catalogs"
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Tab"), keep_menu_open = true,
-#: home_settings.lua:1426 navbar_settings.lua:1405
+#: home_settings.lua:1450 navbar_settings.lua:1405
 msgid "Tab"
 msgstr "Tab"
 
@@ -5924,7 +6062,7 @@ msgstr "Table of contents"
 
 #. Type: title
 #. Context: ZenArrangeList.show{ title = _("Tabs"), item_table = sort_items,
-#: zen_settings.lua:98 home_settings.lua:1489 home_settings.lua:1498 home_settings.lua:1586 home_settings.lua:1744 navbar_settings.lua:1442 navbar_settings.lua:1513
+#: zen_settings.lua:98 home_settings.lua:1513 home_settings.lua:1523 home_settings.lua:1611 home_settings.lua:1769 navbar_settings.lua:1442 navbar_settings.lua:1513
 msgid "Tabs"
 msgstr "Tabs"
 
@@ -5940,17 +6078,17 @@ msgstr "Tag"
 msgid "Tag: %1"
 msgstr "Tag: %1"
 
-#. Type: title
-#. Context: elseif tab_id == "tags" then title = _("Tags") else
-#: nav_button_model.lua:12 nav_button_model.lua:140 group_view.lua:603 group_view.lua:1367 group_view.lua:1414 navbar.lua:305 library_settings.lua:1510 home_settings.lua:1051 navbar_settings.lua:190
-msgid "Tags"
-msgstr "Tags"
-
 #. Type: label
 #. Context: subtitle = count == 1 and _("1 tag") or (tostring(count) .. " " .. _("tags")) else
 #: group_view.lua:1387
 msgid "tags"
 msgstr "tags"
+
+#. Type: title
+#. Context: elseif tab_id == "tags" then title = _("Tags") else
+#: nav_button_model.lua:12 nav_button_model.lua:140 group_view.lua:603 group_view.lua:1367 group_view.lua:1414 navbar.lua:305 library_settings.lua:1510 home_settings.lua:1065 navbar_settings.lua:190
+msgid "Tags"
+msgstr "Tags"
 
 #. Type: title
 #. Context: end item.sub_title = _("Tailscale") item.sub_item_table_func = function()
@@ -5972,7 +6110,7 @@ msgstr "Text color"
 
 #. Type: setting
 #. Context: return { text = _("Text styles"), sub_item_table_func = function()
-#: home_settings.lua:824
+#: home_settings.lua:837
 msgid "Text styles"
 msgstr "Text styles"
 
@@ -6084,17 +6222,17 @@ msgstr "This is Zen Settings. ZenOS settings/updates and common KOReader setting
 msgid "This metadata provider needs an API credential. Open settings?"
 msgstr "This metadata provider needs an API credential. Open settings?"
 
-#. Type: label
-#. Context: this_week = _("This Week"), this_month = _("This Month"), this_year = _("This Year"),
-#: stats_page.lua:62
-msgid "This Month"
-msgstr "This Month"
-
 #. Type: setting
 #. Context: this_week = _("This week"), this_month = _("This month"), this_year = _("This year"),
 #: stats_settings.lua:29
 msgid "This month"
 msgstr "This month"
+
+#. Type: label
+#. Context: this_week = _("This Week"), this_month = _("This Month"), this_year = _("This Year"),
+#: stats_page.lua:62
+msgid "This Month"
+msgstr "This Month"
 
 #. Type: dialog
 #. Context: UIManager:show(InfoMessage:new{ text = _("This option is disabled when a home folder is the device storage root. Set home folders to narrower books folders first."), })
@@ -6102,17 +6240,17 @@ msgstr "This month"
 msgid "This option is disabled when a home folder is the device storage root. Set home folders to narrower books folders first."
 msgstr "This option is disabled when a home folder is the device storage root. Set home folders to narrower books folders first."
 
-#. Type: label
-#. Context: today = _("Today"), this_week = _("This Week"), this_month = _("This Month"),
-#: stats_page.lua:61
-msgid "This Week"
-msgstr "This Week"
-
 #. Type: setting
 #. Context: today = _("Today"), this_week = _("This week"), this_month = _("This month"),
 #: stats_settings.lua:28
 msgid "This week"
 msgstr "This week"
+
+#. Type: label
+#. Context: today = _("Today"), this_week = _("This Week"), this_month = _("This Month"),
+#: stats_page.lua:61
+msgid "This Week"
+msgstr "This Week"
 
 #. Type: setting
 #. Context: this_month = _("This month"), this_year = _("This year"), all_time = _("All time"),
@@ -6128,7 +6266,7 @@ msgstr "This Year"
 
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Time") .. " " .. _("font size"), value = mcfg.max_font_size,
-#: reading_goals.lua:134 stats_page.lua:1358 stats_page.lua:1438 reader_settings.lua:210 stats_settings.lua:81 home_settings.lua:625 home_settings.lua:641 home_settings.lua:643 home_settings.lua:645 status_bar_settings.lua:34
+#: reading_goals.lua:134 stats_page.lua:1358 stats_page.lua:1438 reader_settings.lua:210 stats_settings.lua:81 home_settings.lua:632 home_settings.lua:648 home_settings.lua:650 home_settings.lua:652 status_bar_settings.lua:34
 msgid "Time"
 msgstr "Time"
 
@@ -6158,19 +6296,19 @@ msgstr "Time since last full charge"
 
 #. Type: setting
 #. Context: { id = "week_pages", text = _("Pages this week") }, { id = "week_duration", text = _("Time this week") }, }
-#: stats_triplet.lua:55 home_settings.lua:2214
+#: stats_triplet.lua:59 home_settings.lua:2240
 msgid "Time this week"
 msgstr "Time this week"
 
 #. Type: setting
 #. Context: { id = "percent", text = _("Percent") }, { id = "time_left", text = _("Time to book end") }, { id = "current_total", text = _("Current/total pages") },
-#: home_settings.lua:447
+#: home_settings.lua:454
 msgid "Time to book end"
 msgstr "Time to book end"
 
 #. Type: setting
 #. Context: pages_today = _("Pages today"), time_today = _("Time today"), pages = _("Pages"),
-#: app_launcher_settings.lua:81 home_settings.lua:2211
+#: app_launcher_settings.lua:81 home_settings.lua:2237
 msgid "Time today"
 msgstr "Time today"
 
@@ -6198,6 +6336,12 @@ msgstr "Time/day"
 msgid "Time/page"
 msgstr "Time/page"
 
+#. Type: label
+#. Context: local rejected = false local reason = _("Timed out") local last_state
+#: kobo.lua:94 kobo.lua:221 kobo.lua:271
+msgid "Timed out"
+msgstr "Timed out"
+
 #. Type: title
 #. Context: UIManager:show(SpinWidget:new{ title_text = _("Incognito") .. " - " .. _("Timeout"), value = timeout_minutes(plugin),
 #: incognito_mode.lua:249 incognito_mode.lua:256 zenpm_installer.lua:350
@@ -6212,19 +6356,19 @@ msgstr "Timer: %1 s"
 
 #. Type: title
 #. Context: local FIELD_SPECS = { title = { label = _("Title") }, authors = { label = _("Authors"), list = true },
-#: metadata_editor.lua:46 metadata_editor.lua:508 context_menu.lua:2616 group_view.lua:661 group_view.lua:861 metadata_editor.lua:963 app_launcher_settings.lua:840 app_launcher_settings.lua:844 home_settings.lua:812
+#: metadata_editor.lua:46 metadata_editor.lua:508 context_menu.lua:2619 group_view.lua:661 group_view.lua:861 metadata_editor.lua:963 app_launcher_settings.lua:840 app_launcher_settings.lua:844 home_settings.lua:819
 msgid "Title"
 msgstr "Title"
 
 #. Type: label
 #. Context: BookList.collates.title_natural = { text = _("Title natural"), menu_order = 100,
-#: add_sort_title_natural.lua:29 context_menu.lua:2617 group_view.lua:662 group_view.lua:862
+#: add_sort_title_natural.lua:29 context_menu.lua:2620 group_view.lua:662 group_view.lua:862
 msgid "Title natural"
 msgstr "Title natural"
 
 #. Type: setting
-#. Context: if kind == "custom" then return _("Custom") end if kind == "to_be_read" then return _("To Be Read") end return _("Recently read")
-#: nav_button_model.lua:8 nav_button_model.lua:33 quickstart_pages.lua:690 browser_list_item_layout.lua:463 context_menu.lua:679 context_menu.lua:1182 context_menu.lua:2511 context_menu.lua:2770 group_view.lua:1348 group_view.lua:1625 navbar.lua:310 home_settings.lua:934 home_settings.lua:974 home_settings.lua:1050 navbar_settings.lua:191
+#. Context: { "continue", _("Continue") }, { "to_be_read", _("To Be Read") }, }
+#: nav_button_model.lua:8 nav_button_model.lua:33 quickstart_pages.lua:690 browser_list_item_layout.lua:463 context_menu.lua:682 context_menu.lua:1185 context_menu.lua:2514 context_menu.lua:2773 group_view.lua:1348 group_view.lua:1625 navbar.lua:310 end_book_data.lua:26 end_book_settings.lua:14 home_settings.lua:947 home_settings.lua:987 home_settings.lua:1064 navbar_settings.lua:191
 msgid "To Be Read"
 msgstr "To Be Read"
 
@@ -6260,7 +6404,7 @@ msgstr "Top bar font"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Top status bar"), checked_func = function()
-#: reader_settings.lua:484 home_settings.lua:995
+#: reader_settings.lua:484 home_settings.lua:1008
 msgid "Top status bar"
 msgstr "Top status bar"
 
@@ -6278,7 +6422,7 @@ msgstr "Total books"
 
 #. Type: setting
 #. Context: { key = "current_page", text = _("Current page") }, { key = "total_pages", text = _("Total pages") }, { key = "page_progress", text = _("Current / total pages") },
-#: stats_page.lua:942 reader_settings.lua:226 home_settings.lua:449
+#: stats_page.lua:942 reader_settings.lua:226 home_settings.lua:456
 msgid "Total pages"
 msgstr "Total pages"
 
@@ -6320,7 +6464,7 @@ msgstr "Turning on Wi-Fi…"
 
 #. Type: setting
 #. Context: { text = _("Two rows"), checked_func = function() return mcfg.two_rows == true end,
-#: home_settings.lua:1816
+#: home_settings.lua:1841
 msgid "Two rows"
 msgstr "Two rows"
 
@@ -6332,13 +6476,13 @@ msgstr "Typesetting"
 
 #. Type: setting
 #. Context: if comp and comp.label then return comp.label end return tostring(id) .. " (" .. _("Unavailable") .. ")" end
-#: home_settings.lua:395
+#: home_settings.lua:400
 msgid "Unavailable"
 msgstr "Unavailable"
 
 #. Type: setting
 #. Context: pack_items[#pack_items + 1] = { text = T(_("Unavailable pack: %1"), active_pack_id()), enabled = false,
-#: extras_settings.lua:227
+#: extras_settings.lua:228
 msgid "Unavailable pack: %1"
 msgstr "Unavailable pack: %1"
 
@@ -6384,27 +6528,27 @@ msgstr "unknown"
 msgid "Unknown Author"
 msgstr "Unknown Author"
 
-#. Type: dialog
-#. Context: require("ui/uimanager"):show(InfoMessage:new{ text = _("Failed to clear cache:") .. "\n" .. (err or _("Unknown error")), })
-#: metadata_editor.lua:1318 kindle_virtual_library.lua:355
-msgid "Unknown error"
-msgstr "Unknown error"
-
 #. Type: subtitle
 #. Context: else screen:update{ subtitle = _("Download failed: ") .. (err or _("unknown error")), button = _("OK"), dismissable = true } end
 #: zen_updater.lua:1384
 msgid "unknown error"
 msgstr "unknown error"
 
+#. Type: dialog
+#. Context: require("ui/uimanager"):show(InfoMessage:new{ text = _("Failed to clear cache:") .. "\n" .. (err or _("Unknown error")), })
+#: metadata_editor.lua:1318 kindle_virtual_library.lua:355 lookup_plugin_items.lua:8
+msgid "Unknown error"
+msgstr "Unknown error"
+
 #. Type: setting
 #. Context: local prefix = active == preset_name and "* " or "" return prefix .. (preset_name or _("Unnamed preset")) end,
-#: reader_settings.lua:1146 home_settings.lua:2136
+#: reader_settings.lua:1146 home_settings.lua:2162
 msgid "Unnamed preset"
 msgstr "Unnamed preset"
 
 #. Type: label
 #. Context: local STATUSES = { { key = "new", label = _("Unread") }, { key = "reading", label = _("Reading") },
-#: nav_button_model.lua:31 context_menu.lua:677 context_menu.lua:1180 context_menu.lua:2509 context_menu.lua:2768
+#: nav_button_model.lua:31 context_menu.lua:680 context_menu.lua:1183 context_menu.lua:2512 context_menu.lua:2771
 msgid "Unread"
 msgstr "Unread"
 
@@ -6536,7 +6680,7 @@ msgstr "Update now"
 
 #. Type: title
 #. Context: local review_header = self:genHeader(_("Review")) local status_header = self:genHeader(self.readonly and _("Book Status") or _("Update Status"))
-#: book_status.lua:211
+#: book_status.lua:202
 msgid "Update Status"
 msgstr "Update Status"
 
@@ -6589,6 +6733,12 @@ msgid "Use a token limited to read:catalog. It is stored locally as plain text a
 msgstr "Use a token limited to read:catalog. It is stored locally as plain text and is never logged."
 
 #. Type: setting
+#. Context: { text = _("Use at end of book"), checked_func = function()
+#: end_book_settings.lua:230
+msgid "Use at end of book"
+msgstr "Use at end of book"
+
+#. Type: setting
 #. Context: { text = _("Use border as progress bar"), checked_func = function()
 #: reader_settings.lua:640
 msgid "Use border as progress bar"
@@ -6608,7 +6758,7 @@ msgstr "Use default font"
 
 #. Type: setting
 #. Context: { text = _("Use default style"), callback = function(touchmenu_instance)
-#: library_settings.lua:1657 home_settings.lua:586 home_settings.lua:771 home_settings.lua:1715
+#: library_settings.lua:1657 home_settings.lua:593 home_settings.lua:778 home_settings.lua:1740
 msgid "Use default style"
 msgstr "Use default style"
 
@@ -6656,7 +6806,7 @@ msgstr "View"
 
 #. Type: label
 #. Context: or nil local virtual_folder_str = is_series_group and _("Virtual folder") or nil dialog_title = folder_name_str
-#: context_menu.lua:1737
+#: context_menu.lua:1740
 msgid "Virtual folder"
 msgstr "Virtual folder"
 
@@ -6716,7 +6866,7 @@ msgstr "What's New"
 
 #. Type: message
 #. Context: text = _("Custom icons"), help_text = _("When enabled, loose icons or a selected ZenOS icon pack override supported icons. Missing icons fall back to ZenOS, then KOReader."), checked_func = function()
-#: extras_settings.lua:163
+#: extras_settings.lua:164
 msgid "When enabled, loose icons or a selected ZenOS icon pack override supported icons. Missing icons fall back to ZenOS, then KOReader."
 msgstr "When enabled, loose icons or a selected ZenOS icon pack override supported icons. Missing icons fall back to ZenOS, then KOReader."
 
@@ -6762,6 +6912,36 @@ msgstr "White"
 msgid "Wi-Fi"
 msgstr "Wi-Fi"
 
+#. Type: message
+#. Context: if not self:canResolveHostnames() then return _("Wi-Fi connected, but DNS lookup failed. Internet access may be unavailable. Try reconnecting.") end
+#: nonblocking_wifi.lua:269
+msgid "Wi-Fi connected, but DNS lookup failed. Internet access may be unavailable. Try reconnecting."
+msgstr "Wi-Fi connected, but DNS lookup failed. Internet access may be unavailable. Try reconnecting."
+
+#. Type: message
+#. Context: if not self:hasDefaultRoute() then return _("Wi-Fi connected, but no default route is available. Check your router or try reconnecting.") end
+#: nonblocking_wifi.lua:52
+msgid "Wi-Fi connected, but no default route is available. Check your router or try reconnecting."
+msgstr "Wi-Fi connected, but no default route is available. Check your router or try reconnecting."
+
+#. Type: message
+#. Context: if self.interface and not self:ifHasAnAddress() then return _("Wi-Fi connected, but no IP address was assigned. Try reconnecting.") end
+#: nonblocking_wifi.lua:49
+msgid "Wi-Fi connected, but no IP address was assigned. Try reconnecting."
+msgstr "Wi-Fi connected, but no IP address was assigned. Try reconnecting."
+
+#. Type: message
+#. Context: and _("Wi-Fi connected, but the connection check timed out. Internet access may be unavailable.") or _("Wi-Fi connected, but the connection check failed. Try reconnecting.") end
+#: nonblocking_wifi.lua:280
+msgid "Wi-Fi connected, but the connection check failed. Try reconnecting."
+msgstr "Wi-Fi connected, but the connection check failed. Try reconnecting."
+
+#. Type: message
+#. Context: problem = err == "timeout" and _("Wi-Fi connected, but the connection check timed out. Internet access may be unavailable.") or _("Wi-Fi connected, but the connection check failed. Try reconnecting.")
+#: nonblocking_wifi.lua:279
+msgid "Wi-Fi connected, but the connection check timed out. Internet access may be unavailable."
+msgstr "Wi-Fi connected, but the connection check timed out. Internet access may be unavailable."
+
 #. Type: title
 #. Context: search_visible = false, title = _("Wi-Fi networks"), title_full_width = true,
 #: network_switcher.lua:216 network_switcher.lua:229
@@ -6770,19 +6950,19 @@ msgstr "Wi-Fi networks"
 
 #. Type: action
 #. Context: buttons[#buttons + 1] = {{ text = icons.settings .. " " .. _("Widget settings"), callback = function()
-#: context_menu.lua:2903 stats_page.lua:1461
+#: context_menu.lua:2909 stats_page.lua:1461
 msgid "Widget settings"
 msgstr "Widget settings"
 
 #. Type: title
 #. Context: require("common/ui/zen_arrange_list").show{ title = _("Widgets"), item_table = sort_items,
-#: stats_settings.lua:212 stats_settings.lua:278 stats_settings.lua:302 stats_settings.lua:334 home_settings.lua:1498 home_settings.lua:1968 home_settings.lua:2601 home_settings.lua:2617 home_settings.lua:2630
+#: end_book_settings.lua:238 stats_settings.lua:212 stats_settings.lua:278 stats_settings.lua:302 stats_settings.lua:334 home_settings.lua:1523 home_settings.lua:1994 home_settings.lua:2629 home_settings.lua:2645 home_settings.lua:2658
 msgid "Widgets"
 msgstr "Widgets"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Wrap description text"), checked_func = function()
-#: home_settings.lua:740
+#: home_settings.lua:747
 msgid "Wrap description text"
 msgstr "Wrap description text"
 
@@ -6840,6 +7020,12 @@ msgstr "Z-Library"
 msgid "Zen"
 msgstr "Zen"
 
+#. Type: menu
+#. Context: table.insert(action.sub_item_table, 2, { text = _("Zen end of book"), radio = true,
+#: end_book.lua:40
+msgid "Zen end of book"
+msgstr "Zen end of book"
+
 #. Type: setting
 #. Context: make_enable_feature_item("dict_quick_lookup", _("Zen quick lookup")), make_enable_feature_item("highlight_lookup", _("Zen highlight menu")), {
 #: reader_settings.lua:1223
@@ -6884,7 +7070,7 @@ msgstr "Zen Mode: Enabled"
 
 #. Type: setting
 #. Context: _("Install ZenPM"), _("Zen OPDS"), _("Stats"),
-#: zen_settings.lua:149 extras_settings.lua:79
+#: zen_settings.lua:149 extras_settings.lua:80
 msgid "Zen OPDS"
 msgstr "Zen OPDS"
 
@@ -7061,119 +7247,3 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:381
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPM has been installed. Restart KOReader to use it."
-
-#. Type: message
-msgid "Book status"
-msgstr "Book status"
-
-#. Type: message
-msgid "Book titles"
-msgstr "Book titles"
-
-#. Type: message
-msgid "Books per page"
-msgstr "Books per page"
-
-#. Type: message
-msgid "Days"
-msgstr "Days"
-
-#. Type: message
-msgid "Default source"
-msgstr "Default source"
-
-#. Type: message
-msgid "End of book"
-msgstr "End of book"
-
-#. Type: message
-msgid "Finished on %s"
-msgstr "Finished on %s"
-
-#. Type: message
-msgid "Finished reading"
-msgstr "Finished reading"
-
-#. Type: message
-msgid "Highlights"
-msgstr "Highlights"
-
-#. Type: message
-msgid "Highlights and notes"
-msgstr "Highlights and notes"
-
-#. Type: message
-msgid "Minutes per page"
-msgstr "Minutes per page"
-
-#. Type: message
-msgid "Minutes per reading day"
-msgstr "Minutes per reading day"
-
-#. Type: message
-msgid "Next in series"
-msgstr "Next in series"
-
-#. Type: message
-msgid "No highlights in this book."
-msgstr "No highlights in this book."
-
-#. Type: message
-msgid "Other series"
-msgstr "Other series"
-
-#. Type: message
-msgid "Page %s"
-msgstr "Page %s"
-
-#. Type: message
-msgid "Preview"
-msgstr "Preview"
-
-#. Type: message
-msgid "Reading progress"
-msgstr "Reading progress"
-
-#. Type: message
-msgid "Reading statistics"
-msgstr "Reading statistics"
-
-#. Type: message
-msgid "Reading time"
-msgstr "Reading time"
-
-#. Type: message
-msgid "More by %1"
-msgstr "More by %1"
-
-#. Type: message
-msgid "More by author"
-msgstr "More by author"
-
-#. Type: message
-msgid "Use at end of book"
-msgstr "Use at end of book"
-
-#. Type: message
-msgid "Zen end of book"
-msgstr "Zen end of book"
-
-#. Type: message
-msgid "No books to show."
-msgstr "No books to show."
-
-#: modules/settings/sections/end_book_settings.lua
-msgid "Not enough space: %1/%2 units used; this widget needs %3."
-msgstr "Not enough space: %1/%2 units used; this widget needs %3."
-
-#. Featured end-of-book action limit
-msgid "Maximum 5 buttons allowed"
-msgstr "Maximum 5 buttons allowed"
-
-#. End-of-book featured progress
-msgid "%d%% completed"
-msgstr "%d%% completed"
-
-#: modules/settings/sections/library_settings/home_settings.lua
-msgid "Button labels"
-msgstr "Button labels"

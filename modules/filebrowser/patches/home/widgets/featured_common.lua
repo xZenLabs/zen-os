@@ -281,10 +281,11 @@ function M.build(ctx, source_key)
     local description_style = text_style(module_cfg, "description")
     local progress_style = text_style(module_cfg, "progress")
     local status_style = text_style(module_cfg, "status")
+    local total_pages = tonumber(book.stable_pages) or tonumber(book.pages)
     local fitting_lines = ctx.showBookStatus and not show_description and 5 or 7
     if ctx.showBookStatus then
         if module_cfg.show_progress ~= false and book.status ~= "new" and book.status ~= "tbr" then
-            fitting_lines = fitting_lines + 1
+            fitting_lines = fitting_lines + (total_pages and 2 or 1)
         end
         local title_probe = TextWidget:new{
             text = book.title or "", bold = title_style.bold,
@@ -384,9 +385,8 @@ function M.build(ctx, source_key)
     end
     local end_progress_text
     if ctx.showBookStatus then
-        end_progress_text = string.format(_("%d%% completed"), pct)
-        local total_pages = tonumber(book.stable_pages) or tonumber(book.pages)
-        if total_pages then end_progress_text = end_progress_text .. " • " .. zen_utils.formatPageCount(total_pages, true) end
+        end_progress_text = string.format(_("%d%% read"), pct)
+        if total_pages then end_progress_text = zen_utils.formatPageCount(total_pages, true) .. "\n" .. end_progress_text end
     end
     local has_progress_text = end_progress_text ~= nil or left_progress_text ~= "" or right_progress_text ~= ""
     local cover_h = math.max(1, cover_actual_h or col_h)
@@ -405,9 +405,9 @@ function M.build(ctx, source_key)
     local function build_progress_row(progress_w)
         if not has_progress then return nil end
         if end_progress_text then
-            return TextWidget:new{
+            return TextBoxWidget:new{
                 text = end_progress_text, face = stats_face, bold = progress_style.bold == true,
-                padding = 0, max_width = progress_w,
+                width = progress_w, alignment = "left", alignment_strict = true,
             }
         end
         if has_progress_text then
@@ -578,7 +578,7 @@ function M.build(ctx, source_key)
     end
     if book_status then
         top_items[#top_items + 1] = VerticalSpan:new{ width = book_status_gap }
-        top_items[#top_items + 1] = LineWidget:new{ dimen = Geom:new{ w = text_w, h = 1 }, background = Blitbuffer.COLOR_LIGHT_GRAY }
+        top_items[#top_items + 1] = LineWidget:new{ dimen = Geom:new{ w = text_w, h = 1 }, background = Blitbuffer.COLOR_BLACK }
         status_top_gap = VerticalSpan:new{ width = book_status_gap }
         top_items[#top_items + 1] = status_top_gap
         top_items[#top_items + 1] = book_status
@@ -587,7 +587,7 @@ function M.build(ctx, source_key)
         top_items[#top_items + 1] = status_progress
         status_bottom_gap = VerticalSpan:new{ width = progress_divider_gap }
         top_items[#top_items + 1] = status_bottom_gap
-        top_items[#top_items + 1] = LineWidget:new{ dimen = Geom:new{ w = text_w, h = 1 }, background = Blitbuffer.COLOR_LIGHT_GRAY }
+        top_items[#top_items + 1] = LineWidget:new{ dimen = Geom:new{ w = text_w, h = 1 }, background = Blitbuffer.COLOR_BLACK }
     end
 
     -- Measure actual rendered top height (TextBoxWidget snaps to line boundaries)

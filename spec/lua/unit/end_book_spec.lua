@@ -578,11 +578,13 @@ describe("end of book", function()
         assert.are.equal("author", source)
         local ButtonModel = require("common/nav_button_model")
         assert.are.equal("More by Jane Austen, Mary Shelley", ButtonModel.find(strip.controls, "author").label)
-        for _key, key in ipairs({ "count", "two_rows", "show_badges", "show_strip_titles",
+        for _key, key in ipairs({ "count", "show_badges", "show_strip_titles",
             "show_page_indicator", "interactive", "order" }) do
             assert.are.equal(original[key], strip[key])
         end
         assert.same(original.controls.text_style, strip.controls.text_style)
+        assert.is_false(strip.two_rows)
+        assert.is_true(original.two_rows)
         assert.is_false(strip.center_books)
         assert.is_true(original.center_books)
         assert.same({ "page_left", "next_series", "author", "other_series", "page_right" }, strip.controls.order)
@@ -606,11 +608,13 @@ describe("end of book", function()
         local_config.modules.strip.controls.text_style.font_size = 17
         local_config.modules.strip.count = 3
         local_config.modules.strip.center_books = true
+        local_config.modules.strip.two_rows = true
         strip = Data.stripConfig(recommendations, "other_series", local_config)
         assert.is_true(strip.controls.show_buttons.page_right)
         assert.are.equal(17, strip.controls.text_style.font_size)
         assert.are.equal(3, strip.count)
         assert.is_true(strip.center_books)
+        assert.is_true(strip.two_rows)
         local_config.modules.strip.center_books = false
         assert.is_false(Data.stripConfig(recommendations, "other_series", local_config).center_books)
         assert.are.equal(6, original.count)
@@ -913,7 +917,7 @@ describe("end of book", function()
         assert.are.equal(1, plugin.saves)
     end)
 
-    it("rejects enabling widgets beyond Home capacity, including an inherited two-row strip", function()
+    it("rejects enabling widgets beyond Home capacity, including a configured two-row strip", function()
         local home = require("modules/filebrowser/patches/home/home_presets").defaultHomePage()
         home.modules.strip.two_rows = true
         ZenSpec.replace("config/preset_store", { getSettings = function() return home end })
@@ -933,7 +937,7 @@ describe("end of book", function()
         ZenSpec.replace("ui/widget/infomessage", { new = function(_self, opts) return opts end })
         ZenSpec.replace("ui/uimanager", { show = function(_self, opts) message = opts end })
         plugin.config.end_book = {
-            modules = {}, rows = { order = { "featured", "strip", "quotes" },
+            modules = { strip = { two_rows = true } }, rows = { order = { "featured", "strip", "quotes" },
                 enabled = { featured = true, strip = true, quotes = false } },
         }
         require("modules/settings/sections/end_book_settings").showWidgets(plugin)

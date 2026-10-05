@@ -44,7 +44,7 @@ local defaults = {
                 show_navigation_labels = true,
                 navigation_icons = {},
                 navigation_actions = { "library", "series", "to_be_read", "home" } },
-            strip = { center_books = false, controls = {
+            strip = { center_books = false, two_rows = false, controls = {
                 enabled = true,
                 order = { "page_left", "next_series", "author", "other_series", "page_right" },
                 show_buttons = { page_left = false, page_right = false,
