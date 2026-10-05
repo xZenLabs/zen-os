@@ -77,14 +77,6 @@ function M.build(ctx, extras_items)
         sub_item_table_func = require("modules/settings/battery_stats_menu").buildItems,
     }, icons.battery))
 
-    local language_setting = require("ui/language"):getLangMenuTable()
-    table.insert(items, IconItem.decorate({
-        text = language_setting.text,
-        sub_item_table = language_setting.sub_item_table,
-    }, icons.language))
-    table.insert(items, IconItem.decorate(
-        require("ui/elements/common_settings_menu_table").time, icons.tbr))
-
     table.insert(items, IconItem.decorate({
         text = _("Advanced"),
         sub_item_table = advanced_section.build(ctx),

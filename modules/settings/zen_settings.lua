@@ -60,19 +60,6 @@ function M.build(plugin)
     local about_items     = about_section.build(ctx)
     local general_items   = general_section.build(ctx, extras_items)
 
-    table.insert(about_items, IconItem.decorate({
-        text = _("Quit KOReader"),
-        callback = function()
-            UIManager:show(require("ui/widget/confirmbox"):new{
-                text = _("Are you sure you want to quit KOReader?"),
-                ok_text = _("Quit"),
-                ok_callback = function()
-                    shutdown.broadcastExit(plugin)
-                end,
-            })
-        end,
-    }, icons.delete))
-
     -- -------------------------------------------------------------------------
     -- Item ordering
     -- -------------------------------------------------------------------------
@@ -195,7 +182,20 @@ function M.build(plugin)
             icon_file = plugin_root .. "/icons/koreader.png",
             _zen_settings_root = "koreader",
             sub_item_table_func = function()
-                return require("modules/menu/app_launcher/native_menu").settingsItems("active")
+                local items = require("modules/menu/app_launcher/native_menu").settingsItems("active")
+                table.insert(items, IconItem.decorate({
+                    text = _("Quit KOReader"),
+                    callback = function()
+                        UIManager:show(require("ui/widget/confirmbox"):new{
+                            text = _("Are you sure you want to quit KOReader?"),
+                            ok_text = _("Quit"),
+                            ok_callback = function()
+                                shutdown.broadcastExit(plugin)
+                            end,
+                        })
+                    end,
+                }, icons.delete))
+                return items
             end,
         },
         IconItem.decorate({ text = _("About"), sub_item_table = about_items }, icons.settings_about),

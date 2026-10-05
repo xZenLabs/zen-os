@@ -16,15 +16,15 @@ describe("settings menu organization", function()
             return result
         end
         local has_bluetooth, double_tap_item
-        local language_item = { text = "Language", sub_item_table = {} }
-        local time_item = { text = "Time and date", sub_item_table = {} }
-
         replace("gettext", function(text) return text end)
         local shown_dialog, reset_calls, menu_updates, has_current_capacity, missing_stats, is_charging
         replace("ui/uimanager", { show = function(_, dialog) shown_dialog = dialog end })
         replace("ui/widget/confirmbox", { new = function(_, dialog) return dialog end })
         replace("common/shutdown", {})
         replace("modules/settings/zen_settings_apply", {})
+        replace("modules/menu/app_launcher/native_menu", {
+            settingsItems = function() return items({ "Settings", "Tools" }) end,
+        })
         replace("modules/settings/zen_updater", {
             init_banner = function() end,
             build_update_available_action = function() end,
@@ -73,10 +73,6 @@ describe("settings menu organization", function()
         replace("modules/menu/bluetooth/bluetooth", {
             isAvailable = function() return has_bluetooth end,
         })
-        replace("ui/language", {
-            getLangMenuTable = function() return language_item end,
-        })
-        replace("ui/elements/common_settings_menu_table", { time = time_item })
         replace("modules/settings/zen_settings_utils", false)
         for _i, section in ipairs({
             "library_settings/home_settings", "library_settings/navbar_settings",
@@ -135,6 +131,7 @@ describe("settings menu organization", function()
             local root = builder.build({ config = { features = {} } }).sub_item_table
             assert.are.same({ "Home", "Library", "Reader", "Interface", "Extras", "General", "KOReader", "About" }, labels(root))
             assert.is_function(root[7].sub_item_table_func)
+            assert.are.same({ "Settings", "Tools", "Quit KOReader" }, labels(root[7].sub_item_table_func()))
             assert.are.equal("koreader.png", root[7].icon_file:match("([^/]+)$"))
             assert.is_nil(root[7].icon_glyph)
             local interface = root[4].sub_item_table
@@ -150,7 +147,7 @@ describe("settings menu organization", function()
             assert.are.same({ "Font size", "Font", "Reset font" }, labels(interface[5].sub_item_table))
             assert.are.equal("gear", root[6].icon_glyph)
             local general = root[6].sub_item_table
-            local expected = { "Wi-Fi", "Schedules", "Sleep", "Battery", "Language", "Time and date", "Advanced", "Updates" }
+            local expected = { "Wi-Fi", "Schedules", "Sleep", "Battery", "Advanced", "Updates" }
             if available then table.insert(expected, 2, "Bluetooth") end
             assert.are.same(expected, labels(general))
             local battery_item = general[available and 5 or 4]
@@ -213,14 +210,12 @@ describe("settings menu organization", function()
             missing_stats = "none"
             assert.are.same({ "-" }, labels(battery_item.sub_item_table_func()))
             assert.are.equal("Wi-Fi", general[1].text)
-            assert.are.equal(language_item.sub_item_table, general[#general - 3].sub_item_table)
-            assert.are.equal(time_item, general[#general - 2])
             if available then assert.are.equal("Bluetooth", general[2].text) end
             assert.are.same({ "Original control" }, labels(general[#general - 1].sub_item_table))
             assert.are.same({ "Original control" }, labels(general[#general].sub_item_table))
             assert.are.same({ "Original control", "Double tap to open books" }, labels(root[2].sub_item_table))
             assert.are.equal(double_tap_item, root[2].sub_item_table[#root[2].sub_item_table])
-            assert.are.same({ "Version", "Device", "Setup Guide", "Report a Bug", "Quit KOReader" }, labels(root[8].sub_item_table))
+            assert.are.same({ "Version", "Device", "Setup Guide", "Report a Bug" }, labels(root[8].sub_item_table))
             assert.are.same({ "Install ZenPM", "Zen OPDS", "Stats", "Rakuyomi", "Lockdown mode" }, labels(root[5].sub_item_table))
         end
         package.loaded["modules/settings/zen_settings"] = original_builder

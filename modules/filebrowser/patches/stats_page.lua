@@ -514,18 +514,14 @@ local function loadNativeCalendarView()
     if ok and CalendarView then return CalendarView end
 end
 
-local function calendarDayShift(stats_plugin)
-    local settings = stats_plugin and stats_plugin.settings or {}
-    if not settings.calendar_use_day_time_shift then return 0 end
-    return (tonumber(settings.calendar_day_start_hour) or 0) * 3600
-        + (tonumber(settings.calendar_day_start_minute) or 0) * 60
-end
-
 local function showCalendarDaySummary(stats_plugin, visible_day_ts, stat_style)
     stat_style = normalizeStatStyle(stat_style)
-    local shift = calendarDayShift(stats_plugin)
+    local shift = StatsDB.dayShift(stats_plugin)
     local period_begin = visible_day_ts + shift
-    local books = StatsDB.queryBooksForPeriod(period_begin, period_begin + 86400)
+    local next_day = os.date("*t", visible_day_ts)
+    next_day.day = next_day.day + 1
+    next_day.isdst = nil
+    local books = StatsDB.queryBooksForPeriod(period_begin, os.time(next_day) + shift)
     local total_duration = 0
     local total_pages = 0
     for _i, book in ipairs(books) do
@@ -637,7 +633,7 @@ local function installCalendarDaySummary(calendar, stats_plugin, stat_style)
     year = tonumber(year)
     month = tonumber(month)
     if not year or not month then return end
-    local today_s = os.date("%Y-%m-%d", os.time())
+    local today_s = os.date("%Y-%m-%d", os.time() - StatsDB.dayShift(stats_plugin))
     for _i, row in ipairs(calendar.layout) do
         for _j, day_widget in ipairs(row) do
             if day_widget and not day_widget.filler and day_widget.daynum then
@@ -863,7 +859,7 @@ local function buildContent(blocks_config, data, page_w, h_padding, top_padding,
     local c3_w = math.floor((body_w - card_gap * 2) / 3)
     local c4_w = math.floor((body_w - card_gap * 3) / 4)
     local stats = data.stats or {}
-    local now_t = os.date("*t")
+    local now_t = os.date("*t", os.time() - StatsDB.dayShift())
     local days_this_month = math.max(1, now_t.day)
     local days_this_year = math.max(1, now_t.yday)
     local block_hits = {}
@@ -1010,7 +1006,7 @@ local function buildContent(blocks_config, data, page_w, h_padding, top_padding,
                 year = tonumber(year), month = tonumber(month), day = tonumber(day),
                 hour = 0, min = 0, sec = 0,
             })
-            if os.date("%Y-%m-%d", day_ts) > os.date("%Y-%m-%d", os.time()) then return false end
+            if os.date("%Y-%m-%d", day_ts) > os.date("%Y-%m-%d", os.time() - StatsDB.dayShift()) then return false end
             showCalendarDaySummary(PluginLoader:getPluginInstance("statistics"), day_ts, stat_style)
             return true
         end

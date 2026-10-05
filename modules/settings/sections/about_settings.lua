@@ -14,6 +14,7 @@ local M = {}
 
 function M.build(ctx)
     local plugin = ctx.plugin
+    local language_setting = require("ui/language"):getLangMenuTable()
     local items = {}
 
     table.insert(items, {
@@ -50,6 +51,11 @@ function M.build(ctx)
                 end,
                 keep_menu_open = true,
             },
+            IconItem.decorate({
+                text = language_setting.text,
+                sub_item_table = language_setting.sub_item_table,
+            }, icons.language),
+            IconItem.decorate(require("ui/elements/common_settings_menu_table").time, icons.tbr),
         },
     })
 

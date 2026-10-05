@@ -83,7 +83,10 @@ describe("stats day popup page buttons", function()
             _onPageScrollToRow = function() error("Cards have no button rows") end,
         })
         ZenSpec.replace("common/ui/background", { tile_bg = function(color) return color end })
-        ZenSpec.replace("common/db_stats", { queryBooksForPeriod = function() return books end })
+        ZenSpec.replace("common/db_stats", {
+            dayShift = function() return 0 end,
+            queryBooksForPeriod = function() return books end,
+        })
         ZenSpec.replace("common/utils", { resolveLocalIcon = function() end })
         ZenSpec.replace("common/shared_state", { registerLoader = function() end })
         ZenSpec.replace("common/ui/zen_modal_close", {

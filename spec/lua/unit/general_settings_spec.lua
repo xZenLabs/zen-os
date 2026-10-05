@@ -39,12 +39,6 @@ describe("General settings", function()
             build = function() return {{ text = "Update option" }} end,
         })
         ZenSpec.replace("modules/settings/battery_stats_menu", { buildItems = function() return {} end })
-        ZenSpec.replace("ui/language", {
-            getLangMenuTable = function() return { text = "Language", sub_item_table = {} } end,
-        })
-        ZenSpec.replace("ui/elements/common_settings_menu_table", {
-            time = { text = "Time and date" },
-        })
         ZenSpec.replace("common/inline_icon_map", setmetatable({}, {
             __index = function(_self, key) return key end,
         }))
@@ -65,12 +59,12 @@ describe("General settings", function()
         local items = require("modules/settings/sections/general_settings").build({ plugin = {} }, extras)
         local labels = {}
         for _i, item in ipairs(items) do labels[#labels + 1] = item.text end
-        assert.are.same({ "Wi-Fi", "Schedules", "Sleep", "Battery", "Language", "Time and date", "Advanced", "Updates" }, labels)
+        assert.are.same({ "Wi-Fi", "Schedules", "Sleep", "Battery", "Advanced", "Updates" }, labels)
         assert.are.same({ "Zen Search" }, { extras[1].text })
         assert.are.equal(1, #extras)
         assert.are.equal("wifi_on", items[1].icon_glyph)
-        assert.are.equal("Advanced option", items[7].sub_item_table[1].text)
-        assert.are.equal("Update option", items[8].sub_item_table[1].text)
+        assert.are.equal("Advanced option", items[5].sub_item_table[1].text)
+        assert.are.equal("Update option", items[6].sub_item_table[1].text)
     end)
 
     it("opens Wi-Fi management and refreshes after a power change", function()

@@ -5,11 +5,21 @@ describe("statistics database", function()
     local flushes
     local week_settings
     local bound_values
+    local original_time, original_date, original_settings, now, live_stats_plugin
 
     before_each(function()
         week_settings = {}
+        original_time, original_date, original_settings = os.time, os.date, _G.G_reader_settings
+        now = original_time({ year = 2026, month = 1, day = 1, hour = 4, min = 29, sec = 59 })
+        rawset(os, "time", function(t) return t and original_time(t) or now end)
+        rawset(os, "date", function(format, ts) return original_date(format, ts or now) end)
+        _G.G_reader_settings = ZenSpec.memorySettings()
+        live_stats_plugin = nil
+        ZenSpec.replace("pluginloader", {
+            getPluginInstance = function() return live_stats_plugin end,
+        })
         ZenSpec.replace("config/preset_store", { getSettings = function() return week_settings end })
-        row_values = {}
+        row_values = { 0 }
         sqls = {}
         flushes = 0
         bound_values = nil
@@ -45,7 +55,68 @@ describe("statistics database", function()
     end)
 
     after_each(function()
+        rawset(os, "time", original_time)
+        rawset(os, "date", original_date)
+        _G.G_reader_settings = original_settings
         ZenSpec.unload("common/db_stats")
+    end)
+
+    it("uses live Statistics settings, falls back to saved settings, and respects the switch", function()
+        local StatsDB = require("common/db_stats")
+        assert.are.equal(0, StatsDB.dayShift())
+        G_reader_settings:saveSetting("statistics", {
+            calendar_use_day_time_shift = true,
+            calendar_day_start_hour = 4,
+            calendar_day_start_minute = 30,
+        })
+        assert.are.equal(16200, StatsDB.dayShift())
+        live_stats_plugin = { settings = { calendar_use_day_time_shift = false, calendar_day_start_hour = 6 } }
+        assert.are.equal(0, StatsDB.dayShift())
+        live_stats_plugin.settings.calendar_use_day_time_shift = true
+        assert.are.equal(21600, StatsDB.dayShift())
+        live_stats_plugin.settings.calendar_day_start_minute = 10
+        assert.are.equal(22200, StatsDB.dayShift())
+    end)
+
+    it("keeps all goal periods in the previous reading day until the cutoff", function()
+        G_reader_settings:saveSetting("statistics", {
+            calendar_use_day_time_shift = true,
+            calendar_day_start_hour = 4,
+            calendar_day_start_minute = 30,
+        })
+        local StatsDB = require("common/db_stats")
+        local fields = { "today_pages", "week_pages", "month_pages", "year_pages" }
+        StatsDB.queryHomeStats(fields)
+        for i, date in ipairs({ { 2025, 12, 31 }, { 2025, 12, 28 }, { 2025, 12, 1 }, { 2025, 1, 1 } }) do
+            local expected = original_time({
+                year = date[1], month = date[2], day = date[3], hour = 4, min = 30, sec = 0,
+            })
+            assert.is_truthy(sqls[i]:find("start_time >= " .. expected, 1, true))
+        end
+        now = now + 1
+        sqls = {}
+        StatsDB.queryHomeStats(fields)
+        for i, date in ipairs({ { 2026, 1, 1 }, { 2025, 12, 28 }, { 2026, 1, 1 }, { 2026, 1, 1 } }) do
+            local expected = original_time({
+                year = date[1], month = date[2], day = date[3], hour = 4, min = 30, sec = 0,
+            })
+            assert.is_truthy(sqls[i]:find("start_time >= " .. expected, 1, true))
+        end
+    end)
+
+    it("uses the cutoff for both Sunday and Monday week starts", function()
+        G_reader_settings:saveSetting("statistics", {
+            calendar_use_day_time_shift = true, calendar_day_start_hour = 4,
+        })
+        local StatsDB = require("common/db_stats")
+        for _i, case in ipairs({ { 1, 30, 23 }, { 2, 31, 24 } }) do
+            week_settings.week_start_day = case[1]
+            now = original_time({ year = 2026, month = 8, day = case[2], hour = 3 })
+            sqls = {}
+            StatsDB.queryHomeStats({ "week_pages" })
+            local expected = original_time({ year = 2026, month = 8, day = case[3], hour = 4 })
+            assert.is_truthy(sqls[1]:find("start_time >= " .. expected, 1, true))
+        end
     end)
 
     it("builds one query containing only the requested book details", function()
