@@ -61,6 +61,21 @@ function M.build(ctx)
             sub_item_table = display_mode_items,
         }, icons.settings_layout)
 
+        local opds_cover_pref = IconItem.decorate({
+            text = _("Prefer large covers"),
+            enabled_func = function()
+                return config.opds.display_mode == "mosaic"
+            end,
+            checked_func = function()
+                return config.opds.large_covers
+            end,
+            callback = function(touchmenu_instance)
+                config.opds.large_covers = config.opds.large_covers == false
+                plugin:saveConfig()
+                if touchmenu_instance then touchmenu_instance:updateItems() end
+            end,
+        })
+        opds_cover_pref.checkmark_callback = opds_cover_pref.callback
         local opds_item = {
             text = _("Zen OPDS"),
             help_text = _("Enable ZenOS enhancements to the OPDS browser: cover art, list view, hold menu, and navigation improvements."),
@@ -73,7 +88,7 @@ function M.build(ctx)
                 if touchmenu_instance then touchmenu_instance:updateItems() end
                 settings_apply.prompt_restart()
             end,
-            sub_item_table = { opds_display_item },
+            sub_item_table = { opds_display_item, opds_cover_pref },
         }
         opds_item.checkmark_callback = opds_item.callback
         table.insert(items, IconItem.decorate(opds_item, icons.settings_opds))
