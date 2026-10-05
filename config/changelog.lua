@@ -397,6 +397,8 @@ return {
     ["4.1.0"] = {
         "Add end of book screen",
         "Add OPDS improvements",
+        "Add setting to treat file updates as New status",
+        "Use KOReader stats plugin offset if set",
         "Bug fixes"
     }
 }
