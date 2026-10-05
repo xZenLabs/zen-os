@@ -607,7 +607,7 @@ def test_clean_emulator_renders_fixture_library_and_reader_goldens() -> None:
             assert driver.command("settings_page_select", label="General")["ok"] is True
             general_labels = driver.command("settings_page_state")["settings"]["labels"]
             expected_general = [
-                "Wi-Fi", "Schedules", "Sleep", "Battery", "Language", "Time and date", "Advanced", "Updates",
+                "Wi-Fi", "Schedules", "Sleep", "Battery", "Advanced", "Updates",
             ]
             if "Bluetooth" in general_labels:
                 expected_general.insert(1, "Bluetooth")
@@ -615,6 +615,12 @@ def test_clean_emulator_renders_fixture_library_and_reader_goldens() -> None:
             assert driver.command("settings_page_select", label="Advanced")["ok"] is True
             advanced_labels = driver.command("settings_page_state")["settings"]["labels"]
             assert "Double tap to open books" not in advanced_labels
+            assert driver.command("settings_page_back")["ok"] is True
+            assert driver.command("settings_page_back")["ok"] is True
+            assert driver.command("settings_page_select", label="About")["ok"] is True
+            assert driver.command("settings_page_select", label="Device")["ok"] is True
+            device_labels = driver.command("settings_page_state")["settings"]["labels"]
+            assert device_labels[-2:] == ["Language", "Time and date"]
             assert driver.command("settings_page_back")["ok"] is True
             assert driver.command("settings_page_back")["ok"] is True
             assert driver.command(

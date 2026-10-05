@@ -71,7 +71,7 @@ def test_native_settings_context_layout_selectors_and_defaults(format):
             driver.screenshot(artifact)
             _select(driver, "KOReader")
             labels = driver.command("settings_page_state")["settings"]["labels"]
-            assert labels == ["File browser", "Settings", "Tools", "Search", "Main menu"]
+            assert labels == ["File browser", "Settings", "Tools", "Search", "Main menu", "Quit KOReader"]
             assert driver.command("close_settings_page")["ok"]
             assert driver.command("open_book", path=str(book))["ok"]
             _wait(driver, "reader_state", lambda result: result.get("reader", {}).get("open") is True)
@@ -80,7 +80,7 @@ def test_native_settings_context_layout_selectors_and_defaults(format):
             # Opening a book must discard the previous browser route.
             _select(driver, "KOReader")
             labels = driver.command("settings_page_state")["settings"]["labels"]
-            assert labels == ["Navigation", "Typesetting", "Settings", "Tools", "Search", "Main menu"]
+            assert labels == ["Navigation", "Typesetting", "Settings", "Tools", "Search", "Main menu", "Quit KOReader"]
             _select(driver, "Typesetting")
             _select(driver, "Document settings")
             _select(driver, "Layout")
