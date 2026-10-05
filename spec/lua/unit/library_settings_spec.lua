@@ -24,6 +24,8 @@ describe("library settings", function()
         "ui/widget/pathchooser",
         "ui/widget/spinwidget",
         "common/ui/background",
+        "common/book_status",
+        "common/tbr_index",
     }
 
     before_each(function()
@@ -135,6 +137,42 @@ describe("library settings", function()
         assert.are.equal(3, invalidations)
         assert.are.equal(3, clears)
         assert.are.equal(3, refreshes)
+    end)
+
+    it("defaults file updates to the saved status and refreshes statuses when toggled", function()
+        local saves, clears, index_clears, item_clears, rebuilds, refreshes, menu_updates = 0, 0, 0, 0, 0, 0, 0
+        ZenSpec.replace("common/book_status", { clearCache = function() clears = clears + 1 end })
+        ZenSpec.replace("common/tbr_index", { invalidateStatusCache = function() index_clears = index_clears + 1 end })
+        package.loaded["common/shared_state"].get = function()
+            return {
+                rebuildActive = function() rebuilds = rebuilds + 1 end,
+            }
+        end
+        ZenSpec.replace("apps/filemanager/filemanager", {
+            instance = { file_chooser = {
+                refreshPath = function() refreshes = refreshes + 1 end,
+                _zen_clear_item_table_cache = function() item_clears = item_clears + 1 end,
+            } },
+        })
+        local config = { browser_hide_up_folder = {}, features = {} }
+        local items = require("modules/settings/sections/library_settings").build({
+            config = config,
+            plugin = { saveConfig = function() saves = saves + 1 end },
+            save_and_apply = function() end,
+        })
+        local setting = items[#items]
+        assert.are.equal("Treat file updates as New", setting.text)
+        assert.are.equal("Include new books in TBR", items[#items - 1].text)
+        assert.is_false(setting.checked_func())
+        local menu = { updateItems = function() menu_updates = menu_updates + 1 end }
+        setting.callback(menu)
+        assert.is_true(config.group_view.file_updates_as_new)
+        assert.is_true(setting.checked_func())
+        setting.callback(menu)
+        assert.is_false(config.group_view.file_updates_as_new)
+        assert.is_false(setting.checked_func())
+        assert.same({ 2, 2, 2, 2, 2, 2, 2 },
+            { saves, clears, index_clears, item_clears, rebuilds, refreshes, menu_updates })
     end)
 
     it("uses one arrange list for Book details ordering and toggles", function()
@@ -837,7 +875,7 @@ describe("library settings", function()
             save_and_apply = function() end,
         })
 
-        local context_menu = items[#items]
+        local context_menu = items[#items - 2]
         assert.are.equal("Context menu", context_menu.text)
         assert.are.equal(2, #context_menu.sub_item_table)
         local archive = context_menu.sub_item_table[1]

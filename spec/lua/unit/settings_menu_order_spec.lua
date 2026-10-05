@@ -132,6 +132,7 @@ describe("settings menu organization", function()
             assert.are.same({ "Home", "Library", "Reader", "Interface", "Extras", "General", "KOReader", "About" }, labels(root))
             assert.is_function(root[7].sub_item_table_func)
             assert.are.same({ "Settings", "Tools", "Quit KOReader" }, labels(root[7].sub_item_table_func()))
+            assert.is_true(root[7].sub_item_table_func()[3].keep_menu_open)
             assert.are.equal("koreader.png", root[7].icon_file:match("([^/]+)$"))
             assert.is_nil(root[7].icon_glyph)
             local interface = root[4].sub_item_table

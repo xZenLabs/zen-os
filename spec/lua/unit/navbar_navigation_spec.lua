@@ -38,7 +38,7 @@ describe("file browser navbar navigation", function()
         methods.new = methods.new or function(self, values)
             values = values or {}
             values.dimen = values.dimen or { w = values.width or 20, h = values.height or 20 }
-            values.getSize = values.getSize or function(self) return self.dimen end
+            values.getSize = values.getSize or function(widget) return widget.dimen end
             values.free = values.free or function() end
             values.paintTo = values.paintTo or self.paintTo
             built_widgets[#built_widgets + 1] = { widget = values, class = self }

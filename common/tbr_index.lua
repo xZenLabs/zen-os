@@ -480,6 +480,7 @@ local function sidecar_signature(path, attr)
         sidecar,
         tostring(sidecar_attr.size or 0),
         tostring(sidecar_attr.modification or 0),
+        tostring(BookStatus.fileUpdatesAsNewEnabled()),
     }, "\31")
 end
 

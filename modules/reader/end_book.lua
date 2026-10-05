@@ -69,8 +69,8 @@ function EndBook:leave(options)
             and require("common/library_navigation").restoreEnabled(plugin) then
         options = {}
     end
-    self:onClose()
     UIManager:nextTick(function()
+        self:onClose()
         if ui then
             require("common/library_navigation").showFromReader(ui, plugin, options)
         elseif options.force_default then
@@ -89,9 +89,8 @@ end
 function EndBook:openBook(path)
     if self.preview or path == self.data.file then return self:showCover(path) end
     local ui = self.ui
-    self:onClose()
     UIManager:nextTick(function()
-        require("apps/filemanager/filemanagerutil").openFile(ui, path)
+        require("apps/filemanager/filemanagerutil").openFile(ui, path, function() self:onClose() end)
     end)
 end
 
@@ -275,7 +274,7 @@ function EndBook:buildNavigationRow(width, height, max_height)
         local button = IconButton:new{
             file = resolve_icon(config.navigation_icons and config.navigation_icons[entry.id] or entry.icon),
             width = size, height = size, padding = padding, enabled = enabled,
-            show_parent = self, allow_flash = false, callback = function() self:onFeaturedAction(entry) end,
+            show_parent = self, allow_flash = enabled, callback = function() self:onFeaturedAction(entry) end,
         }
         button.image.dim = not enabled
         self.featured_navigation_buttons[#self.featured_navigation_buttons + 1] = button
@@ -416,7 +415,6 @@ function EndBook:rebuild()
             ctx.module_cfg = strip_config
             ctx.registerStripCoverListener = function(listener) return self:registerStripCoverListener(listener) end
             ctx.showBookMenu = function(path, source) return self:showBookMenu(path, source) end
-            ctx.skipOpeningBanner = true
             if self.preview then ctx.openCover = function(path) return self:showCover(path) end end
             if not self._zen_home_strip_runtime or self._zen_home_strip_runtime.active_id ~= self.source then
                 self._zen_home_strip_runtime = {

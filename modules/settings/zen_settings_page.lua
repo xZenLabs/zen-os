@@ -648,6 +648,7 @@ function ZenSettingsPage:onClose()
 end
 
 function ZenSettingsPage:onExit()
+    self._exiting = true
     return self:closeMenu()
 end
 
@@ -730,6 +731,7 @@ function ZenSettingsPage:onCloseWidget()
     end
     self:_flushDeferredSettingsApplies()
     UIManager:nextTick(function()
+        if self._exiting then return end
         local stack = UIManager._window_stack or {}
         local top
         for i = #stack, 1, -1 do

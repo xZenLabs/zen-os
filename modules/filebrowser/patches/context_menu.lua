@@ -2424,8 +2424,13 @@ local function apply_context_menu()
                             local DocSettings = require("docsettings")
                             local doc_settings = DocSettings:open(file)
                             local summary = doc_settings:readSetting("summary") or {}
-                            local current_status = summary.status
-                            local is_unread = not current_status or current_status == ""
+                            local percent_finished = doc_settings:readSetting("percent_finished")
+                            local current_status = book_status.getComputedStatus(
+                                file, summary.status, percent_finished, doc_settings)
+                            local is_unread = current_status == "new"
+                            local unread_label = is_unread
+                                and not book_status.isNewStatus(summary.status, percent_finished)
+                                and _("New") or _("Unread")
                             local status_dialog
                             local is_explicit_tbr = false
                             pcall(function()
@@ -2509,7 +2514,7 @@ local function apply_context_menu()
                                 title = _("Read status"),
                                 title_align = "center",
                                 buttons = apply_button_group_font({
-                                    statusBtn(icons.status, _("Unread"), nil),
+                                    statusBtn(icons.status, unread_label, nil),
                                     statusBtn(icons.reading, _("Reading"), "reading"),
                                     statusBtn(icons.tbr, _("To Be Read"), "tbr"),
                                     statusBtn(icons.on_hold, _("On hold"), "abandoned"),

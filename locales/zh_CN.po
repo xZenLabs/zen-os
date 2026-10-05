@@ -3828,6 +3828,12 @@ msgstr "未找到新闻文件夹: "
 msgid "Next"
 msgstr "下一个"
 
+#. Type: button
+#. Context: { id = "next_file", label = _("Next file"), icon = "tab_right" },
+#: end_book_data.lua:29
+msgid "Next file"
+msgstr "下一个文件"
+
 #. Type: setting
 #. Context: M.sources = { { "next_series", _("Next in series") }, { "author", _("More by author") },
 #: end_book_settings.lua:10
@@ -4280,7 +4286,7 @@ msgstr "打开启动器菜单"
 
 #. Type: button
 #. Context: next_file_btn = Button:new{ text = _("Open next file"), width = action_width,
-#: end_book_data.lua:29 book_status.lua:231
+#: book_status.lua:231
 msgid "Open next file"
 msgstr "打开下一个文件"
 
@@ -5634,6 +5640,12 @@ msgstr "显示 KOAssistant"
 msgid "Show labels"
 msgstr "显示标签"
 
+#. Type: message
+#. Context: text = _("Treat file updates as New"), help_text = _("Show modified books as New until they are opened or their read status is changed."), checked_func = function()
+#: library_settings.lua:1734
+msgid "Show modified books as New until they are opened or their read status is changed."
+msgstr "将修改过的书籍显示为新书，直到打开书籍或更改其阅读状态。"
+
 #. Type: setting
 #. Context: { text = _("Show new banner"), checked_func = function()
 #: library_settings.lua:619
@@ -6450,6 +6462,12 @@ msgstr "充满所用总时间"
 msgid "Tracked samples"
 msgstr "已记录的采样数"
 
+#. Type: setting
+#. Context: table.insert(items, IconItem.decorate({ text = _("Treat file updates as New"), help_text = _("Show modified books as New until they are opened or their read status is changed."),
+#: library_settings.lua:1733
+msgid "Treat file updates as New"
+msgstr "将更新的文件视为新书"
+
 #. Type: description
 #. Context: image = img("onboarding/zen_mode.png"), description = _("Turn on Zen mode to strip KOReader down to its bare essentials.\n\nRemove visual clutter for a focused, distraction-free reading experience. Exit at anytime from Settings.") .. "\n...
 #: quickstart_pages.lua:717
@@ -6947,6 +6965,12 @@ msgstr "Wi-Fi已连接，但连接检查失败。请尝试重新连接。"
 #: nonblocking_wifi.lua:279
 msgid "Wi-Fi connected, but the connection check timed out. Internet access may be unavailable."
 msgstr "Wi-Fi已连接，但连接检查超时。可能无法访问互联网。"
+
+#. Type: message
+#. Context: if not driver_ready() then local problem = _("Wi-Fi is not initialized. Enable Wi-Fi once in Kobo's native interface, then reopen KOReader. Repeat after each device reboot.") self._zen_wifi_startup_error = problem
+#: nonblocking_wifi.lua:313
+msgid "Wi-Fi is not initialized. Enable Wi-Fi once in Kobo's native interface, then reopen KOReader. Repeat after each device reboot."
+msgstr "Wi-Fi 尚未初始化。请先在 Kobo 原生界面中开启一次 Wi-Fi，然后重新打开 KOReader。每次重启设备后都需重复此操作。"
 
 #. Type: title
 #. Context: search_visible = false, title = _("Wi-Fi networks"), title_full_width = true,

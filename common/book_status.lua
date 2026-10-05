@@ -179,6 +179,13 @@ function M.includeNewInTBREnabled()
         and cfg.group_view.include_new_in_tbr == true
 end
 
+function M.fileUpdatesAsNewEnabled()
+    local ok, ConfigManager = pcall(require, "config/manager")
+    if not ok then return false end
+    local cfg = ConfigManager.get()
+    return cfg and cfg.group_view and cfg.group_view.file_updates_as_new == true or false
+end
+
 function M.getDisplayStatus(file_path, effective_status)
     if effective_status == "new" and M.includeNewInTBREnabled() then
         return "tbr"
@@ -251,7 +258,8 @@ end
 
 local function get_computed_status(file_path, status, percent_finished, doc_settings, context)
     local effective_status = M.getEffectiveStatus(status, percent_finished)
-    if effective_status == "new" or M.isImageFile(file_path) then
+    if effective_status == "new" or M.isImageFile(file_path)
+            or not M.fileUpdatesAsNewEnabled() then
         return effective_status
     end
 

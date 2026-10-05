@@ -14,6 +14,9 @@ describe("book status", function()
     before_each(function()
         clock = 0
         ZenSpec.unload("common/book_status")
+        ZenSpec.replace("config/manager", {
+            get = function() return { group_view = { file_updates_as_new = true } } end,
+        })
         ZenSpec.replace("common/zen_logger", {
             now = function() return clock end,
             new = function()
@@ -83,6 +86,51 @@ describe("book status", function()
         assert.are.equal("reading", BookStatus.getComputedStatus(
             "/books/cover.png", nil, 0.5, doc
         ))
+    end)
+
+    it("preserves updated books' status by default and marks them new only when enabled", function()
+        local doc, data = settings({
+            summary = { status = "complete" },
+            percent_finished = 1,
+        })
+        ZenSpec.replace("docsettings", {
+            findSidecarFile = function() return "/books/book.sdr/metadata.lua" end,
+            open = function() return doc end,
+        })
+        local cfg = { group_view = {} }
+        ZenSpec.replace("config/manager", { get = function() return cfg end })
+        ZenSpec.replace("common/tbr_index", { isExplicit = function() return false end })
+        local BookStatus = require("common/book_status")
+        assert.is_false(require("config/defaults").group_view.file_updates_as_new)
+        assert.is_false(BookStatus.fileUpdatesAsNewEnabled())
+        assert.are.equal("complete", BookStatus.getComputedStatus(
+            "/books/book.epub", "complete", nil, doc))
+
+        for _i, marker in ipairs({ false, 100 }) do
+            data.zen_new_mtime = marker or nil
+            for _j, enabled in ipairs({ true, false, true }) do
+                cfg.group_view.file_updates_as_new = enabled
+                BookStatus.clearCache()
+                local expected = enabled and "new" or "complete"
+                assert.are.equal(expected, BookStatus.getComputedStatus(
+                    "/books/book.epub", "complete", nil, doc))
+                assert.are.equal(enabled and "new" or "reading", BookStatus.getComputedStatus(
+                    "/books/book.epub", "reading", 0.5, doc))
+                assert.are.equal("new", BookStatus.getComputedStatus(
+                    "/books/book.epub", nil, nil, doc))
+                local status = BookStatus.getFileStatusData("/books/book.epub", {
+                    status = "reading", percent_finished = 0.5,
+                })
+                assert.are.equal("complete", status.status)
+                assert.are.equal(expected, status.effective_status)
+                assert.are.equal(expected, status.display_status)
+                assert.are.equal(1, status.percent_finished)
+                assert.are.equal(marker or nil, data.zen_new_mtime)
+            end
+        end
+        BookStatus.acknowledgeNewVersion(doc)
+        BookStatus.clearCache()
+        assert.are.equal("complete", BookStatus.getEffectiveStatusFromFile("/books/book.epub"))
     end)
 
     it("acknowledges the current file version and removes the legacy marker", function()

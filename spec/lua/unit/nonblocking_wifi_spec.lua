@@ -182,6 +182,108 @@ describe("background Wi-Fi toggles", function()
         _G.G_defaults = defaults
     end)
 
+    describe("Kobo Clara BW cold startup", function()
+        local driver_ready
+
+        before_each(function()
+            driver_ready = false
+            Device.model = "Kobo_spaBW"
+            Device.isMTK = function() return true end
+            package.loaded["util"].pathExists = function(path)
+                assert.are.equal("/proc/driver/wmt_dbg", path)
+                return driver_ready
+            end
+            ZenSpec.unload("ui/network/manager")
+            NetworkMgr = require("ui/network/manager")
+            NetworkMgr.getAllSavedNetworks = function() return ZenSpec.memorySettings() end
+            require("modules/global/patches/nonblocking_wifi")()
+        end)
+
+        for _i, method in ipairs({ "toggleWifiOn", "restoreWifiAsync" }) do
+            it("blocks " .. method .. " before the driver is initialized", function()
+                NetworkMgr[method](NetworkMgr, function() error("Must not connect") end, false, true,
+                    function() error("Must not open the scanner") end)
+                finish_worker()
+
+                assert.is_false(wifi_on)
+                assert.are.equal(0, off_calls)
+                assert.are.equal(1, #workers)
+                assert.is_false(NetworkMgr.pending_connection)
+                assert.is_false(NetworkMgr.pending_connectivity_check)
+                assert.is_false(NetworkMgr:isWifiChanging())
+                assert.are.equal(0, #scheduled)
+                assert.are.equal(0, standby)
+                assert.is_truthy(shown[#shown].text:find("Kobo's native interface", 1, true))
+                assert.are.equal(8, shown[#shown].timeout)
+            end)
+        end
+
+        it("guards direct power calls made by a scan worker", function()
+            local reason
+            NetworkMgr:runWifiAsync(function()
+                return NetworkMgr:turnOnWifi()
+            end, function(_result, err)
+                assert.is_false(in_child)
+                reason = err
+            end)
+            finish_worker()
+
+            assert.is_false(wifi_on)
+            assert.are.equal(0, off_calls)
+            assert.is_false(NetworkMgr.pending_connection)
+            assert.are.equal(0, standby)
+            assert.is_truthy(reason:find("Kobo's native interface", 1, true))
+            assert.are.equal(reason, shown[#shown].text)
+        end)
+
+        it("guards synchronous callers and their abort cleanup", function()
+            assert.is_false(NetworkMgr:enableWifi(nil, false))
+            finish_worker()
+
+            assert.is_false(wifi_on)
+            assert.are.equal(0, off_calls)
+            assert.is_false(NetworkMgr.pending_connection)
+            assert.is_false(NetworkMgr.pending_connectivity_check)
+            assert.are.equal(0, standby)
+            assert.is_truthy(shown[#shown].text:find("Kobo's native interface", 1, true))
+        end)
+
+        it("allows normal toggles once Nickel initializes the driver", function()
+            NetworkMgr:restoreWifiAsync()
+            finish_worker()
+            driver_ready = true
+
+            local completed = 0
+            NetworkMgr:toggleWifiOn(function() completed = completed + 1 end, false, false)
+            finish_worker()
+            tick()
+            assert.is_true(wifi_on)
+            assert.are.equal(1, completed)
+            assert.is_false(NetworkMgr.pending_connection)
+
+            NetworkMgr:toggleWifiOff(function() completed = completed + 1 end, false)
+            finish_worker()
+            assert.is_false(wifi_on)
+            assert.are.equal(1, off_calls)
+            assert.are.equal(2, completed)
+            assert.are.equal(0, standby)
+        end)
+
+        it("preserves cold startup on other MediaTek Kobos", function()
+            Device.model = "Kobo_monza"
+            ZenSpec.unload("ui/network/manager")
+            NetworkMgr = require("ui/network/manager")
+            NetworkMgr.getAllSavedNetworks = function() return ZenSpec.memorySettings() end
+            require("modules/global/patches/nonblocking_wifi")()
+
+            NetworkMgr:restoreWifiAsync()
+            finish_worker()
+            assert.is_true(wifi_on)
+            assert.are.equal(1, #workers)
+            assert.are.equal(0, standby)
+        end)
+    end)
+
     it("reports IP, route, DNS and check failures without disconnecting Wi-Fi", function()
         wifi_on, connected = true, true
         local cases = {

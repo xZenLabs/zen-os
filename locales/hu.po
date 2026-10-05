@@ -3828,6 +3828,12 @@ msgstr "A hírek mappa nem található: "
 msgid "Next"
 msgstr "Következő"
 
+#. Type: button
+#. Context: { id = "next_file", label = _("Next file"), icon = "tab_right" },
+#: end_book_data.lua:29
+msgid "Next file"
+msgstr "Következő fájl"
+
 #. Type: setting
 #. Context: M.sources = { { "next_series", _("Next in series") }, { "author", _("More by author") },
 #: end_book_settings.lua:10
@@ -4280,7 +4286,7 @@ msgstr "Menü megnyitása az Indítóhoz"
 
 #. Type: button
 #. Context: next_file_btn = Button:new{ text = _("Open next file"), width = action_width,
-#: end_book_data.lua:29 book_status.lua:231
+#: book_status.lua:231
 msgid "Open next file"
 msgstr "Következő fájl megnyitása"
 
@@ -5634,6 +5640,12 @@ msgstr "KOAssistant megjelenítése"
 msgid "Show labels"
 msgstr "Címkék megjelenítése"
 
+#. Type: message
+#. Context: text = _("Treat file updates as New"), help_text = _("Show modified books as New until they are opened or their read status is changed."), checked_func = function()
+#: library_settings.lua:1734
+msgid "Show modified books as New until they are opened or their read status is changed."
+msgstr ""
+
 #. Type: setting
 #. Context: { text = _("Show new banner"), checked_func = function()
 #: library_settings.lua:619
@@ -6449,6 +6461,12 @@ msgstr "Teljes feltöltés teljes ideje"
 #: battery_stats_menu.lua:48
 msgid "Tracked samples"
 msgstr "Követhető minták"
+
+#. Type: setting
+#. Context: table.insert(items, IconItem.decorate({ text = _("Treat file updates as New"), help_text = _("Show modified books as New until they are opened or their read status is changed."),
+#: library_settings.lua:1733
+msgid "Treat file updates as New"
+msgstr ""
 
 #. Type: description
 #. Context: image = img("onboarding/zen_mode.png"), description = _("Turn on Zen mode to strip KOReader down to its bare essentials.\n\nRemove visual clutter for a focused, distraction-free reading experience. Exit at anytime from Settings.") .. "\n...

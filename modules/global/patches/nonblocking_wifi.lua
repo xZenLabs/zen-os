@@ -89,6 +89,8 @@ local function apply_nonblocking_wifi()
         local job = table.remove(queued, 1)
         local pid, read_fd = ffiutil.runInSubProcess(function(_pid, write_fd)
             ffi.C.fcntl(write_fd, 2, ffi.cast("int", 1)) -- FD_CLOEXEC: keep Wi-Fi daemons out of the pipe.
+            NetworkMgr._zen_wifi_worker = true
+            NetworkMgr._zen_wifi_startup_error = nil
             if job.method_name then NetworkMgr[job.method_name] = job.method end
             NetworkMgr.wifi_toggle_long_press = job.long_press
             local completed, show_menu = false, false
@@ -124,6 +126,7 @@ local function apply_nonblocking_wifi()
                 lease_ssid = NetworkMgr.lease_ssid,
                 value = job.action and ok and status or nil,
                 error = not ok and tostring(status) or nil,
+                startup_error = NetworkMgr._zen_wifi_startup_error,
             }), true)
         end, true)
         if not pid then
@@ -172,7 +175,15 @@ local function apply_nonblocking_wifi()
             if not job.cancelled then
                 NetworkMgr.wifi_toggle_long_press = nil
                 NetworkMgr.nw_settings = nil -- Reload credentials saved by the worker.
-                if job.action then
+                if result and result.startup_error then
+                    NetworkMgr:unscheduleConnectivityCheck()
+                    NetworkMgr.pending_connection = false
+                    NetworkMgr.wifi_was_on = false
+                    NetworkMgr.lease_ssid = nil
+                    G_reader_settings:makeFalse("wifi_was_on")
+                    if job.action then job.complete_callback(nil, result.startup_error) end
+                    NetworkMgr:showWifiNotice(result.startup_error, 8)
+                elseif job.action then
                     local value, err
                     if result and not job.timed_out then value, err = result.value, result.error end
                     if job.timed_out then err = "timeout" end
@@ -289,6 +300,33 @@ local function apply_nonblocking_wifi()
                 and ffiutil.template(_("Connected to %1."):gsub("%.$", ""):gsub("。$", ""), ssid)
                 or _("Connected."):gsub("%.$", ""):gsub("。$", ""))
         end, true, 15)
+    end
+    if Device.isKobo and Device:isKobo() and Device.model == "Kobo_spaBW" then
+        local function driver_ready()
+            return require("util").pathExists("/proc/driver/wmt_dbg")
+        end
+        local turnOnWifi, turnOffWifi = NetworkMgr.turnOnWifi, NetworkMgr.turnOffWifi
+        NetworkMgr.turnOnWifi = function(self, ...)
+            self._zen_wifi_startup_error = nil
+            -- Cold driver bring-up can reboot Clara BW before Nickel initializes Wi-Fi (#13197).
+            if not driver_ready() then
+                local problem = _("Wi-Fi is not initialized. Enable Wi-Fi once in Kobo's native interface, then reopen KOReader. Repeat after each device reboot.")
+                self._zen_wifi_startup_error = problem
+                self:unscheduleConnectivityCheck()
+                self.pending_connection = false
+                logger.warn("Blocked cold Clara BW Wi-Fi startup: /proc/driver/wmt_dbg is missing")
+                if not self._zen_wifi_worker then self:showWifiNotice(problem, 8) end
+                return false, problem
+            end
+            return turnOnWifi(self, ...)
+        end
+        NetworkMgr.turnOffWifi = function(self, callback, ...)
+            if not driver_ready() then
+                if callback then callback() end
+                return
+            end
+            return turnOffWifi(self, callback, ...)
+        end
     end
     local disableWifi = NetworkMgr.disableWifi
     NetworkMgr.disableWifi = function(self, ...)

@@ -1011,10 +1011,13 @@ function M.build(ctx)
         }
     end
 
-    refresh_filechooser = function()
+    refresh_filechooser = function(clear_cache)
         local ok, FileManager = pcall(require, "apps/filemanager/filemanager")
         local fm = ok and FileManager and FileManager.instance
         if fm and fm.file_chooser and type(fm.file_chooser.refreshPath) == "function" then
+            if clear_cache and fm.file_chooser._zen_clear_item_table_cache then
+                fm.file_chooser:_zen_clear_item_table_cache()
+            end
             pcall(fm.file_chooser.refreshPath, fm.file_chooser)
         end
     end
@@ -1727,26 +1730,6 @@ function M.build(ctx)
     }, icons.details))
 
     table.insert(items, IconItem.decorate({
-        text = _("Include new books in TBR"),
-        help_text = _("New includes unread books and books modified since they were last opened."),
-        checked_func = function()
-            return type(config.group_view) == "table"
-                and config.group_view.include_new_in_tbr == true
-        end,
-        callback = function(touchmenu_instance)
-            if type(config.group_view) ~= "table" then config.group_view = {} end
-            config.group_view.include_new_in_tbr =
-                config.group_view.include_new_in_tbr ~= true
-            plugin:saveConfig()
-            local home = SharedState.get(plugin, "home")
-            if home and home.rebuildActive then
-                home.rebuildActive()
-            end
-            if touchmenu_instance then touchmenu_instance:updateItems() end
-        end,
-    }, icons.tbr))
-
-    table.insert(items, IconItem.decorate({
         text = _("Context menu"),
         sub_item_table = {
             {
@@ -1777,6 +1760,47 @@ function M.build(ctx)
             },
         },
     }, icons.more_vertical))
+
+    table.insert(items, IconItem.decorate({
+        text = _("Include new books in TBR"),
+        help_text = _("New includes unread books and books modified since they were last opened."),
+        checked_func = function()
+            return type(config.group_view) == "table"
+                and config.group_view.include_new_in_tbr == true
+        end,
+        callback = function(touchmenu_instance)
+            if type(config.group_view) ~= "table" then config.group_view = {} end
+            config.group_view.include_new_in_tbr =
+                config.group_view.include_new_in_tbr ~= true
+            plugin:saveConfig()
+            local home = SharedState.get(plugin, "home")
+            if home and home.rebuildActive then
+                home.rebuildActive()
+            end
+            if touchmenu_instance then touchmenu_instance:updateItems() end
+        end,
+    }, icons.tbr))
+
+    table.insert(items, IconItem.decorate({
+        text = _("Treat file updates as New"),
+        help_text = _("Show modified books as New until they are opened or their read status is changed."),
+        checked_func = function()
+            return config.group_view and config.group_view.file_updates_as_new == true or false
+        end,
+        callback = function(touchmenu_instance)
+            if type(config.group_view) ~= "table" then config.group_view = {} end
+            config.group_view.file_updates_as_new = config.group_view.file_updates_as_new ~= true
+            plugin:saveConfig()
+            require("common/book_status").clearCache()
+            require("common/tbr_index").invalidateStatusCache()
+            local home = SharedState.get(plugin, "home")
+            if home then
+                home.rebuildActive()
+            end
+            refresh_filechooser(true)
+            if touchmenu_instance then touchmenu_instance:updateItems() end
+        end,
+    }, icons.refresh))
 
     return items
 end

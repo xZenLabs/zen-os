@@ -26,7 +26,7 @@ M.actions = {
     { id = "to_be_read", label = _("To Be Read"), icon = "tab_to_be_read", destination = { target_tab = "to_be_read" } },
     { id = "home", label = _("Home"), icon = "home", destination = { open_home = true } },
     { id = "archive", label = _("Archive"), icon = "archive" },
-    { id = "next_file", label = _("Open next file"), icon = "tab_right" },
+    { id = "next_file", label = _("Next file"), icon = "tab_right" },
     { id = "restart", label = _("Restart Book"), icon = "restart" },
 }
 
@@ -205,7 +205,9 @@ function M.recommendations(file, book, author_groups, series_groups, get_status)
     for _i, group in ipairs(series_groups) do
         if group.series == book.series then
             for _j, item in ipairs(group.items) do
-                if not is_current(item.file) then result.next_series[#result.next_series + 1] = item.file end
+                if not is_current(item.file) and status(item.file) ~= "complete" then
+                    result.next_series[#result.next_series + 1] = item.file
+                end
             end
         else
             local last_finished, reading

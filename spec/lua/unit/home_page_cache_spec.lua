@@ -1884,6 +1884,31 @@ describe("home data and book caches", function()
             provider:getStripPageInfo(source, 1, "default", "strip", 0))
     end)
 
+    it("refreshes cached book statuses when the file-update setting changes", function()
+        local cfg = { group_view = { file_updates_as_new = true }, browser_cover_badges = { dim_finished_books = true } }
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local build = get_build_data_provider(Home)
+        local dcfg = {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        }
+        local source = { kind = "custom", paths = { "/library/alpha.epub" } }
+        resolved_status = "new"
+        local books = build(cfg, dcfg):getStripItemsForPage(source, 4, "default", "strip", 0)
+        assert.are.equal("new", books[1].status)
+
+        cfg.group_view.file_updates_as_new = false
+        resolved_status = "complete"
+        books = build(cfg, dcfg):getStripItemsForPage(source, 4, "default", "strip", 0)
+        assert.are.equal("complete", books[1].status)
+        assert.are.equal(2, doc_open_count)
+
+        cfg.group_view.file_updates_as_new = true
+        resolved_status = "new"
+        books = build(cfg, dcfg):getStripItemsForPage(source, 4, "default", "strip", 0)
+        assert.are.equal("new", books[1].status)
+    end)
+
     it("prefers authoritative status for dimming over cached metadata", function()
         resolved_status = "complete"
         ZenSpec.replace("ui/widget/booklist", {

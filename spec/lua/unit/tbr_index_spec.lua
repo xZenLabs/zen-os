@@ -171,6 +171,9 @@ describe("TBR path inventory", function()
         })
         ZenSpec.replace("common/book_status", {
             isImageFile = function() return false end,
+            fileUpdatesAsNewEnabled = function()
+                return config.group_view and config.group_view.file_updates_as_new == true or false
+            end,
             migrateLegacyMarker = function(_path, status) return status end,
             getComputedStatus = function(_path, status, percent)
                 if status then return status end
@@ -483,6 +486,31 @@ describe("TBR path inventory", function()
         Index.invalidateStatusCache()
         assert.same({ "/books/b.epub", "/books/a.epub" },
             Index.getAll({ include_new = true }))
+        assert.are.equal(3, opens)
+    end)
+
+    it("reclassifies unchanged sidecars after the file-update setting changes, including after reload", function()
+        add_book("/books/a.epub", "complete", 1)
+        attrs["/books/a.epub"].modification = 2
+        package.loaded["common/book_status"].getComputedStatus = function(_path, status)
+            return config.group_view.file_updates_as_new and "new" or status
+        end
+        config.group_view = { file_updates_as_new = true }
+        local Index = require("common/tbr_index")
+        assert.same({ "/books/a.epub" }, Index.getByStatuses({ new = true }))
+        assert.are.equal(1, opens)
+
+        config.group_view.file_updates_as_new = false
+        Index.invalidateStatusCache()
+        assert.same({}, Index.getByStatuses({ new = true }))
+        assert.same({ "/books/a.epub" }, Index.getByStatuses({ complete = true }))
+        assert.are.equal(2, opens)
+
+        Index.close()
+        config.group_view.file_updates_as_new = true
+        ZenSpec.unload("common/tbr_index")
+        Index = require("common/tbr_index")
+        assert.same({ "/books/a.epub" }, Index.getByStatuses({ new = true }))
         assert.are.equal(3, opens)
     end)
 

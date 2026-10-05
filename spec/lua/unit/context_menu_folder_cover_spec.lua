@@ -656,6 +656,92 @@ describe("folder cover context-menu integration", function()
         assert.are.equal(6, home_rebuilds)
     end)
 
+    it("shows an updated finished book as New in Read status and allows acknowledging it", function()
+        local shown = {}
+        local cfg = { group_view = { file_updates_as_new = true } }
+        local values = { summary = { status = "complete" }, percent_finished = 1, zen_new_mtime = 100 }
+        local doc = {
+            data = { doc_path = "/books/book.epub" },
+            readSetting = function(_self, key) return values[key] end,
+            saveSetting = function(_self, key, value) values[key] = value end,
+        }
+        local chooser = { name = "filemanager", path = "/books", refreshPath = function() end }
+        local fm = { file_chooser = chooser }
+        local FileManager = { instance = fm, setupLayout = function() end, moveFile = function() end }
+        install_stubs({
+            FileChooser = { show_filter = {}, show_file = function() return true end },
+            FileManager = FileManager,
+            Files = { isManaged = function() return false end },
+            ConfigManager = { get = function() return cfg end },
+            UIManager = {
+                show = function(_self, widget) shown[#shown + 1] = widget end,
+                close = function() end,
+                nextTick = function(_self, callback) callback() end,
+            },
+            Cover = {
+                BORDER_SIZE = 1,
+                getRatio = function() return 2 / 3 end,
+                makeCover = function() return {}, 80, 120 end,
+            },
+            BookInfoManager = { getBookInfo = function() return { title = "Book" } end },
+            lfs = {
+                attributes = function(_path, attribute)
+                    return attribute and 200 or { mode = "file", modification = 200 }
+                end,
+            },
+            paths = {
+                getHomeDir = function() return "/books" end,
+                isInHomeDir = function() return true end,
+                isHomeRoot = function() return false end,
+                isPrimaryHomeRoot = function() return false end,
+            },
+        })
+        replace("common/book_status", nil)
+        replace("docsettings", { open = function() return doc end })
+        replace("ui/widget/booklist", { setBookInfoCacheProperty = function() end })
+        replace("apps/filemanager/filemanagerutil", { saveSummary = function() end })
+        replace("common/tbr_index", {
+            isExplicit = function() return false end,
+            setExplicit = function() end,
+            refreshPath = function() end,
+        })
+        replace("common/inline_icon_map", {
+            arrow_right = ">", read_status = "status", status = "unread", reading = "reading",
+            tbr = "tbr", on_hold = "on hold", finished = "finished", details = "details", edit = "edit",
+        })
+        apply_patch()
+        FileManager.setupLayout(fm)
+        local item = { path = "/books/book.epub", is_file = true }
+        local function open_status()
+            chooser:showFileDialog(item)
+            assert(find_button(shown[#shown], "Read status")).callback()
+            return shown[#shown]
+        end
+
+        local dialog = open_status()
+        assert.matches("New  \u{2713}", assert(find_button(dialog, "New")).text, 1, true)
+        assert.is_false(find_button(dialog, "New").enabled)
+        assert.is_true(find_button(dialog, "Finished").enabled)
+        assert.are.equal("complete", values.summary.status)
+        assert.are.equal(100, values.zen_new_mtime)
+
+        cfg.group_view.file_updates_as_new = false
+        dialog = open_status()
+        assert.matches("Finished  \u{2713}", find_button(dialog, "Finished").text, 1, true)
+        assert.is_false(find_button(dialog, "Finished").enabled)
+
+        cfg.group_view.file_updates_as_new = true
+        dialog = open_status()
+        find_button(dialog, "Finished").callback()
+        assert.are.equal(200, values.zen_new_mtime)
+        assert.are.equal("complete", values.summary.status)
+        assert.is_false(find_button(open_status(), "Finished").enabled)
+
+        values.summary.status = nil
+        values.percent_finished = nil
+        assert.is_false(find_button(open_status(), "Unread").enabled)
+    end)
+
     it("flashes only the painted context-menu cover and skips closed dialogs", function()
         local scheduled, flashes = {}, {}
         local top_widget

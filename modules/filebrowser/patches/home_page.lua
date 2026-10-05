@@ -256,9 +256,12 @@ local function new_home_dataset()
     }
 end
 
-local function get_home_dataset()
-    if not _home_dataset_cache or os.time() >= _home_dataset_cache.expires_at then
+local function get_home_dataset(cfg)
+    local file_updates_as_new = cfg.group_view and cfg.group_view.file_updates_as_new == true or false
+    if not _home_dataset_cache or os.time() >= _home_dataset_cache.expires_at
+            or _home_dataset_cache.file_updates_as_new ~= file_updates_as_new then
         _home_dataset_cache = new_home_dataset()
+        _home_dataset_cache.file_updates_as_new = file_updates_as_new
     end
     return _home_dataset_cache
 end
@@ -321,7 +324,7 @@ local function clone_cached_book(book, include_internal, include_cover)
     return out
 end
 
-local function get_home_book_cache_key(path)
+local function get_home_book_cache_key(path, cfg)
     local ok_lfs, lfs = pcall(require, "libs/libkoreader-lfs")
     local file_mtime = ok_lfs and lfs.attributes(path, "modification") or 0
     local sidecar_mtime = 0
@@ -336,6 +339,7 @@ local function get_home_book_cache_key(path)
         path,
         tostring(file_mtime or 0),
         tostring(sidecar_mtime or 0),
+        tostring(cfg.group_view and cfg.group_view.file_updates_as_new == true or false),
     }, "|")
 end
 
@@ -957,7 +961,7 @@ end
 
 local function build_data_provider(cfg, dcfg, strip_page_state)
     local provider = {}
-    local dataset = get_home_dataset()
+    local dataset = get_home_dataset(cfg)
     local rakuyomi_cfg = type(cfg) == "table" and cfg.rakuyomi or nil
     local exclude_rakuyomi = type(rakuyomi_cfg) == "table"
         and rakuyomi_cfg.exclude_from_home == true
@@ -1184,7 +1188,7 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
     local function get_book(path, need_time_left, metadata_only)
         if not path then return nil end
         local started_at = os.clock()
-        local cache_key = get_home_book_cache_key(path)
+        local cache_key = get_home_book_cache_key(path, cfg)
         local cached = _home_book_cache[cache_key]
         if cached and (metadata_only or cached._zen_cover_loaded ~= false) then
             book_cache_hits = book_cache_hits + 1

@@ -17,7 +17,7 @@ describe("end of book", function()
         "ui/widget/verticalgroup", "ui/widget/verticalspan", "common/ui/zen_icon_button",
         "common/plugin_root", "libs/libkoreader-lfs", "common/archive_actions", "ui/event", "common/clock_timer",
         "common/library_navigation", "common/ui/zen_icon_picker", "common/icon_packs",
-        "apps/filemanager/filemanager", "common/tbr_index",
+        "apps/filemanager/filemanager", "apps/filemanager/filemanagerutil", "common/tbr_index",
     }
 
     before_each(function()
@@ -236,25 +236,68 @@ describe("end of book", function()
             }) do
                 destination, closed = nil, nil
                 activate()
-                assert.is_true(closed)
+                assert.is_nil(closed)
                 assert.is_nil(destination)
                 next_tick()
+                assert.is_true(closed)
                 assert.same(restore and {} or { target_tab = "books" }, destination)
             end
         end
         for index = 2, 4 do
+            destination, closed = nil, nil
             page:onFeaturedAction(actions[index])
+            assert.is_nil(closed)
+            assert.is_nil(destination)
             next_tick()
+            assert.is_true(closed)
             assert.same(actions[index].destination, destination)
         end
         assert.same({ target_tab = "books" }, actions[1].destination)
         page.ui = nil
         local open_tab = _G.__ZEN_UI_NAVBAR_OPEN_TAB
         _G.__ZEN_UI_NAVBAR_OPEN_TAB = function(tab) destination = tab end
+        destination, closed = nil, nil
         page:onLibrary()
+        assert.is_nil(closed)
         next_tick()
         _G.__ZEN_UI_NAVBAR_OPEN_TAB = open_tab
+        assert.is_true(closed)
         assert.equals("books", destination)
+    end)
+
+    it("keeps the strip visible until a book open is confirmed and leaves Preview read-only", function()
+        local EndBook = load_end_book()
+        local next_tick, open_callback, closed, cover
+        local ui = {}
+        local page = setmetatable({ ui = ui, data = { file = "/library/current.epub" },
+            onClose = function() closed = true end,
+            showCover = function(_self, path) cover = path; return true end,
+        }, { __index = EndBook })
+        require("ui/uimanager").nextTick = function(_self, callback) next_tick = callback end
+        ZenSpec.replace("apps/filemanager/filemanagerutil", { openFile = function(owner, path, before_open)
+            assert.equals(ui, owner)
+            assert.equals("/library/next.epub", path)
+            assert.is_nil(closed)
+            open_callback = before_open
+        end })
+
+        page:openBook("/library/next.epub")
+        assert.is_nil(closed)
+        assert.is_nil(open_callback)
+        next_tick()
+        assert.is_nil(closed)
+        assert.is_function(open_callback)
+        open_callback()
+        assert.is_true(closed)
+
+        closed, next_tick = nil, nil
+        page:openBook(page.data.file)
+        assert.equals(page.data.file, cover)
+        page.preview = true
+        page:openBook("/library/next.epub")
+        assert.equals("/library/next.epub", cover)
+        assert.is_nil(closed)
+        assert.is_nil(next_tick)
     end)
 
     it("pushes completed progress on close before freeing, using the Book Status KOSync guard", function()
@@ -373,6 +416,7 @@ describe("end of book", function()
         page:onFeaturedAction(actions[6])
         assert.is_nil(archive_call)
         assert.is_nil(flushed)
+        assert.is_nil(opened)
         assert.is_nil(next_tick)
     end)
 
@@ -495,7 +539,7 @@ describe("end of book", function()
         assert.are.equal("/xp/1", quotes[1].page)
     end)
 
-    it("includes other books in the current series and only recommends other series already started", function()
+    it("includes unfinished books in the current series and only recommends other series already started", function()
         local Data = require("modules/reader/end_book_data")
         local function group(name, files)
             local items = {}
@@ -517,25 +561,31 @@ describe("end of book", function()
             group("Done", { "d", "e" }),
             group("Unstarted", { "new1", "new2" }),
         }, function(file) return states[file] end)
-        assert.same({ author = { "sequel", "another" }, next_series = { "sequel", "third" },
+        assert.same({ author = { "sequel", "another" }, next_series = { "third" },
             other_series = { { series = "Reading", files = { "a", "b", "later" } },
                 { series = "Started", files = { "c", "next" } } } }, recommendations)
     end)
 
-    it("includes every other current-series book in series order regardless of status or current index", function()
+    it("keeps unfinished current-series books in series order regardless of current index", function()
         local Data = require("modules/reader/end_book_data")
         local items = {
             { file = "z-first", series_index = 1 },
             { file = "prequel", series_index = 1.5 },
             { file = "current", series_index = 2 },
             { file = "a-last", series_index = 10 },
+            { file = "unread", series_index = 11 },
         }
+        local states = { ["z-first"] = "complete", prequel = "reading", ["a-last"] = "abandoned" }
         for _i, book in ipairs({ { series = "Series", series_index = 2 }, { series = "Series" } }) do
             local recommendations = Data.recommendations("current", book, {}, {
                 { series = "Series", items = items },
-            }, function() error("current-series books must not be filtered by status") end)
-            assert.same({ "z-first", "prequel", "a-last" }, recommendations.next_series)
+            }, function(file) return states[file] end)
+            assert.same({ "prequel", "a-last", "unread" }, recommendations.next_series)
         end
+        local recommendations = Data.recommendations("current", { series = "Series" }, {}, {
+            { series = "Series", items = items },
+        }, function() return "complete" end)
+        assert.same({}, recommendations.next_series)
     end)
 
     it("keeps the current series in series order when its strip is reversed", function()
@@ -947,6 +997,7 @@ describe("end of book", function()
         arrange.item_table[2].callback()
         assert.are.equal("Buttons", arrange.title)
         assert.are.equal(7, #arrange.item_table)
+        assert.are.equal("Next file", arrange.item_table[6].text)
         assert.are.equal("Restart Book", arrange.item_table[7].text)
         assert.is_true(arrange.item_table[1].checked_func())
         assert.is_false(arrange.item_table[5].checked_func())

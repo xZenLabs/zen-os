@@ -222,8 +222,8 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert driver.command("arrange_page_select", index=index)["ok"]
                 buttons = driver.command("arrange_page_state")["arrange"]
                 assert buttons["title"] == "Buttons"
-                assert buttons["labels"] == ["Library", "Series", "To Be Read", "Home", "Archive", "Open next file", "Restart Book"]
-                for label in ("Series", "Archive", "Open next file"):
+                assert buttons["labels"] == ["Library", "Series", "To Be Read", "Home", "Archive", "Next file", "Restart Book"]
+                for label in ("Series", "Archive", "Next file"):
                     assert driver.command("arrange_page_select", index=buttons["labels"].index(label) + 1, toggle=True)["ok"]
                 assert driver.command("arrange_page_back")["ok"]
                 assert driver.command("arrange_page_state")["arrange"]["title"] == "Featured book"
@@ -447,6 +447,20 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 driver.command("end_book", tap="back")
                 _wait_command(driver, "open_book", lambda result: result.get("ok"), path=str(book))
                 _wait_command(driver, "reader_state", lambda result: result.get("reader", {}).get("open"))
+                driver.command("end_book", show=True)
+                strip = driver.command("end_book", select_source="next_series")
+                strip_book = Path(strip["strip_items"][0]["path"]).resolve()
+                assert driver.command("end_book", tap_strip_cover=True)["opening_banner"]
+                _wait_command(driver, "reader_state", lambda result:
+                              result.get("reader", {}).get("open") and
+                              Path(result["reader"]["file"]).resolve() == strip_book)
+                assert not driver.command("end_book")["active"]
+                assert driver.command("reader_menu_home")["ok"]
+                _wait_command(driver, "reader_state", lambda result: not result.get("reader", {}).get("open"))
+                _wait_command(driver, "open_book", lambda result: result.get("ok"), path=str(book))
+                _wait_command(driver, "reader_state", lambda result:
+                              result.get("reader", {}).get("open") and
+                              Path(result["reader"]["file"]).resolve() == book.resolve())
                 driver.command("end_book", show=True)
                 driver.command("end_book", tap=4)
                 next_book = _wait_command(driver, "reader_state", lambda result:

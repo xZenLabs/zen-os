@@ -548,6 +548,7 @@ describe("reader top status bar refresh", function()
         NetworkMgr.connected, bluetooth_enabled = false, false
         local wifi, _suffix, color, gray = item_fetchers.wifi()
         assert.are.equal("\u{ECA8}", wifi)
+        assert.is_nil(_suffix)
         assert.are.equal("dark_gray", color)
         assert.is_true(gray)
         NetworkMgr.wifi_on = false

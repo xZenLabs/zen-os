@@ -398,6 +398,7 @@ local defaults = {
     },
     group_view = {
         include_new_in_tbr = false,
+        file_updates_as_new = false,
         authors_collate = "authors",
         group_collate = {
             series = "title",

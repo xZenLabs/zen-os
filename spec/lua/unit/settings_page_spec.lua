@@ -576,8 +576,9 @@ describe("Zen settings page", function()
         assert.are.equal(1, deferred_apply_flushes)
     end)
 
-    it("refreshes the visible status bar and full screen after closing settings", function()
+    it("refreshes the visible status bar and full screen after closing settings with X", function()
         local UIManager = require("ui/uimanager")
+        UIManager.close = function(_self, widget) widget:onCloseWidget() end
         local fm = require("apps/filemanager/filemanager").instance
         local reader = {}
         ZenSpec.replace("apps/reader/readerui", { instance = reader })
@@ -597,7 +598,7 @@ describe("Zen settings page", function()
         fm._updateStatusBar = function() refreshes = refreshes + 1 end
 
         UIManager._window_stack = { { widget = fm } }
-        make_page({}):onCloseWidget()
+        make_page({}).title_bar.close_callback()
         assert.are.equal(1, refreshes)
         assert.are.equal(1, full_refreshes)
 
@@ -605,7 +606,7 @@ describe("Zen settings page", function()
             refreshes = refreshes + 1
         end }
         UIManager._window_stack = { { widget = fm }, { widget = group } }
-        make_page({}):onCloseWidget()
+        make_page({}).title_bar.close_callback()
         assert.are.equal(2, refreshes)
         assert.are.equal(2, full_refreshes)
 
@@ -613,14 +614,37 @@ describe("Zen settings page", function()
             refreshes = refreshes + 1
         end }
         UIManager._window_stack = { { widget = fm }, { widget = home }, { widget = { toast = true } } }
-        make_page({}):onCloseWidget()
+        make_page({}).title_bar.close_callback()
         assert.are.equal(3, refreshes)
         assert.are.equal(3, full_refreshes)
 
         UIManager._window_stack = { { widget = reader } }
-        make_page({}):onCloseWidget()
+        make_page({}).title_bar.close_callback()
         assert.are.equal(4, refreshes)
         assert.are.equal(4, full_refreshes)
+    end)
+
+    it("skips the settings close refresh when quitting KOReader", function()
+        local UIManager = require("ui/uimanager")
+        UIManager.close = function(_self, widget) widget:onCloseWidget() end
+        local reader = { document = {} }
+        ZenSpec.replace("apps/reader/readerui", { instance = reader })
+        ZenSpec.replace("common/reader_themes", {
+            isActive = function() return true end,
+            refreshFull = function() error("must not flash the reader when quitting") end,
+        })
+        UIManager.setDirty = function() error("must not refresh settings when quitting") end
+        local fm = require("apps/filemanager/filemanager").instance
+        fm._updateStatusBar = function() error("must not refresh the status bar when quitting") end
+
+        for _i, top in ipairs({ fm, reader }) do
+            UIManager._window_stack = { { widget = top } }
+            local settings = make_page({})
+            assert.is_true(settings:onExit())
+            assert.is_true(settings._closed)
+            assert.is_nil(_G.__ZEN_UI_SETTINGS_PAGE)
+        end
+        assert.are.equal(2, deferred_apply_flushes)
     end)
 
     it("flashes the themed reader after settings have closed", function()
