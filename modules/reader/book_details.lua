@@ -361,7 +361,7 @@ function M.buildSpec(ui, opts)
             if enabled("authors") then add_detail(summary.authors, "author", false, 2) end
         end,
         series = function()
-            if enabled("series") then add_detail(summary.series, "secondary", false, 2) end
+            if enabled("series") then add_detail(props.chapter_label or summary.series, "secondary", false, 2) end
         end,
         tags = function()
             if not enabled("tags") then return end

@@ -437,6 +437,7 @@ describe("library navigation", function()
         local returns = 0
         ZenSpec.replace("MangaReader", {
             is_showing = true,
+            chapter = { _zen_rakuyomi_source_tab = "manga" },
             onReturn = function() returns = returns + 1 end,
         })
         local ui = reader()
@@ -452,16 +453,73 @@ describe("library navigation", function()
         assert.is_nil(ui.closed)
     end)
 
-    it("closes Rakuyomi chapters when their own return is disabled", function()
+    it("returns a Rakuyomi UI open from the default button regardless of navbar return settings", function()
+        local returns = 0
+        G_reader_settings:saveSetting("allow_commaneer_filemanager", false)
         ZenSpec.replace("MangaReader", {
             is_showing = true,
-            onReturn = function() error("Rakuyomi return is disabled") end,
+            chapter = { _zen_rakuyomi_source_tab = "manga" },
+            onReturn = function() returns = returns + 1 end,
+        })
+        local ui = reader("/data/rakuyomi/chapter.cbz")
+
+        Navigation.openDefault(ui, { config = {
+            features = { restore_library_view = false },
+            rakuyomi = { return_to_chapter_list_on_exit = false },
+        } }, function() end)
+
+        assert.equals(1, returns)
+        assert.is_nil(ui.closed)
+        assert.is_nil(_G.__ZEN_UI_FORCE_DEFAULT_LIBRARY_TAB)
+    end)
+
+    it("restores Home for a Home manga open when library restore is enabled", function()
+        ZenSpec.replace("MangaReader", {
+            is_showing = true,
+            chapter = { _zen_rakuyomi_source_tab = "home" },
+            onReturn = function() error("Home manga must use navbar return settings") end,
+        })
+        local ui = reader("/library/chapter.cbz")
+        local state = { tab = "home", page = 2 }
+        _G.__ZEN_UI_LIBRARY_STATE = state
+
+        Navigation.openDefault(ui, { config = {
+            features = { restore_library_view = true },
+            rakuyomi = { return_to_chapter_list_on_exit = true },
+        } }, function() end)
+
+        assert.is_true(ui.closed)
+        assert.equals(state, _G.__ZEN_UI_LIBRARY_STATE)
+        assert.is_nil(_G.__ZEN_UI_FORCE_DEFAULT_LIBRARY_TAB)
+    end)
+
+    it("opens the configured default for a Home manga when library restore is disabled", function()
+        ZenSpec.replace("MangaReader", {
+            is_showing = true,
+            chapter = { _zen_rakuyomi_source_tab = "home" },
+            onReturn = function() error("Home manga must use navbar return settings") end,
+        })
+        local ui = reader("/library/chapter.cbz")
+
+        Navigation.openDefault(ui, { config = {
+            features = { restore_library_view = false },
+            rakuyomi = { return_to_chapter_list_on_exit = true },
+        } }, function() end)
+
+        assert.is_true(ui.closed)
+        assert.is_true(_G.__ZEN_UI_FORCE_DEFAULT_LIBRARY_TAB)
+    end)
+
+    it("uses normal navbar return for chapters opened without Rakuyomi", function()
+        ZenSpec.replace("MangaReader", {
+            is_showing = true,
+            onReturn = function() error("This chapter was not opened from the Rakuyomi UI") end,
         })
         local ui = reader("/library/chapter.cbz")
 
         Navigation.showFromReader(ui, { config = {
             features = { restore_library_view = false },
-            rakuyomi = { return_to_chapter_list_on_exit = false },
+            rakuyomi = { return_to_chapter_list_on_exit = true },
         } })
 
         assert.is_true(ui.closed)

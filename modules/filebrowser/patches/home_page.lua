@@ -3136,10 +3136,6 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
 
     local function show_book_context_menu(path, source, component_id)
         if type(path) ~= "string" or path == "" then return false end
-        local recent = zen_config.rakuyomi and zen_config.rakuyomi.recent_series or {}
-        for _i, series in ipairs(recent) do
-            if series.file == path then return false end
-        end
         if source == "kindle" then
             return require("modules/filebrowser/patches/kindle_virtual_library")
                 .showBookContextMenu(nil, { file = path, path = path }, M.rebuildActive)
@@ -3147,6 +3143,8 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
         local fm = FileManager.instance
         local fc = fm and fm.file_chooser
         if not (fc and type(fc.showFileDialog) == "function") then return false end
+        local Rakuyomi = require("modules/filebrowser/patches/rakuyomi")
+        local is_rakuyomi = type(Rakuyomi.loadRecentDetails) == "function" and Rakuyomi.loadRecentDetails(path)
         local explicit_collection
         local ok_index, index = pcall(require, "common/tbr_index")
         if source ~= "to_be_read" or not ok_index then index = nil end
@@ -3158,7 +3156,9 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
             is_file = true,
             _zen_home_context = true,
             _zen_disable_select = true,
-            _zen_is_history = source == "recently_read",
+            _zen_rakuyomi_book = is_rakuyomi,
+            _zen_hide_edit = is_rakuyomi,
+            _zen_is_history = source == "recently_read" and not is_rakuyomi,
             _zen_collection_name = explicit_collection,
             _zen_widget_settings = dcfg.edit_mode == true and function()
                 return require("modules/settings/sections/library_settings/home_settings")

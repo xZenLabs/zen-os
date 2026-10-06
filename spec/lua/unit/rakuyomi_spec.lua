@@ -389,6 +389,17 @@ describe("Rakuyomi series covers", function()
         assert.equals(poster, Rakuyomi.getSeriesCoverPath(chapter))
     end)
 
+    it("finds the saved series poster after a temporary chapter has disappeared", function()
+        local original_config = package.loaded["config/manager"]
+        ZenSpec.replace("config/manager", { get = function()
+            return { rakuyomi = { recent_series = {{ file = chapter,
+                manga = { manga_cover = "file://" .. poster }, cover_path = poster }} } }
+        end })
+        os.remove(chapter)
+        assert.equals(poster, Rakuyomi.getSeriesCoverPath(chapter))
+        package.loaded["config/manager"] = original_config
+    end)
+
     it("rejects ordinary comics and malformed origins", function()
         assert.is_nil(Rakuyomi.getSeriesCoverPath(nil))
         assert.is_nil(Rakuyomi.getSeriesCoverPath(root .. "/book.epub"))
@@ -441,9 +452,11 @@ describe("Rakuyomi recent Home series", function()
     local names = { "modules/filebrowser/patches/rakuyomi", "apps/filemanager/filemanager", "pluginloader",
         "config/manager", "ChapterListing", "LibraryView", "Backend", "docsettings", "common/cover_utils",
         "utils/findLastRead", "utils/getChapterDisplayName", "RakuyomiShared", "apps/reader/readerui",
-        "libs/libkoreader-lfs", "ui/uimanager", "MangaReader", "common/shared_state", "ui/trapper", "ErrorDialog" }
+        "libs/libkoreader-lfs", "ui/uimanager", "MangaReader", "common/shared_state", "ui/trapper", "ErrorDialog",
+        "chapters/findNextChapter", "bookinfomanager", "document/documentregistry",
+        "apps/filemanager/filemanagerbookinfo" }
     local saved, Rakuyomi, config, listing, opened_callback, starts, resumes, initialized, errors, resumed_manga
-    local saved_settings, queued, invalidated, native_opens
+    local saved_settings, saved_time, queued, invalidated, native_opens, opened_listing
     local file = "/data/rakuyomi/tmpfs/chapter.cbz"
     local manga = { id = "series", source = { id = "source" }, title = "Series title",
         manga_cover = "file:///posters/series%20cover.jpg", viewer = "Rtl", state_viewer = true }
@@ -453,7 +466,8 @@ describe("Rakuyomi recent Home series", function()
         saved, config, starts, resumes, initialized, errors = {}, {}, 0, 0, true, 0
         resumed_manga = nil
         saved_settings = G_reader_settings
-        G_reader_settings = ZenSpec.memorySettings({ file_ask_to_open = true })
+        saved_time = os.time
+        _G.G_reader_settings = ZenSpec.memorySettings({ file_ask_to_open = true })
         queued, invalidated, native_opens = {}, {}, 0
         for _i, name in ipairs(names) do saved[name] = package.loaded[name] end
         ZenSpec.replace("apps/filemanager/filemanager", { instance = { rakuyomi = {
@@ -482,8 +496,9 @@ describe("Rakuyomi recent Home series", function()
         end })
         ZenSpec.replace("ui/trapper", { wrap = function(_self, callback) callback() end })
         ZenSpec.replace("ErrorDialog", { show = function() errors = errors + 1 end })
-        local ChapterListing = { openChapterOnReader = function(_self, _chapter, _job, callback)
+        local ChapterListing = { openChapterOnReader = function(self, _chapter, _job, callback)
             native_opens = native_opens + 1
+            opened_listing = self
             opened_callback = callback
         end }
         function ChapterListing:new(options)
@@ -526,7 +541,8 @@ describe("Rakuyomi recent Home series", function()
     end)
 
     after_each(function()
-        G_reader_settings = saved_settings
+        _G.G_reader_settings = saved_settings
+        rawset(os, "time", saved_time)
         for _i, name in ipairs(names) do package.loaded[name] = saved[name] end
     end)
 
@@ -560,20 +576,93 @@ describe("Rakuyomi recent Home series", function()
         assert.is_true(Rakuyomi.resumeRecentSeries(file))
         assert.equals(1, starts)
         assert.equals(1, resumes)
-        assert.equals(manga, resumed_manga)
+        assert.same(manga, resumed_manga)
         initialized = false
         assert.is_true(Rakuyomi.resumeRecentSeries(file))
         assert.equals(1, errors)
         assert.equals(1, resumes)
     end)
 
+    it("fills Home metadata from the chapter without starting the backend", function()
+        Rakuyomi.getMetadata = function()
+            return { authors = "Chapter author", keywords = "Action; Adventure",
+                description = "Chapter description", language = "ja" }
+        end
+        listing:openChapterOnReader(chapter)
+        opened_callback()
+        local book = Rakuyomi.getRecentBook(Rakuyomi.getRecentSeries()[1], true)
+        assert.same({ "Chapter author", "Action; Adventure", "Chapter description", "ja", "Series title", 12.5 },
+            { book.authors, book.keywords, book.description, book.language, book.series, book.series_index })
+        assert.equals(0, starts)
+    end)
+
+    it("persists cached manga details across chapters and unavailable backend responses", function()
+        Rakuyomi.getMetadata = function() return { authors = "Chapter author", language = "ja" } end
+        local Backend = require("Backend")
+        Backend.cachedMangaDetails = function(cancel_id, source_id, manga_id)
+            assert.is_nil(cancel_id)
+            assert.same({ "source", "series" }, { source_id, manga_id })
+            return { type = "SUCCESS", body = {{ author = "Manga author", tags = { "Action", "Fantasy" },
+                description = "<p>Manga description</p>" }, 0.25} }
+        end
+        listing:openChapterOnReader(chapter)
+        opened_callback()
+        assert.is_false(Rakuyomi.loadRecentDetails("/library/book.epub"))
+        assert.equals(0, starts)
+        assert.is_true(Rakuyomi.loadRecentDetails(file))
+        assert.equals(1, starts)
+        listing:openChapterOnReader({ id = "next", title = "Next chapter", chapter_num = 13, file = file })
+        opened_callback()
+        Backend.cachedMangaDetails = function() return { type = "ERROR" } end
+        assert.is_true(Rakuyomi.loadRecentDetails(file))
+        Rakuyomi.getMetadata = function() error("saved details must survive a missing chapter") end
+        local book = Rakuyomi.getRecentBook(Rakuyomi.getRecentSeries()[1], true)
+        assert.same({ "Manga author", "Action; Fantasy", "<p>Manga description</p>", "ja", 13 },
+            { book.authors, book.keywords, book.description, book.language, book.series_index })
+        initialized = false
+        assert.is_true(Rakuyomi.loadRecentDetails(file))
+    end)
+
+    it("provides shared book details and series artwork when the temporary chapter is missing", function()
+        listing:openChapterOnReader(chapter)
+        opened_callback()
+        local recent = Rakuyomi.getRecentSeries()[1]
+        recent.metadata = { authors = "Manga author", keywords = "Action", description = "Manga description" }
+        local BookInfoManager = {
+            extractBookInfo = function() end,
+            deleteBookInfo = function() error("recent series metadata needs no extraction") end,
+            getBookInfo = function() return nil end,
+        }
+        ZenSpec.replace("bookinfomanager", BookInfoManager)
+        ZenSpec.replace("document/documentregistry", { getProvider = function() end })
+        ZenSpec.replace("apps/filemanager/filemanagerbookinfo", { getCoverImage = function() end })
+        require("docsettings").findCustomCoverFile = function() end
+        assert.is_true(Rakuyomi.installMetadataIntegration())
+        local metadata = BookInfoManager:getBookInfo(file, false)
+        assert.same({ "Series title", "Manga author", "Action", "Manga description", 20 },
+            { metadata.title, metadata.authors, metadata.keywords, metadata.description, metadata.pages })
+        assert.is_nil(metadata.cover_bb)
+        local book = BookInfoManager:getBookInfo(file, true)
+        assert.equals('Ch. 12.5 "Chapter title"', book.chapter_label)
+        assert.same({ "series cover", 200, 300, "Y" },
+            { book.cover_bb, book.cover_w, book.cover_h, book.has_cover })
+        require("common/cover_utils").loadExplicitCover = function() end
+        local fallback = BookInfoManager:getBookInfo(file, true)
+        assert.equals("Manga author", fallback.authors)
+        assert.equals("Manga description", fallback.description)
+        assert.is_nil(fallback.cover_bb)
+    end)
+
     it("captures the new file after a deferred chapter switch and invalidates Home", function()
+        local timestamp = 100
+        rawset(os, "time", function() return timestamp end)
         listing:openChapterOnReader(chapter)
         opened_callback()
         local next_file = "/data/rakuyomi/downloads/next.cbz"
         local MangaReader = require("MangaReader")
         MangaReader.is_switching_document = true
         require("ui/uimanager"):nextTick(function()
+            timestamp = 101
             require("apps/reader/readerui").instance.document.file = next_file
             MangaReader.is_switching_document = false
         end)
@@ -584,6 +673,7 @@ describe("Rakuyomi recent Home series", function()
         local recent = Rakuyomi.getRecentSeries()[1]
         assert.equals(next_file, recent.file)
         assert.equals(13, recent.chapter.chapter_num)
+        assert.equals(101, recent.time)
         assert.same({ file, next_file }, invalidated)
     end)
 
@@ -614,6 +704,61 @@ describe("Rakuyomi recent Home series", function()
         assert.equals(1, native_opens)
     end)
 
+    it("tracks Home opens through chapter transitions and resets the source for a chapter list tap", function()
+        listing:openChapterOnReader(chapter)
+        assert.equals("manga", chapter._zen_rakuyomi_source_tab)
+        opened_callback()
+        G_reader_settings:saveSetting("file_ask_to_open", false)
+        Rakuyomi.resumeRecentSeries(file)
+        assert.equals("home", chapter._zen_rakuyomi_source_tab)
+        local home_listing = opened_listing
+        local next_chapter = { id = "next", chapter_num = 13 }
+        home_listing:openChapterOnReader(next_chapter)
+        assert.equals("home", next_chapter._zen_rakuyomi_source_tab)
+        require("ui/uimanager")._window_stack = { { widget = home_listing } }
+        home_listing:openChapterOnReader(chapter)
+        assert.equals("manga", chapter._zen_rakuyomi_source_tab)
+        require("ui/uimanager")._window_stack = {}
+        home_listing:openChapterOnReader(next_chapter)
+        assert.equals("manga", next_chapter._zen_rakuyomi_source_tab)
+    end)
+
+    it("keeps a deferred Home confirmation separate from a Rakuyomi UI open", function()
+        listing:openChapterOnReader(chapter)
+        opened_callback()
+        require("LibraryView")._handleContinueReading = function(_self, value) resumed_manga = value end
+        Rakuyomi.resumeRecentSeries(file)
+        listing:openChapterOnReader(chapter)
+        assert.equals("manga", chapter._zen_rakuyomi_source_tab)
+        local home_listing = require("ChapterListing"):new{ manga = resumed_manga }
+        home_listing:openChapterOnReader(chapter)
+        assert.equals("home", chapter._zen_rakuyomi_source_tab)
+    end)
+
+    it("preserves the opening source when the end-of-book handler builds a new chapter list", function()
+        listing:openChapterOnReader(chapter)
+        opened_callback()
+        G_reader_settings:saveSetting("file_ask_to_open", false)
+        Rakuyomi.resumeRecentSeries(file)
+        local MangaReader = require("MangaReader")
+        MangaReader.is_showing, MangaReader.chapter = true, chapter
+        local reader = require("apps/reader/readerui").instance
+        reader.doc_settings = { flush = function() end }
+        Rakuyomi.getMetadataProvider = function() return {} end
+        ZenSpec.replace("RakuyomiShared", { getOrigin = function()
+            return { chapter_id = chapter.id, manga_id = { source_id = "source", manga_id = "series" } }
+        end })
+        require("Backend").markChapterAsRead = function() return { type = "SUCCESS" } end
+        local next_chapter = { id = "next", chapter_num = 13 }
+        ZenSpec.replace("chapters/findNextChapter", function() return next_chapter end)
+        for _i, source in ipairs({ "home", "manga" }) do
+            chapter._zen_rakuyomi_source_tab = source
+            assert.is_true(Rakuyomi.onEndOfBook(reader))
+            table.remove(queued, 1)()
+            assert.equals(source, next_chapter._zen_rakuyomi_source_tab)
+        end
+    end)
+
     it("keeps and resumes each series independently across sources and chapter changes", function()
         listing:openChapterOnReader(chapter)
         opened_callback()
@@ -625,9 +770,9 @@ describe("Rakuyomi recent Home series", function()
         opened_callback()
         assert.equals(2, #Rakuyomi.getRecentSeries())
         assert.is_true(Rakuyomi.resumeRecentSeries(file))
-        assert.equals(manga, resumed_manga)
+        assert.same(manga, resumed_manga)
         assert.is_true(Rakuyomi.resumeRecentSeries(second_file))
-        assert.equals(second_manga, resumed_manga)
+        assert.same(second_manga, resumed_manga)
         listing.manga = { id = "series", source = { id = "source" }, title = "" }
         require("apps/reader/readerui").instance.document.file = file
         listing:openChapterOnReader({ id = "next-chapter", chapter_num = 13 })
@@ -674,7 +819,8 @@ describe("Rakuyomi recent Home series", function()
 end)
 
 describe("Rakuyomi resume selection", function()
-    local names = { "modules/filebrowser/patches/rakuyomi", "utils/findLastRead", "ChapterListing", "LibraryView" }
+    local names = { "modules/filebrowser/patches/rakuyomi", "utils/findLastRead", "ChapterListing", "LibraryView",
+        "ui/uimanager" }
     local saved, Rakuyomi, ChapterListing, LibraryView, native_find
 
     before_each(function()
@@ -712,6 +858,7 @@ describe("Rakuyomi resume selection", function()
         ZenSpec.replace("utils/findLastRead", native_find)
         ZenSpec.replace("ChapterListing", ChapterListing)
         ZenSpec.replace("LibraryView", LibraryView)
+        ZenSpec.replace("ui/uimanager", {})
         Rakuyomi = require("modules/filebrowser/patches/rakuyomi")
     end)
 

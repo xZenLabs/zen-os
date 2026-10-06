@@ -79,25 +79,12 @@ function M.openDefault(ui, plugin, close_menu)
     end)
 end
 
-local function rakuyomiReturnToChapterListEnabled(plugin)
-    local rakuyomi = plugin and plugin.config and plugin.config.rakuyomi
-    if type(rakuyomi) ~= "table" then return true end
-    if rakuyomi.return_to_chapter_list_on_exit ~= nil then
-        return rakuyomi.return_to_chapter_list_on_exit ~= false
-    end
-    return true
-end
-
-function M.returnToRakuyomiReader(restore, plugin)
-    if not rakuyomiReturnToChapterListEnabled(plugin) then
-        return false
-    end
-    if not restore and not G_reader_settings:isTrue("allow_commaneer_filemanager") then
-        return false
-    end
+function M.returnToRakuyomiReader()
     local ok, MangaReader = pcall(require, "MangaReader")
     if not ok or type(MangaReader) ~= "table"
             or MangaReader.is_showing ~= true
+            or not MangaReader.chapter
+            or MangaReader.chapter._zen_rakuyomi_source_tab ~= "manga"
             or type(MangaReader.onReturn) ~= "function" then
         return false
     end
@@ -122,7 +109,7 @@ function M.showFromReader(ui, plugin, opts)
 
     closeConfigMenuForTransition(ui)
     closeReaderOverlays(ui)
-    if not opts.after_close and M.returnToRakuyomiReader(restore, plugin) then
+    if not opts.after_close and M.returnToRakuyomiReader() then
         return true
     end
 

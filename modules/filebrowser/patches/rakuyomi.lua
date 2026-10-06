@@ -16,6 +16,7 @@ local action_tabs_close_library = {
 
 local is_real_exit_target
 local zen_plugin
+local manga_source_tabs = setmetatable({}, { __mode = "k" }) -- Session state, never persisted with manga metadata.
 
 local function live_plugin()
     local filemanager = package.loaded["apps/filemanager/filemanager"]
@@ -60,6 +61,14 @@ end
 
 local function is_library_view(widget)
     return widget and widget.name == "library_view"
+end
+
+local function find_recent_series(file)
+    local config = get_zen_config()
+    local recent = config and config.rakuyomi and config.rakuyomi.recent_series or {}
+    for _i, series in ipairs(recent) do
+        if series.file == file then return series end
+    end
 end
 
 local function is_chapter_listing(widget)
@@ -237,6 +246,16 @@ end
 
 function M.getSeriesCoverPath(path)
     if type(path) ~= "string" or path:lower():sub(-4) ~= ".cbz" then return nil end
+    local recent = find_recent_series(path)
+    if recent then
+        local cover = recent.manga.manga_cover
+        if type(cover) == "string" and cover:sub(1, 7) == "file://" then
+            cover = cover:sub(8):gsub("%%(%x%x)", function(hex) return string.char(tonumber(hex, 16)) end)
+        else
+            cover = recent.cover_path
+        end
+        if cover and require("libs/libkoreader-lfs").attributes(cover, "mode") == "file" then return cover end
+    end
     if series_cover_paths[path] == nil then
         series_cover_paths[path] = false
         local comment = read_zip_comment(path)
@@ -357,9 +376,11 @@ local function remember_recent_series(manga, chapter, file, timestamp)
     local config = get_zen_config()
     if not config then return end
     local series = recent_series(config)
+    local previous_metadata
     for index, previous in ipairs(series) do
         if previous.manga.id == manga.id and previous.manga.source.id == manga.source.id then
             if not manga.title or manga.title == "" then manga = previous.manga end
+            previous_metadata = previous.metadata
             table.remove(series, index)
             break
         end
@@ -373,6 +394,7 @@ local function remember_recent_series(manga, chapter, file, timestamp)
         file = file,
         time = timestamp,
         cover_path = M.getSeriesCoverPath(file),
+        metadata = previous_metadata,
     }
     table.insert(series, 1, recent)
     return recent
@@ -431,9 +453,14 @@ end
 
 function M.getRecentBook(recent, metadata_only)
     local chapter_label = require("utils/getChapterDisplayName")(recent.chapter)
+    local metadata = recent.metadata or M.getMetadata(recent.file) or {}
     local book = {
         path = recent.file, title = recent.manga.title,
-        authors = "", chapter_label = chapter_label,
+        authors = metadata.authors or "", chapter_label = chapter_label,
+        keywords = metadata.keywords,
+        description = metadata.description,
+        language = metadata.language,
+        series = recent.manga.title,
         series_index = recent.chapter.chapter_num,
         status = "reading", percent = 0,
     }
@@ -446,15 +473,7 @@ function M.getRecentBook(recent, metadata_only)
         book.pages = stats and stats.pages
         book.current_page = book.pages and math.floor(book.pages * book.percent + 0.5)
     end
-    local cover_path = recent.manga.manga_cover
-    if type(cover_path) == "string" and cover_path:sub(1, 7) == "file://" then
-        cover_path = cover_path:sub(8):gsub("%%(%x%x)", function(hex) return string.char(tonumber(hex, 16)) end)
-    else
-        cover_path = recent.cover_path or M.getSeriesCoverPath(recent.file)
-    end
-    if cover_path and require("libs/libkoreader-lfs").attributes(cover_path, "mode") ~= "file" then
-        cover_path = nil
-    end
+    local cover_path = M.getSeriesCoverPath(recent.file)
     book.has_real_cover = cover_path ~= nil
     book.is_cover_pending = metadata_only and book.has_real_cover or nil
     if cover_path and not metadata_only then
@@ -466,6 +485,36 @@ function M.getRecentBook(recent, metadata_only)
         end
     end
     return book
+end
+
+function M.loadRecentDetails(file)
+    local recent = find_recent_series(file)
+    if not recent then return false end
+    local metadata = {}
+    for key, value in pairs(recent.metadata or M.getMetadata(file) or {}) do metadata[key] = value end
+    local ok_backend, Backend = pcall(require, "Backend")
+    if ok_backend and type(Backend.cachedMangaDetails) == "function" then
+        Backend.getBackend()
+        if Backend.getInitialized() then
+            local ok, response = pcall(Backend.cachedMangaDetails, nil, recent.manga.source.id, recent.manga.id)
+            local details = ok and type(response) == "table" and response.type == "SUCCESS"
+                and type(response.body) == "table" and response.body[1]
+            if type(details) == "table" then
+                if type(details.author) == "string" and details.author:find("%S") then
+                    metadata.authors = details.author
+                end
+                if type(details.tags) == "table" and #details.tags > 0 then
+                    metadata.keywords = table.concat(details.tags, "; ")
+                end
+                if type(details.description) == "string" and details.description:find("%S") then
+                    metadata.description = details.description
+                end
+            end
+        end
+    end
+    recent.metadata = next(metadata) and metadata or nil
+    require("config/manager").save(get_zen_config())
+    return true
 end
 
 function M.resumeRecentSeries(file)
@@ -482,6 +531,9 @@ function M.resumeRecentSeries(file)
         return true
     end
     M.installResumePatch()
+    local manga = {}
+    for key, value in pairs(recent.manga) do manga[key] = value end
+    manga_source_tabs[manga] = "home"
     local LibraryView = require("LibraryView")
     -- Home has no library widget to close after the chapter opens.
     local library = setmetatable({ hide_top_close = true, onClose = function() end }, { __index = LibraryView })
@@ -493,7 +545,7 @@ function M.resumeRecentSeries(file)
                 return
             end
             local listing = require("ChapterListing"):new{
-                manga = recent.manga, chapter_sorting_mode = settings.body.chapter_sorting_mode,
+                manga = manga, chapter_sorting_mode = settings.body.chapter_sorting_mode,
                 preload_count = settings.body.preload_chapters, covers_fullscreen = true,
             }
             listing.on_return_callback = function()
@@ -508,7 +560,7 @@ function M.resumeRecentSeries(file)
         end)
         return true
     end
-    library:_handleContinueReading(recent.manga)
+    library:_handleContinueReading(manga)
     return true
 end
 
@@ -542,6 +594,11 @@ function M.onEndOfBook(ui)
                 source = { id = origin.manga_id.source_id, name = "", version = 0, languages = {} },
                 title = "", in_library = false, viewer = "DefaultViewer", state_viewer = false,
             }
+            local MangaReader = package.loaded["MangaReader"]
+            local active_chapter = MangaReader and MangaReader.is_showing and MangaReader.chapter
+            local state = rawget(_G, "__ZEN_UI_LIBRARY_STATE")
+            manga_source_tabs[manga] = active_chapter and active_chapter._zen_rakuyomi_source_tab
+                or state and state.tab or "books"
             local settings = Backend.getSettings()
             if settings.type == "ERROR" then
                 ErrorDialog:show(settings.message)
@@ -633,10 +690,12 @@ function M.installMetadataIntegration()
             and type(BookInfoManager.deleteBookInfo) == "function" then
         local checked_cache_rows = {}
         function BookInfoManager:getBookInfo(filepath, get_cover, ...)
+            local recent = find_recent_series(filepath)
             local cover_path = M.getSeriesCoverPath(filepath)
             if cover_path and DocSettings:findCustomCoverFile(filepath) then cover_path = nil end
             local bookinfo = orig_getBookInfo(self, filepath, not cover_path and get_cover, ...)
-            if bookinfo and not bookinfo.title and not checked_cache_rows[filepath]
+            if recent then bookinfo = bookinfo or {} end
+            if bookinfo and not recent and not bookinfo.title and not checked_cache_rows[filepath]
                     and M.getMetadataProvider(filepath) then
                 checked_cache_rows[filepath] = true
                 self:deleteBookInfo(filepath)
@@ -646,12 +705,26 @@ function M.installMetadataIntegration()
                 if get_cover then
                     local cover = require("common/cover_utils").loadExplicitCover(
                         cover_path, bookinfo.cover_w, bookinfo.cover_h)
-                    if not cover then return orig_getBookInfo(self, filepath, get_cover, ...) end
-                    bookinfo.cover_bb = cover.data
-                    bookinfo.cover_w, bookinfo.cover_h = cover.w, cover.h
-                    bookinfo.cover_sizetag = cover.w .. "x" .. cover.h
+                    if not cover then
+                        bookinfo = orig_getBookInfo(self, filepath, get_cover, ...) or (recent and {})
+                        cover_path = nil
+                    else
+                        bookinfo.cover_bb = cover.data
+                        bookinfo.cover_w, bookinfo.cover_h = cover.w, cover.h
+                        bookinfo.cover_sizetag = cover.w .. "x" .. cover.h
+                    end
                 end
-                bookinfo.has_cover, bookinfo.cover_fetched = "Y", "Y"
+                if cover_path then bookinfo.has_cover, bookinfo.cover_fetched = "Y", "Y" end
+            end
+            if recent then
+                local book = M.getRecentBook(recent, true)
+                if not bookinfo.ignore_meta then
+                    for _i, key in ipairs({ "title", "authors", "series", "series_index", "chapter_label",
+                            "keywords", "description", "language" }) do
+                        if book[key] ~= nil and book[key] ~= "" then bookinfo[key] = book[key] end
+                    end
+                end
+                bookinfo.pages = bookinfo.pages or book.pages
             end
             return bookinfo
         end
@@ -833,10 +906,7 @@ function M.onStandaloneNavbarInjected(widget, exit_target_predicate)
     M.installCloseGuard(exit_target_predicate)
 end
 
--- Capture the Rakuyomi return target for *any* book open, not only the
--- Continue-tab resume. showReader is the single choke point every open flows
--- through, and it broadcasts "ShowingReader" before opening. Detect chapter
--- files here so file lists / history / etc. still restore to Rakuyomi.
+-- Capture the opening source before KOReader broadcasts ShowingReader.
 function M.installShowReaderCapture()
     local ReaderUI = require("apps/reader/readerui")
     if ReaderUI._zen_rakuyomi_showReader_patched then
@@ -849,9 +919,13 @@ function M.installShowReaderCapture()
             local is_chapter = M.isChapterFile(file) == true
             local return_to_chapter_list = return_to_chapter_list_on_exit_enabled()
             if is_chapter then
-                _G.__ZEN_UI_LIBRARY_SOURCE_TAB = "manga"
-                _G.__ZEN_UI_FORCE_SOURCE_TAB_RESTORE = true
-                _G.__ZEN_UI_RAKUYOMI_RETURN_FILE = return_to_chapter_list and file or nil
+                local MangaReader = package.loaded["MangaReader"]
+                local chapter = MangaReader and MangaReader.is_showing and MangaReader.chapter
+                local source_tab = chapter and chapter._zen_rakuyomi_source_tab
+                if source_tab then _G.__ZEN_UI_LIBRARY_SOURCE_TAB = source_tab end
+                _G.__ZEN_UI_FORCE_SOURCE_TAB_RESTORE = source_tab == "manga" or nil
+                _G.__ZEN_UI_RAKUYOMI_RETURN_FILE = source_tab == "manga"
+                    and return_to_chapter_list and file or nil
                 if not return_to_chapter_list then
                     close_top_chapter_listing()
                 end
@@ -935,9 +1009,14 @@ function M.installResumePatch()
         local open = ChapterListing.openChapterOnReader
         if type(open) == "function" then
             function ChapterListing:openChapterOnReader(chapter, job, on_opened)
+                -- A tap in a visible chapter list starts a Rakuyomi session.
+                for _i, window in ipairs(require("ui/uimanager")._window_stack or {}) do
+                    if window.widget == self then manga_source_tabs[self.manga] = nil; break end
+                end
+                chapter._zen_rakuyomi_source_tab = manga_source_tabs[self.manga] or "manga"
                 return open(self, chapter, job, function(...)
-                    chapter.last_read = os.time() -- Native opening saves this only in the backend.
                     local function record_recent()
+                        chapter.last_read = os.time() -- Native opening saves this only in the backend.
                         local ReaderUI = package.loaded["apps/reader/readerui"]
                         local reader = ReaderUI and ReaderUI.instance
                         local file = reader and reader.document and reader.document.file or chapter.file

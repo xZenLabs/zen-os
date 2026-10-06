@@ -1370,23 +1370,9 @@ local function apply_navbar()
             })
             return
         end
-        local Rakuyomi = getRakuyomi()
-        local resume_rakuyomi = type(Rakuyomi.isChapterFile) == "function"
-            and Rakuyomi.isChapterFile(last_file)
-        local rakuyomi_return_file = resume_rakuyomi
-            and rakuyomi_return_to_chapter_list_on_exit_enabled()
-            and last_file or nil
-        logger.dbg(
-            "Rakuyomi return: Continue:",
-            "file=", last_file,
-            "detected=", tostring(resume_rakuyomi))
         _G.__ZEN_UI_FORCE_SOURCE_TAB_RESTORE = nil
         _G.__ZEN_UI_RAKUYOMI_RETURN_FILE = nil
-        if resume_rakuyomi then
-            _G.__ZEN_UI_LIBRARY_SOURCE_TAB = "manga"
-            _G.__ZEN_UI_FORCE_SOURCE_TAB_RESTORE = true
-            _G.__ZEN_UI_RAKUYOMI_RETURN_FILE = rakuyomi_return_file
-        elseif is_restore_enabled() and not skipTabState(active_tab) then
+        if is_restore_enabled() and not skipTabState(active_tab) then
             _G.__ZEN_UI_LIBRARY_SOURCE_TAB = active_tab
         else
             _G.__ZEN_UI_LIBRARY_SOURCE_TAB = nil

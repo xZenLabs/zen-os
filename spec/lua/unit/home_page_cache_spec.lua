@@ -410,6 +410,44 @@ describe("home data and book caches", function()
         assert.are.equal("black", pixel)
     end)
 
+    it("opens the file context menu when holding a recent Rakuyomi manga from Home", function()
+        local file, held, loaded = "/data/rakuyomi/tmpfs/chapter.cbz", {}, {}
+        local fm = require("apps/filemanager/filemanager").instance
+        fm.file_chooser = { showFileDialog = function(_self, item) held[#held + 1] = item end }
+        require("modules/filebrowser/patches/rakuyomi").loadRecentDetails = function(path)
+            loaded[#loaded + 1] = path
+            return path == file
+        end
+        local Widget = { new = function(_self, values) return values end }
+        for _i, name in ipairs({ "ui/widget/horizontalgroup", "ui/widget/horizontalspan",
+                "ui/widget/verticalgroup", "ui/widget/verticalspan", "ui/widget/container/framecontainer",
+                "ui/widget/container/inputcontainer", "ui/gesturerange" }) do
+            ZenSpec.replace(name, Widget)
+        end
+        ZenSpec.replace("ui/font", { getFace = function() return {} end })
+        ZenSpec.replace("apps/filemanager/filemanagerutil", {})
+        require("device").screen.scaleBySize = function(_self, value) return value end
+        require("common/ui/background").clearWhiteBackgrounds = function() end
+        require("modules/filebrowser/patches/home/components/registry").gridHeights = function() return { 900 } end
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local build_home_content = select(2, get_compute_row_heights(Home))
+        local rows = {{ id = "featured", build = function(ctx)
+            assert.is_true(ctx.showBookMenu(file, "recently_read"))
+            assert.is_true(ctx.showBookMenu("/library/alpha.epub", "recently_read"))
+            return { paintTo = function() end }
+        end }}
+        build_home_content({ height = 900, dimen = { h = 900 } },
+            { rakuyomi = { recent_series = {{ file = file }} } },
+            { show_status_bar = false, modules = {} }, rows, {})
+        assert.same({ file, "/library/alpha.epub" }, loaded)
+        assert.equals(file, held[1].path)
+        assert.is_true(held[1]._zen_rakuyomi_book)
+        assert.is_true(held[1]._zen_hide_edit)
+        assert.is_false(held[1]._zen_is_history)
+        assert.is_true(held[2]._zen_is_history)
+        assert.is_false(held[2]._zen_hide_edit)
+    end)
+
     it("keeps preset row heights on their original grids", function()
         ZenSpec.replace("modules/filebrowser/patches/home/components/registry", {
             layoutUnits = function(rows)

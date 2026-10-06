@@ -1276,6 +1276,7 @@ local function apply_context_menu()
             local is_file            = item.is_file
             local is_kindle_book     = item._zen_kindle_book == true
             local is_kindle_processed = item._zen_kindle_processed == true
+            local is_rakuyomi_book = item._zen_rakuyomi_book == true
             local is_not_parent_folder = not item.is_go_up
             local is_home_dir = (not is_file) and paths.isHomeRoot(file)
             -- Only the primary library root uses global sort/display; additional
@@ -1582,6 +1583,7 @@ local function apply_context_menu()
                                     local index = tonumber(bookinfo.series_index)
                                     series_str_local = index and string.format("%s #%.4g", s, index) or s
                                 end
+                                series_str_local = bookinfo.chapter_label or series_str_local
                                 if bookinfo.keywords and bookinfo.keywords ~= "" then
                                     tags_str_local = bookinfo.keywords
                                         :gsub("%s*[\n;]%s*", ", ")
@@ -2195,7 +2197,8 @@ local function apply_context_menu()
                 and type(zen_plugin.config.context_menu) == "table"
                 and zen_plugin.config.context_menu
             if context_menu_config and context_menu_config.show_plugin_actions == true
-                    and not is_virtual_folder and type(added_plugin_buttons) == "table" then
+                    and not is_virtual_folder and not is_rakuyomi_book
+                    and type(added_plugin_buttons) == "table" then
                 local rows = {}
                 local hidden_index = added_plugin_buttons.index
                     and added_plugin_buttons.index.coverbrowser_2
@@ -2368,7 +2371,7 @@ local function apply_context_menu()
             end
 
 
-            if is_file then
+            if is_file and not is_rakuyomi_book then
                 local ReadCollection = require("readcollection")
 
                 if item._zen_collection_name then
@@ -2412,7 +2415,7 @@ local function apply_context_menu()
                 end
             end
 
-            if is_file and is_not_parent_folder then
+            if is_file and is_not_parent_folder and not is_rakuyomi_book then
                 table.insert(buttons, {
                     {
                         text = icons.read_status .. "  " .. _("Read status") .. "  " .. submenu_arrow,
@@ -2527,7 +2530,7 @@ local function apply_context_menu()
                 })
             end
 
-            if is_file and is_not_parent_folder and item._zen_home_context then
+            if is_file and is_not_parent_folder and item._zen_home_context and not is_rakuyomi_book then
                 table.insert(buttons, {
                     {
                         text = icons.refresh .. "  " .. _("Refresh"),
@@ -2853,7 +2856,7 @@ local function apply_context_menu()
                 })
             end
 
-            local archive_row = archive_context_row(
+            local archive_row = not is_rakuyomi_book and archive_context_row(
                 file_manager, file, is_file)
             if archive_row then table.insert(buttons, archive_row) end
 

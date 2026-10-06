@@ -2,6 +2,9 @@ describe("Rakuyomi reader return", function()
     local original_modules = {}
     local original_plugin
     local original_rakuyomi
+    local original_globals
+    local globals = { "__ZEN_UI_LIBRARY_SOURCE_TAB", "__ZEN_UI_FORCE_SOURCE_TAB_RESTORE",
+        "__ZEN_UI_RAKUYOMI_RETURN_FILE", "__ZEN_UI_RAKUYOMI_CHAPTER_LIST_RESTORED" }
     local module_names = {
         "MangaReader",
         "apps/filemanager/filemanager",
@@ -51,6 +54,11 @@ describe("Rakuyomi reader return", function()
     end
 
     before_each(function()
+        original_globals = {}
+        for _i, name in ipairs(globals) do
+            original_globals[name] = rawget(_G, name)
+            _G[name] = nil
+        end
         for _i, name in ipairs(module_names) do
             original_modules[name] = package.loaded[name]
         end
@@ -59,6 +67,7 @@ describe("Rakuyomi reader return", function()
     end)
 
     after_each(function()
+        for _i, name in ipairs(globals) do _G[name] = original_globals[name] end
         for _i, name in ipairs(module_names) do
             package.loaded[name] = original_modules[name]
         end
@@ -90,5 +99,29 @@ describe("Rakuyomi reader return", function()
         local opened_chapters, opened_library = results()
         assert.are.equal(0, opened_chapters)
         assert.are.equal(0, opened_library)
+    end)
+
+    it("captures the actual opening source instead of forcing every chapter back to Rakuyomi", function()
+        local MangaReader = apply_patch(true)
+        local ReaderUI = require("apps/reader/readerui")
+        MangaReader.chapter = { _zen_rakuyomi_source_tab = "manga" }
+        ReaderUI:showReader("/library/chapter.cbz")
+        assert.equals("manga", _G.__ZEN_UI_LIBRARY_SOURCE_TAB)
+        assert.is_true(_G.__ZEN_UI_FORCE_SOURCE_TAB_RESTORE)
+        assert.equals("/library/chapter.cbz", _G.__ZEN_UI_RAKUYOMI_RETURN_FILE)
+
+        MangaReader.chapter = { _zen_rakuyomi_source_tab = "home" }
+        _G.__ZEN_UI_LIBRARY_SOURCE_TAB = nil
+        ReaderUI:showReader("/library/chapter.cbz")
+        assert.equals("home", _G.__ZEN_UI_LIBRARY_SOURCE_TAB)
+        assert.is_nil(_G.__ZEN_UI_FORCE_SOURCE_TAB_RESTORE)
+        assert.is_nil(_G.__ZEN_UI_RAKUYOMI_RETURN_FILE)
+
+        MangaReader.is_showing = false
+        _G.__ZEN_UI_LIBRARY_SOURCE_TAB = "history"
+        ReaderUI:showReader("/library/chapter.cbz")
+        assert.equals("history", _G.__ZEN_UI_LIBRARY_SOURCE_TAB)
+        assert.is_nil(_G.__ZEN_UI_FORCE_SOURCE_TAB_RESTORE)
+        assert.is_nil(_G.__ZEN_UI_RAKUYOMI_RETURN_FILE)
     end)
 end)

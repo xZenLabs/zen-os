@@ -348,6 +348,37 @@ describe("reader book details", function()
         assert.are.equal(edit_callback, widget_spec.edit_callback)
     end)
 
+    it("shows manga chapters and descriptions and opens the series cover fullscreen", function()
+        local ui = reader_ui()
+        ui.document.file = "/data/rakuyomi/tmpfs/chapter.cbz"
+        ui.doc_props.title = "Manga title"
+        ui.doc_props.chapter_label = 'Vol. 2 Ch. 12.5 "Chapter title"'
+        ui.doc_props.description = "<p>Manga description</p>"
+        local cover = {}
+        ZenSpec.replace("bookinfomanager", { getBookInfo = function(_self, file, get_cover)
+            assert.equals(ui.document.file, file)
+            assert.is_true(get_cover)
+            return { cover_bb = cover, has_cover = "Y" }
+        end })
+        local saved_viewer = package.loaded["ui/widget/imageviewer"]
+        ZenSpec.replace("ui/widget/imageviewer", { new = function(_self, options)
+            options.onClose = function(self) self.closed = true end
+            return options
+        end })
+        local spec = require("modules/reader/book_details").buildSpec(ui)
+        assert.equals("Manga title", spec.details[1].text)
+        assert.equals(ui.doc_props.chapter_label, spec.details[3].text)
+        assert.equals("Manga description", spec.description)
+        spec.cover_tap_callback()
+        assert.equals(cover, shown.image)
+        assert.is_true(shown.fullscreen)
+        assert.is_false(shown.image_disposable)
+        assert.is_false(shown.with_title_bar)
+        assert.is_true(shown:onTap())
+        assert.is_true(shown.closed)
+        package.loaded["ui/widget/imageviewer"] = saved_viewer
+    end)
+
     it("prefers live page-map labels for the current page line", function()
         local ui = reader_ui()
         ui.pagemap = {

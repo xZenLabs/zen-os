@@ -813,6 +813,54 @@ describe("folder cover context-menu integration", function()
         assert.are.equal(4, #scheduled)
     end)
 
+    it("shows a Home manga context menu with chapter metadata and fullscreen series artwork", function()
+        local shown, details_file, details_options = {}, nil, nil
+        local cover = {}
+        local chooser = { name = "filemanager", path = "/library", showFileDialog = function() return "stock" end }
+        local fm = { file_chooser = chooser }
+        local FileManager = { instance = fm, moveFile = function() end, setupLayout = function() end }
+        _G.__ZEN_UI_PLUGIN = { config = { context_menu = { show_archive = true, show_plugin_actions = true } } }
+        FileManager.file_dialog_added_buttons = { function() error("chapter file actions must stay hidden") end }
+        install_stubs({
+            FileChooser = { show_filter = {}, show_file = function() return true end },
+            FileManager = FileManager,
+            Files = { isManaged = function() return false end },
+            UIManager = { show = function(_self, widget) shown[#shown + 1] = widget end, close = function() end },
+            Cover = { BORDER_SIZE = 1, getRatio = function() return 2 / 3 end,
+                makeCover = function() return cover, 80, 120 end },
+            BookInfoManager = { getBookInfo = function()
+                return { title = "Manga title", authors = "Manga author", series = "Manga title", series_index = 12.5,
+                    chapter_label = 'Ch. 12.5 "Chapter title"', keywords = "Action; Fantasy", pages = 20,
+                    cover_bb = cover, has_cover = "Y" }
+            end },
+            BookDetails = { showFile = function(file, options) details_file, details_options = file, options end },
+            paths = { getHomeDir = function() return "/library" end,
+                isInHomeDir = function() return true end, isHomeRoot = function() return false end,
+                isPrimaryHomeRoot = function() return false end },
+        })
+        replace("ui/widget/imageviewer", widget_class())
+        apply_patch()
+        FileManager.setupLayout(fm)
+        local file = "/data/rakuyomi/tmpfs/missing.cbz"
+        assert.is_true(chooser:showFileDialog({ path = file, is_file = true, _zen_home_context = true,
+            _zen_rakuyomi_book = true, _zen_hide_edit = true }))
+        local dialog = shown[#shown]
+        for _i, text in ipairs({ "Manga title", "Manga author", 'Ch. 12.5 "Chapter title"', "Action, Fantasy" }) do
+            assert.is_true(has_widget_text(dialog._added_widgets[1], text))
+        end
+        assert.equals(1, #dialog.buttons)
+        assert(find_button(dialog, "Details")).callback()
+        assert.equals(file, details_file)
+        assert.is_true(details_options.home_context)
+        local tap = dialog._added_widgets[1][1][1]
+        tap.dimen.contains = function() return true end
+        assert.is_true(tap:onTapCover(nil, { pos = { x = 1, y = 1 } }))
+        local viewer = shown[#shown]
+        assert.equals(cover, viewer.image)
+        assert.is_true(viewer.fullscreen)
+        assert.is_false(viewer.image_disposable)
+    end)
+
     it("keeps inline icons in plugin actions and preserves Edit ordering", function()
         local shown = {}
         local details_options
