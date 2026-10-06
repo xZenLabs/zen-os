@@ -784,8 +784,8 @@ local function sortDetailFiles(files, collate, reverse)
     return sorted
 end
 
-local function group_tag_book_items(items, tab_id)
-    local cfg = tab_id == "tags" and load_zen_config()
+local function group_series_book_items(items, tab_id)
+    local cfg = (tab_id == "tags" or tab_id == "authors") and load_zen_config()
     if not (cfg and cfg.features and cfg.features.automatic_series_grouping ~= false) then
         return items
     end
@@ -888,7 +888,7 @@ local function showDetailSortDialog(group_name, tab_id, menu, files, reload_file
             })
         end
 
-        book_items = group_tag_book_items(book_items, tab_id)
+        book_items = group_series_book_items(book_items, tab_id)
         if should_show_up_folder() then
             table.insert(book_items, 1, { text = "\u{2B06} ..", is_go_up = true, mandatory = "" })
         end
@@ -1098,7 +1098,7 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
             mandatory = attr and util_mod.getFriendlySize(attr.size or 0) or "",
         })
     end
-    book_items = group_tag_book_items(book_items, tab_id)
+    book_items = group_series_book_items(book_items, tab_id)
     if #book_items == 0 then
         table.insert(book_items, {
             text                   = group_empty_message(tab_id),
@@ -1128,6 +1128,7 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
                 if series_menu then
                     series_menu._zen_restore_parent = {
                         group_name = group_name,
+                        tab_id = tab_id,
                         page = menu_self.page,
                     }
                 end
@@ -1857,7 +1858,7 @@ function M.getActiveDetail()
         if m._zen_restore_parent then
             return {
                 group_name = m._zen_restore_parent.group_name,
-                tab_id = "tags",
+                tab_id = m._zen_restore_parent.tab_id,
                 page = m._zen_restore_parent.page or 1,
             }
         end

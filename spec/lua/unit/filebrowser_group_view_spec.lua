@@ -796,6 +796,7 @@ describe("file browser group views", function()
             history = fixture.access,
             authors = { { author = "Writer", files = SortFixtures.paths_from_entries(fixture.entries) } },
         })
+        config.features.automatic_series_grouping = false
         for path, props in pairs(fixture.metadata) do metadata[path] = props end
 
         local methods = { "series_index", "strcoll", "title", "title_natural", "access" }
@@ -837,6 +838,64 @@ describe("file browser group views", function()
         assert.is_truthy(sort_dialog.buttons[3][1].text:find("Order", 1, true))
     end)
 
+    it("groups an author's books into series and preserves grouping after sorting", function()
+        install_group_view({
+            authors = {
+                { author = "Ada", files = { "/second.epub", "/solo.epub", "/first.epub" } },
+                { author = "Zed", files = { "/other.epub" } },
+            },
+        })
+        config.features.automatic_series_grouping = true
+        metadata["/second.epub"] = { title = "Alpha", series = "Saga", series_index = 2 }
+        metadata["/first.epub"] = { title = "Zulu", series = "Saga", series_index = 1 }
+        metadata["/solo.epub"] = { title = "Solo" }
+        metadata["/other.epub"] = { title = "Other", series = "Saga", series_index = 3 }
+        package.loaded.device.isTouchDevice = function() return true end
+        local function inject_navbar(menu, tab_id) menu._test_navbar_tab_id = tab_id end
+
+        api.showAuthorsView(inject_navbar)
+        local root = assert(find_menu("authors"))
+        root.onMenuSelect(root, root.item_table[1])
+        local detail = assert(find_menu("authors_detail"))
+        detail.page = 3
+        assert.are.equal(2, #detail.item_table)
+        local group = detail.item_table[1]
+        assert.is_true(group.is_series_group)
+        assert.are.equal("Saga", group.text)
+        assert.are.same({ "/first.epub", "/second.epub" }, group._zen_files)
+        assert.are.equal("/solo.epub", detail.item_table[2].path)
+
+        detail.onMenuHold(detail, group)
+        assert.are.same(group._zen_files, file_dialog_args._zen_group_files)
+        detail.onMenuSelect(detail, group)
+        local series = assert(find_menu("series_detail"))
+        assert.are.equal("authors", series._test_navbar_tab_id)
+        assert.are.same({ "/first.epub", "/second.epub" }, {
+            series.item_table[1].path, series.item_table[2].path,
+        })
+        assert.are.same({ group_name = "Ada", tab_id = "authors", page = 3 }, api.getActiveDetail())
+        series.onMenuSelect(series, series.item_table[1])
+        assert.are.same({ "/first.epub" }, opened)
+        series._test_back_callback()
+        assert.are.same({ group_name = "Ada", tab_id = "authors", page = 3 }, api.getActiveDetail())
+
+        detail:onZenDetailBlankHold()
+        file_dialog_args._zen_sort_cb()
+        dialogs[#dialogs].buttons[4][1].callback()
+        assert.are.equal(2, #detail.item_table)
+        assert.is_true(detail.item_table[1].is_series_group)
+        assert.are.same(group._zen_files, detail.item_table[1]._zen_files)
+
+        api.closeAll()
+        menus = {}
+        config.features.automatic_series_grouping = false
+        api.showAuthorsView()
+        local ungrouped = assert(api.restoreDetail("Ada", "authors"))
+        assert.are.same({ "/first.epub", "/second.epub", "/solo.epub" }, {
+            ungrouped.item_table[1].path, ungrouped.item_table[2].path, ungrouped.item_table[3].path,
+        })
+    end)
+
     it("groups tagged series in both tag entry points when library grouping is enabled", function()
         install_group_view({
             tags = { { tag = "Fantasy", files = {
@@ -859,7 +918,7 @@ describe("file browser group views", function()
         assert.are.same({ "/first.epub", "/second.epub" }, {
             series.item_table[1].path, series.item_table[2].path,
         })
-        assert.are.equal("Fantasy", api.getActiveDetail().group_name)
+        assert.are.same({ group_name = "Fantasy", tab_id = "tags", page = 1 }, api.getActiveDetail())
 
         api.closeAll()
         assert.are.same({ series, detail, root }, {
