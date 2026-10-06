@@ -27,6 +27,7 @@ describe("file browser navbar navigation", function()
     local screen_is_color
     local built_widgets
     local original_color_text_widget
+    local original_feedback
 
     local function class(methods)
         methods = methods or {}
@@ -38,6 +39,7 @@ describe("file browser navbar navigation", function()
         methods.new = methods.new or function(self, values)
             values = values or {}
             values.dimen = values.dimen or { w = values.width or 20, h = values.height or 20 }
+            values.dimen.x, values.dimen.y = values.dimen.x or 0, values.dimen.y or 0
             values.getSize = values.getSize or function(widget) return widget.dimen end
             values.free = values.free or function() end
             values.paintTo = values.paintTo or self.paintTo
@@ -56,6 +58,10 @@ describe("file browser navbar navigation", function()
     end
 
     before_each(function()
+        original_feedback = package.loaded["common/ui/button_feedback"]
+        ZenSpec.replace("common/ui/button_feedback", {
+            flashButton = function() error("navbar buttons must not flash") end,
+        })
         calls = {}
         library_font_sizes = {}
         home_widget = {}
@@ -360,6 +366,7 @@ describe("file browser navbar navigation", function()
         end
         package.loaded["common/memory_policy"] = original_memory_policy
         package.loaded["common/ui/color_text_widget"] = original_color_text_widget
+        package.loaded["common/ui/button_feedback"] = original_feedback
     end)
 
     local function make_instance()

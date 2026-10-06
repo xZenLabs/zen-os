@@ -205,6 +205,7 @@ describe("Zen icon picker", function()
             CHEV_W = 20,
             CHEV_HIT_W = 40,
             PN_FOOTER_H = 30,
+            flashChevron = function() end,
             getHoldSkip = function() return "ends" end,
             getCenteredFooterY = function(content_bottom, footer_y, footer_h)
                 local gap_h = footer_y + footer_h - content_bottom

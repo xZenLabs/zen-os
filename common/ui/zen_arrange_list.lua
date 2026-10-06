@@ -24,6 +24,7 @@ local UIManager = require("ui/uimanager")
 local VerticalGroup = require("ui/widget/verticalgroup")
 local _ = require("gettext")
 local IconItem = require("common/ui/icon_menu_item")
+local ButtonFeedback = require("common/ui/button_feedback")
 local SettingsTitleBar = require("common/ui/zen_settings_titlebar")
 local TruncatedTextMessage = require("common/ui/truncated_text_message")
 local TopMenu = require("modules/global/patches/menu_top_swipe")
@@ -137,6 +138,7 @@ local function can_use_arrange_pager(sort_widget)
 end
 
 local function update_arrange_pager_zones(sort_widget, paint_y, footer_h)
+    sort_widget._zen_arrange_pager_y = paint_y
     local hit_h = pager.getChevronHitBottom(
         paint_y, footer_h, Device.screen:getHeight()
     ) - paint_y
@@ -161,6 +163,8 @@ local function install_arrange_pager_zones(sort_widget, bar_x, bar_w, footer_h)
     local hit_h = pager.getChevronHitBottom(footer_y, footer_h, screen_h) - footer_y
     local function change_page(diff)
         if not can_use_arrange_pager(sort_widget) then return end
+        pager.flashChevron(diff < 0 and "left" or "right", bar_x,
+            sort_widget._zen_arrange_pager_y or footer_y, bar_w, footer_h)
         local pages = sort_widget.pages
         local target = ((sort_widget.show_page - 1 + diff) % pages) + 1
         sort_widget:onGoToPage(target)
@@ -904,6 +908,11 @@ end
 local install_submenu_tap_handlers
 local install_root_tap_handlers
 
+local function flash_submenu_row(row)
+    local frame = row._zen_arrange_row_frame
+    ButtonFeedback.flash(frame and frame.dimen)
+end
+
 local function open_submenu_for_item(sort_widget, item, resume_path, resume_in_background)
     if not (sort_widget and item and has_submenu(item)
             and item_is_enabled(item)) then
@@ -1617,12 +1626,13 @@ install_submenu_tap_handlers = function(sort_widget)
                 child.onHoldTouch = function() return true end
             end
         end
-        if item and sort_widget._zen_menu_mode
+        if item and (sort_widget._zen_menu_mode or item._zen_settings_submenu == true)
                 and not child._zen_arrange_menu_tap_patched then
             child._zen_arrange_menu_tap_patched = true
             local orig_on_tap = child.onTap
             child.onTap = function(row, arg, ges)
                 if not item_is_enabled(item) then return true end
+                if item._zen_settings_submenu == true then flash_submenu_row(row) end
                 return orig_on_tap(row, arg, ges)
             end
         end
@@ -1639,6 +1649,7 @@ install_submenu_tap_handlers = function(sort_widget)
                     end
                     return true
                 end
+                flash_submenu_row(row)
                 open_submenu_for_item(row.show_parent, item)
                 return true
             end
@@ -1675,8 +1686,10 @@ install_root_tap_handlers = function(sort_widget)
                     return true
                 end
                 if action == "submenu" then
+                    flash_submenu_row(row)
                     open_submenu_for_item(row.show_parent, item)
                 elseif action == "callback" then
+                    if item._zen_settings_submenu == true then flash_submenu_row(row) end
                     item:callback()
                     if not row.show_parent._zen_menu_mode then
                         repopulate(row.show_parent)

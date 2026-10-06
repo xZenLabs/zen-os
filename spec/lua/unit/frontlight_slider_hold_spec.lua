@@ -242,6 +242,10 @@ describe("frontlight slider", function()
         assert.are.equal(9, opts.refs.nl_progress.value)
         assert.is_true(has_label(brightness_group, "Brightness"))
         assert.is_true(has_label(warmth_group, "Warmth"))
+        for _i, group in ipairs({ brightness_group, warmth_group }) do
+            assert.is_false(button(group, "−").allow_flash)
+            assert.is_false(button(group, "＋").allow_flash)
+        end
 
         button(brightness_group, "＋").callback()
         assert.are.equal(41, powerd.intensity)

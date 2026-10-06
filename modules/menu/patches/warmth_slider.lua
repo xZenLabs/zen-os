@@ -134,6 +134,7 @@ local function build_warmth_slider(touch_menu, opts)
         height         = nl_button_height,
         bordersize     = 0,
         show_parent    = show_parent,
+        allow_flash    = false,
         callback       = function() setWarmth(nl.cur - 1) end,
         hold_callback  = function() setWarmth(0) end,
     }
@@ -146,6 +147,7 @@ local function build_warmth_slider(touch_menu, opts)
         height         = nl_button_height,
         bordersize     = 0,
         show_parent    = show_parent,
+        allow_flash    = false,
         callback       = function() setWarmth(nl.cur + 1) end,
     }
 

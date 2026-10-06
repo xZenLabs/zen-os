@@ -3,6 +3,7 @@ describe("Zen scroll bar", function()
     local shown
     local painted_y
     local page_turns
+    local flashed_chevrons
     local centered_content_bottom
     local saved_modules
 
@@ -48,6 +49,7 @@ describe("Zen scroll bar", function()
         shown = nil
         painted_y = nil
         page_turns = {}
+        flashed_chevrons = {}
         centered_content_bottom = nil
         Menu = {
             init = function(self)
@@ -100,6 +102,9 @@ describe("Zen scroll bar", function()
             end,
             getStyle = function() return "page_number" end,
             getHoldSkip = function() return "10" end,
+            flashChevron = function(side, x, y, w, h)
+                flashed_chevrons[#flashed_chevrons + 1] = { side, x, y, w, h, #page_turns }
+            end,
             paint = function(_bb, _x, y) painted_y = y end,
         })
         ZenSpec.replace("common/ui/zen_dialog", function(options)
@@ -257,6 +262,7 @@ describe("Zen scroll bar", function()
             is_borderless = true,
             title_bar_fm_style = true,
         })
+        authors.page_info.paintTo(nil, nil, 0, 700)
 
         assert.is_true(find_zone(authors, "zen_pn_left_tap").handler())
         assert.is_true(find_zone(authors, "zen_pn_right_tap").handler())
@@ -265,5 +271,9 @@ describe("Zen scroll bar", function()
             { "previous", 1 },
             { "next", 1 },
         }, page_turns)
+        assert.are.same({
+            { "left", 24, 704, 552, 40, 0 },
+            { "right", 24, 704, 552, 40, 1 },
+        }, flashed_chevrons)
     end)
 end)

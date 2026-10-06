@@ -107,6 +107,8 @@ function ZenScreen:_moveButtonFocus()
 end
 
 function ZenScreen:_activateButton(button)
+    require("common/ui/button_feedback").flashButton(button == "later"
+        and self._later_btn_rect or self._btn_rect)
     if button == "later" and self.later_button then
         self:onClose()
     elseif button == "primary" and self.button ~= false then

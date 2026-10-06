@@ -3,7 +3,9 @@
 -- All visual constants and config accessors live here; callers only paint.
 
 local Blitbuffer = require("ffi/blitbuffer")
+local ButtonFeedback = require("common/ui/button_feedback")
 local Font       = require("ui/font")
+local Geom       = require("ui/geometry")
 local IconWidget = require("ui/widget/iconwidget")
 local RenderText = require("ui/rendertext")
 local Screen     = require("device").screen
@@ -129,6 +131,17 @@ function M.getPageNumberZone(x, y, footer_x, footer_y, footer_w, footer_h, avail
     if x < footer_x + chevron_w then return "left" end
     if x >= footer_x + footer_w - chevron_w then return "right" end
     if y < footer_bottom then return "center" end
+end
+
+function M.flashChevron(side, x, y, w, h)
+    if side ~= "left" and side ~= "right" or G_reader_settings:isFalse("flash_ui") then return end
+    local region = Geom:new{
+        x = x + (side == "right" and w - M.CHEV_W or 0)
+            + math.floor((M.CHEV_W - M.PN_ICON_SZ) / 2),
+        y = y + math.floor((h - M.PN_ICON_SZ) / 2),
+        w = M.PN_ICON_SZ, h = M.PN_ICON_SZ,
+    }
+    ButtonFeedback.flash(ButtonFeedback.paddedRegion(region))
 end
 
 -- Filled pill (stadium) shape via scanline paintRect.

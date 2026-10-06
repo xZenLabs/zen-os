@@ -22,6 +22,7 @@ describe("global schedule resume hook", function()
         "modules/global/patches/incognito_mode",
         "modules/global/patches/menu_font",
         "modules/global/patches/unified_title_style",
+        "modules/global/patches/button_feedback",
         "modules/global/patches/responsive_keyboard",
     }
 

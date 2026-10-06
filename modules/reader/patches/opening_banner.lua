@@ -81,6 +81,7 @@ local function apply_opening_banner()
     local _       = require("gettext")
     local pending_banner
     local pending_banner_seq
+    local suppress_next_banner = false
     local show_prepared_banner
 
     local function is_book_item(item)
@@ -534,9 +535,7 @@ local function apply_opening_banner()
     rawset(_G, "__ZEN_UI_CANCEL_OPENING_BANNER", function(suppress_next_open)
         clear_pending_banner()
         _last_cover_dimen = nil
-        if suppress_next_open == true then
-            _last_banner_seq = _tap_seq
-        end
+        suppress_next_banner = suppress_next_open == true
     end)
 
     local ok_confirm, ConfirmBox = pcall(require, "ui/widget/confirmbox")
@@ -627,6 +626,8 @@ local function apply_opening_banner()
 
         ReaderUI.showReaderCoroutine = function(self, file, provider, seamless)
         logger.info("showReaderCoroutine called, file=", tostring(file), "provider=", tostring(provider), "seamless=", tostring(seamless))
+        local suppress_banner = suppress_next_banner
+        suppress_next_banner = false
         if seamless then
             -- Seamless reloads must keep KOReader's behavior (invisible InfoMessage).
             logger.info("seamless reload, delegating to _show_reader_no_banner")
@@ -642,7 +643,8 @@ local function apply_opening_banner()
         -- cases (e.g. a DOM-version reload scheduled via nextTick during
         -- reader init). After the first banner for a given tap, run the
         -- reload via our InfoMessage-free path so no second banner appears.
-        if _last_banner_seq == _tap_seq then
+        if suppress_banner or _last_banner_seq == _tap_seq then
+            _last_banner_seq = _tap_seq
             return _show_reader_no_banner(self, file, provider, seamless)
         end
         _last_banner_seq = _tap_seq

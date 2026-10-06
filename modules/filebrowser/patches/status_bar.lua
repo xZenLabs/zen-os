@@ -256,13 +256,6 @@ local function apply_status_bar()
         if back_widget.frame then
             back_widget.frame.background = nil
         end
-        -- KOReader's stock flash_ui feedback repaints the button through the
-        -- widget stack, filling the titlebar white (the library background is
-        -- only painted by our repaintTitleBar) and leaving a white/inverted box
-        -- around the transparent chevron. Drop the tap feedback entirely so the
-        -- background stays untouched.
-        back_widget._doFeedbackHighlight = function() end
-        back_widget._undoFeedbackHighlight = function() end
         return back_widget
     end
 
@@ -762,11 +755,14 @@ local function apply_status_bar()
                     TapBack = { GestureRange:new{ ges = "tap", range = hb_dimen } },
                 },
             }
-            function back_hitbox:onTapBack() back_callback(); return true end
+            function back_hitbox:onTapBack() return back_widget:onTapSelectButton() end
             table.insert(row, back_hitbox)
             -- Store zone so FileManager.handleEvent can intercept taps from below the title bar.
             if file_manager then
-                file_manager._zen_back_tap_zone = { w = hitbox_w, h = row_height + hitbox_extra, callback = back_callback }
+                file_manager._zen_back_tap_zone = {
+                    w = hitbox_w, h = row_height + hitbox_extra,
+                    callback = function() return back_widget:onTapSelectButton() end,
+                }
             end
         else
             if file_manager then file_manager._zen_back_tap_zone = nil end
@@ -1069,7 +1065,7 @@ local function apply_status_bar()
                     TapBack = { GestureRange:new{ ges = "tap", range = hb_dimen } },
                 },
             }
-            function back_hitbox:onTapBack() back_callback(); return true end
+            function back_hitbox:onTapBack() return back_widget:onTapSelectButton() end
             table.insert(row, back_hitbox)
         end
 

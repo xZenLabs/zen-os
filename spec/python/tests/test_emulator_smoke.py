@@ -167,6 +167,11 @@ def test_flip_lh_rh_swaps_both_menu_tab_pairs(
                 restored = driver.command("menu_tab_layout", tab_id="quicksettings")
                 assert "app_launcher" in restored["tabs"]
                 assert "launcher" not in restored["button_ids"]
+            if not home_in_controls:
+                tapped = driver.command("menu_tab_layout", tab_id="zen_library_home", tap=True)
+                assert tapped["ok"] is True
+                assert tapped["feedback_repaints"] > 0
+                assert driver.command("home_state")["home"]["on_top"] is True
         finally:
             process.send_signal(signal.SIGTERM)
             try:

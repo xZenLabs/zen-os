@@ -11,6 +11,8 @@ describe("home strip widget", function()
     local screen_width
     local screen_height
     local cover_frame_border
+    local saved_feedback
+    local feedback_regions
 
     local function widget_class(kind)
         return {
@@ -42,6 +44,11 @@ describe("home strip widget", function()
     end
 
     before_each(function()
+        saved_feedback = package.loaded["common/ui/button_feedback"]
+        feedback_regions = {}
+        ZenSpec.replace("common/ui/button_feedback", { flashButton = function(region)
+            feedback_regions[#feedback_regions + 1] = region
+        end })
         created, cover_books, empty_sources, folder_calls = {}, {}, {}, {}
         folder_calls.builds = {}
         folder_needs_hydration = false
@@ -219,6 +226,10 @@ describe("home strip widget", function()
         ZenSpec.unload("modules/filebrowser/patches/home/widgets/strip_controls")
         ZenSpec.unload("modules/filebrowser/patches/home/widgets/strip_common")
         ZenSpec.unload("modules/filebrowser/patches/home/widgets/strip")
+    end)
+
+    after_each(function()
+        package.loaded["common/ui/button_feedback"] = saved_feedback
     end)
 
     local function has_text(expected)
@@ -622,6 +633,7 @@ describe("home strip widget", function()
             pos = { x = last.dimen.x + last.dimen.w + 4, y = 45 },
         }))
         assert.are.same({ "recent", "recent", "to_be_read" }, activated)
+        assert.are.same({}, feedback_regions)
     end)
 
     it("left-aligns one-row covers with the shared content inset", function()

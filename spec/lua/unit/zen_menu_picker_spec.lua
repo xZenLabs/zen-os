@@ -38,6 +38,7 @@ describe("Zen menu picker", function()
         "ui/widget/iconwidget",
         "ui/widget/textwidget",
         "common/ui/zen_pager",
+        "common/ui/button_feedback",
         "common/ui/zen_title_style",
         "common/ui/truncated_text_message",
         "common/ui/zen_button",
@@ -102,6 +103,7 @@ describe("Zen menu picker", function()
         image_widgets = {}
 
         ZenSpec.replace("gettext", function(text) return text end)
+        ZenSpec.replace("common/ui/button_feedback", { flashButton = function() end })
         ZenSpec.replace("ui/bidi", {
             mirroredUILayout = function() return mirrored end,
             flipDirectionIfMirroredUILayout = function(direction)
@@ -193,6 +195,7 @@ describe("Zen menu picker", function()
             CHEV_W = 20,
             CHEV_HIT_W = 40,
             PN_FOOTER_H = 30,
+            flashChevron = function() end,
             getHoldSkip = function() return "ends" end,
             getCenteredFooterY = function(content_bottom, footer_y, footer_h)
                 local gap_h = footer_y + footer_h - content_bottom

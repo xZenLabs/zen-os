@@ -292,6 +292,7 @@ local function showIconPickerDialog(icons_list, current_icon, on_select)
     local function handlePageNumberTap(gx, gy)
         local zone = pageNumberZone(gx, gy, true)
         if not zone then return false end
+        pager.flashChevron(zone, content_x, bar_y, content_w, bar_area_h)
         if zone == "left" then
             goToPage(cur_page > 1 and cur_page - 1 or total_pages)
         elseif zone == "right" then
@@ -342,6 +343,7 @@ local function showIconPickerDialog(icons_list, current_icon, on_select)
                     if gx >= close_slot_x
                        and gx < close_slot_x + TitleStyle.BUTTON_SIZE
                        and gy >= 0 and gy < TitleStyle.HEADER_CONTENT_HEIGHT then
+                        require("common/ui/button_feedback").flashButton(close_iw.dimen)
                         closeDialog()
                         return true
                     end
@@ -425,6 +427,7 @@ local function showIconPickerDialog(icons_list, current_icon, on_select)
 
     function PickerDlg:onPress()
         if focus_area == "close" then
+            require("common/ui/button_feedback").flashButton(close_iw.dimen)
             closeDialog()
             return true
         end

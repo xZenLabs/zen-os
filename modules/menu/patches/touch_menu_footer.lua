@@ -55,7 +55,11 @@ local function apply_touch_menu_footer()
     end
 
     function TappableIcon:onTapSelect()
-        if self.callback then self.callback() end
+        if self.callback then
+            local Feedback = require("common/ui/button_feedback")
+            Feedback.flashButton(self.dimen)
+            self.callback()
+        end
         return true
     end
 

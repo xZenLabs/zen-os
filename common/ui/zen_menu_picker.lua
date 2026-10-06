@@ -259,6 +259,12 @@ local function showMenuPicker(opts)
 
     local function selectItem(item)
         if not item then return true end
+        for item_index, button in ipairs(footer_buttons) do
+            if item == button then
+                require("common/ui/button_feedback").flashButton(footer_button_rects[item_index])
+                break
+            end
+        end
         if item.keep_open ~= true then closeDialog(item) end
         UIManager:nextTick(function()
             local ok_select, err = xpcall(function()
@@ -273,6 +279,7 @@ local function showMenuPicker(opts)
 
     local function selectTitleAction()
         if not has_title_action then return true end
+        require("common/ui/button_feedback").flashButton(title_action_iw.dimen)
         if opts.title_action_keep_open ~= true then closeDialog() end
         UIManager:nextTick(function()
             local ok_select, err = xpcall(title_action_callback, debug.traceback)
@@ -393,6 +400,7 @@ local function showMenuPicker(opts)
     local function handlePageNumberTap(gx, gy)
         local zone = pageNumberZone(gx, gy, true)
         if not zone then return false end
+        pager.flashChevron(zone, content_x, bar_y, content_w, bar_area_h)
         if zone == "left" then
             goToPage(cur_page > 1 and cur_page - 1 or total_pages)
         elseif zone == "right" then
@@ -449,6 +457,7 @@ local function showMenuPicker(opts)
                         or TitleStyle.LEFT_PADDING
                     if gx >= back_x and gx < back_x + TitleStyle.BUTTON_SIZE
                        and gy >= 0 and gy < TitleStyle.HEADER_CONTENT_HEIGHT then
+                        require("common/ui/button_feedback").flashButton(back_iw.dimen)
                         closeDialog()
                         return true
                     end
@@ -459,6 +468,7 @@ local function showMenuPicker(opts)
                         return selectTitleAction()
                     end
                     if gy >= 0 and gy < TitleStyle.HEADER_CONTENT_HEIGHT then
+                        require("common/ui/button_feedback").flashButton(back_iw.dimen)
                         closeDialog()
                         return true
                     end
@@ -607,6 +617,7 @@ local function showMenuPicker(opts)
 
     function Picker:onPress()
         if back_focused then
+            require("common/ui/button_feedback").flashButton(back_iw.dimen)
             closeDialog()
             return true
         end

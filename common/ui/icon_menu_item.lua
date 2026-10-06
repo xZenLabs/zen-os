@@ -470,6 +470,22 @@ function M.installMenuPatch()
                 rebuild_settings_menu_item(self)
                 return result
             end
+            local Feedback = require("common/ui/button_feedback")
+            local UIManager = require("ui/uimanager")
+            for handler, callback in pairs({ onTapSelect = "onMenuSelect", onHoldSelect = "onMenuHold" }) do
+                local original = MenuItem[handler]
+                MenuItem[handler] = function(self, arg, ges)
+                    if not (self.entry and self.entry._zen_settings_row) then
+                        return original(self, arg, ges)
+                    end
+                    if not self[1].dimen then return end
+                    local pos = self:getGesPosition(ges)
+                    Feedback.flash(self[1].dimen)
+                    self.menu[callback](self.menu, self.entry, pos)
+                    if not G_reader_settings:isFalse("flash_ui") then UIManager:forceRePaint() end
+                    return true
+                end
+            end
         end
         local orig_get_menu_text = Menu.getMenuText
         Menu.getMenuText = function(item)

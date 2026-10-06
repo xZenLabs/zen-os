@@ -540,8 +540,6 @@ function ColorWheelWidget:update()
         ZenButton.paintFilled(bb, x, y, button.dimen.w, button.dimen.h,
             button.text, button.text_font_size)
     end
-    ok_button._doFeedbackHighlight = function() end
-    ok_button._undoFeedbackHighlight = function() end
 
     self.layout[#self.layout + 1] = { ok_button }
 

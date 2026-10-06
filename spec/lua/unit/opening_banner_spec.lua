@@ -285,14 +285,12 @@ describe("opening banner", function()
         }, painted)
     end)
 
-    it("does not recreate a banner after its cover is released", function()
+    it("does not recreate a released cover banner through showReader", function()
         local ReaderUI, _, shown, closed, run_next_tick = install_stubs()
         local opens = 0
-        local reader = {
-            doShowReader = function()
-                opens = opens + 1
-            end,
-        }
+        ReaderUI.doShowReader = function()
+            opens = opens + 1
+        end
         apply_patch()
 
         local set_cover = rawget(_G, "__ZEN_UI_SET_OPENING_BANNER_COVER")
@@ -303,12 +301,18 @@ describe("opening banner", function()
         cancel_banner(true)
         assert.same({ shown[1] }, closed)
 
-        ReaderUI.showReaderCoroutine(reader, "book.epub", {})
+        ReaderUI:showReader("book.epub", {})
         assert.are.equal(2, #shown)
         assert.is_true(shown[2].invisible)
 
         run_next_tick()
         assert.are.equal(1, opens)
+
+        ReaderUI:showReader("coverless.epub", {})
+        assert.are.equal(3, #shown)
+        assert.are.same({ x = 0, y = 772, w = 600, h = 28 }, shown[3].dimen)
+        run_next_tick()
+        assert.are.equal(2, opens)
     end)
 
     it("closes a stale banner after its timeout", function()

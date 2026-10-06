@@ -2433,10 +2433,23 @@ function Driver:handleCommand(command)
         for tab_index, tab in ipairs(menu.tab_item_table or {}) do
             tabs[tab_index] = tab.id
         end
+        local feedback_repaints = 0
         if type(params.tab_id) == "string" then
             for tab_index, tab_id in ipairs(tabs) do
                 if tab_id == params.tab_id then
-                    bar.icon_widgets[tab_index].callback()
+                    if params.tap == true then
+                        local orig_force_repaint = UIManager.forceRePaint
+                        UIManager.forceRePaint = function(manager)
+                            feedback_repaints = feedback_repaints + 1
+                            return orig_force_repaint(manager)
+                        end
+                        local ok, err = pcall(bar.icon_widgets[tab_index].onTapIconButton,
+                            bar.icon_widgets[tab_index])
+                        UIManager.forceRePaint = orig_force_repaint
+                        if not ok then error(err) end
+                    else
+                        bar.icon_widgets[tab_index].callback()
+                    end
                     break
                 end
             end
@@ -2468,6 +2481,7 @@ function Driver:handleCommand(command)
             group_positions = group_positions,
             tab_segments = tab_segments,
             active_tab = active_tab,
+            feedback_repaints = feedback_repaints,
             visible_texts = visible_texts,
             button_ids = button_ids,
             unified_slider = refs and refs.fl_progress ~= nil

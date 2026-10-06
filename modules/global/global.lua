@@ -16,6 +16,7 @@ local PATCH_MODULES = {
     incognito_mode         = "modules/global/patches/incognito_mode",
     menu_font              = "modules/global/patches/menu_font",
     unified_title_style    = "modules/global/patches/unified_title_style",
+    button_feedback        = "modules/global/patches/button_feedback",
     responsive_keyboard    = "modules/global/patches/responsive_keyboard",
 }
 
@@ -139,6 +140,11 @@ function M.init(logger, plugin)
     local unified_title_style_fn = load_patch("unified_title_style")
     if unified_title_style_fn then
         run_patch(logger, plugin, "unified_title_style", unified_title_style_fn)
+    end
+
+    local button_feedback_fn = load_patch("button_feedback")
+    if button_feedback_fn then
+        run_patch(logger, plugin, "button_feedback", button_feedback_fn)
     end
 
     -- Hook the global Resume broadcast so schedules are independent of the

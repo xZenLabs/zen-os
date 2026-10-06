@@ -334,8 +334,14 @@ function ZenTocWidget:_moveFocus(dx, dy)
 end
 
 function ZenTocWidget:onPress()
-    if self._zen_focus_area == "back" then return self:onClose() end
-    if self._zen_focus_area == "close" then return self:onCloseAll() end
+    if self._zen_focus_area == "back" then
+        self:_flashHeader(false)
+        return self:onClose()
+    end
+    if self._zen_focus_area == "close" then
+        self:_flashHeader(true)
+        return self:onCloseAll()
+    end
     if self._zen_focus_area == "footer" then
         local direction = self._zen_footer_side == "right" and 1 or -1
         self:_gotoTocPage(self._toc_page + direction)
@@ -634,6 +640,19 @@ end
 -- ---------------------------------------------------------------------------
 -- Gesture handlers
 -- ---------------------------------------------------------------------------
+function ZenTocWidget:_flashHeader(close_all)
+    local L = self._L
+    local region = Geom:new{
+        x = close_all and TitleStyle.getTrailingIconX(L.modal_w, L.modal_x)
+            or TitleStyle.getLeadingIconX(L.modal_x),
+        y = L.modal_y + TitleStyle.VERTICAL_PADDING
+            + math.floor((TitleStyle.ROW_HEIGHT - TitleStyle.ICON_SIZE) / 2),
+        w = TitleStyle.ICON_SIZE, h = TitleStyle.ICON_SIZE,
+    }
+    if not close_all and self._title_hit then region = region:combine(self._title_hit) end
+    require("common/ui/button_feedback").flashButton(region)
+end
+
 function ZenTocWidget:_onTap(ges)
     local p = ges.pos
     local L = self._L
@@ -641,6 +660,7 @@ function ZenTocWidget:_onTap(ges)
     -- Tap on back button hit zone (top-left of title bar)
     if p.x >= L.back_x and p.x < L.back_x + L.back_w
     and p.y >= L.back_y and p.y < L.back_y + L.back_h then
+        self:_flashHeader(false)
         self:onClose()
         return true
     end
@@ -648,16 +668,19 @@ function ZenTocWidget:_onTap(ges)
     local title_hit = self._title_hit
     if title_hit and p.x >= title_hit.x and p.x < title_hit.x + title_hit.w
             and p.y >= title_hit.y and p.y < title_hit.y + title_hit.h then
+        self:_flashHeader(false)
         return self:onClose()
     end
 
     if p.x >= L.close_all_x and p.x < L.close_all_x + L.close_all_w
             and p.y >= L.modal_y and p.y < L.modal_y + L.title_h then
+        self:_flashHeader(true)
         return self:onCloseAll()
     end
 
     -- Tap on the page_number footer chevrons; center label is display-only.
     local zone = self:_footerZone(p, true)
+    pager.flashChevron(zone, L.modal_x + L.bar_x, L.bar_y, L.bar_w, L.scrollbar_h)
     if zone == "left" then
         self:_gotoTocPage((self._toc_page or 1) - 1)
         return true

@@ -78,7 +78,10 @@ function M.show(options)
     end
 
     function ZenClearButton:onTapSelect()
-        if self.enabled and self.callback then self.callback() end
+        if self.enabled and self.callback then
+            require("common/ui/button_feedback").flashButton(self.dimen)
+            self.callback()
+        end
         return true
     end
 

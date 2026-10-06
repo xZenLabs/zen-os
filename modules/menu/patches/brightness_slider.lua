@@ -156,6 +156,7 @@ local function build_brightness_slider(touch_menu, opts)
             height = progress:getSize().h,
             bordersize = 0,
             show_parent = show_parent,
+            allow_flash = false,
             callback = callback,
             hold_callback = hold_callback,
         }

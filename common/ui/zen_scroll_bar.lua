@@ -88,6 +88,7 @@ local function apply_zen_scroll_bar()
             and (scr_h - footer_area_h)
             or  (self.dimen.y + self.dimen.h - footer_area_h)
         local menu_x = is_search and 0 or self.dimen.x
+        local footer_x, footer_y = menu_x + bar_x, footer_area_y + footer_pad_top
 
         local function getLibraryContentBottom()
             if menu.name ~= "filemanager" then return end
@@ -152,6 +153,7 @@ local function apply_zen_scroll_bar()
                 area_y = math.max(content_bottom, area_y - padding_bias)
             end
             local paint_y = area_y + footer_pad_top
+            footer_x, footer_y = is_search and bar_x or x + bar_x, paint_y
             updateTouchZoneY(area_y)
             if is_search then
                 bb:paintRect(0, area_y, scr_w, footer_area_h, Blitbuffer.COLOR_WHITE)
@@ -187,6 +189,7 @@ local function apply_zen_scroll_bar()
                 _zen_extend_down = true,
                 handler = function()
                     if not canUsePageNumber() then return end
+                    pager.flashChevron("left", footer_x, footer_y, bar_w, foot_h)
                     menu:onPrevPage()
                     return true
                 end,
@@ -199,6 +202,7 @@ local function apply_zen_scroll_bar()
                 _zen_extend_down = true,
                 handler = function()
                     if not canUsePageNumber() then return end
+                    pager.flashChevron("right", footer_x, footer_y, bar_w, foot_h)
                     menu:onNextPage()
                     return true
                 end,

@@ -1,5 +1,6 @@
 local Blitbuffer = require("ffi/blitbuffer")
 local Button = require("ui/widget/button")
+local ButtonFeedback = require("common/ui/button_feedback")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local Device = require("device")
 local FrameContainer = require("ui/widget/container/framecontainer")
@@ -53,12 +54,13 @@ local function title_back_range(title_bar)
     if not title_bar.back_visible then return end
     local dimen = title_bar.title_container.dimen
     if not dimen then return end
+    local back_dimen = title_bar.back_button.dimen
     return Geom:new{
         x = dimen.x,
-        y = dimen.y,
-        w = math.min(dimen.w, title_bar.title_widget:getSize().w),
-        h = dimen.h,
-    }:combine(title_bar.back_button.dimen)
+        y = back_dimen.y,
+        w = math.min(dimen.w, title_bar.title_widget:getSize().w + Screen:scaleBySize(8)),
+        h = back_dimen.h,
+    }:combine(back_dimen)
 end
 
 local function default_status_factory(plugin)
@@ -253,12 +255,6 @@ function ZenSettingsTitleBar:init()
                     UIManager:setDirty(button.show_parent, "fast", button.dimen)
                     return true
                 end
-                self.action_button._doFeedbackHighlight = function(button)
-                    button._zen_filled = not button._zen_filled
-                    UIManager:widgetRepaint(button, button.dimen.x, button.dimen.y)
-                    UIManager:setDirty(nil, "fast", button.dimen)
-                end
-                self.action_button._undoFeedbackHighlight = self.action_button._doFeedbackHighlight
             end
         else
             self.action_button = ZenIconButton:new{
@@ -586,30 +582,9 @@ end
 
 function ZenSettingsTitleBar:onTapBackTitle()
     if not (self.back_visible and self.back_callback) then return false end
-    local flash = not G_reader_settings:isFalse("flash_ui")
-    if flash then
-        local dimen = title_back_range(self)
-        local button = self.back_button
-        local title = self.title_container
-        local old_invert, old_color = button.image.invert, self.title_widget.fgcolor
-        local function repaint(background)
-            Screen.bb:paintRoundedRect(dimen.x, dimen.y, dimen.w, dimen.h,
-                background, Screen:scaleBySize(8))
-            UIManager:widgetRepaint(button, button.dimen.x, button.dimen.y)
-            UIManager:widgetRepaint(title, title.dimen.x, title.dimen.y)
-            UIManager:setDirty(nil, "fast", dimen)
-        end
-        button.image.invert = true
-        self.title_widget.fgcolor = Blitbuffer.COLOR_WHITE
-        repaint(Blitbuffer.COLOR_BLACK)
-        UIManager:forceRePaint()
-        UIManager:yieldToEPDC()
-        button.image.invert = old_invert
-        self.title_widget.fgcolor = old_color
-        repaint(Blitbuffer.COLOR_WHITE)
-    end
+    ButtonFeedback.flash(title_back_range(self))
     self.back_callback()
-    if flash then UIManager:forceRePaint() end
+    if not G_reader_settings:isFalse("flash_ui") then UIManager:forceRePaint() end
     return true
 end
 

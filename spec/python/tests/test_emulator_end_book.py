@@ -179,12 +179,14 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                     str(books["no_cover"].resolve()), str(books["finale"].resolve()),
                 }
                 texts = set(state["visible_texts"])
-                assert "Statistics" in texts
-                assert state["statistics_label"]["bold"] is False
+                assert "Statistics" not in texts
+                assert "statistics_label" not in state
                 assert driver.command("end_book", hold_widget="stats_triplet")["hold_handled"]
                 stats_menu = driver.command("arrange_page_state")["arrange"]
                 label_menu_index = stats_menu["labels"].index("Label") + 1
-                assert stats_menu["checked"][label_menu_index - 1] is True
+                assert stats_menu["checked"][label_menu_index - 1] is False
+                assert driver.command("arrange_page_select", index=label_menu_index, toggle=True)["ok"]
+                assert driver.command("arrange_page_state")["arrange"]["checked"][label_menu_index - 1] is True
                 assert driver.command("arrange_page_select", index=label_menu_index)["ok"]
                 stats_settings = driver.command("arrange_page_state")["arrange"]["labels"]
                 assert {"Font size: 14", "Font: default", "Bold", "Use default style"} <= set(stats_settings)
@@ -217,7 +219,7 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert driver.command("arrange_page_back")["ok"]
                 restored = _wait_command(driver, "end_book", lambda result:
                                          "Statistics" in result.get("visible_texts", []))
-                assert restored["statistics_label"] == state["statistics_label"]
+                assert restored["statistics_label"] == dict(renamed["statistics_label"], bold=False)
                 assert {"Library", "Series", "To Be Read", "Home", "Next in series", "More by Zen Author"} <= texts
                 assert not {"Back", "Widgets", "Book status"} & texts
                 assert not state["has_default_button"]

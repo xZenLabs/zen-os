@@ -7,6 +7,7 @@ describe("Zen TOC hardware focus", function()
     local title_spec
     local font_calls
     local text_specs
+    local saved_feedback
 
     local function input_container()
         local InputContainer = {}
@@ -32,6 +33,8 @@ describe("Zen TOC hardware focus", function()
     end
 
     before_each(function()
+        saved_feedback = package.loaded["common/ui/button_feedback"]
+        ZenSpec.replace("common/ui/button_feedback", { flashButton = function() end })
         close_calls = 0
         dirty_calls = 0
         back_icon = nil
@@ -71,7 +74,7 @@ describe("Zen TOC hardware focus", function()
             end,
         })
         ZenSpec.replace("document/credocument", {})
-        ZenSpec.replace("ui/geometry", { new = function(_self, values) return values end })
+        ZenSpec.unload("ui/geometry")
         ZenSpec.replace("ui/widget/container/inputcontainer", input_container())
         ZenSpec.replace("datastorage", { getDataDir = function() return "/koreader" end })
         ZenSpec.replace("common/utils", {
@@ -109,6 +112,7 @@ describe("Zen TOC hardware focus", function()
             FOOTER_H = 20,
             CHEV_W = 50,
             CHEV_HIT_W = 80,
+            flashChevron = function() end,
             getStyle = function() return "page_number" end,
             getCenteredFooterY = function(_list_bottom, footer_top) return footer_top end,
             getHoldSkip = function() return 10 end,
@@ -155,6 +159,7 @@ describe("Zen TOC hardware focus", function()
     end)
 
     after_each(function()
+        package.loaded["common/ui/button_feedback"] = saved_feedback
         ZenSpec.unload("modules/reader/zen_toc_widget")
         ZenSpec.unload("modules/filebrowser/patches/library_font")
         ZenSpec.unload("common/reader_font")

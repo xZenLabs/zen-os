@@ -8,6 +8,7 @@ describe("full-screen folder cover picker", function()
     local draw_calls
     local decorated
     local zen_paints
+    local saved_feedback
 
     local function widget_class(kind)
         local Widget = {}
@@ -24,6 +25,8 @@ describe("full-screen folder cover picker", function()
     end
 
     before_each(function()
+        saved_feedback = package.loaded["common/ui/button_feedback"]
+        ZenSpec.replace("common/ui/button_feedback", { flashButton = function() end })
         shown = {}
         next_ticks = {}
         screen_w = 600
@@ -271,6 +274,7 @@ describe("full-screen folder cover picker", function()
     end)
 
     after_each(function()
+        package.loaded["common/ui/button_feedback"] = saved_feedback
         ZenSpec.unload("common/ui/folder_cover_picker")
     end)
 

@@ -257,8 +257,6 @@ local function zen_button(options, filled, radius)
         UIManager:setDirty(self.show_parent, "fast", self.dimen)
         return true
     end
-    button._doFeedbackHighlight = function() end
-    button._undoFeedbackHighlight = function() end
     return button
 end
 

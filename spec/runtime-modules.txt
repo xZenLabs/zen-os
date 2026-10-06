@@ -60,6 +60,7 @@ common/tbr_index.lua|unit
 common/ui/background.lua|unit
 common/ui/book_progress.lua|unit
 common/ui/button_label_width.lua|unit
+common/ui/button_feedback.lua|unit
 common/ui/corner_banner.lua|unit
 common/ui/color_text_widget.lua|unit
 common/ui/color_wheel_widget.lua|unit
@@ -172,6 +173,7 @@ modules/global/patches/kobo_bluetooth_fix.lua|unit
 modules/global/patches/lockdown_mode.lua|integration
 modules/global/patches/menu_font.lua|integration
 modules/global/patches/unified_title_style.lua|unit
+modules/global/patches/button_feedback.lua|unit
 modules/global/patches/menu_top_swipe.lua|integration
 modules/global/patches/night_mode_schedule.lua|integration
 modules/global/patches/nonblocking_wifi.lua|unit

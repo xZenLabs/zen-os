@@ -41,7 +41,7 @@ local defaults = {
         quotes = { show_author = false, show_title = true, automatic_font_size = true, max_font_size = 18 },
         modules = {
             stats_triplet = { automatic_font_size = true, max_font_size = 24, stat_style = "divider", show_icons = true,
-                show_label = true, label = "",
+                show_label = false, label = "",
                 text_styles = { label = { font_face = "default", font_size = 14, bold = false } } },
             featured = { show_status_bar = false, show_description = false, navigation_icon_size = 0,
                 show_navigation_labels = true,

@@ -17,6 +17,7 @@ describe("TouchMenu panel gestures", function()
         "ui/widget/touchmenu",
         "common/shared_state",
         "common/ui/zen_slider",
+        "common/ui/button_feedback",
         "modules/menu/patches/touch_menu_panel",
     }
 
@@ -95,6 +96,7 @@ describe("TouchMenu panel gestures", function()
         ZenSpec.replace("ui/widget/focusmanager", { NOT_FOCUS = 0 })
         ZenSpec.replace("ui/widget/touchmenu", TouchMenu)
         ZenSpec.replace("common/shared_state", { get = function() end })
+        ZenSpec.replace("common/ui/button_feedback", { flashButton = function() end })
         ZenSpec.unload("common/ui/zen_slider")
         ZenSpec.unload("modules/menu/patches/touch_menu_panel")
         require("modules/menu/patches/touch_menu_panel").install({})
@@ -104,6 +106,22 @@ describe("TouchMenu panel gestures", function()
         for _i, name in ipairs(module_names) do
             package.loaded[name] = original_modules[name] or nil
         end
+    end)
+
+    it("activates panel buttons and toggles without flashing", function()
+        local menu, events = new_menu(), {}
+        local region = { x = 20, y = 30, w = 40, h = 40 }
+        require("common/ui/button_feedback").flashButton = function() error("panel must not flash") end
+        local callback = function() events[#events + 1] = "callback" end
+        menu.item_table = { panel = true }
+        menu._zen_panel_refs = { buttons = {{ widget = { dimen = region }, callback = callback }} }
+        local ges = { pos = { intersectWith = function() return true end } }
+        assert.is_true(menu:onTapCloseAllMenus(nil, ges))
+        assert.are.same({ "callback" }, events)
+        events = {}
+        menu._zen_panel_refs = { toggles = {{ toggle = { dimen = region }, callback = callback }} }
+        assert.is_true(menu:onTapCloseAllMenus(nil, ges))
+        assert.are.same({ "callback" }, events)
     end)
 
     it("repairs a TouchMenu created before the patch is installed", function()
