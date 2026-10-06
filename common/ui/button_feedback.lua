@@ -12,9 +12,9 @@ function M.paddedRegion(dimen)
     }
 end
 
-function M.invert(region)
+function M.invert(region, radius)
     local x, y, w, h = region.x, region.y, region.w, region.h
-    local radius = math.min(Screen:scaleBySize(8), math.floor(math.min(w, h) / 2))
+    radius = math.min(radius or Screen:scaleBySize(8), math.floor(math.min(w, h) / 2))
     Screen.bb:invertRect(x, y + radius, w, h - 2 * radius)
     for row = 0, radius - 1 do
         local dy = radius - row - 0.5
@@ -29,15 +29,15 @@ function M.refreshMode()
     return Screen:isColorScreen() and "ui" or "fast"
 end
 
-function M.flash(region)
+function M.flash(region, radius)
     if not region or not region.x or not region.y
             or G_reader_settings:isFalse("flash_ui") then return end
     local mode = M.refreshMode()
-    M.invert(region)
+    M.invert(region, radius)
     UIManager:setDirty(nil, mode, region)
     UIManager:forceRePaint()
     UIManager:yieldToEPDC()
-    M.invert(region)
+    M.invert(region, radius)
     UIManager:setDirty(nil, mode, region)
 end
 

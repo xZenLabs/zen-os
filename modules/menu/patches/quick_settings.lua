@@ -28,6 +28,7 @@ local function apply_quick_settings()
     local SettingsTransition = require("common/settings_transition")
     local LibraryNavigation = require("common/library_navigation")
     local ButtonLabelWidth = require("common/ui/button_label_width")
+    local ButtonFeedback = require("common/ui/button_feedback")
     local Bluetooth = require("modules/menu/bluetooth/bluetooth")
     local build_brightness_slider = require("modules/menu/patches/brightness_slider")
     local build_warmth_slider = require("modules/menu/patches/warmth_slider")
@@ -1538,6 +1539,7 @@ local function apply_quick_settings()
                     id = entry.id,
                     widget = btn_circle,
                     callback = not disabled and function()
+                        ButtonFeedback.flash(btn_circle.dimen, btn_circle.radius)
                         def.callback(touch_menu)
                     end or nil,
                     hold_callback = def.hold_callback and function()

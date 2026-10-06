@@ -49,6 +49,7 @@ describe("quick settings plugin controls", function()
         "common/settings_transition",
         "common/library_navigation",
         "common/ui/button_label_width",
+        "common/ui/button_feedback",
         "common/ui/zen_button",
         "modules/menu/bluetooth/bluetooth",
         "modules/menu/patches/brightness_slider",
@@ -80,8 +81,8 @@ describe("quick settings plugin controls", function()
     local function apply_launcher(plugin)
         ZenSpec.replace("ui/widget/container/inputcontainer", {
             extend = function(_self, definition)
-                definition.new = function(_class, values)
-                    return require("ui/widget/container/centercontainer"):new(values)
+                definition.new = function(class, values)
+                    return setmetatable(require("ui/widget/container/centercontainer"):new(values), { __index = class })
                 end
                 return definition
             end,
@@ -188,6 +189,7 @@ describe("quick settings plugin controls", function()
             broadcastEvent = function() end,
             nextTick = function(_self, callback) callback() end,
         })
+        ZenSpec.replace("common/ui/button_feedback", { flash = function() end })
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
             getFace = function() return {} end,
         })
@@ -458,6 +460,57 @@ describe("quick settings plugin controls", function()
 
         _G.__ZEN_UI_PLUGIN.config._meta.quickstart_menu_tour_pending = false
         assert.are.same({ "tailscale" }, rendered_ids())
+    end)
+
+    it("flashes the tapped Controls circle before running its action", function()
+        local menu, touch_menu = {}, { item_width = 600 }
+        FileManagerMenu.setUpdateItemTable(menu)
+        menu.tab_item_table[1].panel(touch_menu)
+        local button = touch_menu._zen_panel_refs.buttons[1]
+        button.widget.dimen = { x = 20, y = 30, w = 64, h = 64 }
+        require("common/ui/button_feedback").flash = function(region, radius)
+            assert.are.equal(button.widget.dimen, region)
+            assert.are.equal(32, radius)
+            actions[#actions + 1] = "flash"
+        end
+        button.callback()
+        assert.are.same({ "flash", "tailscale_on" }, actions)
+    end)
+
+    it("flashes the Launcher circle for both cell and panel activation", function()
+        local plugin = _G.__ZEN_UI_PLUGIN
+        plugin.config.features.app_launcher = true
+        apply_launcher(plugin)
+        require("device").screen.getHeight = function() return 800 end
+        local TextWidget = require("ui/widget/textwidget")
+        local original_new = TextWidget.new
+        TextWidget.new = function(self, values)
+            local widget = original_new(self, values)
+            widget.free = function() end
+            return widget
+        end
+        local cfg = { entries = {{ id = "folder", type = "folder", label = "Tools" }} }
+        local Model = require("modules/menu/app_launcher/model")
+        Model.ensure = function() return cfg end
+        Model.enabled_entries = function(entries) return entries end
+        Model.display_label = function(entry) return entry.label end
+        local menu, touch_menu = {}, {
+            item_width = 600,
+            updateItems = function() actions[#actions + 1] = "open" end,
+        }
+        FileManagerMenu.setUpdateItemTable(menu)
+        menu.tab_item_table[2].panel(touch_menu)
+        local button = touch_menu._zen_panel_refs.buttons[1]
+        local circle = button.widget.frame[1][1][2]
+        circle.dimen = { x = 20, y = 30, w = 64, h = 64 }
+        require("common/ui/button_feedback").flash = function(region, radius)
+            assert.are.equal(circle.dimen, region)
+            assert.are.equal(32, radius)
+            actions[#actions + 1] = "flash"
+        end
+        assert.is_true(button.widget:onTapSelect())
+        button.callback()
+        assert.are.same({ "flash", "open", "flash", "open" }, actions)
     end)
 
     it("shows both unified controls while preserving separate visibility choices", function()

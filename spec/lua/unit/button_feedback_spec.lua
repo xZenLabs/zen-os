@@ -103,6 +103,42 @@ describe("rounded button feedback", function()
         end
     end)
 
+    it("flashes only a circle and restores its pixels, honoring Flash UI", function()
+        for _i, buffer_type in ipairs({ Blitbuffer.TYPE_BB8, Blitbuffer.TYPE_BBRGB32 }) do
+            screen.bb = Blitbuffer.new(80, 80, buffer_type)
+            screen.bb:fill(Blitbuffer.ColorRGB32(32, 64, 96, 255))
+            local before = screen.bb:copy()
+            local region = { x = 20, y = 20, w = 32, h = 32 }
+            local modes = {}
+            UIManager.setDirty = function(_self, owner, mode, refreshed)
+                assert.is_nil(owner)
+                assert.are.equal(region, refreshed)
+                modes[#modes + 1] = mode
+            end
+            UIManager.yieldToEPDC = function()
+                assert.are_not.equal(tostring(before:getPixel(36, 36)), tostring(screen.bb:getPixel(36, 36)))
+                for _j, point in ipairs({ { 20, 20 }, { 24, 24 }, { 36, 56 }, { 72, 36 } }) do
+                    assert.are.equal(tostring(before:getPixel(point[1], point[2])),
+                        tostring(screen.bb:getPixel(point[1], point[2])))
+                end
+            end
+            Feedback.flash(region, 16)
+            assert.are.same({ "fast", "fast" }, modes)
+            for y = 0, 79 do
+                for x = 0, 79 do
+                    assert.are.equal(tostring(before:getPixel(x, y)), tostring(screen.bb:getPixel(x, y)))
+                end
+            end
+            _G.G_reader_settings.isFalse = function() return true end
+            Feedback.flash(region, 16)
+            assert.are.same({ "fast", "fast" }, modes)
+            _G.G_reader_settings.isFalse = function() return false end
+            before:free()
+            screen.bb:free()
+            screen.bb = nil
+        end
+    end)
+
     it("uses UI refreshes for both flash phases on color screens and fast on grayscale", function()
         screen.bb = Blitbuffer.new(80, 60, Blitbuffer.TYPE_BB8)
         screen.bb:fill(Blitbuffer.Color8(32))

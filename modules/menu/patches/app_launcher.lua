@@ -25,6 +25,7 @@
     local BookSwitcherPage = require("modules/menu/app_launcher/book_switcher_page")
     local PagePlan = require("modules/menu/app_launcher/page_plan")
     local ButtonLabelWidth = require("common/ui/button_label_width")
+    local ButtonFeedback = require("common/ui/button_feedback")
     local ButtonModel = require("common/nav_button_model")
     local ZenButton = require("common/ui/zen_button")
     local SettingsTransition = require("common/settings_transition")
@@ -209,7 +210,10 @@
             width = opts.cell_w,
             height = opts.cell_h,
             dimen = Geom:new{ w = opts.cell_w, h = opts.cell_h },
-            callback = opts.callback,
+            callback = opts.callback and function()
+                ButtonFeedback.flash(icon_circle.dimen, icon_circle.radius)
+                opts.callback()
+            end or nil,
             frame = frame,
             frame,
         }
