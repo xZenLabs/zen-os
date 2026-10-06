@@ -28,7 +28,7 @@ return function()
             Feedback.invert(region)
         end
         UIManager:setDirty(is_translucent and self.show_parent or nil,
-            (is_translucent or not self.enabled) and "ui" or Feedback.refreshMode(), region)
+            "ui", region)
     end
 
     local orig_paint_to = Button.paintTo

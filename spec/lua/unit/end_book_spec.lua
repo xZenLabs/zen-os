@@ -19,6 +19,7 @@ describe("end of book", function()
         "common/library_navigation", "common/ui/zen_icon_picker", "common/icon_packs",
         "apps/filemanager/filemanager", "apps/filemanager/filemanagerutil", "common/tbr_index",
         "modules/menu/app_launcher/native_menu", "ui/widget/inputdialog",
+        "modules/filebrowser/patches/rakuyomi",
     }
 
     before_each(function()
@@ -42,6 +43,7 @@ describe("end of book", function()
             return { menu.document_end_action }
         end })
         ZenSpec.replace("apps/reader/modules/readerstatus", status)
+        ZenSpec.replace("modules/filebrowser/patches/rakuyomi", { onEndOfBook = function() return false end })
         ZenSpec.replace("ui/uimanager", { getTopmostVisibleWidget = function() return top end })
         ZenSpec.replace("ui/quickstart", { quickstart_filename = "/quickstart.epub" })
         ZenSpec.replace("modules/settings/sections/library_settings/home_settings", {
@@ -484,6 +486,21 @@ describe("end of book", function()
         G_reader_settings:saveSetting("lastfile", "/quickstart.epub")
         status:onEndOfBook()
         assert.are.equal(1, shown)
+    end)
+
+    it("hands Rakuyomi chapters over before showing an end-of-book screen", function()
+        status.ui = { document = { file = "/library/chapter.cbz" } }
+        local calls = 0
+        require("modules/filebrowser/patches/rakuyomi").onEndOfBook = function(ui)
+            assert.equals(status.ui, ui)
+            calls = calls + 1
+            return true
+        end
+        require("modules/reader/patches/end_book")()
+        assert.is_true(status:onEndOfBook())
+        assert.equals(1, calls)
+        assert.equals(0, native_calls)
+        assert.equals(0, shown)
     end)
 
     it("adds the Zen action to freshly built menus and preserves a saved action", function()

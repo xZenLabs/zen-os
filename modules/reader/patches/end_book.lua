@@ -16,8 +16,10 @@ return function()
     if ReaderStatus._zen_end_book then return end
     ReaderStatus._zen_end_book = true
     local UIManager = require("ui/uimanager")
+    local Rakuyomi = require("modules/filebrowser/patches/rakuyomi")
     local original = ReaderStatus.onEndOfBook
     function ReaderStatus:onEndOfBook(...)
+        if Rakuyomi.onEndOfBook(self.ui) then return true end
         -- Let KOReader handle quickstart, haptics and the user's auto-mark choice.
         local result = original(self, ...)
         if G_reader_settings:readSetting("end_document_action") == "zen_end_book"

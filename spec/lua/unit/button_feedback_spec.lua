@@ -19,6 +19,7 @@ describe("rounded button feedback", function()
         UIManager = {
             setDirty = function() end, forceRePaint = function() end, yieldToEPDC = function() end,
             widgetRepaint = function(_self, widget) widget:paintTo() end,
+            waitForVSync = function() error("ordinary feedback must not wait for refresh completion") end,
         }
         Button = { paintTo = function() end }
         IconButton = {}
@@ -123,7 +124,7 @@ describe("rounded button feedback", function()
                 end
             end
             Feedback.flash(region, 16)
-            assert.are.same({ "fast", "fast" }, modes)
+            assert.are.same({ "fast", "ui" }, modes)
             for y = 0, 79 do
                 for x = 0, 79 do
                     assert.are.equal(tostring(before:getPixel(x, y)), tostring(screen.bb:getPixel(x, y)))
@@ -131,7 +132,7 @@ describe("rounded button feedback", function()
             end
             _G.G_reader_settings.isFalse = function() return true end
             Feedback.flash(region, 16)
-            assert.are.same({ "fast", "fast" }, modes)
+            assert.are.same({ "fast", "ui" }, modes)
             _G.G_reader_settings.isFalse = function() return false end
             before:free()
             screen.bb:free()
@@ -139,7 +140,7 @@ describe("rounded button feedback", function()
         end
     end)
 
-    it("uses UI refreshes for both flash phases on color screens and fast on grayscale", function()
+    it("restores gray content with UI refreshes on monochrome and color screens", function()
         screen.bb = Blitbuffer.new(80, 60, Blitbuffer.TYPE_BB8)
         screen.bb:fill(Blitbuffer.Color8(32))
         require("modules/global/patches/button_feedback")()
@@ -156,16 +157,51 @@ describe("rounded button feedback", function()
             end
             Feedback.flash(region)
             local mode = color and "ui" or "fast"
-            assert.are.same({ mode, mode }, modes)
+            assert.are.same({ mode, "ui" }, modes)
             assert.are.equal(32, screen.bb:getPixel(28, 28).a)
 
             modes = {}
             expected_region = Feedback.paddedRegion(region)
             button:_doFeedbackHighlight()
             button:_undoFeedbackHighlight(false)
-            assert.are.same({ mode, mode }, modes)
+            assert.are.same({ mode, "ui" }, modes)
             assert.are.equal(32, screen.bb:getPixel(28, 28).a)
         end
+    end)
+
+    it("waits for MTK Kindle updates before overwriting the previous frame or highlight", function()
+        local device = package.loaded.device
+        device.isKindle = function() return true end
+        device.isMTK = function() return true end
+        local reading, waits = true, 0
+        screen.bb = {
+            invertRect = function() assert.is_false(reading, "EPDC is still reading the framebuffer") end,
+            free = function() end,
+        }
+        UIManager.waitForVSync = function()
+            reading = false
+            waits = waits + 1
+        end
+        UIManager.forceRePaint = function() reading = true end
+        local region = { x = 20, y = 20, w = 200, h = 60 }
+        Feedback.flash(region)
+        assert.are.equal(2, waits)
+
+        require("modules/global/patches/button_feedback")()
+        local button = setmetatable({ dimen = region, enabled = true }, { __index = Button })
+        reading = true
+        button:_doFeedbackHighlight()
+        UIManager:forceRePaint()
+        button:_undoFeedbackHighlight(false)
+        assert.are.equal(4, waits)
+
+        UIManager.waitForVSync = function() error("other devices must not wait") end
+        reading = false
+        device.isKindle = function() return false end
+        Feedback.invert(region)
+        device.isKindle = function() return true end
+        device.isMTK = function() return false end
+        Feedback.invert(region)
     end)
 
     it("skips highlighting and restore refreshes for buttons with feedback disabled", function()

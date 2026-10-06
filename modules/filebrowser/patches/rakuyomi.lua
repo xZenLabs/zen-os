@@ -310,6 +310,73 @@ function M.getMetadata(path)
     return props or nil
 end
 
+function M.onEndOfBook(ui)
+    local path = ui and ui.document and ui.document.file
+    if not M.getMetadataProvider(path) then return false end
+    local ok, shared = pcall(require, "RakuyomiShared")
+    if not ok or type(shared) ~= "table" or type(shared.getOrigin) ~= "function" then
+        return false
+    end
+    local origin = shared:getOrigin(path)
+    if not origin then return false end
+    if ui._zen_rakuyomi_next_pending then return true end
+    ui._zen_rakuyomi_next_pending = true
+    if G_reader_settings:isTrue("end_document_auto_mark") then ui.status:markBook(true) end
+    ui.doc_settings:flush()
+    local manager = require("ui/uimanager")
+    manager:nextTick(function()
+        ui._zen_rakuyomi_next_pending = nil
+        if not ui.document or ui.document.file ~= path then return end
+        require("ui/trapper"):wrap(function()
+            local Backend = require("Backend")
+            local ErrorDialog = require("ErrorDialog")
+            Backend.getBackend()
+            if not Backend.getInitialized() then
+                ErrorDialog:show(Backend.getLogs())
+                return
+            end
+            local manga = {
+                id = origin.manga_id.manga_id,
+                source = { id = origin.manga_id.source_id, name = "", version = 0, languages = {} },
+                title = "", in_library = false, viewer = "DefaultViewer", state_viewer = false,
+            }
+            local settings = Backend.getSettings()
+            if settings.type == "ERROR" then
+                ErrorDialog:show(settings.message)
+                return
+            end
+            local listing = require("ChapterListing"):new{
+                manga = manga, chapter_sorting_mode = settings.body.chapter_sorting_mode,
+                preload_count = settings.body.preload_chapters, covers_fullscreen = true,
+            }
+            listing.on_return_callback = function()
+                require("LibraryView"):fetchAndShow(nil, nil, {
+                    hideTopClose = true, focus_manga_id = manga.id, focus_manga_source_id = manga.source.id,
+                })
+            end
+            local current
+            for _i, chapter in ipairs(listing.chapters) do
+                if chapter.id == origin.chapter_id then current = chapter; break end
+            end
+            if current then
+                local marked = Backend.markChapterAsRead(current.source_id, current.manga_id, current.id)
+                if marked.type == "ERROR" then
+                    ErrorDialog:show(marked.message)
+                    return
+                end
+                current.read = true
+            end
+            local next_chapter = current and require("chapters/findNextChapter")(listing.chapters, current)
+            if next_chapter then
+                listing:openChapterOnReader(next_chapter)
+            else
+                manager:show(listing)
+            end
+        end)
+    end)
+    return true
+end
+
 function M.installMetadataIntegration()
     local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
     local ok_registry, DocumentRegistry = pcall(require, "document/documentregistry")
@@ -609,6 +676,51 @@ function M.installReaderReturnPatch()
     end
 end
 
+function M.installResumePatch()
+    if M._resume_patched then return end
+    local ok, original = pcall(require, "utils/findLastRead")
+    if not ok or type(original) ~= "function" then return end
+    local function findLastRead(chapters)
+        local newest
+        for _i, chapter in ipairs(chapters) do
+            if chapter.last_read and (not newest or chapter.last_read > newest.last_read) then
+                newest = chapter
+            end
+        end
+        return newest or original(chapters)
+    end
+    local function patch_resume(fn)
+        if type(fn) ~= "function" then return end
+        for index = 1, 64 do
+            local name, value = debug.getupvalue(fn, index)
+            if not name then break end
+            if name == "findLastRead" and value == original then
+                debug.setupvalue(fn, index, findLastRead)
+                break
+            end
+        end
+    end
+    local ok_listing, ChapterListing = pcall(require, "ChapterListing")
+    local ok_library, LibraryView = pcall(require, "LibraryView")
+    if ok_listing and type(ChapterListing) == "table" then
+        patch_resume(ChapterListing.readContinue)
+        local open = ChapterListing.openChapterOnReader
+        if type(open) == "function" then
+            function ChapterListing:openChapterOnReader(chapter, job, on_opened)
+                return open(self, chapter, job, function(...)
+                    chapter.last_read = os.time() -- Native opening saves this only in the backend.
+                    if on_opened then return on_opened(...) end
+                end)
+            end
+        end
+    end
+    if ok_library and type(LibraryView) == "table" then
+        patch_resume(LibraryView._handleContinueReading)
+    end
+    package.loaded["utils/findLastRead"] = findLastRead
+    M._resume_patched = true
+end
+
 function M.refreshAfterResize(widget)
     if is_library_view(widget) and type(widget.updateItems) == "function"
             and widget.item_group and widget.content_group then
@@ -650,6 +762,7 @@ function M.apply()
     _G.__ZEN_UI_RAKUYOMI = M
     M.installShowReaderCapture()
     M.installReaderReturnPatch()
+    M.installResumePatch()
 end
 
 return M

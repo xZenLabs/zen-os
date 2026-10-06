@@ -1,5 +1,6 @@
 local Geom = require("ui/geometry")
-local Screen = require("device").screen
+local Device = require("device")
+local Screen = Device.screen
 local UIManager = require("ui/uimanager")
 
 local M = {}
@@ -13,6 +14,10 @@ function M.paddedRegion(dimen)
 end
 
 function M.invert(region, radius)
+    -- MTK Kindles may still read the framebuffer after the short EPDC yield.
+    if Device.isKindle and Device:isKindle() and Device.isMTK and Device:isMTK() then
+        UIManager:waitForVSync()
+    end
     local x, y, w, h = region.x, region.y, region.w, region.h
     radius = math.min(radius or Screen:scaleBySize(8), math.floor(math.min(w, h) / 2))
     Screen.bb:invertRect(x, y + radius, w, h - 2 * radius)
@@ -38,7 +43,8 @@ function M.flash(region, radius)
     UIManager:forceRePaint()
     UIManager:yieldToEPDC()
     M.invert(region, radius)
-    UIManager:setDirty(nil, mode, region)
+    -- Restore gray pixels with the same waveform as stock menu rows.
+    UIManager:setDirty(nil, "ui", region)
 end
 
 function M.flashButton(dimen)
