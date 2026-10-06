@@ -1820,6 +1820,11 @@ msgid "Date"
 msgstr "Дата"
 
 #. Type: label
+#: browser_folder_sort.lua:115 context_menu.lua:2633
+msgid "Date added"
+msgstr "Дата добавления"
+
+#. Type: label
 #. Context: id = "datetime", label = _("Date/time"), size = "sm",
 #: datetime.lua:125
 msgid "Date/time"

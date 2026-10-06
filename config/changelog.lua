@@ -396,6 +396,7 @@ return {
     },
     ["4.1.0"] = {
         "Add end of book screen",
+        "Add Date added sorting to library and folder context menus",
         "Add OPDS improvements",
         "Add setting to treat file updates as New status",
         "Group Authors view to also use series sub-groupings",

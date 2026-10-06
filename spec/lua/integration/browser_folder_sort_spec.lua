@@ -29,6 +29,7 @@ describe("browser folder sort patch", function()
             end,
         }
         ZenSpec.replace("ui/widget/filechooser", FileChooser)
+        ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("config/manager", {
             get = function() return config end,
             load = function() return config end,
@@ -81,8 +82,29 @@ describe("browser folder sort patch", function()
         assert.is_false(sorting(zulu, alpha))
     end)
 
+    it("sorts date added by change time with safe fallbacks and stable ties", function()
+        local collate = FileChooser.collates.date_added
+        local items = {
+            { path = "/books/unknown.epub" },
+            { path = "/books/new.epub", attr = { change = 300, modification = 10 } },
+            { path = "/books/b.epub", attr = { change = 100, modification = 400 } },
+            { path = "/books/legacy.epub", attr = { modification = 200 } },
+            { path = "/books/a.epub", attr = { change = 100 } },
+        }
+        local sorting = FileChooser:getSortingFunction(collate, false)
+
+        table.sort(items, sorting)
+
+        assert.are.same({
+            "/books/new.epub", "/books/legacy.epub", "/books/a.epub",
+            "/books/b.epub", "/books/unknown.epub",
+        }, SortFixtures.paths_from_entries(items))
+        assert.is_false(sorting(items[1], items[1]))
+        assert.is_true(collate.can_collate_mixed)
+    end)
+
     it("applies every library sort method in forward and reverse order", function()
-        local methods = { "strcoll", "title", "title_natural", "authors", "series", "access" }
+        local methods = { "strcoll", "title", "title_natural", "authors", "series", "access", "date_added" }
         for _i, method in ipairs(methods) do
             for _j, reverse in ipairs({ false, true }) do
                 FileChooser.global_collate = method
@@ -98,7 +120,7 @@ describe("browser folder sort patch", function()
 
     it("applies every folder sort method in forward and reverse order", function()
         local api = assert(_G.__ZEN_FOLDER_SORT)
-        local methods = { "strcoll", "title", "title_natural", "authors", "series", "access" }
+        local methods = { "strcoll", "title", "title_natural", "authors", "series", "access", "date_added" }
         for _i, method in ipairs(methods) do
             for _j, reverse in ipairs({ false, true }) do
                 api.set("/library/folder", method, reverse)

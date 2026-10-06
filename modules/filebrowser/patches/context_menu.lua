@@ -2630,6 +2630,7 @@ local function apply_context_menu()
                     { key = "authors", text = "\u{F0013}  " .. _("Authors") },
                     { key = "series", text = "\u{F0436}  " .. _("Series") },
                     { key = "access", text = "\u{F02DA}  " .. _("Recently read") },
+                    { key = "date_added", text = "\u{F073}  " .. _("Date added") },
                 }
 
                 if is_primary_home then

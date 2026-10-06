@@ -14,6 +14,7 @@ local function apply_browser_folder_sort()
     local ffiUtil     = require("ffi/util")
     local HistoryIndex = require("common/history_index")
     local paths       = require("common/paths")
+    local _           = require("gettext")
 
     local NO_METADATA = "\u{FFFF}"
 
@@ -109,6 +110,22 @@ local function apply_browser_folder_sort()
         local value = tostring(item and (item.path or item.file or item.text) or "")
         return value:lower() .. "\30" .. value
     end
+
+    FileChooser.collates.date_added = {
+        text = _("Date added"),
+        menu_order = 45,
+        can_collate_mixed = true,
+        init_sort_func = function()
+            return function(a, b)
+                local a_attr, b_attr = a.attr or {}, b.attr or {}
+                -- ponytail: ctime approximates arrival; track discovery if stable dates are needed.
+                local a_time = a_attr.change or a_attr.modification or 0
+                local b_time = b_attr.change or b_attr.modification or 0
+                if a_time ~= b_time then return a_time > b_time end
+                return sort_item_key(a) < sort_item_key(b)
+            end
+        end,
+    }
 
     FileChooser.getSortingFunction = function(self, collate, reverse_collate)
         local override = self._zen_sort_override

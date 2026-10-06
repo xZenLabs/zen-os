@@ -64,6 +64,12 @@ function M.new()
         [paths.middle] = 300,
         [paths.beta] = 200,
     }
+    local change = {
+        [paths.zeta] = 400,
+        [paths.alpha] = 100,
+        [paths.middle] = 200,
+        [paths.beta] = 300,
+    }
     local expected = {
         strcoll = { paths.alpha, paths.beta, paths.middle, paths.zeta },
         title = { paths.beta, paths.middle, paths.alpha, paths.zeta },
@@ -72,6 +78,7 @@ function M.new()
         series = { paths.middle, paths.beta, paths.zeta, paths.alpha },
         series_index = { paths.beta, paths.zeta, paths.middle, paths.alpha },
         access = { paths.alpha, paths.middle, paths.beta, paths.zeta },
+        date_added = { paths.zeta, paths.beta, paths.middle, paths.alpha },
         keywords = { paths.middle, paths.zeta, paths.beta, paths.alpha },
     }
     local entries = {}
@@ -80,7 +87,10 @@ function M.new()
             file = path,
             path = path,
             text = path:match("([^/]+)$"),
-            attr = { mode = "file", access = access[path], modification = access[path], size = 1 },
+            attr = {
+                mode = "file", access = access[path], modification = access[path],
+                change = change[path], size = 1,
+            },
         }
     end
     return {
@@ -103,6 +113,7 @@ function M.copy_entries(entries)
                 mode = entry.attr.mode,
                 access = entry.attr.access,
                 modification = entry.attr.modification,
+                change = entry.attr.change,
                 size = entry.attr.size,
             },
         }
