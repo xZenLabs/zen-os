@@ -4,10 +4,12 @@ describe("TouchMenu footer", function()
     local original_defaults
     local original_modules
     local original_plugin
+    local original_reader_settings
     local module_names = {
         "apps/filemanager/filemanager",
         "apps/reader/readerui",
         "common/plugin_root",
+        "common/reader_themes",
         "common/ui/hatching",
         "common/utils",
         "device",
@@ -25,6 +27,7 @@ describe("TouchMenu footer", function()
     before_each(function()
         original_defaults = _G.G_defaults
         original_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
+        original_reader_settings = _G.G_reader_settings
         original_modules = {}
         for _i, name in ipairs(module_names) do
             original_modules[name] = package.loaded[name] or false
@@ -34,6 +37,7 @@ describe("TouchMenu footer", function()
     after_each(function()
         _G.G_defaults = original_defaults
         _G.__ZEN_UI_PLUGIN = original_plugin
+        _G.G_reader_settings = original_reader_settings
         for _i, name in ipairs(module_names) do
             package.loaded[name] = original_modules[name] or nil
         end
@@ -106,6 +110,7 @@ describe("TouchMenu footer", function()
         })
         ZenSpec.replace("ui/widget/touchmenu", TouchMenu)
         ZenSpec.unload("common/ui/hatching")
+        ZenSpec.unload("common/reader_themes")
         ZenSpec.unload("modules/menu/patches/touch_menu_footer")
 
         require("modules/menu/patches/touch_menu_footer")()
@@ -200,5 +205,55 @@ describe("TouchMenu footer", function()
         ReaderUI.instance.tearing_down = true
         menu:onCloseWidget("closing")
         assert.is_nil(refresh)
+
+        local UIManager = require("ui/uimanager")
+        local callback, flashes = nil, 0
+        UIManager.nextTick = function(_self, action) callback = action end
+        UIManager.forceRePaint = function()
+            flashes = flashes + 1
+            assert.are.equal(screen.night_mode and 2 or 8, screen.waveform_flashnight)
+            assert.are.equal(ReaderUI.instance, UIManager._window_stack[#UIManager._window_stack].widget)
+        end
+        screen.waveform_full, screen.waveform_flashnight = 2, 8
+        _G.G_reader_settings = ZenSpec.memorySettings()
+        local config = _G.__ZEN_UI_PLUGIN.config
+        config.features = { reader_themes = true }
+        config.reader_themes = { dark_mode = "dark_graphite", light_mode = "light_tan" }
+        ReaderUI.instance = { document = {} }
+
+        for _i, dark_mode in ipairs({ false, true }) do
+            screen.night_mode = dark_mode
+            G_reader_settings:saveSetting("night_mode", dark_mode)
+            UIManager._window_stack = { { widget = ReaderUI.instance }, { widget = menu } }
+            local before_close = flashes
+            callback = nil
+            assert.are.equal("closed", menu:onCloseWidget("closing"))
+            assert.are.equal(before_close, flashes)
+            assert.is_function(callback)
+            UIManager._window_stack = { { widget = ReaderUI.instance } }
+            callback()
+            assert.are.equal(before_close + 1, flashes)
+            assert.are.equal("all", refresh.widget)
+            assert.are.equal("full", refresh.refreshtype)
+            assert.are.equal(8, screen.waveform_flashnight)
+            assert.are.equal(dark_mode, screen.night_mode)
+        end
+
+        menu:onCloseWidget("closing")
+        ReaderUI.instance.tearing_down = true
+        callback()
+        assert.are.equal(2, flashes)
+        ReaderUI.instance = nil
+        callback()
+        assert.are.equal(2, flashes)
+
+        ReaderUI.instance = { document = {} }
+        for _i, enabled in ipairs({ false, true }) do
+            config.features.reader_themes = enabled
+            config.reader_themes.dark_mode = "default"
+            callback = nil
+            menu:onCloseWidget("closing")
+            assert.is_nil(callback)
+        end
     end)
 end)

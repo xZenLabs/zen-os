@@ -85,9 +85,18 @@ local function apply_touch_menu_footer()
 
     function TouchMenu:onCloseWidget(...)
         local result = orig_onCloseWidget and orig_onCloseWidget(self, ...)
-        if Screen.night_mode or (Device.hasColorScreen and Device:hasColorScreen()) then
+        local ReaderUI = package.loaded["apps/reader/readerui"]
+        local reader = ReaderUI and ReaderUI.instance
+        local ReaderThemes = require("common/reader_themes")
+        if reader and not reader.tearing_down and ReaderThemes.isActiveInReader(zen_plugin) then
+            UIManager:nextTick(function()
+                if ReaderUI.instance == reader and not reader.tearing_down
+                        and ReaderThemes.isActiveInReader(zen_plugin) then
+                    ReaderThemes.refreshFull("all")
+                end
+            end)
+        elseif Screen.night_mode or (Device.hasColorScreen and Device:hasColorScreen()) then
             local FileManager = package.loaded["apps/filemanager/filemanager"]
-            local ReaderUI = package.loaded["apps/reader/readerui"]
             if (FileManager and FileManager.instance and not FileManager.instance.tearing_down)
                     or (ReaderUI and ReaderUI.instance and not ReaderUI.instance.tearing_down) then
                 -- Queue the full waveform after painting the uncovered screen.

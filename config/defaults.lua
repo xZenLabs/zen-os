@@ -37,7 +37,7 @@ local defaults = {
             order = { "stats_triplet", "featured", "quotes", "strip" },
             enabled = { stats_triplet = true, featured = true, quotes = true, strip = true },
         },
-        middle_stats_triplet = { "book_days", "book_duration", "book_page_minutes" },
+        middle_stats_triplet = { "book_days", "book_duration", "book_daily_minutes" },
         quotes = { show_author = false, show_title = true, automatic_font_size = true, max_font_size = 18 },
         modules = {
             stats_triplet = { automatic_font_size = true, max_font_size = 24, stat_style = "divider", show_icons = true,
