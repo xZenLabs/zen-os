@@ -1,5 +1,4 @@
 import os
-import signal
 import tempfile
 import time
 import zipfile
@@ -8,7 +7,7 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageChops
 
-from zen_driver import ZenDriver, launch, wait_for_socket
+from zen_driver import ZenDriver, launch, stop, wait_for_socket
 
 
 pytestmark = pytest.mark.skipif(
@@ -117,12 +116,7 @@ def test_reader_themes_allow_page_turns_after_changing_theme(dark_mode: bool) ->
                     first.convert("RGB").crop(box), last.convert("RGB").crop(box)
                 ).getbbox() is not None
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            stop(process)
 
 
 def test_reader_page_browser_modes_and_aa_menu_render() -> None:
@@ -349,8 +343,7 @@ def test_reader_page_browser_modes_and_aa_menu_render() -> None:
             driver.screenshot(aa_frame)
             assert aa_frame.stat().st_size > 0
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 def test_reader_highlight_and_dictionary_menus_open() -> None:
@@ -401,5 +394,4 @@ def test_reader_highlight_and_dictionary_menus_open() -> None:
             driver.screenshot(dictionary_frame)
             assert dictionary_frame.stat().st_size > 0
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)

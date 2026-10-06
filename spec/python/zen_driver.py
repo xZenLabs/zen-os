@@ -198,6 +198,15 @@ def launch(
     return subprocess.Popen([str(koreader_dir / "reader.lua")], cwd=koreader_dir, env=env, text=True)
 
 
+def stop(process: subprocess.Popen[str]) -> None:
+    process.terminate()
+    try:
+        process.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
 def wait_for_socket(path: Path, timeout: float = 30) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:

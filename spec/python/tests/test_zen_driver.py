@@ -12,6 +12,7 @@ from zen_driver import (
     install_startup_alert_patch,
     launch,
     normalize_visible_text,
+    stop,
     update_or_compare_golden,
 )
 
@@ -50,6 +51,25 @@ def test_launch_controls_emulator_focus(tmp_path: Path, monkeypatch, foreground,
     assert env["SDL_WINDOW_ACTIVATE_WHEN_SHOWN"] == foreground
     assert env["SDL_WINDOW_ACTIVATE_WHEN_RAISED"] == foreground
     assert env["EMULATE_READER_W"] == "400"
+
+
+@pytest.mark.parametrize("times_out", [False, True])
+def test_stop_reaps_emulator_after_graceful_exit_or_timeout(times_out: bool) -> None:
+    process = MagicMock()
+    if times_out:
+        process.wait.side_effect = [subprocess.TimeoutExpired("reader.lua", 15), 0]
+
+    stop(process)
+
+    process.terminate.assert_called_once_with()
+    if times_out:
+        process.kill.assert_called_once_with()
+        assert process.wait.call_count == 2
+        assert process.wait.call_args.args == ()
+        assert process.wait.call_args.kwargs == {}
+    else:
+        process.kill.assert_not_called()
+        process.wait.assert_called_once_with(timeout=15)
 
 
 def test_command_waits_for_socket_handoff_without_resending(monkeypatch) -> None:
