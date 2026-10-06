@@ -398,6 +398,7 @@ return {
         "Add end of book screen",
         "Add OPDS improvements",
         "Add setting to treat file updates as New status",
+        "Improve Rakuyomi integration from Zen home page",
         "Update visual feedback on tap for UI elements",
         "Use KOReader stats plugin offset if set",
         "Bug fixes"
