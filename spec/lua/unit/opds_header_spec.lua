@@ -21,6 +21,7 @@ describe("OPDS header", function()
         "ui/network/manager", "ui/widget/infomessage", "gettext",
         "common/opds_cover_cache", "json",
         "socket.http", "ltn12", "socketutil",
+        "common/reader_themes", "apps/reader/readerui",
     }
 
     local function get_upvalue(fn, target)
@@ -207,6 +208,7 @@ describe("OPDS header", function()
             allowStandby = function() standby = standby - 1 end,
         })
         ZenSpec.replace("ui/network/manager", NetworkMgr)
+        ZenSpec.replace("common/reader_themes", { isActiveInReader = function() return false end })
         ZenSpec.replace("ui/widget/infomessage", Base)
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("ffi", {
@@ -405,6 +407,54 @@ describe("OPDS header", function()
         assert.are.equal(2, #browser.paths)
         assert.is_nil(browser._zen_prefetched_feed)
         assert.is_nil(browser._zen_opds_library_filenames)
+    end)
+
+    it("flashes the underlying screen when the browser closes", function()
+        local refreshes = {}
+        package.loaded["ui/uimanager"].setDirty = function(_self, widget, mode, region)
+            refreshes[#refreshes + 1] = { widget, mode, region }
+        end
+        local browser = setmetatable({ item_table = {} }, { __index = Browser })
+
+        browser:onCloseWidget()
+
+        assert.is_true(browser._zen_opds_closed)
+        assert.are.same({ { "all", "full" } }, refreshes)
+    end)
+
+    it("clears the themed reader after OPDS is removed from the screen", function()
+        local UIManager = require("ui/uimanager")
+        local Screen = require("device").screen
+        Screen.waveform_full, Screen.waveform_flashnight = 2, 8
+        local reader = { document = {} }
+        ZenSpec.replace("apps/reader/readerui", { instance = reader })
+        ZenSpec.unload("common/reader_themes")
+        local plugin = _G.__ZEN_UI_PLUGIN
+        plugin.config.features = { reader_themes = true }
+        plugin.config.reader_themes = { dark_mode = "dark_graphite", light_mode = "light_tan" }
+        local callback, flashes = nil, 0
+        UIManager.nextTick = function(_self, action) callback = action end
+        UIManager.forceRePaint = function()
+            flashes = flashes + 1
+            assert.are.equal(Screen.night_mode and 2 or 8, Screen.waveform_flashnight)
+            assert.are.equal(reader, UIManager._window_stack[#UIManager._window_stack].widget)
+        end
+
+        for _i, dark_mode in ipairs({ false, true }) do
+            Screen.night_mode = dark_mode
+            G_reader_settings:saveSetting("night_mode", dark_mode)
+            local browser = setmetatable({ item_table = {} }, { __index = Browser })
+            UIManager._window_stack = { { widget = reader }, { widget = browser } }
+            local before_close = flashes
+            browser:onCloseWidget()
+            assert.are.equal(before_close, flashes)
+            assert.is_function(callback)
+            UIManager._window_stack = { { widget = reader } }
+            callback()
+            assert.are.equal(before_close + 1, flashes)
+            assert.are.equal(8, Screen.waveform_flashnight)
+            assert.are.equal(dark_mode, Screen.night_mode)
+        end
     end)
 
     it("reuses persisted covers after closing and decodes them at the requested size", function()

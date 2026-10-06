@@ -1165,6 +1165,14 @@ local function apply_opds()
         -- Owned by _cover_cache; free them here since image_disposable=false means widgets didn't.
         prune_cover_cache(nil, self.item_table)
         orig_onCloseWidget(self)
+        UIManager:nextTick(function()
+            local ReaderThemes = require("common/reader_themes")
+            if ReaderThemes.isActiveInReader(rawget(_G, "__ZEN_UI_PLUGIN")) then
+                ReaderThemes.refreshFull("all")
+            else
+                UIManager:setDirty("all", "full")
+            end
+        end)
     end
 
     -- ── Navigation buttons ───────────────────────────────────────────────────
