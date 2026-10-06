@@ -1520,6 +1520,17 @@ function M.build(ctx)
     })
 
     table.insert(items, {
+        text = _("Flash on every CBZ page turn"),
+        checked_func = function()
+            return config.features.reader_flash_cbz == true
+        end,
+        callback = function()
+            config.features.reader_flash_cbz = config.features.reader_flash_cbz ~= true
+            plugin:saveConfig()
+        end,
+    })
+
+    table.insert(items, {
         text = _("Align status bars with book margins"),
         checked_func = function()
             return config.features.reader_status_bar_margins == true

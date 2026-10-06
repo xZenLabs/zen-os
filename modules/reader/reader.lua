@@ -12,6 +12,7 @@ local PATCH_MODULES = {
     reader_footer = "modules/reader/patches/reader_footer",
     reader_footer_time_format = "modules/reader/patches/reader_footer_time_format",
     reader_footer_cbz_hide = "modules/reader/patches/reader_footer_cbz_hide",
+    reader_flash_cbz = "modules/reader/patches/reader_flash_cbz",
     margin_hold_guard = "modules/reader/patches/margin_hold_guard",
     bookmarks = "modules/reader/patches/bookmarks",
     page_browser = "modules/reader/patches/page_browser",
@@ -119,6 +120,11 @@ function M.init(logger, plugin)
     local reader_footer_cbz_hide_fn = load_patch("reader_footer_cbz_hide")
     if reader_footer_cbz_hide_fn then
         run_feature(logger, plugin, "reader_footer_cbz_hide", reader_footer_cbz_hide_fn)
+    end
+
+    local reader_flash_cbz_fn = load_patch("reader_flash_cbz")
+    if reader_flash_cbz_fn then
+        run_feature(logger, plugin, "reader_flash_cbz", reader_flash_cbz_fn)
     end
 
     -- Always apply: swallow holds inside page margins to prevent accidental word selection.

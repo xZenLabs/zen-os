@@ -2586,6 +2586,11 @@ msgstr "Voornaam"
 msgid "Fixed layout documents (pdf, djvu, pics…)"
 msgstr "Documenten met vaste lay-out (pdf, djvu, afbeeldingen…)"
 
+#. Type: setting
+#: reader_settings.lua:1523
+msgid "Flash on every CBZ page turn"
+msgstr "Volledig vernieuwen bij elke paginaomslag in CBZ-bestanden"
+
 #. Type: message
 #. Context: text = _("Partial pages refresh"), help_text = _("Flash the screen in the library when a page is not full of books to prevent ghosting."), checked_func = function()
 #: advanced_settings.lua:41

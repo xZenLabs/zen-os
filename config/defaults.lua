@@ -103,6 +103,7 @@ local defaults = {
         reader_top_status_bar = true,
         reader_status_bar_margins = true,
         reader_themes = false,
+        reader_flash_cbz = true,
         reader_bottom_menu = false,
         night_mode_schedule = false,
         warmth_schedule     = false,

@@ -221,6 +221,7 @@ modules/reader/patches/library_navigation.lua|integration
 modules/reader/patches/margin_hold_guard.lua|integration
 modules/reader/patches/opening_banner.lua|integration
 modules/reader/patches/page_browser.lua|integration
+modules/reader/patches/reader_flash_cbz.lua|unit
 modules/reader/patches/reader_footer.lua|integration
 modules/reader/patches/reader_themes.lua|integration
 modules/reader/patches/reader_footer_cbz_hide.lua|integration

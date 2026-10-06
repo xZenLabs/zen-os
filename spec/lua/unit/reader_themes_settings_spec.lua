@@ -71,6 +71,29 @@ describe("reader themes settings", function()
         ReaderSettings = require("modules/settings/sections/reader_settings")
     end)
 
+    it("saves the CBZ page-turn flash toggle without requiring an open reader", function()
+        local saved = 0
+        local config = { features = {}, reader_themes = {} }
+        local items = ReaderSettings.build({
+            config = config,
+            plugin = { saveConfig = function() saved = saved + 1 end },
+            save_and_apply = function() error("no patch reapplication needed") end,
+        })
+        local toggle
+        for _i, item in ipairs(items) do
+            if item.text == "Flash on every CBZ page turn" then toggle = item end
+        end
+        assert.is_table(toggle)
+        assert.is_false(toggle.checked_func())
+        toggle.callback()
+        assert.is_true(config.features.reader_flash_cbz)
+        assert.is_true(toggle.checked_func())
+        toggle.callback()
+        assert.is_false(config.features.reader_flash_cbz)
+        assert.is_false(toggle.checked_func())
+        assert.are.equal(2, saved)
+    end)
+
     it("places end-of-book settings last and keeps the margin toggle refreshing both bars", function()
         local saved, refreshed, dirty = 0, 0, 0
         local config = { features = { reader_status_bar_margins = true }, reader_themes = {} }
