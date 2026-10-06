@@ -28,6 +28,7 @@ describe("file browser navbar navigation", function()
     local built_widgets
     local original_color_text_widget
     local original_feedback
+    local original_rakuyomi
 
     local function class(methods)
         methods = methods or {}
@@ -58,6 +59,7 @@ describe("file browser navbar navigation", function()
     end
 
     before_each(function()
+        original_rakuyomi = rawget(_G, "__ZEN_UI_RAKUYOMI")
         original_feedback = package.loaded["common/ui/button_feedback"]
         ZenSpec.replace("common/ui/button_feedback", {
             flashButton = function() error("navbar buttons must not flash") end,
@@ -348,6 +350,7 @@ describe("file browser navbar navigation", function()
     end)
 
     after_each(function()
+        _G.__ZEN_UI_RAKUYOMI = original_rakuyomi
         for _i, name in ipairs({
             "__ZEN_UI_PLUGIN", "__ZEN_UI_NAVBAR_OPEN_DEFAULT_TAB", "__ZEN_UI_NAVBAR_OPEN_TAB",
             "__ZEN_UI_NAVBAR_OPEN_FOLDER", "__ZEN_UI_NAVBAR_OPEN_TAG",
@@ -528,6 +531,28 @@ describe("file browser navbar navigation", function()
             "base:/library/Fiction:/library/Fiction/Book.epub",
         }, calls)
         assert.is_nil(_G.__ZEN_UI_FORCE_DEFAULT_LIBRARY_TAB)
+    end)
+
+    it("skips chapter-list restoration during a RAM chapter handoff", function()
+        local restored = 0
+        _G.__ZEN_UI_RAKUYOMI = {
+            _chapter_handoff_pending = true,
+            openChapterListingFromFile = function() restored = restored + 1; return true end,
+        }
+        _G.__ZEN_UI_LIBRARY_STATE = {
+            tab = "manga", force_restore = true, rakuyomi_return_file = "/data/rakuyomi/tmpfs/current.cbz",
+        }
+        local state = _G.__ZEN_UI_LIBRARY_STATE
+        local fm = make_instance()
+        FileManager._test_next_instance = fm
+        calls = {}
+
+        FileManager.showFiles(FileManager, "/library", nil)
+
+        assert.equals(0, restored)
+        assert.same({ "base:/library:nil" }, calls)
+        assert.is_nil(fm.invisible)
+        assert.equals(state, _G.__ZEN_UI_LIBRARY_STATE)
     end)
 
     it("lets a forced default Home override saved Series state", function()

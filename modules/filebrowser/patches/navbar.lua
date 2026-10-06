@@ -3673,6 +3673,7 @@ local function apply_navbar()
 
     function FileManager:showFiles(path, focused_file, selected_files)
         local started_at = os.clock()
+        local chapter_handoff_pending = getRakuyomi()._chapter_handoff_pending == true
         local open_home_after_filemanager = rawget(_G, "__ZEN_UI_OPEN_HOME_AFTER_FILEMANAGER") == true
         local open_target_tab = rawget(_G, "__ZEN_UI_OPEN_TARGET_TAB")
         local open_target_folder = rawget(_G, "__ZEN_UI_OPEN_TARGET_FOLDER")
@@ -3684,6 +3685,7 @@ local function apply_navbar()
         local hide_rakuyomi_filemanager = force_source_restore
             and state_before_show.tab == "manga"
             and rakuyomi_return_to_chapter_list_on_exit_enabled()
+            and not chapter_handoff_pending
         local keep_book_location = keep_book_location_requested and not force_source_restore
         if force_source_restore then
             logger.dbg(
@@ -3774,6 +3776,7 @@ local function apply_navbar()
         _G.__ZEN_UI_OPEN_TARGET_TAG = nil
         _G.__ZEN_UI_KEEP_BOOK_LOCATION = nil
         local filemanager = FileManager.instance
+        if chapter_handoff_pending then return end
         -- Android may restore a focused book after setupLayout already chose hidden Home.
         if not startup_default_home
                 and default_tab == "home"

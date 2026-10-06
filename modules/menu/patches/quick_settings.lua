@@ -497,12 +497,26 @@ local function apply_quick_settings()
         end
     end
 
+    local function isWifiConnected()
+        return NetworkMgr:isWifiOn()
+            and (type(NetworkMgr.isConnected) ~= "function" or NetworkMgr:isConnected())
+    end
+
+    local function getWifiName()
+        if not isWifiConnected()
+                or NetworkMgr.isWifiChanging and NetworkMgr:isWifiChanging() then return end
+        local ssid = NetworkMgr.lease_ssid
+        if type(ssid) == "string" and ssid ~= "" then return ssid end
+        local network = NetworkMgr.getCurrentNetwork and NetworkMgr:getCurrentNetwork()
+        if network and type(network.ssid) == "string" and network.ssid ~= "" then return network.ssid end
+    end
+
     local function refreshWifiQuickSettings(touch_menu, retries)
-        local network = NetworkMgr:isWifiOn() and NetworkMgr.getCurrentNetwork
-            and NetworkMgr:getCurrentNetwork()
+        if not (touch_menu and touch_menu._zen_panel_refs and touch_menu.item_table and touch_menu.item_table.panel) then return end
+        local ssid = getWifiName()
         local remaining = retries or 45
         if NetworkMgr:isWifiOn()
-            and (not network or type(network.ssid) ~= "string" or network.ssid == "")
+            and not ssid
             and remaining > 0
         then
             if not retries then refreshQuickSettings(touch_menu) end
@@ -512,11 +526,6 @@ local function apply_quick_settings()
             return
         end
         refreshQuickSettings(touch_menu)
-    end
-
-    local function isWifiConnected()
-        return NetworkMgr:isWifiOn()
-            and (type(NetworkMgr.isConnected) ~= "function" or NetworkMgr:isConnected())
     end
 
     local function isWifiDimmed()
@@ -571,13 +580,7 @@ local function apply_quick_settings()
             icon = "quick_wifi",
             label = _("Wi-Fi"),
             label_func = function()
-                if isWifiConnected() then
-                    local net = NetworkMgr.getCurrentNetwork and NetworkMgr:getCurrentNetwork()
-                    if net and type(net.ssid) == "string" and net.ssid ~= "" then
-                        return net.ssid
-                    end
-                end
-                return _("Wi-Fi")
+                return getWifiName() or _("Wi-Fi")
             end,
             active_func = isWifiConnected,
             dim_func = isWifiDimmed,

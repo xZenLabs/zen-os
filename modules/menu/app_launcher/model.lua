@@ -246,7 +246,7 @@ function M.ensure_zenpm_plugin_entries()
                         id = M.next_id(cfg),
                         type = "plugin",
                         label = plugin.title,
-                        icon = suggest_icon(plugin.title),
+                        icon = key == "rakuyomi" and "tab_manga" or suggest_icon(plugin.title),
                         plugin = {
                             key = key,
                             method = plugin.method,

@@ -1912,6 +1912,14 @@ local function apply_opds()
             bordersize = border, padding = 0,
             cover_inner,
         }
+        function framed_cover:paintTo(bb, x, y)
+            FrameContainer.paintTo(self, bb, x, y)
+            if not rounded_corners_enabled() then return end
+            local w, h = self.dimen.w, self.dimen.h
+            paintCornerMasks(bb, x, y, w, h, _corner_radius)
+            paintCornerBorderArcs(bb, x, y, w, h,
+                _corner_radius, border, Blitbuffer.COLOR_BLACK)
+        end
 
         -- Text stack: sizes/spacing match context_menu.lua (cfont 20/17/14).
         local vstack = VGroup:new{ align = "left" }

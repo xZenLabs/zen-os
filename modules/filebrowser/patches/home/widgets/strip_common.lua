@@ -363,7 +363,7 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
         local show_pages = type(config) == "table"
             and type(config.browser_page_count) == "table"
             and config.browser_page_count.show_page_count == true
-        local show_series = type(config) == "table"
+        local show_series = book.chapter_label ~= nil or type(config) == "table"
             and type(config.browser_series_badge) == "table"
             and config.browser_series_badge.show_series_badge == true
 

@@ -962,12 +962,17 @@ end
 local function build_data_provider(cfg, dcfg, strip_page_state)
     local provider = {}
     local dataset = get_home_dataset(cfg)
+    local function is_tmpfs_chapter(path)
+        local Rakuyomi = require("modules/filebrowser/patches/rakuyomi")
+        return type(Rakuyomi.isTmpfsChapterFile) == "function" and Rakuyomi.isTmpfsChapterFile(path)
+    end
     local rakuyomi_cfg = type(cfg) == "table" and cfg.rakuyomi or nil
     local exclude_rakuyomi = type(rakuyomi_cfg) == "table"
         and rakuyomi_cfg.exclude_from_home == true
     if dataset.exclude_rakuyomi ~= exclude_rakuyomi then
         dataset.exclude_rakuyomi = exclude_rakuyomi
         dataset.history = nil
+        dataset.rakuyomi_recent = nil
         clear_home_dataset_derived(dataset)
     end
     local cover_badges = type(cfg) == "table" and type(cfg.browser_cover_badges) == "table"
@@ -1074,38 +1079,56 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         end
 
         local hist = ReadHistory.hist or {}
+        local Rakuyomi = require("modules/filebrowser/patches/rakuyomi")
+        local recent = not exclude_rakuyomi and type(Rakuyomi.getRecentSeries) == "function"
+            and Rakuyomi.getRecentSeries(hist) or {}
+        dataset.rakuyomi_recent = {}
+        for _i, series in ipairs(recent) do dataset.rakuyomi_recent[series.file] = series end
+        local recent_index = 1
         local lfs = require("libs/libkoreader-lfs")
         local ok_kindle, Kindle = pcall(
             require, "modules/filebrowser/patches/kindle_virtual_library")
         local function is_rakuyomi_history_path(path)
             if path:lower():sub(-4) ~= ".cbz" then return false end
-            local Rakuyomi = rawget(_G, "__ZEN_UI_RAKUYOMI")
-            if not (type(Rakuyomi) == "table"
-                    and type(Rakuyomi.isChapterFile) == "function") then
+            local integration = rawget(_G, "__ZEN_UI_RAKUYOMI")
+            if not (type(integration) == "table"
+                    and type(integration.isChapterFile) == "function") then
                 return false
             end
-            local ok_chapter, is_chapter = pcall(Rakuyomi.isChapterFile, path)
+            local ok_chapter, is_chapter = pcall(integration.isChapterFile, path)
             return ok_chapter and is_chapter == true
         end
 
         for _i, entry in ipairs(hist) do
             local raw_path = entry and entry.file
             local path = type(raw_path) == "string" and LibraryPaths.normPath(raw_path) or nil
+            while recent[recent_index] and (entry.time or 0) <= recent[recent_index].time do
+                table.insert(dataset.history, recent[recent_index].file)
+                recent_index = recent_index + 1
+                if #dataset.history >= HOME_STRIP_MAX_BOOKS then break end
+            end
+            if #dataset.history >= HOME_STRIP_MAX_BOOKS then break end
             local in_library = path ~= nil and LibraryPaths.isInHomeDir(path)
             local is_kindle = path ~= nil and not in_library and ok_kindle
                 and type(Kindle.isBookPath) == "function"
                 and Kindle.isBookPath(path)
             local is_rakuyomi = path ~= nil and not is_kindle
-                and (exclude_rakuyomi or not in_library)
+                and (#recent > 0 or exclude_rakuyomi or not in_library)
                 and is_rakuyomi_history_path(path)
             if path ~= nil
                 and path ~= ""
+                and not is_tmpfs_chapter(path)
                 and (is_kindle or lfs.attributes(path, "mode") == "file")
                 and (is_kindle or in_library or is_rakuyomi)
-                and not (exclude_rakuyomi and is_rakuyomi) then
+                and not dataset.rakuyomi_recent[path]
+                and not ((#recent > 0 or exclude_rakuyomi) and is_rakuyomi) then
                 table.insert(dataset.history, path)
                 if #dataset.history >= HOME_STRIP_MAX_BOOKS then break end
             end
+        end
+        while recent[recent_index] and #dataset.history < HOME_STRIP_MAX_BOOKS do
+            table.insert(dataset.history, recent[recent_index].file)
+            recent_index = recent_index + 1
         end
 
         return dataset.history
@@ -1186,7 +1209,11 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
     end
 
     local function get_book(path, need_time_left, metadata_only)
-        if not path then return nil end
+        if dataset.rakuyomi_recent and dataset.rakuyomi_recent[path] then
+            return require("modules/filebrowser/patches/rakuyomi")
+                .getRecentBook(dataset.rakuyomi_recent[path], metadata_only)
+        end
+        if not path or is_tmpfs_chapter(path) then return nil end
         local started_at = os.clock()
         local cache_key = get_home_book_cache_key(path, cfg)
         local cached = _home_book_cache[cache_key]
@@ -1474,6 +1501,7 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
     end
 
     local function get_effective_status(path)
+        if dataset.rakuyomi_recent and dataset.rakuyomi_recent[path] then return "reading" end
         local cached = dataset.effective_status[path]
         if cached then return cached end
         local loaded_status = type(book_status.getFileStatusData) == "function"
@@ -3096,6 +3124,8 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
     local function open_book(path)
         if not path then return end
         _G.__ZEN_UI_LIBRARY_SOURCE_TAB = "home"
+        local Rakuyomi = require("modules/filebrowser/patches/rakuyomi")
+        if type(Rakuyomi.resumeRecentSeries) == "function" and Rakuyomi.resumeRecentSeries(path) then return end
         local fm = FileManager.instance
         if filemanagerutil.openFile then
             filemanagerutil.openFile(fm, path)
@@ -3106,6 +3136,10 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
 
     local function show_book_context_menu(path, source, component_id)
         if type(path) ~= "string" or path == "" then return false end
+        local recent = zen_config.rakuyomi and zen_config.rakuyomi.recent_series or {}
+        for _i, series in ipairs(recent) do
+            if series.file == path then return false end
+        end
         if source == "kindle" then
             return require("modules/filebrowser/patches/kindle_virtual_library")
                 .showBookContextMenu(nil, { file = path, path = path }, M.rebuildActive)
@@ -4023,6 +4057,7 @@ end
 function M.invalidateBookCache(path, history_changed)
     invalidate_home_book_cache(path)
     invalidate_home_dataset_path(path, history_changed == true)
+    mark_home_rebuild_needed()
     pcall(function()
         require("common/tbr_index").refreshPath(path)
     end)

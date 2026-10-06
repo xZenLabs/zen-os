@@ -16,7 +16,6 @@ local function apply_responsive_keyboard()
     local UIManager = require("ui/uimanager")
     local GestureDetector = require("device/gesturedetector")
     local VirtualKeyboard = require("ui/widget/virtualkeyboard")
-    local logger = require("logger")
     local time = require("ui/time")
     local double_space_min_interval = time.ms(80)
     local double_space_max_interval = time.ms(300)
@@ -172,7 +171,6 @@ local function apply_responsive_keyboard()
             self._zen_double_space = nil
             if key ~= " " then self._zen_space_tap = nil end
             if key == " " and deliberate_double_space and self.inputbox:getChar(-1) == " " then
-                logger.dbg("Zen keyboard double space")
                 self.inputbox:delChar()
                 return original_add_char(self, ". ")
             end
@@ -202,8 +200,6 @@ local function apply_responsive_keyboard()
     if top_window then
         Device.input.allow_concurrent_taps = top_window.widget.allow_concurrent_taps == true
     end
-    logger.dbg("Zen keyboard patch active", "class_concurrent=", VirtualKeyboard.allow_concurrent_taps,
-        "live_concurrent=", Device.input.allow_concurrent_taps)
 
     -- Backport concurrent keyboard taps from recent KOReader to stable releases.
     if not Contact._zen_concurrent_taps then
@@ -211,13 +207,8 @@ local function apply_responsive_keyboard()
         local original_tap_state = Contact.tapState
         function Contact:tapState(new_tap)
             local tev = self.current_tev
-            logger.dbg("Zen keyboard contact", "slot=", self.slot, "id=", tev.id,
-                "buddy=", self.buddy_contact ~= nil, "down=", self.down,
-                "concurrent=", self.ges_dec.input.allow_concurrent_taps)
             if tev.id == -1 and self.buddy_contact and self.down
                     and self.ges_dec.input.allow_concurrent_taps then
-                logger.dbg("Zen keyboard concurrent tap", "slot=", self.slot,
-                    "x=", tev.x, "y=", tev.y)
                 self.ges_dec:dropContact(self)
                 return {
                     ges = "tap",
@@ -225,13 +216,7 @@ local function apply_responsive_keyboard()
                     time = tev.timev,
                 }
             end
-            local gesture = original_tap_state(self, new_tap)
-            if gesture then
-                logger.dbg("Zen keyboard gesture", "slot=", self.slot,
-                    "type=", gesture.ges, "x=", gesture.pos and gesture.pos.x,
-                    "y=", gesture.pos and gesture.pos.y)
-            end
-            return gesture
+            return original_tap_state(self, new_tap)
         end
     end
 
@@ -242,9 +227,6 @@ local function apply_responsive_keyboard()
         local frame = key[1]
         if not frame or not frame.dimen then return end
         frame.invert = highlighted or modifier_active(key) or false
-        logger.dbg("Zen keyboard feedback", "key=", key.key,
-            "state=", highlighted and "black" or "normal",
-            "x=", frame.dimen.x, "y=", frame.dimen.y)
         UIManager:widgetRepaint(frame, frame.dimen.x, frame.dimen.y)
         UIManager:setDirty(nil, "fast", frame.dimen)
     end
@@ -288,7 +270,6 @@ local function apply_responsive_keyboard()
         key._zen_cursor_remainder = nil
         key._zen_cursor_direction = nil
         key.ignore_key_release = nil
-        logger.dbg("Zen keyboard cursor end")
         repaint(key, false)
         return true
     end
@@ -346,7 +327,6 @@ local function apply_responsive_keyboard()
             -- Avoid overlapping e-ink updates leaving earlier cursor positions visible.
             UIManager:setDirty(text_widget.dialog or "all", fast_cursor and "fast" or "[ui]", region)
         end
-        logger.dbg("Zen keyboard cursor move", "chars=", chars, "position=", target)
         return inputbox.charpos ~= position
     end
 
@@ -407,13 +387,9 @@ local function apply_responsive_keyboard()
                 x = ges.pos.x,
                 y = ges.pos.y,
             }
-            logger.dbg("Zen keyboard space tap", "elapsed_ms=", elapsed and time.to_ms(elapsed),
-                "dx=", dx, "dy=", dy, "double=", deliberate)
         else
             self.keyboard._zen_space_tap = nil
         end
-        logger.dbg("Zen keyboard tap", "key=", self.key, "skip_flash=", skip_flash,
-            "skiptap=", self.skiptap, "flash_setting=", self.flash_keyboard)
         local keyboard = self.keyboard
         local current_key = self._zen_replacement_layout == keyboard.layout
             and self._zen_replacement_key
@@ -468,12 +444,9 @@ local function apply_responsive_keyboard()
                 GestureRange:new{ ges = "two_finger_hold_release" },
                 GestureRange:new{ ges = "two_finger_hold_pan_release" },
             }
-            logger.dbg("Zen keyboard cursor start", "x=", ges.pos.x)
             repaint(self, true)
             return true
         end
-        logger.dbg("Zen keyboard hold", "key=", self.key, "skiphold=", self.skiphold,
-            "popup=", self.hold_cb_is_popup)
         if self.flash_keyboard and not self.skiphold and not self.hold_cb_is_popup then
             show_feedback(self)
         end
@@ -538,18 +511,12 @@ local function apply_responsive_keyboard()
         local dimen = frame and frame.dimen
         local minimum_distance = dimen and math.min(dimen.w, dimen.h) * 0.5
         local end_key = key_at(self.keyboard, ges and ges.end_pos)
-        logger.dbg("Zen keyboard swipe", "key=", self.key,
-            "direction=", ges and ges.direction, "distance=", ges and ges.distance,
-            "minimum=", minimum_distance, "end_key=", end_key and end_key.key)
         if end_key and end_key ~= self then
-            logger.dbg("Zen keyboard recovered rapid keys", "first=", self.key,
-                "second=", end_key.key)
             self:onTapSelect()
             end_key:onTapSelect()
             return true
         end
         if minimum_distance and ges and ges.distance and ges.distance < minimum_distance then
-            logger.dbg("Zen keyboard short swipe treated as tap", "key=", self.key)
             return self:onTapSelect()
         end
         if G_reader_settings:isFalse("keyboard_swipes_enabled") then

@@ -1765,7 +1765,7 @@ describe("network switcher", function()
                         sendCtrlCmd = function(_self, command)
                             assert.is_true(attached)
                             commands[#commands + 1] = command
-                            return "OK\n"
+                            return "OK\n", 3
                         end,
                         getConnectedNetwork = function() return nil end,
                         readAllEvents = function()
@@ -1791,6 +1791,12 @@ describe("network switcher", function()
             assert.are.equal(case.failures + 1, polls)
             assert.is_true(client_closed)
             assert.are.same({ "SELECT_NETWORK 7", "ENABLE_NETWORK all", "DISCONNECT" }, commands)
+            local stopped
+            for _j, entry in ipairs(logs) do
+                if entry[2] == "Kobo authentication stopped" then stopped = entry end
+            end
+            assert.are.same({ "dbg", "Kobo authentication stopped", "accepted=", true,
+                "error_present=", false }, stopped)
             assert.is_nil(NetworkMgr.deleted)
             assert.is_nil(NetworkMgr.obtained)
             assert.are.equal("Home", password_dialog.title)
@@ -1805,9 +1811,15 @@ describe("network switcher", function()
         end)
     end
 
-    it("keeps associating through transient Kobo disconnects and timeouts", function()
+    it("logs Kobo rejection codes without identifiers and keeps retrying transient failures", function()
         NetworkMgr.wpa_supplicant = { ctrl_interface = "/var/run/wpa_supplicant/wlan0" }
         local polls = 0
+        local messages = {
+            "CTRL-EVENT-ASSOC-REJECT bssid=aa:bb:cc:dd:ee:ff status_code=16",
+            "Authentication with aa:bb:cc:dd:ee:ff timed out.",
+            "CTRL-EVENT-DISCONNECTED bssid=aa:bb:cc:dd:ee:ff reason=3 locally_generated=0",
+            'CTRL-EVENT-SSID-TEMP-DISABLED id=7 ssid="Home" reason=CONN_FAILED',
+        }
         ZenSpec.replace("lj-wpaclient/wpaclient", {
             new = function()
                 return {
@@ -1819,8 +1831,7 @@ describe("network switcher", function()
                     readAllEvents = function()
                         polls = polls + 1
                         return {{
-                            msg = polls % 2 == 0 and "Authentication with AP timed out."
-                                or "CTRL-EVENT-DISCONNECTED reason=3 locally_generated=0",
+                            msg = messages[polls],
                             isAuthFailed = function() return true end,
                         }}
                     end,
@@ -1832,6 +1843,21 @@ describe("network switcher", function()
             NetworkMgr, require("common/zen_logger").new())
         assert.is_true(adapter.connect({ ssid = "Home", wpa_supplicant_id = "7" }))
         assert.are.equal(4, polls)
+        local diagnostics = {}
+        for _i, entry in ipairs(logs) do
+            if entry[2] == "Kobo authentication event" then diagnostics[#diagnostics + 1] = entry end
+            for _j, value in pairs(entry) do
+                if type(value) == "string" then assert.is_nil(value:find("aa:bb:cc:dd:ee:ff", 1, true)) end
+            end
+        end
+        assert.are.same({
+            { "dbg", "Kobo authentication event", "event=", "CTRL-EVENT-ASSOC-REJECT",
+                "status_code=", 16, "reason_code=", nil, "locally_generated=", nil, "wrong_key=", false },
+            { "dbg", "Kobo authentication event", "event=", "CTRL-EVENT-DISCONNECTED",
+                "status_code=", nil, "reason_code=", 3, "locally_generated=", 0, "wrong_key=", false },
+            { "dbg", "Kobo authentication event", "event=", "CTRL-EVENT-SSID-TEMP-DISABLED",
+                "status_code=", nil, "reason_code=", nil, "locally_generated=", nil, "wrong_key=", false },
+        }, diagnostics)
     end)
 
     it("resets a stalled Kobo radio once with the same KOReader-only credentials", function()

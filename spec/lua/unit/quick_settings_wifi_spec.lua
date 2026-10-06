@@ -228,6 +228,7 @@ describe("quick settings Wi-Fi", function()
         local updates = 0
         local touch_menu = {
             item_table = { panel = true },
+            _zen_panel_refs = {},
             updateItems = function(_, page)
                 assert.are.equal(1, page)
                 updates = updates + 1
@@ -254,6 +255,29 @@ describe("quick settings Wi-Fi", function()
         UIManager.scheduled[1].callback()
         assert.are.equal(2, updates)
     end)
+
+    for _i, connected in ipairs({ false, true }) do
+        it("does not query stalled Wi-Fi or refresh closed Controls with connected=" .. tostring(connected), function()
+            NetworkMgr.wifi_on, NetworkMgr.connected = true, connected
+            NetworkMgr.isWifiChanging = function() return connected end
+            NetworkMgr.getCurrentNetwork = function() error("UI must not query stalled Wi-Fi") end
+            local updates = 0
+            local touch_menu = {
+                item_table = { panel = true },
+                _zen_panel_refs = {},
+                updateItems = function() updates = updates + 1 end,
+            }
+            assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("wifi", touch_menu))
+            NetworkMgr.toggle_callback()
+            assert.are.equal(1, updates)
+            local pending = table.remove(UIManager.scheduled, 1)
+            assert.is_truthy(pending)
+            touch_menu._zen_panel_refs = nil
+            pending.callback()
+            assert.are.equal(1, updates)
+            assert.are.equal(0, #UIManager.scheduled)
+        end)
+    end
 
     it("dims both radios during a toggle even while their old state is on", function()
         local Bluetooth = package.loaded["modules/menu/bluetooth/bluetooth"]

@@ -157,6 +157,13 @@ function M.apply()
         require("apps/reader/modules/readermenu"),
         require("apps/filemanager/filemanagermenu"),
     }) do
+        local original_on_show_menu = menu_class.onShowMenu
+        menu_class.onShowMenu = function(self, ...)
+            if self.menu_container then
+                self.menu_container[1]:closeMenu()
+            end
+            return original_on_show_menu(self, ...)
+        end
         local original_on_tap_show_menu = menu_class.onTapShowMenu
         menu_class.onTapShowMenu = function(self, gesture)
             if gesture and gesture.pos and gesture.pos.y < Device.screen:getHeight() * 0.07 then

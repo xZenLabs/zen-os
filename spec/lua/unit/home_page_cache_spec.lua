@@ -776,6 +776,122 @@ describe("home data and book caches", function()
             included:getFeaturedBook("recently_read", "default").path)
     end)
 
+    it("always excludes tmpfs chapters from Home history, including paths inside the library", function()
+        history_items[1].file = "/library/rakuyomi/tmpfs/current.cbz"
+        history_items[2] = { file = "/data/rakuyomi/tmpfs/next.cbz" }
+        history_items[3] = { file = "/library/chapter.cbz" }
+        history_items[4] = { file = "/library/alpha.epub" }
+        require("modules/filebrowser/patches/rakuyomi").isTmpfsChapterFile = function(path)
+            return path:find("/rakuyomi/tmpfs/", 1, true) ~= nil
+        end
+        _G.__ZEN_UI_RAKUYOMI = { isChapterFile = function(path) return path:sub(-4) == ".cbz" end }
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local build_data_provider = get_build_data_provider(Home)
+        local dcfg = { rows = { order = { "strip" }, enabled = { strip = true } }, modules = { strip = {} } }
+        for _i, exclude in ipairs({ false, true }) do
+            local provider = build_data_provider({ browser_cover_badges = {},
+                rakuyomi = { exclude_from_home = exclude } }, dcfg)
+            local expected = exclude and { "/library/alpha.epub" }
+                or { "/library/chapter.cbz", "/library/alpha.epub" }
+            assert.same(expected, provider:getContinuePaths())
+            assert.equals(expected[1], provider:getFeaturedBook("recently_read", "default").path)
+            local books = provider:getBooksForStrip("recently_read", 4, "default", "strip")
+            assert.equals(#expected, #books)
+            for index, path in ipairs(expected) do assert.equals(path, books[index].path) end
+        end
+    end)
+
+    it("mixes two Rakuyomi series and two EPUBs by last-read date without duplicate chapter cards", function()
+        local file = "/data/rakuyomi/tmpfs/current.cbz"
+        local other = "/data/rakuyomi/tmpfs/other.cbz"
+        history_items[1] = { file = "/library/alpha.epub", time = 300 }
+        history_items[2] = { file = other, time = 200 }
+        history_items[3] = { file = "/library/beta.epub", time = 100 }
+        history_items[4] = { file = "/library/chapter.cbz", time = 50 }
+        history_items[5] = { file = "/data/rakuyomi/older-series.cbz", time = 10 }
+        local integration = require("modules/filebrowser/patches/rakuyomi")
+        integration.isChapterFile = function(path) return path:sub(-4) == ".cbz" end
+        integration.isTmpfsChapterFile = function(path) return path == file or path == other end
+        integration.getRecentSeries = function()
+            return { { file = file, time = 400 }, { file = other, time = 200 } }
+        end
+        integration.getRecentBook = function(recent)
+            return { path = recent.file, title = recent.file == file and "Series" or "Other series",
+                chapter_label = "Ch. 12", status = "reading" }
+        end
+        _G.__ZEN_UI_RAKUYOMI = integration
+        local attributes = require("libs/libkoreader-lfs").attributes
+        require("libs/libkoreader-lfs").attributes = function(path, key)
+            if path ~= file and path ~= other then return attributes(path, key) end
+        end
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local build_data_provider = get_build_data_provider(Home)
+        local dcfg = { rows = { enabled = { strip = true } }, modules = { strip = {} } }
+        local provider = build_data_provider({ browser_cover_badges = {} }, dcfg)
+        local expected = { file, "/library/alpha.epub", other, "/library/beta.epub" }
+        assert.same(expected, provider:getContinuePaths())
+        local books = provider:getBooksForStrip("recently_read", 4, "default", "strip")
+        assert.equals(4, #books)
+        for index, path in ipairs(expected) do assert.equals(path, books[index].path) end
+        assert.equals("Series", books[1].title)
+        assert.equals("Ch. 12", books[1].chapter_label)
+        assert.equals("Other series", books[3].title)
+        assert.equals(file, provider:getFeaturedBook("recently_read", "default").path)
+        Home.invalidateBookCache(other, true)
+        table.remove(history_items, 2)
+        assert.same(expected, provider:getContinuePaths())
+        local excluded = build_data_provider({ browser_cover_badges = {},
+            rakuyomi = { exclude_from_home = true } }, dcfg)
+        assert.same({ "/library/alpha.epub", "/library/beta.epub" }, excluded:getContinuePaths())
+    end)
+
+    it("marks retained Home stale and reloads chapter details when its book cache is invalidated", function()
+        local recent = { file = "/data/rakuyomi/tmpfs/current.cbz", time = 200, chapter_label = "Ch. 12" }
+        local integration = require("modules/filebrowser/patches/rakuyomi")
+        integration.getRecentSeries = function() return { recent } end
+        integration.getRecentBook = function(series)
+            return { path = series.file, title = "Series", chapter_label = series.chapter_label, status = "reading" }
+        end
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local menu = { _zen_home_suspended = true }
+        set_home_menu(Home, menu)
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, { modules = {} })
+        assert.equals("Ch. 12", provider:getFeaturedBook("recently_read", "default").chapter_label)
+        recent = { file = "/data/rakuyomi/tmpfs/next.cbz", time = 300, chapter_label = "Ch. 13" }
+        Home.invalidateBookCache(recent.file, true)
+        assert.is_true(menu._zen_home_needs_rebuild)
+        local book = provider:getFeaturedBook("recently_read", "default")
+        assert.equals(recent.file, book.path)
+        assert.equals("Ch. 13", book.chapter_label)
+    end)
+
+    it("rejects tmpfs books from custom Home sources before cache or metadata lookup", function()
+        local temporary = "/library/rakuyomi/tmpfs/current.cbz"
+        local is_tmpfs = false
+        require("modules/filebrowser/patches/rakuyomi").isTmpfsChapterFile = function(path)
+            return is_tmpfs and path == temporary
+        end
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { featured = { path = temporary }, strip = {
+                sources = { custom = { paths = { temporary, "/library/chapter.cbz" } } },
+            } },
+        })
+        assert.is_table(provider:getBook(temporary, true))
+        local reads = book_info_reads
+        is_tmpfs = true
+        assert.is_nil(provider:getBook(temporary, true))
+        assert.is_nil(provider:getFeaturedBook("custom_featured", "default"))
+        assert.equals(reads, book_info_reads)
+        for _i, books in ipairs({ provider:getBooksForStrip("custom_strip", 4, "default", "strip"),
+                (provider:getStripItemsForPage({ kind = "custom", paths = { temporary, "/library/chapter.cbz" } },
+                    4, "default", "strip", 0)) }) do
+            assert.equals(1, #books)
+            assert.equals("/library/chapter.cbz", books[1].path)
+        end
+    end)
+
     it("reuses matching Home stats across provider rebuilds", function()
         local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
         local build_data_provider = get_build_data_provider(Home)

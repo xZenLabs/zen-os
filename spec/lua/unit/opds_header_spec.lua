@@ -22,6 +22,8 @@ describe("OPDS header", function()
         "common/opds_cover_cache", "json",
         "socket.http", "ltn12", "socketutil",
         "common/reader_themes", "apps/reader/readerui",
+        "ui/widget/buttondialog", "ui/widget/confirmbox", "ui/widget/container/leftcontainer",
+        "ui/widget/notification", "opdspse", "ui/widget/textviewer", "socket.url", "util",
     }
 
     local function get_upvalue(fn, target)
@@ -686,6 +688,53 @@ describe("OPDS header", function()
         assert.is_true(items[1]._zen_opds_downloaded)
         assert.is_true(_G.__ZEN_UI_PLUGIN.config.opds.downloaded["Author - Book"])
         assert.are.equal(1, saved)
+    end)
+
+    it("respects rounded cover corners in the book popup for images and placeholders", function()
+        local FrameContainer = package.loaded["ui/widget/container/framecontainer"]
+        for _i, name in ipairs({
+            "ui/widget/buttondialog", "ui/widget/confirmbox", "ui/widget/container/leftcontainer",
+            "ui/widget/notification", "opdspse", "ui/widget/textviewer", "socket.url", "util",
+        }) do
+            ZenSpec.replace(name, FrameContainer)
+        end
+        package.loaded["ui/uimanager"].show = function() end
+        function FrameContainer:paintTo(bb, x, y)
+            self.dimen = { w = 82, h = 122 }
+            bb:paintRect(x, y, 82, 122, 0)
+            bb:paintRect(x + 1, y + 1, 80, 120, 3)
+        end
+
+        local browser = setmetatable({}, { __index = Browser })
+        for _i, has_cover in ipairs({ false, true }) do
+            local item = { title = "Book", acquisitions = {}, cover_bb = has_cover and {} or nil }
+            browser:showDownloads(item)
+            local cover = browser.download_dialog._added_widgets[1][1][1]
+            setmetatable(cover, { __index = FrameContainer })
+            assert.are.equal(item.cover_bb, cover[1].image)
+            if has_cover then assert.is_false(cover[1].image_disposable) end
+
+            for _j, rounded in ipairs({ false, true, false }) do
+                _G.__ZEN_UI_PLUGIN.config.features = { browser_cover_rounded_corners = rounded }
+                local pixels = {}
+                local bb = { paintRect = function(_self, x, y, w, h, color)
+                    for py = y, y + h - 1 do
+                        for px = x, x + w - 1 do
+                            assert.is_true(px >= 30 and px < 112 and py >= 40 and py < 162)
+                            pixels[py * 1000 + px] = color
+                        end
+                    end
+                end }
+                cover:paintTo(bb, 30, 40)
+                for _k, corner in ipairs({ {30, 40}, {111, 40}, {30, 161}, {111, 161} }) do
+                    assert.are.equal(rounded and 4 or 0, pixels[corner[2] * 1000 + corner[1]])
+                end
+                assert.are.equal(0, pixels[40 * 1000 + 71])
+                assert.are.equal(0, pixels[100 * 1000 + 30])
+                assert.are.equal(rounded and 0 or 3, pixels[42 * 1000 + 32])
+                assert.are.equal(3, pixels[100 * 1000 + 71])
+            end
+        end
     end)
 
     it("paints a top-right circle and finished check only for downloaded covers in both layouts", function()

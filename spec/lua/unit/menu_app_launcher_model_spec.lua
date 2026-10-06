@@ -296,6 +296,7 @@ describe("app launcher model", function()
         local cleared
         local pending = {
             { id = "package-wallabag", install_path = "/plugins/wallabag.koplugin" },
+            { id = "package-rakuyomi", install_path = "/plugins/rakuyomi.koplugin" },
             { id = "package-zenfm", install_path = "/plugins/zenfm.koplugin" },
             { id = "package-zenos", install_path = "/plugins/zenos.koplugin" },
         }
@@ -327,6 +328,10 @@ describe("app launcher model", function()
                         zenpm_package_id = "package-wallabag",
                     },
                     {
+                        key = "rakuyomi", method = "__menu_callback", title = "Rakuyomi",
+                        zenpm_package_id = "package-rakuyomi",
+                    },
+                    {
                         key = "zenfm", method = "open", title = "ZenFM",
                         zenpm_package_id = "package-zenfm",
                     },
@@ -348,10 +353,22 @@ describe("app launcher model", function()
                 zenpm_install_path = "/plugins/wallabag.koplugin",
                 zenpm_package_id = "package-wallabag",
             },
+        }, {
+            id = "al_6",
+            type = "plugin",
+            label = "Rakuyomi",
+            icon = "tab_manga",
+            plugin = {
+                key = "rakuyomi",
+                method = "__menu_callback",
+                zenpm_install_path = "/plugins/rakuyomi.koplugin",
+                zenpm_package_id = "package-rakuyomi",
+            },
         } }, saved_configs.loaded.entries)
         assert.are.same({ "/plugin", "Wallabag", "lightning" }, suggested)
         assert.are.same({
             ["package-wallabag"] = true,
+            ["package-rakuyomi"] = true,
             ["package-zenfm"] = true,
             ["package-zenos"] = true,
         }, cleared[1])

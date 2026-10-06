@@ -50,6 +50,15 @@ function M.new(NetworkMgr, logger)
         local msg = event.msg or ""
         local wrong_key = msg:find("reason=WRONG_KEY", 1, true) ~= nil
             or msg:find("pre-shared key may be incorrect", 1, true) ~= nil
+        local name = msg:match("^(CTRL%-EVENT%-%S+)")
+        if name == "CTRL-EVENT-ASSOC-REJECT" or name == "CTRL-EVENT-AUTH-REJECT"
+                or name == "CTRL-EVENT-DISCONNECTED" or name == "CTRL-EVENT-SSID-TEMP-DISABLED" then
+            logger.dbg("Kobo authentication event", "event=", name,
+                "status_code=", tonumber(msg:match("%sstatus_code=(%d+)")),
+                "reason_code=", tonumber(msg:match("%sreason=(%d+)")),
+                "locally_generated=", tonumber(msg:match("%slocally_generated=(%d+)")),
+                "wrong_key=", wrong_key)
+        end
         -- Association timeouts and disconnects do not prove a bad password.
         return wrong_key
     end
@@ -62,7 +71,7 @@ function M.new(NetworkMgr, logger)
         if not connected then
             reply, err = wcli:sendCtrlCmd("DISCONNECT")
             logger.dbg("Kobo authentication stopped", "accepted=",
-                reply ~= nil and reply:sub(1, 2) == "OK", "error_present=", err ~= nil)
+                reply ~= nil and reply:sub(1, 2) == "OK", "error_present=", type(err) == "string")
         end
     end
 

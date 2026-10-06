@@ -161,6 +161,7 @@ local storage_path_loaded = false
 local storage_path_cache
 local origin_metadata_cache = {}
 local metadata_cache = {}
+local series_cover_paths = {}
 
 local function get_storage_path()
     if storage_path_loaded then
@@ -184,6 +185,12 @@ local function get_storage_path()
     end
     storage_path_cache = normalize_path(storage)
     return storage_path_cache
+end
+
+function M.isTmpfsChapterFile(path)
+    if type(path) ~= "string" then return false end
+    local storage = get_storage_path()
+    return path_is_inside(path, (storage:match("^(.*)/[^/]+$") or storage) .. "/tmpfs")
 end
 
 local function read_zip_comment(path)
@@ -226,6 +233,28 @@ local function has_origin_metadata(path)
         and comment:find('"source_id"', 1, true) ~= nil
     origin_metadata_cache[path] = has_origin
     return has_origin
+end
+
+function M.getSeriesCoverPath(path)
+    if type(path) ~= "string" or path:lower():sub(-4) ~= ".cbz" then return nil end
+    if series_cover_paths[path] == nil then
+        series_cover_paths[path] = false
+        local comment = read_zip_comment(path)
+        if not comment then return nil end
+        local ok, origin = pcall(require("rapidjson").decode, comment)
+        if not ok or type(origin) ~= "table" or type(origin.chapter_id) ~= "string"
+                or type(origin.source_id) ~= "string" or type(origin.manga_id) ~= "string" then
+            return nil
+        end
+        local sha = require("ffi/sha2")
+        local name = sha.bin_to_base64(sha.hex_to_bin(sha.sha256(origin.source_id .. origin.manga_id)))
+            :gsub("%+", "-"):gsub("/", "_"):gsub("=+$", "")
+        series_cover_paths[path] = get_storage_path() .. "/.posters/" .. name .. ".jpg"
+    end
+    local cover = series_cover_paths[path]
+    if cover and require("libs/libkoreader-lfs").attributes(cover, "mode") == "file" then
+        return cover
+    end
 end
 
 -- Rakuyomi's storage_path is user-configurable and may be pointed at the
@@ -310,6 +339,179 @@ function M.getMetadata(path)
     return props or nil
 end
 
+local function recent_series(config)
+    if not config then return {} end
+    config.rakuyomi = config.rakuyomi or {}
+    if not config.rakuyomi.recent_series then
+        local previous = config.rakuyomi.last_read_series
+        config.rakuyomi.recent_series = previous and { previous } or {}
+        config.rakuyomi.last_read_series = nil
+    end
+    return config.rakuyomi.recent_series
+end
+
+local function remember_recent_series(manga, chapter, file, timestamp)
+    if type(manga) ~= "table" or type(manga.source) ~= "table"
+            or type(manga.source.id) ~= "string" or type(manga.id) ~= "string"
+            or type(file) ~= "string" then return end
+    local config = get_zen_config()
+    if not config then return end
+    local series = recent_series(config)
+    for index, previous in ipairs(series) do
+        if previous.manga.id == manga.id and previous.manga.source.id == manga.source.id then
+            if not manga.title or manga.title == "" then manga = previous.manga end
+            table.remove(series, index)
+            break
+        end
+    end
+    local recent = {
+        manga = manga,
+        chapter = {
+            id = chapter.id, title = chapter.title,
+            chapter_num = chapter.chapter_num, volume_num = chapter.volume_num,
+        },
+        file = file,
+        time = timestamp,
+        cover_path = M.getSeriesCoverPath(file),
+    }
+    table.insert(series, 1, recent)
+    return recent
+end
+
+function M.getRecentSeries(history)
+    if not M.is_available() then return {} end
+    local config = get_zen_config()
+    local series = recent_series(config)
+    local by_source, by_file = {}, {}
+    for _i, recent in ipairs(series) do
+        local source = recent.manga.source.id
+        by_source[source] = by_source[source] or {}
+        by_source[source][recent.manga.id] = recent
+        by_file[recent.file] = recent
+    end
+    local changed = false
+    for _i, entry in ipairs(history or {}) do
+        local file = entry.file
+        local existing = by_file[file]
+        if existing then
+            local timestamp = math.max(existing.time, entry.time or 0)
+            if timestamp ~= existing.time then changed = true; existing.time = timestamp end
+        elseif type(file) == "string" and file:lower():sub(-4) == ".cbz" and M.isChapterFile(file) then
+            local origin = require("RakuyomiShared"):getOrigin(file)
+            local source = origin and origin.manga_id.source_id
+            local previous = source and by_source[source] and by_source[source][origin.manga_id.manga_id]
+            local metadata = origin and (not previous or (entry.time or 0) > previous.time)
+                and M.getMetadata(file)
+            if metadata then
+                local recent = remember_recent_series(previous and previous.manga or {
+                    id = origin.manga_id.manga_id,
+                    source = { id = origin.manga_id.source_id },
+                    title = metadata.series or metadata.title,
+                    viewer = "DefaultViewer", state_viewer = false,
+                }, {
+                    id = origin.chapter_id, title = metadata.title,
+                    chapter_num = metadata.series_index,
+                }, file, entry.time or 0)
+                if recent then
+                    by_source[source] = by_source[source] or {}
+                    by_source[source][recent.manga.id] = recent
+                    by_file[recent.file] = recent
+                    changed = true
+                end
+            end
+        end
+    end
+    table.sort(series, function(first, second)
+        if first.time ~= second.time then return first.time > second.time end
+        return first.file < second.file
+    end)
+    if changed then require("config/manager").save(config) end
+    return series
+end
+
+function M.getRecentBook(recent, metadata_only)
+    local chapter_label = require("utils/getChapterDisplayName")(recent.chapter)
+    local book = {
+        path = recent.file, title = recent.manga.title,
+        authors = "", chapter_label = chapter_label,
+        series_index = recent.chapter.chapter_num,
+        status = "reading", percent = 0,
+    }
+    local DocSettings = require("docsettings")
+    if DocSettings:hasSidecarFile(recent.file) then
+        local doc = DocSettings:open(recent.file)
+        book.percent_finished = doc:readSetting("percent_finished")
+        book.percent = book.percent_finished or 0
+        local stats = doc:readSetting("stats")
+        book.pages = stats and stats.pages
+        book.current_page = book.pages and math.floor(book.pages * book.percent + 0.5)
+    end
+    local cover_path = recent.manga.manga_cover
+    if type(cover_path) == "string" and cover_path:sub(1, 7) == "file://" then
+        cover_path = cover_path:sub(8):gsub("%%(%x%x)", function(hex) return string.char(tonumber(hex, 16)) end)
+    else
+        cover_path = recent.cover_path or M.getSeriesCoverPath(recent.file)
+    end
+    if cover_path and require("libs/libkoreader-lfs").attributes(cover_path, "mode") ~= "file" then
+        cover_path = nil
+    end
+    book.has_real_cover = cover_path ~= nil
+    book.is_cover_pending = metadata_only and book.has_real_cover or nil
+    if cover_path and not metadata_only then
+        local cover = require("common/cover_utils").loadExplicitCover(cover_path)
+        if cover then
+            book.cover_bb, book.cover_w, book.cover_h = cover.data, cover.w, cover.h
+        else
+            book.has_real_cover = false
+        end
+    end
+    return book
+end
+
+function M.resumeRecentSeries(file)
+    local config = get_zen_config()
+    local recent
+    for _i, entry in ipairs(recent_series(config)) do
+        if entry.file == file then recent = entry; break end
+    end
+    if not recent or not M.is_available() then return false end
+    local Backend = require("Backend")
+    Backend.getBackend()
+    if not Backend.getInitialized() then
+        (live_plugin() or loaded_plugin()):showErrorDialog()
+        return true
+    end
+    M.installResumePatch()
+    local LibraryView = require("LibraryView")
+    -- Home has no library widget to close after the chapter opens.
+    local library = setmetatable({ hide_top_close = true, onClose = function() end }, { __index = LibraryView })
+    if not G_reader_settings:isTrue("file_ask_to_open") then
+        require("ui/trapper"):wrap(function()
+            local settings = Backend.getSettings()
+            if settings.type == "ERROR" then
+                require("ErrorDialog"):show(settings.message)
+                return
+            end
+            local listing = require("ChapterListing"):new{
+                manga = recent.manga, chapter_sorting_mode = settings.body.chapter_sorting_mode,
+                preload_count = settings.body.preload_chapters, covers_fullscreen = true,
+            }
+            listing.on_return_callback = function()
+                library:fetchAndShow(nil, nil, { hideTopClose = true })
+            end
+            local chapter = require("utils/findLastRead")(listing.chapters)
+            if chapter then
+                listing:openChapterOnReader(chapter)
+            else
+                require("ErrorDialog"):show(require("gettext+")("No chapters found for this manga."))
+            end
+        end)
+        return true
+    end
+    library:_handleContinueReading(recent.manga)
+    return true
+end
+
 function M.onEndOfBook(ui)
     local path = ui and ui.document and ui.document.file
     if not M.getMetadataProvider(path) then return false end
@@ -391,6 +593,19 @@ function M.installMetadataIntegration()
         return true
     end
 
+    local BookInfo = require("apps/filemanager/filemanagerbookinfo")
+    local DocSettings = require("docsettings")
+    local orig_getCoverImage = BookInfo.getCoverImage
+    function BookInfo:getCoverImage(document, file, force_orig)
+        local filepath = file or document and document.file
+        local cover_path = not force_orig and M.getSeriesCoverPath(filepath)
+        if cover_path and not DocSettings:findCustomCoverFile(filepath) then
+            local cover = require("common/cover_utils").loadExplicitCover(cover_path)
+            if cover then return cover.data end
+        end
+        return orig_getCoverImage(self, document, file, force_orig)
+    end
+
     local orig_extractBookInfo = BookInfoManager.extractBookInfo
     function BookInfoManager:extractBookInfo(filepath, ...)
         local provider = M.getMetadataProvider(filepath)
@@ -417,13 +632,26 @@ function M.installMetadataIntegration()
     if type(orig_getBookInfo) == "function"
             and type(BookInfoManager.deleteBookInfo) == "function" then
         local checked_cache_rows = {}
-        function BookInfoManager:getBookInfo(filepath, ...)
-            local bookinfo = orig_getBookInfo(self, filepath, ...)
+        function BookInfoManager:getBookInfo(filepath, get_cover, ...)
+            local cover_path = M.getSeriesCoverPath(filepath)
+            if cover_path and DocSettings:findCustomCoverFile(filepath) then cover_path = nil end
+            local bookinfo = orig_getBookInfo(self, filepath, not cover_path and get_cover, ...)
             if bookinfo and not bookinfo.title and not checked_cache_rows[filepath]
                     and M.getMetadataProvider(filepath) then
                 checked_cache_rows[filepath] = true
                 self:deleteBookInfo(filepath)
                 return nil
+            end
+            if bookinfo and cover_path and not bookinfo.ignore_cover then
+                if get_cover then
+                    local cover = require("common/cover_utils").loadExplicitCover(
+                        cover_path, bookinfo.cover_w, bookinfo.cover_h)
+                    if not cover then return orig_getBookInfo(self, filepath, get_cover, ...) end
+                    bookinfo.cover_bb = cover.data
+                    bookinfo.cover_w, bookinfo.cover_h = cover.w, cover.h
+                    bookinfo.cover_sizetag = cover.w .. "x" .. cover.h
+                end
+                bookinfo.has_cover, bookinfo.cover_fetched = "Y", "Y"
             end
             return bookinfo
         end
@@ -709,6 +937,23 @@ function M.installResumePatch()
             function ChapterListing:openChapterOnReader(chapter, job, on_opened)
                 return open(self, chapter, job, function(...)
                     chapter.last_read = os.time() -- Native opening saves this only in the backend.
+                    local function record_recent()
+                        local ReaderUI = package.loaded["apps/reader/readerui"]
+                        local reader = ReaderUI and ReaderUI.instance
+                        local file = reader and reader.document and reader.document.file or chapter.file
+                        if remember_recent_series(self.manga, chapter, file, chapter.last_read) then
+                            require("config/manager").save(get_zen_config())
+                            local home = require("common/shared_state").get(
+                                zen_plugin or rawget(_G, "__ZEN_UI_PLUGIN"), "home")
+                            if home then home.invalidateBookCache(file, true) end
+                        end
+                    end
+                    local MangaReader = package.loaded["MangaReader"]
+                    if MangaReader and MangaReader.is_switching_document then
+                        require("ui/uimanager"):nextTick(record_recent)
+                    else
+                        record_recent()
+                    end
                     if on_opened then return on_opened(...) end
                 end)
             end
@@ -719,6 +964,157 @@ function M.installResumePatch()
     end
     package.loaded["utils/findLastRead"] = findLastRead
     M._resume_patched = true
+end
+
+local function get_series_manga(source_id, manga_id)
+    local response = require("Backend").getMangasInLibrary()
+    if response.type == "ERROR" then return nil end
+    for _i, manga in ipairs(response.body) do
+        if manga.id == manga_id and manga.source.id == source_id then return manga end
+    end
+end
+
+function M.installReadingDirectionPatch()
+    local ok, MangaReader = pcall(require, "MangaReader")
+    if not ok or type(MangaReader.show) ~= "function" or type(MangaReader.applyViewMode) ~= "function"
+            or type(MangaReader.initializeFromReaderUI) ~= "function" or M._direction_patched then return end
+    local Backend = require("Backend")
+    local viewers = {}
+    for id, name in pairs(Backend.MangaViewerName) do viewers[name] = id end
+    local show = MangaReader.show
+    function MangaReader:show(options)
+        if options.viewer == "DefaultViewer" and not options.state_viewer then
+            local chapter = options.chapter
+            local manga = get_series_manga(chapter.source_id, chapter.manga_id)
+            if manga then options.viewer, options.state_viewer = manga.viewer, manga.state_viewer end
+        end
+        return show(self, options)
+    end
+
+    local apply_view = MangaReader.applyViewMode
+    function MangaReader:applyViewMode(ui)
+        local result = apply_view(self, ui)
+        if self.viewer == 0 then -- Default follows the global order, not a chapter's stale sidecar.
+            ui.view:onToggleReadingOrder(G_reader_settings:isTrue("inverse_reading_order")
+                and not G_reader_settings:isTrue("rakuyomi_never_rtl"))
+        end
+        return result
+    end
+
+    local initialize = MangaReader.initializeFromReaderUI
+    function MangaReader:initializeFromReaderUI(ui)
+        local result = initialize(self, ui)
+        local file = ui.document and ui.document.file
+        if not self.is_showing and M.getMetadataProvider(file) then
+            local origin = require("RakuyomiShared"):getOrigin(file)
+            if origin then
+                ui:registerPostInitCallback(function()
+                    require("ui/trapper"):wrap(function()
+                        Backend.getBackend()
+                        if not Backend.getInitialized() then return end
+                        local manga = get_series_manga(origin.manga_id.source_id, origin.manga_id.manga_id)
+                        local global_viewer = G_reader_settings:readSetting("rakuyomi_global_viewer")
+                        local viewer = viewers[global_viewer] or viewers[manga and manga.viewer] or 0
+                        if not ui.document or ui.document.file ~= file then return end
+                        if viewers[global_viewer] or manga and manga.state_viewer
+                                or G_reader_settings:readSetting("rakuyomi_auto_viewer_mode") ~= false then
+                            MangaReader.applyViewMode({ viewer = viewer }, ui)
+                        end
+                    end)
+                end)
+            end
+        end
+        return result
+    end
+    M._direction_patched = true
+end
+
+function M.installLoadingDialogPatch()
+    local ok, LoadingDialog = pcall(require, "LoadingDialog")
+    if not ok or type(LoadingDialog) ~= "table" or M._loading_dialog_patched then return end
+    local ConfirmBox = require("ui/widget/confirmbox")
+    local LoadingConfirmBox = ConfirmBox:extend{ dismissable = false }
+    -- Scope the default to Rakuyomi, including dialogs rebuilt by progress updates.
+    for _i, method in ipairs({ "showAndRun", "showAndRunWithProgress", "simple" }) do
+        local fn = LoadingDialog[method]
+        if type(fn) == "function" then
+            for index = 1, 64 do
+                local name, value = debug.getupvalue(fn, index)
+                if not name then break end
+                if name == "ConfirmBox" and value == ConfirmBox then
+                    debug.setupvalue(fn, index, LoadingConfirmBox)
+                    break
+                end
+            end
+        end
+    end
+    M._loading_dialog_patched = true
+end
+
+function M.installChapterOpenPatch()
+    local ok, ChapterListing = pcall(require, "ChapterListing")
+    if not ok or type(ChapterListing.openChapterOnReader) ~= "function" or M._chapter_open_patched then return end
+    local MangaReader = require("MangaReader")
+    local ReaderUI = require("apps/reader/readerui")
+    local end_of_book = MangaReader.onEndOfBook
+    if type(end_of_book) == "function" then
+        function MangaReader:onEndOfBook(...)
+            local ui = ReaderUI.instance
+            if self.is_showing and M.isTmpfsChapterFile(ui and ui.document and ui.document.file)
+                    and M.onEndOfBook(ui) then return true end
+            return end_of_book(self, ...)
+        end
+    end
+    local open = ChapterListing.openChapterOnReader
+    function ChapterListing:openChapterOnReader(chapter, job, on_opened)
+        local reader = ReaderUI.instance
+        local file = reader and reader.document and reader.document.file
+        if not M.isTmpfsChapterFile(file) then return open(self, chapter, job, on_opened) end
+        local origin = require("RakuyomiShared"):getOrigin(file)
+        local current = origin and {
+            id = origin.chapter_id, source_id = origin.manga_id.source_id, manga_id = origin.manga_id.manga_id,
+        } or MangaReader.is_showing and MangaReader.chapter
+        if not current or current.id == chapter.id and current.source_id == chapter.source_id
+                and current.manga_id == chapter.manga_id then return open(self, chapter, job, on_opened) end
+        if reader._zen_rakuyomi_open_pending then return end
+        reader._zen_rakuyomi_open_pending = true
+        local manager = require("ui/uimanager")
+        manager:nextTick(function()
+            if ReaderUI.instance ~= reader or not reader.document or reader.document.file ~= file then
+                reader._zen_rakuyomi_open_pending = nil
+                return
+            end
+            M._chapter_handoff_pending = true
+            local notice = require("LoadingDialog"):simple(require("gettext+")("Loading next chapter..."))
+            manager:forceRePaint()
+            MangaReader:closeReaderUi(function()
+                M._chapter_handoff_pending = nil
+                reader._zen_rakuyomi_open_pending = nil
+                -- closeReaderUi cleans the singleton after its callback; open on the following tick.
+                manager:nextTick(function()
+                    require("ui/trapper"):wrap(function()
+                        local revoked = require("Backend").revokeChapter(current.source_id, current.manga_id, current.id, true)
+                        if revoked.type == "ERROR" then
+                            manager:close(notice)
+                            require("ErrorDialog"):show(revoked.message)
+                            return
+                        end
+                        for _i, item in ipairs(self.chapters) do
+                            if item.id == current.id and item.source_id == current.source_id
+                                    and item.manga_id == current.manga_id then
+                                item.file, item.downloaded, item.on_tmpfs = nil, false, false
+                                self.preload_jobs[item.id] = nil
+                            end
+                        end
+                        self:updateItems()
+                        manager:close(notice)
+                        open(self, chapter, job, on_opened)
+                    end)
+                end)
+            end)
+        end)
+    end
+    M._chapter_open_patched = true
 end
 
 function M.refreshAfterResize(widget)
@@ -763,6 +1159,9 @@ function M.apply()
     M.installShowReaderCapture()
     M.installReaderReturnPatch()
     M.installResumePatch()
+    M.installReadingDirectionPatch()
+    M.installLoadingDialogPatch()
+    M.installChapterOpenPatch()
 end
 
 return M

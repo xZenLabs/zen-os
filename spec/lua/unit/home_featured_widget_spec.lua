@@ -506,6 +506,19 @@ describe("home featured widget", function()
         assert.is_true(series.bold)
     end)
 
+    it("shows Rakuyomi's chapter label below the series title", function()
+        local Featured = require("modules/filebrowser/patches/home/widgets/featured_common")
+        Featured.build({
+            width = 600, height = 220, face_label = { size = 12 }, module_cfg = {},
+            data = { getFeaturedBook = function()
+                return { path = "/data/rakuyomi/tmpfs/chapter.cbz", title = "Series title",
+                    authors = "", chapter_label = "Ch. 12.5", series_index = 12.5, status = "reading" }
+            end },
+        }, "recently_read")
+        assert.is_table(text_widget("Series title"))
+        assert.is_table(text_widget("Ch. 12.5"))
+    end)
+
     it("hides author and series independently", function()
         local Featured = require("modules/filebrowser/patches/home/widgets/featured_common")
         Featured.build({

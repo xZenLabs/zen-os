@@ -5,6 +5,7 @@ describe("top menu tap handling", function()
     local Menu
     local ReaderMenu
     local TopMenu
+    local original_uimanager
 
     local function point(x, y)
         return {
@@ -18,6 +19,7 @@ describe("top menu tap handling", function()
     end
 
     before_each(function()
+        original_uimanager = package.loaded["ui/uimanager"]
         Device = {
             screen = {
                 getHeight = function() return 1000 end,
@@ -42,6 +44,7 @@ describe("top menu tap handling", function()
         }
         local function native_menu()
             return {
+                onShowMenu = function() return true end,
                 onTapShowMenu = function(self)
                     self.shown = (self.shown or 0) + 1
                     return true
@@ -71,6 +74,7 @@ describe("top menu tap handling", function()
         ZenSpec.unload("apps/filemanager/filemanager")
         ZenSpec.unload("apps/reader/readerui")
         ZenSpec.unload("ui/gesturerange")
+        package.loaded["ui/uimanager"] = original_uimanager
     end)
 
     it("still opens the KOReader menu from the unoccupied top area", function()
@@ -94,6 +98,51 @@ describe("top menu tap handling", function()
             assert.is_nil(menu:onTapShowMenu({ pos = point(500, 70) }))
             assert.is_nil(menu:onTapShowMenu({ pos = point(500, 150) }))
             assert.are.equal(1, menu.shown)
+        end
+    end)
+
+    it("keeps reopened menus dismissible without leaving an older panel behind", function()
+        local windows = {}
+        ZenSpec.replace("ui/uimanager", {
+            show = function(_self, widget) windows[widget] = true end,
+            close = function(_self, widget) windows[widget] = nil end,
+        })
+        for _i, menu_class in ipairs({ ReaderMenu, FileManagerMenu }) do
+            menu_class.onShowMenu = function(self, tab_index, do_not_show)
+                local container = {{ last_index = tab_index }}
+                container[1].closeMenu = function()
+                    if self.menu_container then
+                        require("ui/uimanager"):close(self.menu_container)
+                        self.menu_container = nil
+                    end
+                end
+                self.menu_container = container
+                if not do_not_show then require("ui/uimanager"):show(container) end
+                return true
+            end
+        end
+        TopMenu.apply()
+
+        for _i, menu_class in ipairs({ ReaderMenu, FileManagerMenu }) do
+            local menu = setmetatable({}, { __index = menu_class })
+            assert.is_true(menu:onShowMenu(1))
+            local first = menu.menu_container
+            assert.is_true(menu:onShowMenu(2))
+            local second = menu.menu_container
+            assert.are.equal(2, second[1].last_index)
+            assert.is_nil(windows[first])
+            assert.is_true(windows[second])
+            second[1]:closeMenu()
+            assert.are.same({}, windows)
+            assert.is_nil(menu.menu_container)
+
+            assert.is_true(menu:onShowMenu(nil, true))
+            local hidden = menu.menu_container
+            assert.are.same({}, windows)
+            assert.is_true(menu:onShowMenu(1))
+            assert.is_nil(windows[hidden])
+            menu.menu_container[1]:closeMenu()
+            assert.are.same({}, windows)
         end
     end)
 

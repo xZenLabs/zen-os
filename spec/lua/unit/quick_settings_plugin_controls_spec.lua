@@ -543,6 +543,7 @@ describe("quick settings plugin controls", function()
         local Blitbuffer = require("ffi/blitbuffer")
         Blitbuffer.COLOR_GRAY, Blitbuffer.COLOR_BLACK = "gray", "black"
         NetworkMgr.isWifiChanging = function() return true end
+        NetworkMgr.getCurrentNetwork = function() error("Controls must not query the changing radio") end
         local config = _G.__ZEN_UI_PLUGIN.config.quick_settings
         config.button_order = { "wifi" }
         config.show_buttons.wifi = true
@@ -552,6 +553,7 @@ describe("quick settings plugin controls", function()
         assert.are.equal("gray", touch_menu._zen_panel_refs.buttons[1].widget.background)
 
         NetworkMgr.isWifiChanging = function() return false end
+        NetworkMgr.lease_ssid = "Home"
         menu.tab_item_table[1].panel(touch_menu)
         assert.are.equal("black", touch_menu._zen_panel_refs.buttons[1].widget.background)
 

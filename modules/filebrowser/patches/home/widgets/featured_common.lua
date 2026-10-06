@@ -112,6 +112,7 @@ local function fmt_duration(secs)
 end
 
 local function format_series(book)
+    if book.chapter_label then return book.chapter_label end
     local series = type(book.series) == "string" and book.series:gsub("^%s*(.-)%s*$", "%1") or ""
     if series == "" then return "" end
     local index = tonumber(book.series_index)
