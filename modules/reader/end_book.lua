@@ -523,10 +523,11 @@ end
 
 function EndBook.show(ui, plugin, preview)
     if not preview and (not ui or not ui.document) then return end
-    if not preview and G_reader_settings:isTrue("end_document_auto_mark")
-            and (ui.doc_settings:readSetting("summary") or {}).status ~= "complete" then
-        ui.status:markBook(true)
-        ui.doc_settings:flush()
+    if not preview and G_reader_settings:isTrue("end_document_auto_mark") then
+        if (ui.doc_settings:readSetting("summary") or {}).status ~= "complete" then
+            ui.status:markBook(true)
+        end
+        ui.doc_settings:flush() -- KOReader may have auto-marked without saving.
     end
     local page = EndBook:new{ ui = ui, plugin = plugin, preview = preview }
     UIManager:show(page, "full")

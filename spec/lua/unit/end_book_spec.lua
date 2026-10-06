@@ -367,9 +367,13 @@ describe("end of book", function()
     it("respects auto-mark before displaying a book and keeps Preview read-only", function()
         local EndBook = load_end_book()
         local summary, marks, flushes, displayed = { status = "reading" }, 0, 0
+        local persisted_status = "reading"
         local ui = { document = {}, doc_settings = {
             readSetting = function() return summary end,
-            flush = function() flushes = flushes + 1 end,
+            flush = function()
+                flushes = flushes + 1
+                persisted_status = summary.status
+            end,
         }, status = { markBook = function(_self, complete)
             assert.is_true(complete)
             summary.status = "complete"
@@ -395,9 +399,12 @@ describe("end of book", function()
         assert.are.equal("complete", summary.status)
         assert.are.equal(1, marks)
         assert.are.equal(1, flushes)
+        assert.are.equal("complete", persisted_status)
         assert.is_nil(displayed.preview)
+        persisted_status = "reading" -- KOReader can auto-mark before saving the sidecar.
         EndBook.show(ui, plugin)
         assert.are.equal(1, marks)
+        assert.are.equal("complete", persisted_status)
         EndBook.show(nil, plugin, true)
         assert.is_true(displayed.preview)
     end)
