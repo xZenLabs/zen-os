@@ -16,33 +16,22 @@ local function apply_reader_themes()
         return orig_setStyleSheet(self, css_file, ReaderThemes.appendCss(plugin, appended_css, self))
     end
 
-    local reader_refresh_depth = 0
-    local orig_setDirty = UIManager.setDirty
-    UIManager.setDirty = function(self, widget, refresh_type, ...)
-        local reader = ReaderUI.instance
-        -- Colorsoft needs the same non-flashing refresh even without a theme.
-        if refresh_type == "partial" and reader and (widget == reader or widget == reader.dialog)
-                and (ReaderThemes.isActive(plugin) or (Device.screen.night_mode
+    local Screen = Device.screen
+    local orig_refreshPartialImp = Screen.refreshPartialImp
+    Screen.refreshPartialImp = function(self, x, y, w, h, dither)
+        if not self.waveform_full or not ReaderUI.instance
+                or not (ReaderThemes.isActive(plugin) or (self.night_mode
                     and Device.isKindle and Device:isKindle()
                     and Device.hasColorScreen and Device:hasColorScreen())) then
-            reader_refresh_depth = reader_refresh_depth + 1
-            local result = orig_setDirty(self, widget, refresh_type, ...)
-            reader_refresh_depth = reader_refresh_depth - 1
-            return result
+            return orig_refreshPartialImp(self, x, y, w, h, dither)
         end
-        return orig_setDirty(self, widget, refresh_type, ...)
-    end
-
-    local orig_refresh = UIManager._refresh
-    UIManager._refresh = function(self, refresh_type, ...)
-        local refresh_count = #self._refresh_stack
-        local result = orig_refresh(self, refresh_type, ...)
-        if reader_refresh_depth > 0 and refresh_type == "partial" then
-            for _i = refresh_count + 1, #self._refresh_stack do
-                local refresh = self._refresh_stack[_i]
-                if refresh.mode == "partial" then refresh.mode = "ui" end
-            end
-        end
+        -- GC16 + PARTIAL handles tinted backgrounds without a full-screen flash.
+        local partial, night, night_is_reagl = self.waveform_partial, self.waveform_night, self.night_is_reagl
+        self.waveform_partial, self.waveform_night, self.night_is_reagl = self.waveform_full, self.waveform_full, false
+        -- Dithering would promote GC16 to a flashing color waveform.
+        local ok, result = pcall(orig_refreshPartialImp, self, x, y, w, h, false)
+        self.waveform_partial, self.waveform_night, self.night_is_reagl = partial, night, night_is_reagl
+        if not ok then error(result, 0) end
         return result
     end
 
@@ -91,7 +80,6 @@ local function apply_reader_themes()
         return result
     end
 
-    local Screen = Device.screen
     local orig_toggleNightMode = Screen.toggleNightMode
     Screen.toggleNightMode = function(self, ...)
         local result = orig_toggleNightMode(self, ...)
