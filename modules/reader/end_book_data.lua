@@ -144,9 +144,9 @@ function M.stats(statistics)
     local format_time = require("datetime").secondsToClockDuration
     return {
         book_days = tostring(days),
-        book_duration = format_time("letters", seconds, false),
-        book_page_minutes = pages > 0 and format_time("letters", seconds / pages, false, false, true) or nil,
-        book_daily_minutes = days > 0 and format_time("letters", seconds / days, false, false, true) or nil,
+        book_duration = format_time("letters", seconds, true),
+        book_page_minutes = pages > 0 and format_time("letters", seconds / pages, true, false, true) or nil,
+        book_daily_minutes = days > 0 and format_time("letters", seconds / days, true, false, true) or nil,
     }
 end
 

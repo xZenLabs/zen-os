@@ -528,7 +528,7 @@ describe("end of book", function()
         assert.are.equal("zen_end_book", G_reader_settings:readSetting("end_document_action"))
     end)
 
-    it("uses only current-book statistics and handles missing or empty records", function()
+    it("rounds current-book statistics to minutes and handles missing or empty records", function()
         local gettext = require("gettext")
         local time_context = gettext.context.Time
         finally(function() gettext.context.Time = time_context end)
@@ -538,20 +538,26 @@ describe("end of book", function()
         local thin_space, hair_space = "\u{2009}", "\u{200A}"
         assert.same({}, Data.stats(nil))
         local statistics = { getStatsBookStatus = function() return { days = 3, time = 7200, pages = 80 } end }
-        assert.same({ book_days = "3", book_duration = "2h" .. thin_space .. "0m" .. thin_space .. "0s",
-            book_page_minutes = "1m" .. hair_space .. "30s",
-            book_daily_minutes = "40m" .. hair_space .. "0s" }, Data.stats(statistics))
-        statistics.getStatsBookStatus = function() return { days = 1, time = 35, pages = 1 } end
-        assert.equals("35s", Data.stats(statistics).book_page_minutes)
-        assert.equals("35s", Data.stats(statistics).book_daily_minutes)
+        assert.same({ book_days = "3", book_duration = "2h" .. thin_space .. "0m",
+            book_page_minutes = "2m", book_daily_minutes = "40m" }, Data.stats(statistics))
+        for _i, seconds in ipairs({ 29, 30, 35 }) do
+            statistics.getStatsBookStatus = function() return { days = 1, time = seconds, pages = 1 } end
+            local expected = seconds < 30 and "0m" or "1m"
+            assert.same({ book_days = "1", book_duration = expected,
+                book_page_minutes = expected, book_daily_minutes = expected }, Data.stats(statistics))
+        end
+        statistics.getStatsBookStatus = function() return { days = 2, time = 7199, pages = 2 } end
+        assert.same({ book_days = "2", book_duration = "2h" .. thin_space .. "0m",
+            book_page_minutes = "1h" .. hair_space .. "0m",
+            book_daily_minutes = "1h" .. hair_space .. "0m" }, Data.stats(statistics))
         statistics.getStatsBookStatus = function() return { days = 1, time = 5400, pages = 1 } end
-        assert.equals("1h" .. hair_space .. "30m" .. hair_space .. "0s", Data.stats(statistics).book_page_minutes)
-        assert.equals("1h" .. hair_space .. "30m" .. hair_space .. "0s", Data.stats(statistics).book_daily_minutes)
+        assert.equals("1h" .. hair_space .. "30m", Data.stats(statistics).book_page_minutes)
+        assert.equals("1h" .. hair_space .. "30m", Data.stats(statistics).book_daily_minutes)
         gettext.context.Time = { h = "ч", m = "мин", s = "с", ["%1s"] = "%1с" }
-        assert.equals("1ч" .. hair_space .. "30мин" .. hair_space .. "0с", Data.stats(statistics).book_page_minutes)
-        assert.equals("1ч" .. hair_space .. "30мин" .. hair_space .. "0с", Data.stats(statistics).book_daily_minutes)
+        assert.equals("1ч" .. hair_space .. "30мин", Data.stats(statistics).book_page_minutes)
+        assert.equals("1ч" .. hair_space .. "30мин", Data.stats(statistics).book_daily_minutes)
         statistics.getStatsBookStatus = function() return { days = 0, time = 0, pages = 0 } end
-        assert.same({ book_days = "0", book_duration = "0с" }, Data.stats(statistics))
+        assert.same({ book_days = "0", book_duration = "0m" }, Data.stats(statistics))
     end)
 
     it("includes highlight notes and display page labels without exporting xpointers as pages", function()
