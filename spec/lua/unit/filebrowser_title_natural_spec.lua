@@ -1,3 +1,4 @@
+require("ffi/loadlib")
 describe("filebrowser natural title sort patch", function()
     local BookList
     local fallback_calls
@@ -84,5 +85,21 @@ describe("filebrowser natural title sort patch", function()
             { path = "b", doc_props = { title = "Same" } }
         ))
         assert.are.equal(1, fallback_calls)
+    end)
+
+    it("sorts accented titles with their base letters in both collations", function()
+        for _i, mode in ipairs({ "title", "title_natural" }) do
+            local items = {
+                { path = "z", doc_props = { display_title = "Zulu" } },
+                { path = "t", doc_props = { display_title = "Ținut" } },
+                { path = "c", doc_props = { display_title = "The Čapek" } },
+                { path = "d", doc_props = { display_title = "Delta" } },
+            }
+            table.sort(items, BookList.collates[mode].init_sort_func())
+            assert.are.equal("The Čapek", items[1].doc_props.display_title)
+            assert.are.equal("Delta", items[2].doc_props.display_title)
+            assert.are.equal("Ținut", items[3].doc_props.display_title)
+            assert.are.equal("Zulu", items[4].doc_props.display_title)
+        end
     end)
 end)

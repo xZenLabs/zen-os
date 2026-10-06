@@ -278,7 +278,7 @@ describe("file browser group views", function()
         install_group_view({})
         local author_sort = require("common/author_sort")
         assert.are.equal("Me", author_sort.key("Test Me (Test company)", "authors_last"))
-        assert.are.equal("Martinez", author_sort.key("Miguel Rodrigo Martinez&#x20;", "authors_last"))
+        assert.are.equal("Rodrigo Martinez", author_sort.key("Miguel Rodrigo Martinez&#x20;", "authors_last"))
     end)
 
     it("builds author, series, language, and tag pages from database groups", function()
@@ -318,6 +318,22 @@ describe("file browser group views", function()
         assert.are.equal("Series", series._test_status_label)
         assert.are.equal("Languages", languages._test_status_label)
         assert.are.equal("Tags", tags._test_status_label)
+    end)
+
+    it("sorts multi-author groups by their first author rather than their formatted label", function()
+        install_group_view({ authors = {
+            { author = "Ada Lovelace\nGrace Hopper", files = { "/a.epub" } },
+            { author = "Zelda Berry", files = { "/z.epub" } },
+        } })
+        api.showAuthorsView()
+        local menu = assert(find_menu("authors"))
+        assert.are.equal("Ada Lovelace, Grace Hopper", menu.item_table[1].text)
+        config.group_view.authors_collate = "authors_last"
+        api.closeAll()
+        menus = {}
+        api.showAuthorsView()
+        menu = assert(find_menu("authors"))
+        assert.are.equal("Zelda Berry", menu.item_table[1].text)
     end)
 
     it("uses the tag-group context menu for external group folders", function()
@@ -555,6 +571,8 @@ describe("file browser group views", function()
                 { author = "Jane Austen", files = { "/j.epub" } },
                 { author = "Alice Klein", files = { "/a.epub" } },
                 { author = "Gabriel García Márquez", files = { "/g.epub" } },
+                { author = "Karel Čapek", files = { "/k.epub" } },
+                { author = "Tatiana Țîbuleac", files = { "/t.epub" } },
             },
         })
         package.loaded.device.isTouchDevice = function() return true end
@@ -572,11 +590,16 @@ describe("file browser group views", function()
 
         assert.are.equal("authors_last", config.group_view.authors_collate)
         assert.are.equal(1, home_rebuilds)
-        assert.are.same({ "Jane Austen", "Octavia Butler", "Alice Klein", "Gabriel García Márquez" }, {
+        assert.are.same({
+            "Jane Austen", "Octavia Butler", "Karel Čapek", "Gabriel García Márquez",
+            "Alice Klein", "Tatiana Țîbuleac",
+        }, {
             menu.item_table[1].text,
             menu.item_table[2].text,
             menu.item_table[3].text,
             menu.item_table[4].text,
+            menu.item_table[5].text,
+            menu.item_table[6].text,
         })
 
         menu:onZenGroupBlankHold()
@@ -588,11 +611,16 @@ describe("file browser group views", function()
         assert.is_true(config.group_view.group_reverse.authors)
         assert.are.equal(2, home_rebuilds)
         assert.are.equal(2, saved)
-        assert.are.same({ "Gabriel García Márquez", "Alice Klein", "Octavia Butler", "Jane Austen" }, {
+        assert.are.same({
+            "Tatiana Țîbuleac", "Alice Klein", "Gabriel García Márquez", "Karel Čapek",
+            "Octavia Butler", "Jane Austen",
+        }, {
             menu.item_table[1].text,
             menu.item_table[2].text,
             menu.item_table[3].text,
             menu.item_table[4].text,
+            menu.item_table[5].text,
+            menu.item_table[6].text,
         })
         assert.are.equal(3, menu.update_count)
     end)

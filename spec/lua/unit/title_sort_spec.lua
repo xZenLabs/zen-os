@@ -1,3 +1,4 @@
+require("ffi/loadlib")
 local TitleSort = require("common/title_sort")
 
 describe("title sort", function()
@@ -32,5 +33,18 @@ describe("title sort", function()
 
         assert.are.equal("blues de Beale Street", TitleSort.key("El blues de Beale Street"))
         assert.are.equal("castillo", TitleSort.key("El castillo"))
+    end)
+
+    it("sorts Latin diacritics by their base letters in both title modes", function()
+        for _i, natural in ipairs({ false, true }) do
+            local titles = { "Zulu", "The Ținut", "Čapek", "Delta", "Éclair" }
+            table.sort(titles, function(a, b) return TitleSort.less(a, b, natural) end)
+            assert.are.same({ "Čapek", "Delta", "Éclair", "The Ținut", "Zulu" }, titles)
+            assert.is_true(TitleSort.less("C\u{030C}apek", "Delta", natural))
+            assert.is_true(TitleSort.less("ȚÎNUT", "Zulu", natural))
+            assert.is_false(TitleSort.less("Čapek", "Čapek", natural))
+        end
+        assert.is_true(TitleSort.less("Épisode 2", "Episode 10", true))
+        assert.is_true(TitleSort.less("Épisode 10", "Episode 2", false))
     end)
 end)

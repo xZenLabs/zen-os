@@ -202,7 +202,7 @@ describe("TBR path inventory", function()
                 }
             end,
         })
-        ZenSpec.replace("common/title_sort", { key = function(value) return value end })
+        ZenSpec.replace("common/title_sort", { sortKey = function(value) return value:lower() end })
         ZenSpec.replace("ui/uimanager", {
             nextTick = function(_self, fn) scheduled[#scheduled + 1] = fn end,
             unschedule = function() end,

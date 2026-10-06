@@ -677,8 +677,8 @@ local function sort_paths(files, collate, reverse)
             local a_rank = a.rank or math.huge
             local b_rank = b.rank or math.huge
             if a_rank ~= b_rank then return a_rank < b_rank end
-            local a_title = title_sort.key(tostring(a.value)):lower()
-            local b_title = title_sort.key(tostring(b.value)):lower()
+            local a_title = title_sort.sortKey(a.value)
+            local b_title = title_sort.sortKey(b.value)
             if a_title == b_title then return a.path < b.path end
             return a_title < b_title
         end
@@ -697,8 +697,8 @@ local function sort_paths(files, collate, reverse)
             if reverse then return natural_sort(second, first) end
             return natural_sort(first, second)
         end
-        local first = collate == "title" and title_sort.key(a.value) or tostring(a.value)
-        local second = collate == "title" and title_sort.key(b.value) or tostring(b.value)
+        local first = collate == "title" and title_sort.sortKey(a.value) or tostring(a.value)
+        local second = collate == "title" and title_sort.sortKey(b.value) or tostring(b.value)
         first, second = first:lower(), second:lower()
         if reverse then return first > second end
         return first < second

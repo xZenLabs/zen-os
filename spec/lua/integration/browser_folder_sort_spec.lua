@@ -66,6 +66,34 @@ describe("browser folder sort patch", function()
         assert.are.same(fixture.expected.strcoll, SortFixtures.paths_from_entries(items))
     end)
 
+    it("applies accented title ordering in both directions through per-folder overrides", function()
+        require("ffi/loadlib")
+        ZenSpec.replace("ui/widget/booklist", { collates = FileChooser.collates })
+        ZenSpec.unload("modules/filebrowser/patches/add_sort_title_natural")
+        require("modules/filebrowser/patches/add_sort_title_natural")()
+        fixture.metadata[fixture.paths.zeta].display_title = "Čapek 10"
+        fixture.metadata[fixture.paths.alpha].display_title = "The Čapek 2"
+        fixture.metadata[fixture.paths.middle].display_title = "Ținut"
+        fixture.metadata[fixture.paths.beta].display_title = "Zulu"
+        local ui = { bookinfo = {
+            getDocProps = function(_self, path) return fixture.metadata[path] end,
+        } }
+        local item_func = FileChooser.collates.title_natural.item_func
+        FileChooser.collates.title_natural.item_func = function(item) item_func(item, ui) end
+        local expected = {
+            title = { fixture.paths.zeta, fixture.paths.alpha, fixture.paths.middle, fixture.paths.beta },
+            title_natural = { fixture.paths.alpha, fixture.paths.zeta, fixture.paths.middle, fixture.paths.beta },
+        }
+        for mode, order in pairs(expected) do
+            for _i, reverse in ipairs({ false, true }) do
+                _G.__ZEN_FOLDER_SORT.set("/library/folder", mode, reverse)
+                local items = FileChooser:genItemTableFromPath("/library/folder")
+                assert.are.same(reverse and SortFixtures.reversed(order) or order,
+                    SortFixtures.paths_from_entries(items))
+            end
+        end
+    end)
+
     it("uses a deterministic path tie-break inside an overridden folder", function()
         FileChooser._zen_sort_override = { collate = "title", reverse = false }
         local sorting = FileChooser:getSortingFunction(FileChooser.collates.title, false)

@@ -1,3 +1,4 @@
+local sort_key = require("common/sort_key")
 local M = {}
 
 local HTML_SPACES = {
@@ -21,20 +22,24 @@ function M.isMode(mode)
 end
 
 function M.key(name, mode)
-    local text = tostring(name or ""):gsub("&[#%w]+;", HTML_SPACES):match("^%s*(.-)%s*$")
+    local text = tostring(name or ""):gsub("&[#%w]+;", HTML_SPACES)
+    text = (text:match("^[^\r\n]+") or text):match("^%s*(.-)%s*$")
     local sort_text = text:gsub("%s+%b()$", "")
+    local surname, given = sort_text:match("^(.-),%s*(.+)$")
     if mode == "authors_last" then
-        -- ponytail: Last-token heuristic; structured metadata is needed for compound surnames.
-        return sort_text:match("(%S+)$") or sort_text
+        if surname then return surname:match("^%s*(.-)%s*$") end
+        -- ponytail: Assume one given name; use "Surname, Given names" for ambiguous names.
+        return sort_text:match("^%S+%s+(.+)$") or sort_text
     end
+    if given then sort_text = given end
     return sort_text:match("^([^%s,]+)") or sort_text
 end
 
 function M.less(a, b, mode)
-    local ak = M.key(a, mode):lower()
-    local bk = M.key(b, mode):lower()
+    local ak = sort_key(M.key(a, mode))
+    local bk = sort_key(M.key(b, mode))
     if ak ~= bk then return ak < bk end
-    return tostring(a or ""):lower() < tostring(b or ""):lower()
+    return sort_key(a) < sort_key(b)
 end
 
 function M.options(gettext)

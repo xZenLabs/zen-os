@@ -451,6 +451,7 @@ local function build_group_item_table(groups, data_type)
             mandatory   = tostring(count) .. " \u{F016}",
             _zen_files  = files,
             _zen_type   = data_type,
+            _zen_author = group.author,
             _zen_group  = (data_type == "series") and group or nil,
         })
     end
@@ -459,7 +460,7 @@ local function build_group_item_table(groups, data_type)
         if data_type == "authors" then
             local collate = get_authors_collate()
             table.sort(items, function(a, b)
-                return author_sort.less(a.text, b.text, collate)
+                return author_sort.less(a._zen_author, b._zen_author, collate)
             end)
         elseif data_type == "series" or data_type == "languages" or data_type == "tags" then
             local natural = get_group_collate(data_type) == "title_natural"
@@ -755,8 +756,8 @@ local function sortDetailFiles(files, collate, reverse)
                     if reverse then return a_n > b_n else return a_n < b_n end
                 end
             else
-                local a_key = collate == "title" and title_sort.key(a.key) or tostring(a.key)
-                local b_key = collate == "title" and title_sort.key(b.key) or tostring(b.key)
+                local a_key = collate == "title" and title_sort.sortKey(a.key) or tostring(a.key)
+                local b_key = collate == "title" and title_sort.sortKey(b.key) or tostring(b.key)
                 local a_lower = a_key:lower()
                 local b_lower = b_key:lower()
                 if reverse then return a_lower > b_lower else return a_lower < b_lower end

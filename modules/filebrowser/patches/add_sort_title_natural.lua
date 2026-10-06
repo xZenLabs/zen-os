@@ -16,8 +16,8 @@ local function apply_add_sort_title_natural()
                     or (a and (a.text or a.path or a.file)) or ""
                 local bt = bd.display_title or bd.title
                     or (b and (b.text or b.path or b.file)) or ""
-                local ak = title_sort.key(at):lower()
-                local bk = title_sort.key(bt):lower()
+                local ak = title_sort.sortKey(at)
+                local bk = title_sort.sortKey(bt)
                 if ak == bk and fallback then return fallback(a, b) end
                 return ak < bk
             end
