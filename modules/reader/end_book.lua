@@ -41,7 +41,7 @@ function EndBook:init()
     self.data = Data.new(self.ui, self.plugin,
         self.plugin.config.end_book, function() self:rebuild() end, function() self:onClose() end)
     if Device:hasKeys() then
-        self.key_events.Close = { { Device.input.group.Back } }
+        self.key_events.Back = { { Device.input.group.Back } }
         self.key_events.Library = { { Device.input.group.PgFwd } }
         self.key_events.PreviousQuote = { { Device.input.group.PgBack } }
         self.key_events.Menu = { { "Menu" } }
@@ -252,7 +252,7 @@ function EndBook:buildNavigationRow(width, height, max_height)
     local labels, label_height = {}, 0
     local style = config.text_styles.navigation
     if config.show_navigation_labels ~= false then
-        local size = math.max(1, math.min(style.font_size, math.floor(height * 0.1)))
+        local size = math.max(1, math.min(math.floor(style.font_size * 1.2 + 0.5), math.floor(height * 0.1)))
         local font = style.font_face == "default" and require("modules/filebrowser/patches/library_font").getFontName() or style.font_face
         for index, entry in ipairs(entries) do
             labels[index] = TextWidget:new{
@@ -304,7 +304,7 @@ function EndBook:buildNavigationRow(width, height, max_height)
 end
 
 function EndBook:buildStatusHeader()
-    local header, back = SharedState.get(self.plugin, "createStatusRowCustomBack")(function() self:onClose() end)
+    local header, back = SharedState.get(self.plugin, "createStatusRowCustomBack")(function() self:onBack() end)
     back.show_parent = self
     self.back_button = back
     self.layout[1] = { back }
@@ -392,7 +392,7 @@ function EndBook:rebuild()
             if id == "strip" then strip_index = #rows end
         end
     end
-    local available = math.max(1, height - header_h - margin * 2 - gap)
+    local available = math.max(1, height - header_h - margin * 3 - gap)
     local capacity = Registry.capacityUnits(width, height)
     if not strip_index then controls_h = 0 end
     -- Reserve strip controls before allocating space to covers and text.
@@ -402,16 +402,22 @@ function EndBook:rebuild()
     if stats_index then heights[stats_index].h = heights[stats_index].h + stats_label_h end
     local body = VerticalGroup:new{ align = "left" }
     self.widget_rows = {}
-    local row_y = margin + header_h + gap
+    local row_y = margin * 2 + header_h + gap
     for index, widget in ipairs(rows) do
         local id = widget.id
         local row_height = heights[index].h
+        if index > 1 then
+            body[#body + 1] = VerticalSpan:new{ width = gap }
+            row_y = row_y + gap
+        end
+        local content_bounds
         local ctx = {
             width = content_w, height = row_height,
             row_gap_above = index > 1 and gap or 0,
             is_first_row = index == 1, is_last_row = index == #rows,
             component_id = id, menu = self, config = config, zen_config = self.plugin.config,
             module_cfg = config.modules[id], data = self.data,
+            setContentBounds = function(bounds) content_bounds = bounds end,
             empty_message = _("No books to show."),
             openBook = function(path) self:openBook(path) end,
             shiftStrip = function(source, count, order, direction, component_id, _two_rows, refresh)
@@ -466,19 +472,27 @@ function EndBook:rebuild()
                 VerticalSpan:new{ width = Screen:scaleBySize(4) },
                 content,
             }
+            content_bounds.top = 0
+            content_bounds.bottom = stats_label_h + content_bounds.bottom
+            content_bounds.min_shift, content_bounds.max_shift = 0, 0
         end
         if id == "featured" and #self.featured_navigation_buttons > 0 then
             self.layout[#self.layout + 1] = self.featured_navigation_buttons
         end
-        if index > 1 then
-            body[#body + 1] = VerticalSpan:new{ width = gap }
-            row_y = row_y + gap
-        end
+        content_bounds.row_y = row_y
         self.widget_rows[#self.widget_rows + 1] = {
             id = id, dimen = Geom:new{ x = margin, y = row_y, w = content_w, h = row_height },
+            visual_bounds = content_bounds,
         }
         row_y = row_y + row_height
         body[#body + 1] = content
+    end
+    local visual_rows = {}
+    for index, row in ipairs(self.widget_rows) do visual_rows[index] = row.visual_bounds end
+    local shifts = Registry.equalSpacingShifts(visual_rows)
+    for index, shift in ipairs(shifts) do
+        visual_rows[index].shift = shift
+        visual_rows[index].set_shift(shift)
     end
     self.body_widget = TopContainer:new{
         dimen = Geom:new{ w = content_w, h = available }, body,
@@ -487,7 +501,7 @@ function EndBook:rebuild()
         width = width, height = height, padding = 0, bordersize = 0,
         background = Blitbuffer.COLOR_WHITE,
         VerticalGroup:new{
-            self.header_widget, VerticalSpan:new{ width = gap },
+            VerticalSpan:new{ width = margin }, self.header_widget, VerticalSpan:new{ width = gap },
             FrameContainer:new{
                 width = width, padding = margin, bordersize = 0, self.body_widget,
             },
@@ -498,6 +512,19 @@ function EndBook:rebuild()
 end
 
 EndBook._home_rebuild = EndBook.rebuild
+
+function EndBook:onBack()
+    self:onClose()
+    if self.preview then
+        UIManager:nextTick(function()
+            require("modules/settings/zen_settings_page").show(self.plugin, { path = {
+                { key = "text", value = _("Reader") },
+                { key = "text", value = _("End of book") },
+            } })
+        end)
+    end
+    return true
+end
 
 function EndBook:onClose()
     UIManager:close(self)

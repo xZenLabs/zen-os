@@ -20,6 +20,7 @@ describe("end of book", function()
         "apps/filemanager/filemanager", "apps/filemanager/filemanagerutil", "common/tbr_index",
         "modules/menu/app_launcher/native_menu", "ui/widget/inputdialog",
         "modules/filebrowser/patches/rakuyomi",
+        "modules/settings/zen_settings_page", "ui/font", "modules/filebrowser/patches/library_font",
     }
 
     before_each(function()
@@ -199,12 +200,13 @@ describe("end of book", function()
         local widget = { new = function(_self, opts)
             opts.image = {}
             opts.getSize = function(self)
+                if self.face then return { w = #self.text * self.face.orig_size / 2, h = self.face.orig_size } end
                 return self.dimen or { w = self.width or 0, h = self.height or 0 }
             end
             return opts
         end }
         for _i, name in ipairs({ "common/ui/zen_icon_button", "ui/widget/container/centercontainer",
-                "ui/widget/verticalgroup", "ui/widget/horizontalgroup", "ui/widget/horizontalspan" }) do
+                "ui/widget/verticalgroup", "ui/widget/horizontalgroup", "ui/widget/horizontalspan", "ui/widget/textwidget" }) do
             ZenSpec.replace(name, widget)
         end
         ZenSpec.unload("modules/reader/end_book")
@@ -223,6 +225,20 @@ describe("end of book", function()
             assert.equals("/koreader/resources/icons/mdlight/alarm.svg", page.featured_navigation_buttons[3].file)
         end
         assert.equals("library", require("modules/reader/end_book_data").actions[1].icon)
+        ZenSpec.replace("ui/font", { getFace = function(_self, font, size)
+            return { name = font, orig_size = size, size = require("device").screen:scaleBySize(size) }
+        end })
+        ZenSpec.replace("modules/filebrowser/patches/library_font", { getFontName = function() return "library-font" end })
+        featured.show_navigation_labels = true
+        featured.text_styles.navigation = { font_face = "default", font_size = 15 }
+        for scale = 1, 2 do
+            require("device").screen.scaleBySize = function(_self, size) return size * scale end
+            page:buildNavigationRow(600, 800)
+            assert.equals(18, page.featured_navigation_labels[1].face.orig_size)
+            assert.equals(18 * scale, page.featured_navigation_labels[1].face.size)
+        end
+        page:buildNavigationRow(600, 100)
+        assert.equals(10, page.featured_navigation_labels[1].face.orig_size)
     end)
 
     it("restores the library location from the Library button and page-forward key when enabled", function()
@@ -356,7 +372,7 @@ describe("end of book", function()
         assert.equals(page, latest_back.show_parent)
         callback()
         assert.is_true(closed)
-        local region = { x = 0, y = 0, w = 600, h = 20 }
+        local region = { x = 0, y = 8, w = 600, h = 20 }
         page.header_widget = { header, dimen = region, getSize = function() return { h = 20 } end }
         require("ui/uimanager").setDirty = function(_self, owner, mode, bounds) dirty = { owner, mode, bounds } end
         page:_zen_status_refresh()
@@ -364,6 +380,33 @@ describe("end of book", function()
         assert.same({ { latest_back } }, page.layout)
         assert.equals(region, page.header_widget.dimen)
         assert.same({ page, "ui", region }, dirty)
+    end)
+
+    it("returns Preview Back to end-of-book settings and leaves normal Back in the reader", function()
+        local EndBook = load_end_book()
+        for _i, preview in ipairs({ false, true }) do
+            local closed, next_tick, restored
+            local page = setmetatable({ plugin = plugin, preview = preview,
+                onClose = function() closed = true end }, { __index = EndBook })
+            require("ui/uimanager").nextTick = function(_self, callback)
+                assert.is_true(closed)
+                next_tick = callback
+            end
+            ZenSpec.replace("modules/settings/zen_settings_page", { show = function(owner, opts)
+                assert.equals(plugin, owner)
+                restored = opts.path
+            end })
+            assert.is_true(page:onBack())
+            assert.is_true(closed)
+            if preview then
+                assert.is_nil(restored)
+                next_tick()
+                assert.same({ { key = "text", value = "Reader" },
+                    { key = "text", value = "End of book" } }, restored)
+            else
+                assert.is_nil(next_tick)
+            end
+        end
     end)
 
     it("respects auto-mark before displaying a book and keeps Preview read-only", function()

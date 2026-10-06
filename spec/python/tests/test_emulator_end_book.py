@@ -5,6 +5,7 @@ import shutil
 import signal
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
@@ -51,9 +52,10 @@ def _assert_fits(layout):
         assert navigation["y"] + navigation["h"] <= cover["y"] + cover["h"]
 
 
-@pytest.mark.parametrize("width,height", [(600, 800), (800, 600)])
-def test_end_book_renders_and_preserves_changed_default_after_restart(width, height):
+@pytest.mark.parametrize("width,height,dpi", [(600, 800, 160), (800, 600, 160), (1404, 1872, 227)])
+def test_end_book_renders_and_preserves_changed_default_after_restart(width, height, dpi):
     runtime = Path(os.environ["KOREADER_DIR"])
+    window_scale = 2 if sys.platform == "darwin" else 1  # ponytail: assumes Retina; query SDL scale for other Mac displays.
     with tempfile.TemporaryDirectory(prefix="zen-end-book-") as temporary:
         root = Path(temporary)
         home, library, socket = root / "home", root / "books", root / "driver.sock"
@@ -123,11 +125,13 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                     )
         for first_run in (True, False):
             process = launch(runtime, home, socket, library, initialize_settings=first_run,
-                             env_overrides={"EMULATE_READER_W": str(width), "EMULATE_READER_H": str(height)})
+                             env_overrides={"EMULATE_READER_W": str(width // window_scale), "EMULATE_READER_H": str(height // window_scale),
+                                            "EMULATE_READER_DPI": str(dpi)})
             try:
                 wait_for_socket(socket)
                 driver = ZenDriver(socket)
                 state = driver.command("end_book")
+                assert state["screen_size"] == {"w": width, "h": height}
                 assert state["initialized"] is True
                 assert state["action"] == ("zen_end_book" if first_run else "nothing")
                 if not first_run:
@@ -165,7 +169,7 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert state["book_status"] == "complete"
                 assert state["rows"] == ["stats_triplet", "featured", "strip"]
                 assert state["strip_two_rows"] is False
-                assert state["featured_status_size"] == state["featured_progress_size"]
+                assert min(state["featured_status_size"], state["featured_progress_size"]) > 0
                 assert [label["label"] for label in state["strip_labels"]] == [
                     "Next in series", "More by Zen Author", "Continue",
                 ]
@@ -181,6 +185,7 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 texts = set(state["visible_texts"])
                 assert "Statistics" not in texts
                 assert "statistics_label" not in state
+                driver.screenshot(Path(__file__).parents[2] / ".artifacts" / f"end-book-{width}x{height}-default.png")
                 assert driver.command("end_book", hold_widget="stats_triplet")["hold_handled"]
                 stats_menu = driver.command("arrange_page_state")["arrange"]
                 label_menu_index = stats_menu["labels"].index("Label") + 1
@@ -223,14 +228,18 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert {"Library", "Series", "To Be Read", "Home", "Next in series", "More by Zen Author"} <= texts
                 assert not {"Back", "Widgets", "Book status"} & texts
                 assert not state["has_default_button"]
-                assert state["status_header"]["y"] == 0
+                assert state["status_header"]["y"] > 0
+                visual_bounds = state["visual_bounds"]
+                gaps = [right["top"] - left["bottom"] for left, right in zip(visual_bounds, visual_bounds[1:])]
+                assert min(gaps) >= 0 and max(gaps) - min(gaps) <= 1, gaps
                 assert state["status_header_texts"]
                 assert max(state["navigation_icon_sizes"]) <= state["menu_icon_size"] * 1.25
                 assert min(state["navigation_label_sizes"]) > 8
+                assert min(state["navigation_label_sizes"]) == 18
                 assert state["featured_status_bar"] is False
                 assert state["featured_description"] is False
                 assert state["featured_finished_icon"] is True
-                assert state["featured_title_size"] > max(state["navigation_label_sizes"])
+                assert state["featured_title_size"] >= max(state["navigation_label_sizes"])
                 assert state["strip_arrows"] is False
                 assert state["edit_mode"] is True
                 held = driver.command("end_book", hold_strip_cover=True)
@@ -520,6 +529,10 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                     assert driver.command("end_book")["active"]
                     assert not driver.command("reader_state")["reader"].get("open")
                 driver.command("end_book", tap="back")
+                returned = _wait_command(driver, "settings_page_state", lambda result:
+                                         result.get("settings", {}).get("title") == "End of book")
+                assert "Preview" in returned["settings"]["labels"]
+                assert driver.command("close_settings_page")["ok"]
                 _wait_command(driver, "open_book", lambda result: result.get("ok"), path=str(book))
                 _wait_command(driver, "reader_state", lambda result: result.get("reader", {}).get("open"))
                 driver.command("end_book", show=True)

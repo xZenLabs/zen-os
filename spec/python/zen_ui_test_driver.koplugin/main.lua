@@ -2096,6 +2096,7 @@ function Driver:handleCommand(command)
         if active and params.refresh_header then page:_zen_status_refresh() end
         local state = {
             ok = true, active = active == true,
+            screen_size = { w = require("device").screen:getWidth(), h = require("device").screen:getHeight() },
             book_status_active = getmetatable(page) == require("ui/widget/bookstatuswidget"),
             action = G_reader_settings:readSetting("end_document_action"),
             initialized = plugin.config._meta.end_book_default_applied,
@@ -2108,10 +2109,15 @@ function Driver:handleCommand(command)
             state.quote = page.data:getCurrentQuote()
             state.stats = page.data.stats
             state.recommendations = page.data:getRecommendations()
-            state.rows, state.row_heights = {}, {}
+            state.rows, state.row_heights, state.visual_bounds = {}, {}, {}
             for _i, row in ipairs(page.widget_rows) do
                 state.rows[#state.rows + 1] = row.id
                 state.row_heights[row.id] = row.dimen.h
+                local bounds = row.visual_bounds
+                state.visual_bounds[#state.visual_bounds + 1] = {
+                    top = bounds.row_y + bounds.top + bounds.shift,
+                    bottom = bounds.row_y + bounds.bottom + bounds.shift,
+                }
             end
             state.source = page.source
             state.visible_texts = {}
@@ -2143,8 +2149,10 @@ function Driver:handleCommand(command)
             local navigation = page.featured_navigation_row
             local function navigation_cell_bounds(index)
                 local bounds = dimen_bounds(page.featured_navigation_buttons[index].dimen)
-                local size = navigation[index * 2 - 1]:getSize()
-                bounds.x = bounds.x - math.floor((size.w - bounds.w) / 2)
+                local cell = navigation[index * 2 - 1]
+                local size = cell:getSize()
+                local inner_width = #page.featured_navigation_buttons == 1 and cell[1]:getSize().w or size.w
+                bounds.x = bounds.x - math.floor((inner_width - bounds.w) / 2) - math.floor((size.w - inner_width) / 2)
                 bounds.w, bounds.h = size.w, size.h
                 return bounds
             end
