@@ -76,6 +76,7 @@ describe("quick settings plugin controls", function()
         "apps/filemanager/filemanager",
         "apps/reader/readerui",
         "pluginloader",
+        "utils/flight_utilities",
     }
 
     local function apply_launcher(plugin)
@@ -323,6 +324,7 @@ describe("quick settings plugin controls", function()
         ZenSpec.replace("pluginloader", {
             loaded_plugins = { tailscale = tailscale, zenfm = zenfm },
         })
+        ZenSpec.replace("utils/flight_utilities", nil)
 
         _G.__ZEN_UI_PLUGIN = {
             config = {
@@ -638,6 +640,8 @@ describe("quick settings plugin controls", function()
 
         _G.__ZEN_UI_PLUGIN.config._meta.installed_plugins.airplanemode = true
         local closes = 0
+        local toggle
+        require("ui/uimanager").nextTick = function(_self, callback) toggle = callback end
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("airplanemode", {
             closeMenu = function() closes = closes + 1 end,
             updateItems = function() end,
@@ -645,7 +649,43 @@ describe("quick settings plugin controls", function()
         }))
 
         assert.are.equal(1, closes)
+        assert.are.same({}, dispatched_actions)
+        toggle()
         assert.are.same({ { airplanemode_toggle = true } }, dispatched_actions)
+    end)
+
+    it("reads the current Airplane mode state on every refresh", function()
+        local flight = {
+            active = true,
+            getFlightStatus = function(self) return self.active end,
+        }
+        ZenSpec.replace("utils/flight_utilities", flight)
+
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isActive("airplanemode"))
+        flight.active = false
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isActive("airplanemode"))
+        flight.active = true
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isActive("airplanemode"))
+    end)
+
+    it("reads the legacy Airplane mode state from the reader plugin", function()
+        local airplane = {
+            active = true,
+            getStatus = function(self) return self.active end,
+        }
+        require("apps/reader/readerui").instance = { airplanemode = airplane }
+
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isActive("airplanemode"))
+        airplane.active = false
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isActive("airplanemode"))
+    end)
+
+    it("handles unavailable or failing Airplane mode status APIs", function()
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isActive("airplanemode"))
+        ZenSpec.replace("utils/flight_utilities", {
+            getFlightStatus = function() error("settings unavailable") end,
+        })
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isActive("airplanemode"))
     end)
 
     it("closes Controls and opens Zen Settings in the same UI tick", function()

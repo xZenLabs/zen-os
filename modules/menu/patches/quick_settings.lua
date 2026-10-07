@@ -826,6 +826,14 @@ local function apply_quick_settings()
             icon = utils.resolveLocalIcon(_icons_dir, "airplane"),
             label = _("Airplane mode"),
             visible_func = function() return hasPlugin("airplanemode") end,
+            active_func = function()
+                local api = package.loaded["utils/flight_utilities"]
+                    or getCandidatePlugin({ key = "airplanemode", slots = { "airplanemode" } })
+                local get_status = api and (api.getFlightStatus or api.getStatus)
+                if type(get_status) ~= "function" then return false end
+                local ok, active = pcall(get_status, api)
+                return ok and active == true
+            end,
             callback = function(touch_menu)
                 touch_menu:closeMenu()
                 UIManager:nextTick(function()

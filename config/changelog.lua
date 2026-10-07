@@ -404,6 +404,7 @@ return {
         "Update visual feedback on tap for UI elements",
         "Use KOReader stats plugin offset if set",
         "Fix reader settings not loading when starting with last file",
+        "Fix Airplane Mode control active state",
         "Bug fixes"
     }
 }
