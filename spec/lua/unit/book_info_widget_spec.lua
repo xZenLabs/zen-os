@@ -16,6 +16,10 @@ describe("book details", function()
     local full_text_message
     local zen_button_calls
     local horizontal_swipes
+    local feedback_regions
+    local repaints
+    local saved_settings
+    local flash_ui
 
     local dependency_names = {
         "gettext",
@@ -25,6 +29,7 @@ describe("book details", function()
         "ui/font",
         "ui/geometry",
         "ui/uimanager",
+        "util",
         "ui/widget/container/inputcontainer",
         "ui/widget/container/scrollablecontainer",
         "ui/widget/iconwidget",
@@ -34,6 +39,7 @@ describe("book details", function()
         "common/inline_icon_map",
         "common/cover_utils",
         "common/ui/book_progress",
+        "common/ui/button_feedback",
         "common/ui/truncated_text_message",
         "common/ui/zen_button",
         "common/ui/zen_title_style",
@@ -84,6 +90,13 @@ describe("book details", function()
         full_text_message = nil
         zen_button_calls = {}
         horizontal_swipes = 0
+        feedback_regions = {}
+        repaints = 0
+        saved_settings = G_reader_settings
+        flash_ui = true
+        _G.G_reader_settings = {
+            isFalse = function(_self, key) return key == "flash_ui" and not flash_ui end,
+        }
 
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("device", {
@@ -109,7 +122,13 @@ describe("book details", function()
         ZenSpec.replace("ui/uimanager", {
             close = function() close_calls = close_calls + 1 end,
             setDirty = function() end,
+            forceRePaint = function() repaints = repaints + 1 end,
         })
+        ZenSpec.unload("common/ui/button_feedback")
+        require("common/ui/button_feedback").flash = function(region)
+            if not flash_ui then return end
+            feedback_regions[#feedback_regions + 1] = region
+        end
         ZenSpec.replace("ui/widget/container/inputcontainer", input_container())
         ZenSpec.replace("ui/widget/container/scrollablecontainer", {
             new = function(_self, values)
@@ -278,6 +297,7 @@ describe("book details", function()
     end)
 
     after_each(function()
+        _G.G_reader_settings = saved_settings
         ZenSpec.unload("modules/reader/book_info_widget")
         for _i, name in ipairs(dependency_names) do
             package.loaded[name] = saved_modules[name] or nil
@@ -590,6 +610,63 @@ describe("book details", function()
 
         assert.is_true(widget:_onTap({ pos = { x = 300, y = 10 } }))
         assert.are.equal(1, top_taps)
+        assert.are.equal(0, #feedback_regions)
+    end)
+
+    it("flashes header controls before their actions for taps and hardware activation", function()
+        local edits, parent_closes = 0, 0
+        local feedback = require("common/ui/button_feedback")
+        local flash = feedback.flash
+        feedback.flash = function(region)
+            assert.are.equal(0, close_calls)
+            assert.are.equal(0, edits)
+            flash(region)
+        end
+        local widget = BookInfoWidget:new{
+            edit_callback = function()
+                assert.are.equal(1, #feedback_regions)
+                edits = edits + 1
+            end,
+            close_all_callback = function()
+                assert.are.equal(1, #feedback_regions)
+                parent_closes = parent_closes + 1
+            end,
+        }
+        widget._zen_focus_enabled = true
+        local back_region = { x = 31, y = 6, w = 169, h = 44 }
+        local controls = {
+            { area = "back", x = 1, region = back_region },
+            { area = "back", x = widget._L.title_x + 1, region = back_region },
+            { area = "edit", x = widget._L.edit_x + 1,
+                region = { x = widget._L.edit_x, y = 12, w = widget._L.edit_w, h = 32 } },
+            { area = "close", x = 550, region = { x = 540, y = 10, w = 36, h = 36 } },
+        }
+        for _i, control in ipairs(controls) do
+            for _j, hardware in ipairs({ false, true }) do
+                feedback_regions, close_calls, edits, parent_closes, repaints = {}, 0, 0, 0, 0
+                widget._zen_focus_area = control.area
+                local handled
+                if hardware then
+                    handled = widget:onKeyPress({
+                        match = function(_self, sequence) return sequence[1] == "Press" end,
+                    })
+                else
+                    handled = widget:_onTap({ pos = { x = control.x, y = 10 } })
+                end
+                assert.is_true(handled)
+                assert.are.same({ control.region }, feedback_regions)
+                assert.are.equal(control.area == "edit" and 0 or 1, close_calls)
+                assert.are.equal(control.area == "edit" and 1 or 0, edits)
+                assert.are.equal(control.area == "close" and 1 or 0, parent_closes)
+                assert.are.equal(1, repaints)
+            end
+        end
+        feedback_regions, close_calls, repaints = {}, 0, 0
+        flash_ui = false
+        assert.is_true(widget:_onTap({ pos = { x = 1, y = 10 } }))
+        assert.are.equal(0, #feedback_regions)
+        assert.are.equal(0, repaints)
+        assert.are.equal(1, close_calls)
     end)
 
     it("opens the KOReader menu from a top south swipe without blocking description scrolling", function()
@@ -602,6 +679,54 @@ describe("book details", function()
         assert.is_true(widget:_onSwipe({ direction = "south", pos = { x = 300, y = 400 } }))
         assert.are.equal(1, top_swipes)
         assert.are.equal(1, description_swipes)
+    end)
+
+    it("refreshes the whole uncovered page when header feedback is pending on close", function()
+        local device = require("device")
+        local screen = device.screen
+        local refreshed, home_paints
+        screen.refreshUI = function(_self, x, y, w, h)
+            refreshed = { x = x, y = y, w = w, h = h }
+        end
+        screen.refreshPartial = screen.refreshUI
+        screen.beforePaint = function() end
+        screen.afterPaint = function() end
+        device.input = {}
+        device._UIManagerReady = function() end
+        G_reader_settings.isTrue = function() return false end
+        G_reader_settings.readSetting = function() end
+        local Geom = assert(loadfile("frontend/ui/geometry.lua"))()
+        ZenSpec.replace("ui/geometry", Geom)
+        ZenSpec.replace("util", {})
+        local UIManager = require("ui/uimanager")
+        local real_manager = assert(loadfile("frontend/ui/uimanager.lua"))()
+        for name, value in pairs(real_manager) do UIManager[name] = value end
+        require("common/ui/button_feedback").flash = function(region)
+            if flash_ui then UIManager:setDirty(nil, "ui", Geom:new(region)) end
+        end
+        local home = {
+            covers_fullscreen = true,
+            paintTo = function() home_paints = home_paints + 1 end,
+        }
+        for _i, enabled in ipairs({ true, false }) do
+            flash_ui = enabled
+            for _j, tap_x in ipairs({ 1, 550 }) do
+                refreshed, home_paints = nil, 0
+                local widget = new_widget()
+                widget.dimen = Geom:new(widget.dimen)
+                widget.handleEvent = function() end
+                UIManager._window_stack = {
+                    { widget = home, x = 0, y = 0 },
+                    { widget = widget, x = 0, y = 0 },
+                }
+                assert.is_true(widget:_onTap({ pos = { x = tap_x, y = 10 } }))
+                UIManager:forceRePaint()
+                assert.are.equal(home, UIManager._window_stack[1].widget)
+                assert.are.equal(1, #UIManager._window_stack)
+                assert.are.equal(1, home_paints)
+                assert.are.same({ x = 0, y = 0, w = 600, h = 800 }, refreshed)
+            end
+        end
     end)
 
     it("focuses Back, scrolls the description, and handles hardware page turns", function()

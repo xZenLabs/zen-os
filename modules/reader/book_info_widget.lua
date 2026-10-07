@@ -11,6 +11,7 @@ local TextWidget = require("ui/widget/textwidget")
 local UIManager = require("ui/uimanager")
 local Cover = require("common/cover_utils")
 local BookProgress = require("common/ui/book_progress")
+local ButtonFeedback = require("common/ui/button_feedback")
 local TruncatedTextMessage = require("common/ui/truncated_text_message")
 local ZenButton = require("common/ui/zen_button")
 local TitleStyle = require("common/ui/zen_title_style")
@@ -471,9 +472,10 @@ function BookInfoWidget:onKeyPress(key)
             end
             return self:_scrollDescription(1)
         elseif key:match({ "Press" }) or key:match({ "Return" }) or key:match({ "Enter" }) then
-            if self._zen_focus_area == "back" then return self:onClose() end
-            if self._zen_focus_area == "edit" then return self:onEdit() end
-            if self._zen_focus_area == "close" then return self:onCloseAll() end
+            if self._zen_focus_area == "back" or self._zen_focus_area == "edit"
+                    or self._zen_focus_area == "close" then
+                return self:_activateHeader(self._zen_focus_area)
+            end
             if self._zen_focus_area == "tags" then
                 return self:_openTag(self._zen_tag_focus)
             end
@@ -668,25 +670,59 @@ function BookInfoWidget:paintTo(bb, x, y)
     end
 end
 
+function BookInfoWidget:_activateHeader(area)
+    local L = self._L
+    local region
+    if area == "back" then
+        local back_x = TitleStyle.getLeadingIconX(0) - TitleStyle.BUTTON_PADDING
+        region = Geom:new{
+            x = back_x,
+            y = TitleStyle.VERTICAL_PADDING
+                + math.floor((TitleStyle.ROW_HEIGHT - TitleStyle.BUTTON_SIZE) / 2),
+            w = L.title_x + L.title_w + Device.screen:scaleBySize(8) - back_x,
+            h = TitleStyle.BUTTON_SIZE,
+        }
+    elseif area == "edit" then
+        region = Geom:new{
+            x = L.edit_x,
+            y = TitleStyle.VERTICAL_PADDING + math.floor((TitleStyle.ROW_HEIGHT - L.edit_h) / 2),
+            w = L.edit_w, h = L.edit_h,
+        }
+    else
+        region = ButtonFeedback.paddedRegion(Geom:new{
+            x = TitleStyle.getTrailingIconX(L.sw, 0),
+            y = TitleStyle.VERTICAL_PADDING
+                + math.floor((TitleStyle.ROW_HEIGHT - TitleStyle.ICON_SIZE) / 2),
+            w = TitleStyle.ICON_SIZE, h = TitleStyle.ICON_SIZE,
+        })
+    end
+    ButtonFeedback.flashButton(region)
+    if area == "edit" then self:onEdit()
+    elseif area == "close" then self:onCloseAll()
+    else self:onClose() end
+    if not G_reader_settings:isFalse("flash_ui") then UIManager:forceRePaint() end
+    return true
+end
+
 function BookInfoWidget:_onTap(ges)
     local pos = ges.pos
     local in_header = pos.y >= 0 and pos.y < self._L.title_h
     if in_header and pos.x >= 0 and pos.x < self._L.title_x then
-        return self:onClose()
+        return self:_activateHeader("back")
     end
     if self._edit_widget and pos.x >= self._L.edit_x
             and pos.x < self._L.edit_x + self._L.edit_w
             and pos.y >= 0 and pos.y < self._L.title_h then
-        return self:onEdit()
+        return self:_activateHeader("edit")
     end
     if pos.x >= self._L.close_all_x
             and pos.x < self._L.close_all_x + self._L.close_all_w
             and in_header then
-        return self:onCloseAll()
+        return self:_activateHeader("close")
     end
     if in_header and pos.x >= self._L.title_x
             and pos.x < self._L.title_x + self._L.title_w then
-        return self:onClose()
+        return self:_activateHeader("back")
     end
     if self:_inTagButtons(pos) then
         for index, button in ipairs(self._tag_buttons or {}) do
@@ -770,7 +806,7 @@ function BookInfoWidget:onClose()
         if entry.widget then entry.widget:free() end
     end
     if self._progress_widget then self._progress_widget:free() end
-    UIManager:close(self)
+    UIManager:close(self, "ui", self.dimen)
     return true
 end
 
