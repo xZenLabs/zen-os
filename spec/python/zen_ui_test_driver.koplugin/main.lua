@@ -2631,7 +2631,9 @@ function Driver:handleCommand(command)
             values[key] = config.configurable[key]
             defaults[key] = G_reader_settings:readSetting(config.options.prefix .. "_" .. key)
         end
-        return { ok = true, prefix = config.options.prefix, values = values, defaults = defaults }
+        local font = reader.rolling and require("common/reader_font").getInfo(reader)
+        return { ok = true, prefix = config.options.prefix, values = values, defaults = defaults,
+            font = font, margins = reader.rolling and reader.document:getPageMargins() }
     end
     if kind == "settings_page_state" then
         local page = rawget(_G, "__ZEN_UI_SETTINGS_PAGE")

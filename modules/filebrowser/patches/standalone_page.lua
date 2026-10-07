@@ -244,6 +244,7 @@ function M.create_menu(opts)
         covers_fullscreen = true,
         is_borderless = true,
         is_popout = false,
+        onTapCloseAllMenus = false, -- Keep fullscreen pages out of Bluetooth popup dismissal.
         title_bar_fm_style = true,
         item_table = opts.item_table or {},
         onMenuSelect = opts.onMenuSelect,

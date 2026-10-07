@@ -69,6 +69,76 @@ def _frames_differ(first: Path, second: Path) -> bool:
         return difference.getbbox() is not None
 
 
+@pytest.mark.parametrize("saved_book_settings", [False, True])
+def test_last_file_startup_restores_reader_typography(saved_book_settings: bool) -> None:
+    runtime = Path(os.environ["KOREADER_DIR"])
+    expected = {
+        "h_page_margins": [51, 57],
+        "t_page_margin": 47,
+        "b_page_margin": 49,
+        "line_spacing": 145,
+        "font_size": 29,
+    }
+    font_name, font_file = "Readerly R", "Readerly_R-Regular.ttf"
+    if saved_book_settings:
+        expected.update(h_page_margins=[71, 73], line_spacing=155, font_size=31)
+        font_name, font_file = "Libron R", "Libron_R-Regular.ttf"
+    with tempfile.TemporaryDirectory(prefix="zen-reader-startup-") as temporary:
+        root = Path(temporary)
+        margins = []
+        for start_with in ("filemanager", "last"):
+            home, library = root / start_with / "home", root / start_with / "library"
+            home.mkdir(parents=True)
+            library.mkdir()
+            book = library / "startup.epub"
+            _write_reader_epub(book)
+            if saved_book_settings:
+                sidecar = book.with_suffix(".sdr")
+                sidecar.mkdir()
+                (sidecar / "metadata.epub.lua").write_text(
+                    "return { font_face = 'Libron R', copt_h_page_margins = {71, 73}, "
+                    "copt_line_spacing = 155, copt_font_size = 31 }\n", encoding="utf-8",
+                )
+            (home / "settings.reader.lua").write_text(
+                "return { home_dir = " + repr(str(library.resolve()))
+                + ", lastfile = " + repr(str(book.resolve()))
+                + ", start_with = " + repr(start_with)
+                + ", cre_font = 'Readerly R', copt_h_page_margins = {51, 57}, "
+                "copt_t_page_margin = 47, copt_b_page_margin = 49, "
+                "copt_line_spacing = 145, copt_font_size = 29 }\n",
+                encoding="utf-8",
+            )
+            config_dir = home / "settings" / "ZenOS"
+            config_dir.mkdir(parents=True)
+            (config_dir / "config.lua").write_text(
+                "return { updater = { update_auto_check = false }, "
+                "_meta = { quickstart_completed = true } }\n", encoding="utf-8",
+            )
+            socket_path = root / "driver.sock"
+            process = launch(runtime, home, socket_path, library, initialize_settings=False)
+            try:
+                wait_for_socket(socket_path)
+                driver = ZenDriver(socket_path)
+                if start_with == "filemanager":
+                    assert driver.open_book(book)["ok"]
+                _wait_command(driver, "reader_state", lambda result: result.get("reader", {}).get("open"))
+                state = driver.command("native_settings_state", keys=list(expected))
+                assert state["values"] == expected, (start_with, state)
+                assert state["font"]["name"] == font_name
+                assert state["font"]["source"].endswith("/" + font_file), (start_with, state)
+                margins.append(state["margins"])
+                assert driver.command("goto_reader_page", page=2)["ok"]
+                driver.screenshot(root / (start_with + ".png"))
+            finally:
+                stop(process)
+        assert margins[0] == margins[1]
+        with Image.open(root / "filemanager.png") as first, Image.open(root / "last.png") as last:
+            box = (0, first.height // 4, first.width, first.height * 3 // 4)
+            assert ImageChops.difference(
+                first.convert("RGB").crop(box), last.convert("RGB").crop(box)
+            ).getbbox() is None
+
+
 @pytest.mark.parametrize("dark_mode", [False, True])
 def test_reader_themes_allow_page_turns_after_changing_theme(dark_mode: bool) -> None:
     runtime = Path(os.environ["KOREADER_DIR"])

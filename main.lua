@@ -103,9 +103,12 @@ if _plugin_root then
             if next(mark) then
                 -- Rebuild fontnames so FontChooser groups by family.
                 local names = FontList.fontnames
+                local cre = package.loaded["libs/libkoreader-cre"]
                 for path in pairs(mark) do
                     local coll = FontList.fontinfo[path]
                     if coll then
+                        -- Last-file startup initializes CRE before plugins load.
+                        if cre then pcall(cre.registerFont, path) end
                         for _j, v in ipairs(coll) do
                             local nlist = names[v.name] or {}
                             names[v.name] = nlist
@@ -114,6 +117,7 @@ if _plugin_root then
                     end
                 end
                 table.sort(FontList.fontlist)
+                if cre then pcall(cre.regularizeRegisteredFontsWeights, false) end
             end
             local ok_font, Font = pcall(require, "ui/font")
             if ok_font and Font then
@@ -354,6 +358,10 @@ function ZenUI:init()
     end
 
     self:_initModules()
+    -- Last-file startup caches document methods before class patches load.
+    if self.ui.rolling and self.document and self.document.setupCallCache then
+        self.document:setupCallCache()
+    end
     -- TBR is a normal KOReader collection; create it for standard pickers.
     pcall(function()
         local tbr_index = require("common/tbr_index")

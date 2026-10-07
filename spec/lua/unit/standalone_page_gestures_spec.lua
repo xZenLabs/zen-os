@@ -63,6 +63,32 @@ describe("standalone page gestures", function()
         }
     end
 
+    it("keeps fullscreen pages out of Bluetooth popup dismissal while allowing Back", function()
+        local Menu = {
+            onTapCloseAllMenus = function() error("popup tap-close handler called") end,
+            onClose = function(self)
+                self.close_callback()
+                return true
+            end,
+        }
+        function Menu:new(opts)
+            return setmetatable(opts, { __index = self })
+        end
+        ZenSpec.replace("ui/widget/menu", Menu)
+        local StandalonePage = require("modules/filebrowser/patches/standalone_page")
+
+        for _i, name in ipairs({ "home", "authors", "authors_detail", "stats", "to_be_read" }) do
+            local menu = StandalonePage.create_menu{ name = name }
+            -- kobo.koplugin checks these fields before dispatching a remote action.
+            assert.is_falsy(menu.dismissable or menu.onTapClose
+                or menu.onTapCloseAllMenus or menu.onTapCloseMenu)
+            local closed = false
+            menu.close_callback = function() closed = true end
+            assert.is_true(menu:onClose())
+            assert.is_true(closed)
+        end
+    end)
+
     it("shows a supplied label in a standalone status row", function()
         local received_label
         local title_group = { {}, {} }
