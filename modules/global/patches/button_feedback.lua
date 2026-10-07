@@ -12,8 +12,8 @@ return function()
         if self.allow_flash == false then return end
         local dimen = self.bordersize == 0 and self.label_widget and self.label_widget.is_icon
             and self.label_widget.dimen or self.dimen
-        self._zen_feedback_region = (self.vsync
-            or dimen ~= self.dimen and self.icon and self.icon:sub(1, 8) == "chevron.") and Geom:new{
+        self._zen_feedback_region = (self.vsync or dimen == self.dimen
+            or self.icon and self.icon:sub(1, 8) == "chevron.") and Geom:new{
             x = dimen.x, y = dimen.y, w = dimen.w, h = dimen.h,
         }
             or Feedback.paddedRegion(dimen)

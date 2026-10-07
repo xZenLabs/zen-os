@@ -142,6 +142,20 @@ describe("rounded button feedback", function()
         end
     end)
 
+    it("keeps custom button feedback within its supplied bounds", function()
+        local region = { x = 20, y = 20, w = 100, h = 60 }
+        local flashes = 0
+        Feedback.flash = function(refreshed)
+            assert.are.equal(region, refreshed)
+            flashes = flashes + 1
+        end
+        Feedback.flashButton(region)
+        Feedback.flashButton(nil)
+        Feedback.flashButton({ w = 100, h = 60 })
+        assert.are.equal(1, flashes)
+        assert.are.same({ x = 20, y = 20, w = 100, h = 60 }, region)
+    end)
+
     it("restores gray content with UI refreshes on monochrome and color screens", function()
         screen.bb = Blitbuffer.new(80, 60, Blitbuffer.TYPE_BB8)
         screen.bb:fill(Blitbuffer.Color8(32))
@@ -162,7 +176,6 @@ describe("rounded button feedback", function()
             assert.are.equal(32, screen.bb:getPixel(28, 28).a)
 
             modes = {}
-            expected_region = Feedback.paddedRegion(region)
             button:_doFeedbackHighlight()
             button:_undoFeedbackHighlight(false)
             assert.are.same({ "ui", "ui" }, modes)
@@ -285,7 +298,7 @@ describe("rounded button feedback", function()
         end
     end)
 
-    it("restores text-button state and keeps vsync redraws and translucent refreshes working", function()
+    it("keeps text-button feedback inside its bounds and restores vsync and translucent buttons", function()
         screen.bb = Blitbuffer.new(80, 60, Blitbuffer.TYPE_BB8)
         screen.bb:fill(Blitbuffer.Color8(32))
         Button.paintTo = function(self)
@@ -295,10 +308,18 @@ describe("rounded button feedback", function()
         require("modules/global/patches/button_feedback")()
         for _i, vsync in ipairs({ false, true }) do
             local button = setmetatable({ dimen = { x = 20, y = 20, w = 32, h = 24 },
-                vsync = vsync, enabled = true, show_parent = {},
+                text = "OK", bordersize = 1, vsync = vsync, enabled = true, show_parent = {},
             }, { __index = Button })
             button:_doFeedbackHighlight()
+            assert.are.same(button.dimen, button._zen_feedback_region)
             assert.are.equal(223, screen.bb:getPixel(28, 28).a)
+            for y = 0, 59 do
+                for x = 0, 79 do
+                    if x < 20 or x >= 52 or y < 20 or y >= 44 then
+                        assert.are.equal(32, screen.bb:getPixel(x, y).a)
+                    end
+                end
+            end
             if vsync then
                 button:paintTo()
                 assert.are.equal(223, screen.bb:getPixel(28, 28).a)

@@ -45,7 +45,7 @@ function M.flash(region, radius)
 end
 
 function M.flashButton(dimen)
-    if dimen and dimen.x and dimen.y then M.flash(M.paddedRegion(dimen)) end
+    if dimen and dimen.x and dimen.y then M.flash(dimen) end
 end
 
 return M
