@@ -83,12 +83,13 @@ describe("metadata settings", function()
         })
         ui_manager.show = function(_self, widget) confirm = widget end
         local menu = Settings.build{}
+        local hardcover = menu.sub_item_table[1].sub_item_table[1]
 
-        menu.sub_item_table[1].sub_item_table[2].callback()
+        hardcover.sub_item_table[2].callback()
         confirm.ok_callback()
 
         assert.are.equal("", credentials.hardcover)
-        assert.is_false(menu.sub_item_table[1].sub_item_table[2].enabled_func())
+        assert.is_false(hardcover.sub_item_table[2].enabled_func())
     end)
 
     it("saves, masks, and clears the Google Books key", function()
@@ -106,7 +107,7 @@ describe("metadata settings", function()
         })
         ui_manager.show = function(_self, widget) shown[#shown + 1] = widget end
         ui_manager.close = function() closed = closed + 1 end
-        local google = Settings.build{}.sub_item_table[2]
+        local google = Settings.build{}.sub_item_table[1].sub_item_table[2]
 
         google.sub_item_table[1].callback()
         shown[1].buttons[1][2].callback()
@@ -139,7 +140,7 @@ describe("metadata settings", function()
         ui_manager.close = function() closed = closed + 1 end
         local menu = Settings.build{}
 
-        menu.sub_item_table[2].sub_item_table[1].callback()
+        menu.sub_item_table[1].sub_item_table[2].sub_item_table[1].callback()
         shown[1].buttons[1][2].callback()
 
         assert.are.equal("original", credentials.google)
@@ -147,7 +148,7 @@ describe("metadata settings", function()
         assert.are.equal("Metadata could not be saved.", shown[2].text)
     end)
 
-    it("saves provider, match-selection, and backup preferences", function()
+    it("groups providers under Sources and saves metadata preferences", function()
         local config = { metadata = {} }
         local save_count = 0
         local menu = Settings.build{
@@ -155,20 +156,26 @@ describe("metadata settings", function()
             plugin = { saveConfig = function() save_count = save_count + 1 end },
         }
 
-        assert.are.equal("Hardcover", menu.sub_item_table[1].text)
-        assert.are.equal("Google Books", menu.sub_item_table[2].text)
-        assert.are.equal("Open Library", menu.sub_item_table[3].text)
-        assert.is_true(menu.sub_item_table[1].checked_func())
-        assert.is_true(menu.sub_item_table[2].checked_func())
-        assert.is_true(menu.sub_item_table[3].checked_func())
-        assert.is_true(menu.sub_item_table[4].sub_item_table[1].checked_func())
-        assert.is_false(menu.sub_item_table[5].checked_func())
+        assert.are.equal(3, #menu.sub_item_table)
+        assert.are.equal("Sources", menu.sub_item_table[1].text)
+        local providers = menu.sub_item_table[1].sub_item_table
+        assert.are.equal(3, #providers)
+        assert.are.equal("Hardcover", providers[1].text)
+        assert.are.equal("Google Books", providers[2].text)
+        assert.are.equal("Open Library", providers[3].text)
+        assert.are.equal("Match selection", menu.sub_item_table[2].text)
+        assert.are.equal("Keep an EPUB metadata backup", menu.sub_item_table[3].text)
+        assert.is_true(providers[1].checked_func())
+        assert.is_true(providers[2].checked_func())
+        assert.is_true(providers[3].checked_func())
+        assert.is_true(menu.sub_item_table[2].sub_item_table[1].checked_func())
+        assert.is_false(menu.sub_item_table[3].checked_func())
 
-        menu.sub_item_table[1].checkmark_callback()
-        menu.sub_item_table[2].checkmark_callback()
+        providers[1].checkmark_callback()
+        providers[2].checkmark_callback()
+        providers[3].callback()
+        menu.sub_item_table[2].sub_item_table[2].callback()
         menu.sub_item_table[3].callback()
-        menu.sub_item_table[4].sub_item_table[2].callback()
-        menu.sub_item_table[5].callback()
 
         assert.is_false(config.metadata.hardcover_enabled)
         assert.is_false(config.metadata.google_books_enabled)

@@ -34,7 +34,7 @@ Install [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) on a Kin
 
 ## Calibre loads all my books into folders of the authors, how can I fix that?
 
-Enable the setting **Zen Settings > Library > Appearance > Layout > Show all files from subfolders**.
+Enable the setting **Zen Settings > Library > Books > Show all files from subfolders**.
 
 ## Which plugins and patches are incompatible with ZenOS?
 

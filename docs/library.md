@@ -49,7 +49,6 @@ Paths below start at **Zen Settings > Library**.
 | Appearance > Layout > List > Items per page | Sets list density from 4 to 12 items per page. Default: 5. |
 | Appearance > Layout > List > Detailed list items | Toggles and arranges Title, Authors, Series, Tags, Filename, Language, File size, Read status, Pages, and File type. Title, Authors, Series, Tags, Read status, and Pages are enabled by default; the other fields are off. |
 | Appearance > Layout > List > Hide list borders | Hides borders in list display modes. |
-| Appearance > Layout > Show all files from subfolders | Shows books from nested folders in one flat view. It is unavailable at the device root to avoid scanning the entire filesystem. |
 | Appearance > Layout > Show item underline | Shows or hides the underline between browser items. |
 | Appearance > Covers > Badges > Badge size | Sets badge size to compact, normal, large, or extra large. |
 | Appearance > Covers > Badges > Badge color | Sets the badge color from presets or custom RGB values. |
@@ -79,15 +78,16 @@ Paths below start at **Zen Settings > Library**.
 | Folders > Home folder > Additional home folders | Adds or removes extra library roots. |
 | Folders > Hide up folder | Hides the parent-folder row. |
 | Books > Book details | Chooses and arranges the metadata, reading progress, and timing fields shown in full-screen Book details. Tags can optionally open their Library view. |
-| Books > Metadata > Hardcover | Enables Hardcover lookup. A read-only catalog token is required. |
-| Books > Metadata > Google Books | Enables Google Books lookup. An API key is required. |
-| Books > Metadata > Open Library | Enables Open Library lookup without an API credential. |
+| Books > Metadata > Sources > Hardcover | Enables Hardcover lookup. A read-only catalog token is required. |
+| Books > Metadata > Sources > Google Books | Enables Google Books lookup. An API key is required. |
+| Books > Metadata > Sources > Open Library | Enables Open Library lookup without an API credential. |
 | Books > Metadata > Match selection | Automatically picks the best result or always opens the match chooser. |
 | Books > Metadata > Keep an EPUB metadata backup | Keeps one restorable copy before ZenOS writes metadata into an EPUB. |
 | Books > Double-tap to open a book | Requires two rapid taps on the same book in Library, Home, or Book switcher before opening it. Keyboard controls are unchanged. |
 | Books > Double-tap to open a book > Single tap to open context menu | Makes a single tap open the context menu when double-tap opening is enabled. |
 | Books > Include new books in TBR | Includes unread books and books modified since they were last opened in To Be Read views without changing their saved read status. |
 | Books > Treat file updates as New | Shows modified books as New until they are opened or their read status is changed. |
+| Books > Show all files from subfolders | Shows books from nested folders in one flat view. It is the last item in Books and is unavailable at the device root to avoid scanning the entire filesystem. |
 | Context menu > Archive | Shows archive actions in the library context menu. |
 | Context menu > Plugin actions | Shows actions provided by installed plugins in the library context menu. |
 | Context menu > Allow delete | Enables or disables delete actions in the library context menu. |
@@ -102,11 +102,11 @@ To add a book to To Be Read, hold it in the Library and choose **Read status > T
 
 Open **Edit > Edit metadata** from a book's context menu, or choose **Edit** on a ZenOS Book details page. The editor can change the filename, cover, title, authors, series and position, genres, language, publisher, and description. Close a book before editing its metadata.
 
-**Find metadata** searches every enabled provider and can use the book's ISBN or a title and author query. Hardcover and Google Books require credentials; enter them under **Zen Settings > Library > Books > Metadata**. They are stored locally as plain text and never logged. Open Library requires no credential. Search results show available editions with their format, publisher, language, page count, and cover so you can choose the correct match.
+**Find metadata** searches every enabled provider and can use the book's ISBN or a title and author query. Hardcover and Google Books require credentials; enter them under **Zen Settings > Library > Books > Metadata > Sources**. They are stored locally as plain text and never logged. Open Library requires no credential. Search results show available editions with their format, publisher, language, page count, and cover so you can choose the correct match.
 
 ### Metadata provider credentials
 
-The easiest setup is through **Zen Settings > Library > Books > Metadata**:
+The easiest setup is through **Zen Settings > Library > Books > Metadata > Sources**:
 
 1. **Hardcover:** Sign in to [Hardcover's API page](https://hardcover.app/account/api), create a personal access token with only the `read:catalog` permission, and copy the token value. Open **Hardcover > Hardcover API token** in ZenOS and paste it without a leading `Bearer ` prefix. The same Hardcover submenu can display this page as a QR code.
 2. **Google Books:** In Google Cloud, select or create a project, [enable the Books API](https://console.cloud.google.com/apis/library/books.googleapis.com), then open [Credentials](https://console.cloud.google.com/apis/credentials) and choose **Create credentials > API key**. Restrict the key to the **Books API**, copy it, and paste it under **Google Books > Google Books API key**. See [Google's API-key instructions](https://developers.google.com/books/docs/v1/using#acquiring_and_using_an_api_key) for more detail.

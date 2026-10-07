@@ -419,21 +419,18 @@ function M.build(ctx)
             },
             {
                 text = _("Uniform covers"),
+                checked_func = function()
+                    return type(config.features) == "table"
+                        and config.features.browser_cover_mosaic_uniform == true
+                end,
+                checkmark_callback = function()
+                    if type(config.features) ~= "table" then config.features = {} end
+                    config.features.browser_cover_mosaic_uniform =
+                        config.features.browser_cover_mosaic_uniform ~= true
+                    plugin:saveConfig()
+                    settings_apply.prompt_restart()
+                end,
                 sub_item_table = {
-                    {
-                        text = _("Uniform covers"),
-                        checked_func = function()
-                            return type(config.features) == "table"
-                                and config.features.browser_cover_mosaic_uniform == true
-                        end,
-                        callback = function()
-                            if type(config.features) ~= "table" then config.features = {} end
-                            config.features.browser_cover_mosaic_uniform =
-                                config.features.browser_cover_mosaic_uniform ~= true
-                            plugin:saveConfig()
-                            settings_apply.prompt_restart()
-                        end,
-                    },
                     {
                         text = "2:3 " .. _("(standard)"),
                         radio = true,
@@ -766,33 +763,6 @@ function M.build(ctx)
         IconItem.decorate({ text = _("Mosaic"), sub_item_table = mosaic_items }, icons.view_mosaic),
         IconItem.decorate({ text = _("List"), sub_item_table = list_items }, icons.view_list),
     }
-    table.insert(layout_items, IconItem.decorate({
-        text = _("Show all files from subfolders"),
-        checked_func = function()
-            return type(config.browser_flat_view) == "table"
-                and config.browser_flat_view.enabled == true
-                and not paths.hasUnsafeFlatViewHomeRoot()
-        end,
-        callback = function()
-            if type(config.browser_flat_view) ~= "table" then
-                config.browser_flat_view = {}
-            end
-            local v = config.browser_flat_view.enabled ~= true
-            if v and paths.hasUnsafeFlatViewHomeRoot() then
-                local InfoMessage = require("ui/widget/infomessage")
-                UIManager:show(InfoMessage:new{
-                    text = _("This option is disabled when a home folder is the device storage root. Set home folders to narrower books folders first."),
-                })
-                return
-            end
-            config.browser_flat_view.enabled = v
-            if v then
-                G_reader_settings:saveSetting("show_flat_view", false)
-            end
-            plugin:saveConfig()
-            settings_apply.prompt_restart()
-        end,
-    }, icons.settings_subfolders))
     table.insert(layout_items, IconItem.decorate({
         text = _("Show item underline"),
         checked_func = function()
@@ -1317,6 +1287,33 @@ function M.build(ctx)
     }, icons.refresh))
 
     table.insert(book_items, 2, metadata_section.build(ctx))
+    table.insert(book_items, IconItem.decorate({
+        text = _("Show all files from subfolders"),
+        checked_func = function()
+            return type(config.browser_flat_view) == "table"
+                and config.browser_flat_view.enabled == true
+                and not paths.hasUnsafeFlatViewHomeRoot()
+        end,
+        callback = function()
+            if type(config.browser_flat_view) ~= "table" then
+                config.browser_flat_view = {}
+            end
+            local v = config.browser_flat_view.enabled ~= true
+            if v and paths.hasUnsafeFlatViewHomeRoot() then
+                local InfoMessage = require("ui/widget/infomessage")
+                UIManager:show(InfoMessage:new{
+                    text = _("This option is disabled when a home folder is the device storage root. Set home folders to narrower books folders first."),
+                })
+                return
+            end
+            config.browser_flat_view.enabled = v
+            if v then
+                G_reader_settings:saveSetting("show_flat_view", false)
+            end
+            plugin:saveConfig()
+            settings_apply.prompt_restart()
+        end,
+    }, icons.settings_subfolders))
     IconItem.decorate(appearance_items[1], icons.settings_layout)
     IconItem.decorate(appearance_items[2], icons.settings_covers)
     IconItem.decorate(appearance_items[3], icons.settings_scroll)

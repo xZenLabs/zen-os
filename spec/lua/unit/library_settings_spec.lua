@@ -98,9 +98,10 @@ describe("library settings", function()
         assert.are.same({ "Covers", "Series", "Folder name", "Home folder", "Hide up folder" },
             labels(items[2].sub_item_table))
         assert.are.same({ "Book details", "Metadata", "Double-tap to open a book",
-            "Include new books in TBR", "Treat file updates as New" }, labels(items[3].sub_item_table))
+            "Include new books in TBR", "Treat file updates as New", "Show all files from subfolders" },
+            labels(items[3].sub_item_table))
         assert.are.same({ "Archive", "Plugin actions", "Allow delete" }, labels(items[4].sub_item_table))
-        assert.are.same({ "Mosaic", "List", "Show all files from subfolders", "Show item underline" },
+        assert.are.same({ "Mosaic", "List", "Show item underline" },
             labels(find_item(items, "Layout").sub_item_table))
         assert.are.same({ "Portrait", "Landscape", "Reset to default" },
             labels(find_item(items, "Mosaic").sub_item_table))
@@ -113,6 +114,33 @@ describe("library settings", function()
         assert.is_nil(find_item(items, "Font"))
         assert.is_nil(find_item(items, "Wallpaper"))
         assert.is_nil(find_item(items, "Status bar"))
+    end)
+
+    it("toggles uniform covers from the outer row and keeps only ratios in its submenu", function()
+        local saves, restarts = 0, 0
+        package.loaded["modules/settings/zen_settings_apply"].prompt_restart = function()
+            restarts = restarts + 1
+        end
+        local config = { features = {}, browser_hide_up_folder = {}, uniform_cover_ratio = "3:4" }
+        local items = require("modules/settings/sections/library_settings").build({
+            config = config, plugin = { saveConfig = function() saves = saves + 1 end },
+            save_and_apply = function() end,
+        })
+        local uniform = find_item(items, "Uniform covers")
+        assert.is_false(uniform.checked_func())
+        uniform.checkmark_callback()
+        assert.is_true(uniform.checked_func())
+        assert.is_true(config.features.browser_cover_mosaic_uniform)
+        uniform.checkmark_callback()
+        assert.is_false(uniform.checked_func())
+        assert.is_false(config.features.browser_cover_mosaic_uniform)
+        assert.are.same({ 2, 2 }, { saves, restarts })
+        assert.are.equal("3:4", config.uniform_cover_ratio)
+        assert.are.equal(2, #uniform.sub_item_table)
+        assert.are.same({ "2:3 (standard)", "3:4 (Kindle)" },
+            { uniform.sub_item_table[1].text, uniform.sub_item_table[2].text })
+        assert.is_false(uniform.sub_item_table[1].checked_func())
+        assert.is_true(uniform.sub_item_table[2].checked_func())
     end)
 
     it("persists both mosaic orientations and list density without an open library", function()

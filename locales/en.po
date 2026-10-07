@@ -5909,6 +5909,12 @@ msgid "Sort series"
 msgstr "Sort series"
 
 #. Type: setting
+#. Context: { text = _("Sources"), sub_item_table = {
+#: metadata_settings.lua:162
+msgid "Sources"
+msgstr "Sources"
+
+#. Type: setting
 #. Context: IconItem.decorate({ text = _("Specific tag"), keep_menu_open = true,
 #: app_launcher_settings.lua:551 app_launcher_settings.lua:607 menu_settings.lua:714 home_settings.lua:1068 home_settings.lua:1100 home_settings.lua:1457 navbar_settings.lua:1420
 msgid "Specific tag"

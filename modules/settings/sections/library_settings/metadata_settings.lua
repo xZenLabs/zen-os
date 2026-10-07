@@ -158,9 +158,14 @@ function M.build(ctx)
         text = _("Metadata"),
         _zen_metadata_settings = true,
         sub_item_table = {
-            provider_item(_("Hardcover"), "hardcover_enabled", hardcover_items),
-            provider_item(_("Google Books"), "google_books_enabled", google_items),
-            provider_item(_("Open Library"), "open_library_enabled"),
+            {
+                text = _("Sources"),
+                sub_item_table = {
+                    provider_item(_("Hardcover"), "hardcover_enabled", hardcover_items),
+                    provider_item(_("Google Books"), "google_books_enabled", google_items),
+                    provider_item(_("Open Library"), "open_library_enabled"),
+                },
+            },
             {
                 text = _("Match selection"),
                 sub_item_table = {
