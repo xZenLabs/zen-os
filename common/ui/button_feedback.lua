@@ -14,8 +14,10 @@ function M.paddedRegion(dimen)
 end
 
 function M.invert(region, radius)
-    -- MTK Kindles may still read the framebuffer after the short EPDC yield.
-    if Device.isKindle and Device:isKindle() and Device.isMTK and Device:isMTK() then
+    -- These controllers may still read pixels after the short EPDC yield.
+    if Screen:isColorScreen()
+            or Device.isMTK and Device:isMTK()
+            or Device.isSunxi and Device:isSunxi() then
         UIManager:waitForVSync()
     end
     local x, y, w, h = region.x, region.y, region.w, region.h
@@ -29,17 +31,12 @@ function M.invert(region, radius)
     end
 end
 
-function M.refreshMode()
-    -- Fast refresh loses background shades and antialiased edges on color panels.
-    return Screen:isColorScreen() and "ui" or "fast"
-end
-
 function M.flash(region, radius)
     if not region or not region.x or not region.y
             or G_reader_settings:isFalse("flash_ui") then return end
-    local mode = M.refreshMode()
     M.invert(region, radius)
-    UIManager:setDirty(nil, mode, region)
+    -- Preserve gray backgrounds and antialiased edges during the highlight too.
+    UIManager:setDirty(nil, "ui", region)
     UIManager:forceRePaint()
     UIManager:yieldToEPDC()
     M.invert(region, radius)

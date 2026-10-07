@@ -10,12 +10,15 @@ return function()
 
     function Button:_doFeedbackHighlight()
         if self.allow_flash == false then return end
-        self._zen_feedback_region = self.vsync and Geom:new{
-            x = self.dimen.x, y = self.dimen.y, w = self.dimen.w, h = self.dimen.h,
+        local dimen = self.bordersize == 0 and self.label_widget and self.label_widget.is_icon
+            and self.label_widget.dimen or self.dimen
+        self._zen_feedback_region = (self.vsync
+            or dimen ~= self.dimen and self.icon and self.icon:sub(1, 8) == "chevron.") and Geom:new{
+            x = dimen.x, y = dimen.y, w = dimen.w, h = dimen.h,
         }
-            or Feedback.paddedRegion(self.dimen)
+            or Feedback.paddedRegion(dimen)
         Feedback.invert(self._zen_feedback_region)
-        UIManager:setDirty(nil, Feedback.refreshMode(), self._zen_feedback_region)
+        UIManager:setDirty(nil, "ui", self._zen_feedback_region)
     end
 
     function Button:_undoFeedbackHighlight(is_translucent)

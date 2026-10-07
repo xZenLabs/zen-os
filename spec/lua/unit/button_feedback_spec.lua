@@ -19,7 +19,9 @@ describe("rounded button feedback", function()
         UIManager = {
             setDirty = function() end, forceRePaint = function() end, yieldToEPDC = function() end,
             widgetRepaint = function(_self, widget) widget:paintTo() end,
-            waitForVSync = function() error("ordinary feedback must not wait for refresh completion") end,
+            waitForVSync = function()
+                assert.is_true(screen:isColorScreen(), "monochrome feedback must not wait for refresh completion")
+            end,
         }
         Button = { paintTo = function() end }
         IconButton = {}
@@ -124,7 +126,7 @@ describe("rounded button feedback", function()
                 end
             end
             Feedback.flash(region, 16)
-            assert.are.same({ "fast", "ui" }, modes)
+            assert.are.same({ "ui", "ui" }, modes)
             for y = 0, 79 do
                 for x = 0, 79 do
                     assert.are.equal(tostring(before:getPixel(x, y)), tostring(screen.bb:getPixel(x, y)))
@@ -132,7 +134,7 @@ describe("rounded button feedback", function()
             end
             _G.G_reader_settings.isFalse = function() return true end
             Feedback.flash(region, 16)
-            assert.are.same({ "fast", "ui" }, modes)
+            assert.are.same({ "ui", "ui" }, modes)
             _G.G_reader_settings.isFalse = function() return false end
             before:free()
             screen.bb:free()
@@ -156,23 +158,20 @@ describe("rounded button feedback", function()
                 modes[#modes + 1] = mode
             end
             Feedback.flash(region)
-            local mode = color and "ui" or "fast"
-            assert.are.same({ mode, "ui" }, modes)
+            assert.are.same({ "ui", "ui" }, modes)
             assert.are.equal(32, screen.bb:getPixel(28, 28).a)
 
             modes = {}
             expected_region = Feedback.paddedRegion(region)
             button:_doFeedbackHighlight()
             button:_undoFeedbackHighlight(false)
-            assert.are.same({ mode, "ui" }, modes)
+            assert.are.same({ "ui", "ui" }, modes)
             assert.are.equal(32, screen.bb:getPixel(28, 28).a)
         end
     end)
 
-    it("waits for MTK Kindle updates before overwriting the previous frame or highlight", function()
+    it("waits for monochrome MTK and sunxi updates before overwriting framebuffer pixels", function()
         local device = package.loaded.device
-        device.isKindle = function() return true end
-        device.isMTK = function() return true end
         local reading, waits = true, 0
         screen.bb = {
             invertRect = function() assert.is_false(reading, "EPDC is still reading the framebuffer") end,
@@ -184,24 +183,91 @@ describe("rounded button feedback", function()
         end
         UIManager.forceRePaint = function() reading = true end
         local region = { x = 20, y = 20, w = 200, h = 60 }
-        Feedback.flash(region)
-        assert.are.equal(2, waits)
-
         require("modules/global/patches/button_feedback")()
         local button = setmetatable({ dimen = region, enabled = true }, { __index = Button })
-        reading = true
-        button:_doFeedbackHighlight()
-        UIManager:forceRePaint()
-        button:_undoFeedbackHighlight(false)
-        assert.are.equal(4, waits)
+        for _i, controller in ipairs({ "isMTK", "isSunxi" }) do
+            device[controller] = function() return true end
+            reading = true
+            Feedback.flash(region)
+            reading = true
+            button:_doFeedbackHighlight()
+            UIManager:forceRePaint()
+            button:_undoFeedbackHighlight(false)
+            assert.are.equal(_i * 4, waits)
+            device[controller] = function() return false end
+        end
 
-        UIManager.waitForVSync = function() error("other devices must not wait") end
+        UIManager.waitForVSync = function() error("other monochrome devices must not wait") end
         reading = false
-        device.isKindle = function() return false end
         Feedback.invert(region)
-        device.isKindle = function() return true end
-        device.isMTK = function() return false end
-        Feedback.invert(region)
+    end)
+
+    it("waits for color refreshes before changing framebuffer pixels", function()
+        local device = package.loaded.device
+        screen.isColorScreen = function() return true end
+        local reading, waits = true, 0
+        screen.bb = {
+            invertRect = function() assert.is_false(reading, "display is still reading the framebuffer") end,
+            free = function() end,
+        }
+        UIManager.waitForVSync = function()
+            reading = false
+            waits = waits + 1
+        end
+        UIManager.forceRePaint = function() reading = true end
+        require("modules/global/patches/button_feedback")()
+        local region = { x = 20, y = 20, w = 32, h = 24 }
+        local button = setmetatable({ dimen = region, enabled = true }, { __index = Button })
+        for _i, mtk in ipairs({ false, true }) do
+            device.isMTK = function() return mtk end
+            reading = true
+            Feedback.flash(region)
+            reading = true
+            button:_doFeedbackHighlight()
+            UIManager:forceRePaint()
+            button:_undoFeedbackHighlight(false)
+        end
+        assert.are.equal(8, waits)
+    end)
+
+    it("flashes the painted borderless icon without enlarging or moving its tap target", function()
+        require("modules/global/patches/button_feedback")()
+        local inverted, refreshed
+        Feedback.invert = function(region) inverted = region end
+        UIManager.setDirty = function(_self, _owner, _mode, region) refreshed = region end
+        local dimen = { x = 20, y = 20, w = 100, h = 60 }
+        for _i, vsync in ipairs({ false, true }) do
+            local icon_dimen = { x = 52, y = 32, w = 36, h = 36 }
+            local button = setmetatable({ dimen = dimen, bordersize = 0, vsync = vsync,
+                label_widget = { is_icon = true, dimen = icon_dimen },
+            }, { __index = Button })
+            button:_doFeedbackHighlight()
+            assert.are.same(vsync and icon_dimen or { x = 48, y = 28, w = 44, h = 44 }, inverted)
+            assert.are.equal(inverted, refreshed)
+            assert.are.equal(dimen, button.dimen)
+            button:_undoFeedbackHighlight(false)
+            assert.are.equal(inverted, refreshed)
+        end
+    end)
+
+    it("adds no feedback padding outside KOReader pager chevron icons", function()
+        require("modules/global/patches/button_feedback")()
+        local inverted, refreshed
+        Feedback.invert = function(region) inverted = region end
+        UIManager.setDirty = function(_self, _owner, _mode, region) refreshed = region end
+        local dimen = { x = 20, y = 20, w = 100, h = 60 }
+        local icon_dimen = { x = 52, y = 32, w = 36, h = 36 }
+        for _i, icon in ipairs({ "chevron.left", "chevron.right", "chevron.first", "chevron.last" }) do
+            local button = setmetatable({ icon = icon, dimen = dimen, bordersize = 0,
+                label_widget = { is_icon = true, dimen = icon_dimen },
+            }, { __index = Button })
+            button:_doFeedbackHighlight()
+            assert.are.same(icon_dimen, inverted)
+            assert.are.equal(inverted, refreshed)
+            assert.are.equal(dimen, button.dimen)
+            button:_undoFeedbackHighlight(false)
+            assert.are.same(icon_dimen, refreshed)
+        end
     end)
 
     it("skips highlighting and restore refreshes for buttons with feedback disabled", function()

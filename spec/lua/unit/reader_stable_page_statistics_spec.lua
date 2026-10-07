@@ -62,6 +62,7 @@ describe("stable page statistics", function()
         local use_labels = true
         local stats = setmetatable({
             ui = {
+                document = {},
                 pagemap = {
                     wantsPageLabels = function() return use_labels end,
                     getCurrentPageLabel = function() return "12", 12, 321 end,
@@ -75,6 +76,52 @@ describe("stable page statistics", function()
         use_labels = false
         stats:insertDB(654)
         assert.are.equal(654, inserted_pagecount)
+    end)
+
+    it("saves statistics after the reader document is closed without changing page units", function()
+        local inserted_pagecounts, label_reads = {}, 0
+        local Statistics = {
+            name = "statistics",
+            insertDB = function(self, pagecount)
+                table.insert(inserted_pagecounts, pagecount or self.data.pages)
+            end,
+            onSaveSettings = function(self) self:insertDB() end,
+            getCurrentStat = function(self)
+                self:insertDB()
+                return "current statistics"
+            end,
+        }
+        ZenSpec.replace("pluginloader", {
+            loadPlugins = function() return { Statistics } end,
+        })
+        require("modules/reader/patches/stable_page_statistics")()
+
+        local document = {
+            getPageMapCurrentPageLabel = function() return "12", 12, 321 end,
+        }
+        local ui = { document = document }
+        ui.pagemap = {
+            ui = ui,
+            wantsPageLabels = function() return true end,
+            getCurrentPageLabel = function(self)
+                label_reads = label_reads + 1
+                return self.ui.document:getPageMapCurrentPageLabel()
+            end,
+        }
+        local stats = setmetatable({
+            id_curr_book = 1,
+            is_doc_not_frozen = true,
+            data = { pages = 654 },
+            document = document,
+            ui = ui,
+        }, { __index = Statistics })
+
+        stats:onSaveSettings()
+        ui.document = nil
+        stats:onSaveSettings()
+        assert.are.equal("current statistics", stats:getCurrentStat())
+        assert.are.same({ 321, 321, 321 }, inserted_pagecounts)
+        assert.are.equal(1, label_reads)
     end)
 
     it("keeps averages and time estimates in the database page unit", function()
@@ -132,6 +179,7 @@ describe("stable page statistics", function()
 
         local document = { getPageCount = function() return 1000 end }
         local ui = {
+            document = document,
             getCurrentPage = function() return 500 end,
             pagemap = {
                 wantsPageLabels = function() return true end,

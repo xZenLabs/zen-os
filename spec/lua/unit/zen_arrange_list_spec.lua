@@ -302,7 +302,7 @@ describe("Zen arrange list settings resume", function()
             }},
         }
         local picker = ArrangeList.show{ item_table = { first }, menu_mode = true }
-        local expected = { "highlight", "fast", "paint", "yield", "restore", "ui", "show" }
+        local expected = { "highlight", "ui", "paint", "yield", "restore", "ui", "show" }
         for depth = 1, 3 do
             events = {}
             local row = shown_widgets[depth].main_content[1]
