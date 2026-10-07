@@ -66,6 +66,8 @@ describe("Controls destination settings", function()
             zen_settings_label = "", zen_settings_icon = "zen_ui",
             launcher_label = "", launcher_icon = "app_launcher",
             unified_light_slider = true,
+            hide_reader_actions_in_library = false,
+            reader_actions = {},
             tailscale_toggle_wifi = false,
             background_hatching = false,
         } })
@@ -116,6 +118,7 @@ describe("Controls destination settings", function()
             end,
             menuTextFunc = function() return dispatcher_text end,
         })
+        ZenSpec.unload("modules/menu/app_launcher/action_filter")
         ZenSpec.replace("apps/filemanager/filemanager", {})
         ZenSpec.replace("apps/reader/readerui", {})
         ZenSpec.unload("modules/settings/sections/menu_settings")
@@ -254,7 +257,7 @@ describe("Controls destination settings", function()
         end
 
         assert.is_table(setting)
-        assert.are.equal(setting, section.sub_item_table[#section.sub_item_table - 1])
+        assert.are.equal(setting, section.sub_item_table[#section.sub_item_table - 2])
         assert.is_false(setting.checked_func())
         setting.callback()
         assert.is_true(setting.checked_func())
@@ -272,7 +275,7 @@ describe("Controls destination settings", function()
 
         local items = movable.sub_item_table_func()
         local touch_menu = { updateItems = function() end }
-        assert.are.equal(2, #items)
+        assert.are.equal(3, #items)
         assert.are.equal("Icon: zen_ui", items[1].text_func())
         items[1].callback(touch_menu)
         icon_picker_callback("atom")
@@ -309,6 +312,7 @@ describe("Controls destination settings", function()
         section.sub_item_table[1].callback()
         assert.are.equal("library_home", arrange_options.item_table[1].orig_item)
         assert.are.equal("Home", arrange_options.item_table[1].text)
+        assert.are.equal("Reader action", arrange_options.item_table[1].sub_item_table_func()[1].text)
         assert.is_nil(arrange_options.item_table[1].checked_func)
         assert.is_nil(arrange_options.item_table[1].callback)
         setting.callback()
@@ -372,7 +376,7 @@ describe("Controls destination settings", function()
 
         local items = launcher.sub_item_table_func()
         local touch_menu = { updateItems = function() end }
-        assert.are.equal(3, #items)
+        assert.are.equal(4, #items)
         assert.are.equal("Icon: app_launcher", items[1].text_func())
         items[1].callback(touch_menu)
         icon_picker_callback("grid")
@@ -412,6 +416,93 @@ describe("Controls destination settings", function()
         hatching.callback()
         assert.is_true(hatching.checked_func())
         assert.are.equal(1, saves)
+    end)
+
+    it("toggles reader action classification for built-in and custom controls", function()
+        local settingsList = { reader_action = { reader = true } }
+        require("dispatcher").registerAction = function(key) return settingsList[key] end
+        local saves, refreshes = 0, 0
+        local button = { id = "cb_1", label = "Custom", action = { reader_action = true } }
+        config.quick_settings.custom_buttons = { button }
+        config.quick_settings.button_order = { "wifi", "cb_1" }
+        local section = require("modules/settings/sections/menu_settings").build({
+            config = config,
+            plugin = {},
+            save_and_apply = function(feature)
+                assert.are.equal("quick_settings", feature)
+                saves = saves + 1
+            end,
+        })
+        section.sub_item_table[1].callback()
+        local touch_menu = { updateItems = function() refreshes = refreshes + 1 end }
+        local function reader_item(items)
+            for _i, item in ipairs(items) do
+                if item.text == "Reader action" then return item end
+            end
+            error("Missing Reader action toggle")
+        end
+        local builtin = reader_item(arrange_options.item_table[1].sub_item_table_func())
+        assert.is_false(builtin.checked_func())
+        builtin.callback(touch_menu)
+        assert.is_true(config.quick_settings.reader_actions.wifi)
+        assert.is_true(builtin.checked_func())
+        builtin.callback(touch_menu)
+        assert.is_false(builtin.checked_func())
+
+        for _i, button_type in ipairs({ "action", "plugin", "koreader_menu", "folder", "tag" }) do
+            button.type = button_type
+            button.folder = "/library"
+            button.reader_action = nil
+            local item = reader_item(arrange_options.item_table[2].sub_item_table_func())
+            local default = button_type == "action"
+            assert.are.equal(default, item.checked_func())
+            item.callback(touch_menu)
+            assert.are.equal(not default, button.reader_action)
+            assert.are.equal(not default, item.checked_func())
+            item.callback(touch_menu)
+            assert.are.equal(default, item.checked_func())
+        end
+        assert.are.equal(12, saves)
+        assert.are.equal(12, refreshes)
+
+        button.id = nil
+        button.type = "action"
+        button.reader_action = nil
+        button._zen_draft_commit = function() error("Draft must not be committed") end
+        local draft = reader_item(arrange_options.item_table[2].sub_item_table_func())
+        draft.callback(touch_menu)
+        assert.is_false(button.reader_action)
+        assert.are.equal(12, saves)
+        assert.are.equal(13, refreshes)
+    end)
+
+    it("toggles hiding reader actions in the library and restores the default on reset", function()
+        ZenSpec.replace("ui/widget/confirmbox", {
+            new = function(_self, options) return options end,
+        })
+        local saves = 0
+        local section = require("modules/settings/sections/menu_settings").build({
+            config = config,
+            plugin = {},
+            save_and_apply = function() saves = saves + 1 end,
+        })
+        local hide, reset
+        for _i, item in ipairs(section.sub_item_table) do
+            if item.text == "Hide reader actions in library" then hide = item end
+            if item.text == "Reset to defaults" then reset = item end
+        end
+        assert.is_table(hide)
+        assert.are.equal(hide, section.sub_item_table[#section.sub_item_table - 1])
+        assert.is_false(hide.checked_func())
+        hide.callback()
+        assert.is_true(hide.checked_func())
+        assert.is_true(config.quick_settings.hide_reader_actions_in_library)
+        config.quick_settings.reader_actions = { wifi = true }
+        reset.callback()
+        shown_widget.ok_callback()
+        assert.is_false(hide.checked_func())
+        assert.are.same({}, config.quick_settings.reader_actions)
+        assert.are.equal(2, saves)
     end)
 
     it("toggles unified controls directly and restores them on reset", function()

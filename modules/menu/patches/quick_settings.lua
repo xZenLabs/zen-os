@@ -39,6 +39,7 @@ local function apply_quick_settings()
     local ButtonModel = require("common/nav_button_model")
     local NativeMenu = require("modules/menu/app_launcher/native_menu")
     local PluginScan = require("modules/menu/app_launcher/plugin_scan")
+    local ActionFilter = require("modules/menu/app_launcher/action_filter")
 
     local zen_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
     if not zen_plugin or type(zen_plugin.config) ~= "table" then
@@ -137,6 +138,8 @@ local function apply_quick_settings()
             screenshot = false,
         },
         show_labels = true,
+        hide_reader_actions_in_library = false,
+        reader_actions = {},
         show_frontlight = true,
         show_warmth = true,
         unified_light_slider = true,
@@ -1242,6 +1245,7 @@ local function apply_quick_settings()
                     end,
                 }
             end
+            button_defs[cb.id].reader_action = ActionFilter.is_reader_entry(Dispatcher, cb)
         end
     end
 
@@ -1434,10 +1438,15 @@ local function apply_quick_settings()
         install_custom_button_defs()
 
         local visible_buttons = {}
+        local hide_reader_actions = panel_config.hide_reader_actions_in_library == true
+            and touch_menu.item_table and touch_menu.item_table._zen_quick_settings_library == true
         for _i, id in ipairs(panel_config.button_order) do
             if panel_config.show_buttons[id] and button_defs[id] then
                 local def = button_defs[id]
-                if not def.visible_func or def.visible_func() then
+                local reader_action = (panel_config.reader_actions or {})[id]
+                if reader_action == nil then reader_action = def.reader_action end
+                if (not hide_reader_actions or not reader_action)
+                        and (not def.visible_func or def.visible_func()) then
                     table.insert(visible_buttons, { id = id, def = def })
                 end
             end
@@ -1692,12 +1701,15 @@ local function apply_quick_settings()
     -- Quick Settings tab definition
     -- ============================================================
 
-    local quick_settings_tab = {
-        id = "quicksettings",
-        icon = "quicksettings",
-        remember = true,
-        panel = createQuickSettingsPanel,
-    }
+    local function make_quick_settings_tab(library_context)
+        return {
+            id = "quicksettings",
+            icon = "quicksettings",
+            remember = true,
+            panel = createQuickSettingsPanel,
+            _zen_quick_settings_library = library_context == true,
+        }
+    end
 
     -- ============================================================
     -- Inject tab into both FileManager and Reader menus
@@ -1711,7 +1723,7 @@ local function apply_quick_settings()
     function FileManagerMenu:setUpdateItemTable()
         orig_fm_setUpdateItemTable(self)
         if is_enabled() and self.tab_item_table then
-            table.insert(self.tab_item_table, 1, quick_settings_tab)
+            table.insert(self.tab_item_table, 1, make_quick_settings_tab(true))
         end
     end
 
@@ -1720,7 +1732,7 @@ local function apply_quick_settings()
     function ReaderMenu:setUpdateItemTable()
         orig_reader_setUpdateItemTable(self)
         if is_enabled() and self.tab_item_table then
-            table.insert(self.tab_item_table, 1, quick_settings_tab)
+            table.insert(self.tab_item_table, 1, make_quick_settings_tab(false))
         end
     end
 end

@@ -20,6 +20,7 @@ Controls adds a fast control panel to KOReader. It allows you to toggle Wi-Fi, f
 - Show or hide button labels.
 - Configure the rotate button to cycle rotation or apply a fixed 90, 180, or 270 rotation.
 - Add action buttons backed by dispatcher actions.
+- Mark buttons as reader actions and optionally hide them in the library.
 - Add plugin buttons from launchable plugin menus found on the device.
 - Add KOReader menu buttons for native submenus available in the current library or reader context.
 - Get an automatically suggested icon when creating an action, plugin, or KOReader menu button.
@@ -57,11 +58,13 @@ Controls adds a fast control panel to KOReader. It allows you to toggle Wi-Fi, f
 | KOReader menu button > Icon | Selects a bundled, KOReader, or user icon. |
 | KOReader menu button > Label | Sets the button label. |
 | Custom button > Show | Shows or hides the button in Controls. |
+| Button > Reader action | Marks a built-in or custom button as a reader action. Dispatcher reader actions are detected automatically; the checkbox lets you override this. |
 | Custom button > Delete | Deletes the button and removes it from the order list. |
 | Buttons > Screenshot > Timer | Sets the screenshot countdown from 0 to 10 seconds. You can also hold the Screenshot button to change it. |
 | Buttons > Incognito > Timeout | Turns Incognito Mode off automatically after the selected number of minutes. Off keeps it active until you toggle it yourself. |
 | Buttons > Tailscale > Toggle Wi-Fi with Tailscale | Turns Wi-Fi on before starting Tailscale and off after stopping it. Available when the Tailscale plugin is installed. |
 | Show labels | Shows or hides labels beneath Controls buttons. |
+| Hide reader actions in library | Hides buttons marked as reader actions from the library Controls panel. They remain available while reading. |
 | Show brightness slider | Shows the frontlight brightness slider in Controls. |
 | Show warmth slider | Shows the warmth slider on devices with natural light support. |
 | Unified brightness/warmth slider | Combines brightness and warmth into one slider on devices with both controls. |

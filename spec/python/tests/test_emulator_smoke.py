@@ -181,6 +181,57 @@ def test_flip_lh_rh_swaps_both_menu_tab_pairs(
             process.wait()
 
 
+def test_reader_controls_hide_on_first_library_menu_open() -> None:
+    runtime = Path(os.environ["KOREADER_DIR"])
+    with tempfile.TemporaryDirectory(prefix="zen-ui-reader-controls-") as temporary:
+        root = Path(temporary)
+        ko_home, library = root / "home", root / "library"
+        ko_home.mkdir()
+        library.mkdir()
+        socket_path = root / "driver.sock"
+        process = launch(
+            runtime,
+            ko_home,
+            socket_path,
+            library,
+            zen_config_source="""return {
+  updater = { update_auto_check = false },
+  quick_settings = {
+    layout_version = 2,
+    button_order = { 'rotate', 'night', 'cb_1' },
+    show_buttons = { rotate = true, night = true, cb_1 = true },
+    reader_actions = { rotate = true },
+    hide_reader_actions_in_library = true,
+    custom_buttons = {
+      { id = 'cb_1', type = 'action', label = 'Reader control',
+        action = { suspend = true }, reader_action = true },
+    },
+  },
+}
+""",
+        )
+        try:
+            wait_for_socket(socket_path)
+            driver = ZenDriver(socket_path)
+            layout = driver.command("menu_tab_layout")
+            assert layout["ok"] is True
+            assert layout["active_tab"] == "quicksettings"
+            assert layout["button_ids"] == ["night"]
+
+            assert driver.command("open_settings_page")["ok"] is True
+            for label in ("Interface", "Controls", "Hide reader actions in library"):
+                assert driver.command("settings_page_select", label=label)["ok"] is True
+            assert driver.command("close_settings_page")["ok"] is True
+            assert driver.command("menu_tab_layout")["button_ids"] == ["rotate", "night", "cb_1"]
+        finally:
+            process.send_signal(signal.SIGTERM)
+            try:
+                process.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                process.kill()
+            process.wait()
+
+
 def test_launcher_book_switcher_fits_inside_the_panel() -> None:
     runtime = Path(os.environ["KOREADER_DIR"])
     with tempfile.TemporaryDirectory(prefix="zen-ui-book-switcher-") as temporary:

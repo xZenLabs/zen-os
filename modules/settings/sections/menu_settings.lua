@@ -11,6 +11,7 @@ local icons = require("common/inline_icon_map")
 local IconItem = require("common/ui/icon_menu_item")
 local NativeMenu = require("modules/menu/app_launcher/native_menu")
 local PluginScan = require("modules/menu/app_launcher/plugin_scan")
+local ActionFilter = require("modules/menu/app_launcher/action_filter")
 local DispatcherMenu = require("common/dispatcher_menu")
 local icon_utils = require("common/utils")
 local plugin_root = require("common/plugin_root")
@@ -628,6 +629,10 @@ function M.build(ctx)
                     if id == "library_home" then
                         item.checked_func = nil
                         item.callback = nil
+                        item.sub_title = label
+                        item.sub_item_table_func = function()
+                            return build_control_sub_items(id)
+                        end
                     elseif id == "zen_settings" then
                         item.checked_func = nil
                         item.callback = nil
@@ -812,6 +817,28 @@ function M.build(ctx)
         end
     end
 
+    local function readerActionItem(id, cb)
+        local function isReaderAction()
+            if cb then return ActionFilter.is_reader_entry(Dispatcher, cb) end
+            return (config.quick_settings.reader_actions or {})[id] == true
+        end
+        return IconItem.decorate({
+            text = _("Reader action"),
+            checked_func = isReaderAction,
+            callback = function(touch_menu)
+                local reader_action = not isReaderAction()
+                if cb then
+                    cb.reader_action = reader_action
+                else
+                    config.quick_settings.reader_actions = config.quick_settings.reader_actions or {}
+                    config.quick_settings.reader_actions[id] = reader_action
+                end
+                if not is_draft_button(cb) then save_and_apply_quick_settings() end
+                if touch_menu and touch_menu.updateItems then touch_menu:updateItems(1) end
+            end,
+        }, icons.settings_reader)
+    end
+
     build_cb_sub_items = function(cb)
         local items = {}
 
@@ -975,6 +1002,8 @@ function M.build(ctx)
             end,
         }, icons.label))
 
+        table.insert(items, readerActionItem(cb.id, cb))
+
         -- Delete button
         table.insert(items, IconItem.decorate({
             text = _("Delete"),
@@ -1086,6 +1115,7 @@ function M.build(ctx)
         elseif id == "tailscale" then
             items = buildTailscaleButtonSubItems()
         end
+        items[#items + 1] = readerActionItem(id)
         if id ~= "zen_settings" then
             items[#items + 1] = IconItem.decorate({
                 text = _("Delete"),
@@ -1132,6 +1162,8 @@ function M.build(ctx)
         config.quick_settings.show_buttons = new_show
         config.quick_settings.button_order = new_order
         config.quick_settings.show_labels = def.show_labels
+        config.quick_settings.hide_reader_actions_in_library = def.hide_reader_actions_in_library
+        config.quick_settings.reader_actions = icon_utils.deepcopy(def.reader_actions)
         config.quick_settings.show_frontlight = def.show_frontlight
         config.quick_settings.show_warmth = def.show_warmth
         config.quick_settings.unified_light_slider = def.unified_light_slider
@@ -1291,6 +1323,17 @@ function M.build(ctx)
                     toggleQuickButton("zen_settings")
                 end,
             }, icons.settings),
+            IconItem.decorate({
+                text = _("Hide reader actions in library"),
+                checked_func = function()
+                    return config.quick_settings.hide_reader_actions_in_library == true
+                end,
+                callback = function()
+                    config.quick_settings.hide_reader_actions_in_library =
+                        config.quick_settings.hide_reader_actions_in_library ~= true
+                    save_and_apply_quick_settings()
+                end,
+            }, icons.hide_reader_actions),
             IconItem.decorate({
                 text = _("Reset to defaults"),
                 separator = true,

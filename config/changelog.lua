@@ -399,6 +399,7 @@ return {
         "Add Date added sorting to library and folder context menus",
         "Add OPDS improvements",
         "Add setting to treat file updates as New status",
+        "Add hiding Reader Control buttons from Library",
         "Group Authors view to also use series sub-groupings",
         "Improve Rakuyomi integration from Zen home page",
         "Update visual feedback on tap for UI elements",

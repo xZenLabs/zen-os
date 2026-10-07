@@ -464,6 +464,63 @@ describe("quick settings plugin controls", function()
         assert.are.same({ "tailscale" }, rendered_ids())
     end)
 
+    it("hides reader controls only in the library without changing their saved order", function()
+        local config = _G.__ZEN_UI_PLUGIN.config.quick_settings
+        local settingsList = {
+            reader_action = { reader = true },
+            rolling_action = { rolling = true },
+            paging_action = { paging = true },
+        }
+        require("dispatcher").registerAction = function(key) return settingsList[key] end
+        require("common/dispatch_action").isActionActive = function() return false end
+        ZenSpec.unload("modules/menu/app_launcher/action_filter")
+        ZenSpec.unload("modules/menu/patches/quick_settings")
+        require("modules/menu/patches/quick_settings")()
+        config.custom_buttons = {
+            { id = "cb_1", type = "action", label = "Reader", action = { reader_action = true } },
+            { id = "cb_2", type = "action", label = "Rolling", action = { rolling_action = true } },
+            { id = "cb_3", type = "action", label = "Paging", action = { paging_action = true } },
+            { id = "cb_4", type = "folder", label = "Folder", reader_action = true },
+            { id = "cb_5", type = "action", label = "Override",
+                action = { reader_action = true }, reader_action = false },
+        }
+        config.button_order = { "tailscale", "cb_1", "cb_2", "cb_3", "cb_4", "cb_5" }
+        local order = { unpack(config.button_order) }
+        for _i, id in ipairs(order) do config.show_buttons[id] = true end
+        config.reader_actions = { tailscale = true }
+        local menu, reader_menu = {}, { tab_item_table = {} }
+        FileManagerMenu.setUpdateItemTable(menu)
+        require("apps/reader/modules/readermenu").setUpdateItemTable(reader_menu)
+        local library_host, reader_host = {}, {}
+        require("apps/filemanager/filemanager").instance = { menu = menu }
+        require("apps/reader/readerui").instance = { document = {} }
+        local function rendered_ids(host)
+            local tab = (host == library_host and menu or reader_menu).tab_item_table[1]
+            local touch_menu = { item_width = 600, show_parent = host, item_table = tab }
+            tab.panel(touch_menu)
+            local ids = {}
+            for _i, ref in ipairs(touch_menu._zen_panel_refs.buttons) do ids[#ids + 1] = ref.id end
+            return ids
+        end
+
+        assert.are.same(order, rendered_ids(library_host))
+        config.hide_reader_actions_in_library = true
+        assert.are.same({ "cb_5" }, rendered_ids(library_host))
+        assert.are.same(order, rendered_ids(reader_host))
+        menu.menu_container = library_host
+        assert.are.same({ "cb_5" }, rendered_ids(library_host))
+        assert.are.same(order, config.button_order)
+        for _i, id in ipairs(order) do assert.is_true(config.show_buttons[id]) end
+        config.custom_buttons[5].reader_action = true
+        assert.are.same({}, rendered_ids(library_host))
+        assert.are.same(order, rendered_ids(reader_host))
+        config.custom_buttons[5].reader_action = false
+        config.custom_buttons[1].reader_action = false
+        assert.are.same({ "cb_1", "cb_5" }, rendered_ids(library_host))
+        config.hide_reader_actions_in_library = false
+        assert.are.same(order, rendered_ids(library_host))
+    end)
+
     it("flashes the tapped Controls circle before running its action", function()
         local menu, touch_menu = {}, { item_width = 600 }
         FileManagerMenu.setUpdateItemTable(menu)
