@@ -339,12 +339,7 @@ function ZenSettingsTitleBar:init()
             if self.back_visible and self.back_callback then return self.back_callback() end
             return true
         end,
-        hold_callback = function()
-            if self.back_visible and self.back_hold_callback then
-                return self.back_hold_callback()
-            end
-            return true
-        end,
+        hold_callback = function() return self:onHoldBackTitle() end,
     }
     self.back_button.skip_paint = self.back_visible ~= true
     self.root_icon = ZenIconButton:new{
@@ -590,7 +585,9 @@ end
 
 function ZenSettingsTitleBar:onHoldBackTitle()
     if not (self.back_visible and self.back_hold_callback) then return false end
+    ButtonFeedback.flash(title_back_range(self))
     self.back_hold_callback()
+    if not G_reader_settings:isFalse("flash_ui") then UIManager:forceRePaint() end
     return true
 end
 

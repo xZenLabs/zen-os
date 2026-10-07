@@ -137,8 +137,11 @@ function M.stripConfig(recommendations, source, config, authors)
     return strip, source
 end
 
-function M.stats(statistics)
+function M.stats(statistics, preview)
     local summary = statistics and statistics:getStatsBookStatus()
+    if preview and (not summary or (summary.time or 0) == 0) then
+        summary = { days = 7, time = 12600, pages = 210 }
+    end
     if not summary then return {} end
     local days, seconds, pages = summary.days or 0, summary.time or 0, summary.pages or 0
     local format_time = require("datetime").secondsToClockDuration
@@ -236,7 +239,7 @@ function M.recommendations(file, book, author_groups, series_groups, get_status)
     return result
 end
 
-function M.new(ui, plugin, config, refresh, close)
+function M.new(ui, plugin, config, refresh, close, preview)
     require("modules/filebrowser/patches/home_page")
     local Home = require("common/shared_state").get(plugin, "home")
     local data = Home.newDataProvider(plugin.config, config)
@@ -275,7 +278,7 @@ function M.new(ui, plugin, config, refresh, close)
         if book.cover_bb then copy.cover_bb = book.cover_bb:copy() end
         return copy
     end
-    data.stats = M.stats(ui and ui.statistics)
+    data.stats = M.stats(ui and ui.statistics, preview)
     local quotes = ui and M.quotes(ui) or {}
     local quote_index = 1
     function data:getCurrentQuote()

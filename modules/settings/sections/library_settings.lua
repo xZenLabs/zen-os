@@ -4,7 +4,6 @@
 
 local _ = require("gettext")
 local UIManager = require("ui/uimanager")
-local DataStorage = require("datastorage")
 local paths = require("common/paths")
 local SharedState = require("common/shared_state")
 local icons = require("common/inline_icon_map")
@@ -12,59 +11,19 @@ local IconItem = require("common/ui/icon_menu_item")
 local defaults = require("config/defaults")
 local LibraryFontPath = require("common/library_font_path")
 
-local status_bar_section  = require("modules/settings/sections/library_settings/status_bar_settings")
 local metadata_section    = require("modules/settings/sections/library_settings/metadata_settings")
 local settings_apply      = require("modules/settings/zen_settings_apply")
 local zen_settings_utils  = require("modules/settings/zen_settings_utils")
 
 local M = {}
-local LIBRARY_WALLPAPERS_DIR = DataStorage:getFullDataDir() .. "/resources/wallpapers"
-local DEFAULT_LIBRARY_FONT = defaults.library_font.font_face
 local BOOK_DETAIL_ORDER = defaults.book_details.order
 local BOOK_DETAIL_TEXT_STYLE_DEFAULTS = defaults.book_details.text_styles
 
-local function resolved_library_font(font_face)
-    if font_face == "default" then font_face = DEFAULT_LIBRARY_FONT end
-    return LibraryFontPath.resolve(font_face)
-end
-
-local function font_name_text(cfg, FontChooser)
-    if cfg.font_face == "default" then return _("default") end
-    return FontChooser.getFontNameText(resolved_library_font(cfg.font_face)) or cfg.font_face
-end
-
-local function find_registered_font_file(font_face)
-    local ok_font, Font = pcall(require, "ui/font")
-    local mapped_face = ok_font and Font.fontmap and Font.fontmap[font_face] or font_face
-    local ok_list, FontList = pcall(require, "fontlist")
-    if not ok_list or type(FontList.fontinfo) ~= "table" then return nil end
-    if FontList.fontinfo[mapped_face] then return mapped_face end
-    if type(font_face) ~= "string" or font_face:find("/", 1, true)
-            or font_face:find("\\", 1, true) then
-        return nil
-    end
-
-    local filename = type(mapped_face) == "string" and mapped_face:match("([^/]+)$")
-    local matched_file
-    for file in pairs(FontList.fontinfo) do
-        if filename and file:sub(-#filename - 1) == "/" .. filename
-                and (not matched_file or file < matched_file) then
-            matched_file = file
-        end
-    end
-    return matched_file
-end
-
-local function picker_default(FontChooser)
-    local default_file = resolved_library_font(DEFAULT_LIBRARY_FONT)
-    if type(FontChooser.isFontRegistered) ~= "function"
-            or FontChooser.isFontRegistered(default_file) then
-        return DEFAULT_LIBRARY_FONT, default_file
-    end
-    local registered_default = find_registered_font_file(default_file)
-    if registered_default then return DEFAULT_LIBRARY_FONT, registered_default end
-    return "default", find_registered_font_file("cfont")
-end
+local resolved_library_font = LibraryFontPath.resolveConfigured
+local font_name_text = LibraryFontPath.nameText
+local find_registered_font_file = LibraryFontPath.findRegistered
+local picker_default = LibraryFontPath.pickerDefault
+local ensure_library_font_cfg = LibraryFontPath.ensureConfig
 
 local function schedule_home_rebuild_on_menu_close(plugin)
     if not plugin or not settings_apply.defer_until_settings_close then return end
@@ -74,72 +33,6 @@ local function schedule_home_rebuild_on_menu_close(plugin)
             home.rebuildActive()
         end
     end)
-end
-
-local function refresh_background_surfaces(plugin)
-    local home = SharedState.get(plugin, "home")
-    if home and type(home.invalidateNavbar) == "function" then
-        home.invalidateNavbar()
-    end
-    if home and home.rebuildActive then
-        home.rebuildActive()
-    end
-
-    local stack = UIManager._window_stack
-    if type(stack) == "table" then
-        for _i, entry in ipairs(stack) do
-            local widget = entry and entry.widget
-            if widget and widget._zen_bg_applied and type(widget.updateItems) == "function" then
-                pcall(widget.updateItems, widget)
-                UIManager:setDirty(widget, "full")
-            end
-        end
-    end
-
-    local reinject_navbars = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
-    if type(reinject_navbars) == "function" then
-        reinject_navbars()
-    else
-        UIManager:setDirty(nil, "full")
-        UIManager:forceRePaint()
-    end
-end
-
-local function schedule_background_surface_refresh(plugin)
-    if not plugin or not settings_apply.defer_until_settings_close then return end
-    settings_apply.defer_until_settings_close("background_surfaces", function()
-        refresh_background_surfaces(plugin)
-    end)
-end
-
-local function ensure_library_font_cfg(config)
-    if type(config.library_font) ~= "table" then
-        config.library_font = {}
-    end
-    if type(config.library_font.font_face) ~= "string" or config.library_font.font_face == "" then
-        config.library_font.font_face = DEFAULT_LIBRARY_FONT
-    end
-    local font_size = tonumber(config.library_font.font_size)
-    if not font_size then
-        config.library_font.font_size = 18
-    else
-        config.library_font.font_size = math.max(10, math.min(40, math.floor(font_size + 0.5)))
-    end
-    return config.library_font
-end
-
-local function save_library_font(config, plugin, touchmenu_instance, prompt_restart)
-    _G.__ZEN_UI_LIBRARY_FONT_CFG = config.library_font
-    plugin:saveConfig()
-    settings_apply.reinit_filemanager()
-    schedule_home_rebuild_on_menu_close(plugin)
-    local strip_cfg = type(config.mosaic_title_strip) == "table" and config.mosaic_title_strip or nil
-    if prompt_restart or (strip_cfg and (strip_cfg.show_title == true or strip_cfg.show_author == true)) then
-        settings_apply.prompt_restart()
-    end
-    if touchmenu_instance then
-        touchmenu_instance:updateItems()
-    end
 end
 
 function M.build(ctx)
@@ -181,140 +74,8 @@ function M.build(ctx)
         refresh_filechooser()
     end
 
-    local items = {}
-
-    table.insert(items, status_bar_section.build(ctx))
-    table.insert(items, metadata_section.build(ctx))
-    table.insert(items, {
-        text = _("Font"),
-        text_func = function()
-            local cfg = ensure_library_font_cfg(config)
-            local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
-            local face_text = (cfg.font_face == "default") and _("default")
-                or (ok_fc and font_name_text(cfg, FontChooser) or cfg.font_face)
-            return string.format("%s %s, %s", _("Font:"), face_text, tostring(cfg.font_size))
-        end,
-        sub_item_table = {
-            {
-                text_func = function()
-                    local cfg = ensure_library_font_cfg(config)
-                    return string.format("%s %s", _("Font size:"), tostring(cfg.font_size))
-                end,
-                keep_menu_open = true,
-                callback = function(touchmenu_instance)
-                    local SpinWidget = require("ui/widget/spinwidget")
-                    local cfg = ensure_library_font_cfg(config)
-                    UIManager:show(SpinWidget:new{
-                        title_text = _("Font size"),
-                        value = cfg.font_size,
-                        value_min = 10,
-                        value_max = 40,
-                        default_value = 18,
-                        callback = function(spin)
-                            cfg.font_size = math.max(10, math.min(40, spin.value))
-                            save_library_font(config, plugin, touchmenu_instance)
-                        end,
-                    })
-                end,
-            },
-            {
-                _zen_search_text = _("Font"),
-                text_func = function()
-                    local cfg = ensure_library_font_cfg(config)
-                    local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
-                    local face_text = (cfg.font_face == "default") and _("default")
-                        or (ok_fc and font_name_text(cfg, FontChooser) or cfg.font_face)
-                    return string.format("%s %s", _("Font:"), face_text)
-                end,
-                keep_menu_open = true,
-                _zen_search_skip_children = true,
-                sub_item_table_func = function(touchmenu_instance)
-                    local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
-                    if not ok_fc then return {} end
-                    local cfg = ensure_library_font_cfg(config)
-                    local default_config, default_file = picker_default(FontChooser)
-                    local display_face = cfg.font_face == "default"
-                        and default_file or resolved_library_font(cfg.font_face)
-                    if type(FontChooser.isFontRegistered) == "function"
-                            and not FontChooser.isFontRegistered(display_face) then
-                        local registered_face = find_registered_font_file(display_face)
-                        if registered_face then
-                            display_face = registered_face
-                        else
-                            cfg.font_face = default_config
-                            display_face = default_file
-                            save_library_font(config, plugin, touchmenu_instance)
-                        end
-                    end
-                    if not display_face then return {} end
-                    local FontList = require("fontlist")
-                    local Font = require("ui/font")
-                    local font_items = {
-                        open_on_menu_item_id_func = function() return display_face end,
-                    }
-                    for file in pairs(FontList.fontinfo) do
-                        local name_text, name = FontChooser.getFontNameText(file)
-                        font_items[#font_items + 1] = {
-                            text = (name_text or file) .. (file == default_file and "  ★" or ""),
-                            font_name = name or name_text or file,
-                            menu_item_id = file,
-                            radio = true,
-                            checked_func = function() return display_face == file end,
-                            font_func = function(size) return Font:getFace(file, size) end,
-                            keep_menu_open = true,
-                            callback = function()
-                                local portable_file = LibraryFontPath.toConfig(file)
-                                if cfg.font_face ~= portable_file then
-                                    cfg.font_face = portable_file
-                                    display_face = file
-                                    save_library_font(config, plugin, touchmenu_instance, true)
-                                end
-                            end,
-                            hold_callback = function()
-                                local InfoMessage = require("ui/widget/infomessage")
-                                UIManager:show(InfoMessage:new{ text = file, show_icon = false })
-                            end,
-                        }
-                    end
-                    local ffiUtil = require("ffi/util")
-                    table.sort(font_items, function(a, b)
-                        if a.font_name ~= b.font_name then
-                            return ffiUtil.strcoll(a.font_name, b.font_name)
-                        end
-                        return ffiUtil.strcoll(a.text, b.text)
-                    end)
-                    return font_items
-                end,
-                hold_callback = function()
-                    local cfg = ensure_library_font_cfg(config)
-                    local font_file = resolved_library_font(cfg.font_face)
-                    local InfoMessage = require("ui/widget/infomessage")
-                    UIManager:show(InfoMessage:new{ text = font_file, show_icon = false })
-                end,
-            },
-            {
-                text = _("Reset font"),
-                keep_menu_open = true,
-                callback = function(touchmenu_instance)
-                    local ConfirmBox = require("ui/widget/confirmbox")
-                    UIManager:show(ConfirmBox:new{
-                        text = _("Reset font family and size to default?"),
-                        ok_text = _("Reset"),
-                        ok_callback = function()
-                            local cfg = ensure_library_font_cfg(config)
-                            local changed = cfg.font_face ~= DEFAULT_LIBRARY_FONT or cfg.font_size ~= 18
-                            if changed then
-                                cfg.font_face = DEFAULT_LIBRARY_FONT
-                                cfg.font_size = 18
-                                save_library_font(config, plugin, touchmenu_instance, true)
-                            end
-                        end,
-                    })
-                end,
-            },
-        },
-    })
-
+    local appearance_items = {}
+    local book_items = {}
     -- -------------------------------------------------------------------------
     -- Folders
     -- -------------------------------------------------------------------------
@@ -371,24 +132,11 @@ function M.build(ctx)
         return sub_items
     end
 
-    table.insert(items, {
+    local folders_item = {
         text = _("Folders"),
         sub_item_table = {
-            {
-                text = _("Hide up folder"),
-                checked_func = function() return config.browser_hide_up_folder.hide_up_folder == true end,
-                callback = function()
-                    config.browser_hide_up_folder.hide_up_folder =
-                        config.browser_hide_up_folder.hide_up_folder ~= true
-                    save_and_apply("browser_hide_up_folder")
-                end,
-            },
-            {
-                text = _("Series"),
-                sub_item_table_func = build_series_items,
-            },
             -- Cover mode subsection
-            {
+            IconItem.decorate({
                 text = _("Covers"),
                 sub_item_table = {
                     {
@@ -444,9 +192,13 @@ function M.build(ctx)
                         end,
                     },
                 },
-            },
+            }, icons.settings_covers),
+            IconItem.decorate({
+                text = _("Series"),
+                sub_item_table_func = build_series_items,
+            }, icons.series),
             -- Folder name subsection
-            {
+            IconItem.decorate({
                 text = _("Folder name"),
                 sub_item_table = {
                     {
@@ -489,11 +241,11 @@ function M.build(ctx)
                         end,
                     },
                 },
-            },
+            }, icons.settings_folder_name),
         },
-    })
+    }
 
-    table.insert(items, {
+    table.insert(appearance_items, {
         text = _("Covers"),
         sub_item_table = {
             {
@@ -779,237 +531,129 @@ function M.build(ctx)
     })
 
     -- -------------------------------------------------------------------------
-    -- Display mode
+    -- Layout density
     -- -------------------------------------------------------------------------
 
-    local display_modes = {
-        { text = _("Classic (filename only)"),                          mode = "classic"             },
-        { text = _("Mosaic with cover images"),                         mode = "mosaic_image"        },
-        { text = _("Mosaic with text"),                                 mode = "mosaic_text"         },
-        { text = _("Detailed list with cover images and metadata"),     mode = "list_image_meta"     },
-        { text = _("Detailed list with metadata, no images"),           mode = "list_only_meta"      },
-        { text = _("Detailed list with cover images and filenames"),    mode = "list_image_filename" },
-    }
-
-    local function get_display_mode()
-        local ok, BookInfoManager = pcall(require, "bookinfomanager")
-        if not ok then return "classic" end
-        local ok2, mode = pcall(function() return BookInfoManager:getSetting("filemanager_display_mode") end)
-        return (ok2 and mode) or "classic"
+    local function get_bim()
+        local ok, bim = pcall(require, "bookinfomanager")
+        return ok and bim or nil
     end
-
-    local function apply_display_mode(mode)
-        local ok, FileManager = pcall(require, "apps/filemanager/filemanager")
-        local fm = ok and FileManager and FileManager.instance
-        if fm and type(fm.onSetDisplayMode) == "function" then
-            pcall(fm.onSetDisplayMode, fm, mode ~= "classic" and mode or nil)
-        else
-            local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
-            if ok_bim then
-                pcall(BookInfoManager.saveSetting, BookInfoManager,
-                    "filemanager_display_mode", mode ~= "classic" and mode or nil)
-            end
-        end
+    local function get_fc()
+        local ok, FM = pcall(require, "apps/filemanager/filemanager")
+        local fm = ok and FM and FM.instance
+        return fm and fm.file_chooser or nil
     end
-
-    local display_mode_sub_items = {}
-    for _i, entry in ipairs(display_modes) do
-        table.insert(display_mode_sub_items, {
-            text = entry.text,
-            checked_func = function() return get_display_mode() == entry.mode end,
-            radio = true,
-            callback = function() apply_display_mode(entry.mode) end,
-        })
+    local function layout_value(key, default)
+        local bim, fc = get_bim(), get_fc()
+        return (fc and fc[key]) or (bim and bim:getSetting(key)) or default
     end
-
-    local display_mode_item = {
-        text = _("Display mode"),
-        sub_item_table = display_mode_sub_items,
-    }
-
-    -- -------------------------------------------------------------------------
-    -- Items per page
-    -- -------------------------------------------------------------------------
-
-    local items_per_page_item
-    do
-        local function get_bim()
-            local ok, bim = pcall(require, "bookinfomanager")
-            return ok and bim or nil
+    local function save_layout(values, touchmenu_instance)
+        local bim = get_bim()
+        if not bim then return end
+        local fc = get_fc()
+        local ok, fc_class = pcall(require, "ui/widget/filechooser")
+        for key, value in pairs(values) do
+            bim:saveSetting(key, value)
+            if fc then fc[key] = value end
+            if ok then fc_class[key] = value end
         end
-        local function get_fc_class()
-            local ok, fc_cls = pcall(require, "ui/widget/filechooser")
-            return ok and fc_cls or nil
-        end
-        local function get_fc()
-            local ok, FM = pcall(require, "apps/filemanager/filemanager")
-            local fm = ok and FM and FM.instance
-            return fm and fm.file_chooser or nil
-        end
-
-        items_per_page_item = {
-            text = _("Items per page"),
-            sub_item_table = {
-                {
-                    text_func = function()
-                        local bim = get_bim()
-                        local fc = get_fc()
-                        local c = (fc and fc.nb_cols_portrait) or (bim and bim:getSetting("nb_cols_portrait")) or 3
-                        local r = (fc and fc.nb_rows_portrait) or (bim and bim:getSetting("nb_rows_portrait")) or 3
-                        return _("Portrait mosaic: ") .. c .. "x" .. r
+        if fc then fc:updateItems() end
+        if touchmenu_instance then touchmenu_instance:updateItems() end
+    end
+    local mosaic_items = {}
+    for _i, orientation in ipairs({ "portrait", "landscape" }) do
+        local portrait = orientation == "portrait"
+        local cols_key, rows_key = "nb_cols_" .. orientation, "nb_rows_" .. orientation
+        local default_cols, default_rows = portrait and 3 or 4, portrait and 3 or 2
+        mosaic_items[#mosaic_items + 1] = {
+            text = portrait and _("Portrait") or _("Landscape"),
+            text_func = function()
+                return (portrait and _("Portrait") or _("Landscape")) .. ": "
+                    .. layout_value(cols_key, default_cols) .. " × " .. layout_value(rows_key, default_rows)
+            end,
+            keep_menu_open = true,
+            callback = function(touchmenu_instance)
+                UIManager:show(require("common/ui/mosaic_layout_dialog").new{
+                    title = portrait and _("Portrait mosaic mode") or _("Landscape mosaic mode"),
+                    portrait = portrait,
+                    columns = layout_value(cols_key, default_cols), rows = layout_value(rows_key, default_rows),
+                    callback = function(columns, rows)
+                        save_layout({ [cols_key] = columns, [rows_key] = rows }, touchmenu_instance)
                     end,
-                    keep_menu_open = true,
-                    callback = function(touchmenu_instance)
-                        local bim = get_bim()
-                        if not bim then return end
-                        local fc = get_fc()
-                        local c = (fc and fc.nb_cols_portrait) or bim:getSetting("nb_cols_portrait") or 3
-                        local r = (fc and fc.nb_rows_portrait) or bim:getSetting("nb_rows_portrait") or 3
-                        UIManager:show(require("ui/widget/doublespinwidget"):new{
-                            title_text = _("Portrait mosaic mode"),
-                            width_factor = 0.6,
-                            left_text = _("Columns"),
-                            left_value = c,
-                            left_min = 2, left_max = 8, left_default = 3, left_precision = "%01d",
-                            right_text = _("Rows"),
-                            right_value = r,
-                            right_min = 2, right_max = 8, right_default = 3, right_precision = "%01d",
-                            keep_shown_on_apply = true,
-                            callback = function(left_value, right_value)
-                                if fc then
-                                    fc.nb_cols_portrait = left_value
-                                    fc.nb_rows_portrait = right_value
-                                    if fc.display_mode_type == "mosaic" and fc.portrait_mode then
-                                        fc.no_refresh_covers = true
-                                        pcall(fc.updateItems, fc)
-                                    end
-                                end
-                            end,
-                            close_callback = function()
-                                if fc then
-                                    bim:saveSetting("nb_cols_portrait", fc.nb_cols_portrait)
-                                    bim:saveSetting("nb_rows_portrait", fc.nb_rows_portrait)
-                                    local fc_class = get_fc_class()
-                                    if fc_class then
-                                        fc_class.nb_cols_portrait = fc.nb_cols_portrait
-                                        fc_class.nb_rows_portrait = fc.nb_rows_portrait
-                                    end
-                                    if fc.display_mode_type == "mosaic" and fc.portrait_mode then
-                                        fc.no_refresh_covers = nil
-                                        pcall(fc.updateItems, fc)
-                                    end
-                                end
-                                if touchmenu_instance then touchmenu_instance:updateItems() end
-                            end,
-                        })
-                    end,
-                },
-                {
-                    text_func = function()
-                        local bim = get_bim()
-                        local fc = get_fc()
-                        local c = (fc and fc.nb_cols_landscape) or (bim and bim:getSetting("nb_cols_landscape")) or 4
-                        local r = (fc and fc.nb_rows_landscape) or (bim and bim:getSetting("nb_rows_landscape")) or 2
-                        return _("Landscape mosaic: ") .. c .. "x" .. r
-                    end,
-                    keep_menu_open = true,
-                    callback = function(touchmenu_instance)
-                        local bim = get_bim()
-                        if not bim then return end
-                        local fc = get_fc()
-                        local c = (fc and fc.nb_cols_landscape) or bim:getSetting("nb_cols_landscape") or 4
-                        local r = (fc and fc.nb_rows_landscape) or bim:getSetting("nb_rows_landscape") or 2
-                        UIManager:show(require("ui/widget/doublespinwidget"):new{
-                            title_text = _("Landscape mosaic mode"),
-                            width_factor = 0.6,
-                            left_text = _("Columns"),
-                            left_value = c,
-                            left_min = 2, left_max = 8, left_default = 4, left_precision = "%01d",
-                            right_text = _("Rows"),
-                            right_value = r,
-                            right_min = 2, right_max = 8, right_default = 2, right_precision = "%01d",
-                            keep_shown_on_apply = true,
-                            callback = function(left_value, right_value)
-                                if fc then
-                                    fc.nb_cols_landscape = left_value
-                                    fc.nb_rows_landscape = right_value
-                                    if fc.display_mode_type == "mosaic" and not fc.portrait_mode then
-                                        fc.no_refresh_covers = true
-                                        pcall(fc.updateItems, fc)
-                                    end
-                                end
-                            end,
-                            close_callback = function()
-                                if fc then
-                                    bim:saveSetting("nb_cols_landscape", fc.nb_cols_landscape)
-                                    bim:saveSetting("nb_rows_landscape", fc.nb_rows_landscape)
-                                    local fc_class = get_fc_class()
-                                    if fc_class then
-                                        fc_class.nb_cols_landscape = fc.nb_cols_landscape
-                                        fc_class.nb_rows_landscape = fc.nb_rows_landscape
-                                    end
-                                    if fc.display_mode_type == "mosaic" and not fc.portrait_mode then
-                                        fc.no_refresh_covers = nil
-                                        pcall(fc.updateItems, fc)
-                                    end
-                                end
-                                if touchmenu_instance then touchmenu_instance:updateItems() end
-                            end,
-                        })
-                    end,
-                },
-                {
-                    text_func = function()
-                        local max_fpp = require("common/cover_utils").MAX_FILES_PER_PAGE
-                        local bim = get_bim()
-                        local fc = get_fc()
-                        local fpp = (fc and fc.files_per_page) or (bim and bim:getSetting("files_per_page")) or 5
-                        fpp = math.min(fpp, max_fpp)
-                        return _("List: ") .. tostring(fpp) .. " " .. _("items per page")
-                    end,
-                    keep_menu_open = true,
-                    callback = function(touchmenu_instance)
-                        local max_fpp = require("common/cover_utils").MAX_FILES_PER_PAGE
-                        local bim = get_bim()
-                        if not bim then return end
-                        local fc = get_fc()
-                        local fpp = (fc and fc.files_per_page) or bim:getSetting("files_per_page") or 5
-                        UIManager:show(require("ui/widget/spinwidget"):new{
-                            title_text = _("Portrait list mode"),
-                            value = math.min(fpp, max_fpp),
-                            value_min = 4,
-                            value_max = max_fpp,
-                            default_value = 5,
-                            keep_shown_on_apply = true,
-                            callback = function(spin)
-                                if fc then
-                                    fc.files_per_page = spin.value
-                                    if fc.display_mode_type == "list" then
-                                        fc.no_refresh_covers = true
-                                        pcall(fc.updateItems, fc)
-                                    end
-                                end
-                            end,
-                            close_callback = function()
-                                if fc then
-                                    bim:saveSetting("files_per_page", fc.files_per_page)
-                                    local fc_class = get_fc_class()
-                                    if fc_class then
-                                        fc_class.files_per_page = fc.files_per_page
-                                    end
-                                    if fc.display_mode_type == "list" then
-                                        fc.no_refresh_covers = nil
-                                        pcall(fc.updateItems, fc)
-                                    end
-                                end
-                                if touchmenu_instance then touchmenu_instance:updateItems() end
-                            end,
-                        })
-                    end,
-                },
-            },
+                })
+            end,
         }
     end
+    mosaic_items[#mosaic_items + 1] = {
+        text = _("Reset to default"),
+        keep_menu_open = true,
+        callback = function(touchmenu_instance)
+            save_layout({ nb_cols_portrait = 3, nb_rows_portrait = 3,
+                nb_cols_landscape = 4, nb_rows_landscape = 2 }, touchmenu_instance)
+        end,
+    }
+    local list_items = {
+        {
+            text = _("Items per page"),
+            text_func = function()
+                return _("Items per page") .. ": " .. math.min(layout_value("files_per_page", 5),
+                    require("common/cover_utils").MAX_FILES_PER_PAGE)
+            end,
+            keep_menu_open = true,
+            callback = function(touchmenu_instance)
+                local max_fpp = require("common/cover_utils").MAX_FILES_PER_PAGE
+                UIManager:show(require("ui/widget/spinwidget"):new{
+                    title_text = _("Items per page"), value = math.min(layout_value("files_per_page", 5), max_fpp),
+                    value_min = 4, value_max = max_fpp, default_value = 5,
+                    callback = function(spin) save_layout({ files_per_page = spin.value }, touchmenu_instance) end,
+                })
+            end,
+        },
+    }
+    local ListFields = require("common/library_list_fields")
+    local list_labels = {
+        title = _("Title"), filename = _("Filename"), authors = _("Authors"), series = _("Series"),
+        tags = _("Tags"), pages = _("Pages"), filetype = _("File type"), read_status = _("Read status"),
+        language = _("Language"), file_size = _("File size"),
+    }
+    local function show_detailed_items()
+        if type(config.browser_list_item_layout) ~= "table" then config.browser_list_item_layout = {} end
+        local cfg = config.browser_list_item_layout
+        if type(cfg.show) ~= "table" then cfg.show = {} end
+        local sort_items = {}
+        for _i, id in ipairs(ListFields.order(cfg)) do
+            sort_items[#sort_items + 1] = {
+                text = list_labels[id], orig_item = id,
+                checked_func = function() return ListFields.enabled(cfg, id) end,
+                callback = function()
+                    cfg.show[id] = not ListFields.enabled(cfg, id)
+                    plugin:saveConfig()
+                    rebuild_filechooser()
+                end,
+            }
+        end
+        require("common/ui/zen_arrange_list").show{
+            title = _("Detailed list items"), item_table = sort_items, plugin = plugin,
+            callback = function()
+                local order = {}
+                for _i, item in ipairs(sort_items) do order[#order + 1] = item.orig_item end
+                cfg.order = order
+                plugin:saveConfig()
+                rebuild_filechooser()
+            end,
+        }
+    end
+    list_items[#list_items + 1] = IconItem.decorate({
+        text = _("Detailed list items"), _zen_settings_submenu = true, keep_menu_open = true,
+        _zen_search_items_func = function()
+            local search_items = {}
+            for _i, id in ipairs(ListFields.order()) do
+                search_items[#search_items + 1] = { text = list_labels[id], _zen_search_open = show_detailed_items }
+            end
+            return search_items
+        end,
+        callback = show_detailed_items,
+    }, icons.details)
 
     refresh_filechooser = function(clear_cache)
         local ok, FileManager = pcall(require, "apps/filemanager/filemanager")
@@ -1054,7 +698,10 @@ function M.build(ctx)
         })
     end
 
-    -- Page number format sub-menu (nested inside scroll bar style, greyed out unless page_number)
+    local page_number_item = scroll_bar_sub_items[3]
+    page_number_item.checkmark_callback = page_number_item.callback
+
+    -- Page number format
     local pn_formats = {
         { text = _("Current only"), fmt = "current" },
         { text = _("Page x / y"),   fmt = "total"   },
@@ -1077,14 +724,7 @@ function M.build(ctx)
             end,
         })
     end
-    table.insert(scroll_bar_sub_items, {
-        text           = _("Page number format"),
-        enabled_func   = function() return get_scroll_bar_style() == "page_number" end,
-        sub_item_table = pn_format_sub_items,
-        separator      = true,  -- visual break after the radio style entries
-    })
-
-    -- Hold-to-skip sub-menu (nested inside scroll bar style, greyed out unless page_number)
+    -- Hold to skip
     local hold_skip_opts = {
         { text = _("Skip 10 pages"),   skip = "10"   },
         { text = _("Skip 20 pages"),   skip = "20"   },
@@ -1108,13 +748,12 @@ function M.build(ctx)
             end,
         })
     end
-    table.insert(scroll_bar_sub_items, {
-        text           = _("Hold to skip"),
-        enabled_func   = function() return get_scroll_bar_style() == "page_number" end,
-        sub_item_table = hold_skip_sub_items,
-    })
+    page_number_item.sub_item_table = {
+        { text = _("Page number format"), sub_item_table = pn_format_sub_items },
+        { text = _("Hold to skip"), sub_item_table = hold_skip_sub_items },
+    }
 
-    table.insert(items, {
+    table.insert(appearance_items, {
         text = _("Scroll bar"),
         sub_item_table = scroll_bar_sub_items,
     })
@@ -1124,10 +763,10 @@ function M.build(ctx)
     -- -------------------------------------------------------------------------
 
     local layout_items = {
-        display_mode_item,
-        items_per_page_item,
+        IconItem.decorate({ text = _("Mosaic"), sub_item_table = mosaic_items }, icons.view_mosaic),
+        IconItem.decorate({ text = _("List"), sub_item_table = list_items }, icons.view_list),
     }
-    table.insert(layout_items, {
+    table.insert(layout_items, IconItem.decorate({
         text = _("Show all files from subfolders"),
         checked_func = function()
             return type(config.browser_flat_view) == "table"
@@ -1153,8 +792,8 @@ function M.build(ctx)
             plugin:saveConfig()
             settings_apply.prompt_restart()
         end,
-    })
-    table.insert(layout_items, {
+    }, icons.settings_subfolders))
+    table.insert(layout_items, IconItem.decorate({
         text = _("Show item underline"),
         checked_func = function()
             return config.features.browser_hide_underline ~= true
@@ -1163,8 +802,8 @@ function M.build(ctx)
             config.features.browser_hide_underline = config.features.browser_hide_underline ~= true
             save_and_apply("browser_hide_underline")
         end,
-    })
-    table.insert(layout_items, {
+    }, icons.settings_underline))
+    table.insert(list_items, {
         text = _("Hide list borders"),
         checked_func = function()
             return type(config.browser_list_item_layout) == "table"
@@ -1189,169 +828,9 @@ function M.build(ctx)
         end,
     })
 
-    table.insert(items, 2, {
+    table.insert(appearance_items, 1, {
         text = _("Layout"),
         sub_item_table = layout_items,
-    })
-
-    -- -------------------------------------------------------------------------
-    -- Background image
-    -- -------------------------------------------------------------------------
-
-    local function ensure_lib_bg()
-        if type(config.library_background) ~= "table" then config.library_background = {} end
-        if config.library_background.enabled == nil then
-            config.library_background.enabled = false
-        end
-        if type(config.library_background.path) ~= "string" then
-            config.library_background.path = ""
-        end
-        local opacity = tonumber(config.library_background.opacity)
-        if not opacity then
-            config.library_background.opacity = 100
-        else
-            config.library_background.opacity = math.max(0,
-                math.min(100, math.floor(opacity + 0.5)))
-        end
-        return config.library_background
-    end
-    local function lib_bg_path()
-        return ensure_lib_bg().path
-    end
-    local function save_lib_bg()
-        plugin:saveConfig()
-        require("common/ui/background").clearCache()
-        settings_apply.reinit_filemanager_on_menu_close()
-        schedule_background_surface_refresh(plugin)
-    end
-    local function set_lib_bg(path)
-        ensure_lib_bg().path = path or ""
-        save_lib_bg()
-    end
-    local function lib_bg_error_text(code)
-        if code == "missing" then
-            return _("Background image file not found.")
-        elseif code == "no_decoder" then
-            return _("Image support is unavailable on this device.")
-        elseif code == "unsupported" or code == "decode_failed" then
-            return _("Background image could not be loaded. It may be corrupt or unsupported.")
-        end
-        return _("No background image selected.")
-    end
-    local function lib_bg_start_path()
-        local path = lib_bg_path()
-        if path ~= "" then
-            local util = require("util")
-            local dir = select(1, util.splitFilePathName(path))
-            if type(dir) == "string" and dir ~= "" then
-                return dir
-            end
-        end
-        return LIBRARY_WALLPAPERS_DIR
-    end
-
-    table.insert(items, {
-        text = _("Wallpaper"),
-        checked_func = function()
-            return ensure_lib_bg().enabled == true
-        end,
-        checkmark_callback = function(touchmenu_instance)
-            local bg = ensure_lib_bg()
-            if bg.enabled ~= true then
-                -- Enabling: only allow if the image actually works.
-                local bg_mod = require("common/ui/background")
-                local ok_img, reason = bg_mod.validateImage(bg.path)
-                if not ok_img then
-                    bg.enabled = false
-                    local InfoMessage = require("ui/widget/infomessage")
-                    UIManager:show(InfoMessage:new{
-                        text = lib_bg_error_text(reason),
-                    })
-                    if touchmenu_instance then touchmenu_instance:updateItems() end
-                    return
-                end
-                bg.enabled = true
-            else
-                bg.enabled = false
-            end
-            save_lib_bg()
-            if touchmenu_instance then touchmenu_instance:updateItems() end
-        end,
-        sub_item_table = {
-            {
-                text_func = function()
-                    local path = lib_bg_path()
-                    if path == "" then return _("Image: none") end
-                    local util = require("util")
-                    local name = select(2, util.splitFilePathName(path))
-                    return _("Image: ") .. (name ~= "" and name or path)
-                end,
-                keep_menu_open = true,
-                callback = function(touchmenu_instance)
-                    UIManager:show(zen_settings_utils.newImagePathChooser{
-                        select_file = true,
-                        select_directory = false,
-                        show_files = true,
-                        path = lib_bg_start_path(),
-                        goHome = function(chooser)
-                            chooser:changeToPath(LIBRARY_WALLPAPERS_DIR)
-                            return true
-                        end,
-                        onConfirm = function(file_path)
-                            local bg_mod = require("common/ui/background")
-                            local ok_img, reason = bg_mod.validateImage(file_path)
-                            if not ok_img then
-                                local InfoMessage = require("ui/widget/infomessage")
-                                UIManager:show(InfoMessage:new{
-                                    text = lib_bg_error_text(reason),
-                                })
-                                return
-                            end
-                            set_lib_bg(file_path)
-                            if touchmenu_instance then touchmenu_instance:updateItems() end
-                        end,
-                    })
-                end,
-                hold_callback = function(touchmenu_instance)
-                    if lib_bg_path() ~= "" then
-                        set_lib_bg("")
-                        if touchmenu_instance then touchmenu_instance:updateItems() end
-                    end
-                end,
-            },
-            {
-                text_func = function()
-                    return string.format("%s: %d%%", _("Opacity"),
-                        ensure_lib_bg().opacity)
-                end,
-                enabled_func = function()
-                    return ensure_lib_bg().enabled == true
-                end,
-                keep_menu_open = true,
-                callback = function(touchmenu_instance)
-                    local bg = ensure_lib_bg()
-                    zen_settings_utils.show_value_picker(
-                        _("Wallpaper") .. " - " .. _("Opacity"), bg.opacity,
-                        function(value)
-                            bg.opacity = math.max(0,
-                                math.min(100, math.floor(value + 0.5)))
-                            save_lib_bg()
-                            if touchmenu_instance then touchmenu_instance:updateItems() end
-                        end, 0, 100)
-                end,
-            },
-            {
-                text = _("Invert with dark mode"),
-                checked_func = function()
-                    return ensure_lib_bg().invert_with_dark_mode ~= false
-                end,
-                callback = function()
-                    local bg = ensure_lib_bg()
-                    bg.invert_with_dark_mode = bg.invert_with_dark_mode == false
-                    save_lib_bg()
-                end,
-            },
-        },
     })
 
     local function build_additional_home_items()
@@ -1419,7 +898,7 @@ function M.build(ctx)
         return sub
     end
 
-    table.insert(items, {
+    table.insert(folders_item.sub_item_table, IconItem.decorate({
         text = _("Home folder"),
         sub_item_table = {
             {
@@ -1481,9 +960,18 @@ function M.build(ctx)
                 sub_item_table_func = build_additional_home_items,
             },
         },
-    })
+    }, icons.settings_home_folder))
+    table.insert(folders_item.sub_item_table, IconItem.decorate({
+        text = _("Hide up folder"),
+        checked_func = function() return config.browser_hide_up_folder.hide_up_folder == true end,
+        callback = function()
+            config.browser_hide_up_folder.hide_up_folder =
+                config.browser_hide_up_folder.hide_up_folder ~= true
+            save_and_apply("browser_hide_up_folder")
+        end,
+    }, icons.hide_reader_actions))
 
-    table.insert(items, {
+    local allow_delete_item = {
         text = _("Allow delete"),
         checked_func = function()
             return type(config.context_menu) == "table"
@@ -1494,18 +982,7 @@ function M.build(ctx)
             config.context_menu.allow_delete = config.context_menu.allow_delete ~= true
             plugin:saveConfig()
         end,
-    })
-    IconItem.decorate(items[#items], icons.delete)
-
-    IconItem.decorate(items[1], icons.settings_status)
-    IconItem.decorate(items[2], icons.settings_layout)
-    IconItem.decorate(items[4], icons.title)
-    IconItem.decorate(items[5], icons.settings_folders)
-    IconItem.decorate(items[6], icons.settings_covers)
-    IconItem.decorate(items[7], icons.settings_scroll)
-    IconItem.decorate(items[8], icons.settings_background)
-    IconItem.decorate(items[9], icons.settings_home_folder)
-    table.insert(items, table.remove(items, 3))
+    }
 
     local detail_labels = {
         authors = _("Authors"),
@@ -1721,7 +1198,7 @@ function M.build(ctx)
         return search_items
     end
 
-    table.insert(items, IconItem.decorate({
+    table.insert(book_items, IconItem.decorate({
         text = _("Book details"),
         _zen_settings_submenu = true,
         _zen_search_items_func = detail_search_items,
@@ -1729,10 +1206,46 @@ function M.build(ctx)
         callback = show_book_details,
     }, icons.details))
 
-    table.insert(items, IconItem.decorate({
-        text = _("Context menu"),
+    local double_tap_item = {
+        text = _("Double-tap to open a book"),
+        help_text = _("When enabled, tap the same book twice in rapid succession to open it. Keyboard controls are unchanged."),
+        checked_func = function()
+            return type(config.developer) == "table"
+                and config.developer.double_tap_to_open_books == true
+        end,
+        callback = function()
+            if type(config.developer) ~= "table" then config.developer = {} end
+            config.developer.double_tap_to_open_books =
+                config.developer.double_tap_to_open_books ~= true
+            plugin:saveConfig()
+        end,
         sub_item_table = {
             {
+                text = _("Single tap to open context menu"),
+                enabled_func = function()
+                    return type(config.developer) == "table"
+                        and config.developer.double_tap_to_open_books == true
+                end,
+                checked_func = function()
+                    return type(config.developer) == "table"
+                        and config.developer.single_tap_to_open_context_menu == true
+                end,
+                callback = function()
+                    if type(config.developer) ~= "table" then config.developer = {} end
+                    config.developer.single_tap_to_open_context_menu =
+                        config.developer.single_tap_to_open_context_menu ~= true
+                    plugin:saveConfig()
+                end,
+            },
+        },
+    }
+    double_tap_item.checkmark_callback = double_tap_item.callback
+    table.insert(book_items, IconItem.decorate(double_tap_item, icons.double_tap))
+
+    local context_item = IconItem.decorate({
+        text = _("Context menu"),
+        sub_item_table = {
+            IconItem.decorate({
                 text = _("Archive"),
                 checked_func = function()
                     return type(config.context_menu) == "table"
@@ -1744,8 +1257,8 @@ function M.build(ctx)
                         config.context_menu.show_archive ~= true
                     plugin:saveConfig()
                 end,
-            },
-            {
+            }, icons.archive),
+            IconItem.decorate({
                 text = _("Plugin actions"),
                 checked_func = function()
                     return type(config.context_menu) == "table"
@@ -1757,11 +1270,12 @@ function M.build(ctx)
                         config.context_menu.show_plugin_actions ~= true
                     plugin:saveConfig()
                 end,
-            },
+            }, icons.action),
         },
-    }, icons.more_vertical))
+    }, icons.more_vertical)
+    table.insert(context_item.sub_item_table, IconItem.decorate(allow_delete_item, icons.delete))
 
-    table.insert(items, IconItem.decorate({
+    table.insert(book_items, IconItem.decorate({
         text = _("Include new books in TBR"),
         help_text = _("New includes unread books and books modified since they were last opened."),
         checked_func = function()
@@ -1781,7 +1295,7 @@ function M.build(ctx)
         end,
     }, icons.tbr))
 
-    table.insert(items, IconItem.decorate({
+    table.insert(book_items, IconItem.decorate({
         text = _("Treat file updates as New"),
         help_text = _("Show modified books as New until they are opened or their read status is changed."),
         checked_func = function()
@@ -1802,7 +1316,16 @@ function M.build(ctx)
         end,
     }, icons.refresh))
 
-    return items
+    table.insert(book_items, 2, metadata_section.build(ctx))
+    IconItem.decorate(appearance_items[1], icons.settings_layout)
+    IconItem.decorate(appearance_items[2], icons.settings_covers)
+    IconItem.decorate(appearance_items[3], icons.settings_scroll)
+    return {
+        IconItem.decorate({ text = _("Appearance"), sub_item_table = appearance_items }, icons.navbar_styling),
+        IconItem.decorate(folders_item, icons.settings_folders),
+        IconItem.decorate({ text = _("Books"), sub_item_table = book_items }, icons.reading),
+        context_item,
+    }
 end
 
 return M

@@ -23,6 +23,7 @@ local function apply_browser_list_item_layout()
     local VerticalGroup = require("ui/widget/verticalgroup")
     local VerticalSpan = require("ui/widget/verticalspan")
     local filemanagerutil = require("apps/filemanager/filemanagerutil")
+    local ListFields = require("common/library_list_fields")
     local book_status = require("common/book_status")
     local FolderCover = require("modules/filebrowser/folder_cover")
     local CoverWidget = require("modules/filebrowser/patches/home/widgets/cover_common")
@@ -67,7 +68,7 @@ local function apply_browser_list_item_layout()
         function ListMenuItem:update()
             local is_dir = not (self.entry.is_file or self.entry.file)
             -- Intercept list mode (no covers) to fix directory text wrapping
-            if not self.do_cover_image then
+            if not self.do_cover_image and is_dir then
                 local original_text = self.text
                 if is_dir and not self.entry.is_go_up then
                     self.text = FolderCover.title(self.entry, self.text, self.menu)
@@ -347,7 +348,7 @@ local function apply_browser_list_item_layout()
             end
 
             local file_deleted = self.entry.dim and not is_selected(self.entry)
-            local fgcolor = file_deleted and Blitbuffer.COLOR_DARK_GRAY or nil
+            local fgcolor = file_deleted and Blitbuffer.COLOR_DARK_GRAY or Blitbuffer.COLOR_BLACK
 
             -- ── Cover image (left zone) ──────────────────────────────────────
             local cover_bb_used = false
@@ -427,12 +428,17 @@ local function apply_browser_list_item_layout()
             local book_info = self.menu.getBookInfo(filepath)
             self.been_opened = book_info.been_opened
 
+            local plugin = _plugin_ref or rawget(_G, "__ZEN_UI_PLUGIN")
+            local list_cfg = plugin and plugin.config and plugin.config.browser_list_item_layout
+            local field_order = ListFields.order(list_cfg)
+            local show = {}
+            for _i, id in ipairs(field_order) do show[id] = ListFields.enabled(list_cfg, id) end
             local filename = select(2, util.splitFilePathName(filepath))
             local filename_without_suffix, filetype = filemanagerutil.splitFileNameType(filename)
             local has_description = bookinfo.description ~= nil
             self.has_description = has_description
 
-            local title   = (not bookinfo.ignore_meta and bookinfo.title)   or filename_without_suffix
+            local title   = (not self.do_filename_only and not bookinfo.ignore_meta and bookinfo.title) or filename_without_suffix
             local authors = (not bookinfo.ignore_meta and bookinfo.authors)
             local series  = (not bookinfo.ignore_meta and bookinfo.series)
             local series_index = (not bookinfo.ignore_meta and bookinfo.series_index)
@@ -451,7 +457,7 @@ local function apply_browser_list_item_layout()
             -- ── Progress / right widget ───────────────────────────────────────
             local status_data = book_status.getFileStatusData(filepath, book_info)
             local percent_finished = status_data.percent_finished
-            local pages = zen_utils.getStablePageCount(filepath, book_info.pages or bookinfo.pages)
+            local pages = show.pages and zen_utils.getStablePageCount(filepath, book_info.pages or bookinfo.pages)
             local display_status = status_data.display_status or status_data.effective_status
             local is_new = display_status == "new"
             self._zen_effective_status = display_status
@@ -475,10 +481,12 @@ local function apply_browser_list_item_layout()
                 status_label = _("Reading")
             end
 
+            if not show.read_status then status_label, progress_str = nil, nil end
+
             -- ── Book tags (Calibre keywords field from bookinfo DB) ──────────
             -- Only show tags in "list with metadata" mode, not filename-only modes.
             local tags_str
-            if not self.do_filename_only
+            if show.tags and not self.do_filename_only
                 and not bookinfo.ignore_meta and bookinfo.keywords
                 and bookinfo.keywords ~= "" then
                 -- Normalize any separator (newline, semicolon, " · ") to ", "
@@ -537,7 +545,7 @@ local function apply_browser_list_item_layout()
                     status_probe:free()
                 end
             end
-            if pages and pages > 0 and not self.do_filename_only then
+            if show.pages and pages and pages > 0 and not self.do_filename_only then
                 pages_str = zen_utils.formatPageCount(pages, true)
                 local pages_probe = TextWidget:new{
                     text    = pages_str,
@@ -549,11 +557,11 @@ local function apply_browser_list_item_layout()
             end
 
             local wright_filetype
-            if not self.do_filename_only and filetype ~= "" then
+            if show.filetype and not self.do_filename_only and filetype ~= "" then
                 wright_filetype = TextWidget:new{
                     text    = filetype:upper(),
                     face    = library_font.getFace(fs_pages),
-                    fgcolor = Blitbuffer.COLOR_GRAY_3,
+                    fgcolor = fgcolor,
                     padding = 0,
                 }
             end
@@ -604,7 +612,7 @@ local function apply_browser_list_item_layout()
                 wright_pages = TextWidget:new{
                     text      = pages_str,
                     face      = library_font.getFace(fs_pages),
-                    fgcolor   = Blitbuffer.COLOR_GRAY_3,
+                    fgcolor   = fgcolor,
                     padding   = 0,
                     max_width = math.max(1, wright_w),
                 }
@@ -627,11 +635,11 @@ local function apply_browser_list_item_layout()
                 }
             end
 
-            local wtitle = make_text_line(title, true)
+            local wtitle = show.title and make_text_line(title, true) or nil
 
             -- Authors: single line, truncated with ellipsis
             local wauthors
-            if authors then
+            if show.authors and authors and not self.do_filename_only then
                 wauthors = TextWidget:new{
                     text      = authors:gsub("\n", ", "),
                     face      = library_font.getFace(fs_meta),
@@ -643,18 +651,18 @@ local function apply_browser_list_item_layout()
 
             -- Tags: single line under author, left column
             local wtags_left
-            if tags_str then
+            if show.tags and tags_str then
                 wtags_left = TextWidget:new{
                     text      = tags_str,
                     face      = library_font.getFace(math.max(7, fs_meta - 2)),
                     max_width = main_w,
-                    fgcolor   = Blitbuffer.COLOR_GRAY_3,
+                    fgcolor   = fgcolor,
                     padding   = 0,
                 }
             end
 
             local wseries
-            if series_str then
+            if show.series and series_str and not self.do_filename_only then
                 wseries = TextWidget:new{
                     text      = series_str,
                     face      = library_font.getFace(fs_meta),
@@ -664,39 +672,48 @@ local function apply_browser_list_item_layout()
                 }
             end
 
-            -- Fit metadata stack to row height. Keep title visible, then add
-            -- optional lines only while there is room.
-            local optional_widgets = {}
-            if wauthors then table.insert(optional_widgets, wauthors) end
-            if wseries then table.insert(optional_widgets, wseries) end
-            if wtags_left then table.insert(optional_widgets, wtags_left) end
-
-            local title_min_h = math.max(1, math.min(content_h, wtitle:getSize().h))
-            local optional_budget = math.max(0, content_h - title_min_h)
-            local used_optional_h = 0
-            local visible_optional = {}
-
-            for _i, w in ipairs(optional_widgets) do
-                local h = w:getSize().h
-                if used_optional_h + h <= optional_budget then
-                    used_optional_h = used_optional_h + h
-                    table.insert(visible_optional, w)
-                else
-                    w:free()
+            local text_widgets = { title = wtitle, authors = wauthors, series = wseries, tags = wtags_left }
+            local extra_text = {
+                filename = show.filename and BD.filename(filename) or nil,
+                language = show.language and not bookinfo.ignore_meta and bookinfo.language or nil,
+                file_size = show.file_size and util.getFriendlySize(self.entry.attr and self.entry.attr.size or bookinfo.filesize) or nil,
+            }
+            for id, text in pairs(extra_text) do
+                if show[id] and text and text ~= "" then
+                    text_widgets[id] = TextWidget:new{
+                        text = text, face = library_font.getFace(fs_meta), max_width = main_w,
+                        fgcolor = fgcolor, padding = 0,
+                    }
                 end
             end
 
-            local title_budget = math.max(1, content_h - used_optional_h)
-            wtitle.height = title_budget
-            wtitle.height_adjust = true
-            wtitle.height_overflow_show_ellipsis = true
-            wtitle:free(true)
-            wtitle:init()
-
+            -- Reserve the title, then fit the enabled metadata in its saved order.
+            local title_min_h = wtitle and math.min(content_h, wtitle:getSize().h) or 0
+            local optional_budget = math.max(0, content_h - title_min_h)
+            local used_optional_h = 0
+            for _i, id in ipairs(field_order) do
+                local widget = id ~= "title" and text_widgets[id]
+                if widget then
+                    local h = widget:getSize().h
+                    if used_optional_h + h <= optional_budget then
+                        used_optional_h = used_optional_h + h
+                    else
+                        widget:free()
+                        text_widgets[id] = nil
+                    end
+                end
+            end
+            if wtitle then
+                wtitle.height = math.max(1, content_h - used_optional_h)
+                wtitle:free(true)
+                wtitle:init()
+            end
             local text_stack = VerticalGroup:new{ align = "left" }
-            table.insert(text_stack, wtitle)
-            for _i, w in ipairs(visible_optional) do
-                table.insert(text_stack, w)
+            for _i, id in ipairs(field_order) do
+                if text_widgets[id] then table.insert(text_stack, text_widgets[id]) end
+            end
+            if #text_stack == 0 then
+                table.insert(text_stack, VerticalSpan:new{ width = 0 })
             end
 
             local text_stack_container = VerticalGroup:new{ align = "left" }
@@ -725,27 +742,26 @@ local function apply_browser_list_item_layout()
                 table.insert(widget, 1, wleft)
             end
 
-            if wright_status or wright_pages or wright_filetype then
-                if wright_status and wright_pages then
-                    local right_h = wright_status:getSize().h + wright_pages:getSize().h
-                    if right_h > content_h then
-                        wright_pages:free()
-                        wright_pages = nil
+            local right_widgets = {
+                read_status = wright_status, pages = wright_pages,
+                filetype = wright_filetype,
+            }
+            local right_stack = VerticalGroup:new{ align = "right" }
+            table.insert(right_stack, VerticalSpan:new{ width = text_safe_pad_top })
+            local right_h = 0
+            for _i, id in ipairs(field_order) do
+                local right_widget = right_widgets[id]
+                if right_widget then
+                    local h = right_widget:getSize().h
+                    if right_h + h <= content_h then
+                        table.insert(right_stack, right_widget)
+                        right_h = right_h + h
+                    else
+                        right_widget:free()
                     end
                 end
-                if wright_filetype then
-                    local right_h = (wright_status and wright_status:getSize().h or 0)
-                        + (wright_pages and wright_pages:getSize().h or 0)
-                    if right_h + wright_filetype:getSize().h > content_h then
-                        wright_filetype:free()
-                        wright_filetype = nil
-                    end
-                end
-                local right_stack = VerticalGroup:new{ align = "right" }
-                table.insert(right_stack, VerticalSpan:new{ width = text_safe_pad_top })
-                if wright_status then table.insert(right_stack, wright_status) end
-                if wright_pages  then table.insert(right_stack, wright_pages)  end
-                if wright_filetype then table.insert(right_stack, wright_filetype) end
+            end
+            if #right_stack > 1 then
                 table.insert(widget, RightContainer:new{
                     dimen = row_dimen,
                     HorizontalGroup:new{

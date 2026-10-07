@@ -18,12 +18,16 @@ order: 30
 
 ## Overview
 
-Library settings control how books and folders appear and how you browse them. They cover display layouts, sorting, covers, the status bar, home folders, book details, and metadata tools.
+Open **Zen Settings > Library** for four groups: **Appearance**, **Folders**, **Books**, and **Context menu**. Appearance contains Layout, Covers, and Scroll bar. Folders contains Covers, Series, Folder name, Home folder, and Hide up folder, in that order.
+
+The global Font, Wallpaper, and Status bar settings live under **Zen Settings > Interface**. See [Interface](/zen-os/docs/interface) for those options.
 
 ## Options
 
-- Configure the top status bar with left, center, and right item slots.
-- Choose display mode, mosaic density, list density, item underlines, and list borders.
+- Change display mode from the current folder's context menu under **Display**.
+- Set portrait and landscape mosaic density with sliders and a placeholder-cover preview.
+- Set list density and toggle or arrange detailed list fields; file type is off by default.
+- Show or hide item underlines and list borders.
 - Configure folder covers, folder labels, hidden up-folder rows, and automatic series grouping.
 - Optionally flatten subfolders into one library view without changing files on disk.
 - Configure cover badges, progress indicators, uniform cover ratios, rounded corners, title and author text, and finished-book dimming.
@@ -35,58 +39,58 @@ Library settings control how books and folders appear and how you browse them. T
 
 ## Setting reference
 
+Paths below start at **Zen Settings > Library**.
+
 | Setting | Description |
 | --- | --- |
-| Status bar > Enable custom status bar | Shows ZenOS's library status bar. |
-| Status bar > Custom text | Sets custom status text. Empty text falls back to the device model. |
-| Status bar > Show bottom border | Draws a separator below the status bar. |
-| Status bar > Bold text | Uses bold text in the status bar. |
-| Status bar > Colored status icons | Uses colored status icons when supported. |
-| Status bar > Left items | Selects and arranges Bluetooth, Incognito, Wi-Fi, disk space, RAM usage, brightness, battery, time, or custom text for the left slot. |
-| Status bar > Center items | Selects and arranges status items for the center slot. |
-| Status bar > Right items | Selects and arranges status items for the right slot. |
-| Status bar > Separator | Selects dot, bar, dash, bullet, space, small space, none, or a custom separator. |
-| Metadata > Hardcover | Enables Hardcover lookup. A read-only catalog token is required. |
-| Metadata > Google Books | Enables Google Books lookup. An API key is required. |
-| Metadata > Open Library | Enables Open Library lookup without an API credential. |
-| Metadata > Match selection | Automatically picks the best result or always opens the match chooser. |
-| Metadata > Keep an EPUB metadata backup | Keeps one restorable copy before ZenOS writes metadata into an EPUB. |
-| Layout > Display mode | Selects classic, mosaic with covers, mosaic with text, detailed list with covers and metadata, detailed list with metadata, or detailed list with covers and filenames. |
-| Layout > Items per page | Sets portrait mosaic columns and rows, landscape mosaic columns and rows, and list items per page. |
-| Layout > Show all files from subfolders | Shows books from nested folders in one flat view. It is unavailable at the device root to avoid scanning the entire filesystem. |
-| Layout > Show item underline | Shows or hides the underline between browser items. |
-| Layout > Hide list borders | Hides borders in list display modes. |
-| Folders > Hide up folder | Hides the parent-folder row. |
+| Appearance > Layout > Mosaic > Portrait | Sets portrait columns and rows from 2 to 8 with snapping sliders and a live preview. Default: 3 × 3. Accept saves; Cancel discards changes. |
+| Appearance > Layout > Mosaic > Landscape | Sets landscape columns and rows from 2 to 8 with snapping sliders and a live preview. Default: 4 × 2. Accept saves; Cancel discards changes. |
+| Appearance > Layout > Mosaic > Reset to default | Restores both portrait and landscape grid defaults. This is the last item in the Mosaic menu. |
+| Appearance > Layout > List > Items per page | Sets list density from 4 to 12 items per page. Default: 5. |
+| Appearance > Layout > List > Detailed list items | Toggles and arranges Title, Authors, Series, Tags, Filename, Language, File size, Read status, Pages, and File type. Title, Authors, Series, Tags, Read status, and Pages are enabled by default; the other fields are off. |
+| Appearance > Layout > List > Hide list borders | Hides borders in list display modes. |
+| Appearance > Layout > Show all files from subfolders | Shows books from nested folders in one flat view. It is unavailable at the device root to avoid scanning the entire filesystem. |
+| Appearance > Layout > Show item underline | Shows or hides the underline between browser items. |
+| Appearance > Covers > Badges > Badge size | Sets badge size to compact, normal, large, or extra large. |
+| Appearance > Covers > Badges > Badge color | Sets the badge color from presets or custom RGB values. |
+| Appearance > Covers > Badges > Show page count | Shows page count badges on covers. |
+| Appearance > Covers > Badges > Show series number on covers | Shows series position badges on covers. |
+| Appearance > Covers > Badges > Show favorite badge | Shows a favorite badge on favorite books. |
+| Appearance > Covers > Badges > Show new banner | Shows a new-book banner on recently added books. |
+| Appearance > Covers > Badges > Show progress bar | Shows KOReader's native progress bar on covers. |
+| Appearance > Covers > Badges > Show reading progress | Shows reading progress percentage on mosaic covers. |
+| Appearance > Covers > Uniform covers > Uniform covers | Enables uniform mosaic cover sizing. |
+| Appearance > Covers > Uniform covers | Selects 2:3 standard covers or 3:4 Kindle covers. |
+| Appearance > Covers > Dim finished books | Dims finished books in cover views. |
+| Appearance > Covers > Rounded cover corners | Rounds cover corners in supported cover views. |
+| Appearance > Covers > Show title below cover (mosaic) | Shows title text below mosaic covers. |
+| Appearance > Covers > Show author below cover (mosaic) | Shows author text below mosaic covers. |
+| Appearance > Scroll bar | Selects Bar, Dots, or Page number using the style's radio button. Open the Page number row for its format and hold controls. |
+| Appearance > Scroll bar > Page number > Page number format | Shows the current page only or page x / y. |
+| Appearance > Scroll bar > Page number > Hold to skip | Sets page-number long-press behavior to skip 10 pages, skip 20 pages, or jump to beginning/end. |
+| Folders > Covers | Selects gallery, first cover image, stack, or folder-name-only folder covers. Override per folder with a custom cover image (see below). |
+| Folders > Covers > Show spine lines | Shows book-spine lines on stacked folder covers. |
+| Folders > Covers > Show item count | Shows item counts on folder covers. |
 | Folders > Series > Group book series into folders | Automatically groups books that share series metadata into generated series folders, sorted by series position. The folders are virtual — they reorganize the view without moving files on disk. |
 | Folders > Series > Hide grouped series | Hides multi-book series groups from the folder view. Available only when automatic series grouping is enabled; books remain accessible from the Series tab. |
-| Folders > Covers | Selects gallery, first cover image, stack, or folder-name-only folder covers. Override per folder with a custom cover image (see below). |
-| Folders > Show spine lines | Shows book-spine lines on stacked folder covers. |
-| Folders > Show item count | Shows item counts on folder covers. |
 | Folders > Folder name | Controls folder name visibility, opaque background, and center or bottom placement. |
-| Covers > Badge size | Sets badge size to compact, normal, large, or extra large. |
-| Covers > Badge color | Sets the badge color from presets or custom RGB values. |
-| Covers > Show page count | Shows page count badges on covers. |
-| Covers > Show series number on covers | Shows series position badges on covers. |
-| Covers > Show favorite badge | Shows a favorite badge on favorite books. |
-| Covers > Show new banner | Shows a new-book banner on recently added books. |
-| Covers > Show KOReader progress bar | Shows KOReader's native progress bar on covers. |
-| Covers > Show progress percent on mosaic covers | Shows reading progress percentage on mosaic covers. |
-| Covers > Uniform covers | Enables uniform mosaic cover sizing. |
-| Covers > Uniform cover ratio | Selects 2:3 standard covers or 3:4 Kindle covers. |
-| Covers > Dim finished books | Dims finished books in cover views. |
-| Covers > Rounded cover corners | Rounds cover corners in supported cover views. |
-| Covers > Show title below cover (mosaic) | Shows title text below mosaic covers. |
-| Covers > Show author below cover (mosaic) | Shows author text below mosaic covers. |
-| Scroll bar > Style | Selects bar, dots, or page number scrolling. |
-| Scroll bar > Page number format | Shows the current page only or page x / y when page-number style is active. |
-| Scroll bar > Hold to skip | Sets page-number long-press behavior to skip 10 pages, skip 20 pages, or jump to beginning/end. |
-| Home folder > Set home folder | Opens a folder chooser for the primary library root. |
-| Home folder > Lock home folder | Selects Off, Only in Zen Mode, or Always for navigation outside the home folder. |
-| Home folder > Additional home folders | Adds or removes extra library roots. |
-| Book details | Chooses and arranges the metadata, reading progress, and timing fields shown in full-screen Book details. Tags can optionally open their Library view. |
-| Include new books in TBR | Includes unread books and books modified since they were last opened in To Be Read views without changing their saved read status. |
-| Double tap to open books | Requires two rapid taps on the same book in Library, Home, or Book switcher before opening it. Keyboard controls are unchanged. Its submenu can make a single tap open the context menu. |
-| Library > Allow delete | Enables or disables delete actions in the library context menu. |
+| Folders > Home folder > Set home folder | Opens a folder chooser for the primary library root. |
+| Folders > Home folder > Lock home folder | Selects Off, Only in Zen mode, or On for navigation outside the home folder. |
+| Folders > Home folder > Additional home folders | Adds or removes extra library roots. |
+| Folders > Hide up folder | Hides the parent-folder row. |
+| Books > Book details | Chooses and arranges the metadata, reading progress, and timing fields shown in full-screen Book details. Tags can optionally open their Library view. |
+| Books > Metadata > Hardcover | Enables Hardcover lookup. A read-only catalog token is required. |
+| Books > Metadata > Google Books | Enables Google Books lookup. An API key is required. |
+| Books > Metadata > Open Library | Enables Open Library lookup without an API credential. |
+| Books > Metadata > Match selection | Automatically picks the best result or always opens the match chooser. |
+| Books > Metadata > Keep an EPUB metadata backup | Keeps one restorable copy before ZenOS writes metadata into an EPUB. |
+| Books > Double-tap to open a book | Requires two rapid taps on the same book in Library, Home, or Book switcher before opening it. Keyboard controls are unchanged. |
+| Books > Double-tap to open a book > Single tap to open context menu | Makes a single tap open the context menu when double-tap opening is enabled. |
+| Books > Include new books in TBR | Includes unread books and books modified since they were last opened in To Be Read views without changing their saved read status. |
+| Books > Treat file updates as New | Shows modified books as New until they are opened or their read status is changed. |
+| Context menu > Archive | Shows archive actions in the library context menu. |
+| Context menu > Plugin actions | Shows actions provided by installed plugins in the library context menu. |
+| Context menu > Allow delete | Enables or disables delete actions in the library context menu. |
 
 ## To Be Read
 
@@ -98,11 +102,11 @@ To add a book to To Be Read, hold it in the Library and choose **Read status > T
 
 Open **Edit > Edit metadata** from a book's context menu, or choose **Edit** on a ZenOS Book details page. The editor can change the filename, cover, title, authors, series and position, genres, language, publisher, and description. Close a book before editing its metadata.
 
-**Find metadata** searches every enabled provider and can use the book's ISBN or a title and author query. Hardcover and Google Books require credentials; enter them under **Zen Settings > Library > Metadata**. They are stored locally as plain text and never logged. Open Library requires no credential. Search results show available editions with their format, publisher, language, page count, and cover so you can choose the correct match.
+**Find metadata** searches every enabled provider and can use the book's ISBN or a title and author query. Hardcover and Google Books require credentials; enter them under **Zen Settings > Library > Books > Metadata**. They are stored locally as plain text and never logged. Open Library requires no credential. Search results show available editions with their format, publisher, language, page count, and cover so you can choose the correct match.
 
 ### Metadata provider credentials
 
-The easiest setup is through **Zen Settings > Library > Metadata**:
+The easiest setup is through **Zen Settings > Library > Books > Metadata**:
 
 1. **Hardcover:** Sign in to [Hardcover's API page](https://hardcover.app/account/api), create a personal access token with only the `read:catalog` permission, and copy the token value. Open **Hardcover > Hardcover API token** in ZenOS and paste it without a leading `Bearer ` prefix. The same Hardcover submenu can display this page as a QR code.
 2. **Google Books:** In Google Cloud, select or create a project, [enable the Books API](https://console.cloud.google.com/apis/library/books.googleapis.com), then open [Credentials](https://console.cloud.google.com/apis/credentials) and choose **Create credentials > API key**. Restrict the key to the **Books API**, copy it, and paste it under **Google Books > Google Books API key**. See [Google's API-key instructions](https://developers.google.com/books/docs/v1/using#acquiring_and_using_an_api_key) for more detail.
@@ -134,7 +138,7 @@ Tap and hold any book, folder, or the current folder in the Library/Navbar. This
 Tap + Hold on the Navbar (or any empty space) to open the context menu for the folder you are viewing (including your libraries Home folder). From here you can change the folder's display mode, sorting, and status filter on the fly. Each folder remembers its own display and sorting preferences independently, so you can browse one folder as a mosaic sorted by title and another as a detailed list sorted by recently read, and each keeps its settings across sessions.
 
 ## Filesystem
-To navigate the complete filesystem, set **Zen Settings > Library > Home folder > Lock home folder** to **Off**.
+To navigate the complete filesystem, set **Zen Settings > Library > Folders > Home folder > Lock home folder** to **Off**.
 
 ### Book actions
 

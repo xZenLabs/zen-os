@@ -268,6 +268,7 @@ function M.build(ctx)
         { text = _("Widgets"), keep_menu_open = true, _zen_settings_submenu = true, callback = function() M.showWidgets(ctx.plugin) end },
         {
             text = _("Edit mode"),
+            help_text = _("Hold a widget to open settings directly"),
             checked_func = function() return ctx.plugin.config.end_book.edit_mode ~= false end,
             callback = function()
                 ctx.plugin.config.end_book.edit_mode = ctx.plugin.config.end_book.edit_mode == false
@@ -275,9 +276,8 @@ function M.build(ctx)
             end,
         },
         {
-            text = _("Preview"),
-            callback = function(touchmenu)
-                if touchmenu then touchmenu:closeMenu() end
+            text = _("Preview"), keep_menu_open = true,
+            callback = function()
                 require("modules/reader/end_book").show(require("apps/reader/readerui").instance, ctx.plugin, true)
             end,
         },

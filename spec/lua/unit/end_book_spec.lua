@@ -382,7 +382,7 @@ describe("end of book", function()
         assert.same({ page, "ui", region }, dirty)
     end)
 
-    it("returns Preview Back to end-of-book settings and leaves normal Back in the reader", function()
+    it("closes only the end-of-book screen on Back, including Preview", function()
         local EndBook = load_end_book()
         for _i, preview in ipairs({ false, true }) do
             local closed, next_tick, restored
@@ -398,14 +398,8 @@ describe("end of book", function()
             end })
             assert.is_true(page:onBack())
             assert.is_true(closed)
-            if preview then
-                assert.is_nil(restored)
-                next_tick()
-                assert.same({ { key = "text", value = "Reader" },
-                    { key = "text", value = "End of book" } }, restored)
-            else
-                assert.is_nil(next_tick)
-            end
+            assert.is_nil(next_tick)
+            assert.is_nil(restored)
         end
     end)
 
@@ -625,6 +619,22 @@ describe("end of book", function()
         assert.equals("1ч" .. hair_space .. "30мин", Data.stats(statistics).book_daily_minutes)
         statistics.getStatsBookStatus = function() return { days = 0, time = 0, pages = 0 } end
         assert.same({ book_days = "0", book_duration = "0m" }, Data.stats(statistics))
+    end)
+
+    it("uses sample statistics only for previews without recorded reading time", function()
+        local Data = require("modules/reader/end_book_data")
+        local sample = { book_days = "7", book_duration = "12600",
+            book_page_minutes = "60", book_daily_minutes = "1800" }
+        assert.same(sample, Data.stats(nil, true))
+        local summary
+        local statistics = { getStatsBookStatus = function() return summary end }
+        assert.same(sample, Data.stats(statistics, true))
+        summary = { days = 0, time = 0, pages = 0 }
+        assert.same(sample, Data.stats(statistics, true))
+        assert.same({ book_days = "0", book_duration = "0" }, Data.stats(statistics))
+        summary = { days = 3, time = 7200, pages = 80 }
+        assert.same({ book_days = "3", book_duration = "7200",
+            book_page_minutes = "90", book_daily_minutes = "2400" }, Data.stats(statistics, true))
     end)
 
     it("includes highlight notes and display page labels without exporting xpointers as pages", function()
@@ -948,14 +958,19 @@ describe("end of book", function()
         local preview = items[4]
         assert.are.equal("Preview", preview.text)
         assert.is_nil(preview.enabled_func)
+        assert.is_true(preview.keep_menu_open)
         preview.callback({ closeMenu = function() closed = true end })
-        assert.is_true(closed)
+        assert.is_nil(closed)
         assert.is_nil(preview_args[1])
         assert.are.equal(plugin, preview_args[2])
         assert.is_true(preview_args[3])
     end)
 
     it("uses saved metadata for Preview without a reader document", function()
+        local EndBook = load_end_book()
+        require("device").hasKeys = function() return false end
+        require("common/clock_timer").bind = function() end
+        ZenSpec.replace("apps/filemanager/filemanager", { instance = { menu = {} } })
         ZenSpec.replace("modules/filebrowser/patches/home_page", {})
         local freed
         local book = { path = "/library/book.epub", title = "Book", authors = "Author", percent = 0.75,
@@ -971,12 +986,15 @@ describe("end of book", function()
             getGroupedBySeries = function() return {} end })
         ZenSpec.replace("common/book_status", { getEffectiveStatusFromFile = function() end })
         G_reader_settings:saveSetting("lastfile", book.path)
-        local data = require("modules/reader/end_book_data").new(nil, plugin, {})
+        local page = setmetatable({ plugin = plugin, preview = true, rebuild = function() end }, { __index = EndBook })
+        page:init()
+        local data = page.data
         assert.are.equal(book.path, data.file)
         assert.are.equal("Author", data.authors)
         assert.are.equal(0.75, data:getFeaturedBook().percent)
         assert.are.equal("cover copy", data:getFeaturedBook().cover_bb)
-        assert.same({}, data.stats)
+        assert.same({ book_days = "7", book_duration = "12600",
+            book_page_minutes = "60", book_daily_minutes = "1800" }, data.stats)
         assert.is_true(data:getCurrentQuote().is_empty)
         assert.same({ author = {}, next_series = {}, other_series = {} }, data:getRecommendations())
         data:free()

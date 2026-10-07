@@ -2938,6 +2938,12 @@ msgstr "Destaques e notas"
 msgid "History"
 msgstr "Histórico"
 
+#. Type: help
+#. Context: help_text = _("Hold a widget to open settings directly"),
+#: end_book_settings.lua:271 stats_settings.lua:340 home_settings.lua:2669
+msgid "Hold a widget to open settings directly"
+msgstr "Mantenha um widget pressionado para abrir as configurações diretamente"
+
 #. Type: setting
 #. Context: table.insert(scroll_bar_sub_items, { text = _("Hold to skip"), enabled_func = function() return get_scroll_bar_style() == "page_number" end,
 #: library_settings.lua:1109
@@ -6911,6 +6917,12 @@ msgid "What's New"
 msgstr "O que há de novo"
 
 #. Type: message
+#. Context: help_text = _("When disabled, widget is read only and does not respond to taps, holds, or swipes"),
+#: home_settings.lua:852
+msgid "When disabled, widget is read only and does not respond to taps, holds, or swipes"
+msgstr "Quando desativado, o widget é somente leitura e não responde a toques, pressionamentos longos ou deslizes"
+
+#. Type: message
 #. Context: text = _("Custom icons"), help_text = _("When enabled, loose icons or a selected ZenOS icon pack override supported icons. Missing icons fall back to ZenOS, then KOReader."), checked_func = function()
 #: extras_settings.lua:164
 msgid "When enabled, loose icons or a selected ZenOS icon pack override supported icons. Missing icons fall back to ZenOS, then KOReader."
@@ -7309,3 +7321,27 @@ msgstr "O histórico de carregamento e o uso total serão mantidos."
 #: battery_stats_menu.lua
 msgid "Could not save battery history. The log was kept."
 msgstr "Não foi possível salvar o histórico da bateria. O registro foi mantido."
+
+msgid "Appearance"
+msgstr "Aparência"
+
+msgid "Detailed list items"
+msgstr "Itens da lista detalhada"
+
+msgid "Double-tap to open a book"
+msgstr "Toque duas vezes para abrir um livro"
+
+msgid "Portrait"
+msgstr "Retrato"
+
+msgid "Landscape"
+msgstr "Paisagem"
+
+msgid "File size"
+msgstr "Tamanho do arquivo"
+
+msgid "Accept"
+msgstr "Aceitar"
+
+msgid "Reset to default"
+msgstr "Restaurar padrão"

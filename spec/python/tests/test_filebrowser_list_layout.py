@@ -138,7 +138,9 @@ def _texts(node: object) -> set[str]:
     return found
 
 
-def test_metadata_list_rows_render_all_semantic_values() -> None:
+@pytest.mark.parametrize("display_mode", ["list_image_meta", "list_only_meta"])
+@pytest.mark.parametrize("customized", [False, True])
+def test_metadata_list_rows_follow_detailed_item_settings(display_mode: str, customized: bool) -> None:
     runtime = Path(os.environ["KOREADER_DIR"])
     with tempfile.TemporaryDirectory(prefix="zen-ui-list-layout-") as temporary:
         root = Path(temporary)
@@ -151,8 +153,19 @@ def test_metadata_list_rows_render_all_semantic_values() -> None:
         page_count_book = library / "pages.cbz"
         _write_page_count_cbz(page_count_book, root)
         _seed_bookinfo(ko_home, semantic_book, page_count_book)
+        with sqlite3.connect(ko_home / "settings" / "bookinfo_cache.sqlite3") as connection:
+            connection.execute("UPDATE config SET value = ? WHERE key = 'filemanager_display_mode'", (display_mode,))
         socket_path = root / "driver.sock"
-        process = launch(runtime, ko_home, socket_path, library)
+        fields = """
+  browser_list_item_layout = { show = {
+    title = false, authors = false, series = false, tags = false, pages = false,
+    read_status = false, filename = true, filetype = true, language = true,
+  } },
+""" if customized else ""
+        process = launch(runtime, ko_home, socket_path, library, zen_config_source="return {\n"
+            "  updater = { update_auto_check = false },\n"
+            "  features = { automatic_series_grouping = false },\n"
+            "  navbar = { default_tab = 'books' },\n" + fields + "}\n")
         try:
             wait_for_socket(socket_path)
             driver = ZenDriver(socket_path)
@@ -162,8 +175,9 @@ def test_metadata_list_rows_render_all_semantic_values() -> None:
                 "#2 – Semantic Series",
                 "New",
                 "2\N{NO-BREAK SPACE}pages",
-                "EPUB",
-                "CBZ",
+            } if not customized else { "semantic.epub", "pages.cbz", "EPUB", "CBZ", "en" }
+            absent = { "EPUB", "CBZ" } if not customized else {
+                "Semantic Title", "Zen Author", "#2 – Semantic Series", "New", "2\N{NO-BREAK SPACE}pages",
             }
             deadline = time.monotonic() + 30
             visible: set[str] = set()
@@ -179,16 +193,70 @@ def test_metadata_list_rows_render_all_semantic_values() -> None:
                 if not visible:
                     visible = {
                         normalize_visible_text(text)
-                        for text in _texts(driver.visible_ui().get("ui", {}))
+                        for text in _texts(driver.visible_ui().get("ui", {}).get("windows", []))
                     }
                 tags_visible = any(
                     "Focus" in text and "Testing" in text for text in visible
                 ) or {"Focus", "Testing"} <= visible
-                if expected <= visible and tags_visible:
+                if expected <= visible and (customized or tags_visible):
                     break
                 time.sleep(0.25)
-            assert expected <= visible, f"missing list-row values: {sorted(expected - visible)}"
-            assert tags_visible, f"missing rendered tags in: {sorted(visible)}"
+            assert expected <= visible, f"missing list-row values: {sorted(expected - visible)}; chooser: {chooser}"
+            assert not (absent & visible), f"disabled fields rendered: {sorted(absent & visible)}"
+            assert tags_visible is not customized, f"unexpected tags in: {sorted(visible)}"
+            if not customized:
+                for label in ("Library", "Appearance", "Layout", "Mosaic"):
+                    if label == "Library":
+                        assert driver.command("open_settings_page")["ok"]
+                    assert driver.command("settings_page_select", label=label)["ok"]
+                orientation = "Portrait" if display_mode == "list_image_meta" else "Landscape"
+                labels = driver.command("settings_page_state")["settings"]["labels"]
+                assert len(labels) == 3 and labels[-1] == "Reset to default", labels
+                label = next(label for label in labels if label.startswith(orientation + ":"))
+                assert driver.command("settings_page_select", label=label)["ok"]
+                state = driver.command("mosaic_layout_dialog")
+                assert state["ok"], state
+                assert (state["preview_width"] < state["preview_height"]) == (orientation == "Portrait")
+                artifact = Path(__file__).parents[2] / ".artifacts" / "goldens" / f"mosaic-layout-{orientation.lower()}.png"
+                artifact.parent.mkdir(parents=True, exist_ok=True)
+                driver.screenshot(artifact)
+                state = driver.command("mosaic_layout_dialog", field="columns", value=8)
+                assert state["columns"] == state["preview_columns"] == 8
+                state = driver.command("mosaic_layout_dialog", field="rows", value=8)
+                assert state["rows"] == state["preview_rows"] == 8
+                driver.command("mosaic_layout_dialog", field="columns", value=2)
+                driver.command("mosaic_layout_dialog", field="rows", value=5)
+                assert driver.command("mosaic_layout_dialog", button="Accept")["ok"]
+                labels = driver.command("settings_page_state")["settings"]["labels"]
+                label = next(label for label in labels if label.startswith(orientation + ":"))
+                assert driver.command("settings_page_select", label=label)["ok"]
+                driver.command("mosaic_layout_dialog", field="columns", value=8)
+                assert driver.command("mosaic_layout_dialog", button="Cancel")["ok"]
+                with sqlite3.connect(ko_home / "settings" / "bookinfo_cache.sqlite3") as connection:
+                    for key, expected_value in (("nb_cols_", 2), ("nb_rows_", 5)):
+                        value = connection.execute("SELECT value FROM config WHERE key = ?", (key + orientation.lower(),)).fetchone()[0]
+                        assert float(value) == expected_value
+                assert driver.command("settings_page_select", label="Reset to default")["ok"]
+                with sqlite3.connect(ko_home / "settings" / "bookinfo_cache.sqlite3") as connection:
+                    for key, expected_value in {"nb_cols_portrait": 3, "nb_rows_portrait": 3,
+                                                "nb_cols_landscape": 4, "nb_rows_landscape": 2}.items():
+                        value = connection.execute("SELECT value FROM config WHERE key = ?", (key,)).fetchone()[0]
+                        assert float(value) == expected_value
+                assert driver.command("settings_page_back")["ok"]
+                assert driver.command("settings_page_select", label="List")["ok"]
+                labels = driver.command("settings_page_state")["settings"]["labels"]
+                assert labels == ["Items per page: 5", "Detailed list items", "Hide list borders"]
+                assert driver.command("settings_page_back")["ok"]
+                assert driver.command("settings_page_back")["ok"]
+                assert driver.command("settings_page_select", label="Scroll bar")["ok"]
+                assert driver.command("settings_page_state")["settings"]["labels"] == ["Bar", "Dots", "Page number"]
+                assert driver.command("settings_page_select", label="Page number")["ok"]
+                assert driver.command("settings_page_state")["settings"]["labels"] == ["Page number format", "Hold to skip"]
+                assert driver.command("settings_page_select", label="Page number format")["ok"]
+                assert driver.command("settings_page_state")["settings"]["labels"] == ["Current only", "Page x / y"]
+                assert driver.command("settings_page_back")["ok"]
+                assert driver.command("settings_page_select", label="Hold to skip")["ok"]
+                assert driver.command("settings_page_state")["settings"]["labels"] == ["Skip 10 pages", "Skip 20 pages", "Beginning / End"]
         finally:
             process.send_signal(signal.SIGTERM)
             try:

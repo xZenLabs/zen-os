@@ -266,6 +266,12 @@ local defaults = {
     additional_home_dirs = {},
     browser_list_item_layout = {
         hide_list_borders = false,
+        order = { "title", "authors", "series", "tags", "filename", "language", "file_size", "read_status", "pages", "filetype" },
+        show = {
+            title = true, authors = true, series = true, tags = true,
+            filename = false, language = false, file_size = false,
+            read_status = true, pages = true, filetype = false,
+        },
     },
     browser_cover_badges = {
         show_mosaic_progress = true,

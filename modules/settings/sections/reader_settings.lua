@@ -1519,7 +1519,7 @@ function M.build(ctx)
         end,
     })
 
-    table.insert(items, {
+    table.insert(items, IconItem.decorate({
         text = _("Flash on every CBZ page turn"),
         checked_func = function()
             return config.features.reader_flash_cbz == true
@@ -1528,9 +1528,9 @@ function M.build(ctx)
             config.features.reader_flash_cbz = config.features.reader_flash_cbz ~= true
             plugin:saveConfig()
         end,
-    })
+    }, icons.reader_flash_cbz))
 
-    table.insert(items, {
+    table.insert(items, IconItem.decorate({
         text = _("Align status bars with book margins"),
         checked_func = function()
             return config.features.reader_status_bar_margins == true
@@ -1546,7 +1546,7 @@ function M.build(ctx)
                 UIManager:setDirty(reader, "ui")
             end
         end,
-    })
+    }, icons.reader_status_bar_margins))
 
     IconItem.decorate(items[1], icons.settings_status)
     IconItem.decorate(items[2], icons.reader_themes)
@@ -1554,12 +1554,12 @@ function M.build(ctx)
     IconItem.decorate(items[4], icons.search)
     IconItem.decorate(items[9], icons.settings_status)
 
-    items[#items + 1] = {
+    items[#items + 1] = IconItem.decorate({
         text = _("End of book"),
         sub_item_table_func = function()
             return require("modules/settings/sections/end_book_settings").build(ctx)
         end,
-    }
+    }, icons.end_book)
 
     return items
 end

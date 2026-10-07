@@ -304,6 +304,7 @@ describe("settings title bar", function()
         local title_bar = init_title_bar({
             title = "Library", back_visible = true, search_visible = false,
             back_callback = function() events[#events + 1] = "back" end,
+            back_hold_callback = function() events[#events + 1] = "root" end,
         })
         title_bar.back_button.dimen = Geom:new{ x = 20, y = 20, w = 44, h = 44 }
         title_bar.title_container.dimen = Geom:new{ x = 72, y = 30, w = 150, h = 44 }
@@ -321,6 +322,12 @@ describe("settings title bar", function()
         events = {}
         assert.is_true(title_bar.back_button:onTapIconButton())
         assert.are.same({ "flash", "back", "refresh" }, events)
+        events = {}
+        assert.is_true(title_bar:onHoldBackTitle())
+        assert.are.same({ "flash", "root", "refresh" }, events)
+        events = {}
+        title_bar.back_button.hold_callback()
+        assert.are.same({ "flash", "root", "refresh" }, events)
     end)
 
     it("refreshes when the network connects, disconnects, or finishes changing", function()

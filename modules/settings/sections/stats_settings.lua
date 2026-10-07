@@ -337,6 +337,7 @@ function M.build(ctx)
             }, icons.widgets),
             IconItem.decorate({
                 text = _("Edit mode"),
+                help_text = _("Hold a widget to open settings directly"),
                 checked_func = function()
                     return StatsSettings.load().edit_mode == true
                 end,

@@ -39,7 +39,7 @@ function EndBook:init()
     self.top_menu = self.ui and self.ui.menu
         or require("apps/filemanager/filemanager").instance.menu
     self.data = Data.new(self.ui, self.plugin,
-        self.plugin.config.end_book, function() self:rebuild() end, function() self:onClose() end)
+        self.plugin.config.end_book, function() self:rebuild() end, function() self:onClose() end, self.preview)
     if Device:hasKeys() then
         self.key_events.Back = { { Device.input.group.Back } }
         self.key_events.Library = { { Device.input.group.PgFwd } }
@@ -515,14 +515,6 @@ EndBook._home_rebuild = EndBook.rebuild
 
 function EndBook:onBack()
     self:onClose()
-    if self.preview then
-        UIManager:nextTick(function()
-            require("modules/settings/zen_settings_page").show(self.plugin, { path = {
-                { key = "text", value = _("Reader") },
-                { key = "text", value = _("End of book") },
-            } })
-        end)
-    end
     return true
 end
 

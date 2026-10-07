@@ -849,6 +849,7 @@ function M.build(ctx)
     local function interactive_item(mcfg)
         return {
             text = _("Interactive"),
+            help_text = _("When disabled, widget is read only and does not respond to taps, holds, or swipes"),
             checked_func = function()
                 return mcfg.interactive ~= false
             end,
@@ -2666,6 +2667,7 @@ function M.build(ctx)
             },
             {
                 text = _("Edit mode"),
+                help_text = _("Hold a widget to open settings directly"),
                 checked_func = function()
                     return dcfg.edit_mode == true
                 end,

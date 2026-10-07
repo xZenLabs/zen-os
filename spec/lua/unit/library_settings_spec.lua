@@ -26,7 +26,22 @@ describe("library settings", function()
         "common/ui/background",
         "common/book_status",
         "common/tbr_index",
+        "bookinfomanager",
+        "common/cover_utils",
+        "ui/widget/filechooser",
+        "common/ui/mosaic_layout_dialog",
+        "common/ui/zen_arrange_list",
     }
+
+    local function find_item(items, text)
+        for _i, item in ipairs(items) do
+            if item.text == text then return item end
+            if item.sub_item_table then
+                local found = find_item(item.sub_item_table, text)
+                if found then return found end
+            end
+        end
+    end
 
     before_each(function()
         saved_reinject_navbars = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
@@ -66,6 +81,151 @@ describe("library settings", function()
         for _i, name in ipairs(dependencies) do
             package.loaded[name] = saved_modules[name] or nil
         end
+    end)
+
+    it("groups Library into Appearance, Folders, Books, and Context menu", function()
+        local items = require("modules/settings/sections/library_settings").build({
+            config = { features = {}, browser_hide_up_folder = {} },
+            plugin = {}, save_and_apply = function() end,
+        })
+        local function labels(item_table)
+            local result = {}
+            for _i, item in ipairs(item_table) do result[#result + 1] = item.text end
+            return result
+        end
+        assert.are.same({ "Appearance", "Folders", "Books", "Context menu" }, labels(items))
+        assert.are.same({ "Layout", "Covers", "Scroll bar" }, labels(items[1].sub_item_table))
+        assert.are.same({ "Covers", "Series", "Folder name", "Home folder", "Hide up folder" },
+            labels(items[2].sub_item_table))
+        assert.are.same({ "Book details", "Metadata", "Double-tap to open a book",
+            "Include new books in TBR", "Treat file updates as New" }, labels(items[3].sub_item_table))
+        assert.are.same({ "Archive", "Plugin actions", "Allow delete" }, labels(items[4].sub_item_table))
+        assert.are.same({ "Mosaic", "List", "Show all files from subfolders", "Show item underline" },
+            labels(find_item(items, "Layout").sub_item_table))
+        assert.are.same({ "Portrait", "Landscape", "Reset to default" },
+            labels(find_item(items, "Mosaic").sub_item_table))
+        assert.are.same({ "Items per page", "Detailed list items", "Hide list borders" },
+            labels(find_item(items, "List").sub_item_table))
+        assert.are.same({ "Bar", "Dots", "Page number" },
+            labels(find_item(items, "Scroll bar").sub_item_table))
+        assert.are.same({ "Page number format", "Hold to skip" },
+            labels(find_item(items, "Page number").sub_item_table))
+        assert.is_nil(find_item(items, "Font"))
+        assert.is_nil(find_item(items, "Wallpaper"))
+        assert.is_nil(find_item(items, "Status bar"))
+    end)
+
+    it("persists both mosaic orientations and list density without an open library", function()
+        local saved, shown = {}, nil
+        local fc_class = {}
+        ZenSpec.replace("common/cover_utils", { MAX_FILES_PER_PAGE = 12 })
+        ZenSpec.replace("bookinfomanager", {
+            getSetting = function(_self, key) return saved[key] end,
+            saveSetting = function(_self, key, value) saved[key] = value end,
+        })
+        ZenSpec.replace("apps/filemanager/filemanager", {})
+        ZenSpec.replace("ui/widget/filechooser", fc_class)
+        ZenSpec.replace("common/ui/mosaic_layout_dialog", { new = function(options) return options end })
+        ZenSpec.replace("ui/widget/spinwidget", { new = function(_self, options) return options end })
+        package.loaded["ui/uimanager"].show = function(_self, options) shown = options end
+        local items = require("modules/settings/sections/library_settings").build({
+            config = { features = {}, browser_hide_up_folder = {} },
+            plugin = {}, save_and_apply = function() end,
+        })
+        find_item(items, "Portrait").callback()
+        assert.are.same({ 3, 3 }, { shown.columns, shown.rows })
+        shown.callback(2, 8)
+        find_item(items, "Landscape").callback()
+        assert.are.same({ 4, 2 }, { shown.columns, shown.rows })
+        shown.callback(8, 2)
+        find_item(items, "Items per page").callback()
+        shown.callback({ value = 6 })
+        assert.are.same({ nb_cols_portrait = 2, nb_rows_portrait = 8,
+            nb_cols_landscape = 8, nb_rows_landscape = 2, files_per_page = 6 }, saved)
+        assert.are.same(saved, fc_class)
+        find_item(items, "Reset to default").callback()
+        assert.are.same({ nb_cols_portrait = 3, nb_rows_portrait = 3,
+            nb_cols_landscape = 4, nb_rows_landscape = 2, files_per_page = 6 }, saved)
+        assert.are.same(saved, fc_class)
+    end)
+
+    it("arranges detailed fields and keeps existing defaults with file type off", function()
+        local arranged, saves, refreshes = nil, 0, 0
+        ZenSpec.replace("common/ui/zen_arrange_list", { show = function(options) arranged = options end })
+        ZenSpec.replace("apps/filemanager/filemanager", {
+            instance = { file_chooser = { updateItems = function() refreshes = refreshes + 1 end } },
+        })
+        local config = { features = {}, browser_hide_up_folder = {} }
+        local items = require("modules/settings/sections/library_settings").build({
+            config = config, plugin = { saveConfig = function() saves = saves + 1 end },
+            save_and_apply = function() end,
+        })
+        find_item(items, "Detailed list items").callback()
+        assert.are.equal("Detailed list items", arranged.title)
+        for _i, id in ipairs({ "Title", "Authors", "Series", "Tags", "Pages", "Read status" }) do
+            assert.is_true(find_item(arranged.item_table, id).checked_func())
+        end
+        for _i, id in ipairs({ "Filename", "File type", "Language", "File size" }) do
+            assert.is_false(find_item(arranged.item_table, id).checked_func())
+        end
+        assert.is_nil(find_item(arranged.item_table, "Progress"))
+        find_item(arranged.item_table, "File type").callback()
+        find_item(arranged.item_table, "Title").callback()
+        assert.is_true(config.browser_list_item_layout.show.filetype)
+        assert.is_false(config.browser_list_item_layout.show.title)
+        table.insert(arranged.item_table, 1, table.remove(arranged.item_table, 5))
+        arranged.callback()
+        assert.are.equal("filename", config.browser_list_item_layout.order[1])
+        assert.are.same({ 3, 3 }, { saves, refreshes })
+    end)
+
+    it("selects page-number style and persists its nested controls", function()
+        local saves, reinitializations = 0, 0
+        package.loaded["ui/uimanager"].setDirty = function() end
+        package.loaded["modules/settings/zen_settings_apply"].reinit_filemanager = function()
+            reinitializations = reinitializations + 1
+        end
+        local config = { features = {}, browser_hide_up_folder = {}, zen_scroll_bar = { style = "bar" } }
+        local items = require("modules/settings/sections/library_settings").build({
+            config = config, plugin = { saveConfig = function() saves = saves + 1 end },
+            save_and_apply = function() end,
+        })
+        local page_number = find_item(items, "Page number")
+        assert.is_false(page_number.checked_func())
+        page_number.checkmark_callback()
+        assert.is_true(page_number.checked_func())
+        find_item(page_number.sub_item_table, "Page x / y").callback()
+        find_item(page_number.sub_item_table, "Skip 20 pages").callback()
+        assert.are.same({ style = "page_number", page_number_format = "total", hold_skip = "20" }, config.zen_scroll_bar)
+        assert.are.same({ 3, 1 }, { saves, reinitializations })
+    end)
+
+    it("toggles double-tap book opening", function()
+        local saved = 0
+        local config = { features = {}, developer = {}, browser_hide_up_folder = {} }
+        local items = require("modules/settings/sections/library_settings").build({
+            config = config,
+            plugin = { saveConfig = function() saved = saved + 1 end },
+            save_and_apply = function() end,
+        })
+        local double_tap_item = find_item(items, "Double-tap to open a book")
+
+        assert.is_table(double_tap_item)
+        assert.is_false(double_tap_item.checked_func())
+        double_tap_item.checkmark_callback()
+        assert.is_true(double_tap_item.checked_func())
+        assert.are.equal(1, saved)
+
+        local single_tap_item = double_tap_item.sub_item_table[1]
+        assert.are.equal("Single tap to open context menu", single_tap_item.text)
+        assert.is_true(single_tap_item.enabled_func())
+        assert.is_false(single_tap_item.checked_func())
+        single_tap_item.callback()
+        assert.is_true(single_tap_item.checked_func())
+        assert.are.equal(2, saved)
+        double_tap_item.checkmark_callback()
+        assert.is_false(single_tap_item.enabled_func())
+        assert.are.equal(3, saved)
     end)
 
     it("nests series settings and refreshes the library when they change", function()
@@ -160,9 +320,9 @@ describe("library settings", function()
             plugin = { saveConfig = function() saves = saves + 1 end },
             save_and_apply = function() end,
         })
-        local setting = items[#items]
+        local setting = find_item(items, "Treat file updates as New")
         assert.are.equal("Treat file updates as New", setting.text)
-        assert.are.equal("Include new books in TBR", items[#items - 1].text)
+        assert.is_not_nil(find_item(items, "Include new books in TBR"))
         assert.is_false(setting.checked_func())
         local menu = { updateItems = function() menu_updates = menu_updates + 1 end }
         setting.callback(menu)
@@ -187,13 +347,7 @@ describe("library settings", function()
             plugin = { saveConfig = function() saves = saves + 1 end },
             save_and_apply = function() end,
         })
-        local details
-        for _i, item in ipairs(items) do
-            if item.text == "Book details" then
-                details = item
-                break
-            end
-        end
+        local details = find_item(items, "Book details")
 
         assert.is_not_nil(details)
         assert.are.equal("Book details", details.text)
@@ -276,9 +430,7 @@ describe("library settings", function()
             plugin = { saveConfig = function() saves = saves + 1 end },
             save_and_apply = function() end,
         })
-        for _i, item in ipairs(items) do
-            if item.text == "Book details" then item.callback() break end
-        end
+        find_item(items, "Book details").callback()
 
         local font_items = arranged.item_table[12].sub_item_table_func()
         local touchmenu = { updateItems = function() updates = updates + 1 end }
@@ -325,16 +477,6 @@ describe("library settings", function()
             save_and_apply = function() end,
         })
 
-        local function find_item(item_table, text)
-            for _i, item in ipairs(item_table) do
-                if item.text == text then return item end
-                if type(item.sub_item_table) == "table" then
-                    local found = find_item(item.sub_item_table, text)
-                    if found then return found end
-                end
-            end
-        end
-
         find_item(items, "Show title below cover (mosaic)").callback()
         find_item(items, "Show author below cover (mosaic)").callback()
 
@@ -378,16 +520,6 @@ describe("library settings", function()
             save_and_apply = function() end,
         })
 
-        local function find_item(item_table, text)
-            for _i, item in ipairs(item_table) do
-                if item.text == text then return item end
-                if type(item.sub_item_table) == "table" then
-                    local found = find_item(item.sub_item_table, text)
-                    if found then return found end
-                end
-            end
-        end
-
         find_item(items, "First cover image").callback()
 
         assert.are.equal("normal", config.browser_folder_cover.cover_mode)
@@ -429,16 +561,6 @@ describe("library settings", function()
             save_and_apply = function() end,
         })
 
-        local function find_item(item_table, text)
-            for _i, item in ipairs(item_table) do
-                if item.text == text then return item end
-                if type(item.sub_item_table) == "table" then
-                    local found = find_item(item.sub_item_table, text)
-                    if found then return found end
-                end
-            end
-        end
-
         find_item(items, "Show spine lines").callback()
         assert.is_function(deferred)
         deferred()
@@ -454,414 +576,6 @@ describe("library settings", function()
         assert.are.equal(2, rebuilds)
     end)
 
-    it("resets the Library font to bundled Hyperreadable", function()
-        local confirmation
-        local saves = 0
-        package.loaded["ui/uimanager"].show = function(_self, widget)
-            confirmation = widget
-        end
-        package.loaded["ui/uimanager"].scheduleIn = function() end
-        package.loaded["modules/settings/zen_settings_apply"].reinit_filemanager = function() end
-        package.loaded["modules/settings/zen_settings_apply"].prompt_restart = function() end
-        ZenSpec.replace("ui/widget/confirmbox", {
-            new = function(_self, options) return options end,
-        })
-        ZenSpec.replace("apps/filemanager/filemanager", {})
-
-        local config = {
-            browser_hide_up_folder = {},
-            features = {},
-            library_font = { font_face = "/fonts/Custom-Regular.ttf", font_size = 24 },
-        }
-        local items = require("modules/settings/sections/library_settings").build({
-            config = config,
-            plugin = { saveConfig = function() saves = saves + 1 end },
-            save_and_apply = function() end,
-        })
-
-        local function find_item(item_table, text)
-            for _i, item in ipairs(item_table) do
-                if item.text == text then return item end
-                if type(item.sub_item_table) == "table" then
-                    local found = find_item(item.sub_item_table, text)
-                    if found then return found end
-                end
-            end
-        end
-
-        find_item(items, "Reset font").callback()
-        confirmation.ok_callback()
-
-        assert.are.equal(require("config/defaults").library_font.font_face, config.library_font.font_face)
-        assert.are.equal(18, config.library_font.font_size)
-        assert.are.equal(1, saves)
-    end)
-
-    it("lists Library fonts inside settings and stores portable paths", function()
-        local name_path
-        local saves = 0
-        local plugin_root = assert(require("common/plugin_root"))
-        local font_path = "fonts/hyperreadable/Hyperreadable-Regular.ttf"
-        local resolved_font_path = plugin_root .. "/" .. font_path
-        local selected = plugin_root .. "/fonts/hyperreadable/Hyperreadable-Bold.ttf"
-        local stock_font_path = "./fonts/noto/NotoSans-Regular.ttf"
-        local external_path = "/mnt/fonts/External-Regular.ttf"
-        package.loaded["ui/uimanager"].scheduleIn = function() end
-        package.loaded["modules/settings/zen_settings_apply"].reinit_filemanager = function() end
-        package.loaded["modules/settings/zen_settings_apply"].prompt_restart = function() end
-        ZenSpec.replace("ui/widget/fontchooser", {
-            getFontNameText = function(path)
-                name_path = path
-                return path:match("([^/]+)$")
-            end,
-            isFontRegistered = function(path)
-                return path == resolved_font_path or path == stock_font_path
-                    or path == selected or path == external_path
-            end,
-        })
-        ZenSpec.replace("ui/font", {
-            fontmap = { cfont = "NotoSans-Regular.ttf" },
-        })
-        ZenSpec.replace("ffi/util", {
-            strcoll = function(a, b) return a < b end,
-        })
-        ZenSpec.replace("fontlist", {
-            fontinfo = {
-                [resolved_font_path] = {},
-                [selected] = {},
-                [stock_font_path] = {},
-                [external_path] = {},
-            },
-        })
-        ZenSpec.replace("apps/filemanager/filemanager", {})
-
-        local config = {
-            browser_hide_up_folder = {},
-            features = {},
-            library_font = { font_face = font_path, font_size = 24 },
-        }
-        local items = require("modules/settings/sections/library_settings").build({
-            config = config,
-            plugin = { saveConfig = function() saves = saves + 1 end },
-            save_and_apply = function() end,
-        })
-
-        local font_item
-        for _i, item in ipairs(items) do
-            if type(item.sub_item_table) == "table" then
-                for _j, sub_item in ipairs(item.sub_item_table) do
-                    if sub_item.text == "Reset font" then
-                        for _k, sibling in ipairs(item.sub_item_table) do
-                            if sibling.hold_callback then font_item = sibling end
-                        end
-                        break
-                    end
-                end
-            end
-        end
-        assert.is_not_nil(font_item)
-        assert.are.equal("Font: Hyperreadable-Regular.ttf", font_item.text_func())
-        assert.are.equal(resolved_font_path, name_path)
-
-        local menu_updates = 0
-        local touchmenu = { updateItems = function() menu_updates = menu_updates + 1 end }
-        local font_choices = font_item.sub_item_table_func(touchmenu)
-        assert.are.equal(resolved_font_path, font_choices.open_on_menu_item_id_func())
-        local function choice(file)
-            for _i, item in ipairs(font_choices) do
-                if item.menu_item_id == file then return item end
-            end
-        end
-        assert.is_true(choice(resolved_font_path).checked_func())
-
-        choice(selected).callback()
-        assert.are.equal("fonts/hyperreadable/Hyperreadable-Bold.ttf",
-            config.library_font.font_face)
-        assert.are.equal(1, saves)
-        assert.is_true(choice(selected).checked_func())
-
-        choice(external_path).callback()
-        assert.are.equal(external_path, config.library_font.font_face)
-        assert.are.equal(2, saves)
-
-        config.library_font.font_face = "cfont"
-        font_choices = font_item.sub_item_table_func(touchmenu)
-        assert.are.equal(stock_font_path, font_choices.open_on_menu_item_id_func())
-        assert.is_true(choice(stock_font_path).checked_func())
-        assert.are.equal("cfont", config.library_font.font_face)
-        assert.are.equal(2, saves)
-
-        config.library_font.font_face = "/missing/Unavailable-Regular.ttf"
-        font_choices = font_item.sub_item_table_func(touchmenu)
-        assert.are.equal(resolved_font_path, font_choices.open_on_menu_item_id_func())
-        assert.are.equal(font_path, config.library_font.font_face)
-        assert.are.equal(3, saves)
-        assert.are.equal(3, menu_updates)
-    end)
-
-    it("shows the selected Library font path on hold without resetting it", function()
-        local message
-        local saves = 0
-        package.loaded["ui/uimanager"].show = function(_self, widget)
-            message = widget
-        end
-        ZenSpec.replace("ui/widget/infomessage", {
-            new = function(_self, options) return options end,
-        })
-
-        local font_path = "fonts/Custom-Regular.ttf"
-        local resolved_font_path = assert(require("common/plugin_root")) .. "/" .. font_path
-        local config = {
-            browser_hide_up_folder = {},
-            features = {},
-            library_font = { font_face = font_path, font_size = 24 },
-        }
-        local items = require("modules/settings/sections/library_settings").build({
-            config = config,
-            plugin = { saveConfig = function() saves = saves + 1 end },
-            save_and_apply = function() end,
-        })
-
-        local font_item
-        for _i, item in ipairs(items) do
-            if type(item.sub_item_table) == "table" then
-                for _j, sub_item in ipairs(item.sub_item_table) do
-                    if sub_item.text == "Reset font" then
-                        for _k, sibling in ipairs(item.sub_item_table) do
-                            if sibling.hold_callback then font_item = sibling end
-                        end
-                        break
-                    end
-                end
-            end
-        end
-        assert.is_not_nil(font_item)
-        font_item.hold_callback()
-
-        assert.are.equal(resolved_font_path, message.text)
-        assert.is_false(message.show_icon)
-        assert.are.equal(font_path, config.library_font.font_face)
-        assert.are.equal(0, saves)
-    end)
-
-    it("edits wallpaper opacity and inversion and refreshes the cached surfaces", function()
-        local picker
-        local saves = 0
-        local cache_clears = 0
-        local reinitializations = 0
-        local scheduled = 0
-        local menu_updates = 0
-        local navbar_invalidations = 0
-        local home_rebuilds = 0
-        local navbar_reinjections = 0
-        local home = {
-            invalidateNavbar = function() navbar_invalidations = navbar_invalidations + 1 end,
-            rebuildActive = function() home_rebuilds = home_rebuilds + 1 end,
-        }
-        package.loaded["common/shared_state"].get = function() return home end
-        _G.__ZEN_UI_REINJECT_NAVBARS = function()
-            navbar_reinjections = navbar_reinjections + 1
-        end
-        package.loaded["modules/settings/zen_settings_utils"].show_value_picker =
-            function(title, value, callback, min, max)
-                picker = {
-                    title = title,
-                    value = value,
-                    callback = callback,
-                    min = min,
-                    max = max,
-                }
-            end
-        package.loaded["modules/settings/zen_settings_apply"].reinit_filemanager_on_menu_close =
-            function() reinitializations = reinitializations + 1 end
-        local deferred = {}
-        package.loaded["modules/settings/zen_settings_apply"].defer_until_settings_close =
-            function(key, callback)
-                if not deferred[key] then scheduled = scheduled + 1 end
-                deferred[key] = callback
-            end
-        ZenSpec.replace("common/ui/background", {
-            clearCache = function() cache_clears = cache_clears + 1 end,
-        })
-
-        local config = {
-            browser_hide_up_folder = {},
-            features = {},
-            library_background = {
-                enabled = true,
-                path = "/library/background.jpg",
-            },
-        }
-        local items = require("modules/settings/sections/library_settings").build({
-            config = config,
-            plugin = { saveConfig = function() saves = saves + 1 end },
-            save_and_apply = function() end,
-        })
-        local background
-        for _i, item in ipairs(items) do
-            if item.text == "Wallpaper" then
-                background = item
-                break
-            end
-        end
-        local opacity = assert(background).sub_item_table[2]
-        local inversion = background.sub_item_table[3]
-
-        assert.is_true(background.checked_func())
-        assert.is_function(background.checkmark_callback)
-        assert.are.equal("Invert with dark mode", inversion.text)
-        assert.is_true(inversion.checked_func())
-        assert.are.equal("Opacity: 100%", opacity.text_func())
-        assert.is_true(opacity.enabled_func())
-        opacity.callback({ updateItems = function() menu_updates = menu_updates + 1 end })
-        assert.are.same({
-            title = "Wallpaper - Opacity",
-            value = 100,
-            min = 0,
-            max = 100,
-            callback = picker.callback,
-        }, picker)
-
-        picker.callback(37.6)
-        assert.are.equal(38, config.library_background.opacity)
-        assert.are.equal(1, saves)
-        assert.are.equal(1, cache_clears)
-        assert.are.equal(1, reinitializations)
-        assert.are.equal(1, scheduled)
-        assert.are.equal(1, menu_updates)
-        assert.are.equal("Opacity: 38%", opacity.text_func())
-
-        assert.is_function(inversion.callback)
-        inversion.callback()
-        assert.is_false(config.library_background.invert_with_dark_mode)
-        assert.is_false(inversion.checked_func())
-        assert.are.equal(2, saves)
-        assert.are.equal(2, cache_clears)
-        assert.are.equal(2, reinitializations)
-
-        inversion.callback()
-        assert.is_true(config.library_background.invert_with_dark_mode)
-        assert.is_true(inversion.checked_func())
-        assert.are.equal(3, saves)
-        assert.are.equal(3, cache_clears)
-
-        background.checkmark_callback()
-        assert.is_false(config.library_background.enabled)
-        assert.is_false(background.checked_func())
-        assert.are.equal(4, saves)
-        assert.are.equal(4, cache_clears)
-        assert.are.equal(4, reinitializations)
-        assert.are.equal(1, scheduled)
-        assert.are.equal(0, navbar_invalidations)
-        assert.are.equal(0, home_rebuilds)
-        assert.are.equal(0, navbar_reinjections)
-
-        deferred.background_surfaces()
-
-        assert.are.equal(1, navbar_invalidations)
-        assert.are.equal(1, home_rebuilds)
-        assert.are.equal(1, navbar_reinjections)
-    end)
-
-    it("validates the image when enabling the wallpaper parent switch", function()
-        local shown
-        local saves = 0
-        local cache_clears = 0
-        local reinitializations = 0
-        local scheduled = 0
-        package.loaded["ui/uimanager"].show = function(_, dialog) shown = dialog end
-        package.loaded["ui/uimanager"].scheduleIn = function()
-            scheduled = scheduled + 1
-        end
-        package.loaded["modules/settings/zen_settings_apply"].reinit_filemanager_on_menu_close =
-            function() reinitializations = reinitializations + 1 end
-        local deferred = {}
-        package.loaded["modules/settings/zen_settings_apply"].defer_until_settings_close =
-            function(key, callback)
-                if not deferred[key] then scheduled = scheduled + 1 end
-                deferred[key] = callback
-            end
-        ZenSpec.replace("ui/widget/infomessage", {
-            new = function(_, spec) return spec end,
-        })
-        local background_module = {
-            validateImage = function() return false, "missing" end,
-            clearCache = function() cache_clears = cache_clears + 1 end,
-        }
-        ZenSpec.replace("common/ui/background", background_module)
-
-        local config = {
-            browser_hide_up_folder = {},
-            features = {},
-            library_background = {
-                enabled = false,
-                path = "/library/missing.jpg",
-            },
-        }
-        local items = require("modules/settings/sections/library_settings").build({
-            config = config,
-            plugin = { saveConfig = function() saves = saves + 1 end },
-            save_and_apply = function() end,
-        })
-        local background
-        for _i, item in ipairs(items) do
-            if item.text == "Wallpaper" then
-                background = item
-                break
-            end
-        end
-
-        assert.is_false(background.checked_func())
-        assert.are.equal(3, #background.sub_item_table)
-        background.checkmark_callback()
-
-        assert.is_false(config.library_background.enabled)
-        assert.are.equal("Background image file not found.", shown.text)
-        assert.are.equal(0, saves)
-        assert.are.equal(0, cache_clears)
-
-        background_module.validateImage = function() return true end
-        background.checkmark_callback()
-
-        assert.is_true(config.library_background.enabled)
-        assert.is_true(background.checked_func())
-        assert.are.equal(1, saves)
-        assert.are.equal(1, cache_clears)
-        assert.are.equal(1, reinitializations)
-        assert.are.equal(1, scheduled)
-    end)
-
-    it("uses the wallpapers directory as the wallpaper picker default and Home", function()
-        local chooser
-        local home_path
-        package.loaded["ui/uimanager"].show = function(_, widget) chooser = widget end
-        ZenSpec.replace("ui/widget/pathchooser", {
-            new = function(_self, values) return values end,
-        })
-
-        local items = require("modules/settings/sections/library_settings").build({
-            config = {
-                browser_hide_up_folder = {},
-                features = {},
-                library_background = { path = "" },
-            },
-            plugin = { saveConfig = function() end },
-            save_and_apply = function() end,
-        })
-        local background
-        for _i, item in ipairs(items) do
-            if item.text == "Wallpaper" then background = item; break end
-        end
-
-        background.sub_item_table[1].callback()
-        assert.are.equal("/koreader/resources/wallpapers", chooser.path)
-        assert.is_true(chooser._image_layout)
-        assert.is_true(chooser.goHome({
-            changeToPath = function(_, path) home_path = path end,
-        }))
-        assert.are.equal("/koreader/resources/wallpapers", home_path)
-    end)
-
     it("puts archive and plugin actions off by default under Context menu", function()
         local saves = 0
         local config = {
@@ -875,16 +589,13 @@ describe("library settings", function()
             save_and_apply = function() end,
         })
 
-        local context_menu = items[#items - 2]
+        local context_menu = find_item(items, "Context menu")
         assert.are.equal("Context menu", context_menu.text)
-        assert.are.equal(2, #context_menu.sub_item_table)
+        assert.are.equal(3, #context_menu.sub_item_table)
         local archive = context_menu.sub_item_table[1]
         assert.are.equal("Archive", archive.text)
         assert.are.equal("Plugin actions", context_menu.sub_item_table[2].text)
-        local allow_delete
-        for _i, item in ipairs(items) do
-            if item.text == "Allow delete" then allow_delete = item end
-        end
+        local allow_delete = find_item(context_menu.sub_item_table, "Allow delete")
         assert.is_not_nil(allow_delete)
         assert.is_true(allow_delete.checked_func())
         local plugin_actions = context_menu.sub_item_table[2]

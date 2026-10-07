@@ -54,41 +54,6 @@ describe("Advanced settings", function()
         assert.is_true(clear_gestures.keep_menu_open)
     end)
 
-    it("toggles double-tap book opening", function()
-        local saved = 0
-        local config = { features = {}, developer = {} }
-        local items = require("modules/settings/sections/advanced_settings").build({
-            config = config,
-            plugin = { saveConfig = function() saved = saved + 1 end },
-            settings_apply = { prompt_restart = function() end },
-        })
-        local double_tap_item
-        for _i, item in ipairs(items) do
-            if item.text == "Double tap to open books" then
-                double_tap_item = item
-                break
-            end
-        end
-
-        assert.is_table(double_tap_item)
-        assert.are.equal("\u{F073C}", double_tap_item.icon_glyph)
-        assert.is_false(double_tap_item.checked_func())
-        double_tap_item.checkmark_callback()
-        assert.is_true(double_tap_item.checked_func())
-        assert.are.equal(1, saved)
-
-        local single_tap_item = double_tap_item.sub_item_table[1]
-        assert.are.equal("Single tap to open context menu", single_tap_item.text)
-        assert.is_true(single_tap_item.enabled_func())
-        assert.is_false(single_tap_item.checked_func())
-        single_tap_item.callback()
-        assert.is_true(single_tap_item.checked_func())
-        assert.are.equal(2, saved)
-        double_tap_item.checkmark_callback()
-        assert.is_false(single_tap_item.enabled_func())
-        assert.are.equal(3, saved)
-    end)
-
     it("toggles partial pages refresh without requesting a restart", function()
         local saved = 0
         local config = { features = { partial_page_repaint = false }, developer = {} }

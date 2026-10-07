@@ -26,7 +26,7 @@ Swipe up while in a book, then tap the **Aa** icon.
 
 ## No books found
 
-Set the Home folder to the location where your books are, preferably a dedicated folder such as `/books`, under **Zen Settings > Library > Home folder > Set home folder**. Sideloaded books must use an open, DRM-free format such as EPUB or PDF. ZenOS cannot natively open books delivered through Amazon Send to Kindle or Kindle formats such as KFX and AZW3. On Kindle devices, you can install [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) to access books books from the native Kindle library.
+Set the Home folder to the location where your books are, preferably a dedicated folder such as `/books`, under **Zen Settings > Library > Folders > Home folder > Set home folder**. Sideloaded books must use an open, DRM-free format such as EPUB or PDF. ZenOS cannot natively open books delivered through Amazon Send to Kindle or Kindle formats such as KFX and AZW3. On Kindle devices, you can install [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) to access books books from the native Kindle library.
 
 ## How do I open my native Kindle library?
 
@@ -34,7 +34,7 @@ Install [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) on a Kin
 
 ## Calibre loads all my books into folders of the authors, how can I fix that?
 
-Enable the setting **Zen Settings > Library > Layout > Show all files from subfolders**.
+Enable the setting **Zen Settings > Library > Appearance > Layout > Show all files from subfolders**.
 
 ## Which plugins and patches are incompatible with ZenOS?
 
@@ -56,4 +56,4 @@ Disable each item before using ZenOS unless its action is **Remove**; those plug
 | Neo QuickSettings | Disable |
 
 ## How do I navigate the entire filesystem?
-Set **Zen Settings > Library > Home folder > Lock home folder** to **Off**.
+Set **Zen Settings > Library > Folders > Home folder > Lock home folder** to **Off**.

@@ -10,9 +10,7 @@ local utils          = require("modules/settings/zen_settings_utils")
 
 local lib_section      = require("modules/settings/sections/library_settings")
 local home_section = require("modules/settings/sections/library_settings/home_settings")
-local navbar_section   = require("modules/settings/sections/library_settings/navbar_settings")
-local menu_section     = require("modules/settings/sections/menu_settings")
-local app_launcher_section = require("modules/settings/sections/app_launcher_settings")
+local interface_section = require("modules/settings/sections/interface_settings")
 local reader_section   = require("modules/settings/sections/reader_settings")
 local extras_section   = require("modules/settings/sections/extras_settings")
 local general_section  = require("modules/settings/sections/general_settings")
@@ -50,86 +48,12 @@ function M.build(plugin)
         settings_apply = settings_apply,
     }
 
-    local navbar_item          = navbar_section.build(ctx)
     local filebrowser_items    = lib_section.build(ctx)
     local home_item       = home_section.build(ctx)
-    local quick_settings_item  = menu_section.build(ctx)
-    local app_launcher_item = app_launcher_section.build(ctx)
     local reader_items         = reader_section.build(ctx)
     local extras_items      = extras_section.build(ctx)
     local about_items     = about_section.build(ctx)
     local general_items   = general_section.build(ctx, extras_items)
-
-    -- -------------------------------------------------------------------------
-    -- Item ordering
-    -- -------------------------------------------------------------------------
-
-    filebrowser_items = utils.order_items_by_text(filebrowser_items, {
-        _("Display mode"),
-        _("Items per page"),
-        _("Sort by"),
-        _("Status bar"),
-    })
-
-    utils.reorder_nested_items_by_text(filebrowser_items, _("Status bar"), {
-        _("12-hour time"),
-        _("Show bottom border"),
-        _("Bold text"),
-        _("Colored status icons"),
-        _("Left items"),
-        _("Center items"),
-        _("Right items"),
-    })
-
-    utils.reorder_nested_items_by_text({ navbar_item }, _("Navbar"), {
-        _("Tabs") .. " \u{25B8}",
-        _("Styling"),
-        _("Default tab: "),
-    })
-
-    utils.reorder_nested_items_by_text({ navbar_item }, _("Styling"), {
-        _("Labels"),
-        _("Icons"),
-        _("Active tab"),
-        _("Show top border"),
-    })
-
-    utils.reorder_nested_items_by_text({ navbar_item }, _("Active tab"), {
-        _("Underline"),
-        _("Filled"),
-        _("Colored"),
-        _("Active tab color"),
-    })
-
-    utils.reorder_nested_items_by_text({ navbar_item }, _("Labels"), {
-        _("Show labels"),
-        _("Label size:"),
-    })
-
-    utils.reorder_nested_items_by_text({ navbar_item }, _("Icons"), {
-        _("Show icons"),
-        _("Icon size:"),
-    })
-
-    -- -------------------------------------------------------------------------
-    -- Root menu assembly
-    -- -------------------------------------------------------------------------
-
-    local function move_item(items, text, destination)
-        for i, item in ipairs(items) do
-            if item.text == text then
-                table.insert(destination, table.remove(items, i))
-                return
-            end
-        end
-    end
-
-    for _i, item in ipairs(general_items) do
-        if item.text == _("Advanced") then
-            move_item(item.sub_item_table, _("Double tap to open books"), filebrowser_items)
-            break
-        end
-    end
 
     extras_items = utils.order_items_by_text(extras_items, {
         _("Install ZenPM"),
@@ -138,27 +62,9 @@ function M.build(plugin)
         _("Rakuyomi"),
     })
 
-    quick_settings_item.text = _("Controls")
-    IconItem.decorate(quick_settings_item, icons.settings_quick)
-    app_launcher_item.text = _("Launcher")
-    IconItem.decorate(app_launcher_item, icons.settings_launcher)
-    app_launcher_item._zen_settings_root = "launcher"
     home_item.text = _("Home")
     IconItem.decorate(home_item, icons.settings_home)
-    navbar_item.text = _("Navbar")
-
-    local interface_items = {
-        quick_settings_item,
-        app_launcher_item,
-        IconItem.decorate(navbar_item, icons.settings_navbar),
-    }
-    move_item(filebrowser_items, _("Status bar"), interface_items)
-    move_item(filebrowser_items, _("Font"), interface_items)
-    move_item(extras_items, _("Zen Keyboard"), interface_items)
-    move_item(filebrowser_items, _("Wallpaper"), interface_items)
-    move_item(extras_items, _("Custom icons"), interface_items)
-    move_item(quick_settings_item.sub_item_table, _("Blur menu background"), interface_items)
-    move_item(extras_items, _("Zen Search"), interface_items)
+    local interface_item = interface_section.build(ctx, extras_items)
 
     local library_item = IconItem.decorate({
         text = _("Library"),
@@ -170,11 +76,7 @@ function M.build(plugin)
         home_item,
         library_item,
         IconItem.decorate({ text = _("Reader"), sub_item_table = reader_items }, icons.settings_reader),
-        IconItem.decorate({
-            text = _("Interface"),
-            sub_item_table = interface_items,
-            _zen_settings_root = "interface",
-        }, icons.settings_global),
+        interface_item,
         IconItem.decorate({ text = _("Extras"), sub_item_table = extras_items }, icons.fav_add),
         IconItem.decorate({ text = _("General"), sub_item_table = general_items }, icons.settings),
         {

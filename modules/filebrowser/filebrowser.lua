@@ -49,6 +49,7 @@ local PATCH_MODULES = {
     home_page = "modules/filebrowser/patches/home_page",
     status_on_open = "modules/filebrowser/patches/status_on_open",
     library_background = "modules/filebrowser/patches/library_background",
+    empty_library = "modules/filebrowser/patches/empty_library",
     book_double_tap = "modules/filebrowser/patches/book_double_tap",
 }
 
@@ -209,6 +210,11 @@ function M.init(logger, plugin)
     local library_background_fn = load_patch("library_background")
     if library_background_fn then
         run_feature(logger, plugin, "library_background", library_background_fn)
+    end
+
+    local empty_library_fn = load_patch("empty_library")
+    if empty_library_fn then
+        run_feature(logger, plugin, "empty_library", empty_library_fn)
     end
 
     local runtime_patches = rawget(_G, "__ZEN_UI_RUNTIME_PATCHES")

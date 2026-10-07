@@ -2938,6 +2938,12 @@ msgstr "标注和笔记"
 msgid "History"
 msgstr "历史记录"
 
+#. Type: help
+#. Context: help_text = _("Hold a widget to open settings directly"),
+#: end_book_settings.lua:271 stats_settings.lua:340 home_settings.lua:2669
+msgid "Hold a widget to open settings directly"
+msgstr "长按小组件可直接打开设置"
+
 #. Type: setting
 #. Context: table.insert(scroll_bar_sub_items, { text = _("Hold to skip"), enabled_func = function() return get_scroll_bar_style() == "page_number" end,
 #: library_settings.lua:1109
@@ -6911,6 +6917,12 @@ msgid "What's New"
 msgstr "新增内容"
 
 #. Type: message
+#. Context: help_text = _("When disabled, widget is read only and does not respond to taps, holds, or swipes"),
+#: home_settings.lua:852
+msgid "When disabled, widget is read only and does not respond to taps, holds, or swipes"
+msgstr "禁用后，小组件为只读，不响应点击、长按或滑动"
+
+#. Type: message
 #. Context: text = _("Custom icons"), help_text = _("When enabled, loose icons or a selected ZenOS icon pack override supported icons. Missing icons fall back to ZenOS, then KOReader."), checked_func = function()
 #: extras_settings.lua:164
 msgid "When enabled, loose icons or a selected ZenOS icon pack override supported icons. Missing icons fall back to ZenOS, then KOReader."
@@ -7309,3 +7321,27 @@ msgstr "充电历史和总体使用统计将被保留。"
 #: battery_stats_menu.lua
 msgid "Could not save battery history. The log was kept."
 msgstr "无法保存电池历史。日志已保留。"
+
+msgid "Appearance"
+msgstr "外观"
+
+msgid "Detailed list items"
+msgstr "详细列表项目"
+
+msgid "Double-tap to open a book"
+msgstr "双击打开书籍"
+
+msgid "Portrait"
+msgstr "纵向"
+
+msgid "Landscape"
+msgstr "横向"
+
+msgid "File size"
+msgstr "文件大小"
+
+msgid "Accept"
+msgstr "确定"
+
+msgid "Reset to default"
+msgstr "恢复默认值"

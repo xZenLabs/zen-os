@@ -716,7 +716,7 @@ def test_clean_emulator_renders_fixture_library_and_reader_goldens() -> None:
             assert settings.get("title") == "Library"
             assert settings.get("back_visible") is True
             assert not any(label.startswith("Font:") for label in settings["labels"])
-            assert settings["labels"][-1] == "Double tap to open books"
+            assert settings["labels"] == ["Appearance", "Folders", "Books", "Context menu"]
             assert driver.command("settings_page_select", label="Folders")["ok"] is True
             settings = driver.command("settings_page_state")["settings"]
             assert settings.get("title") == "Folders"
@@ -792,7 +792,7 @@ def test_clean_emulator_renders_fixture_library_and_reader_goldens() -> None:
             )["ok"] is True
             settings = driver.command("settings_page_state")["settings"]
             assert settings.get("search_active") is True
-            assert "Items per page" in settings.get("labels", [])
+            assert any(label.startswith("Items per page") for label in settings.get("labels", []))
             search_row_style = settings.get("row_style")
             assert search_row_style == settings.get("standard_style")
             assert driver.command(

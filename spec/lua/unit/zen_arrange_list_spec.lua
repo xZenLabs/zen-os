@@ -18,6 +18,7 @@ describe("Zen arrange list settings resume", function()
         "ui/widget/horizontalgroup",
         "ui/widget/horizontalspan",
         "ui/widget/iconwidget",
+        "ui/widget/infomessage",
         "ui/widget/container/inputcontainer",
         "ui/widget/container/leftcontainer",
         "ui/widget/linewidget",
@@ -112,6 +113,7 @@ describe("Zen arrange list settings resume", function()
         ZenSpec.replace("ui/widget/horizontalgroup", {})
         ZenSpec.replace("ui/widget/horizontalspan", {})
         ZenSpec.replace("ui/widget/iconwidget", {})
+        ZenSpec.replace("ui/widget/infomessage", { new = function(_self, opts) return opts end })
         ZenSpec.replace("ui/widget/container/inputcontainer", class())
         ZenSpec.replace("ui/widget/container/leftcontainer", {})
         ZenSpec.replace("ui/widget/linewidget", {})
@@ -231,6 +233,87 @@ describe("Zen arrange list settings resume", function()
         item:hold_callback(function() end)
 
         assert.are.equal(picker._zen_menu_proxy, callback_host)
+    end)
+
+    it("shows help on root and nested widget setting holds without toggling", function()
+        ZenSpec.unload("common/arrange_state")
+        ZenSpec.unload("common/ui/zen_arrange_list")
+        ArrangeList = require("common/ui/zen_arrange_list")
+        local sort = package.loaded["ui/widget/sortwidget"]
+        local original_new = sort.new
+        sort.new = function(self, options)
+            local picker = original_new(self, options)
+            picker._populateItems = function(parent)
+                parent.main_content = {}
+                for index, item in ipairs(parent.item_table) do
+                    parent.main_content[index] = {
+                        item = item, index = index, show_parent = parent,
+                        onTap = function(row)
+                            if row.item.callback then row.item:callback() end
+                            return true
+                        end,
+                        onHoldTouch = function(row)
+                            if row.item.callback then row.item:callback() end
+                            return true
+                        end,
+                    }
+                end
+            end
+            return picker
+        end
+        local help = "When disabled, widget is read only and does not respond to taps, holds, or swipes"
+        for _i, menu_mode in ipairs({ false, true }) do
+            local active = true
+            local item = {
+                text = "Interactive", help_text = help,
+                checked_func = function() return active end,
+                callback = function() active = not active end,
+            }
+            local picker = ArrangeList.show{
+                allow_arrange = false, menu_mode = menu_mode,
+                item_table = { item, { text = "Widget", sub_item_table = { item } } },
+            }
+            local row = picker.main_content[1]
+            local shown_count = #shown_widgets
+            assert.is_true(row:onHoldTouch())
+            assert.are.equal(shown_count + 1, #shown_widgets)
+            assert.are.equal(help, shown_widgets[#shown_widgets].text)
+            assert.is_true(active)
+            row:onTap()
+            assert.is_false(active)
+
+            picker.main_content[2]:onTap()
+            local submenu = shown_widgets[#shown_widgets]
+            assert.are_not.equal(picker, submenu)
+            row = submenu.main_content[1]
+            assert.is_true(row:onHoldTouch())
+            assert.are.equal(help, shown_widgets[#shown_widgets].text)
+            assert.is_false(active)
+
+            item.help_text_func = function(menu)
+                assert.are.equal(submenu._zen_menu_proxy, menu)
+                return "Dynamic help"
+            end
+            row._zen_settings_text_truncated = true
+            assert.is_true(row:onHoldTouch())
+            assert.are.equal("Dynamic help", shown_widgets[#shown_widgets].text)
+            assert.is_false(active)
+
+            local help_calls = 0
+            item.help_text_func = function()
+                help_calls = help_calls + 1
+                return "Drag help"
+            end
+            local arrange = ArrangeList.show{ menu_mode = menu_mode, item_table = { item } }
+            row = arrange.main_content[1]
+            row._zen_settings_text_truncated = true
+            shown_count = #shown_widgets
+            assert.is_true(arrange._zen_arrange_enabled)
+            assert.is_true(row:onHoldTouch())
+            assert.are.equal(0, help_calls)
+            assert.are.equal(shown_count, #shown_widgets)
+            assert.is_false(active)
+        end
     end)
 
     it("flashes the tapped row before opening root and nested submenus", function()

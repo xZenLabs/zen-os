@@ -3,8 +3,10 @@ require("ffi/loadlib")
 describe("bundled UI font paths", function()
     local saved_root
     local saved_module
+    local saved_defaults
 
     before_each(function()
+        saved_defaults = package.loaded["config/defaults"]
         saved_root = package.loaded["common/plugin_root"]
         saved_module = package.loaded["common/library_font_path"]
         ZenSpec.replace("common/plugin_root", ZenSpec.root)
@@ -12,6 +14,7 @@ describe("bundled UI font paths", function()
     end)
 
     after_each(function()
+        package.loaded["config/defaults"] = saved_defaults
         package.loaded["common/plugin_root"] = saved_root
         package.loaded["common/library_font_path"] = saved_module
     end)
@@ -40,5 +43,13 @@ describe("bundled UI font paths", function()
         end
         assert.are.equal("NotoSans-Regular.ttf", Font.fontmap.cfont)
         assert.is_nil(Font.fontmap[fonts[3]])
+    end)
+    it("keeps the language-specific default when sharing font settings helpers", function()
+        ZenSpec.replace("config/defaults", { library_font = { font_face = "default" } })
+        local paths = require("common/library_font_path")
+        assert.are.equal("default", paths.ensureConfig({}).font_face)
+        assert.are.equal("default", paths.resolveConfigured("default"))
+        local face, file = paths.pickerDefault({ isFontRegistered = function() return true end })
+        assert.are.same({ "default", "default" }, { face, file })
     end)
 end)

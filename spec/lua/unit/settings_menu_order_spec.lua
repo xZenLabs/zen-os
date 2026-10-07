@@ -88,14 +88,33 @@ describe("settings menu organization", function()
         local font_item, wallpaper_item, status_bar_item
         replace("modules/settings/sections/library_settings", {
             build = function()
+                double_tap_item = { text = "Double-tap to open a book" }
+                return { { text = "Original control" }, { text = "Books", sub_item_table = { double_tap_item } } }
+            end,
+        })
+        replace("modules/settings/sections/interface_settings", {
+            build = function(_ctx, extras)
                 font_item = {
-                    text = "Font",
-                    text_func = function() return "Font: Hyperreadable, 24" end,
+                    text = "Font", text_func = function() return "Font: Hyperreadable, 24" end,
                     sub_item_table = items({ "Font size", "Font", "Reset font" }),
                 }
                 wallpaper_item = { text = "Wallpaper" }
                 status_bar_item = { text = "Status bar", sub_item_table = items({ "Left items", "Right items" }) }
-                return { { text = "Original control" }, font_item, wallpaper_item, status_bar_item }
+                local interface = items({ "Controls", "Launcher", "Navbar" })
+                interface[2]._zen_settings_root = "launcher"
+                interface[4], interface[5] = status_bar_item, font_item
+                local function move(text)
+                    for i, item in ipairs(extras) do
+                        if item.text == text then table.insert(interface, table.remove(extras, i)) break end
+                    end
+                end
+                move("Zen Keyboard")
+                table.insert(interface, wallpaper_item)
+                move("Custom icons")
+                table.insert(interface, { text = "Blur menu background" })
+                move("Zen Search")
+                return { text = "Interface", sub_item_table = interface,
+                    _zen_settings_root = "interface", icon_glyph = interface_icon }
             end,
         })
         for _i, section in ipairs({ "reader_settings", "updates_settings" }) do
@@ -110,9 +129,7 @@ describe("settings menu organization", function()
         })
         replace("modules/settings/sections/advanced_settings", {
             build = function()
-                local result = items({ "Original control", "Double tap to open books" })
-                double_tap_item = result[2]
-                return result
+                return items({ "Original control" })
             end,
         })
         replace("modules/settings/sections/about_settings", {
@@ -215,8 +232,8 @@ describe("settings menu organization", function()
             if available then assert.are.equal("Bluetooth", general[2].text) end
             assert.are.same({ "Original control" }, labels(general[#general - 1].sub_item_table))
             assert.are.same({ "Original control" }, labels(general[#general].sub_item_table))
-            assert.are.same({ "Original control", "Double tap to open books" }, labels(root[2].sub_item_table))
-            assert.are.equal(double_tap_item, root[2].sub_item_table[#root[2].sub_item_table])
+            assert.are.same({ "Original control", "Books" }, labels(root[2].sub_item_table))
+            assert.are.equal(double_tap_item, root[2].sub_item_table[2].sub_item_table[1])
             assert.are.same({ "Version", "Device", "Setup Guide", "Report a Bug" }, labels(root[8].sub_item_table))
             assert.are.same({ "Install ZenPM", "Zen OPDS", "Stats", "Rakuyomi", "Lockdown mode" }, labels(root[5].sub_item_table))
         end

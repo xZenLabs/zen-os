@@ -152,6 +152,7 @@ modules/filebrowser/patches/home_page.lua|integration
 modules/filebrowser/patches/incompatible_plugins_check.lua|integration
 modules/filebrowser/patches/kindle_virtual_library.lua|integration
 modules/filebrowser/patches/library_background.lua|integration
+modules/filebrowser/patches/empty_library.lua|unit
 modules/filebrowser/patches/library_font.lua|integration
 modules/filebrowser/patches/menu_single_page_scroll_guard.lua|integration
 modules/filebrowser/patches/zen_renderer.lua|integration
@@ -263,3 +264,6 @@ modules/settings/zen_settings_apply.lua|integration
 modules/settings/zen_settings_utils.lua|integration
 modules/settings/zenpm_installer.lua|integration
 modules/settings/zen_updater.lua|integration
+common/library_list_fields.lua|unit
+common/ui/mosaic_layout_dialog.lua|unit
+modules/settings/sections/interface_settings.lua|unit

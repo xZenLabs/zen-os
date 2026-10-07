@@ -2635,6 +2635,37 @@ function Driver:handleCommand(command)
         return { ok = true, prefix = config.options.prefix, values = values, defaults = defaults,
             font = font, margins = reader.rolling and reader.document:getPageMargins() }
     end
+    if kind == "mosaic_layout_dialog" then
+        local Geom = require("ui/geometry")
+        local dialog = UIManager:getTopmostVisibleWidget()
+        if not (dialog and dialog._sliders and dialog._preview) then
+            return { ok = false, error = "mosaic layout dialog unavailable" }
+        end
+        local slider = dialog._sliders[params.field]
+        if slider and type(params.value) == "number" then
+            local old_x = slider.dimen.x + slider:_valueToX(slider:getValue())
+            local new_x = slider.dimen.x + slider:_valueToX(params.value)
+            for _i, step in ipairs({ { "pan", old_x }, { "pan", new_x }, { "pan_release", new_x } }) do
+                dialog:handleEvent(Event:new("Gesture", {
+                    ges = step[1], direction = "east",
+                    pos = Geom:new{ x = step[2], y = slider.dimen.y + slider.dimen.h / 2, w = 0, h = 0 },
+                    relative = { x = step[2] - old_x, y = 0 },
+                }))
+            end
+        end
+        if type(params.button) == "string" then
+            for _i, row in ipairs(dialog.buttons) do
+                for _j, button in ipairs(row) do
+                    if button.text == params.button then button.callback() end
+                end
+            end
+        end
+        return { ok = true,
+            columns = dialog._sliders.columns:getValue(), rows = dialog._sliders.rows:getValue(),
+            preview_columns = dialog._preview.columns, preview_rows = dialog._preview.rows,
+            preview_width = dialog._preview.dimen.w, preview_height = dialog._preview.dimen.h,
+        }
+    end
     if kind == "settings_page_state" then
         local page = rawget(_G, "__ZEN_UI_SETTINGS_PAGE")
         if not page then return { ok = false, error = "settings page unavailable" } end
