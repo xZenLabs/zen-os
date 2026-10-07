@@ -135,7 +135,7 @@ describe("background Wi-Fi toggles", function()
             end,
         }
         local widget = { new = function(_self, options) return options end }
-        local logger = { dbg = function() end, info = function() end,
+        local logger = { dbg = function() end, info = function() end, isEnabled = function() return true end,
             warn = function(...) warnings[#warnings + 1] = { ... } end }
         ZenSpec.replace("device", Device)
         ZenSpec.replace("ui/uimanager", UIManager)
@@ -339,6 +339,52 @@ describe("background Wi-Fi toggles", function()
         end
     end)
 
+    it("does not announce success if the connection drops during verification", function()
+        wifi_on, connected = true, true
+        NetworkMgr.canResolveHostnames = function()
+            assert.is_true(in_child)
+            connected = false
+            return true
+        end
+
+        NetworkMgr:showWifiConnected("Home")
+        finish_worker()
+
+        assert.are.same({}, shown)
+        assert.is_true(wifi_on)
+        NetworkMgr:disableWifi()
+        assert.are.equal(0, standby)
+    end)
+
+    it("keeps automatic restore enabled after a failed resume and releases standby", function()
+        outcome = "error"
+        NetworkMgr.wifi_was_on = true
+        G_reader_settings:makeTrue("wifi_was_on")
+        NetworkMgr:restoreWifiAsync()
+        NetworkMgr:scheduleConnectivityCheck()
+        finish_worker()
+        finish_worker()
+
+        assert.is_false(wifi_on)
+        assert.is_false(NetworkMgr.pending_connection)
+        assert.is_false(NetworkMgr.pending_connectivity_check)
+        assert.is_true(NetworkMgr.wifi_was_on)
+        assert.is_true(G_reader_settings:isTrue("wifi_was_on"))
+        assert.are.equal(0, standby)
+
+        outcome = "connected"
+        NetworkMgr:restoreWifiAsync()
+        NetworkMgr:scheduleConnectivityCheck()
+        finish_worker()
+        while NetworkMgr.pending_connection do tick() end
+        assert.is_true(connected)
+        NetworkMgr:toggleWifiOff(nil, true)
+        finish_worker()
+        assert.is_false(NetworkMgr.wifi_was_on)
+        assert.is_false(G_reader_settings:isTrue("wifi_was_on"))
+        assert.are.equal(0, standby)
+    end)
+
     it("keeps the UI usable and runs the complete callback through KOReader's connectivity check", function()
         local completed = 0
         NetworkMgr:toggleWifiOn(function()
@@ -398,6 +444,38 @@ describe("background Wi-Fi toggles", function()
         assert.is_false(NetworkMgr.pending_connectivity_check)
         assert.is_true(G_reader_settings:isTrue("wifi_was_on"))
         assert.are.equal(0, standby)
+    end)
+
+    it("remembers an existing Kobo connection when suspending after a restart", function()
+        wifi_on, connected = true, true
+        NetworkMgr.wifi_was_on = false
+        G_reader_settings:makeFalse("wifi_was_on")
+
+        NetworkMgr:disableWifi()
+
+        assert.is_false(wifi_on)
+        assert.is_true(NetworkMgr.wifi_was_on)
+        assert.is_true(G_reader_settings:isTrue("wifi_was_on"))
+        NetworkMgr:restoreWifiAsync()
+        NetworkMgr:scheduleConnectivityCheck()
+        finish_worker()
+        while NetworkMgr.pending_connection do tick() end
+        assert.is_true(connected)
+        assert.are.equal(0, standby)
+    end)
+
+    it("does not remember an unconnected radio or a manual Wi-Fi shutdown", function()
+        for _i, interactive in ipairs({ false, true }) do
+            wifi_on, connected = true, interactive
+            NetworkMgr.wifi_was_on = interactive
+            G_reader_settings:saveSetting("wifi_was_on", interactive)
+
+            NetworkMgr:disableWifi(nil, interactive)
+
+            assert.is_false(wifi_on)
+            assert.is_false(NetworkMgr.wifi_was_on)
+            assert.is_false(G_reader_settings:isTrue("wifi_was_on"))
+        end
     end)
 
     it("turns off Kindle Wi-Fi in the worker and preserves its delayed completion callback", function()
@@ -607,8 +685,9 @@ describe("background Wi-Fi toggles", function()
         assert.is_false(NetworkMgr.pending_connection)
     end)
 
-    it("waits for a Nickel profile to authenticate before starting DHCP", function()
+    it("reconnects the only Nickel profile without scanning or input before starting DHCP", function()
         local association_polls, dhcp_calls, dhcp_start_polls = 0, 0, nil
+        local selected = false
         local raw_ssid = "Caf\\xc3\\xa9"
         local ssid = "Café"
         ZenSpec.replace("ffi/crypto", {})
@@ -619,17 +698,21 @@ describe("background Wi-Fi toggles", function()
         ZenSpec.replace("lj-wpaclient/wpaclient", {
             new = function()
                 return {
+                    attach = function() return true end,
+                    sendCtrlCmd = function(_self, command)
+                        if command == "SELECT_NETWORK 7" then selected = true end
+                        return "OK"
+                    end,
+                    readAllEvents = function() return {} end,
                     getConnectedNetwork = function()
-                        if association_polls >= 2 then return { id = "7", ssid = raw_ssid } end
+                        if selected and association_polls >= 2 then return { id = "7", ssid = raw_ssid } end
                         return nil, association_polls == 0 and "ASSOCIATING" or "4WAY_HANDSHAKE"
                     end,
                     getCurrentNetwork = function()
                         return { id = "7", ssid = raw_ssid, bssid = "any", flags = "[CURRENT]" }
                     end,
-                    scanThenGetResults = function()
-                        return {{ ssid = raw_ssid, bssid = "any", getSignalQuality = function() return 80 end }}
-                    end,
-                    listNetworks = function() return {{ id = "7", ssid = ssid }} end,
+                    scanThenGetResults = function() error("The only saved profile should reconnect without a scan") end,
+                    listNetworks = function() return {{ id = "7", ssid = raw_ssid }} end,
                     close = function() end,
                 }
             end,

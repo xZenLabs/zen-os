@@ -25,17 +25,79 @@ function M.install(NetworkMgr)
         return nil, state
     end
     local get_ip = require("modules/settings/zen_settings_utils").get_device_ip_address
+    local time = require("ui/time")
+    local function read_state(path)
+        local file = io.open(path, "r")
+        if not file then return "unavailable" end
+        local value = file:read("*l")
+        file:close()
+        return value or "unavailable"
+    end
+    NetworkMgr.logWifiDiagnostics = function(self, stage)
+        if not logger.isEnabled("dbg") then return end
+        local path = "/sys/class/net/" .. self:getNetworkInterfaceName() .. "/"
+        logger.dbg("Kobo Wi-Fi snapshot", "stage=", stage,
+            "radio_on=", self:isWifiOn() == true, "ipv4_assigned=", get_ip() ~= nil,
+            "default_route=", self:hasDefaultRoute() == true,
+            "pending_connection=", self.pending_connection == true,
+            "operstate=", read_state(path .. "operstate"), "carrier=", read_state(path .. "carrier"),
+            "rx_packets=", read_state(path .. "statistics/rx_packets"),
+            "tx_packets=", read_state(path .. "statistics/tx_packets"),
+            "rx_errors=", read_state(path .. "statistics/rx_errors"),
+            "tx_errors=", read_state(path .. "statistics/tx_errors"),
+            "rx_dropped=", read_state(path .. "statistics/rx_dropped"),
+            "governor=", read_state("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
+            "cpu_khz=", read_state("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"))
+    end
+    local UIManager = require("ui/uimanager")
+    if UIManager.event_hook then
+        local last_input = time.now()
+        UIManager.event_hook:register("InputEvent", function()
+            if not logger.isEnabled("dbg") then return end
+            local now = time.now()
+            local idle_ms = time.to_ms(now - last_input)
+            last_input = now
+            if idle_ms < 5000 or not NetworkMgr:isWifiOn() then return end
+            logger.dbg("Kobo Wi-Fi input after idle", "idle_ms=", idle_ms)
+            NetworkMgr:logWifiDiagnostics("input_after_idle")
+        end)
+    end
     local isConnected, obtainIP = NetworkMgr.isConnected, NetworkMgr.obtainIP
     NetworkMgr.isConnected = function(self)
         -- Kobo also counts an IPv6 link-local address after DHCP fails.
         return isConnected(self) and (get_ip() ~= nil or self:hasDefaultRoute()) or false
     end
     NetworkMgr.obtainIP = function(self)
+        self:logWifiDiagnostics("dhcp_start")
         obtainIP(self)
+        self:logWifiDiagnostics("dhcp_finish")
         if not self:isConnected() then
             logger.warn("Kobo DHCP did not assign a usable address; retrying once")
+            self:logWifiDiagnostics("dhcp_retry_start")
             obtainIP(self)
+            self:logWifiDiagnostics("dhcp_retry_finish")
         end
+    end
+    local canResolveHostnames = NetworkMgr.canResolveHostnames
+    NetworkMgr.canResolveHostnames = function(self)
+        local started = time.now()
+        logger.dbg("Kobo Wi-Fi DNS check started")
+        local resolved = canResolveHostnames(self)
+        logger.dbg("Kobo Wi-Fi DNS check finished", "resolved=", resolved == true,
+            "elapsed_ms=", time.to_ms(time.now() - started))
+        return resolved
+    end
+    local reconnect = NetworkMgr.reconnectOrShowNetworkMenu
+    NetworkMgr.reconnectOrShowNetworkMenu = function(self, callback, interactive)
+        local profiles = self:getConfiguredNetworks()
+        if not self.wifi_toggle_long_press and profiles and #profiles == 1
+                and next(self:getAllSavedNetworks().data) == nil and adapter.connect(profiles[1], false) then
+            self:obtainIP()
+            self.lease_ssid = (self:getCurrentNetwork() or profiles[1]).ssid
+            if callback then callback() end
+            return true
+        end
+        return reconnect(self, callback, interactive)
     end
 end
 

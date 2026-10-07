@@ -170,6 +170,64 @@ describe("updater repository redirects", function()
         assert.is_true(updater.has_update())
     end)
 
+    it("captures network state and a safe response category when HTTPS times out", function()
+        local stages = {}
+        package.loaded["ui/network/manager"].logWifiDiagnostics = function(_self, stage)
+            stages[#stages + 1] = stage
+        end
+        ZenSpec.replace("ssl.https", { request = function() return nil, "timeout" end })
+        local updater = require("modules/settings/zen_updater")
+
+        assert.are.equal("error", updater.check_for_update())
+        assert.are.same({ "update_request_start", "update_request_finish" }, stages)
+        local response
+        for _i, entry in ipairs(logs) do
+            if entry.text:find("Update HTTPS response", 1, true) then response = entry.text end
+        end
+        assert.is_truthy(response)
+        assert.is_truthy(response:find("status_code= transport_error timeout= true", 1, true))
+        assert.is_truthy(response:find("elapsed_ms=", 1, true))
+    end)
+
+    it("logs a dismissed update task separately from an HTTPS response", function()
+        package.loaded["ui/trapper"].dismissableRunInSubprocess = function() return false end
+        package.loaded["ui/uimanager"].forceRePaint = function() end
+        local updater = require("modules/settings/zen_updater")
+        updater.build_update_now_item({}).callback()
+        local screen_closed = false
+        shown_screen.onClose = function() screen_closed = true end
+
+        scheduled[1].callback()
+
+        assert.is_true(screen_closed)
+        assert.are.equal(0, #requests)
+        local task_finished = false
+        for _i, entry in ipairs(logs) do
+            assert.is_nil(entry.text:find("Update HTTPS response", 1, true))
+            if entry.text:find("Update network task finished completed= false network_ok= false", 1, true) then
+                task_finished = true
+            end
+        end
+        assert.is_true(task_finished)
+    end)
+
+    it("records cancellation of an invisible background update check", function()
+        config.updater.auto_check = true
+        package.loaded["ui/trapper"].dismissableRunInSubprocess = function() return false end
+        require("modules/settings/zen_updater").schedule_wakeup_check()
+
+        scheduled[1].callback()
+
+        local task_finished = false
+        for _i, entry in ipairs(logs) do
+            if entry.text:find("Update network task finished completed= false network_ok= false", 1, true) then
+                task_finished = true
+            end
+        end
+        assert.is_true(task_finished)
+        assert.are.equal(0, #requests)
+    end)
+
     it("selects the compatibility asset while running from the legacy folder", function()
         asset_name = "zen_ui.koplugin.zip"
         ZenSpec.replace("common/plugin_root", "/plugins/zen_ui.koplugin")

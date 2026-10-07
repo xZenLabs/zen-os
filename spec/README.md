@@ -32,7 +32,9 @@ Runtime versions live in `koreader-lock.json`. Update a pin deliberately, then
 regenerate the affected goldens and review every PNG diff. Test artifacts belong
 under `spec/.artifacts/` and are ignored by Git.
 
-Run the migration contract against the pinned minimum and current stable runtimes with:
+CI runs the migration contract only through the manual `Zen UI to ZenOS Migration`
+workflow, against the pinned minimum and current stable runtimes. Release and regular
+test workflows do not run it. To run it locally:
 
 ```sh
 KOREADER_DIR="$(./spec/provision-koreader.sh compat)" ./spec/run legacy-upgrade

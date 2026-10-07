@@ -26,6 +26,7 @@ describe("Kobo background Wi-Fi restore", function()
             broadcastEvent = function(_self, event) return event.handler end,
         }
         NetworkMgr = {
+            isWifiOn = function() return false end,
             restoreWifiAsync = function() error("Shell restore cannot use KOReader's saved networks") end,
             requestToTurnOnWifi = function(self, callback, interactive)
                 requests = requests + 1
@@ -55,7 +56,9 @@ describe("Kobo background Wi-Fi restore", function()
         ZenSpec.replace("device", Device)
         ZenSpec.replace("ui/network/manager", NetworkMgr)
         ZenSpec.replace("ui/uimanager", UIManager)
-        ZenSpec.replace("common/zen_logger", { new = function() return { warn = function() end } end })
+        ZenSpec.replace("common/zen_logger", { new = function()
+            return { warn = function() end, dbg = function() end }
+        end })
         ZenSpec.unload("modules/global/patches/nonblocking_wifi")
     end)
 

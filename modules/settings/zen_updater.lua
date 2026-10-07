@@ -424,6 +424,10 @@ local function https_get(url, depth)
     end
 
     logger.dbg("GET", url)
+    local time = require("ui/time")
+    local started = time.now()
+    local NetworkMgr = package.loaded["ui/network/manager"]
+    if NetworkMgr and NetworkMgr.logWifiDiagnostics then NetworkMgr:logWifiDiagnostics("update_request_start") end
     local body = {}
     local ok_req, req_err = pcall(function()
         local _, code, headers, status = https.request{
@@ -432,6 +436,9 @@ local function https_get(url, depth)
             redirect = false,
             sink    = ltn12.sink.table(body),
         }
+        logger.dbg("Update HTTPS response", "status_code=", type(code) == "number" and code or "transport_error",
+            "timeout=", tostring(code):lower():find("timeout", 1, true) ~= nil,
+            "elapsed_ms=", time.to_ms(time.now() - started))
         if (code == 301 or code == 302 or code == 307 or code == 308)
             and headers and headers.location then
             local next_url = resolve_redirect_url(url, headers.location)
@@ -461,6 +468,9 @@ local function https_get(url, depth)
             body = nil
         end
     end)
+    logger.dbg("Update HTTPS request finished", "exception=", not ok_req,
+        "elapsed_ms=", time.to_ms(time.now() - started))
+    if NetworkMgr and NetworkMgr.logWifiDiagnostics then NetworkMgr:logWifiDiagnostics("update_request_finish") end
     if not ok_req then
         logger.warn("https_get error:", req_err)
         return nil
@@ -873,6 +883,8 @@ end
 local function network_check_async(trap_widget, setup_fn, on_done, on_cancelled, quiet)
     local Trapper = require("ui/trapper")
     Trapper:wrap(function()
+        local time = require("ui/time")
+        local started = time.now()
         local co = coroutine.running()
         if setup_fn then setup_fn(co) end
         local completed, net_ok, has_upd, latest_ver, dl_url, latest_sha256, latest_notes, last_error =
@@ -884,6 +896,12 @@ local function network_check_async(trap_widget, setup_fn, on_done, on_cancelled,
                 if quiet then return run_without_updater_logs(check) end
                 return check()
             end, trap_widget, nil, quiet)
+        if not quiet or not completed then
+            logger.dbg("Update network task finished", "completed=", completed == true,
+                "network_ok=", net_ok == true, "elapsed_ms=", time.to_ms(time.now() - started))
+            local NetworkMgr = package.loaded["ui/network/manager"]
+            if NetworkMgr and NetworkMgr.logWifiDiagnostics then NetworkMgr:logWifiDiagnostics("update_task_finish") end
+        end
         if completed and net_ok then
             M._has_update = has_upd
             M._latest_ver = latest_ver
