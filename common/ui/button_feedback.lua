@@ -34,6 +34,9 @@ end
 function M.flash(region, radius)
     if not region or not region.x or not region.y
             or G_reader_settings:isFalse("flash_ui") then return end
+    region = Geom:new{
+        x = region.x, y = region.y, w = region.w, h = region.h,
+    }
     M.invert(region, radius)
     -- Preserve gray backgrounds and antialiased edges during the highlight too.
     UIManager:setDirty(nil, "ui", region)

@@ -3,6 +3,7 @@ require("ffi/loadlib")
 describe("rounded button feedback", function()
     local originals, settings, Feedback, screen, UIManager, Button, IconButton, mirrored
     local Blitbuffer = require("ffi/blitbuffer")
+    local Geom = require("ui/geometry")
     local modules = {
         "device", "ui/uimanager", "ui/widget/button", "ui/widget/iconbutton", "ui/bidi",
         "common/ui/button_feedback", "modules/global/patches/button_feedback",
@@ -115,7 +116,7 @@ describe("rounded button feedback", function()
             local modes = {}
             UIManager.setDirty = function(_self, owner, mode, refreshed)
                 assert.is_nil(owner)
-                assert.are.equal(region, refreshed)
+                assert.are.same(region, refreshed)
                 modes[#modes + 1] = mode
             end
             UIManager.yieldToEPDC = function()
@@ -140,6 +141,26 @@ describe("rounded button feedback", function()
             screen.bb:free()
             screen.bb = nil
         end
+    end)
+
+    it("merges custom button feedback with a subsequent fullscreen refresh", function()
+        screen.bb = Blitbuffer.new(80, 60, Blitbuffer.TYPE_BB8)
+        screen.bb:fill(Blitbuffer.Color8(32))
+        local region = { x = 20, y = 20, w = 32, h = 24 }
+        local fullscreen = Geom:new{ x = 0, y = 0, w = 80, h = 60 }
+        local refreshes = 0
+        UIManager.setDirty = function(_self, owner, mode, refreshed)
+            assert.is_nil(owner)
+            assert.are.equal("ui", mode)
+            assert.is_true(fullscreen:openIntersectWith(refreshed))
+            assert.is_true(refreshed:openIntersectWith(fullscreen))
+            assert.are.same(fullscreen, fullscreen:combine(refreshed))
+            refreshes = refreshes + 1
+        end
+        Feedback.flash(region)
+        Feedback.flashButton(region)
+        assert.are.equal(4, refreshes)
+        assert.is_nil(getmetatable(region))
     end)
 
     it("keeps custom button feedback within its supplied bounds", function()
