@@ -2,6 +2,7 @@ local Blitbuffer = require("ffi/blitbuffer")
 
 describe("reader top status bar refresh", function()
     local ReaderUI
+    local ReaderDogear
     local ReaderTypeset
     local ReaderView
     local CreDocument
@@ -28,6 +29,7 @@ describe("reader top status bar refresh", function()
 
     local dependencies = {
         "apps/reader/modules/readerview",
+        "apps/reader/modules/readerdogear",
         "apps/reader/modules/readertypeset",
         "apps/reader/readerui",
         "modules/menu/bluetooth/bluetooth",
@@ -174,8 +176,12 @@ describe("reader top status bar refresh", function()
             paintTo = function() end,
             onSetViewMode = function(self, new_mode) self.view_mode = new_mode end,
         }
+        ReaderDogear = {
+            getRefreshRegion = function(self) return self.icon.dimen end,
+        }
 
         replace("apps/reader/modules/readerview", ReaderView)
+        replace("apps/reader/modules/readerdogear", ReaderDogear)
         replace("apps/reader/modules/readertypeset", ReaderTypeset)
         replace("apps/reader/readerui", ReaderUI)
         bluetooth_enabled = false
@@ -229,7 +235,10 @@ describe("reader top status bar refresh", function()
             isConnected = function(self) return self.connected end,
         }
         replace("ui/network/manager", NetworkMgr)
-        replace("ui/size", { line = { thin = 1, medium = 1 }, padding = { small = 2 } })
+        replace("ui/size", {
+            line = { thin = 1, medium = 1 }, padding = { small = 2 },
+            span = { horizontal_default = 10 },
+        })
         replace("ui/uimanager", UIManager)
         for _i, name in ipairs({
             "ui/widget/container/centercontainer",
@@ -590,7 +599,7 @@ describe("reader top status bar refresh", function()
         assert.is_nil(collect_item_texts({ "battery" })[1].color)
     end)
 
-    it("follows reader margins while keeping right items clear of the dogear", function()
+    it("uses KOReader footer padding with right bookmark clearance and optional reader margins", function()
         local cfg = _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar
         for _i, name in ipairs({
             "ui/widget/container/centercontainer",
@@ -613,17 +622,28 @@ describe("reader top status bar refresh", function()
             cfg.center_order = center_order
             local view = {
                 ui = { document = { configurable = { h_page_margins = { 30, 40 } } } },
+                dogear_visible = true,
                 dogear = { icon = { dimen = { x = 550, w = 50 } } },
             }
             _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = nil
             local original_header, _, _, _, original_slots = build_header(view)
-            assert.are.equal(60, original_header[1][1][1].width)
+            assert.are.equal(10, original_header[1][1][1].width)
             assert.are.equal(60, original_header[#original_header][1][2].width)
-            assert.are.equal(70, original_slots.left.w)
+            assert.are.equal(20, original_slots.left.w)
             assert.are.equal(70, original_slots.right.w)
             if #center_order > 0 then assert.are.equal(295, original_slots.center.x) end
 
+            view.dogear_visible = false
+            local unbookmarked_header = build_header(view)
+            assert.are.equal(10, unbookmarked_header[1][1][1].width)
+            assert.are.equal(10, unbookmarked_header[#unbookmarked_header][1][2].width)
+
             _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = true
+            local margin_header = build_header(view)
+            assert.are.equal(30, margin_header[1][1][1].width)
+            assert.are.equal(40, margin_header[#margin_header][1][2].width)
+
+            view.dogear_visible = true
             local header, _, _, _, slots = build_header(view)
             assert.are.equal(30, header[1][1][1].width)
             assert.are.equal(60, header[#header][1][2].width)
@@ -642,6 +662,7 @@ describe("reader top status bar refresh", function()
 
             local wider_margin_header = build_header({
                 ui = { document = { configurable = { h_page_margins = { 30, 90 } } } },
+                dogear_visible = true,
                 dogear = { icon = { width = 50, dimen = { x = 530, w = 50 } } },
             })
             assert.are.equal(30, wider_margin_header[1][1][1].width)
@@ -649,7 +670,7 @@ describe("reader top status bar refresh", function()
 
             _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = false
             local restored_header, _, _, _, restored_slots = build_header(view)
-            assert.are.equal(60, restored_header[1][1][1].width)
+            assert.are.equal(10, restored_header[1][1][1].width)
             assert.are.equal(60, restored_header[#restored_header][1][2].width)
             assert.same(original_slots, restored_slots)
         end
@@ -662,17 +683,46 @@ describe("reader top status bar refresh", function()
             cfg[slot .. "_order"] = { "wifi" }
             local view = {
                 ui = { document = { configurable = { h_page_margins = { 30, 40 } } } },
+                dogear_visible = true,
                 dogear = { dogear_size = 50 },
             }
             _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = false
             caps = {}
-            build_header(view)
-            assert.are.equal(slot == "center" and 600 or 540, caps[_i])
+            local _header, _widgets, _height, _width, slots = build_header(view)
+            assert.are.equal(slot == "center" and 480 or 530, caps[_i])
+            if slot == "center" then
+                assert.is_true(slots.center.x + slots.center.w <= 540)
+            end
             _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = true
             caps = {}
             build_header(view)
             assert.are.equal(510, caps[_i])
+
+            view.dogear_visible = false
+            caps = {}
+            build_header(view)
+            assert.are.equal(530, caps[_i])
+            _G.__ZEN_UI_PLUGIN.config.features.reader_status_bar_margins = false
+            caps = {}
+            build_header(view)
+            assert.are.equal(580, caps[_i])
         end
+    end)
+
+    it("refreshes the header when a bookmark is toggled", function()
+        local view = make_view()
+        local dogear_region = { x = 550, y = 0, w = 50, h = 50 }
+        local dogear = { view = view, icon = { dimen = dogear_region } }
+
+        for _i, visible in ipairs({ false, true }) do
+            view.dogear_visible = visible
+            assert.same({ x = 0, y = 0, w = 600, h = 50 }, ReaderDogear.getRefreshRegion(dogear))
+        end
+        view.view_mode = "scroll"
+        assert.are.equal(dogear_region, ReaderDogear.getRefreshRegion(dogear))
+        view.view_mode = "page"
+        _G.__ZEN_UI_PLUGIN.config.features.reader_top_status_bar = false
+        assert.are.equal(dogear_region, ReaderDogear.getRefreshRegion(dogear))
     end)
 
     it("hides reflowable headers in scroll mode and keeps the fixed-layout overlay optional", function()

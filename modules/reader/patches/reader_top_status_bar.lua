@@ -36,6 +36,7 @@ local function apply_reader_top_status_bar()
     local Screen = Device.screen
     local CreDocument = require("document/credocument")
     local ReaderTypeset = require("apps/reader/modules/readertypeset")
+    local ReaderDogear = require("apps/reader/modules/readerdogear")
     local ReaderView = require("apps/reader/modules/readerview")
     local ReaderUI = require("apps/reader/readerui")
     local ReaderStatusBar = require("common/reader_status_bar")
@@ -669,12 +670,12 @@ local function apply_reader_top_status_bar()
         local face = getHeaderFace(cfg)
 
         local top_pad = Size.padding.small
-        local h_pad   = Screen:scaleBySize(10)
+        local h_pad   = Size.span.horizontal_default
         local align_margins = ReaderStatusBar.isMarginAlignmentEnabled(zen_plugin)
         local document = doc_ctx and doc_ctx.ui and doc_ctx.ui.document
         local left_pad, right_pad = ReaderStatusBar.getHorizontalMargins(document, h_pad, zen_plugin)
         -- Include custom dogear sizing and right offsets from companion plugins.
-        local dogear = doc_ctx and doc_ctx.dogear
+        local dogear = doc_ctx and doc_ctx.dogear_visible and doc_ctx.dogear
         local dogear_icon = dogear and dogear.icon
         local dogear_dimen = dogear_icon and dogear_icon.dimen
         local dogear_x = dogear_dimen and tonumber(dogear_dimen.x)
@@ -734,11 +735,6 @@ local function apply_reader_top_status_bar()
         local center_nat = measureTextsWidth(center_texts, face, center_sep)
         local right_nat = measureTextsWidth(right_texts, face, right_sep)
 
-        if not align_margins then
-            left_pad = left_has and h_pad + right_inset or 0
-            right_pad = right_has and h_pad + right_inset or 0
-        end
-
         local left_cap = 0
         local center_cap = 0
         local right_cap = 0
@@ -749,6 +745,9 @@ local function apply_reader_top_status_bar()
 
         if center_has then
             local max_center = math.max(0, screen_width - left_pad - right_pad)
+            if not align_margins then
+                max_center = math.max(0, screen_width - 2 * math.max(left_pad, right_pad))
+            end
             center_cap = math.min(center_nat, max_center)
             center_w = center_cap
 
@@ -772,10 +771,10 @@ local function apply_reader_top_status_bar()
                 right_w = right_pad + right_cap
                 middle_w = math.max(0, screen_width - left_w - right_w)
             elseif left_has then
-                left_cap = align_margins and side_content_space or math.max(0, screen_width - left_pad)
+                left_cap = side_content_space
                 left_w = screen_width
             elseif right_has then
-                right_cap = align_margins and side_content_space or math.max(0, screen_width - right_pad)
+                right_cap = side_content_space
                 right_w = screen_width
             end
         end
@@ -912,6 +911,15 @@ local function apply_reader_top_status_bar()
             w = math.max(first.x + first.w, second.x + second.w) - x,
             h = math.max(first.y + first.h, second.y + second.h) - y,
         }
+    end
+
+    if not ReaderDogear._zen_top_status_bar_refresh_patched then
+        ReaderDogear._zen_top_status_bar_refresh_patched = true
+        local orig_getRefreshRegion = ReaderDogear.getRefreshRegion
+        ReaderDogear.getRefreshRegion = function(self)
+            local region = orig_getRefreshRegion(self)
+            return should_show(self.view) and unionRegions(region, self.view._zen_header_dimen) or region
+        end
     end
 
     local function freeWidgets(widgets)

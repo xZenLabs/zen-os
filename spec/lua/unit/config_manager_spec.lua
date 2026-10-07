@@ -102,9 +102,11 @@ describe("config manager folder-path migration", function()
         assert.is_false(config._meta.quickstart_shown_for_version)
     end)
 
-    it("preserves disabled reader margin alignment", function()
-        settings_file.data = { features = { reader_status_bar_margins = false } }
-        assert.is_false(Manager.load().features.reader_status_bar_margins)
+    it("preserves saved reader margin alignment", function()
+        for _i, enabled in ipairs({ false, true }) do
+            settings_file.data = { features = { reader_status_bar_margins = enabled } }
+            assert.are.equal(enabled, Manager.load().features.reader_status_bar_margins)
+        end
     end)
 
     it("preserves existing default status layouts", function()

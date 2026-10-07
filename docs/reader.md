@@ -92,7 +92,7 @@ Reader settings control the reading screen. They cover status bars, themes, font
 | Bottom status bar > Font | Sets footer font face, size, and bold style. |
 | Bottom status bar > Hide in CBZ/PDF files | Hides the footer for CBZ and PDF documents. |
 | Bottom status bar > KOReader status bar options | Exposes KOReader's built-in footer/status bar settings. |
-| Reader > Align status bars with book margins | Aligns both status bars with the book's horizontal margins. Off by default; disabling restores the previous spacing. |
+| Reader > Align status bars with book margins | Aligns both status bars with the book's horizontal margins. On by default; disabling uses KOReader's standard horizontal padding. |
 | Reader > Flash on every CBZ page turn | Uses a full screen refresh when the page changes in a CBZ file. On by default; takes effect on the next page turn. |
 
 ## Dictionary lookup menu
