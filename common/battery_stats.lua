@@ -57,6 +57,7 @@ local function merge_history(summary)
     end
     if summary.last_unplug == false or nonnegative(summary.last_unplug) then history.last_unplug = summary.last_unplug end
     if valid_session(summary.last_full_charge) then history.last_full_charge = summary.last_full_charge end
+    if type(summary.usage_baseline) == "table" then history.usage_baseline = summary.usage_baseline end
     history_tail = summary
 end
 
@@ -168,6 +169,7 @@ local function archive(events)
         last_full_charge_seconds = stats.full_charge_time,
         last_unplug = settings:readSetting("last_unplug"),
         last_full_charge = settings:readSetting("last_full_charge"),
+        usage_baseline = settings:readSetting("usage_baseline"),
         full_capacity_mah = stats.full_mah, design_capacity_mah = stats.design_mah,
         health_pct = stats.health,
     }
@@ -214,6 +216,10 @@ local function charging_session(previous, event, session)
     return session
 end
 
+local function charge_ended(previous, event)
+    return previous and not event.charging and (previous.charging or event.level > previous.level)
+end
+
 local function sample(gap, charging_event)
     if not settings then return end
     local event = capture()
@@ -246,6 +252,11 @@ local function sample(gap, charging_event)
         end
     end
     events[#events + 1] = event
+    if charge_ended(previous, event) then
+        local stats, baseline = M.snapshot(false), {}
+        for key in pairs(HISTORY_TOTALS) do baseline[key] = stats[key] end
+        settings:saveSetting("usage_baseline", baseline)
+    end
     if #events > MAX_EVENTS and archive(events) then
         settings:saveSetting("events", { event }) -- Keep the next window's starting sample.
     end
@@ -285,7 +296,7 @@ function M.start()
         -- A saved summary may outlive a failed write of the trimmed log.
         while events[1] and events[1].time < history_tail.end_time do table.remove(events, 1) end
     end
-    for _i, key in ipairs({ "last_unplug", "last_full_charge" }) do
+    for _i, key in ipairs({ "last_unplug", "last_full_charge", "usage_baseline" }) do
         if settings:readSetting(key) == nil then settings:saveSetting(key, history[key]) end
     end
     for _i, key in ipairs({ "charge_session", "last_charge", "last_full_charge" }) do
@@ -409,7 +420,7 @@ function M.snapshot(include_current, include_history)
             unplug = not current.gap and current.time or nil
         end
     end
-    return {
+    local stats = {
         level = current and current.level,
         full_mah = full_mah or history.full_mah,
         current_mah = current_mah,
@@ -440,6 +451,19 @@ function M.snapshot(include_current, include_history)
             and current.time - unplug or nil,
         samples = #events,
     }
+    local baseline = settings:readSetting("usage_baseline")
+    local reset_usage = current and charge_ended(previous, current)
+    local usage = {}
+    for key in pairs(HISTORY_TOTALS) do
+        local offset = include_history ~= false and type(baseline) == "table"
+            and nonnegative(baseline[key]) and baseline[key] or 0
+        usage[key] = reset_usage and 0 or math.max(0, stats[key] - offset)
+    end
+    usage.overall = rate({ loss = usage.discharge_loss, time = usage.discharge_time }, 3600)
+    usage.awake = rate({ loss = usage.awake_loss, time = usage.awake_discharge_time }, 3600)
+    usage.asleep = rate({ loss = usage.asleep_loss, time = usage.asleep_discharge_time })
+    stats.usage = usage
+    return stats
 end
 
 return M

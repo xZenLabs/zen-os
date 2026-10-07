@@ -146,6 +146,118 @@ describe("battery stats", function()
         assert.are.equal(10, stats.awake)
     end)
 
+    it("resets displayed usage after partial and full charges while retaining lifetime totals", function()
+        BatteryStats.start()
+        for _i, target in ipairs({ 95, 100 }) do
+            now, level = now + 3600, 90
+            scheduled[#scheduled].callback()
+            BatteryStats.suspend()
+            now, level = now + 3600, 88
+            BatteryStats.resume()
+            local before = BatteryStats.snapshot()
+            assert.is_true(before.usage.awake_time > 0)
+            assert.is_true(before.usage.asleep_time > 0)
+
+            charging = true
+            BatteryStats.chargingChanged()
+            scheduled[#scheduled].callback()
+            now, level = now + 3600, target
+            scheduled[#scheduled].callback()
+            assert.are.same(before.usage, BatteryStats.snapshot().usage)
+            charging = false
+            BatteryStats.chargingChanged()
+            local write_count = writes
+            local preview = BatteryStats.snapshot()
+            assert.are.equal(0, preview.usage.awake_time)
+            assert.are.equal(0, preview.usage.asleep_time)
+            assert.is_nil(preview.usage.overall)
+            assert.are.equal(write_count, writes)
+            scheduled[#scheduled].callback()
+
+            local stats = BatteryStats.snapshot()
+            assert.are.equal(before.awake_time, stats.awake_time)
+            assert.are.equal(before.asleep_time, stats.asleep_time)
+            assert.are.equal(0, stats.usage.awake_time)
+            assert.are.equal(0, stats.usage.asleep_time)
+            assert.is_nil(stats.usage.overall)
+            assert.is_nil(stats.usage.awake)
+            assert.is_nil(stats.usage.asleep)
+            assert.are.equal(target - 88, stats.charge_gain)
+            assert.are.equal(0, stats.since_charge)
+
+            now, level = now + 3600, target - 4
+            scheduled[#scheduled].callback()
+            BatteryStats.suspend()
+            now, level = now + 7200, target - 5
+            BatteryStats.resume()
+            stats = BatteryStats.snapshot()
+            assert.are.equal(3600, stats.usage.awake_time)
+            assert.are.equal(7200, stats.usage.asleep_time)
+            assert.are.equal(4, stats.usage.awake)
+            assert.are.equal(0.5, stats.usage.asleep)
+            assert.are.equal(5 / 3, stats.usage.overall)
+            BatteryStats.stop()
+            now = now + 3600
+            BatteryStats.start()
+            assert.are.same(stats.usage, BatteryStats.snapshot().usage)
+        end
+    end)
+
+    it("retains the current usage cycle across rollover, manual reset, and history recovery", function()
+        BatteryStats.start()
+        now, level = now + 3600, 90
+        scheduled[#scheduled].callback()
+        charging = true
+        BatteryStats.chargingChanged()
+        scheduled[#scheduled].callback()
+        now, level, charging = now + 3600, 100, false
+        BatteryStats.chargingChanged()
+        scheduled[#scheduled].callback()
+        now, level = now + 3600, 95
+        scheduled[#scheduled].callback()
+        for i = 1, 512 do
+            now = now + 1800
+            scheduled[#scheduled].callback()
+        end
+        local stats = BatteryStats.snapshot()
+        assert.are.equal(257 * 3600, stats.usage.awake_time)
+        assert.are.equal(5 / 257, stats.usage.overall)
+        assert.are.equal(15 / 258, stats.overall)
+        assert.are.equal(1, #read_history())
+        assert.is_true(BatteryStats.reset())
+        assert.are.same(stats.usage, BatteryStats.snapshot().usage)
+        BatteryStats.stop()
+        stored = { events = {} }
+        now = now + 3600
+        BatteryStats.start()
+        assert.are.same(stats.usage, BatteryStats.snapshot().usage)
+        assert.are.equal(10, BatteryStats.snapshot().charge_gain)
+    end)
+
+    it("resets usage when a charge ends during sleep or is detected after restart", function()
+        BatteryStats.start()
+        now, level = now + 3600, 90
+        scheduled[#scheduled].callback()
+        charging = true
+        BatteryStats.chargingChanged()
+        scheduled[#scheduled].callback()
+        BatteryStats.suspend()
+        local before = #scheduled
+        now, level, charging = now + 3600, 95, false
+        BatteryStats.resume()
+        assert.are.equal(before + 1, #scheduled)
+        assert.are.equal(0, BatteryStats.snapshot().usage.awake_time)
+        now, level = now + 3600, 90
+        scheduled[#scheduled].callback()
+        assert.are.equal(3600, BatteryStats.snapshot().usage.awake_time)
+        BatteryStats.stop()
+        now, level = now + 3600, 95
+        BatteryStats.start()
+        assert.are.equal(0, BatteryStats.snapshot().usage.awake_time)
+        assert.is_nil(BatteryStats.snapshot().usage.overall)
+        assert.are.equal(7200, BatteryStats.snapshot().awake_time)
+    end)
+
     it("measures charging progress and freezes the completed full-charge duration", function()
         level = 20
         BatteryStats.start()

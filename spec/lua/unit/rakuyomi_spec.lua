@@ -454,9 +454,10 @@ describe("Rakuyomi recent Home series", function()
         "utils/findLastRead", "utils/getChapterDisplayName", "RakuyomiShared", "apps/reader/readerui",
         "libs/libkoreader-lfs", "ui/uimanager", "MangaReader", "common/shared_state", "ui/trapper", "ErrorDialog",
         "chapters/findNextChapter", "bookinfomanager", "document/documentregistry",
-        "apps/filemanager/filemanagerbookinfo" }
+        "apps/filemanager/filemanagerbookinfo", "gettext+" }
     local saved, Rakuyomi, config, listing, opened_callback, starts, resumes, initialized, errors, resumed_manga
     local saved_settings, saved_time, queued, invalidated, native_opens, opened_listing
+    local saved_cancel_banner, banner_cancels
     local file = "/data/rakuyomi/tmpfs/chapter.cbz"
     local manga = { id = "series", source = { id = "source" }, title = "Series title",
         manga_cover = "file:///posters/series%20cover.jpg", viewer = "Rtl", state_viewer = true }
@@ -467,11 +468,14 @@ describe("Rakuyomi recent Home series", function()
         resumed_manga = nil
         saved_settings = G_reader_settings
         saved_time = os.time
+        saved_cancel_banner = _G.__ZEN_UI_CANCEL_OPENING_BANNER
+        banner_cancels = 0
+        _G.__ZEN_UI_CANCEL_OPENING_BANNER = function() banner_cancels = banner_cancels + 1 end
         _G.G_reader_settings = ZenSpec.memorySettings({ file_ask_to_open = true })
         queued, invalidated, native_opens = {}, {}, 0
         for _i, name in ipairs(names) do saved[name] = package.loaded[name] end
         ZenSpec.replace("apps/filemanager/filemanager", { instance = { rakuyomi = {
-            showErrorDialog = function() errors = errors + 1 end,
+            showErrorDialog = function() require("ErrorDialog"):show("startup failed") end,
         } } })
         ZenSpec.replace("pluginloader", {})
         ZenSpec.replace("apps/reader/readerui", { instance = { document = { file = file } } })
@@ -496,6 +500,7 @@ describe("Rakuyomi recent Home series", function()
         end })
         ZenSpec.replace("ui/trapper", { wrap = function(_self, callback) callback() end })
         ZenSpec.replace("ErrorDialog", { show = function() errors = errors + 1 end })
+        ZenSpec.replace("gettext+", function(text) return text end)
         local ChapterListing = { openChapterOnReader = function(self, _chapter, _job, callback)
             native_opens = native_opens + 1
             opened_listing = self
@@ -542,6 +547,7 @@ describe("Rakuyomi recent Home series", function()
 
     after_each(function()
         _G.G_reader_settings = saved_settings
+        _G.__ZEN_UI_CANCEL_OPENING_BANNER = saved_cancel_banner
         rawset(os, "time", saved_time)
         for _i, name in ipairs(names) do package.loaded[name] = saved[name] end
     end)
@@ -577,10 +583,12 @@ describe("Rakuyomi recent Home series", function()
         assert.equals(1, starts)
         assert.equals(1, resumes)
         assert.same(manga, resumed_manga)
+        assert.equals(0, banner_cancels)
         initialized = false
         assert.is_true(Rakuyomi.resumeRecentSeries(file))
         assert.equals(1, errors)
         assert.equals(1, resumes)
+        assert.equals(1, banner_cancels)
     end)
 
     it("fills Home metadata from the chapter without starting the backend", function()
@@ -702,6 +710,41 @@ describe("Rakuyomi recent Home series", function()
         assert.is_true(Rakuyomi.resumeRecentSeries(file))
         assert.equals(1, errors)
         assert.equals(1, native_opens)
+        assert.equals(1, banner_cancels)
+    end)
+
+    it("clears the Home opening banner when no chapters are available", function()
+        listing:openChapterOnReader(chapter)
+        opened_callback()
+        G_reader_settings:saveSetting("file_ask_to_open", false)
+        require("ChapterListing").new = function() return { chapters = {} } end
+
+        assert.is_true(Rakuyomi.resumeRecentSeries(file))
+        assert.equals(1, errors)
+        assert.equals(1, banner_cancels)
+        assert.equals(1, native_opens)
+    end)
+
+    it("clears the Home opening banner on a deferred native resume or download error", function()
+        listing:openChapterOnReader(chapter)
+        opened_callback()
+        local pending
+        require("LibraryView")._handleContinueReading = function()
+            pending = coroutine.create(function()
+                coroutine.yield()
+                require("ErrorDialog"):show("download failed")
+            end)
+            assert.is_true(coroutine.resume(pending))
+        end
+
+        assert.is_true(Rakuyomi.resumeRecentSeries(file))
+        assert.equals(0, banner_cancels)
+        assert.is_true(coroutine.resume(pending))
+        assert.equals(1, errors)
+        assert.equals(1, banner_cancels)
+        Rakuyomi.installResumePatch()
+        require("ErrorDialog"):show("retry failed")
+        assert.equals(2, banner_cancels)
     end)
 
     it("tracks Home opens through chapter transitions and resets the source for a chapter list tap", function()

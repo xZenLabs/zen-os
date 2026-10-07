@@ -524,13 +524,13 @@ function M.resumeRecentSeries(file)
         if entry.file == file then recent = entry; break end
     end
     if not recent or not M.is_available() then return false end
+    M.installResumePatch()
     local Backend = require("Backend")
     Backend.getBackend()
     if not Backend.getInitialized() then
         (live_plugin() or loaded_plugin()):showErrorDialog()
         return true
     end
-    M.installResumePatch()
     local manga = {}
     for key, value in pairs(recent.manga) do manga[key] = value end
     manga_source_tabs[manga] = "home"
@@ -982,6 +982,15 @@ function M.installResumePatch()
     if M._resume_patched then return end
     local ok, original = pcall(require, "utils/findLastRead")
     if not ok or type(original) ~= "function" then return end
+    local ok_error, ErrorDialog = pcall(require, "ErrorDialog")
+    if ok_error and type(ErrorDialog.show) == "function" then
+        local show = ErrorDialog.show
+        function ErrorDialog:show(...)
+            local cancel_banner = rawget(_G, "__ZEN_UI_CANCEL_OPENING_BANNER")
+            if type(cancel_banner) == "function" then cancel_banner() end
+            return show(self, ...)
+        end
+    end
     local function findLastRead(chapters)
         local newest
         for _i, chapter in ipairs(chapters) do
