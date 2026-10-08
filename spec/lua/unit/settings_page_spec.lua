@@ -103,6 +103,7 @@ describe("Zen settings page", function()
         })
         ZenSpec.replace("util", { fixUtf8 = function(text) return text end })
         ZenSpec.replace("device", {
+            hasColorScreen = function() return false end,
             screen = {
                 getWidth = function() return 600 end,
                 getHeight = function() return 800 end,
@@ -392,6 +393,36 @@ describe("Zen settings page", function()
         assert.is_true(settings:onMenuHold(help, true))
         assert.are.equal(2, #shown_widgets)
         assert.are.equal("Helpful details", shown_widgets[2].text)
+    end)
+
+    it("clears controls on opening in dark mode or on color screens without reflashing navigation", function()
+        local Device = require("device")
+        local refreshes = {}
+        require("modules/settings/zen_settings").build = function()
+            return { sub_item_table = {{ text = "Interface", sub_item_table = {{ text = "Option" }} }} }
+        end
+        require("ui/uimanager").show = function(_self, widget, refresh)
+            shown_widgets[#shown_widgets + 1] = widget
+            refreshes[#refreshes + 1] = refresh
+        end
+        for _i, case in ipairs({
+            { night = false, color = false, mode = "ui" },
+            { night = true, color = false, mode = "full" },
+            { night = false, color = true, mode = "full" },
+            { night = true, color = true, mode = "full" },
+        }) do
+            Device.screen.night_mode = case.night
+            Device.hasColorScreen = function() return case.color end
+            local page = PageModule.show({ config = {} })
+            assert.are.equal(_i, #refreshes)
+            assert.are.equal(case.mode, refreshes[_i]())
+            assert.are.equal(page, PageModule.show(page.plugin))
+            page:onMenuSelect(page.item_table[1])
+            page:backToUpperMenu()
+            assert.are.equal(_i, #refreshes)
+            page:closeMenu()
+            assert.is_nil(refreshes[_i]())
+        end
     end)
 
     it("reuses the active settings page", function()
@@ -836,12 +867,19 @@ describe("Zen settings page", function()
         first:closeMenu()
 
         shown_widgets = {}
+        local refresh
+        require("device").hasColorScreen = function() return true end
+        require("ui/uimanager").show = function(_self, widget, mode)
+            shown_widgets[#shown_widgets + 1] = widget
+            if widget.name == "zen_settings" then refresh = mode end
+        end
         local restored = PageModule.show(plugin)
         assert.are.equal("Stats", restored.title_bar.title)
         assert.are.same({ "quotes" }, restored_arrange_path)
         assert.are.equal(2, #shown_widgets)
         assert.are.equal(restored, shown_widgets[1])
         assert.is_true(shown_widgets[1].invisible)
+        assert.is_nil(refresh())
         assert.are.equal("Quotes", shown_widgets[2].title)
     end)
 

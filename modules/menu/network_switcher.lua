@@ -217,7 +217,7 @@ function M.open(on_connected, settings_subpage, plugin)
         title_full_width = true,
         action = {
             file = utils.resolveLocalIcon(plugin_root and plugin_root .. "/icons/", "quick_sync"),
-            callback = function() start_scan() end,
+            callback = function() start_scan(true) end,
         },
         toggle = {
             value_func = function() return NetworkMgr:isWifiOn() end,
@@ -281,7 +281,8 @@ function M.open(on_connected, settings_subpage, plugin)
     end
 
     local function turn_on_wifi()
-        if NetworkMgr:isWifiOn() then return true end
+        if NetworkMgr:isWifiOn() and (not kobo
+                or require("util").pathExists(NetworkMgr.wpa_supplicant.ctrl_interface)) then return true end
         local reconnect = NetworkMgr.reconnectOrShowNetworkMenu
         NetworkMgr.reconnectOrShowNetworkMenu = function() return true end
         local ok_turn_on, status = pcall(NetworkMgr.turnOnWifi, NetworkMgr)
@@ -385,10 +386,10 @@ function M.open(on_connected, settings_subpage, plugin)
     local prompt_password
     local function perform_connection(network, use_password, switching)
         if adapter and use_password then
-            local replaced = adapter.replaceNetwork(network)
+            local replaced, profile_error = adapter.replaceNetwork(network)
             if not replaced then
-                logger.warn("could not replace Wi-Fi profile")
-                return { profile_error = true }
+                logger.warn("could not save Wi-Fi profile")
+                return { profile_error = profile_error or _("Connection failed") }
             end
         end
         local powered_on, power_error = turn_on_wifi()
@@ -442,7 +443,7 @@ function M.open(on_connected, settings_subpage, plugin)
             return false, reason
         end
         if result.profile_error then
-            local reason = _("Could not replace the saved Wi-Fi password.")
+            local reason = result.profile_error
             if not closed then prompt_password(network, reason) end
             return false, reason
         end
@@ -860,6 +861,8 @@ function M.open(on_connected, settings_subpage, plugin)
             adapter.scan(load_results)
         elseif kobo_adapter and NetworkMgr.runWifiAsync then
             run_async(function()
+                local powered_on, reason = turn_on_wifi()
+                if not powered_on then return { error = reason } end
                 local networks, err = kobo_adapter.getNetworkList()
                 return { networks = networks, error = err }
             end, function(result, err)
@@ -870,10 +873,21 @@ function M.open(on_connected, settings_subpage, plugin)
         end
     end
 
-    start_scan = function()
-        if closed or scanning or changing_power then return end
+    start_scan = function(force)
+        if closed or not force and (scanning or changing_power) then return end
         UIManager:unschedule(refresh_networks)
+        if adapter and scanning then
+            adapter.close()
+            adapter = KindleNetworkAdapter.new(NetworkMgr)
+        end
         scanning = true
+        changing_power = false
+        if NetworkMgr.cancelWifiOperations then
+            NetworkMgr:cancelWifiOperations()
+        elseif NetworkMgr.unscheduleConnectivityCheck then
+            NetworkMgr:unscheduleConnectivityCheck()
+            NetworkMgr.pending_connection = false
+        end
         if NetworkMgr:isWifiOn() then
             scan_networks()
             return

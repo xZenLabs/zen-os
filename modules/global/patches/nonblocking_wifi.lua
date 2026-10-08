@@ -269,6 +269,16 @@ local function apply_nonblocking_wifi()
     NetworkMgr.showWifiStarting = function(self)
         self:showWifiNotice(require("gettext")("Turning on Wi-Fi…"))
     end
+    NetworkMgr.cancelWifiOperations = function(self)
+        cancel()
+        self:unscheduleConnectivityCheck()
+        self.pending_connection = false
+        self.wifi_toggle_long_press = nil
+        self.nw_settings = nil
+        if wifi_notice then UIManager:close(wifi_notice) end
+        wifi_notice = nil
+        notify_state()
+    end
     NetworkMgr.runWifiAsync = function(self, action, complete_callback, queued_only, timeout)
         if not queued_only then
             cancel()

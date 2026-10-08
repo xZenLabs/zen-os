@@ -1051,7 +1051,10 @@ function M.show(plugin, opts)
         page._deferred_arrange_resume = true
     end
     active_page = page
-    UIManager:show(page)
+    UIManager:show(page, function()
+        if page._closed or page.invisible then return end
+        return (Device.screen.night_mode or Device:hasColorScreen()) and "full" or "ui"
+    end)
     if resume and resume.arrange then
         UIManager:nextTick(function()
             if page._closed then return end

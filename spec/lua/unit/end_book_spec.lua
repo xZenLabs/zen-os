@@ -329,6 +329,38 @@ describe("end of book", function()
         assert.is_nil(next_tick)
     end)
 
+    it("removes the previous end-of-book page before the opening banner repaints after History closes", function()
+        local freed, data_freed, unbound
+        ZenSpec.replace("common/clock_timer", { unbind = function(widget) unbound = widget end })
+        local EndBook = load_end_book()
+        local manager = require("ui/uimanager")
+        local ui = { doc_settings = ZenSpec.memorySettings({ summary = { status = "complete" } }) }
+        local page = setmetatable({ ui = ui,
+            free = function() freed = true end,
+            data = { free = function() data_freed = true end },
+        }, { __index = EndBook })
+        local history = { name = "history" }
+        manager._window_stack = { { widget = ui }, { widget = page }, { widget = history } }
+        manager.setDirty = function() end
+        manager.close = function(_self, widget)
+            assert.equals(page, widget)
+            widget:onCloseWidget()
+            table.remove(manager._window_stack, 2)
+        end
+        require("ui/widget/focusmanager").handleEvent = function(widget, event)
+            local handler = widget[event.handler]
+            if handler then return handler(widget) end
+        end
+
+        table.remove(manager._window_stack) -- History closes before KOReader broadcasts ShowingReader.
+        assert.is_true(page:handleEvent(require("ui/event"):new("ShowingReader")))
+        assert.same({ { widget = ui } }, manager._window_stack)
+        assert.is_true(page.closed)
+        assert.is_true(freed)
+        assert.is_true(data_freed)
+        assert.equals(page, unbound)
+    end)
+
     it("pushes completed progress on close before freeing, using the Book Status KOSync guard", function()
         local EndBook = load_end_book()
         ZenSpec.replace("ui/event", { new = function(_self, name) return name end })

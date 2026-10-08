@@ -524,6 +524,7 @@ function EndBook:onClose()
 end
 
 EndBook.onCloseAll = EndBook.onClose
+EndBook.onShowingReader = EndBook.onClose
 
 function EndBook:onCloseWidget()
     self.closed = true

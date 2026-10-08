@@ -972,6 +972,42 @@ describe("background Wi-Fi toggles", function()
         assert.are.same({}, events)
     end)
 
+    it("cancels reconnects, queued work and connectivity checks before a fresh scan", function()
+        local saved = ZenSpec.memorySettings({ Home = { password = "saved" } })
+        NetworkMgr.getAllSavedNetworks = function() return saved end
+        NetworkMgr:toggleWifiOn(function() error("Cancelled reconnect must not complete") end,
+            false, true, function() error("Cancelled reconnect must not reopen the chooser") end)
+        NetworkMgr:runWifiAsync(function() error("Queued work must not run") end,
+            function() error("Queued callback must not run") end, true)
+        NetworkMgr:scheduleConnectivityCheck(function() error("Cancelled check must not run") end)
+        NetworkMgr.nw_settings = saved
+        wifi_on = true
+
+        NetworkMgr:cancelWifiOperations()
+
+        assert.is_true(workers[1].done)
+        assert.is_false(NetworkMgr.pending_connection)
+        assert.is_false(NetworkMgr.pending_connectivity_check)
+        assert.is_false(NetworkMgr:isWifiChanging())
+        assert.is_nil(NetworkMgr.nw_settings)
+        assert.is_nil(NetworkMgr.wifi_toggle_long_press)
+        assert.are.equal(1, #closed_notices)
+        assert.are.equal(1, #scheduled)
+        local scanned = false
+        NetworkMgr:runWifiAsync(function() return { networks = {} } end,
+            function() scanned = true end, true)
+        tick()
+        assert.are.equal(2, #workers)
+        finish_worker()
+
+        assert.is_true(scanned)
+        assert.is_true(wifi_on)
+        assert.are.equal(0, off_calls)
+        assert.are.equal(0, standby)
+        assert.are.equal(2, closed_fds)
+        assert.are.same({ Home = { password = "saved" } }, saved.data)
+    end)
+
     it("cancels a pending enable without letting its callback revive the connection", function()
         local completed = 0
         NetworkMgr:toggleWifiOn(function() completed = completed + 1 end, false, true)

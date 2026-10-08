@@ -237,12 +237,17 @@ function M.new(NetworkMgr, logger)
                 return false, err or reply
             end
         end
-        local reply
-        reply, err = wcli:sendCtrlCmd("SAVE_CONFIG")
-        if not reply or reply:sub(1, 2) ~= "OK" then
-            wcli:sendCtrlCmd("RECONFIGURE")
-            wcli:close()
-            return false, err or reply
+        -- Keep the scan's paused profiles out of the saved configuration.
+        local commands = NetworkMgr:isConnected() and { "SAVE_CONFIG" }
+            or { "ENABLE_NETWORK all", "DISCONNECT", "SAVE_CONFIG" }
+        for _i, command in ipairs(commands) do
+            local reply
+            reply, err = wcli:sendCtrlCmd(command)
+            if not reply or reply:sub(1, 2) ~= "OK" then
+                wcli:sendCtrlCmd("RECONFIGURE")
+                wcli:close()
+                return false, err or reply
+            end
         end
         wcli:close()
         logger.dbg("Kobo profiles forgotten", "profiles=", #ids)
@@ -361,6 +366,15 @@ function M.new(NetworkMgr, logger)
     end
 
     function adapter.getNetworkList()
+        if not NetworkMgr:isConnected() then
+            local wcli, err = require("lj-wpaclient/wpaclient").new(NetworkMgr.wpa_supplicant.ctrl_interface)
+            if not wcli then return nil, err end
+            -- Pause saved profiles in memory; SELECT_NETWORK resumes the user's choice.
+            local reply
+            reply, err = wcli:sendCtrlCmd("DISABLE_NETWORK all")
+            wcli:close()
+            if not reply or reply:sub(1, 2) ~= "OK" then return nil, err or reply end
+        end
         local networks, err = NetworkMgr:getNetworkList()
         if networks and #networks == 0 then
             local wcli = require("lj-wpaclient/wpaclient").new(NetworkMgr.wpa_supplicant.ctrl_interface)
