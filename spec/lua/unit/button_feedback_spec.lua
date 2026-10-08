@@ -20,9 +20,7 @@ describe("rounded button feedback", function()
         UIManager = {
             setDirty = function() end, forceRePaint = function() end, yieldToEPDC = function() end,
             widgetRepaint = function(_self, widget) widget:paintTo() end,
-            waitForVSync = function()
-                assert.is_true(screen:isColorScreen(), "monochrome feedback must not wait for refresh completion")
-            end,
+            waitForVSync = function() error("feedback must not wait for refresh completion") end,
         }
         Button = { paintTo = function() end }
         IconButton = {}
@@ -84,7 +82,7 @@ describe("rounded button feedback", function()
             local icon = setmetatable({
                 dimen = { x = 10, y = 10, w = 50, h = 32 }, width = 16, height = 16,
                 padding_left = 8, padding_right = 24, padding_top = 8,
-                image = { invert = true }, allow_flash = false,
+                image = { invert = true }, allow_flash = true,
             }, { __index = IconButton })
             local called, flashes = 0, 0
             icon.callback = function()
@@ -105,6 +103,45 @@ describe("rounded button feedback", function()
             assert.are.equal(1, flashes)
             _G.G_reader_settings.isFalse = function() return false end
         end
+    end)
+
+    it("runs disabled-flash icon callbacks without touching the framebuffer or forcing a repaint", function()
+        require("modules/global/patches/button_feedback")()
+        Feedback.flash = function() error("disabled feedback must not flash") end
+        UIManager.forceRePaint = function() error("disabled feedback must not force a repaint") end
+        local called = 0
+        local icon = setmetatable({
+            allow_flash = false,
+            callback = function() called = called + 1 end,
+        }, { __index = IconButton })
+        assert.is_true(icon:onTapIconButton())
+        assert.are.equal(1, called)
+    end)
+
+    it("ignores disabled icon taps with flashing enabled or disabled", function()
+        require("modules/global/patches/button_feedback")()
+        Feedback.flash = function() error("disabled icons must not flash") end
+        UIManager.forceRePaint = function() error("disabled icons must not repaint") end
+        for _i, flash_ui in ipairs({ false, true }) do
+            _G.G_reader_settings.isFalse = function() return not flash_ui end
+            for _j, allow_flash in ipairs({ false, true }) do
+                local icon = setmetatable({
+                    enabled = false, allow_flash = allow_flash,
+                    callback = function() error("disabled icons must not activate") end,
+                }, { __index = IconButton })
+                assert.is_true(icon:onTapIconButton())
+            end
+        end
+    end)
+
+    it("does not highlight disabled buttons", function()
+        require("modules/global/patches/button_feedback")()
+        Feedback.invert = function() error("disabled buttons must not invert") end
+        UIManager.setDirty = function() error("disabled buttons must not refresh") end
+        local button = setmetatable({ enabled = false }, { __index = Button })
+        button:_doFeedbackHighlight()
+        button:_undoFeedbackHighlight(false)
+        assert.is_nil(button._zen_feedback_region)
     end)
 
     it("flashes only a circle and restores its pixels, honoring Flash UI", function()
@@ -204,64 +241,52 @@ describe("rounded button feedback", function()
         end
     end)
 
-    it("waits for monochrome MTK and sunxi updates before overwriting framebuffer pixels", function()
+    it("uses asynchronous feedback on monochrome MTK and Sunxi devices", function()
         local device = package.loaded.device
-        local reading, waits = true, 0
+        local inversions, yields = 0, 0
         screen.bb = {
-            invertRect = function() assert.is_false(reading, "EPDC is still reading the framebuffer") end,
+            invertRect = function() inversions = inversions + 1 end,
             free = function() end,
         }
-        UIManager.waitForVSync = function()
-            reading = false
-            waits = waits + 1
-        end
-        UIManager.forceRePaint = function() reading = true end
+        UIManager.yieldToEPDC = function() yields = yields + 1 end
         local region = { x = 20, y = 20, w = 200, h = 60 }
         require("modules/global/patches/button_feedback")()
         local button = setmetatable({ dimen = region, enabled = true }, { __index = Button })
         for _i, controller in ipairs({ "isMTK", "isSunxi" }) do
             device[controller] = function() return true end
-            reading = true
             Feedback.flash(region)
-            reading = true
             button:_doFeedbackHighlight()
             UIManager:forceRePaint()
             button:_undoFeedbackHighlight(false)
-            assert.are.equal(_i * 4, waits)
+            assert.are.equal(_i, yields)
             device[controller] = function() return false end
         end
 
-        UIManager.waitForVSync = function() error("other monochrome devices must not wait") end
-        reading = false
         Feedback.invert(region)
+        assert.is_true(inversions > 0)
     end)
 
-    it("waits for color refreshes before changing framebuffer pixels", function()
+    it("uses asynchronous feedback on color screens with and without MTK", function()
         local device = package.loaded.device
         screen.isColorScreen = function() return true end
-        local reading, waits = true, 0
+        local inversions, yields = 0, 0
         screen.bb = {
-            invertRect = function() assert.is_false(reading, "display is still reading the framebuffer") end,
+            invertRect = function() inversions = inversions + 1 end,
             free = function() end,
         }
-        UIManager.waitForVSync = function()
-            reading = false
-            waits = waits + 1
-        end
-        UIManager.forceRePaint = function() reading = true end
+        UIManager.yieldToEPDC = function() yields = yields + 1 end
         require("modules/global/patches/button_feedback")()
         local region = { x = 20, y = 20, w = 32, h = 24 }
         local button = setmetatable({ dimen = region, enabled = true }, { __index = Button })
         for _i, mtk in ipairs({ false, true }) do
             device.isMTK = function() return mtk end
-            reading = true
             Feedback.flash(region)
-            reading = true
             button:_doFeedbackHighlight()
             UIManager:forceRePaint()
             button:_undoFeedbackHighlight(false)
         end
-        assert.are.equal(8, waits)
+        assert.are.equal(2, yields)
+        assert.is_true(inversions > 0)
     end)
 
     it("flashes the painted borderless icon without enlarging or moving its tap target", function()

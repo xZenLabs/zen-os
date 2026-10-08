@@ -76,8 +76,8 @@ describe("home data and book caches", function()
         })
         ZenSpec.replace("common/title_sort", {
             key = function(value) return tostring(value) end,
-            less = function(first, second)
-                return tostring(first) < tostring(second)
+            comparator = function()
+                return function(first, second) return tostring(first) < tostring(second) end
             end,
         })
         ZenSpec.replace("common/widget_resources", {})

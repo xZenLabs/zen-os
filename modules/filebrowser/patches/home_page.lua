@@ -1985,8 +1985,9 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
         local group_view = type(cfg.group_view) == "table" and cfg.group_view or {}
         if kind == "authors" and #groups > 1 then
             local collate = author_sort.normalize(group_view.authors_collate)
+            local compare = author_sort.comparator(collate)
             table.sort(groups, function(a, b)
-                return author_sort.less(a.label, b.label, collate)
+                return compare(a.label, b.label)
             end)
             local reverse = type(group_view.group_reverse) == "table"
                 and group_view.group_reverse.authors == true
@@ -1996,8 +1997,9 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             local collate = type(group_view.group_collate) == "table"
                 and group_view.group_collate[kind] or "title"
             local natural = collate == "title_natural"
+            local compare = title_sort.comparator(natural)
             table.sort(groups, function(a, b)
-                return title_sort.less(a.label, b.label, natural)
+                return compare(a.label, b.label)
             end)
             local reverse = type(group_view.group_reverse) == "table"
                 and group_view.group_reverse[kind] == true

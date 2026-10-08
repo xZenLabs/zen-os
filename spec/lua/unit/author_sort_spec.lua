@@ -40,4 +40,28 @@ describe("author sort", function()
         assert.are.equal("broken \255", sort_key("Broken \255"))
         assert.are.equal("", sort_key(nil))
     end)
+
+    it("caches author keys per sort and preserves first-name, last-name and full-name ties", function()
+        local authors = { "Émile Zola", "Émile Čapek", "Austen, Jane", "Gabriel García Márquez", "Jane Austen" }
+        local original_key = AuthorSort.key
+        local calls = {}
+        AuthorSort.key = function(value, mode)
+            calls[value] = (calls[value] or 0) + 1
+            return original_key(value, mode)
+        end
+        local ok, err = pcall(function()
+            for _i, mode in ipairs({ "authors", "authors_last" }) do
+                local expected, actual = { unpack(authors) }, { unpack(authors) }
+                table.sort(expected, function(a, b) return AuthorSort.less(a, b, mode) end)
+                calls = {}
+                local compare = AuthorSort.comparator(mode)
+                table.sort(actual, compare)
+                table.sort(actual, compare)
+                assert.are.same(expected, actual)
+                for _j, author in ipairs(authors) do assert.are.equal(1, calls[author]) end
+            end
+        end)
+        AuthorSort.key = original_key
+        assert(ok, err)
+    end)
 end)

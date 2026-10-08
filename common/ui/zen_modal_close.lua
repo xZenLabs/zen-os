@@ -31,7 +31,7 @@ local function replace_right_button(title_bar, parent)
         overlap_offset = old_button.overlap_offset,
         callback = old_button.callback,
         hold_callback = old_button.hold_callback,
-        allow_flash = false,
+        allow_flash = true,
         show_parent = parent,
     }
     for i = 1, #title_bar do
@@ -50,7 +50,7 @@ function M.installTitleBar(title_bar, parent, callback)
     title_bar.not_focusable = true
     title_bar.right_icon = close_icon_path
     title_bar.right_icon_tap_callback = callback
-    title_bar.right_icon_allow_flash = false
+    title_bar.right_icon_allow_flash = true
     title_bar:clear()
     title_bar:init()
     return replace_right_button(title_bar, parent)

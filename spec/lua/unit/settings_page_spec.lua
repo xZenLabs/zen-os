@@ -576,9 +576,20 @@ describe("Zen settings page", function()
         assert.are.equal(1, deferred_apply_flushes)
     end)
 
-    it("refreshes the visible status bar and full screen after closing settings with X", function()
+    it("refreshes the visible status bar and full screen before the first repaint after closing with X", function()
         local UIManager = require("ui/uimanager")
-        UIManager.close = function(_self, widget) widget:onCloseWidget() end
+        local pending_refresh
+        UIManager.nextTick = function(_self, callback) pending_refresh = callback end
+        UIManager.unschedule = function(_self, callback)
+            assert.are.equal(pending_refresh, callback)
+            pending_refresh = nil
+        end
+        UIManager.close = function(_self, widget)
+            local stack = UIManager._window_stack
+            stack[#stack + 1] = { widget = widget }
+            widget:onCloseWidget()
+            table.remove(stack)
+        end
         local fm = require("apps/filemanager/filemanager").instance
         local reader = {}
         ZenSpec.replace("apps/reader/readerui", { instance = reader })
@@ -622,6 +633,40 @@ describe("Zen settings page", function()
         make_page({}).title_bar.close_callback()
         assert.are.equal(4, refreshes)
         assert.are.equal(4, full_refreshes)
+        assert.is_nil(pending_refresh)
+    end)
+
+    it("flashes the themed reader immediately after settings leave the window stack", function()
+        local UIManager = require("ui/uimanager")
+        local reader = { document = {} }
+        ZenSpec.replace("apps/reader/readerui", { instance = reader })
+        local pending_refresh
+        UIManager.nextTick = function(_self, callback) pending_refresh = callback end
+        UIManager.unschedule = function(_self, callback)
+            assert.are.equal(pending_refresh, callback)
+            pending_refresh = nil
+        end
+        local settings = make_page({})
+        UIManager._window_stack = { { widget = reader }, { widget = settings } }
+        UIManager.close = function(_self, widget)
+            widget:onCloseWidget()
+            table.remove(UIManager._window_stack)
+        end
+        local flashes = 0
+        ZenSpec.replace("common/reader_themes", {
+            isActive = function() return true end,
+            refreshFull = function(widget)
+                assert.are.equal("all", widget)
+                assert.are.equal(reader, UIManager._window_stack[#UIManager._window_stack].widget)
+                flashes = flashes + 1
+            end,
+        })
+
+        settings.title_bar.close_callback()
+        assert.are.equal(1, flashes)
+        assert.is_nil(pending_refresh)
+        settings:closeMenu()
+        assert.are.equal(1, flashes)
     end)
 
     it("skips the settings close refresh when quitting KOReader", function()

@@ -9,6 +9,7 @@ local paths = require("common/paths")
 local StandalonePage = require("modules/filebrowser/patches/standalone_page")
 local SharedState = require("common/shared_state")
 local title_sort = require("common/title_sort")
+local key_cache = require("common/sort_key_cache")
 local zen_utils = require("common/utils")
 
 local M = {}
@@ -459,13 +460,15 @@ local function build_group_item_table(groups, data_type)
     if #items > 1 then
         if data_type == "authors" then
             local collate = get_authors_collate()
+            local compare = author_sort.comparator(collate)
             table.sort(items, function(a, b)
-                return author_sort.less(a._zen_author, b._zen_author, collate)
+                return compare(a._zen_author, b._zen_author)
             end)
         elseif data_type == "series" or data_type == "languages" or data_type == "tags" then
             local natural = get_group_collate(data_type) == "title_natural"
+            local compare = title_sort.comparator(natural)
             table.sort(items, function(a, b)
-                return title_sort.less(a.text, b.text, natural)
+                return compare(a.text, b.text)
             end)
         end
     end
@@ -740,11 +743,13 @@ local function sortDetailFiles(files, collate, reverse)
             sort_key = fpath:match("([^/]+)$") or fpath
         end
 
-        table.insert(items, { path = fpath, key = sort_key })
+        table.insert(items, { path = fpath, key = sort_key,
+            doc_props = collate == "title_natural" and { display_title = sort_key } or nil })
     end
 
     -- Sort by key
     if collate ~= "title_natural" then
+        local title_key = key_cache(title_sort.sortKey)
         table.sort(items, function(a, b)
             if collate == "series_index" or collate == "access" then
                 -- Numeric comparison; for access higher = more recent so invert.
@@ -756,8 +761,8 @@ local function sortDetailFiles(files, collate, reverse)
                     if reverse then return a_n > b_n else return a_n < b_n end
                 end
             else
-                local a_key = collate == "title" and title_sort.sortKey(a.key) or tostring(a.key)
-                local b_key = collate == "title" and title_sort.sortKey(b.key) or tostring(b.key)
+                local a_key = collate == "title" and title_key(a.key) or tostring(a.key)
+                local b_key = collate == "title" and title_key(b.key) or tostring(b.key)
                 local a_lower = a_key:lower()
                 local b_lower = b_key:lower()
                 if reverse then return a_lower > b_lower else return a_lower < b_lower end
@@ -770,9 +775,7 @@ local function sortDetailFiles(files, collate, reverse)
         table.sort(items, function(a, b)
             local first, second = a, b
             if reverse then first, second = second, first end
-            return sort_func(
-                { doc_props = { display_title = first.key } },
-                { doc_props = { display_title = second.key } })
+            return sort_func(first, second)
         end)
     end
 

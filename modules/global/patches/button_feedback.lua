@@ -9,7 +9,7 @@ return function()
     Button._zen_feedback_patched = true
 
     function Button:_doFeedbackHighlight()
-        if self.allow_flash == false then return end
+        if self.enabled == false or self.allow_flash == false then return end
         local dimen = self.bordersize == 0 and self.label_widget and self.label_widget.is_icon
             and self.label_widget.dimen or self.dimen
         self._zen_feedback_region = (self.vsync or dimen == self.dimen
@@ -43,7 +43,12 @@ return function()
     end
 
     function IconButton:onTapIconButton()
+        if self.enabled == false then return true end
         if not self.callback or self.skip_paint then return end
+        if self.allow_flash == false or G_reader_settings:isFalse("flash_ui") then
+            self.callback()
+            return true
+        end
         local padding = BD.mirroredUILayout() and self.padding_right or self.padding_left
         Feedback.flash(Feedback.paddedRegion(Geom:new{
             x = self.dimen.x + padding, y = self.dimen.y + self.padding_top,

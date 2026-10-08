@@ -1,4 +1,5 @@
 local sort_key = require("common/sort_key")
+local key_cache = require("common/sort_key_cache")
 local M = {}
 
 local HTML_SPACES = {
@@ -35,11 +36,21 @@ function M.key(name, mode)
     return sort_text:match("^([^%s,]+)") or sort_text
 end
 
-function M.less(a, b, mode)
-    local ak = sort_key(M.key(a, mode))
-    local bk = sort_key(M.key(b, mode))
+local function less(a, b, ak, bk, full_key)
     if ak ~= bk then return ak < bk end
-    return sort_key(a) < sort_key(b)
+    return full_key(a) < full_key(b)
+end
+
+function M.less(a, b, mode)
+    return less(a, b, sort_key(M.key(a, mode)), sort_key(M.key(b, mode)), sort_key)
+end
+
+function M.comparator(mode)
+    local key = key_cache(function(value) return sort_key(M.key(value, mode)) end)
+    local full_key = key_cache(sort_key)
+    return function(a, b)
+        return less(a, b, key(a), key(b), full_key)
+    end
 end
 
 function M.options(gettext)

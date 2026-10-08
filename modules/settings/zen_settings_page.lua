@@ -708,6 +708,12 @@ function ZenSettingsPage:closeMenu()
     end
     UIManager:close(self)
     self:_flushDeferredSettingsApplies()
+    local refresh = self._close_refresh
+    if refresh then
+        -- Join the first repaint after the page leaves the window stack.
+        UIManager:unschedule(refresh)
+        refresh()
+    end
     return true
 end
 
@@ -730,7 +736,8 @@ function ZenSettingsPage:onCloseWidget()
         _G.__ZEN_UI_SETTINGS_PAGE = nil
     end
     self:_flushDeferredSettingsApplies()
-    UIManager:nextTick(function()
+    self._close_refresh = function()
+        self._close_refresh = nil
         if self._exiting then return end
         local stack = UIManager._window_stack or {}
         local top
@@ -761,7 +768,8 @@ function ZenSettingsPage:onCloseWidget()
             end
         end
         UIManager:setDirty("all", "full")
-    end)
+    end
+    UIManager:nextTick(self._close_refresh)
     return Menu.onCloseWidget(self)
 end
 

@@ -1235,7 +1235,7 @@ local function apply_opds()
             padding_bottom = 0,
             overlap_align = values.overlap_align,
             overlap_offset = values.overlap_offset,
-            allow_flash = false,
+            allow_flash = true,
             show_parent = browser.show_parent or browser,
             callback = callback,
         }
@@ -1279,10 +1279,10 @@ local function apply_opds()
         -- TitleBar expects stock names; the visible ZenIconButtons use absolute files.
         title_bar.left_icon = "chevron.left"
         title_bar.left_icon_tap_callback = function() return browser:onLeftButtonTap() end
-        title_bar.left_icon_allow_flash = false
+        title_bar.left_icon_allow_flash = true
         title_bar.right_icon = "close"
         title_bar.right_icon_tap_callback = function() return browser:onCloseAllMenus() end
-        title_bar.right_icon_allow_flash = false
+        title_bar.right_icon_allow_flash = true
         title_bar:clear()
         title_bar:init()
 

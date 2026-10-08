@@ -943,7 +943,7 @@ local function apply_page_browser()
                 self.title_bar.has_left_icon = false
             end
 
-            local function make_header_btn(file_path, x_pos, cb, hold_cb, align, allow_flash)
+            local function make_header_btn(file_path, x_pos, cb, hold_cb, align)
                 local button = {
                     file           = file_path,
                     width          = btn_sz,
@@ -951,7 +951,7 @@ local function apply_page_browser()
                     padding        = btn_pad,
                     padding_bottom = btn_sz,
                     overlap_align  = align or "left",
-                    allow_flash    = allow_flash ~= false,
+                    allow_flash    = true,
                     show_parent    = self,
                     callback       = cb or function() end,
                     hold_callback  = hold_cb,
@@ -1007,7 +1007,7 @@ local function apply_page_browser()
                 self.title_bar.right_button = make_header_btn(
                     utils.resolveIcon(_icons_dir, "close_light"), nil,
                     old_right_button.callback, old_right_button.hold_callback,
-                    "right", old_right_button.allow_flash)
+                    "right")
                 table.insert(self.title_bar, self.title_bar.right_button)
             end
 

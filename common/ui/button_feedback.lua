@@ -14,12 +14,6 @@ function M.paddedRegion(dimen)
 end
 
 function M.invert(region, radius)
-    -- These controllers may still read pixels after the short EPDC yield.
-    if Screen:isColorScreen()
-            or Device.isMTK and Device:isMTK()
-            or Device.isSunxi and Device:isSunxi() then
-        UIManager:waitForVSync()
-    end
     local x, y, w, h = region.x, region.y, region.w, region.h
     radius = math.min(radius or Screen:scaleBySize(8), math.floor(math.min(w, h) / 2))
     Screen.bb:invertRect(x, y + radius, w, h - 2 * radius)

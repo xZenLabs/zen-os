@@ -100,6 +100,7 @@ local function natural_compare(a, b)
 end
 
 local sort_key = require("common/sort_key")
+local key_cache = require("common/sort_key_cache")
 local M = {}
 
 local ARTICLES = {
@@ -142,18 +143,29 @@ function M.sortKey(title)
     return sort_key(M.key(title))
 end
 
-function M.less(first, second, natural)
+local function less(first, second, natural, key, full_key)
     first = tostring(first or "")
     second = tostring(second or "")
-    local first_key = M.sortKey(first)
-    local second_key = M.sortKey(second)
+    local first_key = key(first)
+    local second_key = key(second)
     if natural then
         local result = natural_compare(first_key, second_key)
-        if result == 0 then result = natural_compare(sort_key(first), sort_key(second)) end
+        if result == 0 then result = natural_compare(full_key(first), full_key(second)) end
         return result < 0
     end
     if first_key ~= second_key then return first_key < second_key end
-    return sort_key(first) < sort_key(second)
+    return full_key(first) < full_key(second)
+end
+
+function M.less(first, second, natural)
+    return less(first, second, natural, M.sortKey, sort_key)
+end
+
+function M.comparator(natural)
+    local key, full_key = key_cache(M.sortKey), key_cache(sort_key)
+    return function(first, second)
+        return less(first, second, natural, key, full_key)
+    end
 end
 
 return M

@@ -237,7 +237,7 @@ local function apply_bookmarks()
                     show_parent = tb.show_parent or bm_menu.show_parent or bm_menu,
                     callback = callback,
                     hold_callback = hold_callback,
-                    allow_flash = false,
+                    allow_flash = true,
                 }
             end
 

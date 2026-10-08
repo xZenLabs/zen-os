@@ -1083,6 +1083,7 @@ describe("page browser entry", function()
                 local right = {
                     callback = function() close_button_taps = close_button_taps + 1 end,
                     hold_callback = function() end,
+                    allow_flash = false,
                 }
                 self.ges_events = {}
                 self.nb_cols, self.nb_rows = 3, 2
@@ -1272,6 +1273,7 @@ describe("page browser entry", function()
         expect(close_button.width == 32 and close_button.height == 32)
         expect(close_button.padding == 11 and close_button.padding_bottom == 32)
         expect(close_button.overlap_align == "right")
+        expect(close_button.allow_flash == true)
         expect(close_button.onFocus(close_button) == true)
         expect(close_button._zen_keyboard_focused == true)
         expect(close_button.onUnfocus(close_button) == true)

@@ -397,6 +397,9 @@ describe("reader interaction patches", function()
         assert.is_nil(back_button.hold_callback)
         local menu_button = menu.title_bar.menu_button
         local close_button = menu.title_bar.right_button
+        for _i, button in ipairs({ back_button, menu_button, close_button }) do
+            assert.is_true(button.allow_flash)
+        end
         assert.are.equal("/icons/appbar.menu.svg", menu_button.file)
         assert.are.equal(left_tap, menu_button.callback)
         assert.are.equal(left_hold, menu_button.hold_callback)

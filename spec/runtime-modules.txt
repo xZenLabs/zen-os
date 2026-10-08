@@ -56,6 +56,7 @@ common/settings_transition.lua|unit
 common/shutdown.lua|unit
 common/status_bar_registry.lua|unit
 common/sort_key.lua|unit
+common/sort_key_cache.lua|unit
 common/title_sort.lua|unit
 common/tbr_index.lua|unit
 common/ui/background.lua|unit

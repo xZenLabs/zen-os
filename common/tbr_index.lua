@@ -10,6 +10,7 @@ local lfs = require("libs/libkoreader-lfs")
 local paths = require("common/paths")
 local sqlite3 = require("lua-ljsqlite3/init")
 local title_sort = require("common/title_sort")
+local key_cache = require("common/sort_key_cache")
 local util = require("util")
 local zen_logger = require("common/zen_logger")
 
@@ -663,6 +664,7 @@ local function sort_paths(files, collate, reverse)
             path = path,
             value = value,
             rank = manual_rank[path],
+            doc_props = collate == "title_natural" and { display_title = value } or nil,
         }
     end
 
@@ -672,13 +674,14 @@ local function sort_paths(files, collate, reverse)
         local natural = ok_booklist and BookList.collates and BookList.collates.title_natural
         natural_sort = natural and natural.init_sort_func and natural.init_sort_func()
     end
+    local title_key = key_cache(title_sort.sortKey)
     table.sort(items, function(a, b)
         if collate == MANUAL_COLLATE then
             local a_rank = a.rank or math.huge
             local b_rank = b.rank or math.huge
             if a_rank ~= b_rank then return a_rank < b_rank end
-            local a_title = title_sort.sortKey(a.value)
-            local b_title = title_sort.sortKey(b.value)
+            local a_title = title_key(a.value)
+            local b_title = title_key(b.value)
             if a_title == b_title then return a.path < b.path end
             return a_title < b_title
         end
@@ -692,13 +695,11 @@ local function sort_paths(files, collate, reverse)
             return a.value < b.value
         end
         if natural_sort then
-            local first = { doc_props = { display_title = a.value } }
-            local second = { doc_props = { display_title = b.value } }
-            if reverse then return natural_sort(second, first) end
-            return natural_sort(first, second)
+            if reverse then return natural_sort(b, a) end
+            return natural_sort(a, b)
         end
-        local first = collate == "title" and title_sort.sortKey(a.value) or tostring(a.value)
-        local second = collate == "title" and title_sort.sortKey(b.value) or tostring(b.value)
+        local first = collate == "title" and title_key(a.value) or tostring(a.value)
+        local second = collate == "title" and title_key(b.value) or tostring(b.value)
         first, second = first:lower(), second:lower()
         if reverse then return first > second end
         return first < second
