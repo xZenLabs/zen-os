@@ -30,6 +30,7 @@ describe("network switcher", function()
     local native_profiles
     local profile_read_fails
     local deleted_profile_id
+    local kindle_guest_security
 
     local module_names = {
         "device",
@@ -97,6 +98,7 @@ describe("network switcher", function()
         }
         profile_read_fails = false
         deleted_profile_id = nil
+        kindle_guest_security = "WPA2-PSK"
 
         ZenSpec.replace("device", {
             hasWifiManager = function() return false end,
@@ -322,7 +324,7 @@ describe("network switcher", function()
                                         },
                                         {
                                             essid = "Guest",
-                                            key_mgmt = "WPA2-PSK",
+                                            key_mgmt = kindle_guest_security,
                                             signal = 3,
                                             signal_max = 5,
                                         },
@@ -2807,7 +2809,33 @@ describe("network switcher", function()
         }, events)
     end)
 
+    it("creates a Kindle profile for a first-time connection when the scan reports SAE", function()
+        native_profiles = {}
+        NetworkMgr.current_ssid = nil
+        kindle_guest_security = "SAE"
+        local Switcher = require("modules/menu/network_switcher")
+        assert.is_true(Switcher.open())
+        finish_scan()
+
+        network_menu.item_table[2].callback()
+        assert.are.equal("password", password_dialog.kind)
+        password_dialog.buttons[1][2].callback()
+
+        assert.are.same({
+            essid = "Guest",
+            psk = "guest-password",
+            secured = "yes",
+            store_nw_user_pref = 0,
+        }, created_profile)
+        assert.are.equal(0, kindle_deletes)
+        assert.are.equal(1, kindle_connects)
+        assert.are.equal("Guest", NetworkMgr.current_ssid)
+        assert.are.equal("Guest", NetworkMgr.lease_ssid)
+        assert.is_true(NetworkMgr.obtained)
+    end)
+
     it("shows the Kindle profile creation error when joining a new network", function()
+        kindle_guest_security = "SAE"
         local Switcher = require("modules/menu/network_switcher")
         assert.is_true(Switcher.open())
         finish_scan()
@@ -2866,7 +2894,8 @@ describe("network switcher", function()
         assert.is_true(#logs > 0)
     end)
 
-    it("forgets a saved Kindle profile on hold", function()
+    it("forgets a saved Kindle profile and rejoins when the scan reports SAE", function()
+        kindle_guest_security = "SAE"
         NetworkMgr.guest_password = string.rep("ab", 32)
         native_profiles.Guest = {
             essid = "Guest",
@@ -2894,5 +2923,18 @@ describe("network switcher", function()
         assert.is_nil(NetworkMgr.deleted.password)
         assert.are.equal("Guest", network_menu.item_table[2].text)
         assert.are.equal("60%", network_menu.item_table[2]._zen_settings_breadcrumb)
+
+        network_menu.item_table[2].callback()
+        assert.are.equal("password", password_dialog.kind)
+        password_dialog.buttons[1][2].callback()
+        assert.are.same({
+            essid = "Guest",
+            psk = "guest-password",
+            secured = "yes",
+            store_nw_user_pref = 0,
+        }, created_profile)
+        assert.are.equal(1, kindle_deletes)
+        assert.are.equal(1, kindle_connects)
+        assert.are.equal("Guest", NetworkMgr.current_ssid)
     end)
 end)

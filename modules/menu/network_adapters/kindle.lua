@@ -110,11 +110,6 @@ local function validate_password(network)
 end
 
 local function create_profile(network)
-    local flags = type(network.flags) == "string" and network.flags or ""
-    if is_secured(network) and not flags:find("WPA", 1, true) then
-        return false, "unsupported Kindle Wi-Fi security"
-    end
-
     local handle, handle_error = profile_handle()
     if not handle then return false, handle_error end
 
