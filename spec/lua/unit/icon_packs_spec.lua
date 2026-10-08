@@ -138,6 +138,27 @@ describe("ZenOS icon packs", function()
         assert.are.equal("inside", scan.packs[1].id)
     end)
 
+    it("returns absolute pack icon paths when KOReader uses a relative data directory", function()
+        local DataStorage = require("datastorage")
+        local data_dir = stub(DataStorage, "getDataDir", function() return "." end)
+        local full_data_dir = stub(DataStorage, "getFullDataDir", function() return icons_root end)
+        finally(function()
+            data_dir:revert()
+            full_data_dir:revert()
+        end)
+        make_dir(icons_root .. "/icons")
+        packs_root = icons_root .. "/icons/zen"
+        local selected = make_pack("selected", "home")
+        IconPacks._setIconsRootForTests(nil)
+
+        assert.are.equal(packs_root, IconPacks.getPacksRoot())
+        IconPacks.initialize({
+            features = { custom_icons_enabled = true },
+            custom_icons = { active_pack = "selected" },
+        })
+        assert.are.equal(selected .. "/home.svg", IconPacks.resolve("home", ZenSpec.root .. "/icons/"))
+    end)
+
     it("installs a valid ZIP and deletes it only after success", function()
         local zip_path = make_zip("sample.zip", "sample", { ["home.svg"] = "new" })
 

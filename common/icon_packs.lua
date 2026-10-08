@@ -75,7 +75,7 @@ end
 
 local function icons_root()
     if test_icons_root then return test_icons_root end
-    return DataStorage:getDataDir() .. "/icons"
+    return DataStorage:getFullDataDir() .. "/icons"
 end
 
 local function packs_root()
