@@ -572,10 +572,50 @@ describe("end of book", function()
         assert.equals(0, shown)
     end)
 
+    it("migrates native defaults and Book status once for new and existing installs", function()
+        local apply = require("modules/reader/patches/end_book")
+        G_reader_settings:saveSetting("end_document_auto_mark", false)
+        for _i, initialized in ipairs({ false, true }) do
+            for _j, action in ipairs({ "book_status", "pop-up", false }) do
+                plugin.config._meta = { end_book_default_applied = initialized }
+                G_reader_settings:saveSetting("end_document_action", action or nil)
+                apply()
+                assert.are.equal("zen_end_book", G_reader_settings:readSetting("end_document_action"))
+                assert.is_true(plugin.config._meta.end_book_action_migrated)
+                G_reader_settings:saveSetting("end_document_action", action or nil)
+                ZenSpec.unload("modules/reader/patches/end_book")
+                require("modules/reader/patches/end_book")()
+                assert.are.equal(action or nil, G_reader_settings:readSetting("end_document_action"))
+                assert.is_false(G_reader_settings:readSetting("end_document_auto_mark"))
+            end
+        end
+        assert.are.equal(6, plugin.saves)
+    end)
+
+    it("preserves other saved actions on first and later startups", function()
+        local apply = require("modules/reader/patches/end_book")
+        for _i, initialized in ipairs({ false, true }) do
+            for _j, action in ipairs({
+                "zen_end_book", "nothing", "delete_file", "next_file", "goto_beginning",
+                "file_browser", "mark_read", "book_status_file_browser",
+            }) do
+                plugin.config._meta = { end_book_default_applied = initialized }
+                G_reader_settings:saveSetting("end_document_action", action)
+                apply()
+                assert.are.equal(action, G_reader_settings:readSetting("end_document_action"))
+                assert.is_true(plugin.config._meta.end_book_action_migrated)
+                G_reader_settings:saveSetting("end_document_action", "book_status")
+                apply()
+                assert.are.equal("book_status", G_reader_settings:readSetting("end_document_action"))
+            end
+        end
+        assert.are.equal(16, plugin.saves)
+    end)
+
     it("adds the Zen action to freshly built menus and preserves a saved action", function()
-        G_reader_settings:saveSetting("end_document_action", "book_status")
+        G_reader_settings:saveSetting("end_document_action", "nothing")
         require("modules/reader/patches/end_book")()
-        assert.are.equal("book_status", G_reader_settings:readSetting("end_document_action"))
+        assert.are.equal("nothing", G_reader_settings:readSetting("end_document_action"))
         local sorter = require("ui/menusorter")
         for _i, prefix in ipairs({ "reader", "filemanager", "reader" }) do
             local items = { document_end_action = { sub_item_table = {

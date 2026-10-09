@@ -2,6 +2,7 @@ local Geom = require("ui/geometry")
 local Device = require("device")
 local Screen = Device.screen
 local UIManager = require("ui/uimanager")
+local logger = require("common/zen_logger").new("button_feedback")
 
 local M = {}
 
@@ -14,6 +15,20 @@ function M.paddedRegion(dimen)
 end
 
 function M.invert(region, radius)
+    -- Prefer submission over waiting for the whole panel refresh on monochrome screens.
+    if not Screen:isColorScreen() then
+        local marker = Screen.marker
+        if Screen.mech_wait_update_submission and marker then
+            if marker ~= 0 and marker ~= Screen.dont_wait_for_marker
+                    and Screen:mech_wait_update_submission(marker) == -1 then
+                logger.warn("Using VSync fallback: submission wait failed", "marker=", marker)
+                UIManager:waitForVSync()
+            end
+        elseif Device.isMTK and Device:isMTK() then
+            logger.warn("Using VSync fallback: update submission unavailable", "marker=", marker)
+            UIManager:waitForVSync()
+        end
+    end
     local x, y, w, h = region.x, region.y, region.w, region.h
     radius = math.min(radius or Screen:scaleBySize(8), math.floor(math.min(w, h) / 2))
     Screen.bb:invertRect(x, y + radius, w, h - 2 * radius)

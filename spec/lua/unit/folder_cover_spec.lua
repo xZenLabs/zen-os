@@ -285,10 +285,20 @@ describe("shared folder cover provider", function()
         local rounded_mask = painted_masks[1]
         assert.is_true(label_strip.radius > 0)
 
-        config.features.browser_cover_rounded_corners = false
+        config.browser_folder_cover.name_centered = true
         label_strip:paintTo(target, 0, 0)
         assert.are.equal(0, label_strip.radius)
         assert.are_not.equal(rounded_mask, painted_masks[3])
+
+        config.browser_folder_cover.name_centered = false
+        label_strip:paintTo(target, 0, 0)
+        assert.is_true(label_strip.radius > 0)
+        assert.are.equal(rounded_mask, painted_masks[5])
+
+        config.features.browser_cover_rounded_corners = false
+        label_strip:paintTo(target, 0, 0)
+        assert.are.equal(0, label_strip.radius)
+        assert.are_not.equal(rounded_mask, painted_masks[7])
     end)
 
     it("does not enumerate a physical folder when covers are suppressed", function()

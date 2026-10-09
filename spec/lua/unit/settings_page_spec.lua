@@ -273,6 +273,33 @@ describe("Zen settings page", function()
         assert.is_true(settings.title_bar.search_visible)
     end)
 
+    it("returns from the font chooser to the page that opened it", function()
+        local fonts = {
+            { text = "Font A", menu_item_id = "a" },
+            { text = "Font B", menu_item_id = "b" },
+            open_on_menu_item_id_func = function() return "b" end,
+        }
+        local font = { text = "Font", sub_item_table = fonts }
+        local reader = { text = "Reader", sub_item_table = { font } }
+        local settings = make_page({ reader })
+        settings.getPageNumber = function(_self, index) return index end
+
+        settings.page = 3
+        settings:onMenuSelect(reader)
+        settings.page = 2
+        settings:onMenuSelect(font)
+        assert.are.equal(2, settings.page)
+        settings.page = 6
+
+        settings:backToUpperMenu()
+        assert.are.equal(reader.sub_item_table, settings.item_table)
+        assert.are.equal(2, settings.page)
+        assert.is_nil(settings.itemnumber)
+        settings:backToUpperMenu()
+        assert.are.equal(settings._root_items, settings.item_table)
+        assert.are.equal(3, settings.page)
+    end)
+
     it("honors disabled controls and resolves callback factories on each action", function()
         local active, taps, holds = false, 0, 0
         local item = {
@@ -965,11 +992,14 @@ describe("Zen settings page", function()
         root.refresh_func = function() return { library } end
         local settings = make_page(root)
 
+        settings.page = 2
         settings:onMenuSelect(library)
         assert.are.equal("Library", settings.title_bar.title)
+        settings.page = 3
 
         settings:backToUpperMenu()
         assert.are.equal("Settings", settings.title_bar.title)
+        assert.are.equal(2, settings.page)
         assert.is_false(settings.title_bar.back_visible)
     end)
 

@@ -104,7 +104,7 @@ describe("Reader defaults", function()
         assert.are.equal("dynamic_filler", footer.order[3])
         assert.are.equal("percentage", footer.order[4])
         assert.are.equal(status_font, footer.text_font_face)
-        assert.is_false(footer.text_font_bold)
+        assert.is_true(footer.text_font_bold)
         assert.are.equal(6, footer.container_bottom_padding)
         assert.are.equal(1, settings:readSetting("reader_footer_mode"))
         assert.are.equal("ZenOS", settings:readSetting("reader_footer_custom_text"))
@@ -186,6 +186,15 @@ describe("Reader defaults", function()
             assert.are.same({ "pagewidth" }, events.onSetZoomMode)
             assert.is_table(events.onReZoom)
         end
+    end)
+
+    it("defaults the footer to bold for unsupported locales without a saved preference", function()
+        local settings = ZenSpec.memorySettings({ language = "ru_RU" })
+        _G.G_reader_settings = settings
+
+        require("common/reader_defaults").apply(settings, {})
+
+        assert.is_true(settings:readSetting("footer").text_font_bold)
     end)
 
     it("keeps existing reader and status fonts for unsupported locales", function()
@@ -346,6 +355,7 @@ describe("Reader defaults", function()
         assert.is_true(loaded_preset.footer.chapter_time_to_read)
         assert.is_false(loaded_preset.footer.page_progress)
         assert.is_true(loaded_preset.footer.percentage)
+        assert.is_true(loaded_preset.footer.text_font_bold)
         assert.are.equal(6, reader.view.footer.settings.container_bottom_padding)
         assert.are.equal(12, reader.view.footer.bottom_padding)
         assert.are.equal(12, reader.view.footer.footer_content.padding_bottom)

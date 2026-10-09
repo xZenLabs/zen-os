@@ -678,6 +678,7 @@ local function get_label_ui()
         local label_max_radius = math.floor(
             (math.min(self.dimen.w, self.dimen.h) - 1) / 2)
         local radius = features.browser_cover_rounded_corners == true
+            and folder.name_centered ~= true
             and math.min(self.ui.Screen:scaleBySize(8), self.max_radius,
                 label_max_radius) or 0
         local opaque = folder.name_opaque == true
@@ -809,6 +810,7 @@ function M.overlayName(cover, options)
     local cover_h = math.max(1, cover_dimen and cover_dimen.h or content_h)
     local features = full_config.features or {}
     local rounded = features.browser_cover_rounded_corners == true
+        and config.name_centered ~= true
     local corner_radius = rounded and math.min(ui.Screen:scaleBySize(8),
         math.floor((math.min(cover_w, cover_h) - 1) / 2)) or 0
     local label_pad_h = ui.Screen:scaleBySize(5)

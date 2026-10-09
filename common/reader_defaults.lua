@@ -207,9 +207,9 @@ function M.apply(settings, config)
     ReaderStatusBar.disableKoreaderAltStatusBar(settings)
 
     local preset = copy_value(require("modules/reader/patches/reader_footer_presets")[1])
+    preset.footer.text_font_bold = true
     if use_bundled_fonts then
         preset.footer.text_font_face = STATUS_FONT
-        preset.footer.text_font_bold = false
     else
         local existing_footer = settings:readSetting("footer")
         if type(existing_footer) == "table" then

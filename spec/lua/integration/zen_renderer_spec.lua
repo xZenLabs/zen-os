@@ -876,6 +876,7 @@ describe("Zen renderer", function()
         MosaicMenu._updateItemsBuildUI(centered_menu)
         local centered_overlay = centered_menu.layout[1][1]._underline_container[1][1]
         assert.are.equal("center", centered_overlay[2][1].kind)
+        assert.are.equal(0, centered_overlay[2][1][1][1].radius)
     end)
 
     it("supplies the rendered book cover before opening a Zen mosaic tile", function()

@@ -1,16 +1,16 @@
 require("ffi/loadlib")
 
 describe("rounded button feedback", function()
-    local originals, settings, Feedback, screen, UIManager, Button, IconButton, mirrored
+    local originals, settings, Feedback, screen, UIManager, Button, IconButton, mirrored, logs
     local Blitbuffer = require("ffi/blitbuffer")
     local Geom = require("ui/geometry")
     local modules = {
         "device", "ui/uimanager", "ui/widget/button", "ui/widget/iconbutton", "ui/bidi",
-        "common/ui/button_feedback", "modules/global/patches/button_feedback",
+        "common/ui/button_feedback", "modules/global/patches/button_feedback", "common/zen_logger",
     }
 
     before_each(function()
-        originals, settings = {}, _G.G_reader_settings
+        originals, settings, logs = {}, _G.G_reader_settings, {}
         for _i, name in ipairs(modules) do originals[name] = package.loaded[name] or false end
         _G.G_reader_settings = { isFalse = function() return false end }
         screen = {
@@ -30,6 +30,12 @@ describe("rounded button feedback", function()
         ZenSpec.replace("ui/widget/button", Button)
         ZenSpec.replace("ui/widget/iconbutton", IconButton)
         ZenSpec.replace("ui/bidi", { mirroredUILayout = function() return mirrored end })
+        ZenSpec.replace("common/zen_logger", { new = function()
+            return {
+                dbg = function() error("feedback must only log fallback warnings") end,
+                warn = function(...) logs[#logs + 1] = { ... } end,
+            }
+        end })
         ZenSpec.unload("common/ui/button_feedback")
         ZenSpec.unload("modules/global/patches/button_feedback")
         Feedback = require("common/ui/button_feedback")
@@ -241,34 +247,138 @@ describe("rounded button feedback", function()
         end
     end)
 
-    it("uses asynchronous feedback on monochrome MTK and Sunxi devices", function()
+    it("waits for monochrome submission with and without MTK without waiting for completion", function()
+        local reading, submitted = true, {}
+        screen.marker = 1
+        screen.bb = {
+            invertRect = function() assert.is_false(reading, "EPDC is still reading the framebuffer") end,
+            free = function() end,
+        }
+        local submission_result
+        screen.mech_wait_update_submission = function(_self, marker)
+            assert.are.equal(screen.marker, marker)
+            submitted[#submitted + 1] = marker
+            reading = false
+            return submission_result
+        end
+        UIManager.forceRePaint = function()
+            screen.marker = screen.marker + 1
+            reading = true
+        end
+        require("modules/global/patches/button_feedback")()
+        local region = { x = 20, y = 20, w = 200, h = 60 }
+        local button = setmetatable({ dimen = region, enabled = true }, { __index = Button })
+        for _i, mtk in ipairs({ false, true }) do
+            package.loaded.device.isMTK = function() return mtk end
+            for _j, result in ipairs({ 0, 25 }) do
+                submission_result = result
+                Feedback.flash(region)
+                button:_doFeedbackHighlight()
+                UIManager:forceRePaint()
+                button:_undoFeedbackHighlight(false)
+            end
+        end
+        assert.are.same({ 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9 }, submitted)
+        assert.are.same({}, logs)
+    end)
+
+    it("falls back to completion when monochrome MTK submission is unavailable", function()
         local device = package.loaded.device
+        local reading, waits = true, 0
+        screen.bb = {
+            invertRect = function() assert.is_false(reading, "EPDC is still reading the framebuffer") end,
+            free = function() end,
+        }
+        UIManager.waitForVSync = function()
+            reading = false
+            waits = waits + 1
+        end
+        UIManager.forceRePaint = function() reading = true end
+        local region = { x = 20, y = 20, w = 200, h = 60 }
+        require("modules/global/patches/button_feedback")()
+        local button = setmetatable({ dimen = region, enabled = true }, { __index = Button })
+        device.isMTK = function() return true end
+        Feedback.flash(region)
+        reading = true
+        button:_doFeedbackHighlight()
+        UIManager:forceRePaint()
+        button:_undoFeedbackHighlight(false)
+        assert.are.equal(4, waits)
+        assert.are.equal(4, #logs)
+        assert.are.equal("Using VSync fallback: update submission unavailable", logs[1][1])
+        device.isMTK = function() return false end
+
+        UIManager.waitForVSync = function() error("other monochrome devices must not wait") end
+        reading = false
+        Feedback.invert(region)
+    end)
+
+    it("falls back to completion when the submission ioctl fails", function()
+        package.loaded.device.isMTK = function() return false end
+        local reading, events = true, {}
+        screen.marker = 7
+        screen.bb = {
+            invertRect = function() assert.is_false(reading, "EPDC is still reading the framebuffer") end,
+            free = function() end,
+        }
+        screen.mech_wait_update_submission = function(_self, marker)
+            events[#events + 1] = marker
+            return -1
+        end
+        UIManager.waitForVSync = function()
+            events[#events + 1] = "complete"
+            reading = false
+        end
+        Feedback.invert({ x = 20, y = 20, w = 200, h = 60 })
+        assert.are.same({ 7, "complete" }, events)
+        assert.are.same({
+            { "Using VSync fallback: submission wait failed", "marker=", 7 },
+        }, logs)
+    end)
+
+    it("skips submission waits for invalid or already completed markers", function()
+        package.loaded.device.isMTK = function() return true end
+        local inversions = 0
+        screen.bb = {
+            invertRect = function() inversions = inversions + 1 end,
+            free = function() end,
+        }
+        screen.mech_wait_update_submission = function() error("no pending update must not wait") end
+        screen.marker = 0
+        Feedback.invert({ x = 20, y = 20, w = 200, h = 60 })
+        screen.marker, screen.dont_wait_for_marker = 7, 7
+        Feedback.invert({ x = 20, y = 20, w = 200, h = 60 })
+        assert.is_true(inversions > 0)
+        assert.are.same({}, logs)
+    end)
+
+    it("uses asynchronous feedback on unsupported monochrome screens, including Sunxi", function()
         local inversions, yields = 0, 0
         screen.bb = {
             invertRect = function() inversions = inversions + 1 end,
             free = function() end,
         }
         UIManager.yieldToEPDC = function() yields = yields + 1 end
-        local region = { x = 20, y = 20, w = 200, h = 60 }
         require("modules/global/patches/button_feedback")()
+        local region = { x = 20, y = 20, w = 200, h = 60 }
         local button = setmetatable({ dimen = region, enabled = true }, { __index = Button })
-        for _i, controller in ipairs({ "isMTK", "isSunxi" }) do
-            device[controller] = function() return true end
+        for _i, sunxi in ipairs({ false, true }) do
+            package.loaded.device.isSunxi = function() return sunxi end
             Feedback.flash(region)
             button:_doFeedbackHighlight()
             UIManager:forceRePaint()
             button:_undoFeedbackHighlight(false)
-            assert.are.equal(_i, yields)
-            device[controller] = function() return false end
         end
-
-        Feedback.invert(region)
+        assert.are.equal(2, yields)
         assert.is_true(inversions > 0)
+        assert.are.same({}, logs)
     end)
 
     it("uses asynchronous feedback on color screens with and without MTK", function()
         local device = package.loaded.device
         screen.isColorScreen = function() return true end
+        screen.marker = 1
+        screen.mech_wait_update_submission = function() error("color feedback must not wait for submission") end
         local inversions, yields = 0, 0
         screen.bb = {
             invertRect = function() inversions = inversions + 1 end,

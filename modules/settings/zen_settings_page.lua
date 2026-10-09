@@ -468,6 +468,7 @@ function ZenSettingsPage:_openSubmenu(item, items, defer_update)
         self.title_bar:collapseSearch()
     end
     self.item_table._zen_title = self:_currentTitle()
+    self.item_table._zen_page = self.page
     table.insert(self.item_table_stack, self.item_table)
     self._resume_path[#self._resume_path + 1] = self:_resumeSelector(item)
     items._zen_title = item.sub_title or item_text(item)
@@ -631,6 +632,7 @@ function ZenSettingsPage:backToUpperMenu(no_close)
     local parent = table.remove(self.item_table_stack)
     table.remove(self._resume_path)
     local parent_title = parent._zen_title
+    local parent_page = parent._zen_page or 1
     if parent.needs_refresh and type(parent.refresh_func) == "function" then
         parent = parent.refresh_func() or parent
     end
@@ -639,6 +641,8 @@ function ZenSettingsPage:backToUpperMenu(no_close)
     if previous._zen_on_leave then previous._zen_on_leave() end
     self.parent_id = nil
     self._pending_navigation_title = nil
+    self.itemnumber = nil
+    self.page = parent_page
     self:updateItems(1)
     return true
 end

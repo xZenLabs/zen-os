@@ -1205,10 +1205,12 @@ function M.build(ctx)
             ui.font:addToMainMenu(mock)
             if not mock.change_font then return {} end
             local entry = mock.change_font
-            if entry.sub_item_table_func then
-                return entry.sub_item_table_func()
+            local font_items = entry.sub_item_table_func and entry.sub_item_table_func()
+                or entry.sub_item_table or {}
+            for _i, font_item in ipairs(font_items) do
+                if font_item.checked_func then font_item.radio = true end
             end
-            return entry.sub_item_table or {}
+            return font_items
         end,
     })
 
