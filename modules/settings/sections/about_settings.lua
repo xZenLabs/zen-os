@@ -9,8 +9,25 @@ local utils = require("modules/settings/zen_settings_utils")
 local bugreporter = require("modules/settings/zen_bugreporter")
 local icons = require("common/inline_icon_map")
 local IconItem = require("common/ui/icon_menu_item")
+local util = require("util")
 
 local M = {}
+
+local function usage_size(usage, key)
+    return util.getFriendlySize(usage and usage[key]) or "—"
+end
+
+local function clock_speed(khz)
+    return khz and T(_("%1 GHz"), string.format("%.2f", khz / 1000000)) or "—"
+end
+
+local function usage_items(usage, remaining_label)
+    return {
+        { text = T(remaining_label, usage_size(usage, "available")), keep_menu_open = true },
+        { text = T(_("Used: %1"), usage_size(usage, "used")), keep_menu_open = true },
+        { text = T(_("Total: %1"), usage_size(usage, "total")), keep_menu_open = true },
+    }
+end
 
 function M.build(ctx)
     local plugin = ctx.plugin
@@ -51,6 +68,47 @@ function M.build(ctx)
                 end,
                 keep_menu_open = true,
             },
+            IconItem.decorate({
+                text = _("Storage"),
+                mandatory_func = function()
+                    return usage_size(utils.get_device_disk_usage(), "total")
+                end,
+                sub_item_table_func = function()
+                    return usage_items(utils.get_device_disk_usage(), _("Remaining: %1"))
+                end,
+            }, icons.settings_storage),
+            IconItem.decorate({
+                text = _("RAM"),
+                mandatory_func = function()
+                    return usage_size(utils.get_device_ram_usage(), "total")
+                end,
+                sub_item_table_func = function()
+                    return usage_items(utils.get_device_ram_usage(), _("Available: %1"))
+                end,
+            }, icons.settings_ram),
+            IconItem.decorate({
+                text = _("CPU"),
+                mandatory_func = function()
+                    return clock_speed(utils.get_device_cpu_info().max_khz)
+                end,
+                sub_item_table_func = function()
+                    local cpu = utils.get_device_cpu_info()
+                    local current = "—"
+                    if cpu.current_min_khz then
+                        current = string.format("%.2f", cpu.current_min_khz / 1000000)
+                        if cpu.current_max_khz ~= cpu.current_min_khz then
+                            current = current .. "–" .. string.format("%.2f", cpu.current_max_khz / 1000000)
+                        end
+                        current = T(_("%1 GHz"), current)
+                    end
+                    return {
+                        { text = T(_("CPU: %1"), cpu.model or "—"), keep_menu_open = true },
+                        { text = T(_("Cores: %1"), cpu.cores or "—"), keep_menu_open = true },
+                        { text = T(_("Current clock: %1"), current), keep_menu_open = true },
+                        { text = T(_("Maximum clock: %1"), clock_speed(cpu.max_khz)), keep_menu_open = true },
+                    }
+                end,
+            }, icons.settings_cpu),
             IconItem.decorate({
                 text = language_setting.text,
                 sub_item_table = language_setting.sub_item_table,

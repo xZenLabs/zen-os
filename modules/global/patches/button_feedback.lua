@@ -18,7 +18,7 @@ return function()
         }
             or Feedback.paddedRegion(dimen)
         Feedback.invert(self._zen_feedback_region)
-        UIManager:setDirty(nil, "ui", self._zen_feedback_region)
+        UIManager:setDirty(nil, "fast", self._zen_feedback_region)
     end
 
     function Button:_undoFeedbackHighlight(is_translucent)

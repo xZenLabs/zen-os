@@ -7301,3 +7301,75 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:381
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPMがインストールされています。 KOReader を使用するには、KOReader を再起動します。"
+
+#. Type: setting
+#. Context: end current = T(_("%1 GHz"), current) end
+#: about_settings.lua:88 about_settings.lua:90
+msgid "%1 GHz"
+msgstr "%1 GHz"
+
+#. Type: setting
+#. Context: sub_item_table_func = function() return usage_items(utils.get_device_ram_usage(), _("Available: %1")) end,
+#: about_settings.lua:75
+msgid "Available: %1"
+msgstr "利用可能：%1"
+
+#. Type: setting
+#. Context: { text = _("CPU"), sub_item_table_func = function()
+#: about_settings.lua:79
+msgid "CPU"
+msgstr "CPU"
+
+#. Type: setting
+#. Context: return { { text = T(_("CPU: %1"), cpu.model or "—"), keep_menu_open = true }, { text = T(_("Cores: %1"), cpu.cores or "—"), keep_menu_open = true },
+#: about_settings.lua:92
+msgid "CPU: %1"
+msgstr "CPU：%1"
+
+#. Type: setting
+#. Context: { text = T(_("CPU: %1"), cpu.model or "—"), keep_menu_open = true }, { text = T(_("Cores: %1"), cpu.cores or "—"), keep_menu_open = true }, { text = T(_("Current clock: %1"), current), keep_menu_open = true },
+#: about_settings.lua:93
+msgid "Cores: %1"
+msgstr "コア数：%1"
+
+#. Type: setting
+#. Context: { text = T(_("Cores: %1"), cpu.cores or "—"), keep_menu_open = true }, { text = T(_("Current clock: %1"), current), keep_menu_open = true }, { text = T(_("Maximum clock: %1"), maximum), keep_menu_open = true },
+#: about_settings.lua:94
+msgid "Current clock: %1"
+msgstr "現在の周波数：%1"
+
+#. Type: setting
+#. Context: { text = _("Storage"), sub_item_table_func = function()
+#: about_settings.lua:67
+msgid "Storage"
+msgstr "ストレージ"
+
+#. Type: setting
+#. Context: { text = T(_("Current clock: %1"), current), keep_menu_open = true }, { text = T(_("Maximum clock: %1"), maximum), keep_menu_open = true }, }
+#: about_settings.lua:95
+msgid "Maximum clock: %1"
+msgstr "最大周波数：%1"
+
+#. Type: setting
+#. Context: { text = _("RAM"), sub_item_table_func = function()
+#: about_settings.lua:73
+msgid "RAM"
+msgstr "メモリ"
+
+#. Type: setting
+#. Context: sub_item_table_func = function() return usage_items(utils.get_device_disk_usage(), _("Remaining: %1")) end,
+#: about_settings.lua:69
+msgid "Remaining: %1"
+msgstr "残り：%1"
+
+#. Type: setting
+#. Context: { text = T(_("Used: %1"), size("used")), keep_menu_open = true }, { text = T(_("Total: %1"), size("total")), keep_menu_open = true }, }
+#: about_settings.lua:23
+msgid "Total: %1"
+msgstr "合計：%1"
+
+#. Type: setting
+#. Context: { text = T(remaining_label, size("available")), keep_menu_open = true }, { text = T(_("Used: %1"), size("used")), keep_menu_open = true }, { text = T(_("Total: %1"), size("total")), keep_menu_open = true },
+#: about_settings.lua:22
+msgid "Used: %1"
+msgstr "使用済み：%1"

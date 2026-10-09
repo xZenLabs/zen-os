@@ -131,6 +131,9 @@ return {
     flip_lh_rh        = "\u{F0A0E}",
     settings_lockdown = "\u{F033E}",
     settings_device   = "\u{F04F7}",
+    settings_storage  = "\u{F02CA}",  -- mdi-harddisk
+    settings_ram      = "\u{F035B}",  -- mdi-memory
+    settings_cpu      = "\u{F061A}",  -- mdi-chip
     settings_setup    = "\u{F0C5A}",
     settings_bug      = "\u{F00E4}",
     settings_advanced = "\u{F1064}",

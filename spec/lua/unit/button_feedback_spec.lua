@@ -170,7 +170,7 @@ describe("rounded button feedback", function()
                 end
             end
             Feedback.flash(region, 16)
-            assert.are.same({ "ui", "ui" }, modes)
+            assert.are.same({ "fast", "ui" }, modes)
             for y = 0, 79 do
                 for x = 0, 79 do
                     assert.are.equal(tostring(before:getPixel(x, y)), tostring(screen.bb:getPixel(x, y)))
@@ -178,7 +178,7 @@ describe("rounded button feedback", function()
             end
             _G.G_reader_settings.isFalse = function() return true end
             Feedback.flash(region, 16)
-            assert.are.same({ "ui", "ui" }, modes)
+            assert.are.same({ "fast", "ui" }, modes)
             _G.G_reader_settings.isFalse = function() return false end
             before:free()
             screen.bb:free()
@@ -194,7 +194,7 @@ describe("rounded button feedback", function()
         local refreshes = 0
         UIManager.setDirty = function(_self, owner, mode, refreshed)
             assert.is_nil(owner)
-            assert.are.equal("ui", mode)
+            assert.are.equal(refreshes % 2 == 0 and "fast" or "ui", mode)
             assert.is_true(fullscreen:openIntersectWith(refreshed))
             assert.is_true(refreshed:openIntersectWith(fullscreen))
             assert.are.same(fullscreen, fullscreen:combine(refreshed))
@@ -220,7 +220,7 @@ describe("rounded button feedback", function()
         assert.are.same({ x = 20, y = 20, w = 100, h = 60 }, region)
     end)
 
-    it("restores gray content with UI refreshes on monochrome and color screens", function()
+    it("uses fast highlights and restores gray content with UI refreshes on monochrome and color screens", function()
         screen.bb = Blitbuffer.new(80, 60, Blitbuffer.TYPE_BB8)
         screen.bb:fill(Blitbuffer.Color8(32))
         require("modules/global/patches/button_feedback")()
@@ -236,18 +236,18 @@ describe("rounded button feedback", function()
                 modes[#modes + 1] = mode
             end
             Feedback.flash(region)
-            assert.are.same({ "ui", "ui" }, modes)
+            assert.are.same({ "fast", "ui" }, modes)
             assert.are.equal(32, screen.bb:getPixel(28, 28).a)
 
             modes = {}
             button:_doFeedbackHighlight()
             button:_undoFeedbackHighlight(false)
-            assert.are.same({ "ui", "ui" }, modes)
+            assert.are.same({ "fast", "ui" }, modes)
             assert.are.equal(32, screen.bb:getPixel(28, 28).a)
         end
     end)
 
-    it("waits for monochrome submission with and without MTK without waiting for completion", function()
+    it("waits once per pending frame on monochrome and color screens without waiting for completion", function()
         local reading, submitted = true, {}
         screen.marker = 1
         screen.bb = {
@@ -268,18 +268,42 @@ describe("rounded button feedback", function()
         require("modules/global/patches/button_feedback")()
         local region = { x = 20, y = 20, w = 200, h = 60 }
         local button = setmetatable({ dimen = region, enabled = true }, { __index = Button })
-        for _i, mtk in ipairs({ false, true }) do
-            package.loaded.device.isMTK = function() return mtk end
-            for _j, result in ipairs({ 0, 25 }) do
-                submission_result = result
-                Feedback.flash(region)
-                button:_doFeedbackHighlight()
-                UIManager:forceRePaint()
-                button:_undoFeedbackHighlight(false)
+        for _i, color in ipairs({ false, true }) do
+            screen.isColorScreen = function() return color end
+            for _j, mtk in ipairs({ false, true }) do
+                package.loaded.device.isMTK = function() return mtk end
+                for _k, result in ipairs({ 0, 25 }) do
+                    submission_result = result
+                    Feedback.flash(region)
+                    button:_doFeedbackHighlight()
+                    UIManager:forceRePaint()
+                    button:_undoFeedbackHighlight(false)
+                end
             end
         end
-        assert.are.same({ 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9 }, submitted)
+        assert.are.same({ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 }, submitted)
         assert.are.same({}, logs)
+    end)
+
+    it("waits again when the framebuffer is replaced or the marker wraps", function()
+        screen.bb = Blitbuffer.new(48, 48, Blitbuffer.TYPE_BB8)
+        screen.marker = 1
+        local submitted = {}
+        screen.mech_wait_update_submission = function(_self, marker)
+            submitted[#submitted + 1] = marker
+            return 0
+        end
+        local region = { x = 20, y = 20, w = 24, h = 24 }
+        Feedback.invert(region)
+        Feedback.invert(region)
+        screen.bb:free()
+        screen.bb = Blitbuffer.new(48, 48, Blitbuffer.TYPE_BB8)
+        Feedback.invert(region)
+        screen.marker = 4294967295
+        Feedback.invert(region)
+        screen.marker = 1
+        Feedback.invert(region)
+        assert.are.same({ 1, 1, 4294967295, 1 }, submitted)
     end)
 
     it("falls back to completion when monochrome MTK submission is unavailable", function()

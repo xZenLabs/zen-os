@@ -5,6 +5,7 @@ local UIManager = require("ui/uimanager")
 local logger = require("common/zen_logger").new("button_feedback")
 
 local M = {}
+local submitted_marker, submitted_buffer
 
 function M.paddedRegion(dimen)
     local padding = Screen:scaleBySize(4)
@@ -19,10 +20,16 @@ function M.invert(region, radius)
     local marker = Screen.marker
     if Screen.mech_wait_update_submission and marker then
         if marker ~= 0 and marker ~= Screen.dont_wait_for_marker
-                and Screen:mech_wait_update_submission(marker) == -1
-                and not Screen:isColorScreen() then
-            logger.warn("Using VSync fallback: submission wait failed", "marker=", marker)
-            UIManager:waitForVSync()
+                and (marker ~= submitted_marker or Screen.bb ~= submitted_buffer) then
+            if Screen:mech_wait_update_submission(marker) == -1 then
+                if not Screen:isColorScreen() then
+                    logger.warn("Using VSync fallback: submission wait failed", "marker=", marker)
+                    UIManager:waitForVSync()
+                end
+            else
+                -- The same submitted frame is safe until another update is issued.
+                submitted_marker, submitted_buffer = marker, Screen.bb
+            end
         end
     elseif not Screen:isColorScreen() and Device.isMTK and Device:isMTK() then
         logger.warn("Using VSync fallback: update submission unavailable", "marker=", marker)
@@ -46,8 +53,7 @@ function M.flash(region, radius)
         x = region.x, y = region.y, w = region.w, h = region.h,
     }
     M.invert(region, radius)
-    -- Preserve gray backgrounds and antialiased edges during the highlight too.
-    UIManager:setDirty(nil, "ui", region)
+    UIManager:setDirty(nil, "fast", region)
     UIManager:forceRePaint()
     UIManager:yieldToEPDC()
     M.invert(region, radius)

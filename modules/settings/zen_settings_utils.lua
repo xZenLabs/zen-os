@@ -267,6 +267,80 @@ function M.get_device_firmware_display()
     return fw
 end
 
+function M.get_device_disk_usage()
+    local util = require("util")
+    local path = M.first_non_empty(Device.home_dir) or require("datastorage"):getFullDataDir()
+    local ok, usage = pcall(util.diskUsage, path)
+    if not ok or type(usage) ~= "table" or not usage.total or usage.total <= 0 or not usage.used then
+        return nil
+    end
+    usage.available = usage.available or math.max(0, usage.total - usage.used)
+    return usage
+end
+
+function M.get_device_ram_usage()
+    -- calcFreeMem reserves allocation headroom; display the unadjusted kernel values.
+    local meminfo = require("util").readFromFile("/proc/meminfo")
+    if not meminfo then return nil end
+    local memory = {}
+    for key, value in meminfo:gmatch("([%w_]+):%s*(%d+)%s+kB") do
+        memory[key] = tonumber(value) * 1024
+    end
+    local total = memory.MemTotal
+    local available = memory.MemAvailable
+    if not available and memory.MemFree then
+        available = memory.MemFree + (memory.Buffers or 0) + (memory.Cached or 0)
+    end
+    if not total or total <= 0 or not available then return nil end
+    available = math.min(total, math.max(0, available))
+    return { total = total, used = total - available, available = available }
+end
+
+function M.get_device_cpu_info()
+    local util = require("util")
+    local fields, cpus = {}, {}
+    for line in (util.readFromFile("/proc/cpuinfo") or ""):gmatch("[^\n]+") do
+        local key, value = line:match("^%s*(.-)%s*:%s*(.-)%s*$")
+        if key then
+            fields[key] = fields[key] or value
+            if key == "processor" and tonumber(value) then cpus[#cpus + 1] = tonumber(value) end
+        end
+    end
+    local present = util.readFromFile("/sys/devices/system/cpu/present")
+    if present then
+        cpus = {}
+        for first, last in present:gmatch("(%d+)%-?(%d*)") do
+            for index = tonumber(first), tonumber(last) or tonumber(first) do
+                cpus[#cpus + 1] = index
+            end
+        end
+    end
+    local info = {
+        model = M.first_non_empty(fields.Hardware, fields["model name"], fields.Processor),
+        cores = #cpus > 0 and #cpus or nil,
+    }
+    for _i, index in ipairs(cpus) do
+        local path = "/sys/devices/system/cpu/cpu" .. index .. "/cpufreq/"
+        local current = tonumber((util.readFromFile(path .. "cpuinfo_cur_freq")))
+            or tonumber((util.readFromFile(path .. "scaling_cur_freq")))
+        local maximum = tonumber((util.readFromFile(path .. "cpuinfo_max_freq")))
+        if current and current > 0 then
+            info.current_min_khz = math.min(info.current_min_khz or current, current)
+            info.current_max_khz = math.max(info.current_max_khz or current, current)
+        end
+        if maximum and maximum > 0 then
+            info.max_khz = math.max(info.max_khz or maximum, maximum)
+        end
+    end
+    if not info.current_min_khz then
+        local mhz = tonumber(fields["cpu MHz"])
+        if mhz and mhz > 0 then
+            info.current_min_khz, info.current_max_khz = mhz * 1000, mhz * 1000
+        end
+    end
+    return info
+end
+
 function M.get_device_ip_address()
     local ok_ffi, ffi = pcall(require, "ffi")
     if not ok_ffi then return nil end
