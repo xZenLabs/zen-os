@@ -54,6 +54,62 @@ describe("Advanced settings", function()
         assert.is_true(clear_gestures.keep_menu_open)
     end)
 
+    it("keeps diagonal screen refresh when clearing configured or missing gestures", function()
+        for _i, data in ipairs({
+            {
+                gesture_fm = {
+                    short_diagonal_swipe = { full_refresh = true },
+                    hold_top_right_corner = { refresh_content = true },
+                },
+                gesture_reader = {
+                    short_diagonal_swipe = { full_refresh = true },
+                    tap_top_right_corner = { history = true },
+                    multiswipe_west_east = { previous_location = true },
+                },
+            },
+            {},
+        }) do
+            local shown = {}
+            local flushes, restart_prompts = 0, 0
+            ZenSpec.replace("ui/uimanager", {
+                show = function(_self, widget) shown[#shown + 1] = widget end,
+            })
+            ZenSpec.replace("ui/widget/confirmbox", {
+                new = function(_self, widget) return widget end,
+            })
+            ZenSpec.replace("datastorage", { getSettingsDir = function() return "/settings" end })
+            ZenSpec.replace("luasettings", {
+                open = function(_self, path)
+                    assert.are.equal("/settings/gestures.lua", path)
+                    return { data = data, flush = function() flushes = flushes + 1 end }
+                end,
+            })
+            ZenSpec.unload("modules/settings/sections/advanced_settings")
+            local items = require("modules/settings/sections/advanced_settings").build({
+                config = { features = {}, developer = {} },
+                plugin = { saveConfig = function() end },
+                settings_apply = {
+                    prompt_restart = function() restart_prompts = restart_prompts + 1 end,
+                },
+            })
+            for _j, item in ipairs(items) do
+                if item.text == "Clear all gestures" then item.callback() end
+            end
+
+            assert.are.equal(1, #shown)
+            shown[1].ok_callback()
+
+            assert.same({ short_diagonal_swipe = { full_refresh = true } }, data.gesture_fm)
+            assert.same({
+                short_diagonal_swipe = { full_refresh = true },
+                tap_top_right_corner = { toggle_bookmark = true },
+            }, data.gesture_reader)
+            assert.are.equal(1, flushes)
+            assert.are.equal(1, restart_prompts)
+            assert.are.equal(1, #shown)
+        end
+    end)
+
     it("toggles partial pages refresh without requesting a restart", function()
         local saved = 0
         local config = { features = { partial_page_repaint = false }, developer = {} }

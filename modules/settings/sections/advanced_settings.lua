@@ -146,6 +146,7 @@ function M.build(ctx)
                         else
                             settings.data[section] = {}
                         end
+                        settings.data[section].short_diagonal_swipe = { full_refresh = true }
                     end
                     settings.data.gesture_reader.tap_top_right_corner = { toggle_bookmark = true }
                     settings:flush()
