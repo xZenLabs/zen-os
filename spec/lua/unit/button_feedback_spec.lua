@@ -374,11 +374,39 @@ describe("rounded button feedback", function()
         assert.are.same({}, logs)
     end)
 
-    it("uses asynchronous feedback on color screens with and without MTK", function()
+    it("preserves pending Colorsoft frames before highlighting and restoring", function()
+        screen.isColorScreen = function() return true end
+        package.loaded.device.isMTK = function() return true end
+        screen.bb = Blitbuffer.new(48, 48, Blitbuffer.TYPE_BB8)
+        screen.bb:fill(Blitbuffer.Color8(32))
+        screen.marker = 1
+        local frames = {}
+        screen.mech_wait_update_submission = function(_self, marker)
+            if not frames[marker] then
+                frames[marker] = {
+                    corner = screen.bb:getPixel(20, 20).a,
+                    center = screen.bb:getPixel(28, 28).a,
+                }
+            end
+            return 0
+        end
+        UIManager.forceRePaint = function()
+            screen:mech_wait_update_submission(screen.marker)
+            screen.marker = screen.marker + 1
+        end
+
+        Feedback.flash({ x = 20, y = 20, w = 24, h = 24 })
+        UIManager:forceRePaint()
+
+        assert.are.same({ corner = 32, center = 32 }, frames[1])
+        assert.are.same({ corner = 32, center = 223 }, frames[2])
+        assert.are.equal(32, screen.bb:getPixel(28, 28).a)
+    end)
+
+    it("uses asynchronous feedback on color screens without submission support", function()
         local device = package.loaded.device
         screen.isColorScreen = function() return true end
         screen.marker = 1
-        screen.mech_wait_update_submission = function() error("color feedback must not wait for submission") end
         local inversions, yields = 0, 0
         screen.bb = {
             invertRect = function() inversions = inversions + 1 end,
@@ -397,6 +425,25 @@ describe("rounded button feedback", function()
         end
         assert.are.equal(2, yields)
         assert.is_true(inversions > 0)
+    end)
+
+    it("never falls back to VSync when color submission fails", function()
+        screen.isColorScreen = function() return true end
+        package.loaded.device.isMTK = function() return true end
+        screen.marker = 1
+        local submissions = 0
+        screen.mech_wait_update_submission = function()
+            submissions = submissions + 1
+            return -1
+        end
+        screen.bb = Blitbuffer.new(48, 48, Blitbuffer.TYPE_BB8)
+        screen.bb:fill(Blitbuffer.Color8(32))
+
+        Feedback.flash({ x = 20, y = 20, w = 24, h = 24 })
+
+        assert.are.equal(2, submissions)
+        assert.are.equal(32, screen.bb:getPixel(28, 28).a)
+        assert.are.same({}, logs)
     end)
 
     it("flashes the painted borderless icon without enlarging or moving its tap target", function()

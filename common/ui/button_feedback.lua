@@ -15,19 +15,18 @@ function M.paddedRegion(dimen)
 end
 
 function M.invert(region, radius)
-    -- Prefer submission over waiting for the whole panel refresh on monochrome screens.
-    if not Screen:isColorScreen() then
-        local marker = Screen.marker
-        if Screen.mech_wait_update_submission and marker then
-            if marker ~= 0 and marker ~= Screen.dont_wait_for_marker
-                    and Screen:mech_wait_update_submission(marker) == -1 then
-                logger.warn("Using VSync fallback: submission wait failed", "marker=", marker)
-                UIManager:waitForVSync()
-            end
-        elseif Device.isMTK and Device:isMTK() then
-            logger.warn("Using VSync fallback: update submission unavailable", "marker=", marker)
+    -- Wait for the framebuffer copy; full-refresh fallback is monochrome-only.
+    local marker = Screen.marker
+    if Screen.mech_wait_update_submission and marker then
+        if marker ~= 0 and marker ~= Screen.dont_wait_for_marker
+                and Screen:mech_wait_update_submission(marker) == -1
+                and not Screen:isColorScreen() then
+            logger.warn("Using VSync fallback: submission wait failed", "marker=", marker)
             UIManager:waitForVSync()
         end
+    elseif not Screen:isColorScreen() and Device.isMTK and Device:isMTK() then
+        logger.warn("Using VSync fallback: update submission unavailable", "marker=", marker)
+        UIManager:waitForVSync()
     end
     local x, y, w, h = region.x, region.y, region.w, region.h
     radius = math.min(radius or Screen:scaleBySize(8), math.floor(math.min(w, h) / 2))
