@@ -714,7 +714,7 @@ local function do_network_check()
     if not body then
         logger.warn("no response from releases API")
         local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
-        if ok_nm and NetworkMgr and not NetworkMgr:isWifiOn() then
+        if ok_nm and NetworkMgr and not NetworkMgr:isConnected() then
             M._last_error = _("Network unavailable.")
         else
             M._last_error = _("Could not reach update server.")
@@ -973,7 +973,7 @@ function M.schedule_wakeup_check()
 
     local function has_network()
         local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
-        return ok_nm and NetworkMgr and NetworkMgr:isWifiOn()
+        return ok_nm and NetworkMgr and NetworkMgr:isConnected()
     end
 
     -- Run the network check; on failure retry with exponential backoff.
@@ -1282,7 +1282,7 @@ local function _do_install(screen, plugin_root, plugins_dir)
     local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
 
     local function has_network()
-        return ok_nm and NetworkMgr and NetworkMgr:isWifiOn()
+        return ok_nm and NetworkMgr and NetworkMgr:isConnected()
     end
 
     logger.info("install begin plugin_root=", plugin_root, "plugins_dir=", plugins_dir)
@@ -1616,8 +1616,8 @@ end
 --- prompt the user to restart KOReader.
 function M.run_update(plugin)
     local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
-    if ok_nm and NetworkMgr and not NetworkMgr:isWifiOn() then
-        NetworkMgr:runWhenOnline(function() _show_update_screen_and_install(plugin) end)
+    if ok_nm and NetworkMgr then
+        NetworkMgr:runWhenConnected(function() _show_update_screen_and_install(plugin) end)
     else
         _show_update_screen_and_install(plugin)
     end
@@ -1730,8 +1730,8 @@ function M.build_update_now_item(plugin)
                 end)
             end
 
-            if ok_nm and NetworkMgr and not NetworkMgr:isWifiOn() then
-                NetworkMgr:runWhenOnline(run_check)
+            if ok_nm and NetworkMgr then
+                NetworkMgr:runWhenConnected(run_check)
             else
                 run_check()
             end

@@ -19,7 +19,7 @@ local function build_koreader_update_item()
         callback = function()
             local OTAManager = require("ui/otamanager")
             local NetworkMgr = require("ui/network/manager")
-            NetworkMgr:runWhenOnline(function()
+            NetworkMgr:runWhenConnected(function()
                 OTAManager:fetchAndProcessUpdate()
             end)
         end,
