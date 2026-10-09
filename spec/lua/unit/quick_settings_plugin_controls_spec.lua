@@ -799,6 +799,28 @@ describe("quick settings plugin controls", function()
         end
     end)
 
+    it("renders the default Home tab's selected-pack icon in Controls", function()
+        local utils = require("common/utils")
+        local resolve = utils.resolveIcon
+        local home_icon = "/koreader/icons/zen/solar/home.svg"
+        utils.resolveIcon = function(icons_dir, name)
+            if name == "home" then return home_icon end
+            if name == "quick_home" then error("Home must use the default navbar icon") end
+            return resolve(icons_dir, name)
+        end
+        default_tab_icon = "home"
+        local config = _G.__ZEN_UI_PLUGIN.config.quick_settings
+        config.button_order = { "library_home" }
+        config.show_buttons = { library_home = true }
+        local menu = {}
+        FileManagerMenu.setUpdateItemTable(menu)
+        local touch_menu = { item_width = 600 }
+        menu.tab_item_table[1].panel(touch_menu)
+        local home = touch_menu._zen_panel_refs.buttons[1]
+        assert.are.equal("library_home", home.id)
+        assert.are.equal(home_icon, home.widget[1][1].file)
+    end)
+
     it("keeps the Zen Settings control inert when Lockdown disables settings", function()
         _G.__ZEN_UI_PLUGIN.config.lockdown = { disable_settings_panel = true }
         _G.__ZEN_UI_PLUGIN.config.features.lockdown_mode = true
