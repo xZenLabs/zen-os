@@ -345,7 +345,7 @@ function M.buildTextStyleItems(mcfg, key, label, defaults, save)
         {
             text_func = function()
                 local style = get_style()
-                return string.format("%s %s", _("Font size:"), tostring(style.font_size))
+                return string.format("%s %s", _("Font size") .. ":", tostring(style.font_size))
             end,
             keep_menu_open = true,
             callback = function(touchmenu_instance)
@@ -368,7 +368,7 @@ function M.buildTextStyleItems(mcfg, key, label, defaults, save)
             _zen_search_text = _("Font"),
             text_func = function()
                 local style = get_style()
-                return string.format("%s %s", _("Font:"), font_label(style.font_face))
+                return string.format("%s %s", _("Font") .. ":", font_label(style.font_face))
             end,
             keep_menu_open = true,
             callback = function(touchmenu_instance)
@@ -648,7 +648,7 @@ function M.build(ctx)
             {
                 text_func = function()
                     local style = ensure_datetime_text_style(mcfg, key)
-                    return string.format("%s %s", _("Font size:"), tostring(style.font_size))
+                    return string.format("%s %s", _("Font size") .. ":", tostring(style.font_size))
                 end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
@@ -674,7 +674,7 @@ function M.build(ctx)
             {
                 _zen_search_text = _("Font"),
                 text_func = function()
-                    return string.format("%s %s", _("Font:"),
+                    return string.format("%s %s", _("Font") .. ":",
                         font_label(ensure_datetime_text_style(mcfg, key).font_face))
                 end,
                 keep_menu_open = true,
@@ -1037,7 +1037,7 @@ function M.build(ctx)
         if not ctx.widget_config and mcfg.default_source.kind == "custom" then
             items[#items + 1] = {
                 text_func = function()
-                    return _("Book: ") .. path_label(mcfg.path)
+                    return _("Book") .. ": " .. path_label(mcfg.path)
                 end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
@@ -1649,7 +1649,7 @@ function M.build(ctx)
         }}
         for i, path in ipairs(custom.paths) do
             items[#items + 1] = {
-                text = _("Remove: ") .. path_label(path),
+                text = _("Remove") .. ": " .. path_label(path),
                 callback = function()
                     table.remove(custom.paths, i)
                     save_home("reinit")
@@ -1678,7 +1678,7 @@ function M.build(ctx)
             {
                 text_func = function()
                     local style = ensure_strip_cfg(dcfg).controls.text_style
-                    return string.format("%s %s", _("Font size:"), tostring(style.font_size))
+                    return string.format("%s %s", _("Font size") .. ":", tostring(style.font_size))
                 end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
@@ -1701,7 +1701,7 @@ function M.build(ctx)
                 _zen_search_text = _("Font"),
                 text_func = function()
                     local style = ensure_strip_cfg(dcfg).controls.text_style
-                    return string.format("%s %s", _("Font:"), font_label(style.font_face))
+                    return string.format("%s %s", _("Font") .. ":", font_label(style.font_face))
                 end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
@@ -1850,7 +1850,7 @@ function M.build(ctx)
             },
             {
                 text_func = function()
-                    return _("Max books shown: ") .. tostring(mcfg.count or 4)
+                    return _("Max books shown") .. ": " .. tostring(mcfg.count or 4)
                 end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
@@ -2208,7 +2208,7 @@ function M.build(ctx)
         local goals_cfg = ensure_module_cfg(dcfg, "reading_goals")
         local items = {{
             text_func = function()
-                return string.format("%s %s", _("Font size:"),
+                return string.format("%s %s", _("Font size") .. ":",
                     tostring(goals_cfg.font_size or DEFAULT_GOALS_FONT_SIZE))
             end,
             keep_menu_open = true,
@@ -2302,7 +2302,7 @@ function M.build(ctx)
             },
             {
                 text_func = function()
-                    return string.format("%s %s", _("Font size:"),
+                    return string.format("%s %s", _("Font size") .. ":",
                         stats_style_summary(stats_cfg))
                 end,
                 enabled_func = function()
@@ -2559,7 +2559,7 @@ function M.build(ctx)
         }
         items[#items + 1] = {
             text_func = function()
-                return string.format("%s %s", _("Font size:"), tostring(quote_font_size()))
+                return string.format("%s %s", _("Font size") .. ":", tostring(quote_font_size()))
             end,
             enabled_func = function()
                 return dcfg.quotes.automatic_font_size ~= true

@@ -149,13 +149,13 @@ function M.build(ctx, extras_items)
             local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
             local face_text = (cfg.font_face == "default") and _("default")
                 or (ok_fc and font_name_text(cfg, FontChooser) or cfg.font_face)
-            return string.format("%s %s, %s", _("Font:"), face_text, tostring(cfg.font_size))
+            return string.format("%s %s, %s", _("Font") .. ":", face_text, tostring(cfg.font_size))
         end,
         sub_item_table = {
             {
                 text_func = function()
                     local cfg = ensure_library_font_cfg(config)
-                    return string.format("%s %s", _("Font size:"), tostring(cfg.font_size))
+                    return string.format("%s %s", _("Font size") .. ":", tostring(cfg.font_size))
                 end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
@@ -181,7 +181,7 @@ function M.build(ctx, extras_items)
                     local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
                     local face_text = (cfg.font_face == "default") and _("default")
                         or (ok_fc and font_name_text(cfg, FontChooser) or cfg.font_face)
-                    return string.format("%s %s", _("Font:"), face_text)
+                    return string.format("%s %s", _("Font") .. ":", face_text)
                 end,
                 keep_menu_open = true,
                 _zen_search_skip_children = true,

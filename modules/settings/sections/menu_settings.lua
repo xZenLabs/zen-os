@@ -657,7 +657,7 @@ function M.build(ctx)
                         end
                     elseif id == "rotate" then
                         item.text_func = function()
-                            return T(_("Rotate: %1"), getRotateActionLabel()) .. " \u{25B8}"
+                            return _("Rotate") .. ": " .. getRotateActionLabel() .. " \u{25B8}"
                         end
                         item.sub_title = _("Rotate")
                         item.sub_item_table_func = function()
@@ -845,7 +845,7 @@ function M.build(ctx)
         if cb.type == "plugin" then
             table.insert(items, IconItem.decorate({
                 text_func = function()
-                    return T(_("Plugin: %1"), cb.plugin_title or cb.label or _("(none)"))
+                    return _("Plugin") .. ": " .. (cb.plugin_title or cb.label or _("(none)"))
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
@@ -856,8 +856,8 @@ function M.build(ctx)
             table.insert(items, IconItem.decorate({
                 text_func = function()
                     local target = cb.koreader_menu
-                    return T(_("KOReader menu: %1"),
-                        type(target) == "table" and target.title or cb.label or _("(none)"))
+                    return _("KOReader menu") .. ": "
+                        .. (type(target) == "table" and target.title or cb.label or _("(none)"))
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
@@ -888,7 +888,7 @@ function M.build(ctx)
         elseif cb.type == "tag" then
             table.insert(items, IconItem.decorate({
                 text_func = function()
-                    return T(_("Tag: %1"), cb.tag or _("(none)"))
+                    return _("Tag") .. ": " .. (cb.tag or _("(none)"))
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
@@ -926,9 +926,9 @@ function M.build(ctx)
             table.insert(items, IconItem.decorate({
                 text_func = function()
                     if cb.action and next(cb.action) then
-                        return T(_("Action: %1"), Dispatcher:menuTextFunc(cb.action))
+                        return _("Action") .. ": " .. Dispatcher:menuTextFunc(cb.action)
                     end
-                    return _("Action: (none)")
+                    return _("Action") .. ": " .. _("(none)")
                 end,
                 keep_menu_open = true,
                 sub_item_table = dispatch_items,
@@ -958,7 +958,7 @@ function M.build(ctx)
         table.insert(items, IconItem.decorate({
             text_func = function()
                 local lbl = (cb.label and cb.label ~= "") and cb.label or _("(auto)")
-                return T(_("Label: %1"), lbl)
+                return _("Label") .. ": " .. lbl
             end,
             keep_menu_open = true,
             callback = function(touch_menu)
@@ -1075,7 +1075,7 @@ function M.build(ctx)
             }, icons.icon)
             items[#items + 1] = IconItem.decorate({
                 text_func = function()
-                    return T(_("Label: %1"), get_label())
+                    return _("Label") .. ": " .. get_label()
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
@@ -1199,7 +1199,7 @@ function M.build(ctx)
 
     local function button_search_label(id)
         if id == "rotate" then
-            return T(_("Rotate: %1"), getRotateActionLabel())
+            return _("Rotate") .. ": " .. getRotateActionLabel()
         end
         if id == "screenshot" then
             return T(_("Screenshot: %1 s"), getScreenshotTimerSeconds())

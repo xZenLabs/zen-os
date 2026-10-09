@@ -18,14 +18,17 @@ local function usage_size(usage, key)
 end
 
 local function clock_speed(khz)
+    -- Translators: CPU clock speed in gigahertz; %1 is a number or a minimum-to-maximum range.
     return khz and T(_("%1 GHz"), string.format("%.2f", khz / 1000000)) or "—"
 end
 
 local function usage_items(usage, remaining_label)
     return {
-        { text = T(remaining_label, usage_size(usage, "available")), keep_menu_open = true },
-        { text = T(_("Used: %1"), usage_size(usage, "used")), keep_menu_open = true },
-        { text = T(_("Total: %1"), usage_size(usage, "total")), keep_menu_open = true },
+        { text = remaining_label .. ": " .. usage_size(usage, "available"), keep_menu_open = true },
+        -- Translators: Device statistics label for storage space or RAM currently in use.
+        { text = _("Used") .. ": " .. usage_size(usage, "used"), keep_menu_open = true },
+        -- Translators: Device statistics label for total storage capacity or installed RAM.
+        { text = _("Total") .. ": " .. usage_size(usage, "total"), keep_menu_open = true },
     }
 end
 
@@ -36,7 +39,7 @@ function M.build(ctx)
 
     table.insert(items, {
         text_func = function()
-            return _("ZenOS: ") .. utils.get_plugin_version(plugin)
+            return _("ZenOS") .. ": " .. utils.get_plugin_version(plugin)
         end,
         keep_menu_open = true,
     })
@@ -46,13 +49,13 @@ function M.build(ctx)
         sub_item_table = {
             {
                 text_func = function()
-                    return _("KOReader: ") .. utils.get_koreader_version()
+                    return _("KOReader") .. ": " .. utils.get_koreader_version()
                 end,
                 keep_menu_open = true,
             },
             {
                 text_func = function()
-                    return _("Device: ") .. utils.get_device_model_name()
+                    return _("Device") .. ": " .. utils.get_device_model_name()
                 end,
                 keep_menu_open = true,
             },
@@ -64,29 +67,34 @@ function M.build(ctx)
             },
             {
                 text_func = function()
-                    return T(_("IP address: %1"), utils.get_device_ip_address() or "—")
+                    return _("IP address") .. ": " .. (utils.get_device_ip_address() or "—")
                 end,
                 keep_menu_open = true,
             },
             IconItem.decorate({
+                -- Translators: Settings menu showing total device storage, with remaining, used, and total storage details.
                 text = _("Storage"),
                 mandatory_func = function()
                     return usage_size(utils.get_device_disk_usage(), "total")
                 end,
                 sub_item_table_func = function()
-                    return usage_items(utils.get_device_disk_usage(), _("Remaining: %1"))
+                    -- Translators: Device statistics label for remaining free storage space.
+                    return usage_items(utils.get_device_disk_usage(), _("Remaining"))
                 end,
             }, icons.settings_storage),
             IconItem.decorate({
+                -- Translators: Settings menu showing total RAM, with used, available, and total memory details.
                 text = _("RAM"),
                 mandatory_func = function()
                     return usage_size(utils.get_device_ram_usage(), "total")
                 end,
                 sub_item_table_func = function()
-                    return usage_items(utils.get_device_ram_usage(), _("Available: %1"))
+                    -- Translators: Device statistics label for RAM available to applications.
+                    return usage_items(utils.get_device_ram_usage(), _("Available"))
                 end,
             }, icons.settings_ram),
             IconItem.decorate({
+                -- Translators: Settings menu showing maximum CPU clock speed, with processor, core count, and clock details.
                 text = _("CPU"),
                 mandatory_func = function()
                     return clock_speed(utils.get_device_cpu_info().max_khz)
@@ -102,10 +110,13 @@ function M.build(ctx)
                         current = T(_("%1 GHz"), current)
                     end
                     return {
-                        { text = T(_("CPU: %1"), cpu.model or "—"), keep_menu_open = true },
-                        { text = T(_("Cores: %1"), cpu.cores or "—"), keep_menu_open = true },
-                        { text = T(_("Current clock: %1"), current), keep_menu_open = true },
-                        { text = T(_("Maximum clock: %1"), clock_speed(cpu.max_khz)), keep_menu_open = true },
+                        { text = _("CPU") .. ": " .. (cpu.model or "—"), keep_menu_open = true },
+                        -- Translators: Device CPU statistics label for the number of processor cores.
+                        { text = _("Cores") .. ": " .. (cpu.cores or "—"), keep_menu_open = true },
+                        -- Translators: Device CPU statistics label for the current clock speed or speed range, in GHz.
+                        { text = _("Current clock") .. ": " .. current, keep_menu_open = true },
+                        -- Translators: Device CPU statistics label for the maximum supported clock speed, in GHz.
+                        { text = _("Maximum clock") .. ": " .. clock_speed(cpu.max_khz), keep_menu_open = true },
                     }
                 end,
             }, icons.settings_cpu),

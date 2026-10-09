@@ -5,22 +5,26 @@ local M = {}
 
 local PERIODS = {
     {
+        -- Translators: Settings and Home label for daily reading goals: pages read or reading minutes per day.
         id = "daily", text = _("Daily"),
         pages = { key = "daily_pages_target", default = 30, max = 5000 },
         time = { key = "daily_time_target_min", default = 30, max = 1440 },
     },
     {
+        -- Translators: Settings and Home label for weekly reading goals: pages read or reading minutes per week.
         id = "weekly", text = _("Weekly"),
         pages = { key = "weekly_pages_target", default = 210, max = 20000 },
         time = { key = "weekly_time_target_min", default = 210, max = 10080 },
     },
     {
+        -- Translators: Settings and Home label for monthly reading goals: pages read, books finished, or reading minutes per month.
         id = "monthly", text = _("Monthly"),
         pages = { key = "monthly_pages_target", default = 900, max = 100000 },
         time = { key = "monthly_time_target_min", default = 900, max = 44640 },
         books = { key = "monthly_books_target", default = 1, max = 1000 },
     },
     {
+        -- Translators: Settings and Home label for yearly reading goals: pages read, books finished, or reading minutes per year.
         id = "yearly", text = _("Yearly"),
         pages = { key = "yearly_pages_target", default = 1000, max = 1000000 },
         time = { key = "yearly_time_target_min", default = 1000, max = 525600 },

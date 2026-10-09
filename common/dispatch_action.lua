@@ -393,9 +393,9 @@ local function patch_folder_picker_menu(Dispatcher)
                 local folder = stored_folder()
                 if type(folder) == "string" and folder ~= "" then
                     local name = select(2, util.splitFilePathName(folder))
-                    return _("ZenOS: Open folder") .. ": " .. name
+                    return _("ZenOS") .. ": " .. _("Open folder") .. ": " .. name
                 end
-                return _("ZenOS: Open folder")
+                return _("ZenOS") .. ": " .. _("Open folder")
             end,
             checked_func = function()
                 return stored_folder() ~= nil
@@ -485,43 +485,43 @@ function M.onDispatcherRegisterActions()
     Dispatcher:registerAction("zen_ui_show_toc", {
         category = "none",
         event = "ShowZenUIToc",
-        title = _("ZenOS: Table of contents"),
+        title = _("ZenOS") .. ": " .. _("Table of contents"),
         reader = true,
     })
     Dispatcher:registerAction("zen_ui_show_home", {
         category = "none",
         event = "ShowZenUIHome",
-        title = _("ZenOS: Home"),
+        title = _("ZenOS") .. ": " .. _("Home"),
         general = true,
     })
     Dispatcher:registerAction("zen_ui_show_library", {
         category = "none",
         event = "ShowZenUILibrary",
-        title = _("ZenOS: Library"),
+        title = _("ZenOS") .. ": " .. _("Library"),
         general = true,
     })
     Dispatcher:registerAction("zen_ui_show_authors", {
         category = "none",
         event = "ShowZenUIAuthors",
-        title = _("ZenOS: Authors"),
+        title = _("ZenOS") .. ": " .. _("Authors"),
         general = true,
     })
     Dispatcher:registerAction("zen_ui_show_series", {
         category = "none",
         event = "ShowZenUISeries",
-        title = _("ZenOS: Series"),
+        title = _("ZenOS") .. ": " .. _("Series"),
         general = true,
     })
     Dispatcher:registerAction("zen_ui_show_tags", {
         category = "none",
         event = "ShowZenUITags",
-        title = _("ZenOS: Tags"),
+        title = _("ZenOS") .. ": " .. _("Tags"),
         general = true,
     })
     Dispatcher:registerAction("zen_ui_show_stats", {
         category = "none",
         event = "ShowZenUIStats",
-        title = _("ZenOS: Stats"),
+        title = _("ZenOS") .. ": " .. _("Stats"),
         general = true,
     })
     Dispatcher:registerAction("zen_ui_show_battery_stats", {
@@ -539,7 +539,7 @@ function M.onDispatcherRegisterActions()
     Dispatcher:registerAction("zen_ui_show_folder", {
         category = "string",
         event = "ShowZenUIFolder",
-        title = _("ZenOS: Open folder"),
+        title = _("ZenOS") .. ": " .. _("Open folder"),
         args = {},
         toggle = {},
         zen_folder_picker = true,

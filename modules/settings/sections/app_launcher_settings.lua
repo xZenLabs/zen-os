@@ -644,9 +644,9 @@ function M.build(ctx)
         return IconItem.decorate({
             text_func = function()
                 if entry.action and next(entry.action) then
-                    return T(_("Action: %1"), Dispatcher:menuTextFunc(entry.action))
+                    return _("Action") .. ": " .. Dispatcher:menuTextFunc(entry.action)
                 end
-                return _("Action: (none)")
+                return _("Action") .. ": " .. _("(none)")
             end,
             keep_menu_open = true,
             sub_item_table = dispatch_items,
@@ -725,7 +725,7 @@ function M.build(ctx)
         local function add_label_item()
             items[#items + 1] = IconItem.decorate({
                 text_func = function()
-                    return T(_("Label: %1"), entry.label)
+                    return _("Label") .. ": " .. entry.label
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
@@ -776,7 +776,7 @@ function M.build(ctx)
         elseif entry.type == "tag" then
             items[#items + 1] = IconItem.decorate({
                 text_func = function()
-                    return T(_("Tag: %1"), entry.tag or _("(none)"))
+                    return _("Tag") .. ": " .. (entry.tag or _("(none)"))
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
@@ -797,7 +797,7 @@ function M.build(ctx)
         elseif entry.type == "quick_setting" then
             items[#items + 1] = IconItem.decorate({
                 text_func = function()
-                    return T(_("Control: %1"), entry.label or _("(none)"))
+                    return _("Control") .. ": " .. (entry.label or _("(none)"))
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
@@ -822,8 +822,8 @@ function M.build(ctx)
             items[#items + 1] = IconItem.decorate({
                 text_func = function()
                     local target = entry.koreader_menu
-                    return T(_("KOReader menu: %1"),
-                        type(target) == "table" and target.title or entry.label or _("(none)"))
+                    return _("KOReader menu") .. ": "
+                        .. (type(target) == "table" and target.title or entry.label or _("(none)"))
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
@@ -847,7 +847,7 @@ function M.build(ctx)
         elseif entry.type ~= "break" then
             items[#items + 1] = IconItem.decorate({
                 text_func = function()
-                    return T(_("Plugin: %1"), entry.label or _("(none)"))
+                    return _("Plugin") .. ": " .. (entry.label or _("(none)"))
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
@@ -1011,7 +1011,7 @@ function M.build(ctx)
                 },
                 {
                     text_func = function()
-                        return _("Max books shown: ")
+                        return _("Max books shown") .. ": "
                             .. tostring(BookSwitcherPage.normalizeCount(cfg.book_switcher_count))
                     end,
                     keep_menu_open = true,

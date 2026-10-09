@@ -232,9 +232,13 @@ return {
 
         local goal_rows = {}
         local labels = {
+            -- Translators: Settings and Home label for daily reading goals: pages read or reading minutes per day.
             daily = _("Daily"),
+            -- Translators: Settings and Home label for weekly reading goals: pages read or reading minutes per week.
             weekly = _("Weekly"),
+            -- Translators: Settings and Home label for monthly reading goals: pages read, books finished, or reading minutes per month.
             monthly = _("Monthly"),
+            -- Translators: Settings and Home label for yearly reading goals: pages read, books finished, or reading minutes per year.
             yearly = _("Yearly"),
         }
         local today = os.time()

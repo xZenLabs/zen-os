@@ -1587,7 +1587,7 @@ local function _show_update_screen_and_install(plugin)
     screen = ZenScreen:new{
         title        = _("ZenOS"),
         title_icon   = true,
-        subtitle     = _("Update available: ") .. ver_label,
+        subtitle     = _("Update available") .. ": " .. ver_label,
         scroll_text  = changelog_text,
         hide_logo    = true,
         button       = _("Update now"),

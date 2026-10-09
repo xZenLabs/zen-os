@@ -164,6 +164,23 @@ describe("About settings", function()
         })
     end)
 
+    it("reuses translated labels when displaying detail values", function()
+        ZenSpec.replace("gettext", function(text)
+            return ({ Available = "Disponible", Total = "Totale", CPU = "Procesador",
+                Device = "Dispositivo", ["IP address"] = "Dirección IP" })[text] or text
+        end)
+        local device_items = require("modules/settings/sections/about_settings").build({
+            config = {}, plugin = {},
+        })[2].sub_item_table
+        local ram = device_items[6].sub_item_table_func()
+        assert.are.equal("Disponible: 200.0 MB", ram[1].text)
+        assert.are.equal("Totale: 500.0 MB", ram[3].text)
+        assert.are.equal("Procesador", device_items[7].text)
+        assert.are.equal("Procesador: i.MX 6", device_items[7].sub_item_table_func()[1].text)
+        assert.are.equal("Dispositivo: Test device", device_items[2].text_func())
+        assert.are.equal("Dirección IP: —", device_items[4].text_func())
+    end)
+
     it("shows unavailable system stats without closing the page", function()
         disk_usage, ram_usage, cpu_info = nil, nil, {}
         local device_items = require("modules/settings/sections/about_settings").build({

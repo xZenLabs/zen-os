@@ -200,13 +200,17 @@ def extract_from_file(path: str) -> list[tuple[str, int, str, str]]:
         if len(context) > 240:
             context = context[:237].rstrip() + "..."
         usage = " ".join(part.strip() for part in lines[line - 1:end_line])
-        found.append((msgid, line, context, translation_type(path, usage, context, msgid)))
+        kind = translation_type(path, usage, context, msgid)
+        note = re.match(r"\s*--\s*Translators:\s*(.+)", lines[line - 2]) if line > 1 else None
+        if note:
+            context = note.group(1).strip()
+        found.append((msgid, line, context, kind))
         cursor = start
     return found
 
 
 def collect_lua_strings() -> dict[str, list[tuple[str, int, str, str]]]:
-    """Return source locations and nearby code for every translatable string."""
+    """Return source locations, translator notes, or nearby code for every string."""
     result: dict[str, list[tuple[str, int, str, str]]] = {}
 
     for root, dirs, files in os.walk(SCRIPT_DIR):
@@ -278,6 +282,30 @@ def parse_po(po_path: str) -> dict[str, str]:
         return {}
 
 
+def is_human_context(context: str) -> bool:
+    """Distinguish readable descriptions from legacy Lua excerpts."""
+    return bool(context.strip()) and not re.search(
+        _GETTEXT_CALL + r"\s*\(|(?<![\w_])C_\s*\(|\b\w+(?:\.\w+)*\s*=(?!=)|\bfunction\s*\(",
+        context,
+    )
+
+
+def read_po_contexts(po_path: str) -> dict[str, str]:
+    """Read reusable human context by msgid, including multiline msgids."""
+    try:
+        with open(po_path, encoding="utf-8") as f:
+            content = f.read()
+    except FileNotFoundError:
+        return {}
+    contexts = {}
+    for block in re.split(r"\n\n+", content):
+        context = re.search(r"^#\. Context:[ \t]*(.*)$", block, re.MULTILINE)
+        if context and is_human_context(context.group(1)):
+            for msgid in parse_po_text(block):
+                contexts[msgid] = context.group(1)
+    return contexts
+
+
 def msgid_to_po_line(s: str) -> str:
     """Encode a string as a .po-compatible quoted value."""
     escaped = (s.replace("\\", "\\\\")
@@ -288,7 +316,7 @@ def msgid_to_po_line(s: str) -> str:
     return escaped
 
 
-def format_entry(msgid: str, msgstr: str = "", sources: list[tuple[str, int, str, str]] | None = None) -> str:
+def format_entry(msgid: str, msgstr: str = "", sources: list[tuple[str, int, str, str]] | None = None, context: str | None = None) -> str:
     lines = ["#. Type: message"]
     if sources:
         kinds = {kind for _path, _line, _context, kind in sources}
@@ -298,9 +326,15 @@ def format_entry(msgid: str, msgstr: str = "", sources: list[tuple[str, int, str
         ) if name in kinds)
         source = next(source for source in sources if source[3] == kind)
         lines[0] = f"#. Type: {kind}"
-        lines.append(f"#. Context: {source[2]}")
+        if not context:
+            notes = list(dict.fromkeys(item[2] for item in [source] + sources if is_human_context(item[2])))
+            context = " ".join(notes[:3]) if notes else source[2]
+            if len(notes) > 3:
+                context += " Also used elsewhere in ZenOS."
         refs = dict.fromkeys(f"{os.path.basename(path)}:{line}" for path, line, _context, _kind in sources)
         lines.append("#: " + " ".join(refs))
+    if context:
+        lines.insert(1, f"#. Context: {context}")
     lines.extend((
         f'msgid "{msgid_to_po_line(msgid)}"',
         f'msgstr "{msgid_to_po_line(msgstr)}"',
@@ -311,6 +345,8 @@ def format_entry(msgid: str, msgstr: str = "", sources: list[tuple[str, int, str
 def rewrite_po(po_path: str, existing: dict[str, str], lua_strings: dict[str, list[tuple[str, int, str, str]]], to_add: list[str], remove_dead: bool, alphabetize: bool = False) -> tuple[int, int]:
     """Rewrite a .po file, removing dead entries and/or appending new ones. Returns (removed, added)."""
     header = po_header(po_path)
+    contexts = read_po_contexts(os.path.join(os.path.dirname(po_path), "en.po"))
+    contexts.update(read_po_contexts(po_path))
     parts = [header.rstrip("\n")]
     removed = 0
 
@@ -326,7 +362,7 @@ def rewrite_po(po_path: str, existing: dict[str, str], lua_strings: dict[str, li
 
     entry_iter = sorted(kept.items(), key=lambda kv: kv[0].lower()) if alphabetize else list(kept.items())
     for msgid, msgstr in entry_iter:
-        parts.append(format_entry(msgid, msgstr, lua_strings.get(msgid)).rstrip("\n"))
+        parts.append(format_entry(msgid, msgstr, lua_strings.get(msgid), contexts.get(msgid)).rstrip("\n"))
 
     added = len(to_add)
 
@@ -345,8 +381,9 @@ def write_updated_po(po_path: str, existing: dict[str, str], to_add: list[str], 
         content = content.rstrip("\n") + "\n\n"
 
     additions = []
+    contexts = read_po_contexts(os.path.join(os.path.dirname(po_path), "en.po"))
     for msgid in sorted(to_add):
-        additions.append(format_entry(msgid, sources=lua_strings.get(msgid)))
+        additions.append(format_entry(msgid, sources=lua_strings.get(msgid), context=contexts.get(msgid)))
 
     with open(po_path, "w", encoding="utf-8") as f:
         f.write(content + "\n".join(additions))

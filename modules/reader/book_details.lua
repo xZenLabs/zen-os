@@ -412,7 +412,8 @@ function M.buildSpec(ui, opts)
         end,
         time_remaining = function()
             if enabled("time_remaining") and time_left ~= nil then
-                add_detail(string.format(_("Remaining: %s"), M.formatDuration(time_left)),
+                -- Translators: Book details label for estimated reading time left to finish the book.
+                add_detail(_("Remaining") .. ": " .. M.formatDuration(time_left),
                     "secondary", false, 3)
             end
         end,
@@ -432,8 +433,7 @@ function M.buildSpec(ui, opts)
                 and read_time ~= nil and time_left ~= nil
             if paired_times then
                 add_detail(string.format(_("Read: %s"), M.formatDuration(read_time))
-                    .. " / " .. string.format(_("Remaining: %s"),
-                        M.formatDuration(time_left)), "secondary", false, 3)
+                    .. " / " .. _("Remaining") .. ": " .. M.formatDuration(time_left), "secondary", false, 3)
                 skip_next = true
             else
                 detail_builders[id]()

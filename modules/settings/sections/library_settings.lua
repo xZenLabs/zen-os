@@ -1050,7 +1050,7 @@ function M.build(ctx)
                     local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
                     local face_text = style.font_face == "default" and _("default")
                         or (ok_fc and font_name_text(style, FontChooser) or style.font_face)
-                    return string.format("%s %s", _("Font:"), face_text)
+                    return string.format("%s %s", _("Font") .. ":", face_text)
                 end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
@@ -1083,7 +1083,7 @@ function M.build(ctx)
             {
                 text_func = function()
                     local style = ensure_book_detail_description_style()
-                    return string.format("%s %s", _("Font size:"),
+                    return string.format("%s %s", _("Font size") .. ":",
                         tostring(description_font_size(style)))
                 end,
                 keep_menu_open = true,

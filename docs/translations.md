@@ -12,7 +12,11 @@ ZenOS is translated through gettext `.po` files in the `locales/` folder. No pro
 
 > **Open translation pull requests against the `dev` branch.** Changes are reviewed on `dev` before release.
 
-The `en.po` file is the source catalog. All other locales are translated from it. Generated entries include a role-specific type label, a nearby Lua source excerpt, and `filename.lua:line` references to clarify where each string appears. Any string left as `msgstr ""` falls back to English at runtime — KOReader handles this automatically.
+The `en.po` file is the source catalog. All other locales are translated from it. Entries include a role-specific type label, context for translators, and `filename.lua:line` references. Any string left as `msgstr ""` falls back to English at runtime — KOReader handles this automatically.
+
+Sync preserves existing human-readable `#. Context:` descriptions while refreshing source references. If a locale has no readable context, it reuses the description from `en.po`. Otherwise it uses a `-- Translators: ...` note immediately above the Lua translation call, or a nearby code excerpt when no note exists. Legacy code excerpts are refreshed on each sync.
+
+Each locale's context descriptions use that locale's language to explain the UI purpose and intended meaning. These are guidance for translators, so natural explanations are more useful than literal translations of the English context. Product names and format placeholders stay intact.
 
 ## Supported languages
 
@@ -62,8 +66,8 @@ Open the `.po` file for your language, correct or complete the `msgstr` values, 
 
 ## Guidelines
 
-- Never modify the `msgid` — only edit `msgstr`.
-- Keep generated context comments and source references intact.
+- Never modify the `msgid` — put translated text in `msgstr`.
+- Keep generated type labels and source references intact. You can improve `#. Context:` descriptions in the locale's language; sync preserves them.
 - Keep placeholders intact: `%d`, `%s`, `%%`, and `\n` must appear in `msgstr` exactly as they do in `msgid`.
 - Leave `msgstr ""` empty for any string you are unsure about — the English original is shown as a fallback.
 - If your language has different plural forms, set `Plural-Forms` in the header accordingly.

@@ -203,7 +203,8 @@ function M.build(opts)
         if id == "read_time" and book.read_time_secs ~= nil then
             return string.format(_("Read: %s"), format_duration(_, book.read_time_secs))
         elseif id == "time_remaining" and book.time_left_secs ~= nil then
-            return string.format(_("Remaining: %s"), format_duration(_, book.time_left_secs))
+            -- Translators: Launcher book details label for estimated reading time left to finish the book.
+            return _("Remaining") .. ": " .. format_duration(_, book.time_left_secs)
         elseif id == "pages_today" and book.pages_today ~= nil then
             return string.format("%s: %s", _("Pages today"), tostring(book.pages_today))
         elseif id == "time_today" and book.time_today_secs ~= nil then

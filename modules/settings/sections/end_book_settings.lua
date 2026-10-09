@@ -103,7 +103,7 @@ local function widget_items(plugin, config, id, save)
         end
         local label_items = {
             {
-                text_func = function() return _("Label: ") .. label() end,
+                text_func = function() return _("Label") .. ": " .. label() end,
                 keep_menu_open = true,
                 callback = function(touchmenu)
                     local dialog

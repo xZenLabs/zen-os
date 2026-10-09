@@ -254,7 +254,7 @@ function M.build(ctx)
                         and config.reader_top_status_bar.custom_text or ""
                     local Device = require("device")
                     if name == nil or name == "" then name = Device.model or "" end
-                    return _("Custom text: ") .. name
+                    return _("Custom text") .. ": " .. name
                 end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
@@ -511,13 +511,13 @@ function M.build(ctx)
                     local text = (not face or face == "default") and _("default")
                         or (ok_fc and FontChooser.getFontNameText(face) or face)
                     local size = type(config.reader_top_status_bar) == "table" and config.reader_top_status_bar.font_size or 14
-                    return string.format("%s %s, %s", _("Font:"), text, size)
+                    return string.format("%s %s, %s", _("Font") .. ":", text, size)
                 end,
                 sub_item_table = {
                     {
                         text_func = function()
                             local size = type(config.reader_top_status_bar) == "table" and config.reader_top_status_bar.font_size or 14
-                            return string.format("%s %s", _("Font size:"), size)
+                            return string.format("%s %s", _("Font size") .. ":", size)
                         end,
                         keep_menu_open = true,
                         callback = function(touchmenu_instance)
@@ -544,7 +544,7 @@ function M.build(ctx)
                             local face = type(config.reader_top_status_bar) == "table" and config.reader_top_status_bar.font_face
                             local text = (not face or face == "default") and _("default")
                                 or (ok_fc and FontChooser.getFontNameText(face) or face)
-                            return string.format("%s %s", _("Font:"), text)
+                            return string.format("%s %s", _("Font") .. ":", text)
                         end,
                         keep_menu_open = true,
                         callback = function(touchmenu_instance)
@@ -1323,7 +1323,7 @@ function M.build(ctx)
         return {
             text_func = function()
                 local cfg = type(config.page_browser) == "table" and config.page_browser or {}
-                return string.format("%s — %s %s", section, _("Font size:"), tonumber(cfg[key]) or 18)
+                return string.format("%s — %s %s", section, _("Font size") .. ":", tonumber(cfg[key]) or 18)
             end,
             keep_menu_open = true,
             callback = function(touchmenu_instance)
@@ -1407,7 +1407,7 @@ function M.build(ctx)
                     text_func = function()
                         local footer_settings = G_reader_settings:readSetting("footer") or {}
                         local size = footer_settings.text_font_size or 14
-                        return string.format("%s %s", _("Font size:"), size)
+                        return string.format("%s %s", _("Font size") .. ":", size)
                     end,
                     keep_menu_open = true,
                     callback = function(touchmenu_instance)
@@ -1436,7 +1436,7 @@ function M.build(ctx)
                         local face = footer_settings.text_font_face
                         local text = (not face or face == "NotoSans-Regular.ttf")
                             and _("default") or FontChooser.getFontNameText(face)
-                        return string.format("%s %s", _("Font:"), text)
+                        return string.format("%s %s", _("Font") .. ":", text)
                     end,
                     keep_menu_open = true,
                     callback = function(touchmenu_instance)

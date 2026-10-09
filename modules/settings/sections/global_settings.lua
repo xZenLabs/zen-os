@@ -526,7 +526,7 @@ function M.build(ctx)
             {
                 text_func = function()
                     local cfg = get_brightness_schedule_config()
-                    return _("Day brightness time: ") .. utils.fmt_time(cfg.day_h, cfg.day_m)
+                    return _("Day brightness time") .. ": " .. utils.fmt_time(cfg.day_h, cfg.day_m)
                 end,
                 enabled_func = function()
                     return config.features.brightness_schedule == true
@@ -551,7 +551,7 @@ function M.build(ctx)
                 text_func = function()
                     local cfg = get_brightness_schedule_config()
                     if config.features.brightness_schedule == true then
-                        return _("Day brightness: ") .. cfg.day_value
+                        return _("Day brightness") .. ": " .. cfg.day_value
                     end
                     return mode_value_label(_("Light mode"), _("Brightness"))
                         .. ": " .. cfg.day_value
@@ -582,7 +582,7 @@ function M.build(ctx)
             {
                 text_func = function()
                     local cfg = get_brightness_schedule_config()
-                    return _("Night brightness time: ") .. utils.fmt_time(cfg.night_h, cfg.night_m)
+                    return _("Night brightness time") .. ": " .. utils.fmt_time(cfg.night_h, cfg.night_m)
                 end,
                 enabled_func = function()
                     return config.features.brightness_schedule == true
@@ -607,7 +607,7 @@ function M.build(ctx)
                 text_func = function()
                     local cfg = get_brightness_schedule_config()
                     if config.features.brightness_schedule == true then
-                        return _("Night brightness: ") .. cfg.night_value
+                        return _("Night brightness") .. ": " .. cfg.night_value
                     end
                     return mode_value_label(_("Dark mode"), _("Brightness"))
                         .. ": " .. cfg.night_value
@@ -680,7 +680,7 @@ function M.build(ctx)
             {
                 text_func = function()
                     local cfg = get_warmth_schedule_config()
-                    return _("Day warmth time: ") .. utils.fmt_time(cfg.day_h, cfg.day_m)
+                    return _("Day warmth time") .. ": " .. utils.fmt_time(cfg.day_h, cfg.day_m)
                 end,
                 enabled_func = function()
                     return config.features.warmth_schedule == true
@@ -705,7 +705,7 @@ function M.build(ctx)
                 text_func = function()
                     local cfg = get_warmth_schedule_config()
                     if config.features.warmth_schedule == true then
-                        return _("Day warmth: ") .. cfg.day_value
+                        return _("Day warmth") .. ": " .. cfg.day_value
                     end
                     return mode_value_label(_("Light mode"), _("Warmth"))
                         .. ": " .. cfg.day_value
@@ -736,7 +736,7 @@ function M.build(ctx)
             {
                 text_func = function()
                     local cfg = get_warmth_schedule_config()
-                    return _("Night warmth time: ") .. utils.fmt_time(cfg.night_h, cfg.night_m)
+                    return _("Night warmth time") .. ": " .. utils.fmt_time(cfg.night_h, cfg.night_m)
                 end,
                 enabled_func = function()
                     return config.features.warmth_schedule == true
@@ -761,7 +761,7 @@ function M.build(ctx)
                 text_func = function()
                     local cfg = get_warmth_schedule_config()
                     if config.features.warmth_schedule == true then
-                        return _("Night warmth: ") .. cfg.night_value
+                        return _("Night warmth") .. ": " .. cfg.night_value
                     end
                     return mode_value_label(_("Dark mode"), _("Warmth"))
                         .. ": " .. cfg.night_value

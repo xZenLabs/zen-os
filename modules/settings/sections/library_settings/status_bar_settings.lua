@@ -257,7 +257,7 @@ function M.build(ctx)
                     if name == nil or name == "" then
                         name = require("device").model or ""
                     end
-                    return _("Custom text: ") .. name
+                    return _("Custom text") .. ": " .. name
                 end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
@@ -333,10 +333,10 @@ function M.build(ctx)
                     local key = config.status_bar.separator_key or "dot"
                     for _i, s in ipairs(constants.SEPARATOR_PRESETS) do
                         if s.key == key then
-                            return _("Separator: ") .. _(s.label)
+                            return _("Separator") .. ": " .. _(s.label)
                         end
                     end
-                    return _("Separator: ") .. key
+                    return _("Separator") .. ": " .. key
                 end,
                 sub_item_table = (function()
                     -- Preview strings per key (bar-specific spacing).
