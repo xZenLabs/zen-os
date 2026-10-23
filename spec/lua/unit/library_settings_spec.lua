@@ -245,6 +245,40 @@ describe("library settings", function()
         assert.is_true(uniform.sub_item_table[2].checked_func())
     end)
 
+    it("offers text size spinners for badges and the opening overlay", function()
+        ZenSpec.replace("device", { screen = { scaleBySize = function(_, value) return value end } })
+        ZenSpec.replace("ui/widget/spinwidget", { new = function(_self, options) return options end })
+        local shown, saves = nil, 0
+        package.loaded["ui/uimanager"].show = function(_self, options) shown = options end
+        package.loaded["ui/uimanager"].setDirty = function() end
+        local config = { features = {}, browser_hide_up_folder = {},
+            browser_cover_badges = {}, opening_banner = {} }
+        local items = require("modules/settings/sections/library_settings").build({
+            config = config, plugin = { saveConfig = function() saves = saves + 1 end },
+            save_and_apply = function() end,
+        })
+        local badges = find_item(items, "Badges").sub_item_table
+
+        local badge_text = find_item(badges, "Badge text size")
+        assert.is_not_nil(badge_text)
+        badge_text.callback()
+        assert.are.same({ 6, 24, 1 }, { shown.value_min, shown.value_max, shown.value_step })
+        assert.are.equal(8, shown.value)
+        shown.callback({ value = 14 })
+        assert.are.equal(14, config.browser_cover_badges.badge_font_size)
+        assert.are.equal(1, saves)
+
+        local overlay = find_item(badges, "Opening overlay text size")
+        assert.is_not_nil(overlay)
+        overlay.callback()
+        assert.are.same({ 6, 24, 1 }, { shown.value_min, shown.value_max, shown.value_step })
+        assert.are.equal(8, shown.value)
+        shown.callback({ value = 12 })
+        assert.are.equal(12, config.opening_banner.font_size)
+        assert.are.equal(14, config.browser_cover_badges.badge_font_size)
+        assert.are.equal(2, saves)
+    end)
+
     it("persists both mosaic orientations and list density without an open library", function()
         local saved, shown = {}, nil
         local fc_class = {}

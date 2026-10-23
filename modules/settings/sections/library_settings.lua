@@ -12,6 +12,7 @@ local IconItem = require("common/ui/icon_menu_item")
 local defaults = require("config/defaults")
 local LibraryFontPath = require("common/library_font_path")
 local Accent = require("common/ui/accent")
+local utils = require("common/utils")
 
 local metadata_section    = require("modules/settings/sections/library_settings/metadata_settings")
 local settings_apply      = require("modules/settings/zen_settings_apply")
@@ -551,6 +552,51 @@ function M.build(ctx)
                                 reset_text = _("Accent color"),
                                 reset_callback = function() save_color(nil, nil) end,
                             }, getFullRefreshMode())
+                        end,
+                    },
+                    {
+                        text = _("Badge text size"),
+                        callback = function()
+                            local Screen = require("device").screen
+                            local badge_scale = utils.getBadgeScale(config)
+                            UIManager:show(require("ui/widget/spinwidget"):new{
+                                title_text = _("Badge text size"),
+                                value = utils.getBadgeFontSize(config,
+                                    math.floor(Screen:scaleBySize(20) * badge_scale), 0.24, 7),
+                                value_min = 6, value_max = 24, value_step = 1,
+                                callback = function(spin)
+                                    if type(config.browser_cover_badges) ~= "table" then
+                                        config.browser_cover_badges = {}
+                                    end
+                                    config.browser_cover_badges.badge_font_size = spin.value
+                                    plugin:saveConfig()
+                                    UIManager:setDirty(nil, getFullRefreshMode())
+                                end,
+                            })
+                        end,
+                    },
+                    {
+                        text = _("Opening overlay text size"),
+                        callback = function()
+                            -- Same expression the opening banner derives today, so
+                            -- confirming without moving the dial changes nothing.
+                            local Screen = require("device").screen
+                            local seed = math.ceil(Screen:scaleBySize(7)
+                                * utils.getBadgeScale(config))
+                            local configured = type(config.opening_banner) == "table"
+                                and tonumber(config.opening_banner.font_size)
+                            UIManager:show(require("ui/widget/spinwidget"):new{
+                                title_text = _("Opening overlay text size"),
+                                value = configured and math.ceil(configured) or seed,
+                                value_min = 6, value_max = 24, value_step = 1,
+                                callback = function(spin)
+                                    if type(config.opening_banner) ~= "table" then
+                                        config.opening_banner = {}
+                                    end
+                                    config.opening_banner.font_size = spin.value
+                                    plugin:saveConfig()
+                                end,
+                            })
                         end,
                     },
                     {
