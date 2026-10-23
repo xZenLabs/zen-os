@@ -246,7 +246,11 @@ describe("library settings", function()
     end)
 
     it("offers text size spinners for badges and the opening overlay", function()
-        ZenSpec.replace("device", { screen = { scaleBySize = function(_, value) return value end } })
+        ZenSpec.replace("device", { screen = {
+            scaleBySize = function(_, value) return value end,
+            getWidth = function() return 600 end,
+            getHeight = function() return 800 end,
+        } })
         ZenSpec.replace("ui/widget/spinwidget", { new = function(_self, options) return options end })
         local shown, saves = nil, 0
         package.loaded["ui/uimanager"].show = function(_self, options) shown = options end

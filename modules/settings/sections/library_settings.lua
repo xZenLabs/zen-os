@@ -559,10 +559,18 @@ function M.build(ctx)
                         callback = function()
                             local Screen = require("device").screen
                             local badge_scale = utils.getBadgeScale(config)
+                            -- Seed from a tile at the shipped mosaic column count:
+                            -- no real tile is as narrow as the scaleBySize(20)
+                            -- floor, and confirming must not shrink badges that
+                            -- already render larger than that floor.
+                            local columns = Screen:getWidth() > Screen:getHeight() and 4 or 3
+                            local tile_w = math.floor(Screen:getWidth() / columns)
+                            local box = math.max(Screen:scaleBySize(20),
+                                math.floor(tile_w * 0.14))
                             UIManager:show(require("ui/widget/spinwidget"):new{
                                 title_text = _("Badge text size"),
                                 value = utils.getBadgeFontSize(config,
-                                    math.floor(Screen:scaleBySize(20) * badge_scale), 0.24, 7),
+                                    math.floor(box * badge_scale), 0.24, 7),
                                 value_min = 6, value_max = 24, value_step = 1,
                                 callback = function(spin)
                                     if type(config.browser_cover_badges) ~= "table" then
