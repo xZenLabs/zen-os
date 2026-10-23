@@ -463,6 +463,20 @@ local function apply_opening_banner()
         if background then background:free() end
     end
 
+    -- Font sizes are pre-scale units (Font:getFace scales them), while the strip
+    -- height is device pixels, so the cap converts before comparing.
+    local function resolve_font_size(plug, badge_scale, strip_h)
+        local configured = type(plug) == "table" and type(plug.config) == "table"
+            and type(plug.config.opening_banner) == "table"
+            and tonumber(plug.config.opening_banner.font_size)
+        local size = configured and math.ceil(configured)
+            or math.ceil(Screen:scaleBySize(7) * badge_scale)
+        -- 60% keeps the text clear of the strip border.
+        local scale = Screen:scaleBySize(100) / 100
+        local cap = math.max(1, math.floor(strip_h / scale * 0.6))
+        return math.max(1, math.min(size, cap))
+    end
+
     local function build_banner(cover)
         local plug = _plugin or rawget(_G, "__ZEN_UI_PLUGIN")
         local badge_scale = utils.getBadgeScale(plug and plug.config)
@@ -498,7 +512,7 @@ local function apply_opening_banner()
         local dimen = Geom:new{ x = bx, y = by, w = bw, h = banner_h }
         return OpeningBanner:new{
             dimen                = dimen,
-            font_size            = math.ceil(Screen:scaleBySize(7) * badge_scale),
+            font_size            = resolve_font_size(plug, badge_scale, banner_h),
             dark_banner          = dark_banner,
             round_bottom_corners = round_bottom and true or false,
             cover_border         = cover and cover.border or 0,
