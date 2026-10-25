@@ -985,7 +985,11 @@ function M.paintDecorations(item, bb, config, x, y)
     local color = utils.getBadgeColor(config)
     local foreground = utils.getBadgeTextColor(config)
     local text = tostring(count)
-    local font_size = utils.getBadgeFontSize(config, size, 0.26, 7)
+    -- The cache key is the size the setting asks for, not the size the widget
+    -- ended up with: comparing against the shrunk size would miss on every
+    -- paint and rebuild the text widget each time.
+    local requested_size = utils.getBadgeFontSize(config, size, 0.26, 7)
+    local font_size = requested_size
     local function build_widget(fs)
         return TextWidget:new{
             text = text,
@@ -996,7 +1000,7 @@ function M.paintDecorations(item, bb, config, x, y)
         }
     end
     local cached = item._zen_folder_count_badge
-    if cached and (cached.text ~= text or cached.size ~= font_size
+    if cached and (cached.text ~= text or cached.requested ~= requested_size
             or cached.color ~= foreground) then
         cached.widget:free()
         cached = nil
@@ -1012,6 +1016,7 @@ function M.paintDecorations(item, bb, config, x, y)
         end
         cached = {
             text = text,
+            requested = requested_size,
             size = font_size,
             color = foreground,
             widget = widget,
