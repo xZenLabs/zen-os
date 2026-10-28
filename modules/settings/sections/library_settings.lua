@@ -555,7 +555,7 @@ function M.build(ctx)
                         end,
                     },
                     {
-                        text = _("Badge text size"),
+                        text = _("Text size"),
                         callback = function()
                             local Screen = require("device").screen
                             local badge_scale = utils.getBadgeScale(config)
@@ -568,7 +568,7 @@ function M.build(ctx)
                             local box = math.max(Screen:scaleBySize(20),
                                 math.floor(tile_w * 0.14))
                             UIManager:show(require("ui/widget/spinwidget"):new{
-                                title_text = _("Badge text size"),
+                                title_text = _("Text size"),
                                 value = utils.getBadgeFontSize(config,
                                     math.floor(box * badge_scale), 0.24, 7),
                                 value_min = 6, value_max = 24, value_step = 1,
@@ -584,7 +584,7 @@ function M.build(ctx)
                         end,
                     },
                     {
-                        text = _("Opening overlay text size"),
+                        text = _("Opening banner text size"),
                         callback = function()
                             -- Same expression the opening banner derives today, so
                             -- confirming without moving the dial changes nothing.
@@ -594,7 +594,7 @@ function M.build(ctx)
                             local configured = type(config.opening_banner) == "table"
                                 and tonumber(config.opening_banner.font_size)
                             UIManager:show(require("ui/widget/spinwidget"):new{
-                                title_text = _("Opening overlay text size"),
+                                title_text = _("Opening banner text size"),
                                 value = configured and math.ceil(configured) or seed,
                                 value_min = 6, value_max = 24, value_step = 1,
                                 callback = function(spin)

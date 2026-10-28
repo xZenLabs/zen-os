@@ -263,7 +263,7 @@ describe("library settings", function()
         })
         local badges = find_item(items, "Badges").sub_item_table
 
-        local badge_text = find_item(badges, "Badge text size")
+        local badge_text = find_item(badges, "Text size")
         assert.is_not_nil(badge_text)
         badge_text.callback()
         assert.are.same({ 6, 24, 1 }, { shown.value_min, shown.value_max, shown.value_step })
@@ -272,7 +272,7 @@ describe("library settings", function()
         assert.are.equal(14, config.browser_cover_badges.badge_font_size)
         assert.are.equal(1, saves)
 
-        local overlay = find_item(badges, "Opening overlay text size")
+        local overlay = find_item(badges, "Opening banner text size")
         assert.is_not_nil(overlay)
         overlay.callback()
         assert.are.same({ 6, 24, 1 }, { shown.value_min, shown.value_max, shown.value_step })
