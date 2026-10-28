@@ -363,6 +363,7 @@ describe("file browser navbar navigation", function()
             "__ZEN_UI_NAVBAR_OPEN_FOLDER", "__ZEN_UI_NAVBAR_OPEN_TAG",
             "__ZEN_UI_NAVBAR_RESOLVE_DEFAULT_TAB", "__ZEN_UI_NAVBAR_IS_DEFAULT_TAB_ACTIVE",
             "__ZEN_UI_NAVBAR_DEFAULT_TAB_ICON",
+            "__ZEN_UI_NAVBAR_SELECTED_TAB", "__ZEN_UI_NAVBAR_SELECTION_ORIGIN",
             "__ZEN_UI_ACTIVE_TAB_LABEL",
             "__ZEN_UI_REINJECT_FM_NAVBAR", "__ZEN_UI_REINJECT_NAVBARS",
             "__ZEN_UI_LIBRARY_STATE", "__ZEN_UI_OPEN_HOME_AFTER_FILEMANAGER",
@@ -2865,6 +2866,88 @@ describe("file browser navbar navigation", function()
         assert.are.same({
             { mask, 10, 20, 34, 34, { 255, 255, 255, 255 } },
         }, drawing)
+    end)
+
+    it("paints a transient tab through the render-only selection", function()
+        local navbar = _G.__ZEN_UI_PLUGIN.config.navbar
+        navbar.show_icons = true
+        navbar.active_tab_filled = true
+        navbar.filled_background_opacity = 100
+        navbar.colored = false
+        -- Keep the transient tab on the visible page so its frame is built.
+        navbar.tab_order = { "home", "menu" }
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+
+        -- active_tab stays Home; only the render-only selection names the menu tab.
+        _G.__ZEN_UI_NAVBAR_SELECTED_TAB = "menu"
+        built_widgets = {}
+        _G.__ZEN_UI_REINJECT_FM_NAVBAR()
+
+        local filled
+        for index = 1, #built_widgets do
+            local widget = built_widgets[index].widget
+            if widget.radius and widget.background then
+                filled = widget
+            end
+        end
+
+        assert.is_not_nil(filled)
+        assert.are.equal("Menu", filled[1][2].text)
+    end)
+
+    it("drops the render-only selection once the plugin view closes", function()
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+        local plugin_view = { name = "library_view" }
+        UIManager._window_stack = { { widget = fm } }
+
+        -- What a transient tab tap records: the tab plus the view it came from.
+        _G.__ZEN_UI_NAVBAR_SELECTED_TAB = "ct_rakuyomi"
+        _G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN = fm
+        table.insert(UIManager._window_stack, { widget = plugin_view })
+
+        table.remove(UIManager._window_stack)
+        UIManager:close(plugin_view)
+
+        assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTED_TAB)
+        assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN)
+    end)
+
+    it("keeps the render-only selection while a nested plugin view stays on top", function()
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+        local library_view = { name = "library_view" }
+        local chapter_page = { name = "manga_page" }
+        UIManager._window_stack = {
+            { widget = fm }, { widget = library_view }, { widget = chapter_page },
+        }
+
+        _G.__ZEN_UI_NAVBAR_SELECTED_TAB = "ct_rakuyomi"
+        _G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN = fm
+
+        table.remove(UIManager._window_stack)
+        UIManager:close(chapter_page)
+
+        assert.are.equal("ct_rakuyomi", _G.__ZEN_UI_NAVBAR_SELECTED_TAB)
+        assert.are.equal(fm, _G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN)
+    end)
+
+    it("drops the render-only selection when a tracked tab or a folder is opened", function()
+        local fm = make_instance()
+        UIManager._window_stack = { { widget = fm } }
+        _G.__ZEN_UI_NAVBAR_SELECTED_TAB = "menu"
+        _G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN = fm
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
+        assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTED_TAB)
+        assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN)
+
+        _G.__ZEN_UI_NAVBAR_SELECTED_TAB = "menu"
+        _G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN = fm
+        FileManager.onPathChanged(fm, "/library/folder")
+        assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTED_TAB)
+        assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN)
     end)
 
     it("frames the active content with both icons and labels or either one alone", function()
