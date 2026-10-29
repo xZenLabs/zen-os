@@ -188,6 +188,28 @@ describe("reader themes", function()
         assert.are.equal(tostring(Blitbuffer.ColorRGB32(37, 37, 37, 255)), tostring(background))
     end)
 
+    it("registers the additional built-in theme palettes", function()
+        local expected = {
+            sepia = { "#2c1a0e", "#f5e6c8" },
+            darker_sepia = { "#2e2014", "#e6cea9" },
+            old_book = { "#2e1800", "#edd9b0" },
+            sage = { "#1a2e1a", "#eaf0e8" },
+            fern = { "#0f2a14", "#dff0e0" },
+            arctic = { "#0d1b2a", "#e8f0f8" },
+            midnight = { "#e2e8f0", "#121c33" },
+            nord = { "#d8dee9", "#2e3440" },
+            amber_night = { "#fad08a", "#14100a" },
+            sepia_night = { "#c8a070", "#1a0e00" },
+            dark_moss = { "#90c090", "#0a1a0a" },
+            dark_sky = { "#7aaad4", "#0a1428" },
+            velvet = { "#f9d592", "#532653" },
+        }
+        for key, colors in pairs(expected) do
+            assert.are.equal(colors[1], Themes.BUILTIN_THEMES[key].text, key)
+            assert.are.equal(colors[2], Themes.BUILTIN_THEMES[key].background, key)
+        end
+    end)
+
     it("does not change the font for built-in themes", function()
         local face
         local reader = {

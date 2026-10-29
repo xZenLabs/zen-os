@@ -718,6 +718,19 @@ function M.build(ctx)
         { key = "dark_graphite", text = _("Dark graphite") },
         { key = "light_sepia", text = _("Light sepia") },
         { key = "light_tan", text = _("Light tan") },
+        { key = "sepia", text = _("Sepia") },
+        { key = "darker_sepia", text = _("Darker Sepia") },
+        { key = "old_book", text = _("Old Book") },
+        { key = "sage", text = _("Sage") },
+        { key = "fern", text = _("Fern") },
+        { key = "arctic", text = _("Arctic") },
+        { key = "midnight", text = _("Midnight") },
+        { key = "nord", text = _("Nord") },
+        { key = "amber_night", text = _("Amber Night") },
+        { key = "sepia_night", text = _("Sepia Night") },
+        { key = "dark_moss", text = _("Dark Moss") },
+        { key = "dark_sky", text = _("Dark Sky") },
+        { key = "velvet", text = _("Velvet") },
     }
 
     local function theme_settings()

@@ -504,6 +504,12 @@ msgstr "Allow dragging reader modals"
 msgid "Amber"
 msgstr "Amber"
 
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Amber Night"
+msgstr "Amber Night"
+
 #. Type: error
 #. Context: Error message in the book metadata editor.
 #: metadata_editor.lua:1094 metadata_editor.lua:1178 metadata_editor.lua:38
@@ -563,6 +569,12 @@ msgstr "Archive folder not found: %1"
 #: archive_actions.lua:211 archive_actions.lua:255
 msgid "Archive this book?"
 msgstr "Archive this book?"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Arctic"
+msgstr "Arctic"
 
 #. Type: dialog
 #. Context: Dialog text in the Quick Settings panel.
@@ -1789,10 +1801,28 @@ msgid "Dark mode"
 msgstr "Dark mode"
 
 #. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Dark Moss"
+msgstr "Dark Moss"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Dark Sky"
+msgstr "Dark Sky"
+
+#. Type: setting
 #. Context: Settings label in the Reader appearance and behavior settings.
 #: reader_settings.lua:702
 msgid "Dark warm gray"
 msgstr "Dark warm gray"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Darker Sepia"
+msgstr "Darker Sepia"
 
 #. Type: setting
 #. Context: Settings label in the Home layout and widget settings. Label in the reading statistics page. Settings label in the library status bar settings.
@@ -2429,6 +2459,12 @@ msgstr "Favorites"
 #: featured.lua:6 end_book_settings.lua:6
 msgid "Featured book"
 msgstr "Featured Book"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Fern"
+msgstr "Fern"
 
 #. Type: menu
 #. Context: Menu entry in the KOReader menus and Launcher menu selector.
@@ -3468,6 +3504,12 @@ msgstr "Metadata was saved, but the cover image could not be saved."
 msgid "Metric"
 msgstr "Metric"
 
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Midnight"
+msgstr "Midnight"
+
 #. Type: unit
 #. Context: Measurement or duration unit in the reading goal settings and Home widget. Measurement or duration unit in the ZenOS interface.
 #: reading_goals.lua:103 reading_goals.lua:281 incognito_mode.lua:248 incognito_mode.lua:262
@@ -3979,6 +4021,12 @@ msgid "None (folder name only)"
 msgstr "None (folder name only)"
 
 #. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Nord"
+msgstr "Nord"
+
+#. Type: setting
 #. Context: Settings label in the Library appearance and behavior settings.
 #: library_settings.lua:260
 msgid "Normal"
@@ -4043,6 +4091,12 @@ msgstr "Off"
 #: coverbrowser_check.lua:46 zen_bugreporter.lua:392 zen_updater.lua:1295 zen_updater.lua:1303 zen_updater.lua:1308 zen_updater.lua:1313 zen_updater.lua:1319 zen_updater.lua:1339 zen_updater.lua:1389 zen_updater.lua:1391 zen_updater.lua:1393 zen_updater.lua:1400 zen_updater.lua:1402 zen_updater.lua:1557 zen_updater.lua:1577 zen_updater.lua:1695 zen_updater.lua:1707 zen_updater.lua:1713 zen_updater.lua:1719 zenpm_installer.lua:350 zenpm_installer.lua:358 zenpm_installer.lua:361 zenpm_installer.lua:369 zenpm_installer.lua:378
 msgid "OK"
 msgstr "OK"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Old Book"
+msgstr "Old Book"
 
 #. Type: setting
 #. Context: Settings label in the Reader appearance and behavior settings.
@@ -5059,6 +5113,12 @@ msgid "RSS Reader plugin is not installed."
 msgstr "RSS Reader plugin is not installed."
 
 #. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Sage"
+msgstr "Sage"
+
+#. Type: setting
 #. Context: Settings label in the device schedules and sleep-screen settings. Label in the book metadata editor. Settings label in the Reader appearance and behavior settings. Also used elsewhere in ZenOS.
 #: metadata_editor.lua:662 metadata_editor.lua:927 metadata_editor.lua:1045 metadata_editor.lua:1242 global_settings.lua:308 reader_settings.lua:1118 home_settings.lua:2136 metadata_settings.lua:43
 msgid "Save"
@@ -5255,6 +5315,18 @@ msgstr "Send with LocalSend"
 #: reader_settings.lua:466 reader_settings.lua:623 status_bar_settings.lua:336 status_bar_settings.lua:339
 msgid "Separator"
 msgstr "Separator"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Sepia"
+msgstr "Sepia"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Sepia Night"
+msgstr "Sepia Night"
 
 #. Type: title
 #. Context: Title in the gesture and shortcut action menu. Label in the navigation tabs and Quick Settings buttons. Selectable option in the setup guide. Also used elsewhere in ZenOS.
@@ -6683,6 +6755,12 @@ msgstr "username"
 #: koreader_settings.lua:175
 msgid "Value"
 msgstr "Value"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Velvet"
+msgstr "Velvet"
 
 #. Type: label
 #. Context: Label in the screenshot countdown and save notification.

@@ -21,6 +21,58 @@ M.BUILTIN_THEMES = {
         text = "#473b2d",
         background = "#e8dcc5",
     },
+    sepia = {
+        text = "#2c1a0e",
+        background = "#f5e6c8",
+    },
+    darker_sepia = {
+        text = "#2e2014",
+        background = "#e6cea9",
+    },
+    old_book = {
+        text = "#2e1800",
+        background = "#edd9b0",
+    },
+    sage = {
+        text = "#1a2e1a",
+        background = "#eaf0e8",
+    },
+    fern = {
+        text = "#0f2a14",
+        background = "#dff0e0",
+    },
+    arctic = {
+        text = "#0D1B2A",
+        background = "#E8F0F8",
+    },
+    midnight = {
+        text = "#e2e8f0",
+        background = "#121c33",
+    },
+    nord = {
+        text = "#d8dee9",
+        background = "#2e3440",
+    },
+    amber_night = {
+        text = "#fad08a",
+        background = "#14100a",
+    },
+    sepia_night = {
+        text = "#c8a070",
+        background = "#1a0e00",
+    },
+    dark_moss = {
+        text = "#90c090",
+        background = "#0a1a0a",
+    },
+    dark_sky = {
+        text = "#7aaad4",
+        background = "#0a1428",
+    },
+    velvet = {
+        text = "#f9d592",
+        background = "#532653",
+    },
 }
 
 local CSS_START = "/* zen_ui_reader_themes:start */"

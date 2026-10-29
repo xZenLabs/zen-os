@@ -330,9 +330,18 @@ describe("reader themes settings", function()
         for _i, mode_item in ipairs(reader_themes.sub_item_table) do
             if mode_item.text == "Dark mode" or mode_item.text == "Light mode" then
                 local choices = mode_item.sub_item_table_func()
-                assert.are.equal(6, #choices)
+                assert.are.equal(19, #choices)
+                local names = {}
                 for _j, choice in ipairs(choices) do
                     assert.is_function(choice._zen_settings_content_func)
+                    names[choice.text] = true
+                end
+                for _j, name in ipairs({
+                    "Sepia", "Darker Sepia", "Old Book", "Sage", "Fern", "Arctic",
+                    "Midnight", "Nord", "Amber Night", "Sepia Night", "Dark Moss",
+                    "Dark Sky", "Velvet",
+                }) do
+                    assert.is_true(names[name], name)
                 end
             end
         end
