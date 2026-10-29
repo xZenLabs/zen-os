@@ -19,6 +19,7 @@ local Font = require("ui/font")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local LeftContainer = require("ui/widget/container/leftcontainer")
+local LineWidget = require("ui/widget/linewidget")
 local OverlapGroup = require("ui/widget/overlapgroup")
 local RightContainer = require("ui/widget/container/rightcontainer")
 local icons = require("common/inline_icon_map")
@@ -1037,7 +1038,7 @@ function M.build(ctx)
             "The quick brown fox jumps over the lazy dog.",
             "0123456789",
         }
-        for _i, line in ipairs(preview_lines) do
+        for index, line in ipairs(preview_lines) do
             local sample_line = line
             table.insert(edit_items, {
                 text = _("Theme preview"),
@@ -1050,7 +1051,7 @@ function M.build(ctx)
                         and editable_theme.font_face ~= "default"
                         and Font:getFace(editable_theme.font_face, font_size) or face
                     local padding = Screen:scaleBySize(12)
-                    return FrameContainer:new{
+                    local preview = FrameContainer:new{
                         width = width,
                         height = height,
                         padding = padding,
@@ -1070,6 +1071,17 @@ function M.build(ctx)
                             },
                         },
                     }
+                    if index == 1 then
+                        return OverlapGroup:new{
+                            dimen = Geom:new{ w = width, h = height },
+                            preview,
+                            LineWidget:new{
+                                dimen = Geom:new{ w = width, h = Size.line.thin },
+                                background = Blitbuffer.COLOR_LIGHT_GRAY,
+                            },
+                        }
+                    end
+                    return preview
                 end,
             })
         end
