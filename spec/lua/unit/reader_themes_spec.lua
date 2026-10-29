@@ -184,8 +184,8 @@ describe("reader themes", function()
 
         G_reader_settings:saveSetting("night_mode", true)
         text, background = Themes.getPreviewColors(plugin, "dark_graphite")
-        assert.are.equal(tostring(Blitbuffer.ColorRGB32(47, 47, 47, 255)), tostring(text))
-        assert.are.equal(tostring(Blitbuffer.ColorRGB32(218, 218, 218, 255)), tostring(background))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(208, 208, 208, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(37, 37, 37, 255)), tostring(background))
     end)
 
     it("does not change the font for built-in themes", function()

@@ -93,6 +93,15 @@ local function blitbuffer_color(value)
     return require("ffi/blitbuffer").ColorRGB32(r, g, b, 0xFF)
 end
 
+local function preview_blitbuffer_color(value)
+    local color = normalize_color(value)
+    if not color then return nil end
+    local r = tonumber(color:sub(2, 3), 16)
+    local g = tonumber(color:sub(4, 5), 16)
+    local b = tonumber(color:sub(6, 7), 16)
+    return require("ffi/blitbuffer").ColorRGB32(r, g, b, 0xFF)
+end
+
 local function theme_for(plugin, dark_mode)
     if not is_enabled(plugin) then return nil end
     local config = plugin and plugin.config
@@ -172,7 +181,7 @@ function M.getPreviewColors(plugin, key, theme_override)
     if not (type(theme) == "table" and valid_color(theme.text) and valid_color(theme.background)) then
         return nil, nil
     end
-    return blitbuffer_color(theme.text), blitbuffer_color(theme.background)
+    return preview_blitbuffer_color(theme.text), preview_blitbuffer_color(theme.background)
 end
 
 function M.applyFont(reader, plugin)
