@@ -156,6 +156,25 @@ function M.getBackgroundColor(plugin)
     return theme and blitbuffer_color(theme.background) or nil
 end
 
+function M.getPreviewColors(plugin, key, theme_override)
+    local theme = theme_override
+    if not theme and key == "default" then
+        -- Default reader styling is document-dependent; show a neutral black-on-white sample.
+        theme = { text = "#000000", background = "#ffffff" }
+    elseif not theme then
+        theme = M.BUILTIN_THEMES[key]
+        if not theme then
+            local themes = plugin and plugin.config and plugin.config.reader_themes
+            local custom = type(themes) == "table" and themes.custom
+            theme = type(custom) == "table" and custom[key]
+        end
+    end
+    if not (type(theme) == "table" and valid_color(theme.text) and valid_color(theme.background)) then
+        return nil, nil
+    end
+    return blitbuffer_color(theme.text), blitbuffer_color(theme.background)
+end
+
 function M.applyFont(reader, plugin)
     local document = reader and reader.document
     if not (document and type(document.setFontFace) == "function") then return false end

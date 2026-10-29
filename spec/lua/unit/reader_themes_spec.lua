@@ -148,6 +148,46 @@ describe("reader themes", function()
         assert.is_nil(Themes.colorToHsv("not-a-color"))
     end)
 
+    it("provides preview colors for built-in, custom, and default themes", function()
+        local plugin = {
+            config = {
+                reader_themes = {
+                    custom = {
+                        custom_1 = { text = "#123456", background = "#abcdef" },
+                        invalid = { text = "bad", background = "#ffffff" },
+                    },
+                },
+            },
+        }
+        local Blitbuffer = require("ffi/blitbuffer")
+
+        local text, background = Themes.getPreviewColors(plugin, "dark_graphite")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(208, 208, 208, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(37, 37, 37, 255)), tostring(background))
+
+        text, background = Themes.getPreviewColors(plugin, "custom_1")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(18, 52, 86, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(171, 205, 239, 255)), tostring(background))
+
+        text, background = Themes.getPreviewColors(plugin, "default")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(0, 0, 0, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(255, 255, 255, 255)), tostring(background))
+        assert.is_nil(Themes.getPreviewColors(plugin, "invalid"))
+
+        local editable_theme = { text = "#102030", background = "#f0e0d0" }
+        text, background = Themes.getPreviewColors(plugin, nil, editable_theme)
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(16, 32, 48, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(240, 224, 208, 255)), tostring(background))
+        editable_theme.text = "#abcdef"
+        text = Themes.getPreviewColors(plugin, nil, editable_theme)
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(171, 205, 239, 255)), tostring(text))
+
+        G_reader_settings:saveSetting("night_mode", true)
+        text, background = Themes.getPreviewColors(plugin, "dark_graphite")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(47, 47, 47, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(218, 218, 218, 255)), tostring(background))
+    end)
+
     it("does not change the font for built-in themes", function()
         local face
         local reader = {

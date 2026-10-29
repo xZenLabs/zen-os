@@ -302,6 +302,48 @@ describe("reader themes settings", function()
         assert.are.equal(1, applied)
     end)
 
+    it("adds a color preview to every built-in and custom mode choice", function()
+        local config = {
+            features = { reader_themes = false },
+            reader_themes = {
+                dark_mode = "dark_warm_gray",
+                light_mode = "default",
+                custom = {
+                    custom_1 = {
+                        name = "Paper",
+                        text = "#123456",
+                        background = "#abcdef",
+                    },
+                },
+            },
+        }
+        local items = ReaderSettings.build({
+            config = config,
+            plugin = { saveConfig = function() end },
+            save_and_apply = function() end,
+        })
+        local reader_themes
+        for _i, item in ipairs(items) do
+            if item.text == "Reader themes" then reader_themes = item end
+        end
+
+        for _i, mode_item in ipairs(reader_themes.sub_item_table) do
+            if mode_item.text == "Dark mode" or mode_item.text == "Light mode" then
+                local choices = mode_item.sub_item_table_func()
+                assert.are.equal(6, #choices)
+                for _j, choice in ipairs(choices) do
+                    assert.is_function(choice._zen_settings_content_func)
+                end
+            end
+        end
+
+        local custom_theme_list = reader_themes.sub_item_table[3].sub_item_table_func()
+        assert.is_nil(custom_theme_list[1]._zen_settings_content_func)
+        for index = 2, #custom_theme_list do
+            assert.is_function(custom_theme_list[index]._zen_settings_content_func)
+        end
+    end)
+
     it("shows default-on lookup toggles only for loaded companion plugins", function()
         ZenSpec.replace("apps/filemanager/filemanager", { instance = nil })
         ZenSpec.replace("apps/reader/readerui", {
@@ -590,6 +632,11 @@ describe("reader themes settings", function()
         assert.are.equal("Background color: #ffffff", touchmenu.item_table[2].text_func())
         assert.are.equal("Text color: #000000", touchmenu.item_table[3].text_func())
         assert.are.equal("New custom theme", touchmenu.item_table_stack[1][1].text)
+        assert.are.equal(8, #touchmenu.item_table)
+        for index = 6, 8 do
+            assert.are.equal("Theme preview", touchmenu.item_table[index].text)
+            assert.is_function(touchmenu.item_table[index]._zen_settings_content_func)
+        end
         assert.are.equal(1, saved)
         assert.are.equal(1, applied)
 
