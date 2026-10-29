@@ -1471,6 +1471,12 @@ msgid "Copy selected files?"
 msgstr "Copy selected files?"
 
 #. Type: setting
+#. Context: Settings action for creating a custom copy of a reader theme.
+#: reader_settings.lua
+msgid "Copy theme"
+msgstr "Copy theme"
+
+#. Type: setting
 #. Context: Device CPU statistics label for the number of processor cores.
 #: about_settings.lua:115
 msgid "Cores"

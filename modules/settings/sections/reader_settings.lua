@@ -927,7 +927,7 @@ function M.build(ctx)
         return name
     end
 
-    local function create_custom_theme(theme, base_key)
+    local function create_custom_theme(theme, base_key, name)
         local custom = theme_settings().custom
         local number = 1
         local key = "custom_" .. number
@@ -936,7 +936,7 @@ function M.build(ctx)
             key = "custom_" .. number
         end
         local new_theme = {
-            name = unique_custom_theme_name(base_key),
+            name = name or unique_custom_theme_name(base_key),
             text = theme.text,
             background = theme.background,
             font_face = theme.font_face or "default",
@@ -957,6 +957,42 @@ function M.build(ctx)
             end
             editable_theme[field] = value
             save_themes()
+        end
+
+        local function copy_theme(touchmenu_instance)
+            local InputDialog = require("ui/widget/inputdialog")
+            local dlg
+            dlg = InputDialog:new{
+                title = _("Copy theme"),
+                input = "",
+                input_hint = _("Theme name"),
+                buttons = {{
+                    {
+                        text = _("Cancel"),
+                        id = "close",
+                        callback = function() UIManager:close(dlg) end,
+                    },
+                    {
+                        text = _("Set"),
+                        is_enter_default = true,
+                        callback = function()
+                            local name = dlg:getInputText()
+                            name = type(name) == "string" and name:match("^%s*(.-)%s*$") or ""
+                            if name == "" then return end
+                            UIManager:close(dlg)
+                            local new_key = create_custom_theme(editable_theme, nil, name)
+                            save_themes()
+                            if touchmenu_instance then
+                                local parent_items, edit_item = build_custom_theme_items(new_key)
+                                touchmenu_instance.item_table = parent_items
+                                touchmenu_instance:onMenuSelect(edit_item)
+                            end
+                        end,
+                    },
+                }},
+            }
+            UIManager:show(dlg)
+            dlg:onShowKeyboard()
         end
 
         local edit_items = {}
@@ -1014,6 +1050,11 @@ function M.build(ctx)
                 save_change("font_face", "default")
                 if touchmenu_instance then touchmenu_instance:updateItems() end
             end,
+        })
+        table.insert(edit_items, {
+            text = _("Copy theme"),
+            keep_menu_open = true,
+            callback = copy_theme,
         })
         if editable_key then
             table.insert(edit_items, {

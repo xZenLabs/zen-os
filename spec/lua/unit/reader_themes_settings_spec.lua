@@ -302,6 +302,93 @@ describe("reader themes settings", function()
         assert.are.equal(1, applied)
     end)
 
+    it("copies built-in and custom themes into separately named custom themes", function()
+        local saved = 0
+        local config = {
+            features = {
+                reader_themes = true,
+                reader_top_status_bar = false,
+                dict_quick_lookup = false,
+                highlight_lookup = false,
+                reader_bottom_menu = false,
+                page_browser = false,
+                restore_library_view = false,
+            },
+            reader_themes = {
+                dark_mode = "dark_warm_gray",
+                light_mode = "default",
+                custom = {
+                    paper = {
+                        name = "Paper",
+                        text = "#30251b",
+                        background = "#f5e7ce",
+                        font_face = "Example.ttf",
+                    },
+                },
+            },
+        }
+        local items = ReaderSettings.build({
+            config = config,
+            plugin = { saveConfig = function() saved = saved + 1 end },
+            save_and_apply = function() end,
+        })
+        local themes
+        for _i, item in ipairs(items) do
+            if item.text == "Reader themes" then themes = item end
+        end
+        local touchmenu = {
+            onMenuSelect = function(self, item) self.opened_item = item end,
+        }
+        local custom_items = themes.sub_item_table[3].sub_item_table_func()
+        local builtin_copy
+        for _i, item in ipairs(custom_items[2].sub_item_table) do
+            if item.text == "Copy theme" then builtin_copy = item end
+        end
+        assert.is_table(builtin_copy)
+        builtin_copy.callback(touchmenu)
+        assert.are.equal("Copy theme", shown_dialog.title)
+        dialog_input = "   "
+        shown_dialog.buttons[1][2].callback()
+        assert.is_nil(config.reader_themes.custom.custom_1)
+        dialog_input = "  Warm copy  "
+        shown_dialog.buttons[1][2].callback()
+
+        local builtin_copy_theme = config.reader_themes.custom.custom_1
+        assert.are.same({
+            name = "Warm copy",
+            text = "#dcdccc",
+            background = "#1f1f1f",
+            font_face = "default",
+        }, builtin_copy_theme)
+        assert.are.equal("dark_warm_gray", config.reader_themes.dark_mode)
+        assert.are.equal("Warm copy", touchmenu.opened_item.text_func())
+
+        custom_items = themes.sub_item_table[3].sub_item_table_func()
+        local paper_item
+        for _i, item in ipairs(custom_items) do
+            if item.text_func and item.text_func() == "Paper" then paper_item = item end
+        end
+        local custom_copy
+        for _i, item in ipairs(paper_item.sub_item_table) do
+            if item.text == "Copy theme" then custom_copy = item end
+        end
+        custom_copy.callback(touchmenu)
+        dialog_input = "Paper variation"
+        shown_dialog.buttons[1][2].callback()
+
+        local paper_copy = config.reader_themes.custom.custom_2
+        assert.are.same({
+            name = "Paper variation",
+            text = "#30251b",
+            background = "#f5e7ce",
+            font_face = "Example.ttf",
+        }, paper_copy)
+        assert.are_not.equal(config.reader_themes.custom.paper, paper_copy)
+        paper_copy.text = "#000000"
+        assert.are.equal("#30251b", config.reader_themes.custom.paper.text)
+        assert.are.equal(2, saved)
+    end)
+
     it("adds a color preview to every built-in and custom mode choice", function()
         local config = {
             features = { reader_themes = false },
@@ -641,20 +728,21 @@ describe("reader themes settings", function()
         assert.are.equal("Background color: #ffffff", touchmenu.item_table[2].text_func())
         assert.are.equal("Text color: #000000", touchmenu.item_table[3].text_func())
         assert.are.equal("New custom theme", touchmenu.item_table_stack[1][1].text)
-        assert.are.equal(8, #touchmenu.item_table)
-        for index = 6, 8 do
+        assert.are.equal(9, #touchmenu.item_table)
+        for index = 7, 9 do
             assert.are.equal("Theme preview", touchmenu.item_table[index].text)
             assert.is_function(touchmenu.item_table[index]._zen_settings_content_func)
         end
+        assert.are.equal("Copy theme", touchmenu.item_table[5].text)
         assert.are.equal(1, saved)
         assert.are.equal(1, applied)
 
-        touchmenu.item_table[5].callback(touchmenu)
+        touchmenu.item_table[6].callback(touchmenu)
         shown_dialog.ok_callback()
 
         assert.is_nil(config.reader_themes.custom.custom_1)
         assert.are.equal(0, #touchmenu.item_table_stack)
-        assert.are.equal(5, #touchmenu.item_table)
+        assert.are.equal(18, #touchmenu.item_table)
         assert.are.equal("New custom theme", touchmenu.item_table[1].text)
         assert.are.equal(1, updates)
         assert.are.equal(2, saved)
