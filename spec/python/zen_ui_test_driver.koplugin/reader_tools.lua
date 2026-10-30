@@ -389,7 +389,7 @@ function M.annotation_viewer_state()
     for _i, item in ipairs(viewer._zen_content_panel.item_table) do
         items[#items + 1] = { file = item.record.file, kind = item.record.kind }
     end
-    return { ok = true, scope = viewer._zen_annotations.scope, loading = viewer._zen_annotations.loading == true,
+    return { ok = true, tab = viewer._zen_active_tab, scope = viewer._zen_annotations.scope, loading = viewer._zen_annotations.loading == true,
         items = items, search_icon = viewer._zen_content_panel.title_bar.left_button.image.file }
 end
 
@@ -624,6 +624,7 @@ function M.reader_controls(params)
             for _page = 1, (tm._zen_panel_refs and tm._zen_panel_refs.page_num or 1) do
                 for _i, ref in ipairs(tm._zen_panel_refs and tm._zen_panel_refs.buttons or {}) do
                     if ref.widget._reader_control_id == params.id or ref.widget._reader_setting == params.id
+                            or ref.widget._reader_card_action == params.id
                             or ref.widget._reader_button_page == params.id
                             or ref.widget.book_path == params.id
                             or ref.widget.text == params.id then found = ref; break end
@@ -839,6 +840,24 @@ function M.reader_controls(params)
     elseif params.action == "paint" then
         UIManager:setDirty("all", "ui")
         UIManager:forceRePaint()
+    elseif params.action == "windows" then
+        return { ok = true, count = #UIManager._window_stack }
+    elseif params.action == "real_tap" and tm then
+        -- Dispatch through UIManager so child gesture handlers run as on device.
+        UIManager:forceRePaint()
+        local bounds
+        for _i, row in ipairs(tm.layout or {}) do
+            for _j, widget in ipairs(row) do
+                if widget._reader_card_action == params.id or params.id == "book_info_card" and widget.onTapDetails then
+                    bounds = widget.dimen
+                end
+            end
+        end
+        if not bounds then return { ok = false, error = "widget unavailable" } end
+        UIManager:sendEvent(require("ui/event"):new("Gesture", { ges = "tap", time = require("ui/time").now(),
+            pos = require("ui/geometry"):new{ x = bounds.x + (params.dx or math.floor(bounds.w / 2)),
+                y = bounds.y + math.floor(bounds.h / 2), w = 0, h = 0 } }))
+        return { ok = true }
     elseif params.action == "next_page" and tm then
         tm:onNextPage()
     elseif params.action == "setting" then
@@ -859,7 +878,7 @@ function M.reader_controls(params)
     tm = active_controls()
     local controls, labels, toggles, radios, font_count, header = {}, {}, {}, {}, 0, {}
     local bounds, selections, step_styles, zen_buttons, label_ends = {}, {}, {}, {}, {}
-    local icons, outlined, title_heights, switcher_books = {}, {}, {}, {}
+    local icons, outlined, title_heights, switcher_books, card_actions = {}, {}, {}, {}, {}
     local slider_bounds, slider_states, value_cells, theme_count, family_label, family_radius = {}, {}, {}, 0, nil, nil
     for _i, row in ipairs(tm and tm.layout or {}) do
         for _j, widget in ipairs(row) do
@@ -874,6 +893,10 @@ function M.reader_controls(params)
                 w = widget.dimen.w, h = widget.dimen.h, label = widget.text } end
             if widget._reader_control_id then
                 icons[widget._reader_control_id] = widget.image.file
+            end
+            if widget._reader_card_action then
+                card_actions[#card_actions + 1] = widget._reader_card_action
+                icons[widget._reader_card_action] = widget.image.file
             end
             if widget.label_box then
                 labels[widget._reader_setting or widget.text] = widget.label.text .. (widget.number and widget.number.text or "")
@@ -997,7 +1020,7 @@ function M.reader_controls(params)
     for _i, widget in ipairs(tm and tm.item_group or {}) do footer_visible = footer_visible or widget == tm.footer end
     local family_menu = font_menu()
     local family_anchor = family_menu and menu_anchor(family_menu)
-    return { ok = true, header = header, switcher_books = switcher_books,
+    return { ok = true, header = header, switcher_books = switcher_books, card_actions = card_actions,
         font_family_label = family_label,
         font_family_radius = family_radius,
         font_menu = family_menu and { open = true, count = #family_menu.buttons,

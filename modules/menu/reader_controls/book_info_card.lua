@@ -138,20 +138,40 @@ function M.build(opts)
         TruncatedTextMessage.showMetadata(self.full_text, self.dimen)
         return true
     end
-    local function one_line(text, face, bold)
+    -- Optional icon actions right of the title, centered on it.
+    local actions, actions_w, action_row = nil, 0, {}
+    if opts.actions and #opts.actions > 0 then
+        local ZenIconButton = require("common/ui/zen_icon_button")
+        local icon_size, icon_pad = Screen:scaleBySize(32), Screen:scaleBySize(6)
+        actions = HorizontalGroup:new{ align = "center" }
+        for _i, action in ipairs(opts.actions) do
+            local button = ZenIconButton:new{ file = action.icon, width = icon_size, height = icon_size,
+                padding = 0, padding_left = icon_pad, padding_right = icon_pad, callback = action.callback }
+            button._reader_card_action = action.id
+            actions[#actions + 1] = button
+            action_row[#action_row + 1] = button
+            refs.buttons[#refs.buttons + 1] = { widget = button, callback = action.callback }
+        end
+        actions_w = actions:getSize().w + Screen:scaleBySize(8)
+    end
+    local function one_line(text, face, bold, max_width)
         local full_text = tostring(text or ""):gsub("%s*\n%s*", " ")
         local text_widget = TextWidget:new{
             text = full_text,
             face = face,
             bold = bold == true,
-            max_width = text_w,
+            max_width = max_width or text_w,
             truncate_with_ellipsis = true,
             padding = 0,
         }
         if not text_widget:isTruncated() then return text_widget end
         return FullText:new{ full_text = full_text, text_widget }
     end
-    local title = one_line(book.title, title_face, true)
+    local title = one_line(book.title, title_face, true, math.max(1, text_w - actions_w))
+    if actions then
+        title = HorizontalGroup:new{ align = "center", title,
+            HorizontalSpan:new{ width = text_w - title:getSize().w - actions:getSize().w }, actions }
+    end
     local details = VerticalGroup:new{
         align = "left",
         HorizontalSpan:new{ width = text_w },
@@ -262,7 +282,8 @@ function M.build(opts)
     function DetailsCell:init()
         self.dimen = self.dimen or Geom:new{ w = self.width, h = self.height }
         self.ges_events = {
-            TapSelect = { GestureRange:new{ ges = "tap", range = self.dimen } },
+            -- Not TapSelect: it propagates to child IconButtons, which act on it.
+            TapDetails = { GestureRange:new{ ges = "tap", range = self.dimen } },
         }
     end
     function DetailsCell:paintTo(bb, x, y)
@@ -274,7 +295,7 @@ function M.build(opts)
                 Blitbuffer.COLOR_BLACK)
         end
     end
-    function DetailsCell:onTapSelect()
+    function DetailsCell:onTapDetails()
         if self.callback then self.callback() end
         return true
     end
@@ -299,8 +320,9 @@ function M.build(opts)
         callback = callback,
         content,
     }
-    refs.buttons[1] = { widget = cell, callback = callback }
-    refs.layout_rows[1] = { cell }
+    -- Icons are tested before the cell; the card keeps initial focus.
+    refs.buttons[#refs.buttons + 1] = { widget = cell, callback = callback }
+    refs.layout_rows[1] = { cell, unpack(action_row) }
 
     return VerticalGroup:new{
         align = "center",

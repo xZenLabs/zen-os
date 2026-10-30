@@ -492,6 +492,62 @@ describe("reader footer patches", function()
         assert.are.equal(10, footer.settings.progress_margin_width)
     end)
 
+    it("paints the footer progress bar as a rounded outline and fill", function()
+        saved_modules = {}
+        for _i, name in ipairs({
+            "apps/reader/modules/readerfooter", "apps/reader/readerui", "common/reader_status_bar",
+            "device", "ui/bidi", "ui/uimanager", "ui/widget/container/leftcontainer", "ui/widget/textwidget",
+        }) do
+            saved_modules[name] = package.loaded[name] or false
+        end
+        local ReaderFooter = {
+            textGeneratorMap = {
+                battery = function() return "" end,
+                page_progress = function() return "" end,
+                dynamic_filler = function() return "" end,
+            },
+            textOptionTitles = function() end,
+            set_mode_index = function() end,
+            addToMainMenu = function() end,
+            updateFooterContainer = function() end,
+            _updateFooterText = function() end,
+            genAllFooterText = function() return "" end,
+        }
+        ZenSpec.replace("apps/reader/modules/readerfooter", ReaderFooter)
+        ZenSpec.replace("apps/reader/readerui", {})
+        ZenSpec.replace("common/reader_status_bar", { isMarginAlignmentEnabled = function() return false end })
+        ZenSpec.replace("device", { screen = { scaleBySize = function(_self, value) return value end } })
+        ZenSpec.replace("ui/bidi", { mirroredUILayout = function() return false end })
+        ZenSpec.replace("ui/uimanager", { scheduleIn = function() end })
+        ZenSpec.replace("ui/widget/container/leftcontainer", {})
+        ZenSpec.replace("ui/widget/textwidget", {})
+        _G.__ZEN_UI_PLUGIN = { config = { features = {} } }
+        apply_patch("modules/reader/patches/reader_footer")
+
+        local BB = require("ffi/blitbuffer")
+        local bar = {
+            width = 40, height = 8, percentage = 0.5, ticks = { 5 }, last = 10, tick_width = 1,
+            margin_h = 0, margin_v = 0, bordersize = 0,
+            bgcolor = BB.COLOR_WHITE, bordercolor = BB.COLOR_BLACK,
+            getSize = function(self) return { w = self.width, h = self.height } end,
+        }
+        local footer = setmetatable({ settings = {}, progress_bar = bar }, { __index = ReaderFooter })
+        footer:updateFooterContainer()
+        bar.fillcolor = BB.COLOR_BLACK
+
+        local bb = BB.new(50, 20, BB.TYPE_BB8)
+        bb:fill(BB.COLOR_LIGHT_GRAY)
+        local function alpha(px, py) return bb:getPixel(px, py):getColor8().a end
+        bar:paintTo(bb, 2, 3)
+        assert.are.equal(BB.COLOR_LIGHT_GRAY.a, alpha(2, 3)) -- outline corner rounded
+        assert.are.equal(0, alpha(2, 7)) -- fill starts at bar edge
+        assert.are.equal(0, alpha(12, 7))
+        assert.are.equal(255, alpha(21, 3)) -- fill end corner rounded
+        assert.are.equal(0, alpha(22, 7)) -- tick
+        assert.are.equal(255, alpha(30, 7))
+        bb:free()
+    end)
+
     local function load_native_footer()
         local function copy(value)
             if type(value) ~= "table" then return value end

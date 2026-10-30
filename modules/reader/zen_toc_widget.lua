@@ -4,7 +4,7 @@
 --   local ZenTocWidget = require("modules/reader/zen_toc_widget")
 --   UIManager:show(ZenTocWidget:new{
 --       ui         = pbw.ui,          -- ReaderUI instance
---       focus_page = pbw.focus_page,  -- current page for highlighting
+--       focus_page = page,            -- optional; defaults to the reader's current page
 --       on_goto    = function(page)   -- called when user taps a chapter
 --           if pbw:updateFocusPage(page, false) then pbw:update() end
 --       end,
@@ -107,7 +107,7 @@ local ZenTocWidget = InputContainer:extend{
     on_goto    = nil,   -- callback(page_num) when entry tapped
     close_all_callback = nil,
     show_back = false,
-    focus_page = 1,     -- current page; used to highlight active chapter
+    focus_page = nil,   -- page whose chapter is highlighted; defaults to reader position
     font_size  = nil,
 }
 
@@ -150,6 +150,20 @@ function ZenTocWidget.getEntries(ui)
         end
     end
     return entries
+end
+
+-- Index of the last entry starting at or before page (the current chapter).
+function ZenTocWidget.getCurrentIndex(entries, page)
+    local current
+    for i, e in ipairs(entries) do
+        if e.page <= page then current = i end
+    end
+    return current
+end
+
+function ZenTocWidget.getCurrentPage(ui)
+    local ok, page = pcall(function() return ui:getCurrentPage() end)
+    return ok and type(page) == "number" and page or 1
 end
 
 function ZenTocWidget:init()
@@ -442,16 +456,10 @@ end
 -- Determine which TOC page contains the current chapter
 -- ---------------------------------------------------------------------------
 function ZenTocWidget:_initActivePage()
-    local active_idx = 1
-    for i, e in ipairs(self._entries) do
-        if e.page <= self.focus_page then
-            active_idx = i
-        end
-    end
-    self._active_entry_idx = active_idx
-    local L = self._L
-    self._toc_page = math.max(1,
-        math.min(self._nb_pages, math.ceil(active_idx / L.per_page)))
+    local page = self.focus_page or ZenTocWidget.getCurrentPage(self.ui)
+    self._active_entry_idx = ZenTocWidget.getCurrentIndex(self._entries, page)
+    self._toc_page = math.max(1, math.min(self._nb_pages,
+        math.ceil((self._active_entry_idx or 1) / self._L.per_page)))
 end
 
 -- ---------------------------------------------------------------------------

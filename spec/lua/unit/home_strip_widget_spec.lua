@@ -84,7 +84,7 @@ describe("home strip widget", function()
             "ui/widget/textwidget", "ui/widget/textboxwidget",
             "ui/widget/linewidget",
             "ui/widget/container/inputcontainer", "ui/widget/verticalgroup",
-            "ui/widget/verticalspan",
+            "ui/widget/verticalspan", "ui/widget/iconwidget",
         }) do
             ZenSpec.replace(name, widget_class(name))
         end
@@ -991,17 +991,23 @@ describe("home strip widget", function()
             },
         }
         local sizes = {}
+        local search_icon
         for _i, widget in ipairs(created) do
             if widget.kind == "ui/widget/textwidget" and not widget.free_calls then
                 sizes[widget.text] = widget.face.size
+            elseif widget.kind == "ui/widget/iconwidget" then
+                search_icon = widget
             end
         end
         local icons = require("common/inline_icon_map")
         assert.equals(10, sizes.Recent)
         assert.equals(10, sizes.Group)
-        for _i, icon in ipairs({ icons.arrow_left, icons.search, icons.arrow_right }) do
+        for _i, icon in ipairs({ icons.arrow_left, icons.arrow_right }) do
             assert.equals(14, sizes[icon])
         end
+        assert.is_nil(sizes[icons.search])
+        assert.matches("icons/quick_search.svg$", search_icon.file)
+        assert.same({ 14, 14 }, { search_icon.width, search_icon.height })
     end)
 
     it("sizes dynamic tabs evenly between compact page controls", function()
@@ -1047,9 +1053,11 @@ describe("home strip widget", function()
                 dividers[#dividers + 1] = widget
             elseif widget.kind == "ui/widget/container/centercontainer"
                     and widget[1] and (widget[1].text == icon_map.arrow_left
-                        or widget[1].text == icon_map.search
                         or widget[1].text == icon_map.arrow_right) then
                 icon_cells[widget[1].text] = widget
+            elseif widget.kind == "ui/widget/container/centercontainer"
+                    and widget[1] and widget[1].kind == "ui/widget/iconwidget" then
+                icon_cells.search = widget
             end
         end
         assert.are.equal(1, #outer_frames)
@@ -1067,12 +1075,11 @@ describe("home strip widget", function()
         assert.are.equal("\u{F0141}", icon_map.arrow_left)
         assert.are.equal("\u{F0142}", icon_map.arrow_right)
         assert.are.equal(50, icon_cells[icon_map.arrow_left].dimen.w)
-        assert.are.equal(159, icon_cells[icon_map.search].dimen.w)
+        assert.are.equal(159, icon_cells.search.dimen.w)
+        assert.are.equal(26, icon_cells.search.dimen.h)
         assert.are.equal(50, icon_cells[icon_map.arrow_right].dimen.w)
         assert.is_true(math.abs(tab_frames[1].width - tab_frames[2].width) <= 1)
-        for _i, icon in ipairs({
-            icon_map.arrow_left, icon_map.search, icon_map.arrow_right,
-        }) do
+        for _i, icon in ipairs({ icon_map.arrow_left, icon_map.arrow_right }) do
             assert.are.equal(26, icon_cells[icon].dimen.h)
             assert.are.equal(0, icon_cells[icon][1].padding)
         end
@@ -1084,7 +1091,7 @@ describe("home strip widget", function()
         assert.is_true(has_text("Recent"))
         assert.is_true(has_text("To Be Read"))
         assert.is_true(has_text(icon_map.arrow_left))
-        assert.is_true(has_text(icon_map.search))
+        assert.is_false(has_text(icon_map.search))
         assert.is_true(has_text(icon_map.arrow_right))
 
         local first_wide_widget = #created + 1
@@ -1100,7 +1107,7 @@ describe("home strip widget", function()
         for i = first_wide_widget, #created do
             local widget = created[i]
             if widget.kind == "ui/widget/container/centercontainer"
-                    and widget[1] and widget[1].text == icon_map.search then
+                    and widget[1] and widget[1].kind == "ui/widget/iconwidget" then
                 wide_search_width = widget.dimen.w
             elseif widget.kind == "ui/widget/container/framecontainer"
                     and widget.height == 26 then
@@ -1239,9 +1246,12 @@ describe("home strip widget", function()
         })
 
         local text_widgets = {}
+        local search_icon
         for _i, widget in ipairs(created) do
             if widget.kind == "ui/widget/textwidget" and widget.text then
                 text_widgets[widget.text] = widget
+            elseif widget.kind == "ui/widget/iconwidget" then
+                search_icon = widget
             end
         end
         assert.are.equal(10, text_widgets.Recent.face.size)
@@ -1250,8 +1260,8 @@ describe("home strip widget", function()
             text_widgets["A very long tag name that needs truncation"].face.size)
         assert.is_true(
             text_widgets["A very long tag name that needs truncation"].truncate_with_ellipsis)
-        assert.are.equal(14,
-            text_widgets[require("common/inline_icon_map").search].face.size)
+        assert.is_nil(text_widgets[require("common/inline_icon_map").search])
+        assert.are.equal(14, search_icon.width)
     end)
 
     it("applies the configured control font style", function()

@@ -594,15 +594,15 @@ function M.showMenu(pbw)
     menu = dialog(pbw, _("Annotations"), rows)
 end
 
-function M.show(plugin, ui)
+function M.show(plugin, ui, kind)
     local viewer = InputContainer:new{
-        ui = ui, _zen_plugin = plugin, _zen_active_tab = "annotations", _zen_standalone = true,
+        ui = ui, _zen_plugin = plugin, _zen_active_tab = kind or "annotations", _zen_standalone = true,
         covers_fullscreen = true, dimen = Geom:new{ w = Screen:getWidth(), h = Screen:getHeight() },
     }
     function viewer:_zenRebuildFocusLayout() end -- The embedded Menu owns keyboard focus.
     function viewer:updateLayout()
         if self[1] then self[1]:free() end
-        self[1] = M.build(self, "annotations", self.dimen.w, self.dimen.h)
+        self[1] = M.build(self, self._zen_active_tab, self.dimen.w, self.dimen.h)
         self._zen_content_panel = self[1]
     end
     function viewer:onClose()

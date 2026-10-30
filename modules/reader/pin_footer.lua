@@ -69,7 +69,8 @@ end
 
 local function inside_right(footer)
     local settings = footer.settings
-    return settings.all_at_once and (settings.dynamic_filler or settings.dynamic_filler2
+    -- No text items: KOReader zeroes text_width, so the inline pin reservation is dropped.
+    return settings.all_at_once and not footer.has_no_mode and (settings.dynamic_filler or settings.dynamic_filler2
         or not settings.disable_progress_bar and settings.progress_bar_position == "alongside")
 end
 
@@ -151,6 +152,12 @@ function M.apply()
         self.genFooterText = generator
         self._saved_screen_width = screen_width
         self._zen_pin_reserved_width = nil
+        -- On hide KOReader refreshes only the new, pin-less height; clear the full old footer.
+        local painted = self._zen_painted_dimen
+        if painted and not self.view.footer_visible then
+            self._zen_painted_dimen = nil
+            UIManager:setDirty(self.view.dialog, "ui", painted)
+        end
         return result
     end
     local paint = Footer.paintTo
@@ -158,7 +165,12 @@ function M.apply()
         self._zen_pin_dimen = nil
         local height = self:getHeight()
         if self.footer_content and self.footer_content.dimen then self.footer_content.dimen.h = height end
-        return paint(self, bb, x, y)
+        local result = paint(self, bb, x, y)
+        local dimen = self.footer_content and self.footer_content.dimen
+        if bb == Screen.bb and dimen then
+            self._zen_painted_dimen = Geom:new{ x = dimen.x, y = dimen.y, w = dimen.w, h = dimen.h }
+        end
+        return result
     end
     local close = Footer.onCloseWidget
     Footer.onCloseWidget = function(self, ...)

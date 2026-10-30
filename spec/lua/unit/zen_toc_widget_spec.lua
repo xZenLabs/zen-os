@@ -348,6 +348,28 @@ describe("Zen TOC hardware focus", function()
         assert.are.equal("Chapter ten", widget._entries[2].title)
     end)
 
+    it("opens on the reader's current chapter page and marks it active", function()
+        local toc = {}
+        for i = 1, 20 do toc[i] = { title = "Section " .. i, page = i * 10, depth = 1 } end
+        local widget = ZenTocWidget:new{
+            ui = {
+                toc = { toc = toc },
+                font = { font_face = "ReaderFont" },
+                document = { configurable = { font_size = 21 } },
+                getCurrentPage = function() return 175 end,
+            },
+        }
+        assert.are.equal(17, widget._active_entry_idx)
+        local first, last = widget:_visibleEntryBounds()
+        assert.is_true(first <= 17 and 17 <= last)
+        assert.is_true(widget._toc_page > 1)
+    end)
+
+    it("marks no chapter when the reader is before the first entry", function()
+        assert.is_nil(ZenTocWidget.getCurrentIndex({ { page = 10 }, { page = 20 } }, 3))
+        assert.are.equal(2, ZenTocWidget.getCurrentIndex({ { page = 10 }, { page = 20 } }, 20))
+    end)
+
     it("shares normalized TOC entries with embedded panels after loading the contents", function()
         local toc = {
             fillToc = function(self)

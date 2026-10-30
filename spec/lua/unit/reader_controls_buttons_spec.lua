@@ -11,7 +11,7 @@ describe("reader controls buttons", function()
         local config = { reader_controls = { entries = { custom }, next_id = 1, open_first = false } }
         local cfg = Buttons.ensure(config)
         assert.are.equal(15, #cfg.entries)
-        assert.are.equal("font", cfg.entries[1].control)
+        assert.are.equal("book_info", cfg.entries[1].control)
         assert.are.equal("settings_brush", Buttons.icon(cfg.entries[10]))
         for _i, entry in ipairs(Buttons.defaults()) do
             assert.is_nil(entry.icon)
@@ -26,15 +26,15 @@ describe("reader controls buttons", function()
     it("keeps deleted and edited built-ins after loading the saved list", function()
         local config = {}
         local cfg = Buttons.ensure(config)
-        table.remove(cfg.entries, 1)
-        cfg.entries[2].label = "Layout"
-        Buttons.setIcon(cfg.entries[2], "info")
+        table.remove(cfg.entries, 2)
+        cfg.entries[3].label = "Layout"
+        Buttons.setIcon(cfg.entries[3], "info")
         local copy = require("util").tableDeepCopy(config)
         local restored = Buttons.ensure(copy)
         assert.are.equal(13, #restored.entries)
-        assert.are.equal("page", restored.entries[2].control)
-        assert.are.equal("Layout", restored.entries[2].label)
-        assert.are.equal("info", Buttons.icon(restored.entries[2]))
+        assert.are.equal("page", restored.entries[3].control)
+        assert.are.equal("Layout", restored.entries[3].label)
+        assert.are.equal("info", Buttons.icon(restored.entries[3]))
         assert.is_nil(restored.open_first)
         restored.entries = {}
         assert.are.same({}, Buttons.visible(copy, "copt"))
@@ -46,7 +46,7 @@ describe("reader controls buttons", function()
         entries[7] = { id = "reader_highlights", type = "reader_control", control = "highlights", enabled = false }
         local custom = { id = "custom_highlight", type = "action", label = "Highlight", action = {} }
         entries[#entries + 1] = custom
-        local config = { reader_controls = { entries = entries, buttons_initialized = true } }
+        local config = { reader_controls = { entries = entries, buttons_initialized = true, book_info_actions = true } }
         local cfg = Buttons.ensure(config)
         assert.are.equal("search", cfg.entries[8].control)
         assert.are.equal("quick_search", Buttons.icon(cfg.entries[8]))
@@ -59,26 +59,27 @@ describe("reader controls buttons", function()
     it("respects ordering, toggles, and engine-specific document controls", function()
         local config = {}
         local cfg = Buttons.ensure(config)
-        cfg.entries[1].enabled = false
-        cfg.entries[3], cfg.entries[10] = cfg.entries[10], cfg.entries[3]
+        cfg.entries[2].enabled = false
+        cfg.entries[4], cfg.entries[10] = cfg.entries[10], cfg.entries[4]
         local reflowable = Buttons.visible(config, "copt")
-        assert.are.equal(7, #reflowable)
-        assert.are.equal("themes", reflowable[1].control)
+        assert.are.equal(4, #reflowable)
+        assert.are.equal("themes", reflowable[2].control)
         for _i, entry in ipairs(reflowable) do assert.are_not.equal("document", entry.control) end
         local fixed = Buttons.visible(config, "kopt")
-        assert.are.equal(8, #fixed)
+        assert.are.equal(5, #fixed)
         for _i, entry in ipairs(fixed) do assert.are_not.equal("themes", entry.control) end
     end)
 
     it("uses current named defaults without rewriting saved icon names", function()
         local config = {}
         local entries = Buttons.ensure(config).entries
-        assert.are.equal(require("modules/reader/page_browser_tabs").list({}, { rolling = {} })[2].icon, Buttons.icon(entries[1]))
-        assert.are.equal(require("modules/reader/page_browser_tabs").list({}, nil, true)[3].icon, Buttons.icon(entries[7]))
+        assert.are.equal(require("modules/reader/page_browser_tabs").list({}, { rolling = {} })[2].icon, Buttons.icon(entries[2]))
+        assert.are.equal(require("modules/reader/page_browser_tabs").list({}, nil, true)[3].icon,
+            Buttons.icon(entries[7]))
         assert.are.equal(require("modules/reader/page_browser_tabs").list({}, nil, true)[8].icon, Buttons.icon(entries[14]))
         local defaults = {
-            { 1, "appbar.textsize", "font" }, { 3, "appbar.pageview", "page" },
-            { 4, "book_closed", "document" }, { 9, "bookshelf", "profiles" }, { 12, "grid_slide", "coverflow" },
+            { 2, "appbar.textsize", "font" }, { 4, "appbar.pageview", "page" },
+            { 5, "book_closed", "document" }, { 9, "bookshelf", "profiles" }, { 12, "grid_slide", "coverflow" },
             { 7, "bookmark", "bookmark_outline" },
             { 10, "paint_palette", "settings_brush" }, { 14, "swap_horizontal", "history" },
         }
@@ -117,15 +118,17 @@ describe("reader controls buttons", function()
             for _i, entry in ipairs(Buttons.visible(config, group)) do ids[#ids + 1] = entry.control or entry.id end
             return ids
         end
-        assert.are.same({ "custom", "font", "page", "book_info", "toc", "bookmarks", "search", "profiles" }, controls("copt"))
-        assert.are.same({ "custom", "contrast", "page", "document", "book_info", "toc", "bookmarks", "search" }, controls("kopt"))
+        assert.are.same({ "custom", "book_info", "font", "page", "toc", "bookmarks", "search", "profiles" }, controls("copt"))
+        assert.are.same({ "custom", "book_info", "contrast", "page", "document", "toc", "bookmarks", "search" },
+            controls("kopt"))
         assert.are.same(original, cfg.entries)
     end)
 
     it("checks the eight-control limit for every engine a button supports", function()
         local config = {}
         local entries = Buttons.ensure(config).entries
-        local font, contrast, profiles = entries[1], entries[2], entries[9]
+        local font, contrast, profiles = entries[2], entries[3], entries[9]
+        for _i, index in ipairs({ 6, 7, 8 }) do entries[index].enabled = true end
         local custom = { type = "action" }
         assert.is_false(Buttons.canEnable(config, profiles))
         assert.is_false(Buttons.canEnable(config, custom))
@@ -252,7 +255,8 @@ describe("reader controls buttons", function()
     it("keeps Font and Contrast independent and visible only for their document engines", function()
         local config = {}
         local cfg = Buttons.ensure(config)
-        local font, contrast = cfg.entries[1], cfg.entries[2]
+        cfg.entries[1].enabled = false
+        local font, contrast = cfg.entries[2], cfg.entries[3]
         assert.are.equal("contrast", contrast.control)
         assert.are.equal("Contrast", contrast.label)
         assert.are.equal("appbar.contrast", Buttons.icon(contrast))
@@ -311,6 +315,32 @@ describe("reader controls buttons", function()
             assert.are.equal("font", Buttons.icon(entries[1]))
             assert.are.equal("appbar.contrast", Buttons.icon(entries[2]))
         end
+    end)
+
+    it("turns off Search, Bookmarks and TOC buttons once and opens Book info first", function()
+        local custom = { id = "custom", type = "action", label = "Custom", action = {} }
+        local moved = { search = true, bookmarks = true, toc = true }
+        local entries = Buttons.defaults()
+        for _i, entry in ipairs(entries) do if moved[entry.control] then entry.enabled = nil end end
+        table.insert(entries, 2, custom)
+        local config = { reader_controls = { entries = entries, buttons_initialized = true, annotations_merged = true,
+            contrast_split = true, menu_buttons_added = true, book_switcher_added = true } }
+        local cfg = Buttons.ensure(config)
+        assert.are.equal("book_info", cfg.entries[1].control)
+        assert.are.equal("font", cfg.entries[2].control)
+        assert.are.equal(custom, cfg.entries[3])
+        local toc
+        for _i, entry in ipairs(cfg.entries) do
+            if moved[entry.control] then assert.is_false(entry.enabled) end
+            if entry.control == "toc" then toc = entry end
+        end
+        assert.are.equal(15, #cfg.entries)
+        toc.enabled = true
+        cfg.entries[1], cfg.entries[2] = cfg.entries[2], cfg.entries[1]
+        local restored = Buttons.ensure(require("util").tableDeepCopy(config)).entries
+        assert.are.equal("font", restored[1].control)
+        assert.is_true(restored[7].enabled)
+        assert.are.equal("toc", restored[7].control)
     end)
 
     it("enables the book switcher by default for both engines and preserves disabling it", function()

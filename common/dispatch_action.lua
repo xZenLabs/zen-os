@@ -347,17 +347,8 @@ local function show_zen_toc(plugin)
     local ZenTocWidget = require("modules/reader/zen_toc_widget")
     ZenTocWidget.set_plugin(plugin)
 
-    local focus_page = 1
-    if type(reader.getCurrentPage) == "function" then
-        local ok, page = pcall(reader.getCurrentPage, reader)
-        if ok and type(page) == "number" then
-            focus_page = page
-        end
-    end
-
     require("ui/uimanager"):show(ZenTocWidget:new{
         ui = reader,
-        focus_page = focus_page,
         on_goto = function(page)
             if reader.link then
                 reader.link:addCurrentLocationToStack()
@@ -494,6 +485,12 @@ function M.onDispatcherRegisterActions()
         category = "none",
         event = "ShowZenUIToc",
         title = _("ZenOS") .. ": " .. _("Table of contents"),
+        reader = true,
+    })
+    Dispatcher:registerAction("zen_ui_show_page_browser", {
+        category = "none",
+        event = "ShowZenUIPageBrowser",
+        title = _("ZenOS") .. ": " .. _("Page browser"),
         reader = true,
     })
     Dispatcher:registerAction("zen_ui_show_annotation_viewer", {
@@ -758,6 +755,10 @@ function M.onShowZenUIAnnotationViewer(plugin)
     return true
 end
 
+function M.onShowZenUIPageBrowser()
+    return show_reader_tab(nil)
+end
+
 function M.onShowZenUIAnnotations()
     return show_reader_tab("annotations")
 end
@@ -802,6 +803,7 @@ function M.install(target)
     target.onZenUIKOSyncSync = M.onZenUIKOSyncSync
     target.onShowZenUIToc = M.onShowZenUIToc
     target.onShowZenUIAnnotationViewer = M.onShowZenUIAnnotationViewer
+    target.onShowZenUIPageBrowser = M.onShowZenUIPageBrowser
     target.onShowZenUIAnnotations = M.onShowZenUIAnnotations
     target.onShowZenUIBookmarks = M.onShowZenUIBookmarks
     target.onShowZenUIHighlights = M.onShowZenUIHighlights

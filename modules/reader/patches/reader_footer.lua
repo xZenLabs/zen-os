@@ -11,6 +11,7 @@ local function apply_reader_footer()
     local Blitbuffer = require("ffi/blitbuffer")
     local Geom = require("ui/geometry")
     local LeftContainer = require("ui/widget/container/leftcontainer")
+    local Pill = require("common/ui/pill")
     local TextWidget = require("ui/widget/textwidget")
     local UIManager = require("ui/uimanager")
     local Device = require("device")
@@ -388,6 +389,54 @@ local function apply_reader_footer()
         return left and (left + right) / 2 / (Screen:scaleBySize(1000000) / 1000000)
     end
 
+    -- ProgressWidget:paintTo with pill-shaped outline and fill.
+    local function paint_rounded_bar(bar, bb, x, y)
+        local size = bar:getSize()
+        bar.dimen = Geom:new{ x = x, y = y, w = size.w, h = size.h }
+        if size.w == 0 or size.h == 0 then return end
+        local mirrored = BD.mirroredUILayout()
+        if bar.invert_direction then mirrored = not mirrored end
+        local inset_h, inset_v = bar.margin_h + bar.bordersize, bar.margin_v + bar.bordersize
+        local fill_x, fill_y = x + inset_h, y + inset_v
+        local fill_w, fill_h = size.w - 2 * inset_h, math.ceil(size.h - 2 * inset_v)
+
+        Pill.paint(bb, x, y, size.w, size.h, bar.bgcolor)
+        if bar.bordersize > 0 then
+            bb:paintBorder(x, y, size.w, size.h, bar.bordersize, bar.bordercolor,
+                Pill.radius(size.w, size.h))
+        end
+        if bar.alt and bar.last then
+            for _i, alt in ipairs(bar.alt) do
+                local w = fill_w * (alt[2] / bar.last)
+                local ax = fill_w * ((alt[1] - 1) / bar.last)
+                if mirrored then ax = fill_w - ax - w end
+                bb:paintRect(fill_x + math.floor(ax), fill_y, math.ceil(w), fill_h, bar.altcolor)
+            end
+        end
+
+        local pct = bar.percentage
+        if not pct or pct < 0 or pct > 1 then return end
+        if pct > 0 then
+            local w = math.min(fill_w, math.max(math.ceil(fill_w * pct), fill_h))
+            local px = (bar.fill_from_right or mirrored) and fill_x + fill_w - w or fill_x
+            Pill.paint(bb, px, fill_y, w, fill_h, bar.fillcolor)
+        end
+        if bar.ticks and bar.last and bar.last > 0 then
+            for _i, tick in ipairs(bar.ticks) do
+                local tx = fill_w * (tick / bar.last)
+                if mirrored then tx = fill_w - tx end
+                bb:paintRect(fill_x + math.floor(tx), fill_y, bar.tick_width, fill_h, bar.bordercolor)
+            end
+        end
+        local icon, init = bar.initial_pos_icon, bar.initial_percentage
+        if bar.initial_pos_marker and icon and init and init >= 0 then
+            local mx = fill_x + math.ceil(fill_w * (mirrored and 1 - init or init))
+            local small = bar.height <= Screen:scaleBySize(12)
+            icon:paintTo(bb, math.floor(mx - bar.height * (small and 1/4 or 1/2) + 0.5),
+                small and math.floor(y - bar.height / 6 + 0.5) or y)
+        end
+    end
+
     local orig_updateFooterContainer = ReaderFooter.updateFooterContainer
     ReaderFooter.updateFooterContainer = function(self)
         local margin = book_margin_width(self)
@@ -409,6 +458,7 @@ local function apply_reader_footer()
         end
         if self.progress_bar then
             self.progress_bar.fillcolor = Blitbuffer.COLOR_GRAY_5
+            self.progress_bar.paintTo = paint_rounded_bar
         end
         if not is_lcr_alongside(self) then
             -- Remove any stale left container from a previous mode.

@@ -8,16 +8,19 @@ local _ = require("gettext")
 
 local M = {}
 
-local function toc_items(pbw, focus_page)
+local function toc_items(pbw)
+    local ZenTocWidget = require("modules/reader/zen_toc_widget")
+    local entries = ZenTocWidget.getEntries(pbw.ui)
     local items = {}
-    for i, entry in ipairs(require("modules/reader/zen_toc_widget").getEntries(pbw.ui)) do
+    for i, entry in ipairs(entries) do
         items[i] = {
             text = string.rep("  ", math.max(0, entry.depth - 1)) .. entry.title,
             mandatory = entry.page_label,
             page = entry.page,
         }
-        if entry.page <= focus_page then items.current = i end
     end
+    -- Menu opens on the page holding item_table.current and bolds it.
+    items.current = ZenTocWidget.getCurrentIndex(entries, ZenTocWidget.getCurrentPage(pbw.ui))
     if items.current then items[items.current].bold = true end
     return items
 end
@@ -48,8 +51,7 @@ function M.build(pbw, kind, width, height, on_navigate)
     if kind ~= "toc" then
         return require("modules/reader/annotation_viewer").build(pbw, kind, width, height)
     end
-    local focus_page = pbw:_zenFocusedDocumentPage()
-    local items = toc_items(pbw, focus_page)
+    local items = toc_items(pbw)
     local plugin = pbw._zen_plugin
     local config = plugin and plugin.config and plugin.config.page_browser
     local font_size = config and tonumber(config.toc_font_size)

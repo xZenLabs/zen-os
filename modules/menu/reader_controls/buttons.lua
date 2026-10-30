@@ -32,9 +32,9 @@ function M.defaults()
         { "page", _("Page") },
         { "document", _("Document") },
         { "book_info", _("Book info") },
-        { "toc", _("TOC") },
-        { "bookmarks", _("Bookmarks") },
-        { "search", _("Search") },
+        { "toc", _("TOC"), false },
+        { "bookmarks", _("Bookmarks"), false },
+        { "search", _("Search"), false },
         { "profiles", _("Profiles"), false },
         { "themes", _("Themes") },
         { "vocabulary", _("Vocabulary builder"), false },
@@ -138,6 +138,20 @@ function M.ensure(config)
             end
         end
         cfg.book_switcher_added = true
+    end
+    if not cfg.book_info_actions then
+        -- Search, Bookmarks and TOC live in the Book info card, which opens first; their buttons default off.
+        local moved, book_info = { search = true, bookmarks = true, toc = true }
+        for i = #cfg.entries, 1, -1 do
+            local entry = cfg.entries[i]
+            if entry.type == "reader_control" and moved[entry.control] then
+                entry.enabled = false
+            elseif entry.type == "reader_control" and entry.control == "book_info" then
+                book_info = table.remove(cfg.entries, i)
+            end
+        end
+        if book_info then table.insert(cfg.entries, 1, book_info) end
+        cfg.book_info_actions = true
     end
     for _i, entry in ipairs(cfg.entries) do
         if entry.type == "reader_control" and entry.control == "profiles" and entry.enabled == nil then entry.enabled = false end

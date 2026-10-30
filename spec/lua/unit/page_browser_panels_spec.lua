@@ -44,6 +44,14 @@ describe("embedded page-browser lists", function()
                     { title = "Last", page = 10, page_label = "x", depth = 1 },
                 }
             end,
+            getCurrentPage = function(ui) return ui:getCurrentPage() end,
+            getCurrentIndex = function(entries, page)
+                local current
+                for i, entry in ipairs(entries) do
+                    if entry.page <= page then current = i end
+                end
+                return current
+            end,
         })
         browser = {
             focus_page = 5,
@@ -52,6 +60,7 @@ describe("embedded page-browser lists", function()
             _zenRebuildFocusLayout = function() focus_rebuilds = focus_rebuilds + 1 end,
             onClose = function() closes = closes + 1; return true end,
             ui = {
+                getCurrentPage = function() return 5 end,
                 annotation = {
                     annotations = {
                         { page = "xp1", text = "First marker", datetime = "2026-02", pos0 = "marker1" },
@@ -185,11 +194,15 @@ describe("embedded page-browser lists", function()
         assert.are.equal(2, closes)
     end)
 
-    it("uses the mapped document page and browser's retained plugin config", function()
+    it("marks the reading position's chapter, not the browsed page, and keeps plugin config", function()
         _G.__ZEN_UI_PLUGIN = nil
-        browser.focus_page = 2
+        browser.focus_page = 10
+        browser._zenFocusedDocumentPage = function() return 10 end
+        browser.ui.getCurrentPage = function() return 12 end
         local menu = Panels.build(browser, "toc", 600, 700, function() end)
-        assert.are.equal(2, menu.item_table.current)
+        assert.are.equal(3, menu.item_table.current)
+        assert.is_true(menu.item_table[3].bold)
+        assert.is_nil(menu.item_table[2].bold)
         assert.are.equal(22, menu.items_font_size)
     end)
 end)
