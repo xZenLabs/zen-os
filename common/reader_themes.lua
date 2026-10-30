@@ -42,8 +42,8 @@ M.BUILTIN_THEMES = {
         background = "#dff0e0",
     },
     arctic = {
-        text = "#0D1B2A",
-        background = "#E8F0F8",
+        text = "#0d1b2a",
+        background = "#e8f0f8",
     },
     midnight = {
         text = "#e2e8f0",
