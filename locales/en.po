@@ -4561,6 +4561,12 @@ msgid "Opening"
 msgstr "Opening"
 
 #. Type: setting
+#. Context: Settings label in the Library appearance and behavior settings.
+#: library_settings.lua:587 library_settings.lua:597
+msgid "Opening banner text size"
+msgstr "Opening banner text size"
+
+#. Type: setting
 #. Context: Settings label in the Reader appearance and behavior settings.
 #: reader_settings.lua:63
 msgid "Orange"

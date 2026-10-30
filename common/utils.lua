@@ -464,7 +464,28 @@ function M.getBadgeScale(config)
     return 1.10
 end
 
+-- Font sizes are pre-scale units: Font:getFace applies Screen:scaleBySize to
+-- whatever it receives, while a badge box is already device pixels.
+local function ui_scale()
+    local ok, Device = pcall(require, "device")
+    local screen = ok and Device and Device.screen
+    if not screen or type(screen.scaleBySize) ~= "function" then return 1 end
+    local ok_scaled, scaled = pcall(screen.scaleBySize, screen, 100)
+    scaled = ok_scaled and tonumber(scaled) or nil
+    if not scaled or scaled <= 0 then return 1 end
+    return scaled / 100
+end
+
 function M.getBadgeFontSize(config, size, ratio, minimum)
+    local requested = type(config) == "table"
+        and type(config.browser_cover_badges) == "table"
+        and tonumber(config.browser_cover_badges.badge_font_size)
+    if requested then
+        -- The box is what the text must fit, so cap there: capping at the derived
+        -- size instead would let this setting only shrink text, never raise it.
+        local cap = math.max(1, math.floor(size / ui_scale() * 0.6))
+        return math.max(1, math.min(math.ceil(requested), cap))
+    end
     return math.max(math.ceil(minimum * M.getBadgeScale(config)), math.floor(size * ratio))
 end
 

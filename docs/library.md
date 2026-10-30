@@ -52,6 +52,8 @@ Paths below start at **Zen Settings > Library**.
 | Appearance > Layout > Show item underline | Shows or hides the underline between browser items. |
 | Appearance > Covers > Badges > Badge size | Sets badge size to compact, normal, large, or extra large. The menu shows the selected size. |
 | Appearance > Covers > Badges > Badge color | Opens the color wheel with hex input and opacity. Back returns to Badges without applying edits. Tap Accent color beside Apply to follow the Interface accent and future accent changes; the menu shows Badge color: Accent color. |
+| Appearance > Covers > Badges > Text size | Sets the font size of the text inside cover badges, from 6 to 24. A size the badge cannot hold is reduced to fit. |
+| Appearance > Covers > Badges > Opening banner text size | Sets the font size of the text in the opening banner shown while a book opens, from 6 to 24. A size the banner cannot hold is reduced to fit. |
 | Appearance > Covers > Badges > Show page count | Shows page count badges on covers. |
 | Appearance > Covers > Badges > Show series number on covers | Shows series position badges on covers. |
 | Appearance > Covers > Badges > Show favorite badge | Shows a favorite badge on favorite books. |
