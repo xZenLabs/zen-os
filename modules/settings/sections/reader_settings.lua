@@ -11,8 +11,23 @@ local utils = require("modules/settings/zen_settings_utils")
 local constants = require("common/constants")
 local PresetStore = require("config/preset_store")
 local ReaderThemes = require("common/reader_themes")
+local Blitbuffer = require("ffi/blitbuffer")
+local CenterContainer = require("ui/widget/container/centercontainer")
+local FrameContainer = require("ui/widget/container/framecontainer")
+local Geom = require("ui/geometry")
+local Font = require("ui/font")
+local HorizontalGroup = require("ui/widget/horizontalgroup")
+local HorizontalSpan = require("ui/widget/horizontalspan")
+local LeftContainer = require("ui/widget/container/leftcontainer")
+local LineWidget = require("ui/widget/linewidget")
+local OverlapGroup = require("ui/widget/overlapgroup")
+local RightContainer = require("ui/widget/container/rightcontainer")
 local icons = require("common/inline_icon_map")
 local IconItem = require("common/ui/icon_menu_item")
+local Screen = require("device").screen
+local Size = require("ui/size")
+local ColorTextWidget = require("common/ui/color_text_widget")
+local TextWidget = require("ui/widget/textwidget")
 local Bluetooth = require("modules/menu/bluetooth/bluetooth")
 
 local M = {}
@@ -703,6 +718,19 @@ function M.build(ctx)
         { key = "dark_graphite", text = _("Dark graphite") },
         { key = "light_sepia", text = _("Light sepia") },
         { key = "light_tan", text = _("Light tan") },
+        { key = "sepia", text = _("Sepia") },
+        { key = "darker_sepia", text = _("Darker Sepia") },
+        { key = "old_book", text = _("Old Book") },
+        { key = "sage", text = _("Sage") },
+        { key = "fern", text = _("Fern") },
+        { key = "arctic", text = _("Arctic") },
+        { key = "midnight", text = _("Midnight") },
+        { key = "nord", text = _("Nord") },
+        { key = "amber_night", text = _("Amber Night") },
+        { key = "sepia_night", text = _("Sepia Night") },
+        { key = "dark_moss", text = _("Dark Moss") },
+        { key = "dark_sky", text = _("Dark Sky") },
+        { key = "velvet", text = _("Velvet") },
     }
 
     local function theme_settings()
@@ -733,7 +761,74 @@ function M.build(ctx)
         end
         local custom = type(config.reader_themes) == "table" and config.reader_themes.custom
         local theme = type(custom) == "table" and custom[key]
-        return type(theme) == "table" and theme.name or _("Default")
+        return type(theme) == "table" and type(theme.name) == "string"
+            and theme.name or _("Default")
+    end
+
+    local function theme_preview_content(key, label, theme_override)
+        return function(width, height, face, enabled)
+            local text_color, background_color = ReaderThemes.getPreviewColors(plugin, key, theme_override)
+            if not (text_color and background_color) then return nil end
+
+            local left_padding = IconItem.getSettingsLeftPadding()
+            local icon_width = IconItem.SETTINGS_ICON_WIDTH + IconItem.getSettingsIconGap()
+            local preview_width = Screen:scaleBySize(136)
+            local preview_height = math.max(1, height - 2 * Screen:scaleBySize(10))
+            local gap = Screen:scaleBySize(10)
+            local preview_padding = Screen:scaleBySize(4)
+            local preview_border = Size.border.thin
+            local preview_label = type(label) == "function" and label() or label
+            local name_width = math.max(1,
+                width - left_padding - icon_width - preview_width - gap)
+            local preview = FrameContainer:new{
+                width = preview_width,
+                height = preview_height,
+                padding = preview_padding,
+                margin = 0,
+                bordersize = preview_border,
+                color = Blitbuffer.COLOR_DARK_GRAY,
+                background = background_color,
+                CenterContainer:new{
+                    dimen = Geom:new{
+                        w = preview_width - 2 * (preview_padding + preview_border),
+                        h = preview_height - 2 * (preview_padding + preview_border),
+                    },
+                    ColorTextWidget:new{
+                        text = "Aa Bb 123",
+                        max_width = preview_width - 2 * (preview_padding + preview_border),
+                        face = face,
+                        fgcolor = text_color,
+                    },
+                },
+            }
+            local centered_preview = CenterContainer:new{
+                dimen = Geom:new{ w = preview_width, h = height },
+                preview,
+            }
+            return OverlapGroup:new{
+                dimen = Geom:new{ w = width, h = height },
+                LeftContainer:new{
+                    dimen = Geom:new{ w = width, h = height },
+                    HorizontalGroup:new{
+                        align = "center",
+                        HorizontalSpan:new{ width = left_padding + icon_width },
+                        TextWidget:new{
+                            text = preview_label,
+                            max_width = name_width,
+                            face = face,
+                            fgcolor = enabled and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_DARK_GRAY,
+                        },
+                    },
+                },
+                RightContainer:new{
+                    dimen = Geom:new{ w = width, h = height },
+                    HorizontalGroup:new{
+                        centered_preview,
+                        HorizontalSpan:new{ width = gap },
+                    },
+                },
+            }
+        end
     end
 
     local function make_theme_mode_item(mode, label)
@@ -747,6 +842,7 @@ function M.build(ctx)
                     local key = theme.key
                     table.insert(theme_items, {
                         text = theme.text,
+                        _zen_settings_content_func = theme_preview_content(key, theme.text),
                         checked_func = function() return get_theme(mode) == key end,
                         callback = function(touchmenu_instance)
                             theme_settings()[mode] = key
@@ -758,8 +854,11 @@ function M.build(ctx)
                 local custom = theme_settings().custom
                 for key, theme in pairs(custom) do
                     if type(theme) == "table" then
+                        local theme_name = type(theme.name) == "string"
+                            and theme.name or _("Custom theme")
                         table.insert(theme_items, {
-                            text = theme.name or _("Custom theme"),
+                            text = theme_name,
+                            _zen_settings_content_func = theme_preview_content(key, theme_name),
                             checked_func = function() return get_theme(mode) == key end,
                             callback = function(touchmenu_instance)
                                 theme_settings()[mode] = key
@@ -828,7 +927,7 @@ function M.build(ctx)
         return name
     end
 
-    local function create_custom_theme(theme, base_key)
+    local function create_custom_theme(theme, base_key, name)
         local custom = theme_settings().custom
         local number = 1
         local key = "custom_" .. number
@@ -837,7 +936,7 @@ function M.build(ctx)
             key = "custom_" .. number
         end
         local new_theme = {
-            name = unique_custom_theme_name(base_key),
+            name = name or unique_custom_theme_name(base_key),
             text = theme.text,
             background = theme.background,
             font_face = theme.font_face or "default",
@@ -858,6 +957,42 @@ function M.build(ctx)
             end
             editable_theme[field] = value
             save_themes()
+        end
+
+        local function copy_theme(touchmenu_instance)
+            local InputDialog = require("ui/widget/inputdialog")
+            local dlg
+            dlg = InputDialog:new{
+                title = _("Copy theme"),
+                input = "",
+                input_hint = _("Theme name"),
+                buttons = {{
+                    {
+                        text = _("Cancel"),
+                        id = "close",
+                        callback = function() UIManager:close(dlg) end,
+                    },
+                    {
+                        text = _("Set"),
+                        is_enter_default = true,
+                        callback = function()
+                            local name = dlg:getInputText()
+                            name = type(name) == "string" and name:match("^%s*(.-)%s*$") or ""
+                            if name == "" then return end
+                            UIManager:close(dlg)
+                            local new_key = create_custom_theme(editable_theme, nil, name)
+                            save_themes()
+                            if touchmenu_instance then
+                                local parent_items, edit_item = build_custom_theme_items(new_key)
+                                touchmenu_instance.item_table = parent_items
+                                touchmenu_instance:onMenuSelect(edit_item)
+                            end
+                        end,
+                    },
+                }},
+            }
+            UIManager:show(dlg)
+            dlg:onShowKeyboard()
         end
 
         local edit_items = {}
@@ -916,6 +1051,11 @@ function M.build(ctx)
                 if touchmenu_instance then touchmenu_instance:updateItems() end
             end,
         })
+        table.insert(edit_items, {
+            text = _("Copy theme"),
+            keep_menu_open = true,
+            callback = copy_theme,
+        })
         if editable_key then
             table.insert(edit_items, {
                 text = _("Delete theme"),
@@ -947,9 +1087,66 @@ function M.build(ctx)
                 end,
             })
         end
+        local preview_lines = {
+            "Aa Bb Cc Dd",
+            "The quick brown fox jumps over the lazy dog.",
+            "0123456789",
+        }
+        for index, line in ipairs(preview_lines) do
+            local sample_line = line
+            table.insert(edit_items, {
+                text = _("Theme preview"),
+                _zen_settings_content_func = function(width, height, face)
+                    local text_color, background_color =
+                        ReaderThemes.getPreviewColors(plugin, editable_key, editable_theme)
+                    if not (text_color and background_color) then return nil end
+                    local font_size = face.orig_size or IconItem.getSettingsFontSize()
+                    local preview_face = editable_theme.font_face
+                        and editable_theme.font_face ~= "default"
+                        and Font:getFace(editable_theme.font_face, font_size) or face
+                    local padding = Screen:scaleBySize(12)
+                    local preview = FrameContainer:new{
+                        width = width,
+                        height = height,
+                        padding = padding,
+                        margin = 0,
+                        bordersize = 0,
+                        background = background_color,
+                        LeftContainer:new{
+                            dimen = Geom:new{
+                                w = math.max(1, width - 2 * padding),
+                                h = height,
+                            },
+                            ColorTextWidget:new{
+                                text = sample_line,
+                                max_width = math.max(1, width - 2 * padding),
+                                face = preview_face,
+                                fgcolor = text_color,
+                            },
+                        },
+                    }
+                    if index == 1 then
+                        return OverlapGroup:new{
+                            dimen = Geom:new{ w = width, h = height },
+                            preview,
+                            LineWidget:new{
+                                dimen = Geom:new{ w = width, h = Size.line.thin },
+                                background = Blitbuffer.COLOR_LIGHT_GRAY,
+                            },
+                        }
+                    end
+                    return preview
+                end,
+            })
+        end
 
+        local function editable_name()
+            return editable_theme.name or theme_name(base_key)
+        end
         return {
-            text_func = function() return editable_theme.name or theme_name(base_key) end,
+            text_func = editable_name,
+            _zen_settings_content_func = theme_preview_content(
+                editable_key, editable_name, editable_theme),
             sub_item_table = edit_items,
         }
     end
