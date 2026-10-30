@@ -10,7 +10,27 @@ describe("reader themes settings", function()
         dialog_input = nil
         reader_store = { settings = { footer = { existing = true } } }
         highlight_names_plugin = nil
-        ZenSpec.replace("gettext", function(text) return text end)
+        _G.G_reader_settings = ZenSpec.memorySettings()
+        _G.G_reader_settings.has = function(self, key) return self.data[key] ~= nil end
+        _G.G_reader_settings.nilOrTrue = function(self, key)
+            return self.data[key] == nil or self.data[key] == true
+        end
+        ZenSpec.replace("gettext", setmetatable({
+            pgettext = function(_context, text) return text end,
+        }, { __call = function(_, text) return text end }))
+        ZenSpec.replace("device", {
+            screen = {
+                getWidth = function() return 600 end,
+                getHeight = function() return 800 end,
+                scaleBySize = function(_self, size) return size end,
+            },
+            isKindle = function() return false end,
+            hasSystemFonts = function() return false end,
+        })
+        ZenSpec.replace("document/canvascontext", {
+            isKindle = function() return false end,
+            hasSystemFonts = function() return false end,
+        })
         ZenSpec.replace("modules/menu/bluetooth/bluetooth", { isAvailable = function() return false end })
         ZenSpec.replace("ui/uimanager", {
             show = function(_, dialog) shown_dialog = dialog end,
@@ -331,6 +351,7 @@ describe("reader themes settings", function()
             config = config,
             plugin = { saveConfig = function() saved = saved + 1 end },
             save_and_apply = function() end,
+            apply_feature = function() end,
         })
         local themes
         for _i, item in ipairs(items) do
