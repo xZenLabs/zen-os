@@ -692,7 +692,6 @@ def test_page_browser_status_bar_is_fixed_across_tabs_and_respects_settings(inte
             assert refreshed["header_tabs"] == original["header_tabs"]
             assert driver.command("activate_reader_control", name="page_browser_more")["activated"]
             assert driver.command("activate_reader_control", name="page_browser_reader_settings")["activated"]
-            assert driver.command("settings_page_select", label="Page Browser")["ok"]
             settings = driver.command("settings_page_state")["settings"]
             assert settings["labels"] == ["Top status bar", "Tabs"]
             assert settings["items"][0]["checked"] is (page_enabled is not False)
@@ -842,8 +841,7 @@ def test_page_browser_settings_subsections_and_themes(document_type: str, width:
                 assert driver.command("activate_reader_control", name="page_browser")["activated"]
             for tab in ("pages", "annotations", "toc"):
                 assert driver.command("activate_reader_control", name=f"page_browser_{tab}")["activated"]
-                expected_menu = ["New note", "Filter", "Sort", "Settings"] if tab == "annotations" else ["Reader controls", "Settings"]
-                assert [row["text"] for row in _page_browser_more_rows(driver)] == expected_menu
+                assert [row["text"] for row in _page_browser_more_rows(driver)] == ["Reader controls", "Settings"]
                 assert driver.command("activate_reader_control", name="page_browser_more")["activated"]
             assert driver.command("activate_reader_control", name="page_browser_controls")["activated"]
             _wait_command(driver, "page_browser_state", lambda result: result["page_browser"]["preview_ready"])
@@ -996,8 +994,7 @@ def test_page_browser_settings_subsections_and_themes(document_type: str, width:
             assert driver.command("activate_reader_control", name="page_browser_reader_settings")["activated"]
             assert driver.command("page_browser_state").get("page_browser") is None
             settings = _wait_command(driver, "settings_page_state", lambda result: result.get("ok"))["settings"]
-            assert "Reader controls" in settings["labels"] and "Appearance" in settings["labels"]
-            assert "Bottom swipe gesture" in settings["labels"]
+            assert settings["labels"] == ["Top status bar", "Tabs"]
             assert driver.command("close_settings_page")["ok"]
         finally:
             stop(process)
@@ -1203,7 +1200,9 @@ def test_page_browser_icon_pack_and_layout_menu(custom_icons: bool) -> None:
             assert driver.command("activate_reader_control", name="page_browser_single")["activated"]
             assert driver.command("page_browser_state")["page_browser"]["layout"] == "single"
             assert driver.command("activate_reader_control", name="page_browser_annotations")["activated"]
-            annotation_rows = _page_browser_more_rows(driver)
+            assert driver.command("annotation_viewer_action", action="more")["ok"]
+            annotation_rows = _wait_command(driver, "page_browser_state", lambda result:
+                                            result["page_browser"].get("more_menu", {}).get("bounds"))["page_browser"]["more_menu"]["rows"]
             assert [row["text"] for row in annotation_rows] == ["New note", "Filter", "Sort", "Settings"]
             paths.extend(zip(["plus", "filter", "sort", "quicksettings"], [row["icon"] for row in annotation_rows]))
             for name, path in paths:

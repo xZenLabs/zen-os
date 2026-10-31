@@ -21,6 +21,10 @@ describe("annotation viewer model", function()
         return { query = "", filters = {}, text_filters = {} }
     end
 
+    local function doc_settings(data)
+        return { data = data or {}, readSetting = function() end }
+    end
+
     it("separates bookmarks, noted highlights, and floating notes without mutating source data", function()
         local source = {
             { page = 1, text = "bookmark", note = "page note" },
@@ -81,7 +85,8 @@ describe("annotation viewer model", function()
 
     it("keeps session scope and ordering separate from the live annotations", function()
         local source = { { page = 10, datetime = "b" }, { page = 2, datetime = "a" } }
-        local session = Model.new({ document = { file = "current.epub" }, annotation = { annotations = source } })
+        local session = Model.new({ document = { file = "current.epub" }, annotation = { annotations = source },
+            doc_settings = doc_settings() })
         session:refreshCurrent()
         session.books["other.epub"] = Model.normalize("other.epub", { { page = 1 } }, { title = "Other" })
         assert.are.equal(2, #session:items("annotations"))
@@ -99,6 +104,7 @@ describe("annotation viewer model", function()
             bookmarks = { { page = "xp", pos0 = "xp", pos1 = "end", highlighted = true,
                 notes = "Legacy quote", datetime = "old" } },
             highlight = { [99] = { { pos0 = "xp", pos1 = "end", drawer = "strikeout", color = "red" } } },
+            pinned_page = 12,
         }
         ZenSpec.replace("docsettings", {
             findSidecarFile = function(_self, file) return file end,
@@ -119,7 +125,8 @@ describe("annotation viewer model", function()
         ZenSpec.replace("ui/uimanager", { nextTick = function(_self, cb) queue[#queue + 1] = cb end })
         ZenSpec.unload("modules/reader/annotations")
         Model = require("modules/reader/annotations")
-        local session = Model.new({ document = { file = "current" }, annotation = { annotations = {} } })
+        local session = Model.new({ document = { file = "current" }, annotation = { annotations = {} },
+            doc_settings = doc_settings() })
         session:refreshCurrent()
         session.scope = "all"
         session:loadAll(function() end)
@@ -135,6 +142,23 @@ describe("annotation viewer model", function()
         assert.are.equal("strikeout", items[1].style)
         assert.are.equal("red", items[1].color)
         assert.is_nil(legacy.bookmarks[1].drawer)
+        local pins = session:items("pins")
+        assert.are.equal(1, #pins)
+        assert.are.equal("12", pins[1].page_label)
+    end)
+
+    it("lists pinned pages between the book note and annotations", function()
+        floating = "Book note"
+        local session = Model.new()
+        session.books["book.pdf"] = Model.normalize("book.pdf", { { page = 4 } }, { title = "Book" },
+            { { location = 7, page_label = "7", chapter = "Two" } })
+        local items = session:items("annotations")
+        assert.are.same({ "note", "pin", "bookmark" }, { items[1].kind, items[2].kind, items[3].kind })
+        local pins = session:items("pins")
+        assert.are.equal(1, #pins)
+        assert.are.equal(7, pins[1].location)
+        assert.are.equal("Two", pins[1].chapter)
+        assert.is_false(Model.matches(pins[1], state(), "bookmarks"))
     end)
 
     it("cancels a queued all-books scan when the viewer closes", function()

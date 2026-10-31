@@ -5,6 +5,7 @@ describe("Zen scroll bar", function()
     local page_turns
     local flashed_chevrons
     local centered_content_bottom
+    local propagated
     local saved_modules
 
     local module_names = {
@@ -51,9 +52,16 @@ describe("Zen scroll bar", function()
         page_turns = {}
         flashed_chevrons = {}
         centered_content_bottom = nil
+        propagated = {}
         Menu = {
             init = function(self)
-                self.page_info = { resetLayout = function() end }
+                self.page_info = {
+                    resetLayout = function() end,
+                    propagateEvent = function(_group, event)
+                        propagated[#propagated + 1] = event.handler
+                        return true
+                    end,
+                }
                 self.page_info_text = { tap_input = {}, hold_input = {} }
                 self.page_return_arrow = {}
             end,
@@ -126,10 +134,17 @@ describe("Zen scroll bar", function()
         local settings = new_menu("zen_settings")
         local center_tap = find_zone(settings, "zen_pn_center_tap")
 
-        assert.is_nil(settings.page_info_text.tap_input)
-        assert.is_nil(settings.page_info_text.hold_input)
         assert.is_true(center_tap.handler())
         assert.is_nil(shown)
+    end)
+
+    it("keeps gestures away from the unpainted stock footer", function()
+        for _i, name in ipairs({ "page_browser_annotations", "page_browser_toc", "zen_settings" }) do
+            local menu = new_menu(name)
+            assert.is_false(menu.page_info:propagateEvent({ handler = "onGesture" }))
+            assert.is_true(menu.page_info:propagateEvent({ handler = "onCloseWidget" }))
+        end
+        assert.same({ "onCloseWidget", "onCloseWidget", "onCloseWidget" }, propagated)
     end)
 
     it("keeps the go-to-page dialog in other paginated menus", function()

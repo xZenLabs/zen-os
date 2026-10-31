@@ -76,7 +76,7 @@ describe("reader controls buttons", function()
         assert.are.equal(require("modules/reader/page_browser_tabs").list({}, { rolling = {} })[2].icon, Buttons.icon(entries[2]))
         assert.are.equal(require("modules/reader/page_browser_tabs").list({}, nil, true)[3].icon,
             Buttons.icon(entries[7]))
-        assert.are.equal(require("modules/reader/page_browser_tabs").list({}, nil, true)[8].icon, Buttons.icon(entries[14]))
+        assert.are.equal(require("modules/reader/page_browser_tabs").list({}, nil, true)[9].icon, Buttons.icon(entries[14]))
         local defaults = {
             { 2, "appbar.textsize", "font" }, { 4, "appbar.pageview", "page" },
             { 5, "book_closed", "document" }, { 9, "bookshelf", "profiles" }, { 12, "grid_slide", "coverflow" },

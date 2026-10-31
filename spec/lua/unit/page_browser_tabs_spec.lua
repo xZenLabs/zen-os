@@ -15,9 +15,11 @@ describe("page browser tabs", function()
     it("defaults to separate bookmarks and highlights and adapts the controls tab to the book", function()
         assert.same({ "browser", "aa", "bookmarks", "highlights", "toc" }, ids(Tabs.list({})))
         local entries = Tabs.list({}, { paging = {} }, true)
-        assert.are.equal(8, #entries)
-        assert.are.equal("book_details", entries[7].id)
-        assert.are.equal("Book details", entries[7].text)
+        assert.are.equal(9, #entries)
+        assert.are.equal("pins", entries[7].id)
+        assert.are.equal("pin", entries[7].icon)
+        assert.are.equal("book_details", entries[8].id)
+        assert.are.equal("Book details", entries[8].text)
         assert.are.equal("Contrast", entries[2].text)
         assert.are.equal("appbar.contrast", entries[2].icon)
         assert.are.equal("bookmark_outline", entries[3].icon)
@@ -30,7 +32,8 @@ describe("page browser tabs", function()
         local config = { page_browser = { tab_order = { "highlights", "unknown", "aa", "aa", "annotations" },
             tabs = { highlights = false, aa = false, annotations = true } } }
         assert.same({ "annotations", "browser", "bookmarks", "toc" }, ids(Tabs.list(config)))
-        assert.same({ "highlights", "aa", "annotations", "browser", "bookmarks", "toc", "book_details", "book_switcher" },
+        assert.same({ "highlights", "aa", "annotations", "browser", "bookmarks", "toc", "pins", "book_details",
+            "book_switcher" },
             config.page_browser.tab_order)
         for id in pairs(config.page_browser.tabs) do config.page_browser.tabs[id] = false end
         assert.same({ "browser" }, ids(Tabs.list(config)))
@@ -52,10 +55,11 @@ describe("page browser tabs", function()
         Tabs.show(config, { saveConfig = function() saves = saves + 1 end }, {})
         assert.are.equal("Tabs", arrange.title)
         local rows = arrange.item_table
-        assert.are.equal(8, #rows)
+        assert.are.equal(9, #rows)
         assert.is_false(rows[7].checked_func())
-        assert.are.equal("Book switcher", rows[8].text)
         assert.is_false(rows[8].checked_func())
+        assert.are.equal("Book switcher", rows[9].text)
+        assert.is_false(rows[9].checked_func())
         assert.is_false(rows[6].checked_func())
         rows[6].callback()
         assert.is_true(rows[6].checked_func())

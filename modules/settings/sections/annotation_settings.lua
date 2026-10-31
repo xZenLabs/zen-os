@@ -29,7 +29,7 @@ function M.build(ctx)
         }
     end
     for _i, entry in ipairs({ { "chapter", _("Chapter"), true }, { "page", _("Page"), true },
-            { "date", _("Date"), true }, { "tags", _("Tags"), false } }) do
+            { "date", _("Date"), true }, { "label", _("Label"), true }, { "tags", _("Tags"), false } }) do
         details[#details + 1] = { text = entry[2], checked_func = function()
             if cfg.details[entry[1]] == nil then return entry[3] end
             return cfg.details[entry[1]] == true

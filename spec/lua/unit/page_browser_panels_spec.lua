@@ -9,6 +9,7 @@ describe("embedded page-browser lists", function()
         "modules/reader/book_details", "modules/reader/book_info_widget",
         "modules/menu/app_launcher/book_switcher_page", "ui/uimanager",
         "ui/widget/container/centercontainer", "ui/geometry",
+        "ui/widget/container/inputcontainer", "ui/gesturerange",
     }
 
     before_each(function()
@@ -28,14 +29,45 @@ describe("embedded page-browser lists", function()
         ZenSpec.replace("ui/widget/titlebar", {
             new = function(_self, spec) spec.getHeight = function() return 50 end; return spec end,
         })
-        ZenSpec.replace("ui/widget/menu", {
-            new = function(_self, spec)
-                spec.layout = { { "first row" } }
-                spec.selected = { x = 1, y = 1 }
-                spec.updateItems = function(_menu, number) updates = updates + number end
-                return spec
-            end,
-        })
+        local function class(base)
+            base.extend = function(self, cls)
+                cls = cls or {}
+                cls.__index = cls
+                return setmetatable(cls, { __index = self })
+            end
+            base.__index = base
+            return base
+        end
+        local Menu = class{}
+        function Menu:new(spec)
+            setmetatable(spec, self)
+            spec.selected = { x = 1, y = 1 }
+            spec.available_height = 200
+            spec:setupItemHeights()
+            spec:updateItems(1)
+            return spec
+        end
+        -- Stand-in MenuItems for the visible page.
+        function Menu:updateItems(number)
+            updates = updates + number
+            self.item_group = { resetLayout = function() end }
+            self.layout = { { "title button" } }
+            for index, idx in ipairs(self.page_items[1]) do
+                local old = { idx = idx, dimen = require("ui/geometry"):new{ w = 600, h = self.item_table[idx].height },
+                    free = function() end }
+                self.item_group[index] = old
+                self.layout[#self.layout + 1] = { old }
+            end
+        end
+        ZenSpec.replace("ui/widget/menu", Menu)
+        local InputContainer = class{}
+        function InputContainer:new(spec)
+            setmetatable(spec, self)
+            spec:init()
+            return spec
+        end
+        ZenSpec.replace("ui/widget/container/inputcontainer", InputContainer)
+        ZenSpec.replace("ui/gesturerange", { new = function(_self, spec) return spec end })
         ZenSpec.replace("modules/reader/zen_toc_widget", {
             getEntries = function()
                 return {
@@ -51,6 +83,26 @@ describe("embedded page-browser lists", function()
                     if entry.page <= page then current = i end
                 end
                 return current
+            end,
+            getRowState = function(idx, current)
+                if idx == current then return "current" end
+                return current and idx < current and "read" or "unread"
+            end,
+            getChapterProgress = function(_ui, _entries, idx, page) return { idx = idx, page = page } end,
+            getRowStyle = function(size) return { size = size, row_h = 50, current_h = 80 } end,
+            paginate = function(count, available_h, height_of)
+                local pages, page, used = {}, {}, 0
+                for i = 1, count do
+                    if used + height_of(i) > available_h and #page > 0 then
+                        pages[#pages + 1], page, used = page, {}, 0
+                    end
+                    page[#page + 1], used = i, used + height_of(i)
+                end
+                pages[#pages + 1] = page
+                return pages
+            end,
+            paintRow = function(bb, x, y, w, h, style, row)
+                table.insert(bb.rows, { x = x, y = y, w = w, h = h, style = style, row = row })
             end,
         })
         browser = {
@@ -98,7 +150,6 @@ describe("embedded page-browser lists", function()
         assert.is_nil(menu.custom_title_bar.close_callback)
         assert.are.equal(22, menu.items_font_size)
         assert.are.equal(2, menu.item_table.current)
-        assert.is_true(menu.item_table[2].bold)
         assert.are.equal("  Nested", menu.item_table[2].text)
         assert.are.equal("v", menu.item_table[2].mandatory)
         assert.is_true(menu:onMenuSelect(menu.item_table[2]))
@@ -106,10 +157,39 @@ describe("embedded page-browser lists", function()
         assert.are.equal(menu.item_table[2], selected_item)
         assert.are.equal(0, closes)
         menu:updateItems(2)
-        assert.are.equal(2, updates)
+        assert.are.equal(3, updates)
         assert.are.equal(2, font_scopes)
         assert.are.equal(1, focus_rebuilds)
-        assert.are.same({ { "first row" } }, menu.layout)
+        assert.are.equal("title button", menu.layout[1][1])
+    end)
+
+    it("pages TOC rows by height and swaps in shared custom-painted rows", function()
+        local selected_page
+        local menu = Panels.build(browser, "toc", 600, 700, function(page) selected_page = page end)
+        assert.are.same({ 50, 80, 50 }, { menu.item_table[1].height, menu.item_table[2].height,
+            menu.item_table[3].height })
+        assert.are.same({ { 1, 2, 3 } }, menu.page_items)
+        assert.are.same({ "read", "current", "unread" }, { menu.item_table[1].toc_state,
+            menu.item_table[2].toc_state, menu.item_table[3].toc_state })
+        assert.are.same({ idx = 2, page = 5 }, menu.item_table[2].progress)
+
+        local bb = { rows = {}, invertRect = function(self) self.inverted = true end }
+        for index, row in ipairs(menu.item_group) do
+            assert.are.equal(row, menu.layout[index + 1][1])
+            row:paintTo(bb, 0, index * 100)
+        end
+        assert.are.equal(22, bb.rows[1].style.size)
+        assert.is_falsy(bb.rows[1].row.separator)
+        assert.is_falsy(bb.rows[2].row.separator)
+        assert.is_falsy(bb.rows[3].row.separator)
+        assert.are.equal("Last", bb.rows[3].row.entry.title)
+        assert.are.equal(300, menu.item_group[3].dimen.y)
+
+        menu.item_group[3]:onFocus()
+        menu.item_group[3]:paintTo(bb, 0, 300)
+        assert.is_true(bb.inverted)
+        assert.is_true(menu.item_group[3]:onTapSelect())
+        assert.are.equal(10, selected_page)
     end)
 
     it("delegates all annotation kinds to the shared viewer", function()
@@ -201,8 +281,9 @@ describe("embedded page-browser lists", function()
         browser.ui.getCurrentPage = function() return 12 end
         local menu = Panels.build(browser, "toc", 600, 700, function() end)
         assert.are.equal(3, menu.item_table.current)
-        assert.is_true(menu.item_table[3].bold)
-        assert.is_nil(menu.item_table[2].bold)
+        assert.are.equal("current", menu.item_table[3].toc_state)
+        assert.are.equal("read", menu.item_table[2].toc_state)
+        assert.are.same({ idx = 3, page = 12 }, menu.item_table[3].progress)
         assert.are.equal(22, menu.items_font_size)
     end)
 end)

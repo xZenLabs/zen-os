@@ -12,6 +12,7 @@ local WidgetResources = require("common/widget_resources")
 local _ = require("gettext")
 
 local AUTOMATIC_MIN_LINE_HEIGHT = 0.1
+local QUOTE_LINE_HEIGHT = 0.55
 local LAYOUT_CACHE_MAX = 32
 local layout_cache = { values = {}, order = {} }
 
@@ -78,6 +79,72 @@ local function configured_quote_font_size(quotes)
     return math.max(4, math.min(32, tonumber(quote_font_size) or 12))
 end
 
+local function max_quote_font_size(quotes)
+    return math.max(4, math.min(32, tonumber(quotes.max_font_size) or 14))
+end
+
+local function reserves_attribution(quotes)
+    return quotes.show_author ~= false or quotes.show_title ~= false
+end
+
+local function author_face(quote_font_size)
+    return Font:getFace("smallinfofont",
+        Device.screen:scaleBySize(math.max(6, math.floor(quote_font_size * 9 / 10))))
+end
+
+local function probe_text(values)
+    local probe = TextBoxWidget:new(values)
+    local h = probe:getSize().h or 0
+    local ink_top, ink_bottom = text_ink_bounds(probe)
+    WidgetResources.free(probe)
+    return { h = h, ink_top = ink_top, ink_bottom = ink_bottom }
+end
+
+-- Bounds of a fixed reference layout, so quote length never moves neighboring rows.
+local function slot_bounds(quotes, content_w, height, inner_h)
+    local automatic = quotes.automatic_font_size == true
+    local font_size = automatic and max_quote_font_size(quotes)
+        or configured_quote_font_size(quotes)
+    local reserve_author = reserves_attribution(quotes)
+    local key = table.concat({
+        "slot", tostring(content_w), tostring(height), tostring(inner_h),
+        tostring(automatic), tostring(font_size), tostring(reserve_author),
+    }, "\30")
+    local cached = get_cached_layout(key)
+    if cached then return cached, 0 end
+
+    local face = Font:getFace("smallinfofont", Device.screen:scaleBySize(font_size))
+    local line_height = automatic and AUTOMATIC_MIN_LINE_HEIGHT or QUOTE_LINE_HEIGHT
+    local line = probe_text{ text = "A", width = content_w, face = face, line_height = line_height }
+    local probes = 1
+    local author_h, bottom_inset = 0, line.h - line.ink_bottom
+    if reserve_author then
+        local author = probe_text{
+            text = "\226\128\148 A",
+            width = content_w,
+            face = author_face(font_size),
+            alignment = "center",
+        }
+        probes = probes + 1
+        author_h, bottom_inset = author.h, author.h - author.ink_bottom
+    end
+    local quote_h = math.max(10, inner_h - author_h)
+    if not automatic then
+        quote_h = math.min(quote_h, probe_text{
+            text = "A\nA\nA", width = content_w, face = face, line_height = line_height,
+        }.h)
+        probes = probes + 1
+    end
+    local slot_h = quote_h + author_h
+    local slot_top = math.floor((height - slot_h) / 2)
+    local bounds = {
+        top = slot_top + line.ink_top,
+        bottom = slot_top + slot_h - bottom_inset,
+    }
+    cache_layout(key, bounds)
+    return bounds, probes
+end
+
 local function largest_fitting(minimum, maximum, fits)
     if fits(maximum) then return maximum end
     local best = minimum
@@ -101,9 +168,8 @@ local function preferred_height(ctx)
     local quotes = type(config.quotes) == "table" and config.quotes or {}
     local Screen = Device.screen
     local automatic_font_size = quotes.automatic_font_size == true
-    local quote_font_size = automatic_font_size and math.max(
-        4, math.min(32, tonumber(quotes.max_font_size) or 14)
-    ) or configured_quote_font_size(quotes)
+    local quote_font_size = automatic_font_size and max_quote_font_size(quotes)
+        or configured_quote_font_size(quotes)
     local padding = Screen:scaleBySize(8)
     local vertical_padding = automatic_font_size and 0 or Screen:scaleBySize(4)
     local content_w = math.max(30, (tonumber(ctx.width) or Screen:getWidth()) - padding * 2)
@@ -112,20 +178,16 @@ local function preferred_height(ctx)
         text = "A\nA",
         width = content_w,
         face = quote_face,
-        line_height = 0.55,
+        line_height = QUOTE_LINE_HEIGHT,
     }
     local quote_h = quote_probe:getSize().h or 0
     WidgetResources.free(quote_probe)
     local author_h = 0
-    if quotes.show_author ~= false or quotes.show_title ~= false then
-        local author_face = Font:getFace(
-            "smallinfofont",
-            Screen:scaleBySize(math.max(6, math.floor(quote_font_size * 9 / 10)))
-        )
+    if reserves_attribution(quotes) then
         local author_probe = TextBoxWidget:new{
             text = "\226\128\148 A",
             width = content_w,
-            face = author_face,
+            face = author_face(quote_font_size),
             alignment = "center",
         }
         author_h = author_probe:getSize().h or 0
@@ -161,7 +223,7 @@ return {
         local vertical_padding = automatic_font_size and 0 or Screen:scaleBySize(4)
         local content_w = math.max(30, width - padding * 2)
         local inner_h = math.max(20, height - vertical_padding * 2)
-        local quote_line_height = 0.55
+        local quote_line_height = QUOTE_LINE_HEIGHT
         local layout_key = table.concat({
             quote_text, attribution, tostring(content_w), tostring(inner_h),
             tostring(automatic_font_size), tostring(quote_font_size),
@@ -173,9 +235,7 @@ return {
             quote_font_size = cached_layout.quote_font_size
             quote_line_height = cached_layout.quote_line_height
         elseif automatic_font_size then
-            local max_font_size = math.max(
-                4, math.min(32, tonumber(quotes.max_font_size) or 14)
-            )
+            local max_font_size = max_quote_font_size(quotes)
             local font_measurements = {}
             local function font_fits(candidate)
                 local measured = font_measurements[candidate]
@@ -185,14 +245,10 @@ return {
                 )
                 local author_h = 0
                 if attribution ~= "" then
-                    local candidate_author_face = Font:getFace(
-                        "smallinfofont",
-                        Screen:scaleBySize(math.max(6, math.floor(candidate * 9 / 10)))
-                    )
                     author_h = measure_height{
                         text = "\226\128\148 " .. attribution,
                         width = content_w,
-                        face = candidate_author_face,
+                        face = author_face(candidate),
                         alignment = "center",
                     }
                 end
@@ -231,10 +287,7 @@ return {
         end
 
         local quote_face = Font:getFace("smallinfofont", Screen:scaleBySize(quote_font_size))
-        local author_face = Font:getFace(
-            "smallinfofont",
-            Screen:scaleBySize(math.max(6, math.floor(quote_font_size * 9 / 10)))
-        )
+        local attribution_face = author_face(quote_font_size)
         local two_quote_lines_h
         local three_quote_lines_h
         local quote_line_h
@@ -276,7 +329,7 @@ return {
                 author_h = measure_height{
                     text = "\226\128\148 " .. attribution,
                     width = content_w,
-                    face = author_face,
+                    face = attribution_face,
                     alignment = "center",
                 }
             end
@@ -327,7 +380,7 @@ return {
             author_widget = TextBoxWidget:new{
                 text = "\226\128\148 " .. attribution,
                 width = content_w,
-                face = author_face,
+                face = attribution_face,
                 alignment = "center",
                 fgcolor = Blitbuffer.COLOR_BLACK,
                 height_overflow_show_ellipsis = true,
@@ -341,20 +394,15 @@ return {
         end
         local available_h = math.max(0, height - content_h)
         local content_top = math.floor(available_h / 2)
-        local quote_ink_top, quote_ink_bottom = text_ink_bounds(quote_widget)
-        local content_ink_top = content_top + quote_ink_top
-        local content_ink_bottom = content_top + quote_ink_bottom
-        if author_widget then
-            local author_ink_bottom = select(2, text_ink_bounds(author_widget))
-            content_ink_bottom = content_top + quote_height + author_gap + author_ink_bottom
-        end
         local visual_shift = 0
         if type(ctx.setContentBounds) == "function" then
+            local slot, slot_probes = slot_bounds(quotes, content_w, height, inner_h)
+            layout_probes = layout_probes + slot_probes
             ctx.setContentBounds{
-                top = content_ink_top,
-                bottom = content_ink_bottom,
-                min_shift = -content_ink_top,
-                max_shift = height - content_ink_bottom,
+                top = slot.top,
+                bottom = slot.bottom,
+                min_shift = -slot.top,
+                max_shift = height - slot.bottom,
                 set_shift = function(shift) visual_shift = shift end,
             }
         end

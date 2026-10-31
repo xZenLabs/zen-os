@@ -25,7 +25,7 @@ def _state(driver: ZenDriver) -> dict[str, object]:
 
 
 def _menu(driver: ZenDriver) -> None:
-    assert driver.command("activate_reader_control", name="page_browser_more")["activated"]
+    _action(driver, "more")
 
 
 def _filters(driver: ZenDriver) -> None:
@@ -63,7 +63,8 @@ def test_annotation_dispatcher_destinations() -> None:
                 assert state["active_tab"] == tab
                 assert state["content_items"] == (1 if tab == "bookmarks" else 2 if tab == "highlights" else 3)
                 assert state["annotation_rows"][0][0]["text"] == "First · Page 1"
-                assert state["annotation_rows"][0][1]["text"] == "October 18 2026"
+                assert state["annotation_rows"][0][1]["text"] == (
+                    "October 18 2026 · Yellow" if tab == "highlights" else "October 18 2026")
                 _action(driver, "close")
             _action(driver, "dispatch", name="zen_ui_show_annotation_viewer")
             current = driver.command("annotation_viewer_state")
@@ -79,7 +80,8 @@ def test_annotation_dispatcher_destinations() -> None:
             all_books = _wait_command(driver, "annotation_viewer_state", lambda state: state.get("ok") and not state["loading"])
             assert all_books["scope"] == "all"
             assert Path(all_books["search_icon"]).name == "quick_search.svg"
-            assert len(all_books["items"]) == 6
+            assert len(all_books["items"]) == 7
+            assert [item["kind"] for item in all_books["items"]].count("pin") == 1
             assert {Path(item["file"]).resolve() for item in all_books["items"]} == {first.resolve(), second.resolve()}
             frames = Path(__file__).resolve().parents[2] / ".artifacts" / "annotations"
             frames.mkdir(parents=True, exist_ok=True)
@@ -92,6 +94,49 @@ def test_annotation_dispatcher_destinations() -> None:
             _action(driver, "button", text="Go to")
             _wait_command(driver, "reader_state", lambda result: Path(result["reader"]["file"]).resolve() == first.resolve())
             assert not driver.command("annotation_viewer_state")["ok"]
+        finally:
+            stop(process)
+
+
+def test_pinned_pages_in_viewer_and_tab() -> None:
+    runtime = Path(os.environ["KOREADER_DIR"])
+    frames = Path(__file__).resolve().parents[2] / ".artifacts" / "annotations"
+    frames.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="zen-annotation-pins-") as temporary:
+        root = Path(temporary)
+        home, library = root / "home", root / "library"
+        home.mkdir()
+        library.mkdir()
+        book = library / "first.epub"
+        _write_reader_epub(book)
+        socket = root / "driver.sock"
+        process = launch(runtime, home, socket, library,
+                         zen_config_source="return {page_browser={tabs={pins=true}}}")
+        try:
+            wait_for_socket(socket)
+            driver = ZenDriver(socket)
+            assert driver.open_book(book)["ok"]
+            _action(driver, "seed")
+            assert driver.command("reference_action", action="pin", page=3)["ok"]
+            _action(driver, "dispatch", name="zen_ui_show_annotation_viewer")
+            state = driver.command("annotation_viewer_state")
+            assert state["status_row"]
+            assert [item["kind"] for item in state["items"]] == ["pin", "bookmark", "highlight", "highlight"]
+            driver.screenshot(frames / "standalone-pins.png")
+            _action(driver, "close")
+            _action(driver, "dispatch", name="zen_ui_show_annotations")
+            _action(driver, "tab", tab="pins")
+            state = _state(driver)
+            assert state["active_tab"] == "pins"
+            assert [item["kind"] for item in state["annotation_items"]] == ["pin"]
+            driver.screenshot(frames / "page-browser-pins.png")
+            _action(driver, "details")
+            assert _state(driver)["annotation_buttons"] == [["Go to"]]
+            _action(driver, "details_more")
+            assert [row["text"] for row in _state(driver)["annotation_dialog"]["rows"]] == ["Remove pin"]
+            _action(driver, "button", text="Remove pin")
+            assert driver.command("native_settings_confirm")["ok"]
+            assert _state(driver)["content_items"] == 0
         finally:
             stop(process)
 
@@ -122,7 +167,7 @@ def test_page_browser_tab_order(document_type: str) -> None:
             arrange = driver.command("arrange_page_state")["arrange"]
             controls = "Contrast" if document_type == "pdf" else "Font"
             assert arrange["labels"] == ["Page browser", controls, "Bookmarks", "Highlights", "Table of contents",
-                                         "Annotations", "Book details", "Book switcher"]
+                                         "Annotations", "Pinned pages", "Book details", "Book switcher"]
             assert driver.command("arrange_page_select", index=4, toggle=True)["ok"]
             assert driver.command("arrange_page_select", index=6, toggle=True)["ok"]
             assert driver.command("arrange_page_drag", **{"from": 6, "to": 1})["ok"]
@@ -196,6 +241,7 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
                 bounds, title = search["bounds"], search["title_bounds"]
                 assert title["x"] + title["w"] <= bounds["x"]
                 assert state["screen_width"] * 0.75 < bounds["x"]
+                assert state["annotation_more_bounds"]["x"] >= bounds["x"] + bounds["w"]
                 assert bounds["y"] > state["header_height"]
                 assert state["close_bounds"]["y"] + state["close_bounds"]["h"] <= bounds["y"]
                 assert title["y"] <= bounds["y"] + bounds["h"] / 2 <= title["y"] + title["h"]
@@ -210,6 +256,7 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
                 assert "first" in state["annotation_subtitle"].lower()
             assert state["annotation_subtitle_size"] == 20
             assert state["annotation_subtitle_black"]
+            assert state["annotation_subtitle_bold"]
             assert state["annotation_rows"][0] == [
                 {"text": "First · Page 1", "size": 18, "black": True},
                 {"text": "October 18 2026", "size": 18, "black": True},
@@ -221,9 +268,25 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
             state = _state(driver)
             assert "Page 1" in state["annotation_text"]
             assert "\nOctober 18 2026 · Page 1\n" in state["annotation_text"]
-            assert state["annotation_buttons"] == [["Go to"], ["Add note"], ["Delete"]]
+            assert state["annotation_buttons"] == [["Go to"]]
             driver.screenshot(frames / "bookmark-details.png")
+            _action(driver, "details_more")
+            state = _state(driver)
+            assert [row["text"] for row in state["annotation_dialog"]["rows"]] == ["Add note", "Delete"]
+            driver.screenshot(frames / "bookmark-details-menu.png")
+            _action(driver, "close_dialog")
             _action(driver, "close_details")
+            _action(driver, "hold")
+            state = _state(driver)
+            assert [row["text"] for row in state["annotation_dialog"]["rows"]] == ["Go to", "Add note", "Delete"]
+            assert [Path(row["icon"]).name for row in state["annotation_dialog"]["rows"]] == [
+                "settings_book_open_variant.svg", "settings_note_plus_outline.svg", "settings_delete_outline.svg"]
+            row, anchor = state["annotation_row_bounds"][0], state["annotation_dialog"]["anchor"]
+            assert anchor == {"x": row["x"], "y": row["y"] + row["h"] // 2, "w": row["w"], "h": 0}
+            bounds = state["annotation_dialog"]["bounds"]
+            assert bounds["y"] == anchor["y"]
+            driver.screenshot(frames / "bookmark-hold-menu.png")
+            _action(driver, "close_dialog")
             _action(driver, "tab", tab="annotations")
             state = _state(driver)
             assert state["annotation_items"][0]["kind"] == "bookmark"
@@ -235,10 +298,11 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
             assert len(state["annotation_items"]) == 2
             assert state["annotation_subtitle_size"] == 20
             assert state["annotation_subtitle_black"]
+            assert state["annotation_subtitle_bold"]
             assert state["annotation_subtitle"] != "This book"
             assert state["annotation_rows"][0][:2] == [
                 {"text": "First · Page 1", "size": 18, "black": True},
-                {"text": "October 18 2026", "size": 18, "black": True},
+                {"text": "October 18 2026 · Yellow", "size": 18, "black": True},
             ]
             frame = frames / "annotation-borders.png"
             driver.screenshot(frame)
@@ -259,7 +323,12 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
             assert driver.command("page_browser_key", key="Return")["handled"]
             assert "October 18 2026" in _state(driver)["annotation_text"]
             assert "2026-10-18 12:01:00" not in _state(driver)["annotation_text"]
-            assert _state(driver)["annotation_buttons"] == [["Go to"], ["Edit note"], ["Edit"], ["Delete"]]
+            assert _state(driver)["annotation_buttons"] == [["Go to"]]
+            _action(driver, "details_more")
+            rows = _state(driver)["annotation_dialog"]["rows"]
+            assert [row["text"] for row in rows] == ["Edit note", "Edit", "Delete"]
+            assert [Path(row["icon"]).name for row in rows] == [
+                "annotations.svg", "settings_square_edit_outline.svg", "settings_delete_outline.svg"]
             _action(driver, "button", text="Edit")
             assert [row["text"] for row in _state(driver)["annotation_dialog"]["rows"]] == ["Color", "Style"]
             driver.screenshot(frames / "highlight-edit-menu.png")
@@ -267,6 +336,7 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
             _action(driver, "button", text="Blue")
             assert _state(driver)["annotation_items"][0]["color"] == "blue"
             _action(driver, "details")
+            _action(driver, "details_more")
             _action(driver, "button", text="Edit")
             _action(driver, "button", text="Style")
             _action(driver, "button", text="Underline")
@@ -276,11 +346,11 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
             _menu(driver)
             rows = _state(driver)["more_menu"]["rows"]
             assert [row["text"] for row in rows] == ["New note", "Filter", "Sort", "Settings"]
-            assert [Path(row["icon"]).name for row in rows] == ["plus.svg", "filter.svg", "sort.svg", "quicksettings.svg"]
+            assert [Path(row["icon"]).name for row in rows] == ["plus.svg", "filter.svg", "sort.svg", "settings_cog.svg"]
             driver.screenshot(frames / "annotation-menu.png")
             _action(driver, "button", text="Sort")
             state = _state(driver)
-            assert state["annotation_dialog"]["anchor"] == state["more_bounds"]
+            assert state["annotation_dialog"]["anchor"] == state["annotation_more_bounds"]
             _action(driver, "button", text="Date")
             _menu(driver)
             _action(driver, "button", text="Sort")
@@ -314,7 +384,8 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
             assert [row["kind"] for row in _state(driver)["annotation_items"]] == ["note"]
             _action(driver, "details")
             assert not driver.command("annotation_viewer_action", action="button", text="Go to")["ok"]
-            _action(driver, "button", text="Close")
+            assert _state(driver)["annotation_buttons"] == [["Edit note"]]
+            _action(driver, "close_details")
             _action(driver, "tab", tab="highlights")
             assert _state(driver)["content_items"] == 0
             _action(driver, "tab", tab="annotations")
@@ -328,9 +399,9 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
             _filters(driver)
             state = _state(driver)
             modal = state["annotation_dialog"]
-            assert modal["anchor"] == state["more_bounds"]
+            assert modal["anchor"] == state["annotation_more_bounds"]
             assert modal["bounds"]["y"] < state["screen_height"] / 4
-            assert [row["text"] for row in modal["rows"]] == ["This book", "Books", "Chapters", "Tags", "Color", "Style", "Text", "Clear filters"]
+            assert [row["text"] for row in modal["rows"]] == ["This book", "Type", "Books", "Chapters", "Tags", "Color", "Style", "Text", "Clear filters"]
             driver.screenshot(frames / "annotation-filter.png")
             _action(driver, "button", text="Clear filters")
             _filters(driver)
@@ -361,6 +432,7 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
             index = next(index for index, row in enumerate(state["annotation_items"], 1)
                          if Path(row["file"]).resolve() == second.resolve() and row["kind"] == "highlight")
             _action(driver, "details", index=index)
+            _action(driver, "details_more")
             _action(driver, "button", text="Edit note")
             _wait_command(driver, "reader_state", lambda result: Path(result["reader"]["file"]).resolve() == second.resolve())
             _action(driver, "input", text="Edited using the native book editor")
@@ -379,6 +451,7 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
                                   not result["page_browser"].get("annotation_loading"))["page_browser"]
             index = next(index for index, row in enumerate(state["annotation_items"], 1) if row["kind"] == "note")
             _action(driver, "details", index=index)
+            _action(driver, "details_more")
             _action(driver, "button", text="Delete")
             assert driver.command("native_settings_confirm")["ok"]
             assert not note_file.exists()

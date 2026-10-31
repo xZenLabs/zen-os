@@ -66,10 +66,18 @@ function M.pinLocations(ui)
     return locations
 end
 
-function M.pins(ui)
+-- Read-only pin list from sidecar data; stock KOReader keeps a single pin.
+function M.storedLocations(data)
+    local owner = plugin or rawget(_G, "__ZEN_UI_PLUGIN")
+    local features = owner and owner.config and owner.config.features
+    local locations = features and features.reader_references == true and data.zen_pinned_pages
+    return locations or data.pinned_page and { data.pinned_page } or {}
+end
+
+function M.pins(ui, locations)
     local pins = {}
     local images = ui.doc_settings:readSetting("zen_pinned_images") or {}
-    for index, location in ipairs(M.pinLocations(ui)) do
+    for index, location in ipairs(locations or M.pinLocations(ui)) do
         local page, image
         if ui.rolling and type(location) == "string" then
             image = images[location]

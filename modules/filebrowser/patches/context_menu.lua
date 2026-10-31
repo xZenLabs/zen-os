@@ -23,6 +23,7 @@ local function apply_context_menu()
     local paths        = require("common/paths")
     local SharedState  = require("common/shared_state")
     local icons        = require("common/inline_icon_map")
+    local GlyphIcons   = require("common/ui/glyph_icons")
     local submenu_arrow = icons.arrow_right
     local zen_plugin   = rawget(_G, "__ZEN_UI_PLUGIN")
     local Cover        = require("common/cover_utils")
@@ -65,82 +66,8 @@ local function apply_context_menu()
         return button_rows
     end
 
-    local CONTEXT_ICON_COLUMN_WIDTH = Device.screen:scaleBySize(30)
-    local CONTEXT_ICON_GAP = Device.screen:scaleBySize(8)
-
-    local function split_inline_icon(text)
-        local first_byte = text:byte(1)
-        if not first_byte then return nil, text end
-
-        local char_len
-        if first_byte < 0x80 then
-            char_len = 1
-        elseif first_byte < 0xE0 then
-            char_len = 2
-        elseif first_byte < 0xF0 then
-            char_len = 3
-        else
-            char_len = 4
-        end
-
-        local suffix = text:sub(char_len + 1)
-        if suffix:sub(1, 2) ~= "  " then return nil, text end
-        return text:sub(1, char_len), suffix:sub(3)
-    end
-
-    local function align_button_dialog_icons(dialog)
-        local button_rows = dialog and dialog.buttontable and dialog.buttontable.buttons_layout
-        if type(button_rows) ~= "table" then return dialog end
-
-        for _i, row in ipairs(button_rows) do
-            for _j, button in ipairs(row) do
-                local old_label = button.label_widget
-                local label_container = button.label_container
-                if button.text and old_label and label_container and label_container.dimen then
-                    local display_text = button.checked_func and button:getDisplayText() or button.text
-                    local glyph, label = split_inline_icon(display_text)
-                    local face = old_label.face
-                    local fgcolor = old_label.fgcolor
-                    local bold = old_label.bold
-                    local label_width = math.max(1, label_container.dimen.w
-                        - CONTEXT_ICON_COLUMN_WIDTH - CONTEXT_ICON_GAP)
-                    local icon_widget = glyph and TextWidget:new{
-                        text = glyph,
-                        face = face,
-                        fgcolor = fgcolor,
-                        bold = bold,
-                    } or HorizontalSpan:new{ width = 0 }
-                    local text_widget = TextWidget:new{
-                        text = label,
-                        lang = button.lang,
-                        max_width = label_width,
-                        face = face,
-                        fgcolor = fgcolor,
-                        bold = bold,
-                    }
-
-                    old_label:free()
-                    button.label_widget = text_widget
-                    label_container[1] = HorizontalGroup:new{
-                        align = "center",
-                        CenterContainer:new{
-                            dimen = Geom:new{
-                                w = CONTEXT_ICON_COLUMN_WIDTH,
-                                h = label_container.dimen.h,
-                            },
-                            icon_widget,
-                        },
-                        HorizontalSpan:new{ width = CONTEXT_ICON_GAP },
-                        text_widget,
-                    }
-                end
-            end
-        end
-        return dialog
-    end
-
     local function new_context_menu_dialog(options)
-        local dialog = align_button_dialog_icons(ButtonDialog:new(options))
+        local dialog = GlyphIcons.alignButtonIcons(ButtonDialog:new(options))
         local cover = options._zen_cover_widget
         if cover then
             local orig_onShow = dialog.onShow

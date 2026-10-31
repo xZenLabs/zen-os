@@ -203,7 +203,9 @@ function M.page_browser_state()
     local focused_preview = focused_frame and focused_frame[1] and focused_frame[1][1]
     local full_preview = browser._zen_full_page_preview
     local more_menu = find_widget(function(widget)
-        return browser._zen_more_button and menu_anchor(widget) == browser._zen_more_button.dimen and widget.buttons
+        local anchor = menu_anchor(widget)
+        return widget.buttons and (browser._zen_more_button and anchor == browser._zen_more_button.dimen
+            or browser._zen_annotation_more and anchor == browser._zen_annotation_more.dimen)
     end)
     local annotation_items = {}
     for _i, item in ipairs(browser._zen_content_panel and browser._zen_content_panel.item_table or {}) do
@@ -227,15 +229,18 @@ function M.page_browser_state()
         annotation_dialog = annotation_dialog and { bounds = annotation_dialog.movable.dimen,
             rows = menu_rows(annotation_dialog), anchor = menu_anchor(annotation_dialog) } or nil,
         annotation_text = browser._zen_annotations and top.text or nil,
-        annotation_subtitle = annotation_title and annotation_title.subtitle,
-        annotation_subtitle_size = annotation_title and annotation_title.subtitle_widget.face.orig_size,
-        annotation_subtitle_black = annotation_title and annotation_title.subtitle_widget.fgcolor
+        annotation_subtitle = annotation_title and annotation_title._zen_subtitle.text,
+        annotation_subtitle_size = annotation_title and annotation_title._zen_subtitle.face.orig_size,
+        annotation_subtitle_bold = annotation_title and annotation_title._zen_subtitle.bold == true,
+        annotation_subtitle_x = annotation_title and annotation_title._zen_subtitle.overlap_offset[1],
+        annotation_subtitle_black = annotation_title and annotation_title._zen_subtitle.fgcolor
             == require("ffi/blitbuffer").COLOR_BLACK,
-        annotation_search = annotation_title and annotation_title.right_button and {
-            icon = annotation_title.right_button.image.file,
-            bounds = annotation_title.right_button.image.dimen,
+        annotation_more_bounds = browser._zen_annotation_more and browser._zen_annotation_more.dimen,
+        annotation_search = annotation_title and {
+            icon = annotation_title._zen_search.image.file,
+            bounds = annotation_title._zen_search.image.dimen,
             title_bounds = {
-                x = annotation_title.dimen.x + annotation_title.title_h_padding,
+                x = annotation_title.dimen.x + math.floor((annotation_title.dimen.w - annotation_title.title_widget:getSize().w) / 2),
                 y = annotation_title.dimen.y + annotation_title.title_group[1]:getSize().h,
                 w = annotation_title.title_widget:getSize().w, h = annotation_title.title_widget:getSize().h,
             },
@@ -347,8 +352,7 @@ function M.annotation_viewer_action(params)
         return true
     elseif params.action == "search" then
         local title = browser._zen_content_panel.title_bar
-        local button = browser._zen_standalone and title.left_button or title.right_button
-        local bounds = button.image.dimen
+        local bounds = title._zen_search.image.dimen
         UIManager:sendEvent(require("ui/event"):new("Gesture", {
             ges = "tap", pos = require("ui/geometry"):new{
                 x = bounds.x + bounds.w / 2, y = bounds.y + bounds.h / 2, w = 1, h = 1,
@@ -358,10 +362,24 @@ function M.annotation_viewer_action(params)
     elseif params.action == "details" then
         browser._zen_content_panel:onMenuSelect(browser._zen_content_panel.item_table[params.index or 1])
         return true
-    elseif params.action == "close_details" then
+    elseif params.action == "hold" then
+        local bounds = browser._zen_content_panel.item_group[params.index or 1].dimen
+        UIManager:sendEvent(require("ui/event"):new("Gesture", {
+            ges = "hold", pos = require("ui/geometry"):new{
+                x = bounds.x + bounds.w / 2, y = bounds.y + bounds.h / 2, w = 1, h = 1,
+            },
+        }))
+        return true
+    elseif params.action == "close_details" or params.action == "details_more" then
         local viewer = find_widget(function(widget) return widget.buttons_table and widget.titlebar end)
         if not viewer then return false, "details unavailable" end
-        viewer.titlebar.right_button.callback()
+        local button = params.action == "details_more" and viewer._zen_more or viewer.titlebar.right_button
+        button.callback()
+        return true
+    elseif params.action == "close_dialog" then
+        local top = UIManager:getTopmostVisibleWidget()
+        if not (top.buttontable and top.movable) then return false, "dialog unavailable" end
+        UIManager:close(top)
         return true
     elseif params.action == "input" then
         local input = find_widget(function(widget) return type(widget.setInputText) == "function" end)
@@ -390,7 +408,8 @@ function M.annotation_viewer_state()
         items[#items + 1] = { file = item.record.file, kind = item.record.kind }
     end
     return { ok = true, tab = viewer._zen_active_tab, scope = viewer._zen_annotations.scope, loading = viewer._zen_annotations.loading == true,
-        items = items, search_icon = viewer._zen_content_panel.title_bar.left_button.image.file }
+        items = items, search_icon = viewer._zen_content_panel.title_bar._zen_search.image.file,
+        status_row = viewer._zen_status_row ~= nil }
 end
 
 function M.page_browser_key(key)

@@ -6,6 +6,7 @@ local Device = require("device")
 local Font = require("ui/font")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
+local GlyphIcons = require("common/ui/glyph_icons")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local IconWidget = require("ui/widget/iconwidget")
@@ -24,66 +25,9 @@ local Screen = Device.screen
 
 local M = {}
 
--- inline_icon_map key -> bundled SVG (resolved via icon packs) for settings rows
-M.SETTINGS_SVG = {
-    action = "settings_lightning_bolt", archive = "settings_archive_outline",
-    battery = "settings_battery_70", bluetooth_on = "settings_bluetooth",
-    book_switcher = "settings_history", bottom_swipe = "settings_gesture_swipe_up",
-    calendar = "settings_calendar_month_outline", chapter_time_format = "settings_draw_pen",
-    custom_icons = "settings_image_multiple_outline", delete = "settings_delete_outline",
-    details = "info", divider = "settings_division", double_tap = "settings_gesture_double_tap",
-    edit = "settings_square_edit_outline", enable = "settings_play", end_book = "settings_book_check",
-    fav_add = "settings_star", flip_lh_rh = "settings_reflect_horizontal",
-    folder_open = "settings_folder_open_outline", hide_reader_actions = "settings_eye_off",
-    icon = "settings_image_filter_hdr", keyboard = "settings_keyboard",
-    keywords = "settings_tag_multiple_outline", koreader_menu = "settings_menu",
-    label = "settings_tag", language = "settings_translate", more_vertical = "more_vertical",
-    move = "settings_cursor_move", navbar_styling = "settings_palette", navbar_tabs = "settings_table_row",
-    new_folder = "settings_folder_plus_outline", open_menu = "settings_gesture_swipe_down",
-    page_browser = "view_carousel_outline", plugin = "settings_power_plug", reader_flash_cbz = "settings_flash",
-    reader_status_bar_margins = "settings_format_horizontal_align_center",
-    reader_themes = "settings_brush", reading = "settings_book_open_variant",
-    refresh = "settings_refresh", restart = "settings_restart",
-    restore_library_location = "settings_backup_restore", save = "settings_content_save",
-    schedule_brightness = "settings_weather_sunny", schedule_night = "settings_weather_night",
-    schedule_warmth = "settings_thermometer_lines", search = "settings_magnify",
-    series = "settings_book_multiple_outline", settings = "settings_cog", settings_about = "info",
-    settings_accent = "settings_brush", settings_advanced = "settings_tools",
-    settings_background = "settings_wallpaper", settings_bug = "settings_bug",
-    settings_covers = "settings_book_cog_outline", settings_cpu = "settings_chip",
-    settings_device = "tablet", settings_folder_name = "settings_tag_outline",
-    settings_folders = "settings_folder_outline", settings_global = "settings_view_quilt",
-    settings_home = "settings_home_variant", settings_home_folder = "settings_folder_home_outline",
-    settings_launcher = "settings_dots_grid", settings_layout = "settings_grid_large",
-    settings_library = "settings_bookshelf", settings_lockdown = "settings_lock",
-    settings_menu_blur = "settings_blur", settings_navbar = "settings_dock_bottom",
-    settings_opds = "settings_cloud_download_outline", settings_quick = "settings_toggle_switch",
-    settings_ram = "settings_memory", settings_reader = "settings_book_open_variant",
-    settings_scroll = "settings_pan_horizontal", settings_setup = "settings_clipboard_play_outline",
-    settings_sleep = "settings_sleep", settings_stats = "settings_chart_line",
-    settings_status = "settings_drag_horizontal_variant", settings_storage = "settings_harddisk",
-    settings_subfolders = "settings_file_tree", settings_underline = "settings_format_underline",
-    sort = "settings_sort_variant", tbr = "settings_clock_outline",
-    title = "settings_sort_alphabetical_variant", upgrade = "settings_arrow_up_circle_outline",
-    view_list = "settings_view_list_outline", view_mosaic = "settings_view_grid_outline",
-    widgets = "settings_widgets", wifi_on = "settings_wifi",
-}
-
-local glyph_svg
 local function settings_svg_path(item)
-    local name = item.icon_name
-    if not name and item.icon_glyph then
-        if not glyph_svg then
-            glyph_svg = {}
-            local glyphs = require("common/inline_icon_map")
-            for key, svg in pairs(M.SETTINGS_SVG) do
-                if glyphs[key] then glyph_svg[glyphs[key]] = svg end
-            end
-        end
-        name = glyph_svg[item.icon_glyph]
-    end
-    local root = name and require("common/plugin_root")
-    return root and require("common/utils").resolveIcon(root .. "/icons/", name)
+    if item.icon_name then return GlyphIcons.iconPath(item.icon_name) end
+    return GlyphIcons.path(item.icon_glyph)
 end
 
 local DEFAULT_WIDTH = Screen:scaleBySize(30)

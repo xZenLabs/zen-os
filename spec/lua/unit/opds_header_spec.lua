@@ -24,6 +24,7 @@ describe("OPDS header", function()
         "common/reader_themes", "apps/reader/readerui",
         "ui/widget/buttondialog", "ui/widget/confirmbox", "ui/widget/container/leftcontainer",
         "ui/widget/notification", "opdspse", "ui/widget/textviewer", "socket.url", "util",
+        "ui/widget/iconwidget", "common/ui/glyph_icons",
     }
 
     local function get_upvalue(fn, target)
@@ -183,9 +184,11 @@ describe("OPDS header", function()
             "ui/widget/horizontalgroup", "ui/widget/horizontalspan", "ui/widget/imagewidget",
             "ui/widget/linewidget", "ui/widget/textboxwidget", "ui/widget/textwidget",
             "ui/widget/container/topcontainer", "ui/widget/verticalgroup", "ui/widget/verticalspan",
+            "ui/widget/iconwidget",
         }) do
             ZenSpec.replace(name, Base)
         end
+        ZenSpec.unload("common/ui/glyph_icons")
         ZenSpec.replace("ui/font", { getFace = function() return {} end })
         ZenSpec.replace("ui/geometry", Base)
         ZenSpec.replace("ui/gesturerange", Base)
@@ -803,7 +806,7 @@ describe("OPDS header", function()
         browser.close_callback = function() closed_by_callback = true end
         browser:showDownloads(items[1])
         local read_now = browser.download_dialog.buttons[1][1]
-        assert.are.equal("\u{F0B63}  Read now", read_now.text)
+        assert.are.equal(require("common/inline_icon_map").reading .. "  Read now", read_now.text)
         read_now.callback()
         assert.is_true(closed_by_callback)
         assert.are.equal("/downloads/Book 1.epub", opened)

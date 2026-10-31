@@ -13,6 +13,7 @@ local function apply_page_browser()
     local ReaderThumbnail = require("apps/reader/modules/readerthumbnail")
     local PresetStore   = require("config/preset_store")
     local BottomSwipe  = require("common/reader_bottom_swipe")
+    local GlyphIcons   = require("common/ui/glyph_icons")
     local PageBrowserTabs = require("modules/reader/page_browser_tabs")
     local References = require("modules/reader/references")
     local utils        = require("common/utils")
@@ -52,6 +53,20 @@ local function apply_page_browser()
             }
             preview:render()
             return preview.bb
+        end
+    end
+
+    if not ReaderThumbnail._zen_night_mode_patch then
+        ReaderThumbnail._zen_night_mode_patch = true
+        local orig_get_page_thumbnail = ReaderThumbnail.getPageThumbnail
+        ReaderThumbnail.getPageThumbnail = function(self, ...)
+            -- Highlights render differently in night mode; cached tiles are keyed by size only.
+            local night_mode = Device.screen.night_mode == true
+            if self._zen_night_mode ~= nil and self._zen_night_mode ~= night_mode then
+                reset_thumbnail_cache(self)
+            end
+            self._zen_night_mode = night_mode
+            return orig_get_page_thumbnail(self, ...)
         end
     end
 
@@ -473,12 +488,9 @@ local function apply_page_browser()
         local LineWidget      = require("ui/widget/linewidget")
         local _               = require("gettext")
 
-        local function is_annotation_tab(tab)
-            return tab == "bookmarks" or tab == "highlights" or tab == "annotations"
-        end
-
         local function is_content_tab(tab)
-            return tab == "toc" or tab == "book_details" or tab == "book_switcher" or is_annotation_tab(tab)
+            return tab == "toc" or tab == "book_details" or tab == "book_switcher" or tab == "bookmarks"
+                or tab == "highlights" or tab == "annotations" or tab == "pins"
         end
 
         local function is_full_page(pbw)
@@ -892,13 +904,16 @@ local function apply_page_browser()
         end
 
         local function header(pbw)
-            local group = VerticalGroup:new{ align = "center",
-                VerticalSpan:new{ width = pbw._zen_header_top_inset } }
+            local inset = pbw._zen_header_top_inset
+            -- Without a status row, split the inset so the tabs sit centered in the header.
+            local top = pbw._zen_status_row and inset or math.floor(inset / 2)
+            local group = VerticalGroup:new{ align = "center", VerticalSpan:new{ width = top } }
             if pbw._zen_status_row then
                 group[#group + 1] = pbw._zen_status_row
                 group[#group + 1] = VerticalSpan:new{ width = Screen:scaleBySize(4) }
             end
             group[#group + 1] = pbw.title_bar
+            if not pbw._zen_status_row then group[#group + 1] = VerticalSpan:new{ width = inset - top } end
             pbw._zen_header = group
             return group
         end
@@ -1079,10 +1094,6 @@ local function apply_page_browser()
             local more_button
             more_button = make_header_btn(utils.resolveIcon(_icons_dir, "more_vertical"),
                 0, function()
-                    if is_annotation_tab(self._zen_active_tab) then
-                        require("modules/reader/annotation_viewer").showMenu(self)
-                        return
-                    end
                     local state = self._zen_row_panel and self._zen_row_panel._reader_controls_state
                     local font_section = self._zen_active_tab == "aa" and state
                         and (state.section == "font" or state.section == "contrast")
@@ -1117,10 +1128,10 @@ local function apply_page_browser()
                             end,
                         }})
                     else
-                        buttons[#buttons + 1] = {{ text = _("Settings"), icon = resolve_stock_icon("appbar.settings"),
+                        buttons[#buttons + 1] = {{ text = _("Settings"), icon = GlyphIcons.iconPath(GlyphIcons.SVG.settings),
                             callback = function() launch(function()
                                 require("modules/settings/zen_settings_page").show(_plugin_ref, {
-                                    path = {{ key = "text", value = _("Reader") }},
+                                    path = {{ key = "text", value = _("Reader") }, { key = "text", value = _("Page Browser") }},
                                 })
                             end) end }}
                     end
@@ -1166,12 +1177,6 @@ local function apply_page_browser()
                 end
             end
             self:_zenBuildHeaderTabs()
-            local divider_h = Screen:scaleBySize(1)
-            table.insert(self.title_bar, LineWidget:new{
-                dimen = Geom:new{ w = self.dimen.w, h = divider_h },
-                background = Blitbuffer.COLOR_LIGHT_GRAY,
-                overlap_offset = { 0, self.title_bar:getHeight() - divider_h },
-            })
 
             -- Rebuild only the panel: the initial layout already used the
             -- selected fixed grid dimensions.

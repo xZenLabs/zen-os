@@ -45,6 +45,7 @@ local function apply_opds()
     local CoverUtils      = require("common/cover_utils")
     local CoverCache      = require("common/opds_cover_cache")
     local icons           = require("common/inline_icon_map")
+    local GlyphIcons      = require("common/ui/glyph_icons")
     local lfs             = require("libs/libkoreader-lfs")
     local utils           = require("common/utils")
     local Screen          = Device.screen
@@ -1989,10 +1990,10 @@ local function apply_opds()
         }
 
         local dialog
-        dialog = ButtonDialog:new{
+        dialog = GlyphIcons.alignButtonIcons(ButtonDialog:new{
             _added_widgets = { header },
             buttons = {
-                {{ text = "\u{F04E6}  " .. _("Sync"), align = "left",
+                {{ text = icons.sync .. "  " .. _("Sync"), align = "left",
                     callback = function()
                         UIManager:close(dialog)
                         self:runWhenConnected(function()
@@ -2000,7 +2001,7 @@ local function apply_opds()
                             self:checkSyncDownload(item.idx)
                         end)
                     end }},
-                {{ text = "\u{F04E6}  " .. _("Force sync"), align = "left",
+                {{ text = icons.sync .. "  " .. _("Force sync"), align = "left",
                     callback = function()
                         UIManager:close(dialog)
                         self:runWhenConnected(function()
@@ -2040,7 +2041,7 @@ local function apply_opds()
                         })
                     end }},
             },
-        }
+        })
         UIManager:show(dialog)
         return true
     end
@@ -2200,7 +2201,7 @@ local function apply_opds()
         local pending = identity and _dl_pending[identity]
         local local_file = not pending and item._zen_opds_downloaded and downloaded_file(self, item)
         if local_file then
-            table.insert(buttons, {{ text = "\u{F0B63}  " .. _("Read now"), align = "left", bold = true,
+            table.insert(buttons, {{ text = icons.reading .. "  " .. _("Read now"), align = "left", bold = true,
                 callback = function()
                     UIManager:close(self.download_dialog)
                     local mgr = self._manager
@@ -2231,14 +2232,14 @@ local function apply_opds()
         for _i, acq in ipairs(acquisitions) do
             if acq.count then
                 local a = acq
-                table.insert(buttons, {{ text = "\u{F01B}  " .. _("Page stream"), align = "left", bold = true,
+                table.insert(buttons, {{ text = icons.page_browser .. "  " .. _("Page stream"), align = "left", bold = true,
                     callback = function()
                         UIManager:close(self.download_dialog)
                         OPDSPSE:streamPages(a.href, a.count, false,
                             self.root_catalog_username, self.root_catalog_password)
                     end,
                 }})
-                table.insert(buttons, {{ text = _("Stream from page") .. "  \u{23E9}", align = "left", bold = true,
+                table.insert(buttons, {{ text = icons.skip_forward .. "  " .. _("Stream from page"), align = "left", bold = true,
                     callback = function()
                         UIManager:close(self.download_dialog)
                         OPDSPSE:streamPages(a.href, a.count, true,
@@ -2246,7 +2247,7 @@ local function apply_opds()
                     end,
                 }})
                 if acq.last_read then
-                    table.insert(buttons, {{ text = icons.arrow_right .. "  " .. _("Resume from page") .. " " .. acq.last_read, align = "left", bold = true,
+                    table.insert(buttons, {{ text = icons.history .. "  " .. _("Resume from page") .. " " .. acq.last_read, align = "left", bold = true,
                         callback = function()
                             UIManager:close(self.download_dialog)
                             OPDSPSE:streamPages(a.href, a.count, false,
@@ -2321,10 +2322,10 @@ local function apply_opds()
             end,
         }})
 
-        self.download_dialog = ButtonDialog:new{
+        self.download_dialog = GlyphIcons.alignButtonIcons(ButtonDialog:new{
             _added_widgets = { header },
             buttons        = buttons,
-        }
+        })
         UIManager:show(self.download_dialog)
     end
 end
