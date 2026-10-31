@@ -628,7 +628,7 @@ function ZenTocWidget:paintTo(bb, x, y)
     -- Title bar: aligned with Zen settings and arrange screens.
     -- -----------------------------------------------------------------------
     local title_tw = TextWidget:new{
-        text    = _("Table of contents"),
+        text    = _("Chapters"),
         face    = TitleStyle.getTitleFace(),
         fgcolor = Blitbuffer.COLOR_BLACK,
         bold    = true,

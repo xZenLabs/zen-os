@@ -1052,7 +1052,7 @@ def test_reader_menu_keeps_its_default_and_reader_buttons_remain_editable(launch
             driver.command("reader_controls", action="edit_buttons")
             state = driver.command("arrange_page_state")
             assert state["ok"]
-            assert state["arrange"]["labels"] == ["Book info", "Font", "Contrast (PDF/CBZ)", "Page", "Document", "TOC",
+            assert state["arrange"]["labels"] == ["Book info", "Font", "Contrast (PDF/CBZ)", "Page", "Document", "Chapters",
                                                       "Bookmarks", "Search", "Profiles", "Themes", "Vocabulary builder",
                                                       "Page Browser", "KOReader reader menu", "Book switcher"]
             assert state["arrange"]["has_action"]

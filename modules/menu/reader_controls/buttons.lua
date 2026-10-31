@@ -32,7 +32,7 @@ function M.defaults()
         { "page", _("Page") },
         { "document", _("Document") },
         { "book_info", _("Book info") },
-        { "toc", _("TOC"), false },
+        { "toc", _("Chapters"), false },
         { "bookmarks", _("Bookmarks"), false },
         { "search", _("Search"), false },
         { "profiles", _("Profiles"), false },

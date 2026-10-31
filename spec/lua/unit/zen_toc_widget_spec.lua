@@ -54,7 +54,7 @@ describe("Zen TOC hardware focus", function()
         font_calls = {}
         text_specs = {}
         ZenSpec.replace("gettext", function(text)
-            if text == "Table of contents" then return "Translated contents" end
+            if text == "Chapters" then return "Translated contents" end
             if text == "No table of contents available." then return "Translated empty TOC" end
             return text
         end)

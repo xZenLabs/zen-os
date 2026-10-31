@@ -166,7 +166,7 @@ def test_page_browser_tab_order(document_type: str) -> None:
                 assert driver.command("settings_page_select", label=label)["ok"]
             arrange = driver.command("arrange_page_state")["arrange"]
             controls = "Contrast" if document_type == "pdf" else "Font"
-            assert arrange["labels"] == ["Page browser", controls, "Bookmarks", "Highlights", "Table of contents",
+            assert arrange["labels"] == ["Page browser", controls, "Bookmarks", "Highlights", "Chapters",
                                          "Annotations", "Pinned pages", "Book details", "Book switcher"]
             assert driver.command("arrange_page_select", index=4, toggle=True)["ok"]
             assert driver.command("arrange_page_select", index=6, toggle=True)["ok"]

@@ -48,7 +48,7 @@ function M.list(config, ui, include_disabled, extra_tab)
         highlights = { "lookup_highlight", _("Highlights") },
         annotations = { "annotations", _("Annotations") },
         pins = { "pin", _("Pinned pages") },
-        toc = { "toc", _("Table of contents") },
+        toc = { "toc", _("Chapters") },
         book_details = { "info", _("Book details") },
         book_switcher = { "history", _("Book switcher") },
     }

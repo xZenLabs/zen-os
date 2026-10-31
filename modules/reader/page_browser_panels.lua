@@ -83,7 +83,7 @@ function M.build(pbw, kind, width, height, on_navigate)
     end
     local title_bar = TitleBar:new{
         width = width,
-        title = _("Table of contents"),
+        title = _("Chapters"),
         align = "center",
         title_face = TitleStyle.getTitleFace(),
     }
