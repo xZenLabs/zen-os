@@ -989,6 +989,7 @@ function M.paintDecorations(item, bb, config, x, y)
     -- ended up with: comparing against the shrunk size would miss on every
     -- paint and rebuild the text widget each time.
     local requested_size = utils.getBadgeFontSize(config, size, 0.26, 7)
+    local fit_limit = math.floor(radius * 1.3)
     local font_size = requested_size
     local function build_widget(fs)
         return TextWidget:new{
@@ -999,9 +1000,12 @@ function M.paintDecorations(item, bb, config, x, y)
             padding = 0,
         }
     end
+    -- A badge size change moves the circle, not the requested size, so the fit
+    -- limit is part of the key: without it a shrink reuses a label fitted for
+    -- the larger badge.
     local cached = item._zen_folder_count_badge
     if cached and (cached.text ~= text or cached.requested ~= requested_size
-            or cached.color ~= foreground) then
+            or cached.fit_limit ~= fit_limit or cached.color ~= foreground) then
         cached.widget:free()
         cached = nil
     end
@@ -1009,7 +1013,7 @@ function M.paintDecorations(item, bb, config, x, y)
         local widget = build_widget(font_size)
         -- A wide count (four digits) can still exceed the circle at a large
         -- setting; shrink it the way the series badge does.
-        while font_size > 7 and widget:getSize().w > math.floor(radius * 1.3) do
+        while font_size > 7 and widget:getSize().w > fit_limit do
             widget:free()
             font_size = font_size - 1
             widget = build_widget(font_size)
@@ -1017,6 +1021,7 @@ function M.paintDecorations(item, bb, config, x, y)
         cached = {
             text = text,
             requested = requested_size,
+            fit_limit = fit_limit,
             size = font_size,
             color = foreground,
             widget = widget,
