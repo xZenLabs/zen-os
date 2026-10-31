@@ -271,6 +271,7 @@ modules/reader/annotation_viewer.lua|integration
 modules/settings/sections/annotation_settings.lua|unit
 modules/reader/page_browser_preview.lua|unit
 modules/registry.lua|integration
+modules/settings/battery_page.lua|integration
 modules/settings/battery_stats_menu.lua|unit
 modules/settings/sections/about_settings.lua|integration
 modules/settings/sections/advanced_settings.lua|integration

@@ -6,11 +6,21 @@ local UIManager = require("ui/uimanager")
 local M = {}
 local SAMPLE_SECONDS = 30 * 60
 local MAX_EVENTS = 512
+-- compact level curve for the battery page (kept CURVE_DAYS, survives
+-- the archiving of the samples): { time, level, flags } with flags
+-- 1 = charging, 2 = asleep, 4 = gap before this point, 8 = Bluetooth on
+local CURVE_DAYS = 31
 local settings
 local sleeping = false
 local timer
 local charge_timer
+local bt_timer
 local pending_gap = false
+-- right after waking the fuel gauge still reports the value from before
+-- sleep; the first sample waits until it has caught up.
+local WAKE_DELAY = 20
+local wake_pending, wake_charge_event = false, false
+local wake_timer
 local history
 local history_tail
 local HISTORY_TOTALS = {
@@ -18,6 +28,8 @@ local HISTORY_TOTALS = {
     awake_loss = "awake_loss_pct", awake_discharge_time = "awake_discharge_seconds",
     asleep_loss = "asleep_loss_pct", asleep_discharge_time = "asleep_discharge_seconds",
     awake_time = "awake_seconds", asleep_time = "asleep_seconds",
+    -- awake with Bluetooth on (not part of awake_loss / awake_discharge_time)
+    bt_loss = "bt_awake_loss_pct", bt_discharge_time = "bt_awake_discharge_seconds",
 }
 local HISTORY_READINGS = {
     full_charge_time = "last_full_charge_seconds",
@@ -58,6 +70,12 @@ local function merge_history(summary)
     if summary.last_unplug == false or nonnegative(summary.last_unplug) then history.last_unplug = summary.last_unplug end
     if valid_session(summary.last_full_charge) then history.last_full_charge = summary.last_full_charge end
     if type(summary.usage_baseline) == "table" then history.usage_baseline = summary.usage_baseline end
+    if nonnegative(summary.samples) and not replaced then
+        history.samples = (history.samples or 0) + summary.samples
+    end
+    if nonnegative(summary.start_time) and (not history.first_time or summary.start_time < history.first_time) then
+        history.first_time = summary.start_time
+    end
     history_tail = summary
 end
 
@@ -71,6 +89,18 @@ local function load_history()
         if ok then merge_history(summary) end
     end
     file:close()
+end
+
+--- Bluetooth on? (true / false; nil when unknown or not available)
+local function bluetooth_on()
+    local ok, Bluetooth = pcall(require, "modules/menu/bluetooth/bluetooth")
+    if not ok or type(Bluetooth) ~= "table" then return nil end
+    if Bluetooth.isChanging and Bluetooth.isChanging() then
+        return Bluetooth.getCachedState and Bluetooth.getCachedState() or nil
+    end
+    local ok2, state = pcall(Bluetooth.getState)
+    if ok2 and state ~= nil then return state == true end
+    return nil
 end
 
 local function capture()
@@ -88,6 +118,8 @@ local function capture()
         charging = charging,
         charged = charged,
         sleeping = sleeping,
+        bluetooth = not sleeping and bluetooth_on() or nil,
+        mah = M._read_mah and M._read_mah() or nil,
     }
 end
 
@@ -145,6 +177,14 @@ local function device_capacity()
     return full_mah, design_mah, health, current_mah
 end
 
+--- Current charge in mAh from the fuel gauge (finer than whole percent).
+--- Stored with every sample; the use rates are computed from it when available.
+function M._read_mah()
+    local ok, _full, _design, _health, current = pcall(device_capacity)
+    if ok and type(current) == "number" then return math.floor(current * 10 + 0.5) / 10 end
+    return nil
+end
+
 local function archive(events)
     if #events == 0 then return true end
     local stats = M.snapshot(false, false)
@@ -165,6 +205,7 @@ local function archive(events)
         awake_discharge_seconds = stats.awake_discharge_time,
         asleep_discharge_seconds = stats.asleep_discharge_time,
         awake_seconds = stats.awake_time, asleep_seconds = stats.asleep_time,
+        bt_awake_loss_pct = stats.bt_loss, bt_awake_discharge_seconds = stats.bt_discharge_time,
         last_charge_pct_per_hour = stats.charge_rate, last_charge_gain_pct = stats.charge_gain,
         last_full_charge_seconds = stats.full_charge_time,
         last_unplug = settings:readSetting("last_unplug"),
@@ -200,6 +241,29 @@ local function archive(events)
     return true
 end
 
+local function curve_point(event)
+    return { event.time, event.level,
+        (event.charging and 1 or 0) + (event.sleeping and 2 or 0) + (event.gap and 4 or 0)
+        + (event.bluetooth and 8 or 0), event.mah }
+end
+
+local function curve_add(event)
+    local curve = settings:readSetting("curve")
+    if type(curve) ~= "table" then
+        curve = {}
+        settings:saveSetting("curve", curve)
+    end
+    curve[#curve + 1] = curve_point(event)
+    local cutoff = event.time - CURVE_DAYS * 86400
+    if curve[1] and curve[1][1] < cutoff then
+        local keep = {}
+        for _i, p in ipairs(curve) do
+            if p[1] >= cutoff then keep[#keep + 1] = p end
+        end
+        settings:saveSetting("curve", keep)
+    end
+end
+
 local function charging_session(previous, event, session)
     if event.gap and not event.charging then return session end
     if event.gap or (previous and (event.time < previous.time
@@ -220,16 +284,26 @@ local function charge_ended(previous, event)
     return previous and not event.charging and (previous.charging or event.level > previous.level)
 end
 
-local function sample(gap, charging_event)
+local function sample(gap, charging_event, force)
     if not settings then return end
+    if wake_pending and not force and not sleeping then
+        if charging_event then wake_charge_event = true end
+        return
+    end
     local event = capture()
     if not event then pending_gap = true; return end
     local events = settings:readSetting("events")
     local previous = events[#events]
-    if previous and not gap and not pending_gap and previous.time == event.time
-        and previous.level == event.level and previous.charging == event.charging
-        and previous.charged == event.charged
-        and previous.sleeping == event.sleeping then return end
+    local same_state = previous and previous.level == event.level and previous.charging == event.charging
+        and previous.charged == event.charged and previous.sleeping == event.sleeping
+        and (previous.bluetooth or false) == (event.bluetooth or false)
+    if same_state and not gap and not pending_gap and previous.time == event.time then return end
+    -- KOReader switching between reader and library stops and starts the
+    -- log within a second; such a point adds nothing (and no real gap)
+    if same_state and event.time >= previous.time and event.time - previous.time <= 5 then
+        pending_gap = false
+        return
+    end
     event.gap = gap or pending_gap
         or (previous and previous.charging ~= event.charging and not charging_event) or nil
     pending_gap = false
@@ -252,6 +326,7 @@ local function sample(gap, charging_event)
         end
     end
     events[#events + 1] = event
+    curve_add(event)
     if charge_ended(previous, event) then
         local stats, baseline = M.snapshot(false), {}
         for key in pairs(HISTORY_TOTALS) do baseline[key] = stats[key] end
@@ -278,8 +353,46 @@ charge_timer = function()
     sample(nil, true)
 end
 
+bt_timer = function()
+    sample()
+end
+
+wake_timer = function()
+    if not wake_pending then return end
+    wake_pending = false
+    local charge_event = wake_charge_event
+    wake_charge_event = false
+    sample(nil, charge_event or nil, true)
+    schedule()
+end
+
+-- suspend, resume and charger events straight from the device. The
+-- ZenOS plugin only receives these as widget events while its FileManager or
+-- reader is in the window stack; with the ZenOS home screen on top they never
+-- arrive, so sleep periods after a fresh start went unrecorded. The calls are
+-- idempotent, so the plugin's own event handlers may call them as well.
+local function hook_device()
+    if Device._zen_battery_hooked then return end
+    Device._zen_battery_hooked = true
+    local function wrap(name, before, after)
+        local orig = Device[name]
+        if type(orig) ~= "function" then return end
+        Device[name] = function(self, ...)
+            if before then pcall(before) end
+            local r = { orig(self, ...) }
+            if after then pcall(after) end
+            return unpack(r)
+        end
+    end
+    wrap("_beforeSuspend", function() M.suspend() end)
+    wrap("_afterResume", nil, function() M.resume() end)
+    wrap("_beforeCharging", nil, function() M.chargingChanged() end)
+    wrap("_afterNotCharging", nil, function() M.chargingChanged() end)
+end
+
 function M.start()
     if settings or not Device:hasBattery() then return end
+    hook_device()
     settings = LuaSettings:open(PresetStore.rootDir() .. "/battery.lua")
     load_history()
     local events = settings:readSetting("events")
@@ -309,6 +422,12 @@ function M.start()
         settings:saveSetting("last_charge", session)
     end
     settings:saveSetting("events", events)
+    if type(settings:readSetting("curve")) ~= "table" then
+        -- first start with the curve: begin with the samples still in the log
+        local curve = {}
+        for _i, event in ipairs(events) do curve[#curve + 1] = curve_point(event) end
+        settings:saveSetting("curve", curve)
+    end
     sample(true) -- KOReader may have been closed or the device charged while it was off.
     schedule()
 end
@@ -316,6 +435,8 @@ end
 function M.suspend()
     if not settings or sleeping then return end
     UIManager:unschedule(charge_timer)
+    UIManager:unschedule(wake_timer)
+    wake_pending, wake_charge_event = false, false
     sleeping = true
     sample()
     UIManager:unschedule(timer)
@@ -325,7 +446,10 @@ function M.resume()
     if not settings then return end
     if sleeping then
         sleeping = false
-        sample()
+        wake_pending, wake_charge_event = true, false
+        UIManager:unschedule(wake_timer)
+        UIManager:scheduleIn(WAKE_DELAY, wake_timer)
+        return -- wake_timer takes the sample and schedules the next one
     end
     schedule()
 end
@@ -336,25 +460,61 @@ function M.chargingChanged()
     UIManager:scheduleIn(1.5, charge_timer)
 end
 
+--- Bluetooth switched on or off: add a point so the curve shows the change.
+function M.bluetoothChanged()
+    if not settings or sleeping then return end
+    UIManager:unschedule(bt_timer)
+    UIManager:scheduleIn(3, bt_timer)
+end
+
 function M.stop()
     if not settings then return end
     UIManager:unschedule(timer)
     UIManager:unschedule(charge_timer)
-    sample()
+    UIManager:unschedule(bt_timer)
+    UIManager:unschedule(wake_timer)
+    sample(nil, nil, true)
     settings = nil
     sleeping = false
     pending_gap = false
+    wake_pending, wake_charge_event = false, false
+end
+
+--- Samples in the log and the time of the first one.
+function M.logInfo()
+    if not settings then return 0, nil end
+    local events = settings:readSetting("events") or {}
+    local count = (history.samples or 0) + #events
+    local first = history.first_time
+    if events[1] and (not first or events[1].time < first) then first = events[1].time end
+    local curve = settings:readSetting("curve")
+    if type(curve) == "table" and curve[1] and (not first or curve[1][1] < first) then first = curve[1][1] end
+    return count, first
 end
 
 function M.reset()
     if not settings then return false end
-    sample()
+    UIManager:unschedule(bt_timer)
+    sample(nil, nil, true)
     local events = settings:readSetting("events")
     if not archive(events) then return false end
     settings:saveSetting("events", events[#events] and { events[#events] } or {})
     settings:flush()
     if settings.file then os.remove(settings.file .. ".old") end
     return true
+end
+
+--- Level curve of the last CURVE_DAYS days, oldest first, plus the current
+--- level: { { time, level, flags } }.
+function M.curve()
+    if not settings then return {} end
+    local out = {}
+    for _i, p in ipairs(settings:readSetting("curve") or {}) do out[#out + 1] = p end
+    local current = capture()
+    if current and (not out[#out] or current.time > out[#out][1]) then
+        out[#out + 1] = curve_point(current)
+    end
+    return out
 end
 
 function M.snapshot(include_current, include_history)
@@ -384,14 +544,26 @@ function M.snapshot(include_current, include_history)
     end
     local awake, asleep, total = { loss = 0, time = 0, elapsed = 0 },
         { loss = 0, time = 0, elapsed = 0 }, { loss = 0, time = 0 }
+    local bt = { loss = 0, time = 0, elapsed = 0 }
+    local full_mah, design_mah, health, current_mah = device_capacity()
     local function accumulate(first, second)
         if type(first) ~= "table" or type(second) ~= "table" or second.gap then return end
         local elapsed = second.time - first.time
         if elapsed <= 0 or first.charging then return end
-        local bucket = first.sleeping and asleep or awake
+        local bucket = first.sleeping and asleep or first.bluetooth and bt or awake
         bucket.elapsed = bucket.elapsed + elapsed
-        if first.level < second.level then return end
-        local loss = first.level - second.level
+        local loss
+        if full_mah and full_mah > 0 and not second.charging and nonnegative(first.mah) and nonnegative(second.mah) then
+            -- fine measurement from the fuel gauge (mAh), whole percent is too coarse
+            local drop = first.mah - second.mah
+            -- small rises are gauge noise: count the time with no loss; a large
+            -- rise means a charge we did not see, so the stretch is left out
+            if drop < -5 then return end
+            loss = math.max(0, drop) * 100 / full_mah
+        else
+            if first.level < second.level then return end
+            loss = first.level - second.level
+        end
         bucket.loss = bucket.loss + loss
         bucket.time = bucket.time + elapsed
         total.loss = total.loss + loss
@@ -405,13 +577,14 @@ function M.snapshot(include_current, include_history)
         total.loss, total.time = total.loss + (history.discharge_loss or 0), total.time + (history.discharge_time or 0)
         awake.loss, awake.time = awake.loss + (history.awake_loss or 0), awake.time + (history.awake_discharge_time or 0)
         asleep.loss, asleep.time = asleep.loss + (history.asleep_loss or 0), asleep.time + (history.asleep_discharge_time or 0)
+        -- history awake_time is the whole screen-on time (Bluetooth included)
         awake.elapsed, asleep.elapsed = awake.elapsed + (history.awake_time or 0), asleep.elapsed + (history.asleep_time or 0)
+        bt.loss, bt.time = bt.loss + (history.bt_loss or 0), bt.time + (history.bt_discharge_time or 0)
     end
     local function rate(bucket, minimum_seconds)
         return bucket.time >= (minimum_seconds or 1) and bucket.loss * 3600 / bucket.time or nil
     end
     local overall = rate(total, 3600)
-    local full_mah, design_mah, health, current_mah = device_capacity()
     local unplug = settings:readSetting("last_unplug")
     if current and #events > 0 then
         if not previous.charging and current.level > previous.level then
@@ -438,7 +611,8 @@ function M.snapshot(include_current, include_history)
         overall = overall,
         awake = rate(awake, 3600),
         asleep = rate(asleep),
-        awake_time = awake.elapsed,
+        bluetooth = rate(bt, 1800),
+        awake_time = awake.elapsed + bt.elapsed,
         asleep_time = asleep.elapsed,
         discharge_loss = total.loss,
         awake_loss = awake.loss,
@@ -446,6 +620,8 @@ function M.snapshot(include_current, include_history)
         discharge_time = total.time,
         awake_discharge_time = awake.time,
         asleep_discharge_time = asleep.time,
+        bt_loss = bt.loss,
+        bt_discharge_time = bt.time,
         remaining = overall and overall > 0 and current and current.level * 3600 / overall or nil,
         since_charge = type(unplug) == "number" and current and current.time >= unplug
             and current.time - unplug or nil,
@@ -462,6 +638,7 @@ function M.snapshot(include_current, include_history)
     usage.overall = rate({ loss = usage.discharge_loss, time = usage.discharge_time }, 3600)
     usage.awake = rate({ loss = usage.awake_loss, time = usage.awake_discharge_time }, 3600)
     usage.asleep = rate({ loss = usage.asleep_loss, time = usage.asleep_discharge_time })
+    usage.bluetooth = rate({ loss = usage.bt_loss, time = usage.bt_discharge_time }, 1800)
     stats.usage = usage
     return stats
 end

@@ -2,6 +2,18 @@ describe("battery stats", function()
     local originals, original_time, now, level, charging, charged, stored, writes, scheduled, battery_path, log_path
     local BatteryStats, settings_path, history_path
 
+    -- After waking, the first sample waits until the fuel gauge has caught up
+    -- (WAKE_DELAY); run that delayed sample right away.
+    local function wake()
+        for i = #scheduled, 1, -1 do
+            if scheduled[i].delay == 20 then
+                local callback = table.remove(scheduled, i).callback
+                callback()
+                return
+            end
+        end
+    end
+
     local function read_history()
         local summaries = {}
         local file = assert(io.open(history_path, "r"))
@@ -83,6 +95,7 @@ describe("battery stats", function()
         BatteryStats.suspend()
         now, level = now + 4 * 3600, 88
         BatteryStats.resume()
+        wake()
 
         local stats = BatteryStats.snapshot()
         assert.are.equal(10, stats.awake)
@@ -135,6 +148,7 @@ describe("battery stats", function()
         BatteryStats.suspend()
         now, level = now + 3600, 94
         BatteryStats.resume()
+        wake()
         stats = BatteryStats.snapshot()
         assert.are.equal(4, stats.overall)
         assert.is_nil(stats.awake)
@@ -154,6 +168,7 @@ describe("battery stats", function()
             BatteryStats.suspend()
             now, level = now + 3600, 88
             BatteryStats.resume()
+            wake()
             local before = BatteryStats.snapshot()
             assert.is_true(before.usage.awake_time > 0)
             assert.is_true(before.usage.asleep_time > 0)
@@ -190,6 +205,7 @@ describe("battery stats", function()
             BatteryStats.suspend()
             now, level = now + 7200, target - 5
             BatteryStats.resume()
+            wake()
             stats = BatteryStats.snapshot()
             assert.are.equal(3600, stats.usage.awake_time)
             assert.are.equal(7200, stats.usage.asleep_time)
@@ -245,6 +261,7 @@ describe("battery stats", function()
         local before = #scheduled
         now, level, charging = now + 3600, 95, false
         BatteryStats.resume()
+        wake()
         assert.are.equal(before + 1, #scheduled)
         assert.are.equal(0, BatteryStats.snapshot().usage.awake_time)
         now, level = now + 3600, 90
@@ -427,6 +444,7 @@ describe("battery stats", function()
         local before = #scheduled
         now, level = now + 4 * 3600, 100
         BatteryStats.resume()
+        wake()
         assert.are.equal(before + 1, #scheduled)
         local stats = BatteryStats.snapshot()
         assert.are.equal(20, stats.charge_rate)
@@ -468,6 +486,7 @@ describe("battery stats", function()
         BatteryStats.suspend()
         now, level = now + 7200, 88
         BatteryStats.resume()
+        wake()
         charging = true
         BatteryStats.chargingChanged()
         scheduled[#scheduled].callback()
@@ -517,6 +536,8 @@ describe("battery stats", function()
         assert.are.equal(17 * 3600 / (first.awake_seconds + 3600), BatteryStats.snapshot().awake)
         assert.are.equal(1, #read_history())
         BatteryStats.stop()
+        -- a real restart; a stop/start within a few seconds (reader <-> library) is no gap
+        now = now + 60
         BatteryStats.start()
         for i = 1, 509 do
             now = now + 1800
@@ -812,5 +833,53 @@ describe("battery stats", function()
         assert.is_nil(stats.current_mah)
         assert.are.equal(1600, stats.design_mah)
         assert.are.equal(75, stats.health)
+    end)
+
+    it("waits for the fuel gauge after waking before taking a sample", function()
+        BatteryStats.start()
+        BatteryStats.suspend()
+        local count = #stored.events
+        now = now + 3600
+        BatteryStats.resume()
+        assert.are.equal(count, #stored.events)
+        level = 97
+        wake()
+        assert.are.equal(count + 1, #stored.events)
+        assert.are.equal(97, stored.events[#stored.events].level)
+        assert.is_false(stored.events[#stored.events].sleeping or false)
+    end)
+
+    it("records sleep through the device hooks", function()
+        local Device = package.loaded["device"]
+        Device._beforeSuspend = function() end
+        Device._afterResume = function() end
+        BatteryStats.start()
+        local count = #stored.events
+        Device:_beforeSuspend()
+        assert.are.equal(count + 1, #stored.events)
+        assert.is_true(stored.events[#stored.events].sleeping)
+        now, level = now + 4 * 3600, 99
+        Device:_afterResume()
+        wake()
+        assert.is_false(stored.events[#stored.events].sleeping or false)
+        assert.are.equal(4 * 3600, BatteryStats.snapshot().asleep_time)
+    end)
+
+    it("keeps a level curve with sleep and charging flags", function()
+        BatteryStats.start()
+        now, level = now + 1800, 95
+        scheduled[#scheduled].callback()
+        BatteryStats.suspend()
+        now, level = now + 3600, 94
+        BatteryStats.resume()
+        wake()
+        local curve = BatteryStats.curve()
+        assert.is_true(#curve >= 3)
+        local slept = false
+        for _i, point in ipairs(curve) do
+            if math.floor(point[3] / 2) % 2 == 1 then slept = true end
+        end
+        assert.is_true(slept)
+        assert.are.equal(94, curve[#curve][2])
     end)
 end)
