@@ -218,12 +218,14 @@ local function add_more_button(viewer, callback)
     title_bar.title_widget:setMaxWidth(title_bar.title_widget.max_width - slot)
     title_bar.inner_title_group:resetLayout()
     title_bar.title_group:resetLayout()
-    -- Native TextViewer adds an empty focus row when its menu icon is hidden.
+    -- Focus layout exists only on DPad devices; native TextViewer adds an empty row when its menu icon is hidden.
     local buttons = viewer.button_table
-    if #buttons.layout[1] == 0 then table.remove(buttons.layout, 1) end
-    table.insert(buttons.layout, 1, { more })
-    buttons.selected.y = buttons.selected.y + 1
-    buttons:refocusWidget()
+    if buttons.layout then
+        if buttons.layout[1] and #buttons.layout[1] == 0 then table.remove(buttons.layout, 1) end
+        table.insert(buttons.layout, 1, { more })
+        buttons.selected.y = buttons.selected.y + 1
+        buttons:refocusWidget()
+    end
     return more
 end
 
