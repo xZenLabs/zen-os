@@ -85,6 +85,9 @@ local function flush_pending_stats()
     if type(stats_plugin.isEnabled) == "function" and not stats_plugin:isEnabled() then return end
     pcall(stats_plugin.insertDB, stats_plugin)
 end
+-- The statistics plugin buffers the running session; views that read the
+-- database directly call this first (rate limited).
+StatsDB.flushPendingStats = flush_pending_stats
 
 function StatsDB.weekStart(now_t)
     now_t = now_t or os.date("*t")

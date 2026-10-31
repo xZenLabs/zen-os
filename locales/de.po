@@ -13,7 +13,7 @@ msgstr ""
 
 #. Type: unit
 #. Context: Einheit für Mengen oder Zeitangaben auf der Seite der Lesestatistiken. Einheit für Mengen oder Zeitangaben in den Einstellungen zu Lesestatistiken.
-#: stats_page.lua:99 stats_page.lua:1330 stats_page.lua:1438 stats_settings.lua:95
+#: stats_page.lua:99 stats_page.lua:1474 stats_page.lua:1582 stats_settings.lua:95
 msgid " days"
 msgstr " Tage"
 
@@ -1003,19 +1003,19 @@ msgstr "Lesezeichen"
 
 #. Type: label
 #. Context: Bezeichnung im Menü für Buchsammlungen. Bezeichnung im Kontextmenü für Bücher und Ordner. Bezeichnung in den Bibliotheksgruppen nach Autoren, Reihen und Schlagwörtern.
-#: collections.lua:443 collections.lua:541 context_menu.lua:1116 context_menu.lua:1741 group_view.lua:1396
+#: collections.lua:443 collections.lua:541 context_menu.lua:1116 context_menu.lua:1741 group_view.lua:1396 view.lua:236
 msgid "books"
 msgstr "Bücher"
 
 #. Type: title
 #. Context: Bezeichnung einer Einstellung in den Einstellungen zu Darstellung und Verhalten der Bibliothek. Auswählbare Option in den Einstellungen zu Lesezielen und im zugehörigen Startseiten-Widget. Bezeichnung in der Buchbibliothek. Wird auch an anderen Stellen in ZenOS verwendet.
-#: reading_goals.lua:146 browser_list_item_layout.lua:204 reading_goals.lua:106 reading_goals.lua:281 annotation_viewer.lua:29 library_settings.lua:1347 navbar_settings.lua:1015
+#: reading_goals.lua:146 browser_list_item_layout.lua:204 reading_goals.lua:106 reading_goals.lua:281 view.lua:206 annotation_viewer.lua:29 library_settings.lua:1347 navbar_settings.lua:1015
 msgid "Books"
 msgstr "Bücher"
 
 #. Type: label
 #. Context: Bezeichnung auf der Seite der Lesestatistiken.
-#: stats_page.lua:934
+#: stats_page.lua:934 view.lua:235 view.lua:486
 msgid "Books read"
 msgstr "Bücher gelesen"
 
@@ -1099,7 +1099,7 @@ msgstr "Von %1"
 
 #. Type: setting
 #. Context: Bezeichnung einer Einstellung im Bereich der Schnelleinstellungen.
-#: quick_settings.lua:1065
+#: view.lua:206 quick_settings.lua:1065
 msgid "Calendar"
 msgstr "Kalender"
 
@@ -1873,7 +1873,7 @@ msgstr "Benutzerdefinierte Designs"
 
 #. Type: title
 #. Context: Überschrift auf der Seite der Lesestatistiken.
-#: stats_page.lua:1470
+#: stats_page.lua:1614
 msgid "Customize widget"
 msgstr "Widget anpassen"
 
@@ -1921,7 +1921,7 @@ msgstr "Dunkles warmes Grau"
 
 #. Type: setting
 #. Context: Bezeichnung einer Einstellung in den Einstellungen zu Aufbau und Widgets der Startseite. Bezeichnung auf der Seite der Lesestatistiken. Bezeichnung einer Einstellung in den Einstellungen zur Statusleiste der Bibliothek.
-#: stats_page.lua:1445 annotation_viewer.lua:569 annotation_settings.lua:32 home_settings.lua:777 home_settings.lua:779 home_settings.lua:781 status_bar_settings.lua:36
+#: stats_page.lua:1589 annotation_viewer.lua:569 annotation_settings.lua:32 home_settings.lua:777 home_settings.lua:779 home_settings.lua:781 status_bar_settings.lua:36
 msgid "Date"
 msgstr "Datum"
 
@@ -2335,7 +2335,7 @@ msgstr "Metadaten bearbeiten"
 
 #. Type: setting
 #. Context: Bezeichnung einer Einstellung in den Einstellungen zur Ansicht am Buchende. Bezeichnung einer Einstellung in den Einstellungen zu Lesestatistiken. Bezeichnung einer Einstellung in den Einstellungen zu Aufbau und Widgets der Startseite.
-#: end_book_settings.lua:271 stats_settings.lua:339 home_settings.lua:2673
+#: end_book_settings.lua:271 stats_settings.lua:374 home_settings.lua:2673
 msgid "Edit mode"
 msgstr "Bearbeitungsmodus"
 
@@ -2839,7 +2839,7 @@ msgstr "Fußnotenoptionen"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Footnotes and pinned pages"), icon_name = "pin",
-#: reference_drawer.lua:625 reader_settings.lua:1459
+#: reference_drawer.lua:634 reader_settings.lua:1459
 msgid "Footnotes and pinned pages"
 msgstr "Fußnoten und angeheftete Seiten"
 
@@ -2953,13 +2953,13 @@ msgstr "Google Books API-Schlüssel"
 
 #. Type: title
 #. Context: Überschrift auf der Seite der Lesestatistiken.
-#: stats_page.lua:1372
+#: stats_page.lua:1516
 msgid "Graph metric"
 msgstr "Diagrammmetrik"
 
 #. Type: title
 #. Context: Überschrift auf der Seite der Lesestatistiken.
-#: stats_page.lua:1342
+#: stats_page.lua:1486
 msgid "Graph range"
 msgstr "Diagrammbereich"
 
@@ -3121,7 +3121,7 @@ msgstr "Verlauf"
 
 #. Type: setting
 #. Context: Bezeichnung einer Einstellung in den Einstellungen zur Ansicht am Buchende. Bezeichnung einer Einstellung in den Einstellungen zu Lesestatistiken. Bezeichnung einer Einstellung in den Einstellungen zu Aufbau und Widgets der Startseite.
-#: end_book_settings.lua:272 stats_settings.lua:340 home_settings.lua:2674
+#: end_book_settings.lua:272 stats_settings.lua:375 home_settings.lua:2674
 msgid "Hold a widget to open settings directly"
 msgstr "Halten Sie ein Widget gedrückt, um die Einstellungen direkt zu öffnen."
 
@@ -3499,7 +3499,7 @@ msgstr "Launcher-Label"
 
 #. Type: setting
 #. Context: Bezeichnung einer Einstellung im KOReader-Einstellungsmenü. Bezeichnung einer Einstellung in den Einstellungen zu Darstellung und Verhalten der Bibliothek.
-#: reader_controls.lua:559 koreader_settings.lua:74 library_settings.lua:1038
+#: reader_controls.lua:559 koreader_settings.lua:74 library_settings.lua:1038 stats_settings.lua:334
 msgid "Layout"
 msgstr "Layout"
 
@@ -3811,13 +3811,13 @@ msgstr "Die Metadaten wurden gespeichert, das Titelbild konnte jedoch nicht gesp
 
 #. Type: setting
 #. Context: Bezeichnung einer Einstellung in den Einstellungen zu Lesestatistiken. Bezeichnung einer Aktion auf der Seite der Lesestatistiken.
-#: stats_page.lua:1434 stats_settings.lua:72
+#: stats_page.lua:1578 stats_settings.lua:72
 msgid "Metric"
 msgstr "Metrisch"
 
 #. Type: unit
 #. Context: Einheit für Mengen oder Zeitangaben in den Einstellungen zu Lesezielen und im zugehörigen Startseiten-Widget. Einheit für Mengen oder Zeitangaben in der ZenOS-Oberfläche.
-#: reading_goals.lua:103 reading_goals.lua:281 incognito_mode.lua:248 incognito_mode.lua:262
+#: reading_goals.lua:103 reading_goals.lua:281 view.lua:296 view.lua:584 incognito_mode.lua:248 incognito_mode.lua:262
 msgid "min"
 msgstr "Min"
 
@@ -3847,7 +3847,7 @@ msgstr "Fehlt: %1"
 
 #. Type: setting
 #. Context: Bezeichnung einer Einstellung in den Einstellungen zu Lesestatistiken.
-#: stats_settings.lua:360
+#: stats_settings.lua:395
 msgid "Monday"
 msgstr "Montag"
 
@@ -3859,7 +3859,7 @@ msgstr "Monatlich"
 
 #. Type: title
 #. Context: Überschrift auf der Seite der Lesestatistiken.
-#: stats_page.lua:1421
+#: stats_page.lua:1565
 msgid "Months"
 msgstr "Monate"
 
@@ -4621,7 +4621,7 @@ msgstr "Vorhandene Dateien überschreiben"
 
 #. Type: message
 #. Context: Hinweis in der ZenOS-Oberfläche.
-#: utils.lua:357
+#: utils.lua:357 view.lua:432 view.lua:450
 msgid "p."
 msgstr "S."
 
@@ -4633,7 +4633,7 @@ msgstr "Seite"
 
 #. Type: format
 #. Context: local function page_text(record) return record.page_label ~= "" and T(_("Page %1"), record.page_label) or "" end
-#: annotation_viewer.lua:49 reference_drawer.lua:271 highlight_menu.lua:357
+#: annotation_viewer.lua:49 reference_drawer.lua:279 highlight_menu.lua:357
 msgid "Page %1"
 msgstr "Seite %1"
 
@@ -4693,7 +4693,7 @@ msgstr "Seiten"
 
 #. Type: unit
 #. Context: Einheit für Mengen oder Zeitangaben in den Einstellungen zu Lesezielen und im zugehörigen Startseiten-Widget. Einheit für Mengen oder Zeitangaben auf der Seite der Lesestatistiken. Einheit für Mengen oder Zeitangaben in den Einstellungen zu Schaltflächen und Seiten des Schnellzugriffs. Wird auch an anderen Stellen in ZenOS verwendet.
-#: reading_goals.lua:132 stats_page.lua:76 stats_page.lua:914 stats_page.lua:923 stats_page.lua:931 stats_page.lua:1353 stats_page.lua:1434 book_info.lua:53 library_settings.lua:50 library_settings.lua:847 stats_settings.lua:75
+#: reading_goals.lua:132 stats_page.lua:76 stats_page.lua:914 stats_page.lua:923 stats_page.lua:931 stats_page.lua:1497 stats_page.lua:1578 view.lua:290 book_info.lua:53 library_settings.lua:50 library_settings.lua:847 stats_settings.lua:75
 msgid "Pages"
 msgstr "Seiten"
 
@@ -4795,7 +4795,7 @@ msgstr "Phrase"
 
 #. Type: title
 #. Context: end dialog = require("ui/widget/buttondialog"):new{ title = _("Pin"), buttons = rows } UIManager:show(dialog)
-#: pin_footer.lua:212 references.lua:191 page_browser.lua:2481 reader_settings.lua:298
+#: pin_footer.lua:212 references.lua:191 page_browser.lua:2482 reader_settings.lua:298
 msgid "Pin"
 msgstr "Stift"
 
@@ -4807,7 +4807,7 @@ msgstr "Diese Seite pinnen"
 
 #. Type: setting
 #. Context: { text = _("Pinned page options"), sub_item_table_func = function()
-#: reference_drawer.lua:626 reader_settings.lua:1464
+#: reference_drawer.lua:635 reader_settings.lua:1464
 msgid "Pinned page options"
 msgstr "Optionen für angeheftete Seiten"
 
@@ -5059,7 +5059,7 @@ msgstr "RAM-Auslastung"
 
 #. Type: setting
 #. Context: Bezeichnung einer Einstellung in den Einstellungen zu Lesestatistiken. Bezeichnung einer Aktion auf der Seite der Lesestatistiken.
-#: stats_page.lua:1438 stats_settings.lua:89
+#: stats_page.lua:1582 stats_settings.lua:89
 msgid "Range"
 msgstr "Reichweite"
 
@@ -5101,7 +5101,7 @@ msgstr "Lesen Sie: %s"
 
 #. Type: title
 #. Context: Überschrift in der Einrichtungsanleitung. Bezeichnung in der ZenOS-Oberfläche. Bezeichnung einer Einstellung im Hauptmenü der Zen-Einstellungen. Wird auch an anderen Stellen in ZenOS verwendet.
-#: quickstart_pages.lua:803 action_filter.lua:72 annotation_viewer.lua:590 reference_drawer.lua:624 highlight_menu.lua:246 page_browser.lua:1123 zen_settings.lua:81 global_settings.lua:904 home_settings.lua:1527
+#: quickstart_pages.lua:803 action_filter.lua:72 annotation_viewer.lua:590 reference_drawer.lua:633 highlight_menu.lua:246 page_browser.lua:1123 zen_settings.lua:81 global_settings.lua:904 home_settings.lua:1527
 msgid "Reader"
 msgstr "Lesemodus"
 
@@ -5287,7 +5287,7 @@ msgstr "Aus dem Vokabelgenerator entfernen"
 
 #. Type: action
 #. Context: end add{ text = _("Remove pin"), callback = function() References.setPin(self.ui, self.page, true)
-#: reference_drawer.lua:615 references.lua:169 references.lua:191 page_browser.lua:2481
+#: reference_drawer.lua:624 references.lua:169 references.lua:191 page_browser.lua:2482
 msgid "Remove pin"
 msgstr "Stift entfernen"
 
@@ -5671,7 +5671,7 @@ msgstr "Bildlaufleiste"
 
 #. Type: title
 #. Context: Überschrift im Browser für Online-Buchkataloge. Bezeichnung in den Navigationsreitern und auf den Schnelleinstellungs-Schaltflächen. Auswählbare Option in der Einrichtungsanleitung. Wird auch an anderen Stellen in ZenOS verwendet.
-#: nav_button_model.lua:22 quickstart_pages.lua:721 collections.lua:650 metadata_editor.lua:969 navbar.lua:326 navbar.lua:331 search.lua:109 opds.lua:1724 opds.lua:1917 opds.lua:1921 native_menu.lua:9 quick_settings.lua:725 quick_settings.lua:765 buttons.lua:37 annotation_viewer.lua:423 dict_quick_lookup.lua:110 highlight_menu.lua:233 page_browser.lua:2948 navbar_settings.lua:183
+#: nav_button_model.lua:22 quickstart_pages.lua:721 collections.lua:650 metadata_editor.lua:969 navbar.lua:326 navbar.lua:331 search.lua:109 opds.lua:1724 opds.lua:1917 opds.lua:1921 native_menu.lua:9 quick_settings.lua:725 quick_settings.lua:765 buttons.lua:37 annotation_viewer.lua:423 dict_quick_lookup.lua:110 highlight_menu.lua:233 page_browser.lua:2935 navbar_settings.lua:183
 msgid "Search"
 msgstr "Suche"
 
@@ -5683,7 +5683,7 @@ msgstr "Suchanmerkungen"
 
 #. Type: title
 #. Context: Überschrift in der Seitenübersicht der Leseansicht.
-#: page_browser.lua:2932
+#: page_browser.lua:2960
 msgid "Search Book"
 msgstr "Buch suchen"
 
@@ -5707,7 +5707,7 @@ msgstr "Suchergebnisse"
 
 #. Type: placeholder
 #. Context: Hinweis zur Eingabe in der ZenOS-Oberfläche.
-#: zen_settings_titlebar.lua:409
+#: zen_settings_titlebar.lua:408
 msgid "Search settings"
 msgstr "Sucheinstellungen"
 
@@ -5887,7 +5887,7 @@ msgstr "Synchronisationsordner festlegen"
 
 #. Type: title
 #. Context: Überschrift im Zen-Einstellungsmenü. Menüeintrag in den KOReader-Menüs und in der Menüauswahl des Schnellzugriffs. Bezeichnung einer Einstellung im Bereich der Schnelleinstellungen. Wird auch an anderen Stellen in ZenOS verwendet.
-#: native_menu.lua:10 quick_settings.lua:1155 annotation_viewer.lua:586 reference_drawer.lua:621 highlight_menu.lua:242 page_browser.lua:1120 battery_stats_menu.lua:93 zen_settings_page.lua:198 zen_settings_page.lua:223 zen_settings_page.lua:280 zen_settings_page.lua:866 zen_settings_page.lua:1051 menu_settings.lua:67 menu_settings.lua:1087
+#: native_menu.lua:10 quick_settings.lua:1155 annotation_viewer.lua:586 reference_drawer.lua:630 highlight_menu.lua:242 page_browser.lua:1120 battery_stats_menu.lua:93 zen_settings_page.lua:198 zen_settings_page.lua:223 zen_settings_page.lua:280 zen_settings_page.lua:866 zen_settings_page.lua:1051 menu_settings.lua:67 menu_settings.lua:1087
 msgid "Settings"
 msgstr "Einstellungen"
 
@@ -6343,7 +6343,7 @@ msgstr "Beginnen Sie mit der Lektüre eines Buches, um diesen Raum zu füllen."
 
 #. Type: setting
 #. Context: Bezeichnung einer Einstellung in den Einstellungen zu Lesestatistiken. Bezeichnung einer Einstellung in den Einstellungen zu Aufbau und Widgets der Startseite.
-#: stats_settings.lua:352 home_settings.lua:2333
+#: stats_settings.lua:387 home_settings.lua:2333
 msgid "Stat separators"
 msgstr "Statistik-Trennzeichen"
 
@@ -6481,7 +6481,7 @@ msgstr "Bericht wird gesendet…"
 
 #. Type: setting
 #. Context: Bezeichnung einer Einstellung in den Einstellungen zu Lesestatistiken.
-#: stats_settings.lua:360
+#: stats_settings.lua:395
 msgid "Sunday"
 msgstr "Sonntag"
 
@@ -6781,7 +6781,7 @@ msgstr "Dieses Jahr"
 
 #. Type: title
 #. Context: Überschrift in den Einstellungen zu Aufbau und Widgets der Startseite. Auswählbare Option in den Einstellungen zu Lesezielen und im zugehörigen Startseiten-Widget. Bezeichnung auf der Seite der Lesestatistiken. Wird auch an anderen Stellen in ZenOS verwendet.
-#: reading_goals.lua:138 stats_page.lua:1354 stats_page.lua:1434 reader_settings.lua:280 stats_settings.lua:81 home_settings.lua:754 home_settings.lua:770 home_settings.lua:772 home_settings.lua:774 status_bar_settings.lua:35
+#: reading_goals.lua:138 stats_page.lua:1498 stats_page.lua:1578 reader_settings.lua:280 stats_settings.lua:81 home_settings.lua:754 home_settings.lua:770 home_settings.lua:772 home_settings.lua:774 status_bar_settings.lua:35
 msgid "Time"
 msgstr "Uhrzeit"
 
@@ -6907,13 +6907,13 @@ msgstr "Inhaltsverzeichnis"
 
 #. Type: title
 #. Context: Überschrift auf der Seite der Lesestatistiken. Bezeichnung einer Einstellung in den Einstellungen zu Lesestatistiken. Bezeichnung auf der Buchdetailseite des Schnellzugriffs.
-#: stats_page.lua:60 book_info_card.lua:201 stats_settings.lua:27
+#: stats_page.lua:60 view.lua:276 book_info_card.lua:201 stats_settings.lua:27
 msgid "Today"
 msgstr "Heute"
 
 #. Type: action
 #. Context: or utils.resolveLocalIcon(_icons_dir, bookmark_icon), text = labels and _("Toggle page bookmark") or nil, callback = function()
-#: page_browser.lua:2474
+#: page_browser.lua:2475
 msgid "Toggle page bookmark"
 msgstr "Seiten-Lesezeichen umschalten"
 
@@ -6961,7 +6961,7 @@ msgstr "Oben/unten"
 
 #. Type: setting
 #. Context: In den Geräteinformationen: gesamte Speicherkapazität oder eingebauter Arbeitsspeicher. In der Tagesansicht der Lesestatistik: Summe der Lesezeit und gelesenen Seiten für diesen Tag. In den Einstellungen der oberen Lesestatusleiste: Auswahl, ob die Gesamtseitenzahl das ganze Buch oder das aktuelle Kapitel umfasst.
-#: stats_page.lua:558 about_settings.lua:31 reader_settings.lua:542
+#: stats_page.lua:558 view.lua:317 about_settings.lua:31 reader_settings.lua:542
 msgid "Total"
 msgstr "Gesamt"
 
@@ -7459,7 +7459,7 @@ msgstr "Farbtemperatur"
 
 #. Type: setting
 #. Context: Bezeichnung einer Einstellung in den Einstellungen zu Lesestatistiken.
-#: stats_settings.lua:356
+#: stats_settings.lua:391
 msgid "Week reset day"
 msgstr "Wochenrücksetzungstag"
 
@@ -7597,13 +7597,13 @@ msgstr "WLAN-Netzwerke"
 
 #. Type: action
 #. Context: Bezeichnung einer Aktion auf der Seite der Lesestatistiken. Bezeichnung im Kontextmenü für Bücher und Ordner.
-#: context_menu.lua:2915 stats_page.lua:1457
+#: context_menu.lua:2915 stats_page.lua:1601
 msgid "Widget settings"
 msgstr "Widget-Einstellungen"
 
 #. Type: title
 #. Context: Überschrift in den Einstellungen zu Lesestatistiken. Bezeichnung einer Einstellung in den Einstellungen zur Ansicht am Buchende. Bezeichnung einer Einstellung in den Einstellungen zu Aufbau und Widgets der Startseite.
-#: end_book_settings.lua:269 stats_settings.lua:212 stats_settings.lua:278 stats_settings.lua:302 stats_settings.lua:334 home_settings.lua:1529 home_settings.lua:2001 home_settings.lua:2637 home_settings.lua:2653 home_settings.lua:2667
+#: end_book_settings.lua:269 stats_settings.lua:212 stats_settings.lua:278 stats_settings.lua:302 stats_settings.lua:369 home_settings.lua:1529 home_settings.lua:2001 home_settings.lua:2637 home_settings.lua:2653 home_settings.lua:2667
 msgid "Widgets"
 msgstr "Widgets"
 
@@ -7846,3 +7846,297 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:381
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPM wurde installiert. Starten Sie KOReader neu, um es zu verwenden."
+
+#. Type: format
+#. Context: local d = os.date("*t", ts) return T(_("%1 %2"), d.day, monthShort(d.month)) end
+#: view.lua:406
+msgid "%1 %2"
+msgstr "%1. %2"
+
+#. Type: format
+#. Context: local tag, who = nil, b.author if b.omni_all then tag = T(_("%1 books"), b.omni_all) elseif b.omni_k then tag, who = T(_("Book %1 of %2"), b.omni_k, b.omni_n), b.omni_name end
+#: view.lua:393
+msgid "%1 books"
+msgstr "%1 Bücher"
+
+#. Type: format
+#. Context: local m = math.floor((tonumber(sec) or 0) / 60 + 0.5) if m >= 60 then return T(_("%1 h %2 min"), math.floor(m / 60), string.format("%02d", m % 60)) end return T(_("%1 min"), m)
+#: view.lua:58
+msgid "%1 h %2 min"
+msgstr "%1 h %2 Min."
+
+#. Type: format
+#. Context: if m >= 60 then return T(_("%1 h %2 min"), math.floor(m / 60), string.format("%02d", m % 60)) end return T(_("%1 min"), m) end
+#: view.lua:59
+msgid "%1 min"
+msgstr "%1 Min."
+
+#. Type: format
+#. Context: if S.full_months and S.full_months > 0 then months_label = "(" .. (S.full_months == 1 and _("1 month") or T(_("%1 months"), S.full_months)) .. ")" end
+#: view.lua:273
+msgid "%1 months"
+msgstr "%1 Monate"
+
+#. Type: format
+#. Context: local sp = { { T(_("%1 so far"), month(S.month)), S.cur_speed, true }, { month(S.prev.m), S.prev.speed },
+#: view.lua:253
+msgid "%1 so far"
+msgstr "%1 bisher"
+
+#. Type: label
+#. Context: if S.full_months and S.full_months > 0 then months_label = "(" .. (S.full_months == 1 and _("1 month") or T(_("%1 months"), S.full_months)) .. ")" end
+#: view.lua:273
+msgid "1 month"
+msgstr "1 Monat"
+
+#. Type: label
+#. Context: self:hourDots(bb, gx + 4, sy + 9, 40, 3600) local lw1 = self:text(bb, _("= 1 hour"), 26, gx + 30, sy, 300, { fg = MID, h = 36 }) self:hourDots(bb, gx + 30 + lw1 + 26, sy + 9, 40, 1800)
+#: view.lua:561
+msgid "= 1 hour"
+msgstr "= 1 Stunde"
+
+#. Type: label
+#. Context: self:hourDots(bb, gx + 30 + lw1 + 26, sy + 9, 40, 1800) self:text(bb, _("= started hour"), 26, gx + 30 + lw1 + 52, sy, 400, { fg = MID, h = 36 })
+#: view.lua:563
+msgid "= started hour"
+msgstr "= angefangene Stunde"
+
+#. Type: label
+#. Context: local h = SECTION_H + 228 self:card(bb, X, y, W, h, _("At a glance")) local by = y + SECTION_H
+#: view.lua:232
+msgid "At a glance"
+msgstr "Auf einen Blick"
+
+#. Type: label
+#. Context: { align = "center", bold = true, h = 60 }) self:text(bb, _("Average reading time"), 23, x2 + 10, cy + 200, wr - 20, { align = "center", fg = MID, h = 32 }) y = y + h + GAP
+#: view.lua:481
+msgid "Average reading time"
+msgstr "Durchschnittliche Lesezeit"
+
+#. Type: label
+#. Context: self:bars(bb, X + 20, y + SECTION_H + 44, wl - 40, h - SECTION_H - 44 - 92, vals, labels) self:text(bb, _("Avg. minutes, last 3 months"), 24, X + 10, y + h - 50, wl - 20, { align = "center", fg = MID }) self:card(bb, x2, y, wr, h, _("Per...
+#: view.lua:471
+msgid "Avg. minutes, last 3 months"
+msgstr "Ø Minuten, letzte 3 Monate"
+
+#. Type: format
+#. Context: if b.omni_all then tag = T(_("%1 books"), b.omni_all) elseif b.omni_k then tag, who = T(_("Book %1 of %2"), b.omni_k, b.omni_n), b.omni_name end if tag then
+#: view.lua:394
+msgid "Book %1 of %2"
+msgstr "Buch %1 von %2"
+
+#. Type: format
+#. Context: if (S.legacy_count or 0) > 0 then self:text(bb, T(_("Books without reading data: %1"), S.legacy_count), 25, X + 24, y + SECTION_H + 10, W - 48, { h = 34, fg = MID })
+#: view.lua:488
+msgid "Books without reading data: %1"
+msgstr "Bücher ohne Lesedaten: %1"
+
+#. Type: error
+#. Context: S = data, error_text = err and _("Could not read the reading statistics.") or nil, monday_first = stats_settings.week_start_day == 2,
+#: stats_page.lua:1305
+msgid "Could not read the reading statistics."
+msgstr "Die Lesestatistik konnte nicht gelesen werden."
+
+#. Type: setting
+#. Context: IconItem.decorate({ text = _("Count omnibus volumes as separate books"), help_text = _("Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."),
+#: stats_settings.lua:357
+msgid "Count omnibus volumes as separate books"
+msgstr "Sammelbände als einzelne Bücher zählen"
+
+#. Type: label
+#. Context: local h = SECTION_H + 12 + n * row self:card(bb, X, y, W, h, _("Currently reading")) local ac = Accent.color()
+#: view.lua:415
+msgid "Currently reading"
+msgstr "Aktuell am Lesen"
+
+#. Type: label
+#. Context: { _("Today"), nil, int(S.today_pages), S.today_sec }, { _("Daily average"), "(" .. month(S.month) .. ")", int(S.daily_pages), S.daily_sec }, { _("This month so far"), nil, int(S.cur_month.pages), S.cur_month.sec },
+#: view.lua:277
+msgid "Daily average"
+msgstr "Tagesschnitt"
+
+#. Type: setting
+#. Context: { "tabs", _("Tabs: overview, books, calendar") }, { "dashboard", _("Dashboard with widgets") }, }) do
+#: stats_settings.lua:339
+msgid "Dashboard with widgets"
+msgstr "Dashboard mit Widgets"
+
+#. Type: format
+#. Context: { _("Books read"), int(S.finished_total), _("books, all time") }, { T(_("Finished in %1"), S.year), int(S.fin_this_year), _("books") }, { _("Reading time"), int(S.total_sec / 3600), _("hours, all time") },
+#: view.lua:236
+msgid "Finished in %1"
+msgstr "Beendet %1"
+
+#. Type: format
+#. Context: self:bars(bb, X + 30, y + SECTION_H + 40, W - 60, h2 - SECTION_H - 40 - 96, vals, labels, { small = true }) self:text(bb, T(_("Last 12 months · %1 books finished"), total_with), 27, X, y + h2 - 44, W, { align = "center", fg = MID })
+#: view.lua:507
+msgid "Last 12 months · %1 books finished"
+msgstr "Letzte 12 Monate · %1 Bücher beendet"
+
+#. Type: label
+#. Context: { _("This month so far"), nil, int(S.cur_month.pages), S.cur_month.sec }, { _("Last month"), "(" .. month(S.prev.m) .. ")", int(S.prev.pages), S.prev.sec }, { _("Monthly average"), months_label, S.monthly_pages and int(S.monthly_pages) o...
+#: view.lua:279
+msgid "Last month"
+msgstr "Letzter Monat"
+
+#. Type: label
+#. Context: { _("Last month"), "(" .. month(S.prev.m) .. ")", int(S.prev.pages), S.prev.sec }, { _("Monthly average"), months_label, S.monthly_pages and int(S.monthly_pages) or "–", S.monthly_sec }, }
+#: view.lua:280
+msgid "Monthly average"
+msgstr "Monatsschnitt"
+
+#. Type: error
+#. Context: if not self.S then self:text(buf, self.error_text or _("No reading statistics yet."), 32, X, TOP + 40, W, { align = "center", fg = MID })
+#: view.lua:684
+msgid "No reading statistics yet."
+msgstr "Noch keine Lesestatistik vorhanden."
+
+#. Type: label
+#. Context: end self:text(bb, _("Numbers = books read that day (at least 10 min.)"), 25, X, fy + totals_h + 8, W, { align = "center", fg = MID, h = 36 })
+#: view.lua:664
+msgid "Numbers = books read that day (at least 10 min.)"
+msgstr "Nummern = Bücher, die an dem Tag gelesen wurden (mind. 10 Min.)"
+
+#. Type: label
+#. Context: for _i, l in ipairs(C.legend) do legend[#legend + 1] = { tostring(l.n), l.title } end if C.others then legend[#legend + 1] = { "+", _("Other books") } end local lrows = math.max(1, math.ceil(#legend / 2))
+#: view.lua:544
+msgid "Other books"
+msgstr "Andere Bücher"
+
+#. Type: label
+#. Context: { month(S.prev.m), S.prev.speed }, { _("Overall"), S.speed_all }, }
+#: view.lua:255
+msgid "Overall"
+msgstr "Gesamt"
+
+#. Type: label
+#. Context: local bar = ZenTabBar:new{ items = { { text = _("Overview") }, { text = _("Books") }, { text = _("Calendar") } }, selected = self.page,
+#: view.lua:206
+msgid "Overview"
+msgstr "Übersicht"
+
+#. Type: label
+#. Context: h = BOTTOM - 16 - note_h - y self:card(bb, X, y, W, h, _("Pages & time")) by = y + SECTION_H
+#: view.lua:284
+msgid "Pages & time"
+msgstr "Seiten & Zeit"
+
+#. Type: message
+#. Context: if gs and gs.readSetting then chars = tonumber(gs:readSetting("pagemap_chars_per_synthetic_page")) end local note = chars and T(_("Pages = standard pages (%1 characters)."), int(chars)) or _("Pages = standard pages.")
+#: view.lua:332
+msgid "Pages = standard pages (%1 characters)."
+msgstr "Seiten = Standardseiten (%1 Zeichen)."
+
+#. Type: message
+#. Context: local note = chars and T(_("Pages = standard pages (%1 characters)."), int(chars)) or _("Pages = standard pages.") if (S.legacy_count or 0) > 0 then
+#: view.lua:333
+msgid "Pages = standard pages."
+msgstr "Seiten = Standardseiten."
+
+#. Type: label
+#. Context: self:text(bb, _("Avg. minutes, last 3 months"), 24, X + 10, y + h - 50, wl - 20, { align = "center", fg = MID }) self:card(bb, x2, y, wr, h, _("Per book")) local cy = y + SECTION_H
+#: view.lua:472
+msgid "Per book"
+msgstr "Pro Buch"
+
+#. Type: label
+#. Context: local head_h = 60 self:text(bb, spaced(upper(_("Period"))), 22, c1, by + 8, 400, { fg = MID, bold = true, h = head_h - 8 }) self:text(bb, spaced(upper(_("Pages"))), 22, c2r - 240, by + 8, 240,
+#: view.lua:289
+msgid "Period"
+msgstr "Zeitraum"
+
+#. Type: message
+#. Context: if (S.legacy_count or 0) > 0 then note = note .. " " .. T(_("Plus %1 finished books without reading data (≈ %2 pages)."), S.legacy_count, int(S.legacy_pages))
+#: view.lua:335
+msgid "Plus %1 finished books without reading data (≈ %2 pages)."
+msgstr "Dazu %1 fertige Bücher ohne Lesedaten (≈ %2 Seiten)."
+
+#. Type: label
+#. Context: local figs = { { _("Reading days"), tostring(C.days_read), " / " .. C.days_total }, { _("Reading time"), nil, nil, C.sec },
+#: view.lua:642
+msgid "Reading days"
+msgstr "Lesetage"
+
+#. Type: label
+#. Context: { align = "center", bold = true, h = 76 }) self:text(bb, _("Reading days per book on average"), 23, x2 + 10, cy + 84, wr - 20, { align = "center", fg = MID, h = 32 })
+#: view.lua:476
+msgid "Reading days per book on average"
+msgstr "Lesetage pro Buch im Schnitt"
+
+#. Type: label
+#. Context: h = SECTION_H + 170 self:card(bb, X, y, W, h, _("Reading speed") .. " · " .. _("min / page")) by = y + SECTION_H
+#: view.lua:250
+msgid "Reading speed"
+msgstr "Lesetempo"
+
+#. Type: label
+#. Context: { T(_("Finished in %1"), S.year), int(S.fin_this_year), _("books") }, { _("Reading time"), int(S.total_sec / 3600), _("hours, all time") }, }
+#: view.lua:237 view.lua:292 view.lua:643
+msgid "Reading time"
+msgstr "Lesezeit"
+
+#. Type: label
+#. Context: local x2 = X + wl + GAP self:card(bb, X, y, wl, h, _("Reading time by weekday")) local vals, labels = {}, {}
+#: view.lua:462
+msgid "Reading time by weekday"
+msgstr "Lesezeit nach Wochentag"
+
+#. Type: label
+#. Context: h = SECTION_H + 12 + #S.recent * frow self:card(bb, X, y, W, h, _("Recently finished")) for i, b in ipairs(S.recent) do
+#: view.lua:442
+msgid "Recently finished"
+msgstr "Zuletzt abgeschlossen"
+
+#. Type: label
+#. Context: { _("Reading time"), nil, nil, C.sec }, { _("Sessions"), tostring(C.sessions) }, }
+#: view.lua:644
+msgid "Sessions"
+msgstr "Sitzungen"
+
+#. Type: label
+#. Context: local ok, gettext = pcall(require, "gettext") return ok and gettext("Short stories") or "Short stories" end
+#: data.lua:40
+msgid "Short stories"
+msgstr "Kurzgeschichten"
+
+#. Type: message
+#. Context: text = _("Count omnibus volumes as separate books"), help_text = _("Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."), checked_func = function()
+#: stats_settings.lua:358
+msgid "Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."
+msgstr "Tab-Layout: Bei einem Sammelband mit mehreren Romanen zählt jeder Roman als eigenes Buch. Geschichten unter 150 Seiten werden als Kurzgeschichten zusammengefasst."
+
+#. Type: setting
+#. Context: for _i, entry in ipairs({ { "tabs", _("Tabs: overview, books, calendar") }, { "dashboard", _("Dashboard with widgets") },
+#: stats_settings.lua:338
+msgid "Tabs: overview, books, calendar"
+msgstr "Tabs: Übersicht, Bücher, Kalender"
+
+#. Type: label
+#. Context: { _("Daily average"), "(" .. month(S.month) .. ")", int(S.daily_pages), S.daily_sec }, { _("This month so far"), nil, int(S.cur_month.pages), S.cur_month.sec }, { _("Last month"), "(" .. month(S.prev.m) .. ")", int(S.prev.pages), S.prev....
+#: view.lua:278
+msgid "This month so far"
+msgstr "Dieser Monat bisher"
+
+#. Type: label
+#. Context: local cols = { { _("Books read"), int(S.finished_total), _("books, all time") }, { T(_("Finished in %1"), S.year), int(S.fin_this_year), _("books") },
+#: view.lua:235
+msgid "books, all time"
+msgstr "Bücher insgesamt"
+
+#. Type: label
+#. Context: { T(_("Finished in %1"), S.year), int(S.fin_this_year), _("books") }, { _("Reading time"), int(S.total_sec / 3600), _("hours, all time") }, }
+#: view.lua:237
+msgid "hours, all time"
+msgstr "Stunden insgesamt"
+
+#. Type: label
+#. Context: h = SECTION_H + 170 self:card(bb, X, y, W, h, _("Reading speed") .. " · " .. _("min / page")) by = y + SECTION_H
+#: view.lua:250
+msgid "min / page"
+msgstr "Min. / Seite"
+
+#. Type: format
+#. Context: if fy then self:text(bb, "(" .. T(_("since %1"), monthShort(tonumber(fm)) .. " " .. fy) .. ")", 26, c1 + w1 + 10, ry + 4, 300, { fg = MID, h = row_h })
+#: view.lua:321 view.lua:426
+msgid "since %1"
+msgstr "seit %1"
