@@ -311,6 +311,9 @@ def test_reader_page_browser_modes_and_search_render() -> None:
                 assert state["header_icons"] == default_carousel["header_icons"]
                 if tab == "toc":
                     assert state["content_zen_scroll_bar"] is True
+                    # Hold used to loop through FocusManager:onHold until stack overflow.
+                    assert driver.command("annotation_viewer_action", action="hold", index=1)["ok"]
+                    assert driver.command("page_browser_state")["page_browser"]["active_tab"] == "toc"
                 if tab in ("toc", "bookmarks"):
                     assert state["content_bottom"] == state["screen_height"] - state["edge_padding"]
                 if tab == "aa":

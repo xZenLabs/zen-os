@@ -2678,6 +2678,9 @@ local function apply_page_browser()
                 and handle_focus_key(self, event.args[1], event.handler == "onKeyPress") then
                 return true
             end
+            -- Children already saw the raw hold; embedded Menus' FocusManager:onHold would
+            -- re-send it to their focused row, looping forever when the row ignores holds (TOC).
+            if event.handler == "onHold" then return self:onHold(unpack(event.args, 1, event.args.n)) end
             return _orig_handleEvent(self, event)
         end
 

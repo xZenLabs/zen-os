@@ -261,7 +261,7 @@ function ZenTocWidget.paintRow(bb, x, y, w, h, style, row)
         local inset = style.inset
         local cx, cy, cw, ch = x + inset, y + inset, w - 2 * inset, h - 2 * inset
         bb:paintBorder(cx, cy, cw, ch, style.card_border, Blitbuffer.COLOR_BLACK, style.card_radius)
-        local left, right = cx + style.pad + indent, cx + cw - style.pad
+        local left, right = x + style.pad + indent, x + w - style.pad -- Aligned with plain rows.
         local top = cy + style.card_pad
         local pn_w = paint_label(bb, { text = page_label, face = style.face, bold = true,
             x = right, y = top, h = style.text_h, right = true })
