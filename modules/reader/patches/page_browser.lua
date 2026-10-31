@@ -283,7 +283,6 @@ local function apply_page_browser()
         local btn_pad = Screen:scaleBySize(11)
         local slot_btn_w = btn_sz + btn_pad * 2
         local title_y = header_pad + math.floor((title_h - header_pad - btn_sz) / 2)
-        canvas:paintRect(0, title_h - 1, slot_w, 1, Blitbuffer.COLOR_LIGHT_GRAY)
         local stock_icons_dir = _stock_icons_dir
         local close_icon_path = utils.resolveIcon(_stock_icons_dir, "close")
         local close_size = require("common/ui/zen_title_style").ICON_SIZE
@@ -303,7 +302,8 @@ local function apply_page_browser()
             cell_height = Screen:scaleBySize(40),
         }
         local tabs_size = tabs:getSize()
-        tabs:paintTo(canvas, math.floor((slot_w - tabs_size.w) / 2), header_pad + math.floor((title_h - header_pad - tabs_size.h) / 2))
+        local tabs_y = header_pad + math.floor((title_h - header_pad - tabs_size.h) / 2)
+        tabs:paintTo(canvas, math.floor((slot_w - tabs_size.w) / 2), tabs_y)
         tabs:free()
 
         local icon_size = Screen:scaleBySize(32)
@@ -314,6 +314,7 @@ local function apply_page_browser()
 
         local top_pad = Screen:scaleBySize(preview_padding)
         local grid_top = title_h + top_pad
+        canvas:paintRect(0, math.floor((tabs_y + tabs_size.h + grid_top - 1) / 2), slot_w, 1, Blitbuffer.COLOR_LIGHT_GRAY)
         local panel_top = math.max(grid_top, slot_h - panel_h)
         local grid_h = math.max(Screen:scaleBySize(80), panel_top - grid_top)
         local layout = get_page_browser_layout()
@@ -498,14 +499,30 @@ local function apply_page_browser()
         end
         PageBrowserWidget._zenIsFullPage = is_full_page
 
-        local function preview_divider(pbw, y)
-            local divider = FrameContainer:new{
+        local function divider(pbw, y)
+            return FrameContainer:new{
                 padding = 0, bordersize = 0, overlap_offset = { 0, y },
                 LineWidget:new{ dimen = Geom:new{ w = pbw.dimen.w, h = Screen:scaleBySize(1) },
                     background = Blitbuffer.COLOR_LIGHT_GRAY },
             }
-            pbw._zen_preview_divider = divider
-            return divider
+        end
+
+        local function preview_divider(pbw, y)
+            pbw._zen_preview_divider = divider(pbw, y)
+            return pbw._zen_preview_divider
+        end
+
+        -- Centered between the tab bar and the preview top. Nil during native init
+        -- (tabs not built yet), so callers keep it last in their child list.
+        local function header_divider(pbw, top_pad)
+            local tabs = pbw._zen_tab_bar
+            if not tabs then return end
+            local title_top = pbw._zen_status_row and pbw._zen_header_offset
+                or math.floor(pbw._zen_header_top_inset / 2)
+            local tabs_bottom = title_top + tabs.overlap_offset[2] + tabs:getSize().h
+            pbw._zen_header_divider = divider(pbw,
+                math.floor((tabs_bottom + pbw.title_bar_h + top_pad - Screen:scaleBySize(1)) / 2))
+            return pbw._zen_header_divider
         end
 
         function PageBrowserWidget:_zenOpenFocusedPage()
@@ -1495,6 +1512,7 @@ local function apply_page_browser()
                                 overlap_offset = { 0, self.dimen.h - controls_h }, panel,
                             },
                             preview_divider(self, self.dimen.h - controls_h),
+                            header_divider(self, top_pad),
                         },
                     }
                     self._zen_rebuilding_focus_layout = nil
@@ -1509,6 +1527,7 @@ local function apply_page_browser()
                         VerticalGroup:new{ align = "center", header(self),
                             VerticalSpan:new{ width = top_pad }, self.grid }, panel,
                         preview_divider(self, self.dimen.h - controls_h),
+                        header_divider(self, top_pad),
                     },
                 }
                 self._zen_rebuilding_focus_layout = nil
@@ -1933,6 +1952,7 @@ local function apply_page_browser()
                         self.grid,
                     },
                     panel,
+                    header_divider(self, top_pad),
                 }
             }
             self._zen_rebuilding_focus_layout = nil

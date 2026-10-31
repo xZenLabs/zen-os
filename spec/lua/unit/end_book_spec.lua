@@ -276,7 +276,9 @@ describe("end of book", function()
         ZenSpec.replace("ui/font", { getFace = function(_self, font, size)
             return { name = font, orig_size = size, size = require("device").screen:scaleBySize(size) }
         end })
-        ZenSpec.replace("modules/filebrowser/patches/library_font", { getFontName = function() return "library-font" end })
+        ZenSpec.replace("modules/filebrowser/patches/library_font", { getStyleFace = function(face, size)
+            return require("ui/font"):getFace(face == "default" and "library-font" or face, size)
+        end })
         featured.show_navigation_labels = true
         featured.text_styles.navigation = { font_face = "default", font_size = 15 }
         for scale = 1, 2 do

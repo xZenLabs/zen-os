@@ -66,8 +66,7 @@ local function control_text_style(controls)
 end
 
 local function get_control_face(style, size)
-    if style.font_face == "default" then return library_font.getFace(size) end
-    return Font:getFace(style.font_face, size) or library_font.getFace(size)
+    return library_font.getStyleFace(style.font_face, math.max(1, math.floor(size)))
 end
 
 local function fit_face(labels, width, style, maximum, minimum)

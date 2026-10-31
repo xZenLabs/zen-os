@@ -2,7 +2,6 @@ local Background = require("common/ui/background")
 local Blitbuffer = require("ffi/blitbuffer")
 local DateFormat = require("common/date_format")
 local Device = require("device")
-local Font = require("ui/font")
 local Geom = require("ui/geometry")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local TextWidget = require("ui/widget/textwidget")
@@ -37,8 +36,6 @@ local function clock_styles(module_cfg)
         and time_style.font_face ~= "" and time_style.font_face or "default"
     local date_font_name = type(date_style.font_face) == "string"
         and date_style.font_face ~= "" and date_style.font_face or "default"
-    if time_font_name == "default" then time_font_name = library_font.getFontName() end
-    if date_font_name == "default" then date_font_name = library_font.getFontName() end
     return time_style, date_style, time_font_name, date_font_name
 end
 
@@ -47,12 +44,12 @@ local function new_clock_widgets(Screen, time_font_name, date_font_name,
     date_px = date_px or math.max(8, math.floor(time_px * 0.36))
     local tw = TextWidget:new{
         text = time_str,
-        face = Font:getFace(time_font_name, Screen:scaleBySize(time_px)),
+        face = library_font.getStyleFace(time_font_name, Screen:scaleBySize(time_px)),
         bold = true,
     }
     local dw = TextWidget:new{
         text = date_str,
-        face = Font:getFace(date_font_name, Screen:scaleBySize(date_px)),
+        face = library_font.getStyleFace(date_font_name, Screen:scaleBySize(date_px)),
         fgcolor = Blitbuffer.COLOR_GRAY_3,
     }
     local ts = tw:getSize()

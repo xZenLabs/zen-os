@@ -668,11 +668,17 @@ def test_page_browser_status_bar_is_fixed_across_tabs_and_respects_settings(inte
                 assert state["header_tabs"] == original["header_tabs"]
                 assert state["header_height"] == original["header_height"]
                 assert bool(state.get("status_bar")) is visible
+                if tab in ("controls", "pages"):
+                    painted = _wait_command(driver, "page_browser_state", lambda result:
+                                            result["page_browser"]["preview_ready"])["page_browser"]
+                    tabs, line = painted["header_tabs"], painted["header_divider"]
+                    preview_top = painted["full_page_top"] if painted["full_page"] \
+                        else min(item["bounds"]["y"] for item in painted["preview_bounds"])
+                    above = line["y"] - tabs["y"] - tabs["h"]
+                    below = preview_top - line["y"] - line["h"]
+                    assert above > 0 and abs(above - below) <= 1
                 if visible:
                     assert state["status_bar"]["bounds"] == original["status_bar"]["bounds"]
-                    if tab in ("controls", "pages"):
-                        _wait_command(driver, "page_browser_state", lambda result:
-                                      result["page_browser"]["preview_ready"])
                     frame_dir = Path(__file__).resolve().parents[2] / ".artifacts" / "page-browser"
                     frame_dir.mkdir(parents=True, exist_ok=True)
                     driver.screenshot(frame_dir / f"status-bar-{tab}.png")

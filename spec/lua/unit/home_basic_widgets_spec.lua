@@ -84,6 +84,9 @@ describe("home basic widgets", function()
         })
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
             getFontName = function() return "smallinfofont" end,
+            getStyleFace = function(face, size)
+                return require("ui/font"):getFace(face == "default" and "smallinfofont" or face, size)
+            end,
         })
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("ui/gesturerange", widget_class("gesture"))

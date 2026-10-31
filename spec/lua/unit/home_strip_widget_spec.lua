@@ -111,10 +111,15 @@ describe("home strip widget", function()
             getBadgeInset = function() return 1 end,
             formatPageCount = function(pages) return tostring(pages) end,
         }, { __index = dofile(ZenSpec.root .. "/common/utils.lua") }))
+        local function library_face(size)
+            library_font_sizes[#library_font_sizes + 1] = size
+            return { name = "LibraryFont", size = size }
+        end
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
-            getFace = function(size)
-                library_font_sizes[#library_font_sizes + 1] = size
-                return { name = "LibraryFont", size = size }
+            getFace = library_face,
+            getStyleFace = function(face, size)
+                if face == "default" then return library_face(size) end
+                return require("ui/font"):getFace(face, size)
             end,
             scaleValue = function() error("home strip used library font size") end,
         })

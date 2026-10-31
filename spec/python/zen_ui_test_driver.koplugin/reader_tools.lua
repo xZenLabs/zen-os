@@ -283,6 +283,7 @@ function M.page_browser_state()
         top_is_browser = UIManager._window_stack[#UIManager._window_stack].widget == browser,
         panel_height = browser._zen_panel_h,
         preview_divider = browser._zen_preview_divider and browser._zen_preview_divider.dimen,
+        header_divider = browser._zen_header_divider and browser._zen_header_divider.dimen,
         chapter_bounds = browser._zen_chapter_zone,
         previous_bounds = browser._zen_btn_skip_left_zone,
         next_bounds = browser._zen_btn_skip_right_zone,
