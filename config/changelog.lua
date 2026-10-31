@@ -423,9 +423,11 @@ return {
         "Keep the reader status bar visible behind reference popups",
         "Better Rakuyomi settings (Extras > Rakuyomi)",
         "Add customizable reader controls (bottom tab menu in a book) (Reader > Reader controls)",
-        "Update page browser (Reader > Page browser)",
+        "Update page browser (Reader > Page browser > Tabs)",
         "Update highlight function",
-        "Update highlight submenu (Reader > Lookup / Highlight)"
+        "Update highlight submenu (Reader > Lookup / Highlight)",
+        "Background OPDS downloads with queueing and Read now",
+        "Fix startup crash loop on books whose cover extraction keeps crashing"
     },
 
 }

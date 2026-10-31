@@ -623,6 +623,37 @@ describe("reader footer patches", function()
         return ReaderFooter
     end
 
+    it("tap-cycles enabled items in preset order, skipping both fillers", function()
+        local ReaderFooter = load_native_footer()
+        local old_settings = G_reader_settings
+        _G.G_reader_settings = ZenSpec.memorySettings({})
+        finally(function() _G.G_reader_settings = old_settings end)
+        local noop = function() end
+        local footer = setmetatable({
+            settings = { all_at_once = false, percentage = true, page_progress = true, time = true,
+                dynamic_filler = true, dynamic_filler2 = true },
+            mode = 0, view = {},
+            applyFooterMode = noop, onUpdateFooter = noop, rescheduleFooterAutoRefreshIfNeeded = noop,
+        }, { __index = ReaderFooter })
+        -- Stock init: build mode_list once from the default order.
+        footer:set_mode_index()
+        footer.mode_list = {}
+        for i = 0, footer.mode_nb - 1 do footer.mode_list[footer.mode_index[i]] = i end
+        -- Preset load: new order, set_mode_index only.
+        footer.settings.order = { [0] = "off", "percentage", "dynamic_filler", "page_progress",
+            "dynamic_filler2", "time" }
+        footer:set_mode_index()
+
+        local seen = {}
+        for _i = 1, 8 do
+            footer:onToggleFooterMode()
+            seen[#seen + 1] = footer.mode_index[footer.mode]
+        end
+        assert.are.same({ "percentage", "page_progress", "time", "off",
+            "percentage", "page_progress", "time", "off" }, seen)
+        assert.is_true(footer.settings.dynamic_filler2)
+    end)
+
     it("edits native footer settings and presets without a reader or refresh timers", function()
         local ReaderFooter = load_native_footer()
         for name, module in pairs({

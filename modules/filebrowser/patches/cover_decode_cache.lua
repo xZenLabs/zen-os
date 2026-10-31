@@ -36,24 +36,10 @@ local function apply_cover_decode_cache()
         end
     end
 
-    local function recover_interrupted_extraction(filepath, info, get_cover)
-        if not get_cover or type(info) ~= "table"
-                or info.unsupported ~= "too many interruptions or crashes" then
-            return info
-        end
-        cache:drop(filepath)
-        render_cache:drop(filepath)
-        if type(BookInfoManager.deleteBookInfo) == "function" then
-            BookInfoManager:deleteBookInfo(filepath)
-        end
-        return nil
-    end
-
     function BookInfoManager:getBookInfo(filepath, get_cover)
         if not get_cover or not cache:has(filepath) then
             local started_at = get_cover and now()
             local info = orig_getBookInfo(self, filepath, get_cover)
-            info = recover_interrupted_extraction(filepath, info, get_cover)
             remember_metadata(filepath, info)
             if get_cover then
                 cache:recordMiss()
@@ -78,7 +64,6 @@ local function apply_cover_decode_cache()
         -- validation cheap while preserving CoverBrowser's return shape.
         local validation_started_at = now()
         info = orig_getBookInfo(self, filepath, false)
-        info = recover_interrupted_extraction(filepath, info, get_cover)
         remember_metadata(filepath, info)
         cache:recordValidation((now() - validation_started_at) * 1000)
         if not info or not info.has_cover or info.ignore_cover then

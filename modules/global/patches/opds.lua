@@ -4,6 +4,7 @@
 --   - Footer return arrow hidden (navigation via title buttons)
 --   - Cover art in browse list (downloaded async, no coverbrowser dependency)
 --   - Left-aligned single-column download dialog (context_menu style)
+--   - Background download queue with cover badge progress
 --   - Default download folder falls back to Device.home_dir
 
 local function apply_opds()
@@ -219,6 +220,12 @@ local function apply_opds()
         return body
     end
 
+    local function collect_process(child_pid)
+        if not FFIUtil.isSubProcessDone(child_pid) then
+            UIManager:scheduleIn(1, function() collect_process(child_pid) end)
+        end
+    end
+
     -- Sequential async cover loader. Returns a cancel function.
     local function start_cover_queue(queue, creds)
         if #queue == 0 then return function() end end
@@ -226,11 +233,6 @@ local function apply_opds()
         local stopped = false
         local idx     = 1
         local next_cover, poll_cover, pid, read_fd
-        local function collect_process(child_pid)
-            if not FFIUtil.isSubProcessDone(child_pid) then
-                UIManager:scheduleIn(1, function() collect_process(child_pid) end)
-            end
-        end
         local function finish_process()
             if read_fd then ffi.C.close(read_fd); read_fd = nil end
             if pid then
@@ -398,11 +400,13 @@ local function apply_opds()
         return cfg.downloaded
     end
 
-    local function remember_downloaded(identity)
+    -- Stores the local path when known so "Read now" works with server filenames.
+    local function remember_downloaded(identity, path)
         if type(identity) ~= "string" or identity == "" then return false end
         local names = downloaded_names(true)
-        if not names or names[identity] then return false end
-        names[identity] = true
+        if not names or names[identity] == (path or true)
+                or (not path and names[identity]) then return false end
+        names[identity] = path or true
         return true
     end
 
@@ -421,9 +425,33 @@ local function apply_opds()
         if not ok_index or type(index.getInventoryPaths) ~= "function" then return filenames end
         for _i, path in ipairs(index.getInventoryPaths()) do
             local name = type(path) == "string" and path:match("([^/]+)$")
-            if name then filenames[name] = true end
+            if name then filenames[name] = path end
         end
         return filenames
+    end
+
+    local function is_file(path)
+        local attr = type(path) == "string" and lfs.attributes(path)
+        return attr and attr.mode == "file" and (attr.size or 0) > 0
+    end
+
+    -- Raw server filenames (filename == nil) may require a network request to resolve.
+    local function local_copy(browser, item, filename)
+        if not filename then return end
+        for _i, acquisition in ipairs(item.acquisitions or {}) do
+            if not acquisition.count and acquisition.type ~= "borrow"
+                    and type(acquisition.href) == "string" then
+                local filetype = OPDSBrowser.getFiletype(acquisition)
+                if filetype then
+                    local path = browser:getLocalDownloadPath(
+                        filename, filetype, acquisition.href)
+                    if is_file(path) then return path end
+                    local basename = path:match("([^/]+)$")
+                    local found = basename and library_filenames(browser)[basename]
+                    if found then return found end
+                end
+            end
+        end
     end
 
     local function downloaded_state(browser, item)
@@ -432,38 +460,114 @@ local function apply_opds()
         identity = identity or filename
         local names = downloaded_names()
         if identity and names and names[identity] then return true, identity end
-        -- Raw server filenames may require a network request to resolve.
-        if not filename then return false, identity end
-        for _i, acquisition in ipairs(item.acquisitions) do
-            if not acquisition.count and acquisition.type ~= "borrow"
-                    and type(acquisition.href) == "string" then
-                local filetype = OPDSBrowser.getFiletype(acquisition)
-                if filetype then
-                    local path = browser:getLocalDownloadPath(
-                        filename, filetype, acquisition.href)
-                    local attr = lfs.attributes(path)
-                    if attr and attr.mode == "file" and (attr.size or 0) > 0 then
-                        return true, identity, true
-                    end
-                    local basename = path:match("([^/]+)$")
-                    if basename and library_filenames(browser)[basename] then
-                        return true, identity, true
-                    end
-                end
-            end
-        end
+        if local_copy(browser, item, filename) then return true, identity, true end
         return false, identity
     end
+
+    local function downloaded_file(browser, item)
+        local filename, identity = browser:getFileName(item)
+        local names = downloaded_names()
+        local stored = names and names[identity or filename]
+        if is_file(stored) then return stored end
+        return local_copy(browser, item, filename)
+    end
+
+    -- Background downloads: one subprocess at a time, keyed by download identity.
+    -- The queue outlives the browser so closing OPDS never cancels a download.
+    local _dl_queue, _dl_pending = {}, {}
+    local _dl_running, _dl_browser
 
     local function tag_downloaded_items(browser, item_table)
         local changed = false
         for _i, item in ipairs(item_table or {}) do
             local downloaded, identity, discovered = downloaded_state(browser, item)
             item._zen_opds_downloaded = downloaded
+            item._zen_opds_identity = identity
+            item._zen_opds_downloading = identity and _dl_pending[identity] or nil
             if discovered and remember_downloaded(identity) then changed = true end
         end
         if changed then save_downloaded_names() end
         return item_table
+    end
+
+    local function refresh_download_state(identity, downloaded)
+        local browser = _dl_browser
+        if not browser or browser._zen_opds_closed then return end
+        for _i, entry in ipairs(browser.item_table or {}) do
+            if entry._zen_opds_identity == identity then
+                entry._zen_opds_downloading = _dl_pending[identity] or nil
+                if downloaded then entry._zen_opds_downloaded = true end
+            end
+        end
+        for _i, row in ipairs(browser.layout or {}) do
+            for _j, widget in ipairs(row) do
+                local entry = type(widget) == "table" and widget.entry
+                if type(entry) == "table" and entry._zen_opds_identity == identity
+                        and widget.update then
+                    widget:update()
+                end
+            end
+        end
+    end
+
+    local run_next_download
+    local function finish_download(job, result)
+        _dl_running = nil
+        _dl_pending[job.identity] = nil
+        UIManager:allowStandby()
+        local ok = result == "ok"
+        if ok and remember_downloaded(job.identity, job.path) then
+            save_downloaded_names()
+        end
+        refresh_download_state(job.identity, ok)
+        if not ok then
+            local _ = require("gettext")
+            local text = result and result:match("^err:(.+)$")
+            UIManager:show(require("ui/widget/infomessage"):new{
+                text = text or (_("Download failed: ") .. (job.title or "")),
+            })
+        end
+        UIManager:nextTick(run_next_download)
+    end
+
+    run_next_download = function()
+        if _dl_running then return end
+        local job = table.remove(_dl_queue, 1)
+        if not job then return end
+        _dl_running = job
+        UIManager:preventStandby()
+        local pid, read_fd = FFIUtil.runInSubProcess(function(_pid, write_fd)
+            -- Child only: capture stock error popups as the result text.
+            local err
+            UIManager.show = function(_self, widget) err = widget and widget.text end
+            local done = job.browser:downloadFile(job.path, job.url, job.username, job.password)
+            FFIUtil.writeToFD(write_fd, done and "ok" or ("err:" .. (err or "")), true)
+        end, true)
+        if not pid then
+            logger.warn("OPDS download subprocess failed:", job.url)
+            return finish_download(job)
+        end
+        local poll
+        poll = function()
+            local done = FFIUtil.isSubProcessDone(pid)
+            local available = FFIUtil.getNonBlockingReadSize(read_fd)
+            if not done and not (available and available > 0) then
+                UIManager:scheduleIn(0.5, poll)
+                return
+            end
+            local result = FFIUtil.readAllFromFD(read_fd)
+            collect_process(pid)
+            finish_download(job, result)
+        end
+        UIManager:scheduleIn(0.5, poll)
+    end
+
+    local function queue_download(job)
+        if _dl_pending[job.identity] then return end
+        _dl_pending[job.identity] = true
+        _dl_queue[#_dl_queue + 1] = job
+        refresh_download_state(job.identity)
+        run_next_download()
     end
 
     -- Mosaic title strip: read at apply time; mirrors mosaic_title_strip.lua logic.
@@ -567,8 +671,9 @@ local function apply_opds()
         end
     end
 
-    local function paint_downloaded_badge(bb, entry, x, y, width)
-        if not entry._zen_opds_downloaded then return end
+    local function paint_download_badge(bb, entry, x, y, width)
+        local downloading = entry._zen_opds_downloading
+        if not (downloading or entry._zen_opds_downloaded) then return end
         local plug = _plugin or rawget(_G, "__ZEN_UI_PLUGIN")
         local config = plug and plug.config
         local size = math.floor(math.max(Screen:scaleBySize(20), math.floor(width * 0.14))
@@ -580,7 +685,8 @@ local function apply_opds()
         utils.paintBadgeCircle(bb, cx, cy, radius + 2, foreground)
         utils.paintBadgeCircle(bb, cx, cy, radius, utils.getBadgeColor(config))
         local square = math.floor(radius * 1.2)
-        utils.paintBadgeCheck(bb, cx - math.floor(square / 2), cy - math.floor(square / 2),
+        local paint_glyph = downloading and utils.paintBadgeDownload or utils.paintBadgeCheck
+        paint_glyph(bb, cx - math.floor(square / 2), cy - math.floor(square / 2),
             square, square, foreground)
     end
 
@@ -714,7 +820,7 @@ local function apply_opds()
             paintCornerBorderArcs(bb, cover_x, cover_y, self.cover_w, self.cover_h,
                 _corner_radius, COVER_BORDER, cover_border_color(self.entry))
         end
-        paint_downloaded_badge(bb, self.entry, cover_x, cover_y, self.cover_w)
+        paint_download_badge(bb, self.entry, cover_x, cover_y, self.cover_w)
     end
 
     function OPDSItem:update()
@@ -840,7 +946,7 @@ local function apply_opds()
             paintCornerBorderArcs(bb, cx, cy, self.cover_w, self.cover_h,
                 _corner_radius, COVER_BORDER, cover_border_color(self.entry))
         end
-        paint_downloaded_badge(bb, self.entry, cx, cy, self.cover_w)
+        paint_download_badge(bb, self.entry, cx, cy, self.cover_w)
     end
 
     function OPDSMosaicItem:update()
@@ -1239,10 +1345,13 @@ local function apply_opds()
         end
         self._zen_prefetched_feed = nil
         self._zen_network_action = nil
-        if self._zen_network_wait then
-            UIManager:unschedule(self._zen_network_wait)
-            self._zen_network_wait = nil
+        for _i, key in ipairs({ "_zen_network_wait", "_zen_default_retry", "_zen_input_unlock" }) do
+            if self[key] then
+                UIManager:unschedule(self[key])
+                self[key] = nil
+            end
         end
+        if _dl_browser == self then _dl_browser = nil end
         if self._zen_halt then self._zen_halt(); self._zen_halt = nil end
         -- Owned by _cover_cache; free them here since image_disposable=false means widgets didn't.
         prune_cover_cache(nil, self.item_table)
@@ -1472,10 +1581,12 @@ local function apply_opds()
         return true
     end
 
+    local load_default_catalog
     local orig_init = OPDSBrowser.init
     function OPDSBrowser:init()
         self._zen_opds_closed = nil
         self._zen_prefetched_feed = nil
+        _dl_browser = self
         -- Suppress the empty subtitle Menu.init inserts when title_bar_fm_style=true;
         -- it renders as a blank line adding ~20px of dead space below the title.
         -- false is non-nil (so Menu:init skips overriding it) but falsy (so TitleBar skips it).
@@ -1503,9 +1614,7 @@ local function apply_opds()
                 end
             end
             UIManager:nextTick(function()
-                self:runWhenConnected(function()
-                    self:updateCatalog(default_url)
-                end)
+                load_default_catalog(self, default_url, 0)
             end)
         end
     end
@@ -1614,8 +1723,16 @@ local function apply_opds()
         UIManager:scheduleIn(0.5, wait_for_network)
     end
 
+    -- Ignore item taps briefly after a catalog loads; queued impatient taps land on new items.
+    local function guard_input(browser)
+        if browser._zen_input_unlock then UIManager:unschedule(browser._zen_input_unlock) end
+        browser._zen_input_unlock = function() browser._zen_input_unlock = nil end
+        UIManager:scheduleIn(0.5, browser._zen_input_unlock)
+    end
+
     local orig_onMenuSelect = OPDSBrowser.onMenuSelect
     function OPDSBrowser:onMenuSelect(item)
+        if self._zen_input_unlock then return true end
         if (item.acquisitions and item.acquisitions[1]) or (#self.paths == 0 and item.idx == 1) then
             return orig_onMenuSelect(self, item)
         end
@@ -1625,13 +1742,45 @@ local function apply_opds()
 
     -- Re-apply buttons after stock updateCatalog resets them.
     local orig_updateCatalog = OPDSBrowser.updateCatalog
+    local function update_catalog_now(browser, item_url, paths_updated)
+        browser._zen_prefetched_feed = nil
+        browser._zen_opds_library_filenames = nil
+        if browser._zen_halt then browser._zen_halt(); browser._zen_halt = nil end
+        orig_updateCatalog(browser, item_url, paths_updated)
+        fix_buttons(browser)
+        guard_input(browser)
+    end
+
     function OPDSBrowser:updateCatalog(item_url, paths_updated)
         return self:runWhenConnected(function()
-            self._zen_prefetched_feed = nil
-            self._zen_opds_library_filenames = nil
-            if self._zen_halt then self._zen_halt(); self._zen_halt = nil end
-            orig_updateCatalog(self, item_url, paths_updated)
-            fix_buttons(self)
+            update_catalog_now(self, item_url, paths_updated)
+        end)
+    end
+
+    local DEFAULT_RETRIES, DEFAULT_RETRY_DELAY = 2, 2
+    -- Wi-Fi can report connected before DNS/routes work; retry quietly before stock error popups.
+    load_default_catalog = function(browser, url, attempt)
+        browser:runWhenConnected(function()
+            local depth = #browser.paths
+            local notices = {}
+            local show = UIManager.show
+            UIManager.show = function(_self, ...)
+                notices[#notices + 1] = { n = select("#", ...), ... }
+            end
+            local ok, err = pcall(update_catalog_now, browser, url)
+            UIManager.show = show
+            if not ok then error(err) end
+            if #browser.paths == depth and attempt < DEFAULT_RETRIES
+                    and type(NetworkMgr.isOnline) == "function" and not NetworkMgr:isOnline() then
+                logger.dbg("OPDS default catalog offline, retry", attempt + 1)
+                browser._zen_default_retry = function()
+                    browser._zen_default_retry = nil
+                    load_default_catalog(browser, url, attempt + 1)
+                end
+                UIManager:scheduleIn(DEFAULT_RETRY_DELAY, browser._zen_default_retry)
+                return
+            end
+            for _i, args in ipairs(notices) do UIManager:show(unpack(args, 1, args.n)) end
         end)
     end
 
@@ -2047,52 +2196,36 @@ local function apply_opds()
         }
 
         local buttons = {}
-
-        -- Custom post-download dialog: title + Read Now / Done.
-        local _item_title = item.title or item.text or ""
-        local _browser = self
-        local function zen_download_cb(file)
-            if remember_downloaded(download_identity or filename) then
-                save_downloaded_names()
-            end
-            item._zen_opds_downloaded = true
-            UIManager:setDirty(_browser.show_parent or _browser, "ui")
-            local dlg = ConfirmBox:new{
-                icon         = "notice-info",
-                text         = _("Downloaded") .. "\n" .. _item_title,
-                -- cancel = Read now (left), ok = Done (right)
-                cancel_text  = "\u{F0B63}  " .. _("Read now"),
-                cancel_callback = function()
-                    local mgr = _browser._manager
+        local identity = download_identity or filename
+        local pending = identity and _dl_pending[identity]
+        local local_file = not pending and item._zen_opds_downloaded and downloaded_file(self, item)
+        if local_file then
+            table.insert(buttons, {{ text = "\u{F0B63}  " .. _("Read now"), align = "left", bold = true,
+                callback = function()
+                    UIManager:close(self.download_dialog)
+                    local mgr = self._manager
                     if mgr then mgr.last_downloaded_file = nil end
-                    _browser.close_callback()
+                    if not (self.close_callback and pcall(self.close_callback)) then
+                        UIManager:close(self)
+                    end
                     local ui = mgr and mgr.ui
                     if ui then
                         if ui.document then
-                            ui:switchDocument(file)
+                            ui:switchDocument(local_file)
                         else
-                            ui:openFile(file)
+                            ui:openFile(local_file)
                         end
                     end
                 end,
-                ok_text      = "\u{F012C}  " .. _("Done"),
-                ok_callback  = function() end,
+            }})
+        end
+
+        local function enqueue(path, href)
+            queue_download{
+                browser = self, identity = identity or path, path = path, url = href,
+                username = self.root_catalog_username, password = self.root_catalog_password,
+                title = item.title or item.text,
             }
-            function dlg:onCloseWidget()
-                ConfirmBox.onCloseWidget(self)
-                -- Repaint after removal so newer popups stay above the catalog.
-                UIManager:nextTick(function()
-                    if _browser._zen_opds_closed then return end
-                    UIManager:setDirty(_browser.show_parent or _browser, getFullRefreshMode())
-                end)
-            end
-            -- Tapping outside (or Back) should just dismiss the dialog,
-            -- not trigger the "Read now" cancel_callback.
-            function dlg:onClose()
-                UIManager:close(self)
-                return true
-            end
-            UIManager:nextTick(function() UIManager:show(dlg) end)
         end
 
         for _i, acq in ipairs(acquisitions) do
@@ -2127,12 +2260,19 @@ local function apply_opds()
                     local a  = acq
                     local fn = filename
                     table.insert(buttons, {{ text = "\u{F01DA}  " .. _( "Download") .. " " .. url_mod.unescape(a.title or string.upper(filetype)), align = "left", bold = true,
+                        enabled = not pending,
                         callback = function()
                             UIManager:close(self.download_dialog)
-                            local p = self:getLocalDownloadPath(fn, filetype, a.href)
-                            self:checkDownloadFile(p, a.href,
-                                self.root_catalog_username, self.root_catalog_password,
-                                zen_download_cb)
+                            self:runWhenConnected(function()
+                                local p = self:getLocalDownloadPath(fn, filetype, a.href)
+                                if not lfs.attributes(p) then return enqueue(p, a.href) end
+                                UIManager:show(ConfirmBox:new{
+                                    text = FFIUtil.template(_("The file %1 already exists. Do you want to overwrite it?"),
+                                        BD.filepath(p)),
+                                    ok_text = _("Overwrite"),
+                                    ok_callback = function() enqueue(p, a.href) end,
+                                })
+                            end)
                         end,
                         hold_callback = function()
                             UIManager:close(self.download_dialog)

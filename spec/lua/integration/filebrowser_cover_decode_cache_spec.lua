@@ -132,12 +132,16 @@ describe("CoverBrowser decoded cover cache patch", function()
         assert.is_false(Cache:has("/book.epub"))
     end)
 
-    it("retries books that CoverBrowser abandoned after interrupted extraction", function()
+    it("keeps CoverBrowser's crash-loop guard for abandoned books", function()
         local deleted
-        forced_info = { unsupported = "too many interruptions or crashes" }
+        forced_info = {
+            unsupported = "too many interruptions or crashes",
+            cover_fetched = "Y",
+        }
         BookInfoManager.deleteBookInfo = function(_self, path) deleted = path end
 
-        assert.is_nil(BookInfoManager:getBookInfo("/interrupted.epub", true))
-        assert.are.equal("/interrupted.epub", deleted)
+        local info = BookInfoManager:getBookInfo("/crashing.pdf", true)
+        assert.are.equal("too many interruptions or crashes", info.unsupported)
+        assert.is_nil(deleted)
     end)
 end)

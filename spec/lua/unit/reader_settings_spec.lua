@@ -712,7 +712,7 @@ describe("reader settings", function()
         local bottom_toggles = 0
         local dispatch = package.loaded["common/dispatch_action"]
         local plugin
-        dispatch.isBottomStatusBarVisible = function(actual_plugin)
+        dispatch.isBottomStatusBarEnabled = function(actual_plugin)
             assert.are.equal(plugin, actual_plugin)
             local ReaderUI = require("apps/reader/readerui")
             if ReaderUI.instance then return bottom_visible end

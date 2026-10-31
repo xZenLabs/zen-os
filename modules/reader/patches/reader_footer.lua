@@ -166,6 +166,22 @@ local function apply_reader_footer()
         if self.settings then
             self.settings.progress_bar = nil
         end
+        -- Stock rebuilds mode_list only in init; a reordered preset leaves tap-cycling on stale indices.
+        if self.mode_list then
+            self.mode_list = {}
+            for i = 0, self.mode_nb - 1 do self.mode_list[self.mode_index[i]] = i end
+        end
+    end
+
+    -- Tap-cycling skips dynamic_filler; skip the second filler too.
+    local orig_onToggleFooterMode = ReaderFooter.onToggleFooterMode
+    ReaderFooter.onToggleFooterMode = function(self, ...)
+        local filler2 = self.settings.dynamic_filler2
+        self.settings.dynamic_filler2 = nil
+        local ok, result = pcall(orig_onToggleFooterMode, self, ...)
+        self.settings.dynamic_filler2 = filler2
+        if not ok then error(result, 0) end
+        return result
     end
 
     -- Older KOReader menus need the second filler inserted before additional_content.
@@ -367,12 +383,16 @@ local function apply_reader_footer()
         return w
     end
 
-    local function reserve_pin(self, text)
+    local function reserve_pin(self, text, after_bar)
         local width = self._zen_pin_reserved_width or 0
         if not self._zen_pin_inline or width == 0 then return text end
         local gap = text ~= "" and Screen:scaleBySize(8) or 0
         self._zen_pin_right_inset = measure_text(self, text) + gap
         width = width + gap - Screen:scaleBySize(4)
+        if after_bar and text == "" then
+            -- KOReader adds horizontal_margin after the bar; end the bar a short gap before the box.
+            width = math.max(1, self._zen_pin_box_width + Screen:scaleBySize(8) - self.horizontal_margin)
+        end
         self.filler_space_width = self.filler_space_width or measure_text(self, " ")
         return (" "):rep(math.ceil(width / self.filler_space_width)) .. text
     end
@@ -512,10 +532,12 @@ local function apply_reader_footer()
         orig_updateFooterText(self, force_repaint, full_repaint)
 
         local left_w = self._zen_left_w or 0
-        -- Only apply left padding when there's actual left text.
-        local pad_w = (left_w > 0 and self._zen_bar_left_pad)
-            and self._zen_bar_left_pad.width or 0
-        if left_w > 0 or pad_w > 0 then
+        local pad = self._zen_bar_left_pad
+        -- No left text: zero the pad (genAllFooterText is skipped when has_no_mode),
+        -- else the group overflows and the bar shifts off the left margin.
+        local pad_w = left_w > 0 and pad.width or 0
+        if left_w > 0 or pad.width > 0 then
+            pad.width = pad_w
             self.progress_bar.width = math.max(0, self.progress_bar.width - left_w - pad_w)
             self.horizontal_group:resetLayout()
             -- Re-paint to overwrite the incorrect fb content from orig's widgetRepaint.
@@ -633,10 +655,10 @@ local function apply_reader_footer()
                         right_text = center_prepend
                     end
                 end
-                return reserve_pin(self, right_text)
+                return reserve_pin(self, right_text, true)
             end
             -- No split found; let orig handle alongside layout normally.
-            return reserve_pin(self, orig_genAllFooterText(self, nil))
+            return reserve_pin(self, orig_genAllFooterText(self, nil), true)
         end
 
         if not filler1_gi or not filler2_gi then
@@ -715,10 +737,6 @@ local function apply_reader_footer()
             return
         end
         footer:set_mode_index()
-        footer.mode_list = {}
-        for i = 0, #footer.mode_index do
-            footer.mode_list[footer.mode_index[i]] = i
-        end
         if footer.settings.disabled then return end
         footer:set_has_no_mode()
 

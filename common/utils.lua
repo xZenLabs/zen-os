@@ -435,9 +435,9 @@ function M.paintBadgeCircle(bb, cx, cy, radius, color)
     end
 end
 
-function M.paintBadgeCheck(bb, x, y, width, height, color)
+local function badge_line_painter(bb, width, height, color)
     local thickness = math.max(2, math.floor(math.min(width, height) / 8))
-    local function line(x0, y0, x1, y1)
+    return function(x0, y0, x1, y1)
         local steps = math.max(math.abs(x1 - x0), math.abs(y1 - y0))
         if steps == 0 then steps = 1 end
         for step = 0, steps do
@@ -446,10 +446,26 @@ function M.paintBadgeCheck(bb, x, y, width, height, color)
                 math.floor(y0 + t * (y1 - y0)), thickness, thickness, color)
         end
     end
+end
+
+function M.paintBadgeCheck(bb, x, y, width, height, color)
+    local line = badge_line_painter(bb, width, height, color)
     local lx0, ly0 = x + math.floor(width * 0.08), y + math.floor(height * 0.62)
     local lx1, ly1 = x + math.floor(width * 0.30), y + math.floor(height * 0.82)
     line(lx0, ly0, lx1, ly1)
     line(lx1, ly1, x + math.floor(width * 0.82), y + math.floor(height * 0.18))
+end
+
+-- Down arrow over a tray line.
+function M.paintBadgeDownload(bb, x, y, width, height, color)
+    local line = badge_line_painter(bb, width, height, color)
+    local cx = x + math.floor(width * 0.45)
+    local tip = y + math.floor(height * 0.66)
+    line(cx, y + math.floor(height * 0.04), cx, tip)
+    line(x + math.floor(width * 0.18), y + math.floor(height * 0.40), cx, tip)
+    line(x + math.floor(width * 0.72), y + math.floor(height * 0.40), cx, tip)
+    local base = y + math.floor(height * 0.86)
+    line(x + math.floor(width * 0.08), base, x + math.floor(width * 0.82), base)
 end
 
 --- @param config table|nil  the plugin config table (p.config)

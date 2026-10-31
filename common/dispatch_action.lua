@@ -233,10 +233,8 @@ local function get_footer()
     return reader and reader.view and reader.view.footer or nil
 end
 
-local function is_bottom_status_bar_visible(plugin)
-    local footer = get_footer()
-    local live_visible = footer and footer.view and footer.view.footer_visible
-    if type(live_visible) == "boolean" then return live_visible end
+-- Zen setting only; KOReader's tap-to-cycle "off" mode is not a disable.
+local function is_bottom_status_bar_enabled(plugin)
     local active_plugin = plugin or _plugin
     local plugin_config = active_plugin and active_plugin.config
     if type(plugin_config) ~= "table" then return false end
@@ -309,12 +307,12 @@ zen_action_active = {
         return feature_enabled("reader_themes", plugin or _plugin)
     end,
     zen_ui_toggle_reader_bottom_status_bar = function(plugin)
-        return is_bottom_status_bar_visible(plugin or _plugin)
+        return is_bottom_status_bar_enabled(plugin or _plugin)
     end,
     zen_ui_toggle_reader_status_bars = function(plugin)
         local active_plugin = plugin or _plugin
         return is_top_status_bar_enabled(active_plugin)
-            or is_bottom_status_bar_visible(active_plugin)
+            or is_bottom_status_bar_enabled(active_plugin)
     end,
 }
 
@@ -690,16 +688,16 @@ function M.onToggleReaderThemes(plugin)
     return true
 end
 
-M.isBottomStatusBarVisible = is_bottom_status_bar_visible
+M.isBottomStatusBarEnabled = is_bottom_status_bar_enabled
 M.setBottomStatusBar = set_bottom_status_bar
 
 function M.onToggleReaderBottomStatusBar(plugin)
-    return set_bottom_status_bar(plugin, not is_bottom_status_bar_visible(plugin))
+    return set_bottom_status_bar(plugin, not is_bottom_status_bar_enabled(plugin))
 end
 
 function M.onToggleReaderStatusBars(plugin)
     local enable = not (is_top_status_bar_enabled(plugin)
-        or is_bottom_status_bar_visible(plugin))
+        or is_bottom_status_bar_enabled(plugin))
     local top_ok = set_top_status_bar(plugin, enable)
     local bottom_ok = set_bottom_status_bar(plugin, enable)
     return top_ok or bottom_ok

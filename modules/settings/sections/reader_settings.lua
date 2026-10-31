@@ -1513,11 +1513,11 @@ function M.build(ctx)
         icon_glyph = icons.settings_status,
         text = _("Bottom status bar"),
         checked_func = function()
-            return dispatch_action.isBottomStatusBarVisible(plugin)
+            return dispatch_action.isBottomStatusBarEnabled(plugin)
         end,
         checkmark_callback = function()
             dispatch_action.setBottomStatusBar(plugin,
-                not dispatch_action.isBottomStatusBarVisible(plugin))
+                not dispatch_action.isBottomStatusBarEnabled(plugin))
         end,
         sub_item_table_func = function()
             local footer = require("common/reader_status_bar").getFooterForSettings()

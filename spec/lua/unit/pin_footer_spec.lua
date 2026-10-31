@@ -193,7 +193,9 @@ describe("bottom status-bar pin control", function()
         }, { __index = Footer })
         footer:updateFooterContainer()
         footer:_updateFooterText(true)
-        assert.equals(600 - PinFooter.width(footer), footer._seen_width)
+        -- Reserve only the box plus a short gap, not the full pin width.
+        local box_w = footer._zen_pin_label:getSize().w + 2 * 9 * (color_screen and 1 or 0.875)
+        assert.equals(600 - box_w - 8, footer._seen_width)
         assert.equals(600, footer._saved_screen_width)
 
         footer.has_no_mode = false

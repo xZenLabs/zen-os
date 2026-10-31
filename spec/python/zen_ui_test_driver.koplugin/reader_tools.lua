@@ -1398,6 +1398,36 @@ function M.reference_action(params)
         end
         plugin.config.reader_top_status_bar.hide_in_cbz = false
         UIManager:setDirty(ui, "ui")
+    elseif action == "footer_progress_only" or action == "footer_tap" or action == "footer_state" then
+        local footer = ui.view.footer
+        if params.preset then
+            local presets = require("modules/reader/patches/reader_footer_presets")
+            footer:loadPreset(require("util").tableDeepCopy(presets[params.preset]))
+        elseif action == "footer_progress_only" then
+            for _i, mode in ipairs(footer.mode_index) do footer.settings[mode] = false end
+            footer.settings.disable_progress_bar = false
+        end
+        if params.settings then
+            for key, value in pairs(params.settings) do footer.settings[key] = value end
+            footer:updateFooterContainer()
+            footer:set_has_no_mode()
+            footer:updateFooterTextGenerator()
+            if footer.has_no_mode then footer:applyFooterMode(footer.mode_list.page_progress) end
+            footer:refreshFooter(true, true)
+        end
+        if action == "footer_tap" then
+            local screen = require("device").screen
+            UIManager:sendEvent(require("ui/event"):new("Gesture", { ges = "tap", time = require("ui/time").now(),
+                pos = require("ui/geometry"):new{ x = screen:getWidth() / 2, y = screen:getHeight() - 5, w = 1, h = 1 } }))
+        end
+        local plugin = require("pluginloader"):getPluginInstance("zenos")
+        return { ok = true, references = { footer_visible = ui.view.footer_visible, has_no_mode = footer.has_no_mode,
+            mode_name = footer.mode_index[footer.mode],
+            bar = footer.progress_bar.dimen and { x = footer.progress_bar.dimen.x, w = footer.progress_bar.dimen.w },
+            pin = footer._zen_pin_dimen and { x = footer._zen_pin_dimen.x, w = footer._zen_pin_dimen.w },
+            margins = { require("common/reader_status_bar").getHorizontalMargins(ui.document, 0, plugin) },
+            screen_w = require("device").screen:getWidth(),
+            zen_enabled = require("common/dispatch_action").isBottomStatusBarEnabled(plugin) } }
     elseif action == "header_refresh" then
         ui:onNetworkConnected()
     elseif action == "bookmark" then
