@@ -312,6 +312,7 @@ describe("file browser navbar navigation", function()
             new = function()
                 return {
                     dbg = function() end,
+                    info = function() end,
                     perf = function() end,
                     warn = function() end,
                     measure = function(message, elapsed, ...)
@@ -2946,6 +2947,47 @@ describe("file browser navbar navigation", function()
         _G.__ZEN_UI_NAVBAR_SELECTED_TAB = "menu"
         _G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN = fm
         FileManager.onPathChanged(fm, "/library/folder")
+        assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTED_TAB)
+        assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN)
+    end)
+
+    it("keeps no render-only selection for tabs that only run an action", function()
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+        UIManager._window_stack = { { widget = fm } }
+        _G.__ZEN_UI_REINJECT_FM_NAVBAR()
+        local navbar = fm[1][1][2]
+        navbar.getTappedTabId = function() return "page_right" end
+        _G.__ZEN_UI_NAVBAR_SELECTED_TAB = "menu"
+        _G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN = fm
+        calls = {}
+
+        -- The page turn is the whole action: no view opens, so nothing stands for
+        -- it and the stale highlight goes away with it.
+        assert.is_true(navbar:onTapNavBar(nil, { pos = { x = 400, y = 1 } }))
+        assert.are.same({ "next" }, calls)
+        assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTED_TAB)
+        assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN)
+    end)
+
+    it("keeps no render-only selection for the exit tab", function()
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+        UIManager._window_stack = { { widget = fm } }
+        _G.__ZEN_UI_REINJECT_FM_NAVBAR()
+        local navbar = fm[1][1][2]
+        navbar.getTappedTabId = function() return "exit" end
+        -- The File Manager is the view that closes, so its navbar is gone before
+        -- the close hook could ever see the origin back on top.
+        fm.onClose = function()
+            table.remove(UIManager._window_stack)
+            UIManager:close(fm)
+        end
+        _G.__ZEN_UI_NAVBAR_SELECTED_TAB = nil
+        _G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN = nil
+
+        assert.is_true(navbar:onTapNavBar(nil, { pos = { x = 400, y = 1 } }))
+        assert.are.equal(0, #UIManager._window_stack)
         assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTED_TAB)
         assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN)
     end)
