@@ -5,18 +5,21 @@ local KINDLE_PROVIDER = "modules/filebrowser/patches/kindle_virtual_library"
 -- paint a render-only selection (_G.__ZEN_UI_NAVBAR_SELECTED_TAB) for as long as
 -- their view is on top. These helpers live outside apply_navbar() on purpose:
 -- that closure already sits at LuaJIT's 200-local limit.
+
+-- Tabs that only run an action: they turn a page or close the File Manager, so
+-- nothing is left on top for a highlight to stand for. `exit` belongs here
+-- because the view it comes from is the one that closes, which also means the
+-- origin can never return to the top and the selection would outlive it.
+local VIEWLESS_TABS = {
+    page_left = true,
+    page_right = true,
+    exit = true,
+}
+
 local function navbarTopWidget()
     local stack = require("ui/uimanager")._window_stack
     local top = stack and stack[#stack]
     return top and top.widget
-end
-
-local function selectTransientTab(tab_id)
-    rawset(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB", tab_id)
-    -- Remember the view the tap came from: once it is on top again, the tab's
-    -- views are gone and the highlight must not outlive them. This works for
-    -- any plugin/action view, not just the ones ZenOS knows by name.
-    rawset(_G, "__ZEN_UI_NAVBAR_SELECTION_ORIGIN", navbarTopWidget())
 end
 
 local function clearTransientSelection()
@@ -26,6 +29,21 @@ local function clearTransientSelection()
     -- would make the close hook compare against a view that is no longer ours.
     rawset(_G, "__ZEN_UI_NAVBAR_SELECTION_ORIGIN", nil)
     return had_selection
+end
+
+-- Returns true when a selection was recorded, so callers only log the tabs that
+-- actually paint.
+local function selectTransientTab(tab_id)
+    if VIEWLESS_TABS[tab_id] then
+        clearTransientSelection()
+        return false
+    end
+    rawset(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB", tab_id)
+    -- Remember the view the tap came from: once it is on top again, the tab's
+    -- views are gone and the highlight must not outlive them. This works for
+    -- any plugin/action view, not just the ones ZenOS knows by name.
+    rawset(_G, "__ZEN_UI_NAVBAR_SELECTION_ORIGIN", navbarTopWidget())
+    return true
 end
 
 local function reinjectNavbars()
@@ -2458,8 +2476,9 @@ local function apply_navbar()
                     repaintNavbarSelection()
                 end
             elseif tapped_id ~= selected then
-                selectTransientTab(tapped_id)
-                logger.info("navbar: transient tab selected", " tab=", tapped_id)
+                if selectTransientTab(tapped_id) then
+                    logger.info("navbar: transient tab selected", " tab=", tapped_id)
+                end
                 repaintNavbarSelection()
             end
             runTabCallback(tapped_id)
@@ -2877,8 +2896,9 @@ local function apply_navbar()
                     repaintNavbar()
                 end
             else
-                selectTransientTab(tid)
-                logger.info("navbar: transient tab selected (key)", " tab=", tid)
+                if selectTransientTab(tid) then
+                    logger.info("navbar: transient tab selected (key)", " tab=", tid)
+                end
                 repaintNavbar()
             end
             runTabCallback(tid)
@@ -3201,9 +3221,10 @@ local function apply_navbar()
                 if shouldCloseStandaloneBeforeAction(menu, tapped_id) then
                     closeStandaloneView(menu)
                 end
-                selectTransientTab(tapped_id)
-                logger.info("navbar: transient tab selected (standalone view=" .. tostring(view_tab_id) .. ")",
-                    " tab=", tapped_id)
+                if selectTransientTab(tapped_id) then
+                    logger.info("navbar: transient tab selected (standalone view=" .. tostring(view_tab_id) .. ")",
+                        " tab=", tapped_id)
+                end
                 local reinject = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
                 if type(reinject) == "function" then UIManager:nextTick(reinject) end
                 runTabCallback(tapped_id, view_tab_id)
