@@ -1007,6 +1007,12 @@ function ZenUI:onNetworkDisconnected()
     BatteryStats.wifiChanged()
 end
 
+-- ZenOS's non-blocking Wi-Fi reports switching on / off without a connection
+function ZenUI:onNetworkStateChanged()
+    if self._zenos_brand_inert then return end
+    BatteryStats.wifiChanged()
+end
+
 local function close_zen_standalone_views(shared)
     if type(shared) ~= "table" then return end
     for _i, key in ipairs({ "group_view", "home" }) do

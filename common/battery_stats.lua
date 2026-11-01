@@ -370,6 +370,13 @@ charge_timer = function()
 end
 
 bt_timer = function()
+    -- only when a radio really changed; repeated state events add no point
+    local events = settings and settings:readSetting("events") or {}
+    local last = events[#events]
+    if last and not last.sleeping and (last.bluetooth or false) == (bluetooth_on() or false)
+            and (last.wifi or false) == (wifi_on() or false) then
+        return
+    end
     sample()
 end
 
