@@ -117,8 +117,15 @@ describe("home featured widget", function()
             end,
         })
         ZenSpec.replace("common/utils", { formatPageCount = function(pages) return pages .. " pages" end })
+        local function style_font(face, default)
+            return face == "default" and (default or "LibraryFont") or face
+        end
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
             getFontName = function() return "LibraryFont" end,
+            resolveStyleFont = style_font,
+            getStyleFace = function(face, size, default)
+                return require("ui/font"):getFace(style_font(face, default), size)
+            end,
             getScale = function() error("home widget used library font size") end,
             scaleValue = function() error("home widget used library font size") end,
         })

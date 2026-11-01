@@ -52,6 +52,7 @@ return {
 
     -- metadata sort keys (context_menu.lua / collections.lua)
     title        = "\u{F04BB}",  -- mdi-format-title
+    font         = "\u{F031}",   -- nf-fa-font
     filename     = "\u{F0224}",
     authors      = "\u{F0013}",  -- mdi-account
     series       = "\u{F0436}",  -- mdi-library-books
@@ -78,6 +79,7 @@ return {
     add          = "\u{F067}",   -- nf-fa-plus
     filter       = "\u{F0233}",  -- mdi-filter-variant
     refresh      = "\u{F0450}",  -- mdi-refresh
+    skip_forward = "\u{F04AD}",  -- mdi-skip-next
 
     -- status bar (status_bar.lua)
     wifi_on      = "\u{ECA8}",   -- nf-md-wifi

@@ -11,6 +11,7 @@ local function apply_reader_footer()
     local Blitbuffer = require("ffi/blitbuffer")
     local Geom = require("ui/geometry")
     local LeftContainer = require("ui/widget/container/leftcontainer")
+    local Pill = require("common/ui/pill")
     local TextWidget = require("ui/widget/textwidget")
     local UIManager = require("ui/uimanager")
     local Device = require("device")
@@ -165,6 +166,22 @@ local function apply_reader_footer()
         if self.settings then
             self.settings.progress_bar = nil
         end
+        -- Stock rebuilds mode_list only in init; a reordered preset leaves tap-cycling on stale indices.
+        if self.mode_list then
+            self.mode_list = {}
+            for i = 0, self.mode_nb - 1 do self.mode_list[self.mode_index[i]] = i end
+        end
+    end
+
+    -- Tap-cycling skips dynamic_filler; skip the second filler too.
+    local orig_onToggleFooterMode = ReaderFooter.onToggleFooterMode
+    ReaderFooter.onToggleFooterMode = function(self, ...)
+        local filler2 = self.settings.dynamic_filler2
+        self.settings.dynamic_filler2 = nil
+        local ok, result = pcall(orig_onToggleFooterMode, self, ...)
+        self.settings.dynamic_filler2 = filler2
+        if not ok then error(result, 0) end
+        return result
     end
 
     -- Older KOReader menus need the second filler inserted before additional_content.
@@ -366,12 +383,16 @@ local function apply_reader_footer()
         return w
     end
 
-    local function reserve_pin(self, text)
+    local function reserve_pin(self, text, after_bar)
         local width = self._zen_pin_reserved_width or 0
         if not self._zen_pin_inline or width == 0 then return text end
         local gap = text ~= "" and Screen:scaleBySize(8) or 0
         self._zen_pin_right_inset = measure_text(self, text) + gap
         width = width + gap - Screen:scaleBySize(4)
+        if after_bar and text == "" then
+            -- KOReader adds horizontal_margin after the bar; end the bar a short gap before the box.
+            width = math.max(1, self._zen_pin_box_width + Screen:scaleBySize(8) - self.horizontal_margin)
+        end
         self.filler_space_width = self.filler_space_width or measure_text(self, " ")
         return (" "):rep(math.ceil(width / self.filler_space_width)) .. text
     end
@@ -386,6 +407,54 @@ local function apply_reader_footer()
         local left, right = ReaderStatusBar.getHorizontalMargins(document, nil, zen_plugin)
         -- KOReader scales progress_margin_width itself; convert rendered pixels back.
         return left and (left + right) / 2 / (Screen:scaleBySize(1000000) / 1000000)
+    end
+
+    -- ProgressWidget:paintTo with pill-shaped outline and fill.
+    local function paint_rounded_bar(bar, bb, x, y)
+        local size = bar:getSize()
+        bar.dimen = Geom:new{ x = x, y = y, w = size.w, h = size.h }
+        if size.w == 0 or size.h == 0 then return end
+        local mirrored = BD.mirroredUILayout()
+        if bar.invert_direction then mirrored = not mirrored end
+        local inset_h, inset_v = bar.margin_h + bar.bordersize, bar.margin_v + bar.bordersize
+        local fill_x, fill_y = x + inset_h, y + inset_v
+        local fill_w, fill_h = size.w - 2 * inset_h, math.ceil(size.h - 2 * inset_v)
+
+        Pill.paint(bb, x, y, size.w, size.h, bar.bgcolor)
+        if bar.bordersize > 0 then
+            bb:paintBorder(x, y, size.w, size.h, bar.bordersize, bar.bordercolor,
+                Pill.radius(size.w, size.h))
+        end
+        if bar.alt and bar.last then
+            for _i, alt in ipairs(bar.alt) do
+                local w = fill_w * (alt[2] / bar.last)
+                local ax = fill_w * ((alt[1] - 1) / bar.last)
+                if mirrored then ax = fill_w - ax - w end
+                bb:paintRect(fill_x + math.floor(ax), fill_y, math.ceil(w), fill_h, bar.altcolor)
+            end
+        end
+
+        local pct = bar.percentage
+        if not pct or pct < 0 or pct > 1 then return end
+        if pct > 0 then
+            local w = math.min(fill_w, math.max(math.ceil(fill_w * pct), fill_h))
+            local px = (bar.fill_from_right or mirrored) and fill_x + fill_w - w or fill_x
+            Pill.paint(bb, px, fill_y, w, fill_h, bar.fillcolor)
+        end
+        if bar.ticks and bar.last and bar.last > 0 then
+            for _i, tick in ipairs(bar.ticks) do
+                local tx = fill_w * (tick / bar.last)
+                if mirrored then tx = fill_w - tx end
+                bb:paintRect(fill_x + math.floor(tx), fill_y, bar.tick_width, fill_h, bar.bordercolor)
+            end
+        end
+        local icon, init = bar.initial_pos_icon, bar.initial_percentage
+        if bar.initial_pos_marker and icon and init and init >= 0 then
+            local mx = fill_x + math.ceil(fill_w * (mirrored and 1 - init or init))
+            local small = bar.height <= Screen:scaleBySize(12)
+            icon:paintTo(bb, math.floor(mx - bar.height * (small and 1/4 or 1/2) + 0.5),
+                small and math.floor(y - bar.height / 6 + 0.5) or y)
+        end
     end
 
     local orig_updateFooterContainer = ReaderFooter.updateFooterContainer
@@ -409,6 +478,7 @@ local function apply_reader_footer()
         end
         if self.progress_bar then
             self.progress_bar.fillcolor = Blitbuffer.COLOR_GRAY_5
+            self.progress_bar.paintTo = paint_rounded_bar
         end
         if not is_lcr_alongside(self) then
             -- Remove any stale left container from a previous mode.
@@ -462,10 +532,12 @@ local function apply_reader_footer()
         orig_updateFooterText(self, force_repaint, full_repaint)
 
         local left_w = self._zen_left_w or 0
-        -- Only apply left padding when there's actual left text.
-        local pad_w = (left_w > 0 and self._zen_bar_left_pad)
-            and self._zen_bar_left_pad.width or 0
-        if left_w > 0 or pad_w > 0 then
+        local pad = self._zen_bar_left_pad
+        -- No left text: zero the pad (genAllFooterText is skipped when has_no_mode),
+        -- else the group overflows and the bar shifts off the left margin.
+        local pad_w = left_w > 0 and pad.width or 0
+        if left_w > 0 or pad.width > 0 then
+            pad.width = pad_w
             self.progress_bar.width = math.max(0, self.progress_bar.width - left_w - pad_w)
             self.horizontal_group:resetLayout()
             -- Re-paint to overwrite the incorrect fb content from orig's widgetRepaint.
@@ -583,10 +655,10 @@ local function apply_reader_footer()
                         right_text = center_prepend
                     end
                 end
-                return reserve_pin(self, right_text)
+                return reserve_pin(self, right_text, true)
             end
             -- No split found; let orig handle alongside layout normally.
-            return reserve_pin(self, orig_genAllFooterText(self, nil))
+            return reserve_pin(self, orig_genAllFooterText(self, nil), true)
         end
 
         if not filler1_gi or not filler2_gi then
@@ -665,10 +737,6 @@ local function apply_reader_footer()
             return
         end
         footer:set_mode_index()
-        footer.mode_list = {}
-        for i = 0, #footer.mode_index do
-            footer.mode_list[footer.mode_index[i]] = i
-        end
         if footer.settings.disabled then return end
         footer:set_has_no_mode()
 

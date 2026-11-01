@@ -3,6 +3,7 @@ local Blitbuffer = require("ffi/blitbuffer")
 describe("reader top status bar refresh", function()
     local ReaderUI
     local ReaderDogear
+    local ReaderFooter
     local ReaderTypeset
     local ReaderView
     local CreDocument
@@ -30,6 +31,7 @@ describe("reader top status bar refresh", function()
     local dependencies = {
         "apps/reader/modules/readerview",
         "apps/reader/modules/readerdogear",
+        "apps/reader/modules/readerfooter",
         "apps/reader/modules/readertypeset",
         "apps/reader/readerui",
         "modules/menu/bluetooth/bluetooth",
@@ -195,6 +197,13 @@ describe("reader top status bar refresh", function()
 
         replace("apps/reader/modules/readerview", ReaderView)
         replace("apps/reader/modules/readerdogear", ReaderDogear)
+        ReaderFooter = {
+            applyFooterMode = function(self, mode)
+                if mode ~= nil then self.mode = mode end
+                self.view.footer_visible = self.mode ~= self.mode_list.off
+            end,
+        }
+        replace("apps/reader/modules/readerfooter", ReaderFooter)
         replace("apps/reader/modules/readertypeset", ReaderTypeset)
         replace("apps/reader/readerui", ReaderUI)
         bluetooth_enabled = false
@@ -908,6 +917,43 @@ describe("reader top status bar refresh", function()
         _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar.hide_in_cbz = false
         ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
         assert.is_not_nil(view._zen_header_dimen)
+    end)
+
+    it("hides with the bottom bar toggled off and refreshes its band", function()
+        local view = make_view()
+        view.dialog = view.ui
+        local footer = { view = view, mode = 1, mode_list = { off = 0 }, settings = {} }
+        view.footer = footer
+        ReaderFooter.applyFooterMode(footer)
+        assert.are.equal(0, #dirty_calls)
+
+        -- KOReader's toggle sets the mode before applying it.
+        footer.mode = 0
+        ReaderFooter.applyFooterMode(footer)
+        assert.are.equal(1, #dirty_calls)
+        assert.are.equal(view.ui, dirty_calls[1].widget)
+        assert.same({ x = 0, y = 0, w = 600, h = 20 }, dirty_calls[1].region)
+        view._zen_header_dimen = nil
+        ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+        assert.is_nil(view._zen_header_dimen)
+
+        -- A bar with nothing to show, or disabled in Zen, never hides the header.
+        footer.has_no_mode, footer.settings.disable_progress_bar = true, true
+        ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+        assert.is_not_nil(view._zen_header_dimen)
+        footer.has_no_mode = false
+        _G.__ZEN_UI_PLUGIN.config.reader_footer = { status_bar_enabled = false }
+        view._zen_header_dimen = nil
+        ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+        assert.is_not_nil(view._zen_header_dimen)
+        _G.__ZEN_UI_PLUGIN.config.reader_footer = nil
+
+        reset_paint_log()
+        ReaderFooter.applyFooterMode(footer)
+        assert.are.equal(0, #dirty_calls)
+        footer.mode = 2
+        ReaderFooter.applyFooterMode(footer)
+        assert.are.equal(1, #dirty_calls)
     end)
 
     it("refreshes autonomously without exposing a setting", function()

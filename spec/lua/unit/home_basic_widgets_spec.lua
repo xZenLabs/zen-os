@@ -84,6 +84,9 @@ describe("home basic widgets", function()
         })
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
             getFontName = function() return "smallinfofont" end,
+            getStyleFace = function(face, size)
+                return require("ui/font"):getFace(face == "default" and "smallinfofont" or face, size)
+            end,
         })
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("ui/gesturerange", widget_class("gesture"))
@@ -546,7 +549,7 @@ describe("home basic widgets", function()
         end
         assert.are.equal(48, quote_widget.paint_y)
         assert.are.equal(60, author_widget.paint_y)
-        assert.are.same({ 49, 71, -49, 49, nil }, {
+        assert.are.same({ 37, 83, -37, 37, nil }, {
             content_bounds.top,
             content_bounds.bottom,
             content_bounds.min_shift,
@@ -559,7 +562,7 @@ describe("home basic widgets", function()
         assert.are.equal(53, author_widget.paint_y)
     end)
 
-    it("reports the visible quote bounds", function()
+    it("reports quote bounds independent of quote length", function()
         ZenSpec.unload("modules/filebrowser/patches/home/widgets/quotes")
         local component = require("modules/filebrowser/patches/home/widgets/quotes")
         local function bounds_for(text)
@@ -583,8 +586,9 @@ describe("home basic widgets", function()
             }
         end
 
-        assert.are.same({ 49, 71, -49, 49 }, bounds_for("Short."))
+        assert.are.same({ 37, 83, -37, 37 }, bounds_for("Short."))
         assert.are.same({ 37, 83, -37, 37 }, bounds_for("First\nSecond\nThird"))
+        assert.are.same({ 37, 83, -37, 37 }, bounds_for("One\nTwo\nThree\nFour\nFive"))
     end)
 
     it("gives the bottom quote row a content-independent fixed height", function()
@@ -807,7 +811,7 @@ describe("home basic widgets", function()
         local widget = component.build({
             width = 400,
             height = 120,
-            config = { quotes = { show_author = false } },
+            config = { quotes = { show_author = false, show_title = false } },
             data = {
                 getCurrentQuote = function()
                     return { text = "First\nSecond\nThird\nFourth", author = "" }

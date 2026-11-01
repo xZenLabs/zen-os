@@ -112,6 +112,27 @@ function M.getFace(size)
     return Font:getFace(M.getFontName(), math.max(1, math.floor(size)))
 end
 
+-- Widget style face: "default", portable "fonts/..." or legacy absolute plugin path.
+function M.resolveStyleFont(font_face, default_name)
+    if type(font_face) ~= "string" or font_face == "" or font_face == "default" then
+        return default_name or M.getFontName()
+    end
+    return LibraryFontPath.resolve(LibraryFontPath.toConfig(font_face))
+end
+
+local unloadable = {}
+
+-- Nil faces crash TextWidget; fall back so the widget still renders.
+function M.getStyleFace(font_face, size, default_name)
+    local font_name = M.resolveStyleFont(font_face, default_name)
+    if not unloadable[font_name] then
+        local ok, face = pcall(Font.getFace, Font, font_name, size)
+        if ok and face then return face end
+        unloadable[font_name] = true
+    end
+    return Font:getFace(default_name or M.getFontName(), size)
+end
+
 function M.withMenuFaces(callback, menu_faces)
     menu_faces = menu_faces or { smallinfofont = true, infont = true }
     local get_face = Font.getFace

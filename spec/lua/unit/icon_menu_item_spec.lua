@@ -27,6 +27,7 @@ describe("icon menu item fonts", function()
         "ui/widget/touchmenu",
         "ui/uimanager",
         "common/ui/button_feedback",
+        "common/ui/glyph_icons",
     }
 
     before_each(function()
@@ -50,17 +51,6 @@ describe("icon menu item fonts", function()
         end
         for name, original in pairs(saved_modules) do
             package.loaded[name] = original == false and nil or original
-        end
-    end)
-
-    it("maps settings glyphs to bundled SVG icons", function()
-        local IconItem = require("common/ui/icon_menu_item")
-        local glyphs = require("common/inline_icon_map")
-        for key, name in pairs(IconItem.SETTINGS_SVG) do
-            assert.is_not_nil(glyphs[key], key)
-            local file = io.open(ZenSpec.root .. "/icons/" .. name .. ".svg", "r")
-            assert.is_not_nil(file, name)
-            file:close()
         end
     end)
 

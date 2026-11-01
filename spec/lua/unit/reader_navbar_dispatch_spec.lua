@@ -107,7 +107,8 @@ describe("reader navbar dispatch", function()
         assert.are.equal("ShowZenUIAnnotationViewer", actions.zen_ui_show_annotation_viewer.event)
         local plugin = {}
         Dispatch.install(plugin)
-        for _i, entry in ipairs({ { "annotations", "Annotations" }, { "bookmarks", "Bookmarks" },
+        for _i, entry in ipairs({ { "page_browser", "PageBrowser" },
+                { "annotations", "Annotations" }, { "bookmarks", "Bookmarks" },
                 { "highlights", "Highlights" }, { "pinned_pages", "PinnedPages" },
                 { "book_switcher", "BookSwitcher" } }) do
             local action = actions["zen_ui_show_" .. entry[1]]
@@ -122,15 +123,16 @@ describe("reader navbar dispatch", function()
 
     it("opens the requested book tab or pinned preview and ignores reader actions in the library", function()
         local tabs, pinned = {}, nil
-        reader.thumbnail = { onShowPageBrowser = function(_self, kind) tabs[#tabs + 1] = kind; return true end }
+        reader.thumbnail = { onShowPageBrowser = function(_self, kind) tabs[#tabs + 1] = kind or false; return true end }
         local original = package.loaded["modules/reader/references"]
         ZenSpec.replace("modules/reader/references", { openPinned = function(ui) pinned = ui; return true end })
         finally(function() package.loaded["modules/reader/references"] = original end)
+        assert.is_true(Dispatch.onShowZenUIPageBrowser())
         assert.is_true(Dispatch.onShowZenUIAnnotations())
         assert.is_true(Dispatch.onShowZenUIBookmarks())
         assert.is_true(Dispatch.onShowZenUIHighlights())
         assert.is_true(Dispatch.onShowZenUIBookSwitcher())
-        assert.are.same({ "annotations", "bookmarks", "highlights", "book_switcher" }, tabs)
+        assert.are.same({ false, "annotations", "bookmarks", "highlights", "book_switcher" }, tabs)
         assert.is_true(Dispatch.onShowZenUIPinnedPages())
         assert.are.equal(reader, pinned)
         require("apps/reader/readerui").instance = nil

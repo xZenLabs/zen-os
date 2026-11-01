@@ -47,7 +47,8 @@ function M.list(config, ui, include_disabled, extra_tab)
         bookmarks = { "bookmark_outline", _("Bookmarks") },
         highlights = { "lookup_highlight", _("Highlights") },
         annotations = { "annotations", _("Annotations") },
-        toc = { "toc", _("Table of contents") },
+        pins = { "pin", _("Pinned pages") },
+        toc = { "toc", _("Chapters") },
         book_details = { "info", _("Book details") },
         book_switcher = { "history", _("Book switcher") },
     }

@@ -266,11 +266,11 @@ function EndBook:buildNavigationRow(width, height, max_height)
     local style = config.text_styles.navigation
     if config.show_navigation_labels ~= false then
         local size = math.max(1, math.min(math.floor(style.font_size * 1.2 + 0.5), math.floor(height * 0.1)))
-        local font = style.font_face == "default" and require("modules/filebrowser/patches/library_font").getFontName() or style.font_face
+        local face = require("modules/filebrowser/patches/library_font").getStyleFace(style.font_face, size)
         for index, entry in ipairs(entries) do
             labels[index] = TextWidget:new{
                 text = entry.label, padding = 0, max_width = max_cell_width,
-                face = require("ui/font"):getFace(font, size), bold = style.bold == true,
+                face = face, bold = style.bold == true,
             }
             label_height = math.max(label_height, labels[index]:getSize().h)
         end
@@ -438,11 +438,10 @@ function EndBook:rebuild()
             elseif id == "stats_triplet" and config.modules[id].show_label ~= false then
                 local label = config.modules[id].label
                 local style = config.modules[id].text_styles.label
-                local font = style.font_face == "default"
-                    and require("modules/filebrowser/patches/library_font").getFontName() or style.font_face
                 stats_label = TextWidget:new{
                     text = (label or "") ~= "" and label or _("Statistics"),
-                    face = require("ui/font"):getFace(font, Screen:scaleBySize(style.font_size)),
+                    face = require("modules/filebrowser/patches/library_font").getStyleFace(
+                        style.font_face, Screen:scaleBySize(style.font_size)),
                     bold = style.bold == true, padding = 0, max_width = content_w,
                 }
                 stats_label_h = stats_label:getSize().h + Screen:scaleBySize(4)

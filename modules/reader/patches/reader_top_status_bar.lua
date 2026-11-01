@@ -57,8 +57,17 @@ local function apply_reader_top_status_bar()
         return type(features) == "table" and features.reader_top_status_bar == true
     end
 
+    -- Bottom bar toggled off (tap/gesture) while it has something to show.
+    local function footer_toggled_off(view)
+        local footer = view.footer
+        if not (footer and footer.mode_list) or footer.mode ~= footer.mode_list.off then return false end
+        if footer.has_no_mode and footer.settings.disable_progress_bar then return false end
+        local fcfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_footer
+        return not (type(fcfg) == "table" and fcfg.status_bar_enabled == false)
+    end
+
     local function should_show(view)
-        if not is_enabled() or not view then return false end
+        if not is_enabled() or not view or footer_toggled_off(view) then return false end
         if view.render_mode ~= nil then
             local cfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
             return type(cfg) == "table" and not cfg.hide_in_cbz
@@ -1244,6 +1253,27 @@ local function apply_reader_top_status_bar()
             end
             local result = orig_onSetPageMargins(self, margins, ...)
             if document then document._zen_top_status_bar_margin_reserve = nil end
+            return result
+        end
+    end
+
+    local ReaderFooter = require("apps/reader/modules/readerfooter")
+    if not ReaderFooter._zen_top_status_bar_toggle_patched then
+        ReaderFooter._zen_top_status_bar_toggle_patched = true
+        local orig_applyFooterMode = ReaderFooter.applyFooterMode
+        ReaderFooter.applyFooterMode = function(self, ...)
+            local result = orig_applyFooterMode(self, ...)
+            -- Callers set self.mode before calling, so compare with the last applied state.
+            local view = self.view
+            local was_off = self._zen_top_bar_footer_off
+            self._zen_top_bar_footer_off = view and footer_toggled_off(view)
+            -- Callers only refresh the footer rect; refresh the header with it.
+            if was_off ~= nil and is_enabled() and self._zen_top_bar_footer_off ~= was_off then
+                local h = getReservedHeaderHeight()
+                if h > 0 then
+                    UIManager:setDirty(view.dialog, "ui", Geom:new{ x = 0, y = 0, w = Screen:getWidth(), h = h })
+                end
+            end
             return result
         end
     end

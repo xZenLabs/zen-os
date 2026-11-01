@@ -98,7 +98,8 @@ menu uses `appbar.settings.svg`. These names also work as loose icon overrides
 under `/koreader/icons` when no pack is selected.
 
 Reader references use `pin.svg`, `pin_remove.svg`, and `return.svg`. Annotation
-lists use `filter.svg` and `sort.svg`.
+lists use `filter.svg` and `sort.svg`; their item menus use `settings_note_plus_outline.svg` (Add note)
+and `annotations.svg` (Edit note).
 Page-preview bookmark actions use `bookmark.svg` and `bookmark_remove.svg`.
 Page browser and reader controls use `annotations.svg` (Annotations), `font.svg` (Font), or `appbar.contrast.svg` (Contrast).
 Both use `bookmark_outline.svg` for Bookmarks and `view_carousel_outline.svg` for Book switcher.
@@ -108,6 +109,11 @@ Zen Settings rows use `settings_*.svg` names (for example `settings_cog.svg`,
 `settings_magnify.svg`, `settings_folder_outline.svg`), plus `info.svg`, `grid.svg`,
 `more_vertical.svg`, `pin.svg`, and `view_carousel_outline.svg`. The full list is the
 `icons/settings_*.svg` set bundled with ZenOS; any name a pack omits keeps the bundled icon.
+Library and OPDS context menus share these names, for example `settings_content_copy.svg` (Copy),
+`settings_book_open_variant.svg` (Read now), `settings_download.svg` (Download), and
+`settings_sync.svg` (Sync). They also use `bookmark_outline.svg` (Read status), `filter.svg`
+(Filter), `font.svg` (Title sort), `view_carousel_outline.svg` (Page stream), and
+`skip_right.svg` (Stream from page).
 Page browser search buttons share `quick_search.svg` with Settings; close buttons use KOReader's `close.svg`.
 
 Quick Settings and its menus use `airplane.svg`, `app_menu.svg`,

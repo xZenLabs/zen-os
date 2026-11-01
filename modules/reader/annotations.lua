@@ -1,10 +1,11 @@
 local DocSettings = require("docsettings")
 local BookNote = require("modules/reader/book_note")
+local References = require("modules/reader/references")
 local lfs = require("libs/libkoreader-lfs")
 local util = require("util")
 
 local M = {}
-M.kinds = { bookmarks = true, highlights = true, annotations = true }
+M.kinds = { bookmarks = true, highlights = true, annotations = true, pins = true }
 
 local function values(value)
     if type(value) == "table" then return value end
@@ -34,9 +35,17 @@ function M.resolve(ui, record)
     end
 end
 
-function M.normalize(file, annotations, props)
+function M.resolvePin(ui, record)
+    for _i, pin in ipairs(References.pins(ui, References.storedLocations(ui.doc_settings.data))) do
+        if equal(pin.location, record.location) then return pin end
+    end
+end
+
+function M.normalize(file, annotations, props, pins)
     props = props or {}
     local records = {}
+    local title = props.display_title or props.title or file:match("([^/]+)$")
+    local author = type(props.authors) == "table" and table.concat(props.authors, ", ") or props.authors or ""
     for index, annotation in ipairs(annotations or {}) do
         records[#records + 1] = {
             file = file, annotation = annotation, order = index,
@@ -46,9 +55,18 @@ function M.normalize(file, annotations, props)
             color = annotation.color or "gray", style = annotation.drawer or "",
             page_label = tostring(annotation.pageref or annotation.pageno
                 or (type(annotation.page) == "number" and annotation.page) or ""),
-            title = props.display_title or props.title or file:match("([^/]+)$"),
-            author = type(props.authors) == "table" and table.concat(props.authors, ", ") or props.authors or "",
+            title = title, author = author,
             tags = values(annotation.tags or annotation.keywords or props.keywords),
+        }
+    end
+    pins = pins or {}
+    for index, pin in ipairs(pins) do
+        records[#records + 1] = {
+            file = file, kind = "pin", id = file .. "#pin" .. index, location = pin.location,
+            -- Pins sort between the book note (0) and annotations (1..n).
+            order = index / (#pins + 1), text = "", note = "", datetime = "",
+            chapter = pin.chapter or "", page_label = pin.page_label or "", color = "", style = "",
+            title = title, author = author, tags = values(props.keywords),
         }
     end
     local text, note_error, note_path, modified = BookNote.read(file)
@@ -56,9 +74,7 @@ function M.normalize(file, annotations, props)
         records[#records + 1] = {
             file = file, kind = "note", order = 0, text = "", note = text,
             datetime = os.date("%Y-%m-%d %H:%M:%S", modified), chapter = "", page_label = "",
-            color = "", style = "", tags = values(props.keywords),
-            title = props.display_title or props.title or file:match("([^/]+)$"),
-            author = type(props.authors) == "table" and table.concat(props.authors, ", ") or props.authors or "",
+            color = "", style = "", tags = values(props.keywords), title = title, author = author,
         }
     end
     return records
@@ -83,6 +99,7 @@ end
 function M.matches(record, state, kind)
     if kind == "bookmarks" and record.kind ~= "bookmark" then return false end
     if kind == "highlights" and record.kind ~= "highlight" then return false end
+    if kind == "pins" and record.kind ~= "pin" then return false end
     if state.query ~= "" and not M.textMatches(record.text .. "\n" .. record.note,
             { text = state.query, mode = "all" }) then return false end
     for facet, filter in pairs(state.filters) do
@@ -115,7 +132,12 @@ end
 function Session:refreshCurrent()
     local ui = self.ui
     if not ui then return end
-    local records = M.normalize(ui.document.file, ui.annotation and ui.annotation.annotations, ui.doc_props)
+    local pins = {}
+    for _i, pin in ipairs(References.pins(ui, References.storedLocations(ui.doc_settings.data))) do
+        pins[#pins + 1] = { location = pin.location, chapter = ui.toc and ui.toc:getTocTitleByPage(pin.page),
+            page_label = ui.bookmark and ui.bookmark:getBookmarkPageString(ui.rolling and pin.location or pin.page) }
+    end
+    local records = M.normalize(ui.document.file, ui.annotation and ui.annotation.annotations, ui.doc_props, pins)
     for _i, record in ipairs(records) do
         if record.annotation and ui.bookmark then
             record.page_label = ui.bookmark:getBookmarkPageString(record.annotation.page)
@@ -161,7 +183,13 @@ local function load_book(file)
             annotations[#annotations + 1] = item
         end
     end
-    return M.normalize(file, annotations, props)
+    local pins = {}
+    for _i, location in ipairs(References.storedLocations(data)) do
+        -- Reflowable pins are XPointers; their page needs the open document.
+        local page = type(location) == "number" and location or type(location) == "table" and location[1] and location[1].page
+        pins[#pins + 1] = { location = location, page_label = page and tostring(page) }
+    end
+    return M.normalize(file, annotations, props, pins)
 end
 
 function Session:refreshBook(file)

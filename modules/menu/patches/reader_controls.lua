@@ -79,7 +79,7 @@ return function(plugin)
             elseif id == "koreader_menu" then
                 ui.config:onShowConfigMenu(true)
             elseif id == "bookmarks" then
-                ui:handleEvent(require("ui/event"):new("ShowPageBrowser", "bookmarks"))
+                require("modules/reader/annotation_viewer").show(plugin, ui, "bookmarks")
             end
         end)
     end
@@ -346,6 +346,16 @@ return function(plugin)
             layout[#layout + 1] = widget
             return widget
         end
+        local function control_icon(icon_name)
+            local path = utils.resolveIcon(icons_dir, icon_name)
+                or utils.resolveLocalIcon(icons_dir, icon_name)
+                or utils.resolveLocalIcon(icons_dir, "lightning")
+            -- Thin-stroke variant unless an icon pack/custom icon overrides the bundled one.
+            if path and path == utils.resolveLocalIcon(icons_dir, icon_name) then
+                path = utils.resolveLocalIcon(thin_icons, icon_name) or path
+            end
+            return path
+        end
         local function icon_button(name, callback, layout, icon_size, button_size)
             local down = name == "chevron.down"
             local directory = name == "more_vertical" and icons_dir or stock_icons
@@ -457,15 +467,7 @@ return function(plugin)
             if arrows then icons[1] = utils.resolveLocalIcon(stock_icons, "chevron.left") end
             for i = (state.button_page - 1) * cols + 1, math.min(#entries, state.button_page * cols) do
                 local entry = entries[i]
-                local icon_name = Buttons.icon(entry) or "lightning"
-                local path = utils.resolveIcon(icons_dir, icon_name)
-                    or utils.resolveLocalIcon(icons_dir, icon_name)
-                    or utils.resolveLocalIcon(icons_dir, "lightning")
-                -- Thin-stroke variant unless an icon pack/custom icon overrides the bundled one.
-                if path and path == utils.resolveLocalIcon(icons_dir, icon_name) then
-                    path = utils.resolveLocalIcon(thin_icons, icon_name) or path
-                end
-                icons[#icons + 1] = path
+                icons[#icons + 1] = control_icon(Buttons.icon(entry) or "lightning")
                 visible_entries[#visible_entries + 1] = entry
             end
             if arrows then icons[#icons + 1] = utils.resolveLocalIcon(stock_icons, "chevron.right") end
@@ -595,6 +597,11 @@ return function(plugin)
                 opts.refresh = function() tm:updateItems(1) end
                 details, detail_refs = require("modules/menu/app_launcher/book_switcher_page").buildReader(opts)
             else
+                opts.actions = {}
+                for _i, id in ipairs({ "search", "bookmarks", "toc" }) do
+                    opts.actions[#opts.actions + 1] = { id = id, icon = control_icon(Buttons.icon{
+                        type = "reader_control", control = id }), callback = function() direct_action(tm, id) end }
+                end
                 details, detail_refs = require("modules/menu/reader_controls/book_info_card").build(opts)
             end
             panel[#panel + 1] = details

@@ -14,7 +14,6 @@ local InputContainer = require("ui/widget/container/inputcontainer")
 local TopContainer = require("ui/widget/container/topcontainer")
 local GestureRange = require("ui/gesturerange")
 local Device = require("device")
-local Font = require("ui/font")
 local util = require("util")
 local zen_utils = require("common/utils")
 local WidgetResources = require("common/widget_resources")
@@ -90,8 +89,7 @@ local function text_style(module_cfg, key)
 end
 
 local function get_text_face(style, size, default_font_name)
-    local font_name = style.font_face == "default" and (default_font_name or library_font.getFontName()) or style.font_face
-    return Font:getFace(font_name, size)
+    return library_font.getStyleFace(style.font_face, size, default_font_name)
 end
 
 local function set_opening_banner_cover(cover)
@@ -667,8 +665,7 @@ function M.build(ctx, source_key)
                 }
                 local align = justify_description_text and "justify" or "left"
                 local bold = description_style.bold == true and "font-weight: bold;" or ""
-                local font_file = description_style.font_face == "default"
-                    and library_font.getFontName() or description_style.font_face
+                local font_file = library_font.resolveStyleFont(description_style.font_face)
                 local page_css = "@page { margin: 0; }"
                 if font_file:find("/", 1, true) then
                     font_file = font_file:gsub("'", "\\'")

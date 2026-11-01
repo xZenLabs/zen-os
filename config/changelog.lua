@@ -423,9 +423,14 @@ return {
         "Keep the reader status bar visible behind reference popups",
         "Better Rakuyomi settings (Extras > Rakuyomi)",
         "Add customizable reader controls (bottom tab menu in a book) (Reader > Reader controls)",
-        "Update page browser (Reader > Page browser)",
+        "Update page browser (Reader > Page browser > Tabs)",
+        "Show pinned pages in the annotation viewer, with an optional page browser tab",
+        "Table of contents marks read and unread chapters and outlines the current one with page progress and time left",
         "Update highlight function",
-        "Update highlight submenu (Reader > Lookup / Highlight)"
+        "Update highlight submenu (Reader > Lookup / Highlight)",
+        "Background OPDS downloads with queueing and Read now",
+        "Library and OPDS context menu icons follow custom icon packs",
+        "Fix startup crash loop on books whose cover extraction keeps crashing"
     },
 
 }

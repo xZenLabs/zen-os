@@ -233,10 +233,8 @@ local function get_footer()
     return reader and reader.view and reader.view.footer or nil
 end
 
-local function is_bottom_status_bar_visible(plugin)
-    local footer = get_footer()
-    local live_visible = footer and footer.view and footer.view.footer_visible
-    if type(live_visible) == "boolean" then return live_visible end
+-- Zen setting only; KOReader's tap-to-cycle "off" mode is not a disable.
+local function is_bottom_status_bar_enabled(plugin)
     local active_plugin = plugin or _plugin
     local plugin_config = active_plugin and active_plugin.config
     if type(plugin_config) ~= "table" then return false end
@@ -309,12 +307,12 @@ zen_action_active = {
         return feature_enabled("reader_themes", plugin or _plugin)
     end,
     zen_ui_toggle_reader_bottom_status_bar = function(plugin)
-        return is_bottom_status_bar_visible(plugin or _plugin)
+        return is_bottom_status_bar_enabled(plugin or _plugin)
     end,
     zen_ui_toggle_reader_status_bars = function(plugin)
         local active_plugin = plugin or _plugin
         return is_top_status_bar_enabled(active_plugin)
-            or is_bottom_status_bar_visible(active_plugin)
+            or is_bottom_status_bar_enabled(active_plugin)
     end,
 }
 
@@ -347,17 +345,8 @@ local function show_zen_toc(plugin)
     local ZenTocWidget = require("modules/reader/zen_toc_widget")
     ZenTocWidget.set_plugin(plugin)
 
-    local focus_page = 1
-    if type(reader.getCurrentPage) == "function" then
-        local ok, page = pcall(reader.getCurrentPage, reader)
-        if ok and type(page) == "number" then
-            focus_page = page
-        end
-    end
-
     require("ui/uimanager"):show(ZenTocWidget:new{
         ui = reader,
-        focus_page = focus_page,
         on_goto = function(page)
             if reader.link then
                 reader.link:addCurrentLocationToStack()
@@ -494,6 +483,12 @@ function M.onDispatcherRegisterActions()
         category = "none",
         event = "ShowZenUIToc",
         title = _("ZenOS") .. ": " .. _("Table of contents"),
+        reader = true,
+    })
+    Dispatcher:registerAction("zen_ui_show_page_browser", {
+        category = "none",
+        event = "ShowZenUIPageBrowser",
+        title = _("ZenOS") .. ": " .. _("Page browser"),
         reader = true,
     })
     Dispatcher:registerAction("zen_ui_show_annotation_viewer", {
@@ -693,16 +688,16 @@ function M.onToggleReaderThemes(plugin)
     return true
 end
 
-M.isBottomStatusBarVisible = is_bottom_status_bar_visible
+M.isBottomStatusBarEnabled = is_bottom_status_bar_enabled
 M.setBottomStatusBar = set_bottom_status_bar
 
 function M.onToggleReaderBottomStatusBar(plugin)
-    return set_bottom_status_bar(plugin, not is_bottom_status_bar_visible(plugin))
+    return set_bottom_status_bar(plugin, not is_bottom_status_bar_enabled(plugin))
 end
 
 function M.onToggleReaderStatusBars(plugin)
     local enable = not (is_top_status_bar_enabled(plugin)
-        or is_bottom_status_bar_visible(plugin))
+        or is_bottom_status_bar_enabled(plugin))
     local top_ok = set_top_status_bar(plugin, enable)
     local bottom_ok = set_bottom_status_bar(plugin, enable)
     return top_ok or bottom_ok
@@ -758,6 +753,10 @@ function M.onShowZenUIAnnotationViewer(plugin)
     return true
 end
 
+function M.onShowZenUIPageBrowser()
+    return show_reader_tab(nil)
+end
+
 function M.onShowZenUIAnnotations()
     return show_reader_tab("annotations")
 end
@@ -802,6 +801,7 @@ function M.install(target)
     target.onZenUIKOSyncSync = M.onZenUIKOSyncSync
     target.onShowZenUIToc = M.onShowZenUIToc
     target.onShowZenUIAnnotationViewer = M.onShowZenUIAnnotationViewer
+    target.onShowZenUIPageBrowser = M.onShowZenUIPageBrowser
     target.onShowZenUIAnnotations = M.onShowZenUIAnnotations
     target.onShowZenUIBookmarks = M.onShowZenUIBookmarks
     target.onShowZenUIHighlights = M.onShowZenUIHighlights

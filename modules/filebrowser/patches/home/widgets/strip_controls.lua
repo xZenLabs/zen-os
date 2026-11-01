@@ -9,12 +9,25 @@ local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
 local GestureRange = require("ui/gesturerange")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
+local IconWidget = require("ui/widget/iconwidget")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local LineWidget = require("ui/widget/linewidget")
 local TextWidget = require("ui/widget/textwidget")
 local WidgetResources = require("common/widget_resources")
 local icons = require("common/inline_icon_map")
 local library_font = require("modules/filebrowser/patches/library_font")
+local utils = require("common/utils")
+
+local _icons_dir
+do
+    local src = debug.getinfo(1, "S").source or ""
+    if src:sub(1, 1) == "@" then
+        local root = src:sub(2):match("^(.*)/modules/")
+        if root then _icons_dir = root .. "/icons/" end
+    end
+end
+
+local search_icon_path = utils.resolveIcon(_icons_dir, "quick_search")
 
 local M = {}
 
@@ -53,8 +66,7 @@ local function control_text_style(controls)
 end
 
 local function get_control_face(style, size)
-    if style.font_face == "default" then return library_font.getFace(size) end
-    return Font:getFace(style.font_face, size) or library_font.getFace(size)
+    return library_font.getStyleFace(style.font_face, math.max(1, math.floor(size)))
 end
 
 local function fit_face(labels, width, style, maximum, minimum)
@@ -179,15 +191,28 @@ function M.build(opts)
         local active = entry.id == opts.active_id and source_count > 1
         local content
         if icon_entry then
-            local icon = entry.id == "page_left" and icons.arrow_left
-                or entry.id == "page_right" and icons.arrow_right or icons.search
+            local glyph_face = Font:getFace("smallinfofont", Device.screen:scaleBySize(14))
+            local glyph
+            if entry.id == "search" and search_icon_path then
+                -- Match the glyph's em size so the icon keeps the old visual scale.
+                local icon_size = math.min(inner_height, glyph_face.size)
+                glyph = IconWidget:new{
+                    file = search_icon_path,
+                    width = icon_size,
+                    height = icon_size,
+                    alpha = true,
+                }
+            else
+                glyph = TextWidget:new{
+                    text = entry.id == "page_left" and icons.arrow_left
+                        or entry.id == "page_right" and icons.arrow_right or icons.search,
+                    face = glyph_face,
+                    padding = 0,
+                }
+            end
             content = CenterContainer:new{
                 dimen = Geom:new{ w = cell_width, h = inner_height },
-                TextWidget:new{
-                    text = icon,
-                    face = Font:getFace("smallinfofont", Device.screen:scaleBySize(14)),
-                    padding = 0,
-                },
+                glyph,
             }
         else
             local label = entry.id == opts.active_id and opts.active_group

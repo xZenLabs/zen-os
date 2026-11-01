@@ -54,9 +54,12 @@ local function apply_zen_scroll_bar()
             return
         end
 
-        if self.name == "zen_settings" then
-            self.page_info_text.tap_input = nil
-            self.page_info_text.hold_input = nil
+        -- Stock footer buttons are never painted, so their tap ranges stay at (0,0)
+        -- and swallow top-left taps ("Enter text, letter or page number" dialog).
+        local propagate_event = self.page_info.propagateEvent
+        self.page_info.propagateEvent = function(group, event)
+            if event.handler == "onGesture" then return false end
+            return propagate_event(group, event)
         end
 
         local menu   = self

@@ -13,6 +13,7 @@ local function apply_page_browser()
     local ReaderThumbnail = require("apps/reader/modules/readerthumbnail")
     local PresetStore   = require("config/preset_store")
     local BottomSwipe  = require("common/reader_bottom_swipe")
+    local GlyphIcons   = require("common/ui/glyph_icons")
     local PageBrowserTabs = require("modules/reader/page_browser_tabs")
     local References = require("modules/reader/references")
     local utils        = require("common/utils")
@@ -52,6 +53,20 @@ local function apply_page_browser()
             }
             preview:render()
             return preview.bb
+        end
+    end
+
+    if not ReaderThumbnail._zen_night_mode_patch then
+        ReaderThumbnail._zen_night_mode_patch = true
+        local orig_get_page_thumbnail = ReaderThumbnail.getPageThumbnail
+        ReaderThumbnail.getPageThumbnail = function(self, ...)
+            -- Highlights render differently in night mode; cached tiles are keyed by size only.
+            local night_mode = Device.screen.night_mode == true
+            if self._zen_night_mode ~= nil and self._zen_night_mode ~= night_mode then
+                reset_thumbnail_cache(self)
+            end
+            self._zen_night_mode = night_mode
+            return orig_get_page_thumbnail(self, ...)
         end
     end
 
@@ -268,7 +283,6 @@ local function apply_page_browser()
         local btn_pad = Screen:scaleBySize(11)
         local slot_btn_w = btn_sz + btn_pad * 2
         local title_y = header_pad + math.floor((title_h - header_pad - btn_sz) / 2)
-        canvas:paintRect(0, title_h - 1, slot_w, 1, Blitbuffer.COLOR_LIGHT_GRAY)
         local stock_icons_dir = _stock_icons_dir
         local close_icon_path = utils.resolveIcon(_stock_icons_dir, "close")
         local close_size = require("common/ui/zen_title_style").ICON_SIZE
@@ -288,7 +302,8 @@ local function apply_page_browser()
             cell_height = Screen:scaleBySize(40),
         }
         local tabs_size = tabs:getSize()
-        tabs:paintTo(canvas, math.floor((slot_w - tabs_size.w) / 2), header_pad + math.floor((title_h - header_pad - tabs_size.h) / 2))
+        local tabs_y = header_pad + math.floor((title_h - header_pad - tabs_size.h) / 2)
+        tabs:paintTo(canvas, math.floor((slot_w - tabs_size.w) / 2), tabs_y)
         tabs:free()
 
         local icon_size = Screen:scaleBySize(32)
@@ -299,6 +314,7 @@ local function apply_page_browser()
 
         local top_pad = Screen:scaleBySize(preview_padding)
         local grid_top = title_h + top_pad
+        canvas:paintRect(0, math.floor((tabs_y + tabs_size.h + grid_top - 1) / 2), slot_w, 1, Blitbuffer.COLOR_LIGHT_GRAY)
         local panel_top = math.max(grid_top, slot_h - panel_h)
         local grid_h = math.max(Screen:scaleBySize(80), panel_top - grid_top)
         local layout = get_page_browser_layout()
@@ -473,12 +489,9 @@ local function apply_page_browser()
         local LineWidget      = require("ui/widget/linewidget")
         local _               = require("gettext")
 
-        local function is_annotation_tab(tab)
-            return tab == "bookmarks" or tab == "highlights" or tab == "annotations"
-        end
-
         local function is_content_tab(tab)
-            return tab == "toc" or tab == "book_details" or tab == "book_switcher" or is_annotation_tab(tab)
+            return tab == "toc" or tab == "book_details" or tab == "book_switcher" or tab == "bookmarks"
+                or tab == "highlights" or tab == "annotations" or tab == "pins"
         end
 
         local function is_full_page(pbw)
@@ -486,14 +499,30 @@ local function apply_page_browser()
         end
         PageBrowserWidget._zenIsFullPage = is_full_page
 
-        local function preview_divider(pbw, y)
-            local divider = FrameContainer:new{
+        local function divider(pbw, y)
+            return FrameContainer:new{
                 padding = 0, bordersize = 0, overlap_offset = { 0, y },
                 LineWidget:new{ dimen = Geom:new{ w = pbw.dimen.w, h = Screen:scaleBySize(1) },
                     background = Blitbuffer.COLOR_LIGHT_GRAY },
             }
-            pbw._zen_preview_divider = divider
-            return divider
+        end
+
+        local function preview_divider(pbw, y)
+            pbw._zen_preview_divider = divider(pbw, y)
+            return pbw._zen_preview_divider
+        end
+
+        -- Centered between the tab bar and the preview top. Nil during native init
+        -- (tabs not built yet), so callers keep it last in their child list.
+        local function header_divider(pbw, top_pad)
+            local tabs = pbw._zen_tab_bar
+            if not tabs then return end
+            local title_top = pbw._zen_status_row and pbw._zen_header_offset
+                or math.floor(pbw._zen_header_top_inset / 2)
+            local tabs_bottom = title_top + tabs.overlap_offset[2] + tabs:getSize().h
+            pbw._zen_header_divider = divider(pbw,
+                math.floor((tabs_bottom + pbw.title_bar_h + top_pad - Screen:scaleBySize(1)) / 2))
+            return pbw._zen_header_divider
         end
 
         function PageBrowserWidget:_zenOpenFocusedPage()
@@ -892,13 +921,16 @@ local function apply_page_browser()
         end
 
         local function header(pbw)
-            local group = VerticalGroup:new{ align = "center",
-                VerticalSpan:new{ width = pbw._zen_header_top_inset } }
+            local inset = pbw._zen_header_top_inset
+            -- Without a status row, split the inset so the tabs sit centered in the header.
+            local top = pbw._zen_status_row and inset or math.floor(inset / 2)
+            local group = VerticalGroup:new{ align = "center", VerticalSpan:new{ width = top } }
             if pbw._zen_status_row then
                 group[#group + 1] = pbw._zen_status_row
                 group[#group + 1] = VerticalSpan:new{ width = Screen:scaleBySize(4) }
             end
             group[#group + 1] = pbw.title_bar
+            if not pbw._zen_status_row then group[#group + 1] = VerticalSpan:new{ width = inset - top } end
             pbw._zen_header = group
             return group
         end
@@ -1079,10 +1111,6 @@ local function apply_page_browser()
             local more_button
             more_button = make_header_btn(utils.resolveIcon(_icons_dir, "more_vertical"),
                 0, function()
-                    if is_annotation_tab(self._zen_active_tab) then
-                        require("modules/reader/annotation_viewer").showMenu(self)
-                        return
-                    end
                     local state = self._zen_row_panel and self._zen_row_panel._reader_controls_state
                     local font_section = self._zen_active_tab == "aa" and state
                         and (state.section == "font" or state.section == "contrast")
@@ -1117,10 +1145,10 @@ local function apply_page_browser()
                             end,
                         }})
                     else
-                        buttons[#buttons + 1] = {{ text = _("Settings"), icon = resolve_stock_icon("appbar.settings"),
+                        buttons[#buttons + 1] = {{ text = _("Settings"), icon = GlyphIcons.iconPath(GlyphIcons.SVG.settings),
                             callback = function() launch(function()
                                 require("modules/settings/zen_settings_page").show(_plugin_ref, {
-                                    path = {{ key = "text", value = _("Reader") }},
+                                    path = {{ key = "text", value = _("Reader") }, { key = "text", value = _("Page Browser") }},
                                 })
                             end) end }}
                     end
@@ -1166,12 +1194,6 @@ local function apply_page_browser()
                 end
             end
             self:_zenBuildHeaderTabs()
-            local divider_h = Screen:scaleBySize(1)
-            table.insert(self.title_bar, LineWidget:new{
-                dimen = Geom:new{ w = self.dimen.w, h = divider_h },
-                background = Blitbuffer.COLOR_LIGHT_GRAY,
-                overlap_offset = { 0, self.title_bar:getHeight() - divider_h },
-            })
 
             -- Rebuild only the panel: the initial layout already used the
             -- selected fixed grid dimensions.
@@ -1490,6 +1512,7 @@ local function apply_page_browser()
                                 overlap_offset = { 0, self.dimen.h - controls_h }, panel,
                             },
                             preview_divider(self, self.dimen.h - controls_h),
+                            header_divider(self, top_pad),
                         },
                     }
                     self._zen_rebuilding_focus_layout = nil
@@ -1504,6 +1527,7 @@ local function apply_page_browser()
                         VerticalGroup:new{ align = "center", header(self),
                             VerticalSpan:new{ width = top_pad }, self.grid }, panel,
                         preview_divider(self, self.dimen.h - controls_h),
+                        header_divider(self, top_pad),
                     },
                 }
                 self._zen_rebuilding_focus_layout = nil
@@ -1928,6 +1952,7 @@ local function apply_page_browser()
                         self.grid,
                     },
                     panel,
+                    header_divider(self, top_pad),
                 }
             }
             self._zen_rebuilding_focus_layout = nil
@@ -2673,6 +2698,9 @@ local function apply_page_browser()
                 and handle_focus_key(self, event.args[1], event.handler == "onKeyPress") then
                 return true
             end
+            -- Children already saw the raw hold; embedded Menus' FocusManager:onHold would
+            -- re-send it to their focused row, looping forever when the row ignores holds (TOC).
+            if event.handler == "onHold" then return self:onHold(unpack(event.args, 1, event.args.n)) end
             return _orig_handleEvent(self, event)
         end
 

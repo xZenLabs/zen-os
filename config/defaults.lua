@@ -393,9 +393,10 @@ local defaults = {
         hide_in_cbz = true,
     },
     page_browser = {
-        tab_order = { "browser", "aa", "bookmarks", "highlights", "toc", "annotations", "book_details", "book_switcher" },
-        tabs = { browser = true, aa = true, bookmarks = true, highlights = true, annotations = false, toc = true,
-            book_details = false, book_switcher = false },
+        tab_order = { "browser", "aa", "bookmarks", "highlights", "toc", "annotations", "pins", "book_details",
+            "book_switcher" },
+        tabs = { browser = true, aa = true, bookmarks = true, highlights = true, annotations = false, pins = false,
+            toc = true, book_details = false, book_switcher = false },
         show_status_bar = true,
         toc_font_size = 18,
         bookmarks_font_size = 18,
@@ -404,7 +405,7 @@ local defaults = {
     },
     annotation_viewer = {
         preview_length = "standard",
-        details = { book = "auto", author = "auto", chapter = true, page = true, date = true, tags = false },
+        details = { book = "auto", author = "auto", chapter = true, page = true, date = true, label = true, tags = false },
     },
     highlight_lookup = {
         show_labels         = false,

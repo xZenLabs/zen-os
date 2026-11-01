@@ -19,6 +19,7 @@ local PATCH_MODULES = {
     reader_references = "modules/reader/patches/reader_references",
     stable_page_statistics = "modules/reader/patches/stable_page_statistics",
     highlight_names = "modules/reader/patches/highlight_names",
+    night_highlights = "modules/reader/patches/night_highlights",
     highlight_menu = "modules/reader/patches/highlight_menu",
     dict_quick_lookup = "modules/reader/patches/dict_quick_lookup",
     status_on_open = "modules/reader/patches/status_on_open",
@@ -147,6 +148,12 @@ function M.init(logger, plugin)
     local highlight_names_fn = load_patch("highlight_names")
     if highlight_names_fn then
         run_feature(logger, plugin, "highlight_names", highlight_names_fn)
+    end
+
+    -- Always apply: day-colored highlights with dark text in night mode.
+    local night_highlights_fn = load_patch("night_highlights")
+    if night_highlights_fn then
+        run_feature(logger, plugin, "night_highlights", night_highlights_fn)
     end
 
     -- Always apply: icon-only DictQuickLookup buttons (self-disables when feature is off).

@@ -142,3 +142,95 @@ def test_existing_margins_migrate_only_for_zen_presets(preset: str | None) -> No
                 assert driver.command("reference_action", action="close_book")["ok"]
         finally:
             stop(process)
+
+
+@pytest.mark.parametrize("settings", [
+    {"progress_bar_position": "alongside"},
+    {"progress_bar_position": "below"},
+    {"all_at_once": False},
+    {"progress_style_thin": True},
+])
+def test_progress_bar_only_footer_tap_toggles_both_ways(settings) -> None:
+    runtime = Path(os.environ["KOREADER_DIR"])
+    with tempfile.TemporaryDirectory(prefix="zen-footer-tap-") as temporary:
+        root = Path(temporary)
+        home, library = root / "home", root / "library"
+        home.mkdir()
+        library.mkdir()
+        book = library / "tap.epub"
+        _write_reader_epub(book)
+        socket = root / "driver.sock"
+        process = launch(runtime, home, socket, library)
+        try:
+            wait_for_socket(socket)
+            driver = ZenDriver(socket)
+            assert driver.open_book(book)["ok"]
+            state = driver.command("reference_action", action="footer_progress_only", settings=settings)["references"]
+            assert state["has_no_mode"] and state["footer_visible"]
+            for visible in (False, True, False, True):
+                state = driver.command("reference_action", action="footer_tap")["references"]
+                assert state["footer_visible"] is visible, state
+                assert state["zen_enabled"], state
+        finally:
+            stop(process)
+
+
+def test_preset_footer_tap_cycles_items_then_hides_repeatedly() -> None:
+    runtime = Path(os.environ["KOREADER_DIR"])
+    with tempfile.TemporaryDirectory(prefix="zen-footer-cycle-") as temporary:
+        root = Path(temporary)
+        home, library = root / "home", root / "library"
+        home.mkdir()
+        library.mkdir()
+        book = library / "cycle.epub"
+        _write_reader_epub(book)
+        socket = root / "driver.sock"
+        process = launch(runtime, home, socket, library)
+        try:
+            wait_for_socket(socket)
+            driver = ZenDriver(socket)
+            assert driver.open_book(book)["ok"]
+            assert driver.command("reference_action", action="pin", page=1)["ok"]
+            driver.command("reference_action", action="footer_state", preset=5,
+                           settings={"lock_tap": False, "all_at_once": False})
+            names = [driver.command("reference_action", action="footer_tap")["references"]["mode_name"]
+                     for _i in range(8)]
+            assert names == ["page_progress", "percentage", "off", "chapter_time_to_read"] * 2
+        finally:
+            stop(process)
+
+
+@pytest.mark.parametrize("settings", [
+    {"progress_bar_position": "alongside"},
+    {"progress_bar_position": "alongside", "all_at_once": True, "dynamic_filler": True, "dynamic_filler2": True},
+])
+def test_progress_bar_only_footer_spans_reader_margins(settings) -> None:
+    runtime = Path(os.environ["KOREADER_DIR"])
+    with tempfile.TemporaryDirectory(prefix="zen-footer-span-") as temporary:
+        root = Path(temporary)
+        home, library = root / "home", root / "library"
+        home.mkdir()
+        library.mkdir()
+        book = library / "span.epub"
+        _write_reader_epub(book)
+        socket = root / "driver.sock"
+        config = "return {updater={update_auto_check=false},features={reader_status_bar_margins=true}}"
+        process = launch(runtime, home, socket, library, zen_config_source=config)
+        try:
+            wait_for_socket(socket)
+            driver = ZenDriver(socket)
+            assert driver.open_book(book)["ok"]
+            driver.command("reference_action", action="footer_progress_only", settings=settings)
+            # Geometry is recorded at paint; read it after the settings repaint.
+            state = driver.command("reference_action", action="footer_state")["references"]
+            left, right = state["margins"]
+            assert state["bar"] == {"x": left, "w": state["screen_w"] - left - right}, state
+            assert driver.command("reference_action", action="pin", page=1)["ok"]
+            driver.command("reference_action", action="footer_progress_only", settings=settings)
+            state = driver.command("reference_action", action="footer_state")["references"]
+            assert state["bar"]["x"] == left, state
+            # Bar ends a short gap (8dp, plus space rounding when inline) before the pin box.
+            gap = state["pin"]["x"] - state["bar"]["x"] - state["bar"]["w"]
+            assert 0 < gap < 24, state
+        finally:
+            stop(process)

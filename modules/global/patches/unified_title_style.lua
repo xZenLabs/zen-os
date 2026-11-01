@@ -8,7 +8,7 @@ local function apply_unified_title_style()
     local orig_init = TitleBar.init
     TitleBar.init = function(self, ...)
         local width = tonumber(self.width) or Screen:getWidth()
-        local use_zen_style = width >= Screen:getWidth()
+        local use_zen_style = self.zen_style or width >= Screen:getWidth()
         if use_zen_style then TitleStyle.applyToStockTitleBar(self) end
         local result = orig_init(self, ...)
         if use_zen_style and self.title_widget then self.title_widget.bold = true end
