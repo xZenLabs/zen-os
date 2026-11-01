@@ -1,6 +1,8 @@
--- Reads book status information from the KOReader sidecar files of every book
--- in the reading history. Results are cached per sidecar (path + mtime + size)
--- so repeated opens only re-stat the files.
+-- Reads book information for the statistics. Which books are finished or
+-- being read comes from the ZenOS status index (common/tbr_index, kept in the
+-- DocPropsCache database); only those books' sidecars are opened, for page
+-- counts and the md5 that links them to the statistics database. Parsed
+-- sidecars are cached per path + mtime + size.
 
 local logger = require("common/zen_logger").new("stats_books")
 
@@ -56,64 +58,35 @@ local function record_from(data)
     }
 end
 
-local MAX_DEPTH = 8
-
---- Book files below the home folder. Books that were only marked as finished in
---- the file browser (several at once) have a sidecar but are NOT in the reading
---- history, so the history alone would miss them.
-local function walk(lfs, dir, depth, out, is_doc)
-    if depth > MAX_DEPTH then return end
-    local ok, iter, state = pcall(lfs.dir, dir)
-    if not ok or not iter then return end
-    for name in iter, state do
-        if name ~= "." and name ~= ".." and name:sub(1, 1) ~= "." and not name:match("%.sdr$") then
-            local path = dir .. "/" .. name
-            local mode = lfs.attributes(path, "mode")
-            if mode == "directory" then
-                walk(lfs, path, depth + 1, out, is_doc)
-            elseif mode == "file" and is_doc(path) then
-                out[#out + 1] = path
-            end
-        end
-    end
-end
-
-local function home_dir()
-    local ok, paths = pcall(require, "common/paths")
-    if ok and paths and paths.getHomeDir then return paths.getHomeDir() end
-    return nil
-end
-
 --- Returns an array of records {file,status,title,authors,md5,percent,pages}.
 function M.scan()
     local out = {}
     local ok, err = pcall(function()
         local DocSettings = require("docsettings")
         local lfs = require("libs/libkoreader-lfs")
-        local ok_reg, Registry = pcall(require, "document/documentregistry")
-        local function is_doc(path)
-            if ok_reg and Registry and Registry.hasProvider then
-                local ok_p, res = pcall(Registry.hasProvider, Registry, path)
-                if ok_p then return res and true or false end
-            end
-            return path:lower():match("%.epub$") ~= nil
-        end
 
-        -- candidate files: reading history first, then everything below home
+        -- finished and started books in the home folders, from the status index
         local files, seen = {}, {}
         local function add(file)
             if file and not seen[file] then seen[file] = true; files[#files + 1] = file end
         end
+        local ok_i, TBRIndex = pcall(require, "common/tbr_index")
+        if ok_i and type(TBRIndex.getByStatuses) == "function" then
+            local ok_s, list = pcall(TBRIndex.getByStatuses, { complete = true, reading = true })
+            if ok_s and type(list) == "table" then
+                for _i, file in ipairs(list) do add(file) end
+            else
+                logger.warn("status index failed:", list)
+            end
+        end
+        -- books opened from outside the home folders are only in the history
+        local ok_p, paths = pcall(require, "common/paths")
         local ok_rh, ReadHistory = pcall(require, "readhistory")
         if ok_rh and ReadHistory then
-            for _i, entry in ipairs(ReadHistory.hist or {}) do add(entry.file) end
-        end
-        local home = home_dir()
-        if home and home ~= "/" then home = home:gsub("/+$", "") end
-        if home and lfs.attributes(home, "mode") == "directory" then
-            local found = {}
-            walk(lfs, home, 1, found, is_doc)
-            for _i, f in ipairs(found) do add(f) end
+            for _i, entry in ipairs(ReadHistory.hist or {}) do
+                local file = entry.file
+                if file and not (ok_p and paths.isInHomeDir and paths.isInHomeDir(file)) then add(file) end
+            end
         end
 
         for _i, file in ipairs(files) do
@@ -275,6 +248,8 @@ local OMNI_MIN_WORK = 150      -- standard pages: a work of its own
 local OMNI_MIN_ENTRY = 10      -- below this a TOC entry is front/back matter
 local OMNI_MIN_SHORTS = 30     -- short stories together below this: no book of their own
 local FALLBACK_BYTES_PER_STD = 2400
+local MAX_READ_BYTES = 1024 * 1024   -- largest OPF / TOC / chapter file read from an EPUB
+local MAX_TOC_ENTRIES = 500          -- more top level entries: not looked at
 
 local KEYWORDS = { "sammelband", "omnibus", "anthologie", "anthology", "trilogie", "trilogy",
     "gesamtausgabe", "in einem band", "sammlung" }
@@ -386,7 +361,12 @@ function M.epubStructure(Archiver, file)
         for entry in r:iterate() do
             if entry.mode == "file" then sizes[entry.path] = tonumber(entry.size) or 0 end
         end
-        local function read(p) return sizes[p] and r:extractToMemory(p) or nil end
+        -- package and TOC files are small; anything larger is not read (a
+        -- broken or crafted EPUB must not stall the UI) and the book stays one book
+        local function read(p)
+            if not sizes[p] or sizes[p] > MAX_READ_BYTES then return nil end
+            return r:extractToMemory(p)
+        end
         local cont = read("META-INF/container.xml")
         local opf = cont and cont:match("full%-path%s*=%s*[\"']([^\"']+)[\"']")
         local o = opf and read(opf)
@@ -420,6 +400,7 @@ function M.epubStructure(Archiver, file)
         local x = tocfile and read(tocfile)
         if not x then return end
         local top = (tocfile == ncx) and ncxTop(x) or navTop(x)
+        if #top > MAX_TOC_ENTRIES then return end
         local tdir = dirname(tocfile)
         local entries = {}
         for _i, t in ipairs(top) do
