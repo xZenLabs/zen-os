@@ -984,6 +984,35 @@ function ZenUI:onNotCharging()
     BatteryStats.chargingChanged()
 end
 
+-- The battery curve marks Bluetooth periods. ZenOS broadcasts
+-- BluetoothStateChanged; kobo.koplugin broadcasts RefreshAdditionalContent.
+function ZenUI:onBluetoothStateChanged()
+    if self._zenos_brand_inert then return end
+    BatteryStats.bluetoothChanged()
+end
+
+function ZenUI:onRefreshAdditionalContent()
+    if self._zenos_brand_inert then return end
+    BatteryStats.bluetoothChanged()
+end
+
+-- ... and Wi-Fi periods
+function ZenUI:onNetworkConnected()
+    if self._zenos_brand_inert then return end
+    BatteryStats.wifiChanged()
+end
+
+function ZenUI:onNetworkDisconnected()
+    if self._zenos_brand_inert then return end
+    BatteryStats.wifiChanged()
+end
+
+-- ZenOS's non-blocking Wi-Fi reports switching on / off without a connection
+function ZenUI:onNetworkStateChanged()
+    if self._zenos_brand_inert then return end
+    BatteryStats.wifiChanged()
+end
+
 local function close_zen_standalone_views(shared)
     if type(shared) ~= "table" then return end
     for _i, key in ipairs({ "group_view", "home" }) do

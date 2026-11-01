@@ -788,7 +788,7 @@ msgstr "Pruh"
 
 #. Type: title
 #. Context: Nadpis v nabídce statistik baterie. Název nastavení v panelu rychlých nastavení. Název nastavení v obecných nastaveních. Používá se i na dalších místech v ZenOS.
-#: quick_settings.lua:1074 battery_stats_menu.lua:100 general_settings.lua:76 reader_settings.lua:281 status_bar_settings.lua:34
+#: quick_settings.lua:1074 battery_page.lua:228 battery_page.lua:229 battery_page.lua:667 general_settings.lua:76 reader_settings.lua:281 status_bar_settings.lua:34
 msgid "Battery"
 msgstr "Baterie"
 
@@ -860,7 +860,7 @@ msgstr "Modrá"
 
 #. Type: setting
 #. Context: Název nastavení v panelu rychlých nastavení. Název nastavení v obecných nastaveních. Název nastavení v nastavení tlačítek rychlých nastavení. Používá se i na dalších místech v ZenOS.
-#: quick_settings.lua:561 general_settings.lua:40 menu_settings.lua:87 reader_settings.lua:286 status_bar_settings.lua:28
+#: quick_settings.lua:561 battery_page.lua:494 battery_page.lua:511 general_settings.lua:40 menu_settings.lua:87 reader_settings.lua:286 status_bar_settings.lua:28
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
@@ -1196,7 +1196,7 @@ msgstr "Kapitoly"
 
 #. Type: setting
 #. Context: Název nastavení v nabídce statistik baterie.
-#: battery_stats_menu.lua:41 battery_stats_menu.lua:88
+#: battery_page.lua:259 battery_page.lua:535 battery_stats_menu.lua:41 battery_stats_menu.lua:88
 msgid "Charging"
 msgstr "Nabíjení"
 
@@ -2120,7 +2120,7 @@ msgstr "Popis"
 
 #. Type: setting
 #. Context: Název nastavení v nabídce statistik baterie.
-#: battery_stats_menu.lua:27
+#: battery_page.lua:514 battery_stats_menu.lua:27
 msgid "Design capacity"
 msgstr "Návrhová kapacita"
 
@@ -2834,7 +2834,7 @@ msgstr "Možnosti poznámky pod čarou"
 
 #. Type: setting
 #. Context: table.insert(items, { text = _("Footnotes and pinned pages"), icon_name = "pin",
-#: reference_drawer.lua:625 reader_settings.lua:1459
+#: reference_drawer.lua:634 reader_settings.lua:1459
 msgid "Footnotes and pinned pages"
 msgstr "Poznámky pod čarou a připnuté stránky"
 
@@ -2882,7 +2882,7 @@ msgstr "Přední osvětlení"
 
 #. Type: setting
 #. Context: Název nastavení v nabídce statistik baterie.
-#: battery_stats_menu.lua:26
+#: battery_page.lua:514 battery_stats_menu.lua:26
 msgid "Full capacity"
 msgstr "Plná kapacita"
 
@@ -2996,7 +2996,7 @@ msgstr "Token API pro Hardcover"
 
 #. Type: setting
 #. Context: Název nastavení v nabídce statistik baterie.
-#: battery_stats_menu.lua:78
+#: battery_page.lua:514 battery_stats_menu.lua:78
 msgid "Health"
 msgstr "Zdraví"
 
@@ -4628,7 +4628,7 @@ msgstr "Strana"
 
 #. Type: format
 #. Context: local function page_text(record) return record.page_label ~= "" and T(_("Page %1"), record.page_label) or "" end
-#: annotation_viewer.lua:49 reference_drawer.lua:271 highlight_menu.lua:357
+#: annotation_viewer.lua:49 reference_drawer.lua:279 highlight_menu.lua:357
 msgid "Page %1"
 msgstr "Stránka %1"
 
@@ -4790,7 +4790,7 @@ msgstr "Fráze"
 
 #. Type: title
 #. Context: end dialog = require("ui/widget/buttondialog"):new{ title = _("Pin"), buttons = rows } UIManager:show(dialog)
-#: pin_footer.lua:212 references.lua:191 page_browser.lua:2481 reader_settings.lua:298
+#: pin_footer.lua:212 references.lua:191 page_browser.lua:2482 reader_settings.lua:298
 msgid "Pin"
 msgstr "Kolík"
 
@@ -4802,7 +4802,7 @@ msgstr "Připnout tuto stránku"
 
 #. Type: setting
 #. Context: { text = _("Pinned page options"), sub_item_table_func = function()
-#: reference_drawer.lua:626 reader_settings.lua:1464
+#: reference_drawer.lua:635 reader_settings.lua:1464
 msgid "Pinned page options"
 msgstr "Možnosti připnuté stránky"
 
@@ -5096,7 +5096,7 @@ msgstr "Přečteno: %s"
 
 #. Type: title
 #. Context: Nadpis v průvodci prvotním nastavením. Popisek v rozhraní ZenOS. Název nastavení v hlavní nabídce nastavení Zen. Používá se i na dalších místech v ZenOS.
-#: quickstart_pages.lua:803 action_filter.lua:72 annotation_viewer.lua:590 reference_drawer.lua:624 highlight_menu.lua:246 page_browser.lua:1123 zen_settings.lua:81 global_settings.lua:904 home_settings.lua:1527
+#: quickstart_pages.lua:803 action_filter.lua:72 annotation_viewer.lua:590 reference_drawer.lua:633 highlight_menu.lua:246 page_browser.lua:1123 zen_settings.lua:81 global_settings.lua:904 home_settings.lua:1527
 msgid "Reader"
 msgstr "Čtečka"
 
@@ -5282,7 +5282,7 @@ msgstr "Odebrat ze tvůrce slovníku"
 
 #. Type: action
 #. Context: end add{ text = _("Remove pin"), callback = function() References.setPin(self.ui, self.page, true)
-#: reference_drawer.lua:615 references.lua:169 references.lua:191 page_browser.lua:2481
+#: reference_drawer.lua:624 references.lua:169 references.lua:191 page_browser.lua:2482
 msgid "Remove pin"
 msgstr "Odstraňte špendlík"
 
@@ -5666,7 +5666,7 @@ msgstr "Posuvná lišta"
 
 #. Type: title
 #. Context: Nadpis v prohlížeči online katalogů knih. Popisek v navigačních kartách a tlačítkách rychlých nastavení. Volitelná možnost v průvodci prvotním nastavením. Používá se i na dalších místech v ZenOS.
-#: nav_button_model.lua:22 quickstart_pages.lua:721 collections.lua:650 metadata_editor.lua:969 navbar.lua:326 navbar.lua:331 search.lua:109 opds.lua:1724 opds.lua:1917 opds.lua:1921 native_menu.lua:9 quick_settings.lua:725 quick_settings.lua:765 buttons.lua:37 annotation_viewer.lua:423 dict_quick_lookup.lua:110 highlight_menu.lua:233 page_browser.lua:2948 navbar_settings.lua:183
+#: nav_button_model.lua:22 quickstart_pages.lua:721 collections.lua:650 metadata_editor.lua:969 navbar.lua:326 navbar.lua:331 search.lua:109 opds.lua:1724 opds.lua:1917 opds.lua:1921 native_menu.lua:9 quick_settings.lua:725 quick_settings.lua:765 buttons.lua:37 annotation_viewer.lua:423 dict_quick_lookup.lua:110 highlight_menu.lua:233 page_browser.lua:2935 navbar_settings.lua:183
 msgid "Search"
 msgstr "Vyhledat"
 
@@ -5678,7 +5678,7 @@ msgstr "Vyhledávání anotací"
 
 #. Type: title
 #. Context: Nadpis v prohlížeči stránek čtečky.
-#: page_browser.lua:2932
+#: page_browser.lua:2960
 msgid "Search Book"
 msgstr "Prohledat knihu"
 
@@ -5702,7 +5702,7 @@ msgstr "Výsedky vyhledávání"
 
 #. Type: placeholder
 #. Context: Nápověda k zadání hodnoty v rozhraní ZenOS.
-#: zen_settings_titlebar.lua:409
+#: zen_settings_titlebar.lua:408
 msgid "Search settings"
 msgstr "Nastavení vyhledávání"
 
@@ -5882,7 +5882,7 @@ msgstr "Nastavit složku pro synchronizaci"
 
 #. Type: title
 #. Context: Nadpis v nabídce nastavení Zen. Položka nabídky v nabídkách KOReaderu a výběru nabídky pro spouštěč. Název nastavení v panelu rychlých nastavení. Používá se i na dalších místech v ZenOS.
-#: native_menu.lua:10 quick_settings.lua:1155 annotation_viewer.lua:586 reference_drawer.lua:621 highlight_menu.lua:242 page_browser.lua:1120 battery_stats_menu.lua:93 zen_settings_page.lua:198 zen_settings_page.lua:223 zen_settings_page.lua:280 zen_settings_page.lua:866 zen_settings_page.lua:1051 menu_settings.lua:67 menu_settings.lua:1087
+#: native_menu.lua:10 quick_settings.lua:1155 annotation_viewer.lua:586 reference_drawer.lua:630 highlight_menu.lua:242 page_browser.lua:1120 battery_stats_menu.lua:93 zen_settings_page.lua:198 zen_settings_page.lua:223 zen_settings_page.lua:280 zen_settings_page.lua:866 zen_settings_page.lua:1051 menu_settings.lua:67 menu_settings.lua:1087
 msgid "Settings"
 msgstr "Nastavení"
 
@@ -6908,7 +6908,7 @@ msgstr "Dnes"
 
 #. Type: action
 #. Context: or utils.resolveLocalIcon(_icons_dir, bookmark_icon), text = labels and _("Toggle page bookmark") or nil, callback = function()
-#: page_browser.lua:2474
+#: page_browser.lua:2475
 msgid "Toggle page bookmark"
 msgstr "Přepnout záložku stránky"
 
@@ -7544,7 +7544,7 @@ msgstr "Když jsem vzhůru"
 
 #. Type: setting
 #. Context: Název nastavení v panelu rychlých nastavení. Název nastavení v obecných nastaveních. Název nastavení v nastavení tlačítek rychlých nastavení. Používá se i na dalších místech v ZenOS.
-#: quick_settings.lua:586 quick_settings.lua:588 general_settings.lua:17 menu_settings.lua:86 reader_settings.lua:285 status_bar_settings.lua:30
+#: quick_settings.lua:586 quick_settings.lua:588 battery_page.lua:495 battery_page.lua:511 general_settings.lua:17 menu_settings.lua:86 reader_settings.lua:285 status_bar_settings.lua:30
 msgid "Wi-Fi"
 msgstr "Wi-Fi"
 
@@ -7841,3 +7841,267 @@ msgstr "ZenPM"
 #: zenpm_installer.lua:381
 msgid "ZenPM has been installed. Restart KOReader to use it."
 msgstr "ZenPM byl nainstalován. Chcete-li jej používat, restartujte KOReader."
+
+#. Type: setting
+#. Context: local function days(seconds) if seconds >= 2 * DAY then return T(_("%1 d"), math.floor(seconds / DAY + 0.5)) end return duration(seconds)
+#: battery_page.lua:141
+msgid "%1 d"
+msgstr ""
+
+#. Type: setting
+#. Context: m = m % 60 if d > 0 then return T(_("%1 d %2 h"), d, h) end if h > 0 then return T(_("%1 h %2 min"), h, m) end
+#: battery_page.lua:93
+msgid "%1 d %2 h"
+msgstr ""
+
+#. Type: setting
+#. Context: if n == 1 then return _("yesterday") end return T(_("%1 days ago"), n) end
+#: battery_page.lua:154
+msgid "%1 days ago"
+msgstr ""
+
+#. Type: setting
+#. Context: if not seconds or seconds < 0 then return "–" end if seconds >= 10 * 3600 then return T(_("%1 h"), math.floor(seconds / 3600 + 0.5)) end return duration(seconds)
+#: battery_page.lua:135
+msgid "%1 h"
+msgstr ""
+
+#. Type: setting
+#. Context: if d > 0 then return T(_("%1 d %2 h"), d, h) end if h > 0 then return T(_("%1 h %2 min"), h, m) end return T(_("%1 min"), m)
+#: battery_page.lua:94
+msgid "%1 h %2 min"
+msgstr ""
+
+#. Type: setting
+#. Context: if h > 0 then return T(_("%1 h %2 min"), h, m) end return T(_("%1 min"), m) end
+#: battery_page.lua:95
+msgid "%1 min"
+msgstr ""
+
+#. Type: title
+#. Context: if #pts >= 2 then title = T(_("%1 · %2 → %3 %"), label, pts[1][2], pts[#pts][2]) end
+#: battery_page.lua:381
+msgid "%1 · %2 → %3 %"
+msgstr ""
+
+#. Type: setting
+#. Context: local how = gain and gain > 0 and (crate and crate > 0 and T(_("+%1 % in %2"), gain, duration(gain * 3600 / crate)) or T(_("+%1 %"), gain)) or nil if st.charging then
+#: battery_page.lua:688
+msgid "+%1 %"
+msgstr ""
+
+#. Type: setting
+#. Context: local how = gain and gain > 0 and (crate and crate > 0 and T(_("+%1 % in %2"), gain, duration(gain * 3600 / crate)) or T(_("+%1 %"), gain)) or nil if st.charging then
+#: battery_page.lua:688
+msgid "+%1 % in %2"
+msgstr ""
+
+#. Type: setting
+#. Context: local RANGES = { { id = "1", label = _("1 day") }, { id = "7", label = _("7 days") },
+#: battery_page.lua:158
+msgid "1 day"
+msgstr ""
+
+#. Type: setting
+#. Context: { id = "7", label = _("7 days") }, { id = "30", label = _("30 days") }, { id = "charge", label = _("Since charge") },
+#: battery_page.lua:160
+msgid "30 days"
+msgstr ""
+
+#. Type: setting
+#. Context: { id = "1", label = _("1 day") }, { id = "7", label = _("7 days") }, { id = "30", label = _("30 days") },
+#: battery_page.lua:159
+msgid "7 days"
+msgstr ""
+
+#. Type: message
+#. Context: if st.overall and st.overall > 0 then out[#out + 1] = T(_("A full charge lasts %1 at %2 on average."), days(100 * 3600 / st.overall), rate(st.overall))
+#: battery_page.lua:699
+msgid "A full charge lasts %1 at %2 on average."
+msgstr ""
+
+#. Type: setting
+#. Context: elseif st.remaining then sub = T(_("About %1 left"), duration(st.remaining)) else
+#: battery_page.lua:261
+msgid "About %1 left"
+msgstr ""
+
+#. Type: setting
+#. Context: awake = _("Awake"), bt = _("Bluetooth"), wifi = _("Wi-Fi"), both = _("Wi-Fi + Bluetooth"), asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"), screen_off = _("Screen off"), since_charge = _("Since charge"), full_c...
+#: battery_page.lua:512
+msgid "Asleep"
+msgstr ""
+
+#. Type: setting
+#. Context: return ({ awake = _("Awake"), bt = _("Bluetooth"), wifi = _("Wi-Fi"), both = _("Wi-Fi + Bluetooth"), asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"),
+#: battery_page.lua:511
+msgid "Awake"
+msgstr ""
+
+#. Type: message
+#. Context: if st.charging then out[#out + 1] = _("Charging now.") elseif st.since_charge and how then
+#: battery_page.lua:690
+msgid "Charging now."
+msgstr ""
+
+#. Type: setting
+#. Context: if st.charging then sub = st.time_to_full and st.time_to_full > 0 and T(_("Charging · full in %1"), duration(st.time_to_full)) or _("Charging")
+#: battery_page.lua:258
+msgid "Charging · full in %1"
+msgstr ""
+
+#. Type: message
+#. Context: if #pts < 2 then text(bb, _("Collecting data… The chart fills after a few hours of use."), face(16), px, py, pw, ph, { align = "center", fg = GREY })
+#: battery_page.lua:409
+msgid "Collecting data… The chart fills after a few hours of use."
+msgstr ""
+
+#. Type: setting
+#. Context: else sub = _("Estimate after about an hour of use") end
+#: battery_page.lua:263
+msgid "Estimate after about an hour of use"
+msgstr ""
+
+#. Type: message
+#. Context: elseif how then out[#out + 1] = T(_("Last charge: %1."), how) end
+#: battery_page.lua:696
+msgid "Last charge: %1."
+msgstr ""
+
+#. Type: message
+#. Context: elseif st.since_charge and how then out[#out + 1] = T(_("Last charged %1, %2."), day_ago(self.now - st.since_charge, self.now), how) elseif st.since_charge then
+#: battery_page.lua:692
+msgid "Last charged %1, %2."
+msgstr ""
+
+#. Type: message
+#. Context: elseif st.since_charge then out[#out + 1] = T(_("Last charged %1."), day_ago(self.now - st.since_charge, self.now)) elseif how then
+#: battery_page.lua:694
+msgid "Last charged %1."
+msgstr ""
+
+#. Type: message
+#. Context: if not self.stats then text(bb, _("No battery data on this device."), face(18), cx, cy, cw, s(60), { align = "center", fg = GREY }) return
+#: battery_page.lua:714
+msgid "No battery data on this device."
+msgstr ""
+
+#. Type: setting
+#. Context: awake = _("Awake"), bt = _("Bluetooth"), wifi = _("Wi-Fi"), both = _("Wi-Fi + Bluetooth"), asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"), screen_off = _("Screen off"), since_charge = _("Since charge"), full_c...
+#: battery_page.lua:512
+msgid "Per hour"
+msgstr ""
+
+#. Type: setting
+#. Context: asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"), screen_off = _("Screen off"), since_charge = _("Since charge"), full_charge = _("Full charge lasts"), health = _("Health"), full_mah = _("Full capacity"), design...
+#: battery_page.lua:513
+msgid "Screen off"
+msgstr ""
+
+#. Type: setting
+#. Context: awake = _("Awake"), bt = _("Bluetooth"), wifi = _("Wi-Fi"), both = _("Wi-Fi + Bluetooth"), asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"), screen_off = _("Screen off"), since_charge = _("Since charge"), full_c...
+#: battery_page.lua:512
+msgid "Screen on"
+msgstr ""
+
+#. Type: setting
+#. Context: { id = "30", label = _("30 days") }, { id = "charge", label = _("Since charge") }, }
+#: battery_page.lua:161 battery_page.lua:513
+msgid "Since charge"
+msgstr ""
+
+#. Type: setting
+#. Context: key("awake", _("awake")) key("asleep", _("asleep")) key("band", _("charging"))
+#: battery_page.lua:492
+msgid "asleep"
+msgstr ""
+
+#. Type: setting
+#. Context: end key("awake", _("awake")) key("asleep", _("asleep"))
+#: battery_page.lua:491
+msgid "awake"
+msgstr ""
+
+#. Type: setting
+#. Context: key("asleep", _("asleep")) key("band", _("charging")) key("bt", _("Bluetooth"))
+#: battery_page.lua:493
+msgid "charging"
+msgstr ""
+
+#. Type: setting
+#. Context: while k * 3600 <= span + 1 do ticks[#ticks + 1] = { k * 3600, k == 0 and _("now") or T(_("−%1 h"), k) } k = k + step
+#: battery_page.lua:325 battery_page.lua:333
+msgid "now"
+msgstr ""
+
+#. Type: setting
+#. Context: local n = math.floor((midday(now) - midday(t)) / DAY + 0.5) if n <= 0 then return _("today") end if n == 1 then return _("yesterday") end
+#: battery_page.lua:152
+msgid "today"
+msgstr ""
+
+#. Type: setting
+#. Context: if n <= 0 then return _("today") end if n == 1 then return _("yesterday") end return T(_("%1 days ago"), n)
+#: battery_page.lua:153
+msgid "yesterday"
+msgstr ""
+
+#. Type: setting
+#. Context: while k * DAY <= span + 1 do ticks[#ticks + 1] = { k * DAY, k == 0 and _("now") or T(_("−%1 d"), k) } k = k + step
+#: battery_page.lua:333
+msgid "−%1 d"
+msgstr ""
+
+#. Type: setting
+#. Context: while k * 3600 <= span + 1 do ticks[#ticks + 1] = { k * 3600, k == 0 and _("now") or T(_("−%1 h"), k) } k = k + step
+#: battery_page.lua:325
+msgid "−%1 h"
+msgstr ""
+
+#. Type: setting
+#. Context: items[#items + 1] = { text = _("Customize tiles"), checked_func = function() return self.customize == true end,
+#: battery_page.lua:651
+msgid "Customize tiles"
+msgstr ""
+
+#. Type: setting
+#. Context: health = _("Health"), full_mah = _("Full capacity"), design_mah = _("Design capacity"), empty = _("Empty"), })[id] or id
+#: battery_page.lua:515
+msgid "Empty"
+msgstr ""
+
+#. Type: setting
+#. Context: asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"), screen_off = _("Screen off"), since_charge = _("Since charge"), full_charge = _("Full charge lasts"), health = _("Health"), full_mah = _("Full capacity"), design...
+#: battery_page.lua:513
+msgid "Full charge lasts"
+msgstr ""
+
+#. Type: setting
+#. Context: items[#items + 1] = { text = _("Restore default tiles"), callback = function(touchmenu)
+#: battery_page.lua:659
+msgid "Restore default tiles"
+msgstr ""
+
+#. Type: title
+#. Context: dialog = ButtonDialog:new{ title = T(_("Tile %1 of %2"), idx, 8), title_align = "center",
+#: battery_page.lua:620
+msgid "Tile %1 of %2"
+msgstr ""
+
+#. Type: setting
+#. Context: items[#items + 1] = { text = _("Use per hour in"), mandatory_func = function() return options.unit == "mah" and "mAh/h" or "%/h" end,
+#: battery_page.lua:632
+msgid "Use per hour in"
+msgstr ""
+
+#. Type: setting
+#. Context: local function tile_short(id) if id == "both" then return _("Wi-Fi + BT") end return tile_label(id)
+#: battery_page.lua:521
+msgid "Wi-Fi + BT"
+msgstr ""
+
+#. Type: setting
+#. Context: return ({ awake = _("Awake"), bt = _("Bluetooth"), wifi = _("Wi-Fi"), both = _("Wi-Fi + Bluetooth"), asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"),
+#: battery_page.lua:511
+msgid "Wi-Fi + Bluetooth"
+msgstr ""
