@@ -882,4 +882,42 @@ describe("battery stats", function()
         assert.is_true(slept)
         assert.are.equal(94, curve[#curve][2])
     end)
+
+    it("keeps Wi-Fi, Bluetooth and both apart from plain awake use", function()
+        local radios = { bt = false, wifi = false }
+        local saved_bt, saved_net = package.loaded["modules/menu/bluetooth/bluetooth"], package.loaded["ui/network/manager"]
+        ZenSpec.replace("modules/menu/bluetooth/bluetooth", {
+            getState = function() return radios.bt end,
+        })
+        ZenSpec.replace("ui/network/manager", {
+            isWifiOn = function() return radios.wifi end,
+        })
+        ZenSpec.unload("common/battery_stats")
+        BatteryStats = require("common/battery_stats")
+        BatteryStats.start()
+        local function hour(drop, bt, wifi)
+            radios.bt, radios.wifi = bt, wifi
+            BatteryStats.bluetoothChanged()
+            scheduled[#scheduled].callback()
+            now, level = now + 3600, level - drop
+            scheduled[#scheduled].callback()
+        end
+        hour(1, false, false)
+        hour(2, true, false)
+        hour(3, false, true)
+        hour(4, true, true)
+        local stats = BatteryStats.snapshot()
+        assert.are.equal(1, stats.awake)
+        assert.are.equal(2, stats.bluetooth)
+        assert.are.equal(3, stats.wifi)
+        assert.are.equal(4, stats.both)
+        assert.are.equal(4 * 3600, stats.awake_time)
+        local wifi_marked = false
+        for _i, point in ipairs(BatteryStats.curve()) do
+            if math.floor(point[3] / 16) % 2 == 1 then wifi_marked = true end
+        end
+        assert.is_true(wifi_marked)
+        package.loaded["modules/menu/bluetooth/bluetooth"] = saved_bt
+        package.loaded["ui/network/manager"] = saved_net
+    end)
 end)

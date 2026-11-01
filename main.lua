@@ -996,6 +996,17 @@ function ZenUI:onRefreshAdditionalContent()
     BatteryStats.bluetoothChanged()
 end
 
+-- ... and Wi-Fi periods
+function ZenUI:onNetworkConnected()
+    if self._zenos_brand_inert then return end
+    BatteryStats.wifiChanged()
+end
+
+function ZenUI:onNetworkDisconnected()
+    if self._zenos_brand_inert then return end
+    BatteryStats.wifiChanged()
+end
+
 local function close_zen_standalone_views(shared)
     if type(shared) ~= "table" then return end
     for _i, key in ipairs({ "group_view", "home" }) do
