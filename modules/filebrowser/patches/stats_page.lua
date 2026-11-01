@@ -1297,7 +1297,13 @@ local function createTabs(createStatusRow, repaintTitleBar, stats_settings)
     local view
     local function build()
         if view then view:free() end
+        -- reading the sidecars (and EPUBs on the first omnibus scan) can take a moment
+        local InfoMessage = require("ui/widget/infomessage")
+        local busy = InfoMessage:new{ text = _("Calculating statistics…"), dismissable = false }
+        UIManager:show(busy)
+        UIManager:forceRePaint()
         local data, err = Source.load({ omnibus = stats_settings.count_omnibus })
+        UIManager:close(busy)
         view = StatsTabsView:new{
             width = page_w,
             height = bodyHeight(),

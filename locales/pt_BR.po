@@ -8,7 +8,7 @@ msgstr ""
 
 #. Type: unit
 #. Context: Unidade que acompanha uma quantidade ou duração na página de estatísticas de leitura. Unidade que acompanha uma quantidade ou duração nas configurações de estatísticas de leitura.
-#: stats_page.lua:99 stats_page.lua:1474 stats_page.lua:1582 stats_settings.lua:95
+#: stats_page.lua:99 stats_page.lua:1480 stats_page.lua:1588 stats_settings.lua:95
 msgid " days"
 msgstr " dias"
 
@@ -1868,7 +1868,7 @@ msgstr "Temas personalizados"
 
 #. Type: title
 #. Context: Título na página de estatísticas de leitura.
-#: stats_page.lua:1614
+#: stats_page.lua:1620
 msgid "Customize widget"
 msgstr "Personalizar widget"
 
@@ -1916,7 +1916,7 @@ msgstr "Cinza quente escuro"
 
 #. Type: setting
 #. Context: Nome de uma configuração nas configurações de organização e widgets da página inicial. Rótulo na página de estatísticas de leitura. Nome de uma configuração nas configurações da barra de status da biblioteca.
-#: stats_page.lua:1589 annotation_viewer.lua:569 annotation_settings.lua:32 home_settings.lua:777 home_settings.lua:779 home_settings.lua:781 status_bar_settings.lua:36
+#: stats_page.lua:1595 annotation_viewer.lua:569 annotation_settings.lua:32 home_settings.lua:777 home_settings.lua:779 home_settings.lua:781 status_bar_settings.lua:36
 msgid "Date"
 msgstr "Data"
 
@@ -2330,7 +2330,7 @@ msgstr "Editar metadados"
 
 #. Type: setting
 #. Context: Nome de uma configuração nas configurações da tela de fim do livro. Nome de uma configuração nas configurações de estatísticas de leitura. Nome de uma configuração nas configurações de organização e widgets da página inicial.
-#: end_book_settings.lua:271 stats_settings.lua:374 home_settings.lua:2673
+#: end_book_settings.lua:271 stats_settings.lua:339 home_settings.lua:2673
 msgid "Edit mode"
 msgstr "Modo de edição"
 
@@ -2948,13 +2948,13 @@ msgstr "Chave da API do Google Books"
 
 #. Type: title
 #. Context: Título na página de estatísticas de leitura.
-#: stats_page.lua:1516
+#: stats_page.lua:1522
 msgid "Graph metric"
 msgstr "Métrica gráfica"
 
 #. Type: title
 #. Context: Título na página de estatísticas de leitura.
-#: stats_page.lua:1486
+#: stats_page.lua:1492
 msgid "Graph range"
 msgstr "Intervalo do gráfico"
 
@@ -3116,7 +3116,7 @@ msgstr "Histórico"
 
 #. Type: setting
 #. Context: Nome de uma configuração nas configurações da tela de fim do livro. Nome de uma configuração nas configurações de estatísticas de leitura. Nome de uma configuração nas configurações de organização e widgets da página inicial.
-#: end_book_settings.lua:272 stats_settings.lua:375 home_settings.lua:2674
+#: end_book_settings.lua:272 stats_settings.lua:340 home_settings.lua:2674
 msgid "Hold a widget to open settings directly"
 msgstr "Mantenha um widget pressionado para abrir as configurações diretamente"
 
@@ -3494,7 +3494,7 @@ msgstr "Rótulo do inicializador"
 
 #. Type: setting
 #. Context: Nome de uma configuração no menu de configurações do KOReader. Nome de uma configuração nas configurações de aparência e funcionamento da biblioteca.
-#: reader_controls.lua:559 koreader_settings.lua:74 library_settings.lua:1038 stats_settings.lua:334
+#: reader_controls.lua:559 koreader_settings.lua:74 library_settings.lua:1038 stats_settings.lua:373
 msgid "Layout"
 msgstr "Layout"
 
@@ -3806,7 +3806,7 @@ msgstr "Os metadados foram salvos, mas não foi possível salvar a imagem da cap
 
 #. Type: setting
 #. Context: Nome de uma configuração nas configurações de estatísticas de leitura. Nome de uma ação na página de estatísticas de leitura.
-#: stats_page.lua:1578 stats_settings.lua:72
+#: stats_page.lua:1584 stats_settings.lua:72
 msgid "Metric"
 msgstr "Métrica"
 
@@ -3842,7 +3842,7 @@ msgstr "Ausente: %1"
 
 #. Type: setting
 #. Context: Nome de uma configuração nas configurações de estatísticas de leitura.
-#: stats_settings.lua:395
+#: stats_settings.lua:360
 msgid "Monday"
 msgstr "Segunda-feira"
 
@@ -3854,7 +3854,7 @@ msgstr "Mensal"
 
 #. Type: title
 #. Context: Título na página de estatísticas de leitura.
-#: stats_page.lua:1565
+#: stats_page.lua:1571
 msgid "Months"
 msgstr "Meses"
 
@@ -4688,7 +4688,7 @@ msgstr "págs."
 
 #. Type: unit
 #. Context: Unidade que acompanha uma quantidade ou duração nas configurações de metas de leitura e no widget correspondente da página inicial. Unidade que acompanha uma quantidade ou duração na página de estatísticas de leitura. Unidade que acompanha uma quantidade ou duração nas configurações de botões e páginas do painel de acesso rápido. Também usado em outras partes do ZenOS.
-#: reading_goals.lua:132 stats_page.lua:76 stats_page.lua:914 stats_page.lua:923 stats_page.lua:931 stats_page.lua:1497 stats_page.lua:1578 view.lua:290 book_info.lua:53 library_settings.lua:50 library_settings.lua:847 stats_settings.lua:75
+#: reading_goals.lua:132 stats_page.lua:76 stats_page.lua:914 stats_page.lua:923 stats_page.lua:931 stats_page.lua:1503 stats_page.lua:1584 view.lua:290 book_info.lua:53 library_settings.lua:50 library_settings.lua:847 stats_settings.lua:75
 msgid "Pages"
 msgstr "Páginas"
 
@@ -5054,7 +5054,7 @@ msgstr "Uso de RAM"
 
 #. Type: setting
 #. Context: Nome de uma configuração nas configurações de estatísticas de leitura. Nome de uma ação na página de estatísticas de leitura.
-#: stats_page.lua:1582 stats_settings.lua:89
+#: stats_page.lua:1588 stats_settings.lua:89
 msgid "Range"
 msgstr "Faixa"
 
@@ -6338,7 +6338,7 @@ msgstr "Comece a ler um livro para preencher esse espaço."
 
 #. Type: setting
 #. Context: Nome de uma configuração nas configurações de estatísticas de leitura. Nome de uma configuração nas configurações de organização e widgets da página inicial.
-#: stats_settings.lua:387 home_settings.lua:2333
+#: stats_settings.lua:352 home_settings.lua:2333
 msgid "Stat separators"
 msgstr "Separadores de estatísticas"
 
@@ -6476,7 +6476,7 @@ msgstr "Enviando relatório…"
 
 #. Type: setting
 #. Context: Nome de uma configuração nas configurações de estatísticas de leitura.
-#: stats_settings.lua:395
+#: stats_settings.lua:360
 msgid "Sunday"
 msgstr "Domingo"
 
@@ -6776,7 +6776,7 @@ msgstr "Este ano"
 
 #. Type: title
 #. Context: Título nas configurações de organização e widgets da página inicial. Opção selecionável nas configurações de metas de leitura e no widget correspondente da página inicial. Rótulo na página de estatísticas de leitura. Também usado em outras partes do ZenOS.
-#: reading_goals.lua:138 stats_page.lua:1498 stats_page.lua:1578 reader_settings.lua:280 stats_settings.lua:81 home_settings.lua:754 home_settings.lua:770 home_settings.lua:772 home_settings.lua:774 status_bar_settings.lua:35
+#: reading_goals.lua:138 stats_page.lua:1504 stats_page.lua:1584 reader_settings.lua:280 stats_settings.lua:81 home_settings.lua:754 home_settings.lua:770 home_settings.lua:772 home_settings.lua:774 status_bar_settings.lua:35
 msgid "Time"
 msgstr "Hora"
 
@@ -7454,7 +7454,7 @@ msgstr "Calor"
 
 #. Type: setting
 #. Context: Nome de uma configuração nas configurações de estatísticas de leitura.
-#: stats_settings.lua:391
+#: stats_settings.lua:356
 msgid "Week reset day"
 msgstr "Dia de início da semana"
 
@@ -7592,13 +7592,13 @@ msgstr "Redes Wi-Fi"
 
 #. Type: action
 #. Context: Nome de uma ação na página de estatísticas de leitura. Rótulo no menu de contexto de livros e pastas.
-#: context_menu.lua:2915 stats_page.lua:1601
+#: context_menu.lua:2915 stats_page.lua:1607
 msgid "Widget settings"
 msgstr "Configurações de widget"
 
 #. Type: title
 #. Context: Título nas configurações de estatísticas de leitura. Nome de uma configuração nas configurações da tela de fim do livro. Nome de uma configuração nas configurações de organização e widgets da página inicial.
-#: end_book_settings.lua:269 stats_settings.lua:212 stats_settings.lua:278 stats_settings.lua:302 stats_settings.lua:369 home_settings.lua:1529 home_settings.lua:2001 home_settings.lua:2637 home_settings.lua:2653 home_settings.lua:2667
+#: end_book_settings.lua:269 stats_settings.lua:212 stats_settings.lua:278 stats_settings.lua:302 stats_settings.lua:334 home_settings.lua:1529 home_settings.lua:2001 home_settings.lua:2637 home_settings.lua:2653 home_settings.lua:2667
 msgid "Widgets"
 msgstr "Widgets"
 
@@ -7928,13 +7928,13 @@ msgstr ""
 
 #. Type: error
 #. Context: S = data, error_text = err and _("Could not read the reading statistics.") or nil, monday_first = stats_settings.week_start_day == 2,
-#: stats_page.lua:1305
+#: stats_page.lua:1311
 msgid "Could not read the reading statistics."
 msgstr ""
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Count omnibus volumes as separate books"), help_text = _("Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."),
-#: stats_settings.lua:357
+#: stats_settings.lua:396
 msgid "Count omnibus volumes as separate books"
 msgstr ""
 
@@ -7952,7 +7952,7 @@ msgstr ""
 
 #. Type: setting
 #. Context: { "tabs", _("Tabs: overview, books, calendar") }, { "dashboard", _("Dashboard with widgets") }, }) do
-#: stats_settings.lua:339
+#: stats_settings.lua:378
 msgid "Dashboard with widgets"
 msgstr ""
 
@@ -8096,13 +8096,13 @@ msgstr ""
 
 #. Type: message
 #. Context: text = _("Count omnibus volumes as separate books"), help_text = _("Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."), checked_func = function()
-#: stats_settings.lua:358
+#: stats_settings.lua:397
 msgid "Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."
 msgstr ""
 
 #. Type: setting
 #. Context: for _i, entry in ipairs({ { "tabs", _("Tabs: overview, books, calendar") }, { "dashboard", _("Dashboard with widgets") },
-#: stats_settings.lua:338
+#: stats_settings.lua:377
 msgid "Tabs: overview, books, calendar"
 msgstr ""
 
@@ -8134,4 +8134,10 @@ msgstr ""
 #. Context: if fy then self:text(bb, "(" .. T(_("since %1"), monthShort(tonumber(fm)) .. " " .. fy) .. ")", 26, c1 + w1 + 10, ry + 4, 300, { fg = MID, h = row_h })
 #: view.lua:321 view.lua:426
 msgid "since %1"
+msgstr ""
+
+#. Type: dialog
+#. Context: local InfoMessage = require("ui/widget/infomessage") local busy = InfoMessage:new{ text = _("Calculating statistics…"), dismissable = false } UIManager:show(busy)
+#: stats_page.lua:1302
+msgid "Calculating statistics…"
 msgstr ""

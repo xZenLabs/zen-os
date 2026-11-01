@@ -17,7 +17,7 @@ msgstr ""
 
 #. Type: unit
 #. Context: Мерна единица за количество или време на страницата със статистика за четенето. Мерна единица за количество или време в настройките за статистиката за четене.
-#: stats_page.lua:99 stats_page.lua:1474 stats_page.lua:1582 stats_settings.lua:95
+#: stats_page.lua:99 stats_page.lua:1480 stats_page.lua:1588 stats_settings.lua:95
 msgid " days"
 msgstr " дни"
 
@@ -1877,7 +1877,7 @@ msgstr "Персонализирани теми"
 
 #. Type: title
 #. Context: Заглавие на страницата със статистика за четенето.
-#: stats_page.lua:1614
+#: stats_page.lua:1620
 msgid "Customize widget"
 msgstr "Персонализиране на джаджа"
 
@@ -1925,7 +1925,7 @@ msgstr "Тъмно топло сиво"
 
 #. Type: setting
 #. Context: Име на настройка в настройките за подредбата и уиджетите на началната страница. Надпис на страницата със статистика за четенето. Име на настройка в настройките за лентата за състояние на библиотеката.
-#: stats_page.lua:1589 annotation_viewer.lua:569 annotation_settings.lua:32 home_settings.lua:777 home_settings.lua:779 home_settings.lua:781 status_bar_settings.lua:36
+#: stats_page.lua:1595 annotation_viewer.lua:569 annotation_settings.lua:32 home_settings.lua:777 home_settings.lua:779 home_settings.lua:781 status_bar_settings.lua:36
 msgid "Date"
 msgstr "Дата"
 
@@ -2339,7 +2339,7 @@ msgstr "Редактиране на метаданни"
 
 #. Type: setting
 #. Context: Име на настройка в настройките за екрана след завършване на книга. Име на настройка в настройките за статистиката за четене. Име на настройка в настройките за подредбата и уиджетите на началната страница.
-#: end_book_settings.lua:271 stats_settings.lua:374 home_settings.lua:2673
+#: end_book_settings.lua:271 stats_settings.lua:339 home_settings.lua:2673
 msgid "Edit mode"
 msgstr "Режим на редактиране"
 
@@ -2957,13 +2957,13 @@ msgstr "Ключ за API на Google Книги"
 
 #. Type: title
 #. Context: Заглавие на страницата със статистика за четенето.
-#: stats_page.lua:1516
+#: stats_page.lua:1522
 msgid "Graph metric"
 msgstr "Графичен показател"
 
 #. Type: title
 #. Context: Заглавие на страницата със статистика за четенето.
-#: stats_page.lua:1486
+#: stats_page.lua:1492
 msgid "Graph range"
 msgstr "Диапазон на графиката"
 
@@ -3125,7 +3125,7 @@ msgstr "Хронология"
 
 #. Type: setting
 #. Context: Име на настройка в настройките за екрана след завършване на книга. Име на настройка в настройките за статистиката за четене. Име на настройка в настройките за подредбата и уиджетите на началната страница.
-#: end_book_settings.lua:272 stats_settings.lua:375 home_settings.lua:2674
+#: end_book_settings.lua:272 stats_settings.lua:340 home_settings.lua:2674
 msgid "Hold a widget to open settings directly"
 msgstr "Задръжте джаджа, за да отворите директно настройките"
 
@@ -3503,7 +3503,7 @@ msgstr "Етикет на стартера"
 
 #. Type: setting
 #. Context: Име на настройка в менюто с настройки на KOReader. Име на настройка в настройките за външния вид и поведението на библиотеката.
-#: reader_controls.lua:559 koreader_settings.lua:74 library_settings.lua:1038 stats_settings.lua:334
+#: reader_controls.lua:559 koreader_settings.lua:74 library_settings.lua:1038 stats_settings.lua:373
 msgid "Layout"
 msgstr "Оформление"
 
@@ -3815,7 +3815,7 @@ msgstr "Метаданните бяха запазени, но изображе�
 
 #. Type: setting
 #. Context: Име на настройка в настройките за статистиката за четене. Име на действие на страницата със статистика за четенето.
-#: stats_page.lua:1578 stats_settings.lua:72
+#: stats_page.lua:1584 stats_settings.lua:72
 msgid "Metric"
 msgstr "Метрика"
 
@@ -3851,7 +3851,7 @@ msgstr "Липсва: %1"
 
 #. Type: setting
 #. Context: Име на настройка в настройките за статистиката за четене.
-#: stats_settings.lua:395
+#: stats_settings.lua:360
 msgid "Monday"
 msgstr "понеделник"
 
@@ -3863,7 +3863,7 @@ msgstr "Месечно"
 
 #. Type: title
 #. Context: Заглавие на страницата със статистика за четенето.
-#: stats_page.lua:1565
+#: stats_page.lua:1571
 msgid "Months"
 msgstr "месеци"
 
@@ -4697,7 +4697,7 @@ msgstr "страници"
 
 #. Type: unit
 #. Context: Мерна единица за количество или време в настройките за цели за четене и съответния уиджет на началната страница. Мерна единица за количество или време на страницата със статистика за четенето. Мерна единица за количество или време в настройките за бутоните и страниците на стартера. Използва се и на други места в ZenOS.
-#: reading_goals.lua:132 stats_page.lua:76 stats_page.lua:914 stats_page.lua:923 stats_page.lua:931 stats_page.lua:1497 stats_page.lua:1578 view.lua:290 book_info.lua:53 library_settings.lua:50 library_settings.lua:847 stats_settings.lua:75
+#: reading_goals.lua:132 stats_page.lua:76 stats_page.lua:914 stats_page.lua:923 stats_page.lua:931 stats_page.lua:1503 stats_page.lua:1584 view.lua:290 book_info.lua:53 library_settings.lua:50 library_settings.lua:847 stats_settings.lua:75
 msgid "Pages"
 msgstr "Страници"
 
@@ -5063,7 +5063,7 @@ msgstr "Използвана RAM"
 
 #. Type: setting
 #. Context: Име на настройка в настройките за статистиката за четене. Име на действие на страницата със статистика за четенето.
-#: stats_page.lua:1582 stats_settings.lua:89
+#: stats_page.lua:1588 stats_settings.lua:89
 msgid "Range"
 msgstr "Обхват"
 
@@ -6347,7 +6347,7 @@ msgstr "Започнете да четете книга, за да запълн�
 
 #. Type: setting
 #. Context: Име на настройка в настройките за статистиката за четене. Име на настройка в настройките за подредбата и уиджетите на началната страница.
-#: stats_settings.lua:387 home_settings.lua:2333
+#: stats_settings.lua:352 home_settings.lua:2333
 msgid "Stat separators"
 msgstr "Разделители на статистиките"
 
@@ -6485,7 +6485,7 @@ msgstr "Изпращане на доклада…"
 
 #. Type: setting
 #. Context: Име на настройка в настройките за статистиката за четене.
-#: stats_settings.lua:395
+#: stats_settings.lua:360
 msgid "Sunday"
 msgstr "Неделя"
 
@@ -6785,7 +6785,7 @@ msgstr "Тази година"
 
 #. Type: title
 #. Context: Заглавие в настройките за подредбата и уиджетите на началната страница. Възможност за избор в настройките за цели за четене и съответния уиджет на началната страница. Надпис на страницата със статистика за четенето. Използва се и на други места в ZenOS.
-#: reading_goals.lua:138 stats_page.lua:1498 stats_page.lua:1578 reader_settings.lua:280 stats_settings.lua:81 home_settings.lua:754 home_settings.lua:770 home_settings.lua:772 home_settings.lua:774 status_bar_settings.lua:35
+#: reading_goals.lua:138 stats_page.lua:1504 stats_page.lua:1584 reader_settings.lua:280 stats_settings.lua:81 home_settings.lua:754 home_settings.lua:770 home_settings.lua:772 home_settings.lua:774 status_bar_settings.lua:35
 msgid "Time"
 msgstr "Време"
 
@@ -7463,7 +7463,7 @@ msgstr "Топлина"
 
 #. Type: setting
 #. Context: Име на настройка в настройките за статистиката за четене.
-#: stats_settings.lua:391
+#: stats_settings.lua:356
 msgid "Week reset day"
 msgstr "Ден за нулиране на седмицата"
 
@@ -7601,13 +7601,13 @@ msgstr "Wi-Fi мрежи"
 
 #. Type: action
 #. Context: Име на действие на страницата със статистика за четенето. Надпис в контекстното меню за книги и папки.
-#: context_menu.lua:2915 stats_page.lua:1601
+#: context_menu.lua:2915 stats_page.lua:1607
 msgid "Widget settings"
 msgstr "Настройки на джаджи"
 
 #. Type: title
 #. Context: Заглавие в настройките за статистиката за четене. Име на настройка в настройките за екрана след завършване на книга. Име на настройка в настройките за подредбата и уиджетите на началната страница.
-#: end_book_settings.lua:269 stats_settings.lua:212 stats_settings.lua:278 stats_settings.lua:302 stats_settings.lua:369 home_settings.lua:1529 home_settings.lua:2001 home_settings.lua:2637 home_settings.lua:2653 home_settings.lua:2667
+#: end_book_settings.lua:269 stats_settings.lua:212 stats_settings.lua:278 stats_settings.lua:302 stats_settings.lua:334 home_settings.lua:1529 home_settings.lua:2001 home_settings.lua:2637 home_settings.lua:2653 home_settings.lua:2667
 msgid "Widgets"
 msgstr "Уиджети"
 
@@ -7937,13 +7937,13 @@ msgstr ""
 
 #. Type: error
 #. Context: S = data, error_text = err and _("Could not read the reading statistics.") or nil, monday_first = stats_settings.week_start_day == 2,
-#: stats_page.lua:1305
+#: stats_page.lua:1311
 msgid "Could not read the reading statistics."
 msgstr ""
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Count omnibus volumes as separate books"), help_text = _("Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."),
-#: stats_settings.lua:357
+#: stats_settings.lua:396
 msgid "Count omnibus volumes as separate books"
 msgstr ""
 
@@ -7961,7 +7961,7 @@ msgstr ""
 
 #. Type: setting
 #. Context: { "tabs", _("Tabs: overview, books, calendar") }, { "dashboard", _("Dashboard with widgets") }, }) do
-#: stats_settings.lua:339
+#: stats_settings.lua:378
 msgid "Dashboard with widgets"
 msgstr ""
 
@@ -8105,13 +8105,13 @@ msgstr ""
 
 #. Type: message
 #. Context: text = _("Count omnibus volumes as separate books"), help_text = _("Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."), checked_func = function()
-#: stats_settings.lua:358
+#: stats_settings.lua:397
 msgid "Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."
 msgstr ""
 
 #. Type: setting
 #. Context: for _i, entry in ipairs({ { "tabs", _("Tabs: overview, books, calendar") }, { "dashboard", _("Dashboard with widgets") },
-#: stats_settings.lua:338
+#: stats_settings.lua:377
 msgid "Tabs: overview, books, calendar"
 msgstr ""
 
@@ -8143,4 +8143,10 @@ msgstr ""
 #. Context: if fy then self:text(bb, "(" .. T(_("since %1"), monthShort(tonumber(fm)) .. " " .. fy) .. ")", 26, c1 + w1 + 10, ry + 4, 300, { fg = MID, h = row_h })
 #: view.lua:321 view.lua:426
 msgid "since %1"
+msgstr ""
+
+#. Type: dialog
+#. Context: local InfoMessage = require("ui/widget/infomessage") local busy = InfoMessage:new{ text = _("Calculating statistics…"), dismissable = false } UIManager:show(busy)
+#: stats_page.lua:1302
+msgid "Calculating statistics…"
 msgstr ""
