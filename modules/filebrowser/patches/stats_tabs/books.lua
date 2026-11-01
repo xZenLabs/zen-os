@@ -78,6 +78,16 @@ function M.scan()
             else
                 logger.warn("status index failed:", list)
             end
+            -- a book added to To Be Read is listed as "tbr" whatever its reading
+            -- status; take those too (their sidecar status decides), but not new
+            -- books that only count as To Be Read
+            local ok_t, tbr = pcall(TBRIndex.getByStatuses, { tbr = true })
+            if ok_t and type(tbr) == "table" and type(TBRIndex.isExplicit) == "function" then
+                for _i, file in ipairs(tbr) do
+                    local ok_e, explicit = pcall(TBRIndex.isExplicit, file)
+                    if ok_e and explicit then add(file) end
+                end
+            end
         end
         -- books opened from outside the home folders are only in the history
         local ok_p, paths = pcall(require, "common/paths")
