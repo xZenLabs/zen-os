@@ -542,29 +542,52 @@ function BatteryPage:_tileValue(id)
     return ""
 end
 
-function BatteryPage:_paintTiles(bb, x, y, w)
-    local rh = s(BatteryPage.TILE_ROW_H)
-    local vpad = s(8)
-    local h = 2 * rh + 2 * vpad
-    bb:paintBorder(x, y, w, h, s(2), BLACK, s(14))
-    local cw = math.floor(w / 4)
-    self._hit_tiles = {}
+--- Rows of tile slots to draw. Empty slots close up and an empty row is
+--- left out; in customize mode all 8 slots show, so empty ones can be filled.
+function BatteryPage:_tileRows()
+    local rows = {}
     for r = 1, 2 do
-        local ry = y + vpad + (r - 1) * rh
-        if r > 1 then bb:paintRect(x + s(16), ry, w - 2 * s(16), 1, BAND) end
+        local row = {}
         for i = 1, 4 do
             local idx = (r - 1) * 4 + i
+            if self.customize or options.tiles[idx] ~= "empty" then row[#row + 1] = idx end
+        end
+        if #row > 0 then rows[#rows + 1] = row end
+    end
+    return rows
+end
+
+function BatteryPage:_tilesHeight()
+    local n = #self:_tileRows()
+    if n == 0 then return 0 end
+    return n * s(BatteryPage.TILE_ROW_H) + 2 * s(8)
+end
+
+function BatteryPage:_paintTiles(bb, x, y, w)
+    self._hit_tiles = {}
+    local rows = self:_tileRows()
+    if #rows == 0 then return 0 end
+    local rh = s(BatteryPage.TILE_ROW_H)
+    local vpad = s(8)
+    local h = #rows * rh + 2 * vpad
+    bb:paintBorder(x, y, w, h, s(2), BLACK, s(14))
+    for r, row in ipairs(rows) do
+        local ry = y + vpad + (r - 1) * rh
+        if r > 1 then bb:paintRect(x + s(16), ry, w - 2 * s(16), 1, BAND) end
+        local n = #row
+        for i, idx in ipairs(row) do
             local id = options.tiles[idx]
-            local cx = x + (i - 1) * cw
+            local cx = x + math.floor((i - 1) * w / n)
+            local cw = math.floor(i * w / n) - math.floor((i - 1) * w / n)
             if i > 1 then bb:paintRect(cx, ry + s(8), 1, rh - s(16), BAND) end
             if self.customize then
-                -- customize mode: every tile shows a frame, a tap changes it
+                -- customize mode: every slot shows a frame, a tap changes it
                 outline(bb, cx + s(6), ry + s(4), cw - s(12), rh - s(8), math.max(1, s(1)), GREY)
             end
             if id ~= "empty" then
                 text(bb, tile_short(id), face(14), cx, ry + s(5), cw, s(22), { align = "center", fg = GREY })
                 text(bb, self:_tileValue(id), face(20), cx, ry + s(27), cw, s(30), { align = "center", bold = true })
-            elseif self.customize then
+            else
                 text(bb, "+", face(20), cx, ry, cw, rh, { align = "center", fg = GREY })
             end
             self._hit_tiles[idx] = Geom:new{ x = cx, y = ry, w = cw, h = rh }
@@ -695,12 +718,14 @@ function BatteryPage:paintTo(bb, x, y)
     cy = cy + self:_paintHero(bb, cx, cy, cw) + s(18)
     local lines = self:_sentences()
     local line_h = s(32)
-    local tiles_h = 2 * s(BatteryPage.TILE_ROW_H) + 2 * s(8)
-    local bottom = y + H - s(24) - #lines * line_h - s(14) - tiles_h - s(16)
+    local tiles_h = self:_tilesHeight()
+    local tiles_gap = tiles_h > 0 and s(16) or 0
+    local bottom = y + H - s(24) - #lines * line_h - s(14) - tiles_h - tiles_gap
     local chart_h = math.max(s(260), bottom - cy)
     self:_paintChart(bb, cx, cy, cw, chart_h)
-    cy = cy + chart_h + s(16)
-    cy = cy + self:_paintTiles(bb, cx, cy, cw) + s(14)
+    cy = cy + chart_h + tiles_gap
+    if tiles_h > 0 then self:_paintTiles(bb, cx, cy, cw) end
+    cy = cy + tiles_h + s(14)
     for _i, line in ipairs(lines) do
         text(bb, line, face(18), cx + s(4), cy, cw - s(8), line_h)
         cy = cy + line_h
