@@ -176,6 +176,10 @@ modules/filebrowser/patches/search.lua|integration
 modules/filebrowser/patches/standalone_page.lua|integration
 modules/filebrowser/patches/stats_settings.lua|integration
 modules/filebrowser/patches/stats_page.lua|integration
+modules/filebrowser/patches/stats_tabs/books.lua|integration
+modules/filebrowser/patches/stats_tabs/data.lua|unit
+modules/filebrowser/patches/stats_tabs/source.lua|integration
+modules/filebrowser/patches/stats_tabs/view.lua|integration
 modules/filebrowser/patches/status_bar.lua|integration
 modules/filebrowser/patches/status_on_open.lua|integration
 modules/global/global.lua|integration

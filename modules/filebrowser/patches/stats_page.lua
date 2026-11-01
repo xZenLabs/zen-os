@@ -1200,11 +1200,156 @@ local function buildContent(blocks_config, data, page_w, h_padding, top_padding,
     return VerticalGroup:new(items), block_hits, has_overflow, required_heights
 end
 
+--- A tap at the very top opens the KOReader / ZenOS menu, as on the other pages.
+local function installTopMenuTap(menu, tb)
+    menu.ges_events = menu.ges_events or {}
+    local top_tap_zone_h = math.max(1, math.floor(Screen:getHeight() * 0.07))
+    menu.ges_events.ZenStatsTopTap = {
+        GestureRange:new{
+            ges = "tap",
+            range = Geom:new{ x = 0, y = 0, w = Screen:getWidth(), h = top_tap_zone_h },
+        },
+    }
+    local function openTopMenuFromTap(ges)
+        if not (ges and ges.pos and ges.pos.y < top_tap_zone_h) then return false end
+        local ok_fm, FileManager = pcall(require, "apps/filemanager/filemanager")
+        local fm_menu = ok_fm and FileManager.instance and FileManager.instance.menu
+        if fm_menu and fm_menu.activation_menu ~= "swipe" then
+            fm_menu:onShowMenu(fm_menu:_getTabIndexFromLocation(ges))
+            return true
+        end
+        local ok_rui, RUI = pcall(require, "apps/reader/readerui")
+        local reader_menu = ok_rui and RUI.instance and RUI.instance.menu
+        if reader_menu and reader_menu.activation_menu ~= "swipe" then
+            reader_menu:onShowMenu(reader_menu:_getTabIndexFromLocation(ges))
+            return true
+        end
+        return false
+    end
+    function menu:onZenStatsTopTap(_arg, ges)
+        return openTopMenuFromTap(ges)
+    end
+    if tb then
+        tb.ges_events = tb.ges_events or {}
+        tb.ges_events.ZenStatsTopTap = {
+            GestureRange:new{
+                ges = "tap",
+                range = Geom:new{ x = 0, y = 0, w = Screen:getWidth(), h = top_tap_zone_h },
+            },
+        }
+        function tb:onZenStatsTopTap(_arg, ges)
+            return openTopMenuFromTap(ges)
+        end
+    end
+    local orig_onGesture = menu.onGesture
+    function menu:onGesture(ges)
+        if ges and ges.ges == "tap" and openTopMenuFromTap(ges) then
+            return true
+        end
+        if orig_onGesture then return orig_onGesture(self, ges) end
+    end
+end
+
+--- Registers a Stats page menu so create() reuses it and closeAll() finds it.
+local function registerActive(menu)
+    active_stats_menus[#active_stats_menus + 1] = menu
+    local orig_onCloseWidget = menu.onCloseWidget
+    function menu:onCloseWidget(...)
+        for i = #active_stats_menus, 1, -1 do
+            if rawequal(active_stats_menus[i], self) then
+                table.remove(active_stats_menus, i)
+                break
+            end
+        end
+        if self._zen_block_dlg then
+            UIManager:close(self._zen_block_dlg)
+            self._zen_block_dlg = nil
+        end
+        if orig_onCloseWidget then
+            return orig_onCloseWidget(self, ...)
+        end
+    end
+end
+
+--- Stats page with tabs (Overview, Books, Calendar); see stats_tabs/view.lua.
+local function createTabs(createStatusRow, repaintTitleBar, stats_settings)
+    local StatsTabsView = require("modules/filebrowser/patches/stats_tabs/view")
+    local Source = require("modules/filebrowser/patches/stats_tabs/source")
+    local menu = StandalonePage.create_menu{
+        name = "stats",
+        title = " ",
+    }
+    StandalonePage.prepare_shell(menu)
+    StandalonePage.apply_status_row(menu, {
+        createStatusRow = createStatusRow,
+        repaintTitleBar = repaintTitleBar,
+    })
+    local tb = menu.title_bar
+    local tb_h = tb and tb:getSize().h or 0
+    local page_w = menu.inner_dimen and menu.inner_dimen.w or Screen:getWidth()
+    local function bodyHeight()
+        local navbar_h = tonumber(menu._zen_navbar_height)
+            or tonumber(rawget(_G, "__ZEN_UI_NAVBAR_HEIGHT")) or 0
+        local h = Screen:getHeight() - tb_h - navbar_h
+        if h < 1 then h = Screen:getHeight() - tb_h end
+        return h
+    end
+    local view
+    local function build()
+        if view then view:free() end
+        -- reading the sidecars (and EPUBs on the first omnibus scan) can take a moment
+        local InfoMessage = require("ui/widget/infomessage")
+        local busy = InfoMessage:new{ text = _("Calculating statistics…"), dismissable = false }
+        UIManager:show(busy)
+        UIManager:forceRePaint()
+        local data, err = Source.load({ omnibus = stats_settings.count_omnibus })
+        UIManager:close(busy)
+        view = StatsTabsView:new{
+            width = page_w,
+            height = bodyHeight(),
+            S = data,
+            error_text = err and _("Could not read the reading statistics.") or nil,
+            monday_first = stats_settings.week_start_day == 2,
+            show_parent = menu,
+        }
+        StandalonePage.mount_body(menu, view)
+    end
+    build()
+    menu._zen_stats_rebuild = function()
+        stats_settings = StatsSettings.load()
+        if stats_settings.layout == "dashboard" then
+            -- layout changed: the next open builds the dashboard
+            UIManager:close(menu)
+            return
+        end
+        build()
+        UIManager:setDirty(menu, "ui")
+    end
+    installTopMenuTap(menu, tb)
+    if menu.page_info then
+        while #menu.page_info > 0 do table.remove(menu.page_info) end
+        menu.page_info:resetLayout()
+        menu.page_info.dimen = Geom:new{ w = 0, h = 0 }
+        menu.page_info.getSize = function(self) return self.dimen end
+    end
+    menu.close_callback = function()
+        UIManager:close(menu)
+    end
+    registerActive(menu)
+    UIManager:scheduleIn(0, function()
+        UIManager:setDirty(menu, "flashui")
+    end)
+    return menu, true
+end
+
 function StatsPage.create(createStatusRow, repaintTitleBar, zen_plugin)
     if #active_stats_menus > 0 then
         return active_stats_menus[#active_stats_menus], false
     end
     local stats_settings = StatsSettings.load()
+    if stats_settings.layout ~= "dashboard" then
+        return createTabs(createStatusRow, repaintTitleBar, stats_settings)
+    end
     local blocks_config = StatsSettings.enabledBlocks(stats_settings)
     local stat_style = stats_settings.stat_style
     local data = queryDashboardData(blocks_config)
@@ -1304,6 +1449,11 @@ function StatsPage.create(createStatusRow, repaintTitleBar, zen_plugin)
 
     local function rebuildStats()
         stats_settings = StatsSettings.load()
+        if stats_settings.layout ~= "dashboard" then
+            -- layout changed: the next open builds the tabs
+            UIManager:close(menu)
+            return
+        end
         blocks_config = StatsSettings.enabledBlocks(stats_settings)
         stat_style = stats_settings.stat_style
         data = queryDashboardData(blocks_config)
@@ -1481,51 +1631,7 @@ function StatsPage.create(createStatusRow, repaintTitleBar, zen_plugin)
             range = Geom:new{ x = 0, y = 0, w = Screen:getWidth(), h = Screen:getHeight() },
         },
     }
-    local top_tap_zone_h = math.max(1, math.floor(Screen:getHeight() * 0.07))
-    menu.ges_events.ZenStatsTopTap = {
-        GestureRange:new{
-            ges = "tap",
-            range = Geom:new{ x = 0, y = 0, w = Screen:getWidth(), h = top_tap_zone_h },
-        },
-    }
-    local function openTopMenuFromTap(ges)
-        if not (ges and ges.pos and ges.pos.y < top_tap_zone_h) then return false end
-        local ok_fm, FileManager = pcall(require, "apps/filemanager/filemanager")
-        local fm_menu = ok_fm and FileManager.instance and FileManager.instance.menu
-        if fm_menu and fm_menu.activation_menu ~= "swipe" then
-            fm_menu:onShowMenu(fm_menu:_getTabIndexFromLocation(ges))
-            return true
-        end
-        local ok_rui, RUI = pcall(require, "apps/reader/readerui")
-        local reader_menu = ok_rui and RUI.instance and RUI.instance.menu
-        if reader_menu and reader_menu.activation_menu ~= "swipe" then
-            reader_menu:onShowMenu(reader_menu:_getTabIndexFromLocation(ges))
-            return true
-        end
-        return false
-    end
-    function menu:onZenStatsTopTap(_arg, ges)
-        return openTopMenuFromTap(ges)
-    end
-    if tb then
-        tb.ges_events = tb.ges_events or {}
-        tb.ges_events.ZenStatsTopTap = {
-            GestureRange:new{
-                ges = "tap",
-                range = Geom:new{ x = 0, y = 0, w = Screen:getWidth(), h = top_tap_zone_h },
-            },
-        }
-        function tb:onZenStatsTopTap(_arg, ges)
-            return openTopMenuFromTap(ges)
-        end
-    end
-    local orig_onGesture = menu.onGesture
-    function menu:onGesture(ges)
-        if ges and ges.ges == "tap" and openTopMenuFromTap(ges) then
-            return true
-        end
-        if orig_onGesture then return orig_onGesture(self, ges) end
-    end
+    installTopMenuTap(menu, tb)
     function menu:onZenStatsHold(_ges_event, ges)
         local offset_y = self.dimen and self.dimen.y or 0
         local content_y = ges.pos.y - offset_y - tb_h
@@ -1556,23 +1662,7 @@ function StatsPage.create(createStatusRow, repaintTitleBar, zen_plugin)
         UIManager:close(menu)
     end
 
-    active_stats_menus[#active_stats_menus + 1] = menu
-    local orig_onCloseWidget = menu.onCloseWidget
-    function menu:onCloseWidget(...)
-        for i = #active_stats_menus, 1, -1 do
-            if rawequal(active_stats_menus[i], self) then
-                table.remove(active_stats_menus, i)
-                break
-            end
-        end
-        if self._zen_block_dlg then
-            UIManager:close(self._zen_block_dlg)
-            self._zen_block_dlg = nil
-        end
-        if orig_onCloseWidget then
-            return orig_onCloseWidget(self, ...)
-        end
-    end
+    registerActive(menu)
 
     UIManager:scheduleIn(0, function()
         UIManager:setDirty(menu, "flashui")

@@ -81,6 +81,8 @@ function M.defaultSettings()
         stat_style = "divider",
         edit_mode = true,
         week_start_day = 1,
+        layout = "tabs",
+        count_omnibus = true,
     }
 end
 
@@ -119,6 +121,10 @@ function M.normalize(settings)
     settings.font_size_override = settings.font_size_override == true
     settings.edit_mode = settings.edit_mode ~= false
     settings.week_start_day = settings.week_start_day == 2 and 2 or 1
+    -- Stats page layout: "tabs" (Overview, Books, Calendar) or the widget "dashboard"
+    settings.layout = settings.layout == "dashboard" and "dashboard" or "tabs"
+    -- tabs: each work of an omnibus volume counts as a book of its own
+    settings.count_omnibus = settings.count_omnibus ~= false
     local options = {}
     for _i, id in ipairs(M.ALL_WIDGET_IDS) do
         options[id] = normalize_options(id, type(widgets.options) == "table" and widgets.options[id])
