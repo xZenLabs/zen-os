@@ -788,7 +788,7 @@ msgstr "Pasek"
 
 #. Type: title
 #. Context: Title in the battery statistics menu. Settings label in the Quick Settings panel. Settings label in the General settings. Also used elsewhere in ZenOS.
-#: quick_settings.lua:1074 battery_page.lua:228 battery_page.lua:229 battery_page.lua:646 general_settings.lua:76 reader_settings.lua:281 status_bar_settings.lua:34
+#: quick_settings.lua:1074 battery_page.lua:228 battery_page.lua:229 battery_page.lua:667 general_settings.lua:76 reader_settings.lua:281 status_bar_settings.lua:34
 msgid "Battery"
 msgstr "Bateria"
 
@@ -7886,13 +7886,13 @@ msgstr ""
 
 #. Type: setting
 #. Context: local how = gain and gain > 0 and (crate and crate > 0 and T(_("+%1 % in %2"), gain, duration(gain * 3600 / crate)) or T(_("+%1 %"), gain)) or nil if st.charging then
-#: battery_page.lua:667
+#: battery_page.lua:688
 msgid "+%1 %"
 msgstr ""
 
 #. Type: setting
 #. Context: local how = gain and gain > 0 and (crate and crate > 0 and T(_("+%1 % in %2"), gain, duration(gain * 3600 / crate)) or T(_("+%1 %"), gain)) or nil if st.charging then
-#: battery_page.lua:667
+#: battery_page.lua:688
 msgid "+%1 % in %2"
 msgstr ""
 
@@ -7915,8 +7915,8 @@ msgid "7 days"
 msgstr ""
 
 #. Type: message
-#. Context: if options.unit == "mah" and full_mah and full_mah > 0 then per = T(_("%1 per hour"), per) end out[#out + 1] = T(_("A full charge lasts %1 at %2 on average."), days(100 * 3600 / st.overall), per) end
-#: battery_page.lua:680
+#. Context: if st.overall and st.overall > 0 then out[#out + 1] = T(_("A full charge lasts %1 at %2 on average."), days(100 * 3600 / st.overall), rate(st.overall))
+#: battery_page.lua:699
 msgid "A full charge lasts %1 at %2 on average."
 msgstr ""
 
@@ -7940,7 +7940,7 @@ msgstr ""
 
 #. Type: message
 #. Context: if st.charging then out[#out + 1] = _("Charging now.") elseif st.since_charge and how then
-#: battery_page.lua:669
+#: battery_page.lua:690
 msgid "Charging now."
 msgstr ""
 
@@ -7964,25 +7964,25 @@ msgstr ""
 
 #. Type: message
 #. Context: elseif how then out[#out + 1] = T(_("Last charge: %1."), how) end
-#: battery_page.lua:675
+#: battery_page.lua:696
 msgid "Last charge: %1."
 msgstr ""
 
 #. Type: message
 #. Context: elseif st.since_charge and how then out[#out + 1] = T(_("Last charged %1, %2."), day_ago(self.now - st.since_charge, self.now), how) elseif st.since_charge then
-#: battery_page.lua:671
+#: battery_page.lua:692
 msgid "Last charged %1, %2."
 msgstr ""
 
 #. Type: message
 #. Context: elseif st.since_charge then out[#out + 1] = T(_("Last charged %1."), day_ago(self.now - st.since_charge, self.now)) elseif how then
-#: battery_page.lua:673
+#: battery_page.lua:694
 msgid "Last charged %1."
 msgstr ""
 
 #. Type: message
 #. Context: if not self.stats then text(bb, _("No battery data on this device."), face(18), cx, cy, cw, s(60), { align = "center", fg = GREY }) return
-#: battery_page.lua:694
+#: battery_page.lua:714
 msgid "No battery data on this device."
 msgstr ""
 
@@ -8058,15 +8058,9 @@ msgstr ""
 msgid "−%1 h"
 msgstr ""
 
-#. Type: unit
-#. Context: local per = rate(st.overall) if options.unit == "mah" and full_mah and full_mah > 0 then per = T(_("%1 per hour"), per) end out[#out + 1] = T(_("A full charge lasts %1 at %2 on average."), days(100 * 3600 / st.overall), per)
-#: battery_page.lua:679
-msgid "%1 per hour"
-msgstr ""
-
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Customize tiles"), checked_func = function() return self.customize == true end,
-#: battery_page.lua:630
+#: battery_page.lua:651
 msgid "Customize tiles"
 msgstr ""
 
@@ -8084,19 +8078,19 @@ msgstr ""
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Restore default tiles"), callback = function(touchmenu)
-#: battery_page.lua:638
+#: battery_page.lua:659
 msgid "Restore default tiles"
 msgstr ""
 
 #. Type: title
 #. Context: dialog = ButtonDialog:new{ title = T(_("Tile %1 of %2"), idx, 8), title_align = "center",
-#: battery_page.lua:599
+#: battery_page.lua:620
 msgid "Tile %1 of %2"
 msgstr ""
 
 #. Type: setting
-#. Context: items[#items + 1] = { text = _("Use per hour in"), mandatory_func = function() return options.unit == "mah" and "mAh" or "%" end,
-#: battery_page.lua:611
+#. Context: items[#items + 1] = { text = _("Use per hour in"), mandatory_func = function() return options.unit == "mah" and "mAh/h" or "%/h" end,
+#: battery_page.lua:632
 msgid "Use per hour in"
 msgstr ""
 

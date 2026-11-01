@@ -8,7 +8,7 @@
 --   * 2 x 4 tiles; hold a tile to choose what it shows (use per hour awake,
 --     with Bluetooth, Wi-Fi or both, asleep, screen times, capacity, ...)
 --   * ⋮ menu: the battery details (Health, Usage, Charging, Reset log) from
---     battery_stats_menu, the unit for use per hour (% or mAh) and the tiles
+--     battery_stats_menu, the unit for use per hour (%/h or mAh/h) and the tiles
 --   * last charge and what a full charge lasts
 --   * built from ZenOS components: ZenTabBar for the range, ZenButton for
 --     the menus, TitleStyle for the header; curve and bar use the accent color
@@ -119,12 +119,12 @@ local function save_options()
 end
 local full_mah   -- set from the snapshot; mAh needs the full capacity
 
---- Use per hour: "0.82 %/h", or the mAh lost per hour ("15 mAh").
+--- Use per hour: "0.82 %/h", or the mAh lost per hour ("15 mAh/h").
 local function rate(v)
     if not v then return "–" end
     if options.unit == "mah" and full_mah and full_mah > 0 then
         local m = v * full_mah / 100
-        return string.format(m < 1 and "%.2f mAh" or m < 10 and "%.1f mAh" or "%.0f mAh", m)
+        return string.format(m < 1 and "%.2f mAh/h" or m < 10 and "%.1f mAh/h" or "%.0f mAh/h", m)
     end
     return string.format(v < 0.1 and "%.3f %%/h" or v < 10 and "%.2f %%/h" or "%.1f %%/h", v)
 end
@@ -630,16 +630,16 @@ function BatteryPage:_showMenu()
     if items[#items] then items[#items].separator = true end
     items[#items + 1] = {
         text = _("Use per hour in"),
-        mandatory_func = function() return options.unit == "mah" and "mAh" or "%" end,
+        mandatory_func = function() return options.unit == "mah" and "mAh/h" or "%/h" end,
         sub_item_table = {
             {
-                text = "%",
+                text = "%/h",
                 radio = true,
                 checked_func = function() return options.unit ~= "mah" end,
                 callback = function() options.unit = "pct"; save_options() end,
             },
             {
-                text = "mAh",
+                text = "mAh/h",
                 radio = true,
                 enabled_func = function() return full_mah ~= nil and full_mah > 0 end,
                 checked_func = function() return options.unit == "mah" end,
@@ -696,9 +696,8 @@ function BatteryPage:_sentences()
         out[#out + 1] = T(_("Last charge: %1."), how)
     end
     if st.overall and st.overall > 0 then
-        local per = rate(st.overall)
-        if options.unit == "mah" and full_mah and full_mah > 0 then per = T(_("%1 per hour"), per) end
-        out[#out + 1] = T(_("A full charge lasts %1 at %2 on average."), days(100 * 3600 / st.overall), per)
+        out[#out + 1] = T(_("A full charge lasts %1 at %2 on average."), days(100 * 3600 / st.overall),
+            rate(st.overall))
     end
     return out
 end
