@@ -363,9 +363,13 @@ function M.epubStructure(Archiver, file)
         end
         -- package and TOC files are small; anything larger is not read (a
         -- broken or crafted EPUB must not stall the UI) and the book stays one book
+        local extracted = {}   -- each file is extracted at most once
         local function read(p)
-            if not sizes[p] or sizes[p] > MAX_READ_BYTES then return nil end
-            return r:extractToMemory(p)
+            if extracted[p] ~= nil then return extracted[p] or nil end
+            local c
+            if sizes[p] and sizes[p] <= MAX_READ_BYTES then c = r:extractToMemory(p) end
+            extracted[p] = c or false
+            return c
         end
         local cont = read("META-INF/container.xml")
         local opf = cont and cont:match("full%-path%s*=%s*[\"']([^\"']+)[\"']")
