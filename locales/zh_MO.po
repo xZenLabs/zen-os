@@ -1198,7 +1198,7 @@ msgstr "章節"
 #. Context: 電池統計選單中的設定項目名稱。
 #: battery_page.lua:259 battery_page.lua:535 battery_stats_menu.lua:41 battery_stats_menu.lua:88
 msgid "Charging"
-msgstr "收費"
+msgstr "充電中"
 
 #. Type: dialog
 #. Context: 電池統計選單中對話框的內容。
