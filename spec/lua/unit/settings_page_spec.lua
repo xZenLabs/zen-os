@@ -11,6 +11,10 @@ describe("Zen settings page", function()
         "gettext",
         "ui/bidi",
         "ui/widget/menu",
+        "ui/widget/container/framecontainer",
+        "ui/font",
+        "ui/widget/textwidget",
+        "common/ui/color_text_widget",
         "ui/widget/infomessage",
         "ui/uimanager",
         "ffi/utf8proc",
@@ -94,6 +98,14 @@ describe("Zen settings page", function()
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("ui/bidi", { mirroredUILayout = function() return false end })
         ZenSpec.replace("ui/widget/menu", Menu)
+        ZenSpec.replace("ui/widget/container/framecontainer", {
+            new = function(_self, spec) return spec end,
+        })
+        ZenSpec.replace("ui/font", { getFace = function() end })
+        ZenSpec.replace("ui/widget/textwidget", {
+            new = function(_self, spec) return spec end,
+        })
+        ZenSpec.replace("common/ui/color_text_widget", {})
         ZenSpec.replace("ui/widget/infomessage", {
             new = function(_self, opts)
                 opts.movable = {}
