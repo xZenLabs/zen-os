@@ -31,6 +31,7 @@ describe("reader settings", function()
                 getWidth = function() return 600 end,
                 getHeight = function() return 800 end,
                 scaleBySize = function(_self, size) return size end,
+                getDPI = function() return 160 end,
             },
             isKindle = function() return false end,
             hasSystemFonts = function() return false end,

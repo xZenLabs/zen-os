@@ -193,7 +193,7 @@ describe("reader themes", function()
 
     it("registers the additional built-in theme palettes", function()
         local expected = {
-            sepia = { "#2c1a0e", "#f5e6c8" },
+            sepia = { "#000000", "#f5e6c8" },
             darker_sepia = { "#2e2014", "#e6cea9" },
             old_book = { "#2e1800", "#edd9b0" },
             sage = { "#1a2e1a", "#eaf0e8" },

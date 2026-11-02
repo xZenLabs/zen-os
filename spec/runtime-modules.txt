@@ -69,6 +69,7 @@ common/ui/button_label_width.lua|unit
 common/ui/button_feedback.lua|unit
 common/ui/corner_banner.lua|unit
 common/ui/color_text_widget.lua|unit
+common/ui/theme_preview.lua|unit
 common/ui/color_icon_widget.lua|integration
 common/ui/color_wheel_widget.lua|unit
 common/ui/folder_cover_picker.lua|unit

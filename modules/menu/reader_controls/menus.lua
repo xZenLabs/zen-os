@@ -120,7 +120,7 @@ function M.themeRows(reader, plugin, refresh)
     selected = selected or (mode == "dark_mode" and "dark_warm_gray" or "default")
     local rows = {}
     local function add(text, key)
-        rows[#rows + 1] = { text = text, radio = true, checked = selected == key,
+        rows[#rows + 1] = { text = text, radio = true, checked = selected == key, theme_key = key,
             callback = function()
                 config.features.reader_themes = true
                 themes[mode] = key
@@ -130,13 +130,7 @@ function M.themeRows(reader, plugin, refresh)
                 refresh()
             end }
     end
-    add(_("Default"), "default")
-    for _i, entry in ipairs({
-        { "dark_warm_gray", _("Dark warm gray") }, { "dark_graphite", _("Dark graphite") },
-        { "light_sepia", _("Light sepia") }, { "light_tan", _("Light tan") },
-    }) do
-        add(entry[2], entry[1])
-    end
+    for _i, entry in ipairs(Themes.builtinList()) do add(entry.text, entry.key) end
     local custom = themes.custom or {}
     local names = {}
     for key in pairs(custom) do names[#names + 1] = key end

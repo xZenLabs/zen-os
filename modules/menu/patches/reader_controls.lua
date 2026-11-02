@@ -43,6 +43,7 @@ return function(plugin)
     local ZenIconButton = require("common/ui/zen_icon_button")
     local ZenActionButton = require("common/ui/zen_action_button")
     local ZenTabBar = require("common/ui/zen_tab_bar")
+    local ThemePreview = require("common/ui/theme_preview")
     local StepButton = require("common/ui/slider_step_button")
     local utils = require("common/utils")
     local root = require("common/plugin_root")
@@ -374,7 +375,7 @@ return function(plugin)
             return track(widget, activate, nil, layout)
         end
         local function button(item, width, layout, label_width)
-            local widget, button_widget
+            local widget, button_widget, swatch
             local callback = function() if item.callback then item.callback(tm, button_widget) end end
             local font_pad = pad
             width = width - font_pad * 2
@@ -397,7 +398,12 @@ return function(plugin)
                     font_size = 18, callback = callback, outlined = item.name == "font_face" or item.outlined,
                     radius = item.name == "font_face" and Screen:scaleBySize(4) or nil }
             elseif item.radio then
-                widget = CheckButton:new{ text = item.text, width = width, radio = true,
+                swatch = item.theme_key and ThemePreview.new{ plugin = plugin, key = item.theme_key,
+                    width = math.min(Screen:scaleBySize(96), math.floor(width * 0.45)),
+                    height = Screen:scaleBySize(30), face = Font:getFace("cfont", 14),
+                    radius = Screen:scaleBySize(4) } -- matches ZenTabBar
+                widget = CheckButton:new{ text = item.text, radio = true,
+                    width = width - (swatch and swatch:getSize().w + pad or 0),
                     checked = item.checked, face = item.face or Font:getFace("x_smallinfofont"),
                     single_line = item.theme_choice, padding = 0, margin = 0,
                     callback = callback, parent = tm, show_parent = tm }
@@ -428,7 +434,10 @@ return function(plugin)
                     LeftContainer:new{ dimen = Geom:new{ w = width - button_width, h = widget:getSize().h },
                         title or HorizontalSpan:new{ width = 0 } }, widget }
             elseif item.theme_choice then
-                widget = LeftContainer:new{ dimen = Geom:new{ w = width, h = Screen:scaleBySize(40) }, widget }
+                local swatch_w = swatch and swatch:getSize().w or 0
+                widget = HorizontalGroup:new{ align = "center",
+                    LeftContainer:new{ dimen = Geom:new{ w = width - swatch_w, h = Screen:scaleBySize(40) }, widget },
+                    swatch }
             else
                 local title = setting_title and (embedded and LeftContainer or RightContainer):new{
                     dimen = Geom:new{ w = title_width, h = widget:getSize().h }, setting_title }

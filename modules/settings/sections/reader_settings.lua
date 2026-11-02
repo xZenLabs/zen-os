@@ -11,6 +11,7 @@ local utils = require("modules/settings/zen_settings_utils")
 local constants = require("common/constants")
 local PresetStore = require("config/preset_store")
 local ReaderThemes = require("common/reader_themes")
+local ThemePreview = require("common/ui/theme_preview")
 local Blitbuffer = require("ffi/blitbuffer")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local FrameContainer = require("ui/widget/container/framecontainer")
@@ -783,26 +784,7 @@ function M.build(ctx)
         },
     })
 
-    local builtin_themes = {
-        { key = "default", text = _("Default") },
-        { key = "dark_warm_gray", text = _("Dark warm gray") },
-        { key = "dark_graphite", text = _("Dark graphite") },
-        { key = "light_sepia", text = _("Light sepia") },
-        { key = "light_tan", text = _("Light tan") },
-        { key = "sepia", text = _("Sepia") },
-        { key = "darker_sepia", text = _("Darker Sepia") },
-        { key = "old_book", text = _("Old Book") },
-        { key = "sage", text = _("Sage") },
-        { key = "fern", text = _("Fern") },
-        { key = "arctic", text = _("Arctic") },
-        { key = "midnight", text = _("Midnight") },
-        { key = "nord", text = _("Nord") },
-        { key = "amber_night", text = _("Amber Night") },
-        { key = "sepia_night", text = _("Sepia Night") },
-        { key = "dark_moss", text = _("Dark Moss") },
-        { key = "dark_sky", text = _("Dark Sky") },
-        { key = "velvet", text = _("Velvet") },
-    }
+    local builtin_themes = ReaderThemes.builtinList()
 
     local function theme_settings()
         if type(config.reader_themes) ~= "table" then config.reader_themes = {} end
@@ -834,40 +816,20 @@ function M.build(ctx)
 
     local function theme_preview_content(key, label, theme_override)
         return function(width, height, face, enabled)
-            local text_color, background_color = ReaderThemes.getPreviewColors(plugin, key, theme_override)
-            if not (text_color and background_color) then return nil end
+            local preview_width = Screen:scaleBySize(136)
+            local preview = ThemePreview.new{
+                plugin = plugin, key = key, theme = theme_override, face = face,
+                width = preview_width,
+                height = math.max(1, height - 2 * Screen:scaleBySize(10)),
+            }
+            if not preview then return nil end
 
             local left_padding = IconItem.getSettingsLeftPadding()
             local icon_width = IconItem.SETTINGS_ICON_WIDTH + IconItem.getSettingsIconGap()
-            local preview_width = Screen:scaleBySize(136)
-            local preview_height = math.max(1, height - 2 * Screen:scaleBySize(10))
             local gap = Screen:scaleBySize(10)
-            local preview_padding = Screen:scaleBySize(4)
-            local preview_border = Size.border.thin
             local preview_label = type(label) == "function" and label() or label
             local name_width = math.max(1,
                 width - left_padding - icon_width - preview_width - gap)
-            local preview = FrameContainer:new{
-                width = preview_width,
-                height = preview_height,
-                padding = preview_padding,
-                margin = 0,
-                bordersize = preview_border,
-                color = Blitbuffer.COLOR_DARK_GRAY,
-                background = background_color,
-                CenterContainer:new{
-                    dimen = Geom:new{
-                        w = preview_width - 2 * (preview_padding + preview_border),
-                        h = preview_height - 2 * (preview_padding + preview_border),
-                    },
-                    ColorTextWidget:new{
-                        text = "Aa Bb 123",
-                        max_width = preview_width - 2 * (preview_padding + preview_border),
-                        face = face,
-                        fgcolor = text_color,
-                    },
-                },
-            }
             local centered_preview = CenterContainer:new{
                 dimen = Geom:new{ w = preview_width, h = height },
                 preview,

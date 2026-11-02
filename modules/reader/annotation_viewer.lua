@@ -758,7 +758,7 @@ function M.show(plugin, ui, kind)
         return true
     end
     viewer:updateLayout()
-    UIManager:show(viewer)
+    UIManager:show(viewer, "ui") -- Full-screen refresh; otherwise only the closing caller's region updates.
     if not ui then M.session(viewer):loadAll(function() refresh(viewer) end) end
     return viewer
 end

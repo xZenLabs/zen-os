@@ -22,7 +22,7 @@ M.BUILTIN_THEMES = {
         background = "#e8dcc5",
     },
     sepia = {
-        text = "#2c1a0e",
+        text = "#000000",
         background = "#f5e6c8",
     },
     darker_sepia = {
@@ -74,6 +74,31 @@ M.BUILTIN_THEMES = {
         background = "#532653",
     },
 }
+
+-- Ordered builtin themes with display names; built lazily so gettext is installed.
+function M.builtinList()
+    local _ = require("gettext")
+    return {
+        { key = "default", text = _("Default") },
+        { key = "dark_warm_gray", text = _("Dark warm gray") },
+        { key = "dark_graphite", text = _("Dark graphite") },
+        { key = "light_sepia", text = _("Light sepia") },
+        { key = "light_tan", text = _("Light tan") },
+        { key = "sepia", text = _("Sepia") },
+        { key = "darker_sepia", text = _("Darker Sepia") },
+        { key = "old_book", text = _("Old Book") },
+        { key = "sage", text = _("Sage") },
+        { key = "fern", text = _("Fern") },
+        { key = "arctic", text = _("Arctic") },
+        { key = "midnight", text = _("Midnight") },
+        { key = "nord", text = _("Nord") },
+        { key = "amber_night", text = _("Amber Night") },
+        { key = "sepia_night", text = _("Sepia Night") },
+        { key = "dark_moss", text = _("Dark Moss") },
+        { key = "dark_sky", text = _("Dark Sky") },
+        { key = "velvet", text = _("Velvet") },
+    }
+end
 
 local CSS_START = "/* zen_ui_reader_themes:start */"
 local CSS_END = "/* zen_ui_reader_themes:end */"
