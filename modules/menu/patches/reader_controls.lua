@@ -199,6 +199,8 @@ return function(plugin)
                 option("font_gamma", true)
                 option("font_hinting")
                 option("font_kerning")
+                option("embedded_css")
+                option("embedded_fonts")
             else
                 option("contrast", true)
                 option("white_threshold", true)
