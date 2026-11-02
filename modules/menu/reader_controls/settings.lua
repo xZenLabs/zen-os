@@ -107,6 +107,8 @@ function M.preview(reader, name, value)
     -- Native rerendering resets touch detection; keep the current drag alive.
     input.inhibitInput = function() end
     input.inhibitInputUntil = input.inhibitInput
+    -- Rapid previews would hit FULL_REFRESH_COUNT and promote to a flashing "full" (GCC16 on Kaleido).
+    require("ui/uimanager"):avoidFlashOnNextRepaint()
     local ok, result = pcall(M.apply, reader, name, value)
     input.inhibitInput, input.inhibitInputUntil = inhibit, inhibit_until
     if not ok then error(result) end

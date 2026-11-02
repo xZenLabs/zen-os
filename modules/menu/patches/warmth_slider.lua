@@ -23,6 +23,7 @@ local VerticalGroup   = require("ui/widget/verticalgroup")
 local VerticalSpan    = require("ui/widget/verticalspan")
 local ZenSlider       = require("common/ui/zen_slider")
 local library_font    = require("modules/filebrowser/patches/library_font")
+local utils           = require("common/utils")
 local _               = require("gettext")
 local Screen          = Device.screen
 
@@ -91,8 +92,10 @@ local function build_warmth_slider(touch_menu, opts)
     nl.prev_non_min = nl.cur > nl.min and nl.cur or math.min(nl.max, nl.min + 1)
 
     -- Paint label and slider directly during drag; redraw the menu on release.
+    nl_progress.on_drag_end = function() powerd:stateChanged() end -- Drag updates were silent.
     nl_progress.on_change = function(v)
-        powerd:setWarmth(powerd:fromNativeWarmth(v))
+        local function set() powerd:setWarmth(powerd:fromNativeWarmth(v)) end
+        if nl_progress._dragging then utils.withoutFrontlightBroadcast(powerd, set) else set() end
         nl.cur = v
         if nl.cur > nl.min then nl.prev_non_min = nl.cur end
         if nl_progress._dragging then
@@ -113,7 +116,7 @@ local function build_warmth_slider(touch_menu, opts)
             local dirty_x = math.min(slider_dimen.x, num_x)
             local colored = Accent.isEnabled()
             -- One refresh for label and slider avoids competing Kobo updates.
-            UIManager:setDirty(nil, colored and "ui" or "fast", Geom:new{
+            ZenSlider.refreshDrag(Geom:new{
                 x = dirty_x,
                 y = label_y,
                 w = math.max(slider_dimen.x + slider_dimen.w, num_x + nl_drag_max_num_w) - dirty_x,

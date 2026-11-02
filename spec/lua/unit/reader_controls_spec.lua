@@ -57,9 +57,10 @@ describe("reader controls settings", function()
     end)
 
     it("keeps touch detection active during native slider previews and restores input hooks", function()
-        local device = package.loaded.device
-        local input = {}
+        local device, uimanager = package.loaded.device, package.loaded["ui/uimanager"]
+        local input, flash_guarded = {}, 0
         ZenSpec.replace("device", { input = input })
+        ZenSpec.replace("ui/uimanager", { avoidFlashOnNextRepaint = function() flash_guarded = flash_guarded + 1 end })
         local resets = 0
         input.inhibitInput = function() resets = resets + 1 end
         input.inhibitInputUntil = input.inhibitInput
@@ -72,6 +73,7 @@ describe("reader controls settings", function()
         end
         local ok, err = pcall(function()
             assert.is_true(Settings.preview(reader, "font_size", 25))
+            assert.are.equal(1, flash_guarded) -- No full-refresh promotion mid-drag.
             assert.are.equal(0, resets)
             assert.are.equal("onSetFontSize", events[2].handler)
             assert.are.equal(native_inhibit, input.inhibitInput)
@@ -85,7 +87,7 @@ describe("reader controls settings", function()
             input:inhibitInput(true)
             assert.are.equal(1, resets)
         end)
-        package.loaded.device = device
+        package.loaded.device, package.loaded["ui/uimanager"] = device, uimanager
         assert.is_true(ok, err)
     end)
 

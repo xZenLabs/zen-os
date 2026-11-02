@@ -484,6 +484,7 @@ local function apply_page_browser()
         local Size            = require("ui/size")
         local Screen          = Device.screen
         local GestureRange    = require("ui/gesturerange")
+        local Accent          = require("common/ui/accent")
         local ZenSlider       = require("common/ui/zen_slider")
         local ZenIconButton   = require("common/ui/zen_icon_button")
         local logger          = require("common/zen_logger").new("page_browser")
@@ -1736,11 +1737,17 @@ local function apply_page_browser()
                 -- Paint slider + chapter label
                 directPaintSlider(sl, clbl, chap_text)
 
-                -- Single A2 refresh covering grid + label + slider
-                -- (buttons are excluded via the tightened scrub_dimen).
-                -- One call avoids the double-flash that two separate A2
-                -- regions produce on e-ink, especially in single-page mode.
-                UIManager:setDirty(nil, "fast", pbw._zen_scrub_dimen or pbw.dimen)
+                -- One A2 refresh over grid + label + slider avoids double flashes.
+                -- DU can't render accent fills (ghosting), so a colored slider
+                -- gets its own drag refresh; the 1px gap keeps UIManager from merging them.
+                local scrub = pbw._zen_scrub_dimen or pbw.dimen
+                if sl and sl.dimen and sl.dimen.y and Accent.isEnabled() then
+                    UIManager:setDirty(nil, "fast", Geom:new{ x = scrub.x, y = scrub.y,
+                        w = scrub.w, h = math.max(0, sl.dimen.y - scrub.y - 1) })
+                    ZenSlider.refreshDrag(sl.dimen:copy(), true)
+                else
+                    UIManager:setDirty(nil, "fast", scrub)
+                end
             end
 
             -- Trailing scrub paint: shows the latest page once pan events pause.

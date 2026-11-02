@@ -440,5 +440,28 @@ describe("TouchMenu panel gestures", function()
                 assert.are.equal("ui", refresh())
             end
         end
+
+        -- Section and page swaps inside one panel tab use a dithered partial, no flash.
+        screen.isColorScreen = function() return true end
+        config.accent_color = "#204080"
+        local view, view_page = "font", 1
+        menu.item_table = { id = "reader_controls", panel = function(self)
+            self._zen_panel_refs = { view = view, view_page = view_page }
+            return {}
+        end }
+        menu:updateItems()
+        refresh()
+        for _i, case in ipairs({ { "font", 1, "ui", false }, { "page", 1, "partial", true },
+                { "page", 2, "partial", true }, { "page", 2, "ui", false } }) do
+            view, view_page = case[1], case[2]
+            menu:updateItems()
+            local mode, _region, dither = refresh()
+            assert.are.equal(case[3], mode)
+            assert.are.equal(case[4], dither)
+        end
+        config.accent_color = "#000000"
+        view = "themes"
+        menu:updateItems()
+        assert.are.equal("ui", refresh())
     end)
 end)

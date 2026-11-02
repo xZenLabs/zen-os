@@ -80,3 +80,23 @@ describe("Controls menu tab placement", function()
         assert.is_false(utils.controlReplacesMenuTab(nil, "launcher"))
     end)
 end)
+
+describe("common utils frontlight broadcast", function()
+    local utils = require("common/utils")
+
+    it("silences powerd broadcasts only while fn runs, even when it errors", function()
+        local Class = { broadcasts = 0 }
+        Class.__index = Class
+        function Class:stateChanged() self.broadcasts = self.broadcasts + 1 end
+        local powerd = setmetatable({}, Class)
+        utils.withoutFrontlightBroadcast(powerd, function() powerd:stateChanged() end)
+        assert.are.equal(0, powerd.broadcasts)
+        assert.is_nil(rawget(powerd, "stateChanged"))
+        assert.has_error(function()
+            utils.withoutFrontlightBroadcast(powerd, function() error("boom") end)
+        end)
+        assert.is_nil(rawget(powerd, "stateChanged"))
+        powerd:stateChanged()
+        assert.are.equal(1, powerd.broadcasts)
+    end)
+end)

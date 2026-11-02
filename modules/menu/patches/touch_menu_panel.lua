@@ -68,6 +68,13 @@ end
 
 M.handlePanelGesture = handle_panel_gesture
 
+--- Refresh for swapped panel content over accent fills, which "ui" leaves ghosted on color e-ink.
+--- Dithered partial, no flash. Nil when view and page are unchanged.
+function M.viewSwapRefresh(old_refs, refs)
+    if not (old_refs and refs) then return end
+    if refs.view ~= old_refs.view or refs.view_page ~= old_refs.view_page then return "partial", true end
+end
+
 function M.install(plugin)
     active_plugin = plugin or active_plugin or rawget(_G, "__ZEN_UI_PLUGIN")
 
@@ -184,6 +191,7 @@ function M.install(plugin)
         end
 
         local previous_tab = self._zen_panel_refs and self._zen_panel_refs.tab_id
+        local old_refs = self._zen_panel_refs
         if not self._zen_panel_refs then
             self._zen_panel_locked = true
             UIManager:scheduleIn(0.35, function()
@@ -269,11 +277,13 @@ function M.install(plugin)
         local colored = Accent.isEnabled(active_plugin and active_plugin.config)
         local is_fresh = self.is_fresh -- Background hatching may clear this in onShow.
         local tab_changed = not is_fresh and previous_tab ~= self.item_table.id
+        local swap_type = not is_fresh and not tab_changed and colored and M.viewSwapRefresh(old_refs, refs)
         UIManager:setDirty((self.is_fresh or keep_bg) and self.show_parent or "all", function()
             local refresh_dimen = old_dimen and old_dimen:combine(self.dimen) or self.dimen
-            -- Clear old tab glyphs beneath colored fills when switching tabs.
+            -- Clear old tab glyphs beneath colored fills when switching tabs or panel views.
             local color_refresh = colored and (Screen.night_mode == true or tab_changed)
             local refresh_type = color_refresh and "partial" or "ui"
+            if swap_type then refresh_type, color_refresh = swap_type, true end
             if self.is_fresh or (colored and is_fresh) then
                 refresh_type = colored and getFullRefreshMode() or "flashui"
                 self.is_fresh = false

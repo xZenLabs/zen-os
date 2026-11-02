@@ -75,14 +75,24 @@ describe("frontlight slider", function()
                 scaleBySize = function(_, value) return value end,
             },
         })
-        ZenSpec.replace("common/ui/zen_slider", widget_class({
+        local slider_class = widget_class({
             getSize = function() return { w = 300, h = 40 } end,
             dirtyDimen = function(self) return self.dimen end,
             setValue = function(self, value) self.value = value end,
             paintTo = function() end,
-        }))
+        })
+        slider_class.refreshDrag = function(region, colored)
+            dirty_calls[#dirty_calls + 1] = { mode = "drag", region = region, colored = colored }
+        end
+        ZenSpec.replace("common/ui/zen_slider", slider_class)
         ZenSpec.replace("common/utils", {
             resolveIcon = function(_dir, name) return "/icons/zen/selected/" .. name .. ".svg" end,
+            withoutFrontlightBroadcast = function(powerd, fn)
+                local state_changed = rawget(powerd, "stateChanged")
+                powerd.stateChanged = function() end
+                fn()
+                powerd.stateChanged = state_changed
+            end,
         })
         ZenSpec.replace("common/widget_resources", { paintFrameBorderOnTop = function() end })
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
@@ -163,6 +173,7 @@ describe("frontlight slider", function()
             setIntensity = function(self, value)
                 self.intensity = value
                 self.brightness_writes = self.brightness_writes + 1
+                self:stateChanged()
             end,
             turnOffFrontlight = function(self)
                 self.intensity = 0
@@ -173,12 +184,15 @@ describe("frontlight slider", function()
             updateResumeFrontlightState = function(self)
                 self.resume_state_updates = (self.resume_state_updates or 0) + 1
             end,
+            broadcasts = 0,
+            stateChanged = function(self) self.broadcasts = self.broadcasts + 1 end,
             frontlightWarmth = function(self) return self.warmth end,
             toNativeWarmth = function(_, value) return value end,
             fromNativeWarmth = function(_, value) return value end,
             setWarmth = function(self, value)
                 self.warmth = value
                 self.warmth_writes = self.warmth_writes + 1
+                self:stateChanged()
             end,
         }
     end
@@ -333,7 +347,7 @@ describe("frontlight slider", function()
         end
     end)
 
-    it("uses a local grayscale refresh for accent drags and a fast refresh for black drags", function()
+    it("uses one local drag refresh covering the value label and slider", function()
         local colored = false
         ZenSpec.replace("common/ui/accent", { isEnabled = function() return colored end })
         for _i, module in ipairs({ "brightness_slider", "warmth_slider" }) do
@@ -358,9 +372,8 @@ describe("frontlight slider", function()
                 assert.are.equal(tostring(value), number_box[1].text)
                 assert.are.equal(1, #dirty_calls)
                 local refresh = dirty_calls[1]
-                assert.is_nil(refresh.widget)
-                assert.are.equal(enabled and "ui" or "fast", refresh.mode)
-                assert.are.equal(enabled, refresh.dither)
+                assert.are.equal("drag", refresh.mode)
+                assert.are.equal(enabled, refresh.colored)
                 assert.are.equal(require("device").screen.bb.last_paint_y, refresh.region.y)
                 assert.are.equal(slider.dimen.y + slider.dimen.h, refresh.region.y + refresh.region.h)
                 assert.is_true(refresh.region.x <= require("device").screen.bb.last_paint_x)
@@ -368,6 +381,11 @@ describe("frontlight slider", function()
                 assert.is_true(refresh.region.x + refresh.region.w >= 210)
                 assert.is_true(refresh.region.w < slider.dimen.w)
             end
+            -- Broadcasts repaint the dithered ReaderUI mid-drag; send one on release instead.
+            assert.are.equal(0, powerd.broadcasts)
+            slider._dragging = false
+            slider.on_drag_end()
+            assert.are.equal(1, powerd.broadcasts)
         end
     end)
 
@@ -445,6 +463,6 @@ describe("frontlight slider", function()
         slider.on_change(38)
         assert.are.equal(130, require("device").screen.bb.last_paint_x)
         assert.are.equal(60, require("device").screen.bb.last_paint_y)
-        assert.are.same({ { widget = nil, mode = "fast", region = { x = 130, y = 60, w = 320, h = 90 }, dither = false } }, dirty_calls)
+        assert.are.same({ { mode = "drag", region = { x = 130, y = 60, w = 320, h = 90 }, colored = false } }, dirty_calls)
     end)
 end)

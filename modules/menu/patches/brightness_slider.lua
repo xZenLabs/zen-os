@@ -117,15 +117,22 @@ local function build_brightness_slider(touch_menu, opts)
             fl.dragging = false
             if fl.cur > fl.min then fl.prev_non_min = fl.cur end
         end
+        powerd:stateChanged() -- Broadcast once; drag updates were silent.
     end
 
     progress.on_change = function(value)
+        local function set()
+            if mode == "brightness" then
+                powerd:setIntensity(value)
+            else
+                powerd:setWarmth(powerd:fromNativeWarmth(value))
+            end
+        end
+        if progress._dragging then utils.withoutFrontlightBroadcast(powerd, set) else set() end
         if mode == "brightness" then
-            powerd:setIntensity(value)
             fl.cur = value
             if value > fl.min and not fl.dragging then fl.prev_non_min = value end
         else
-            powerd:setWarmth(powerd:fromNativeWarmth(value))
             nl.cur = value
         end
         if progress._dragging then
@@ -137,8 +144,7 @@ local function build_brightness_slider(touch_menu, opts)
             local slider_dimen = progress:dirtyDimen()
             local dirty_x = math.min(slider_dimen.x, number_x)
             local colored = Accent.isEnabled()
-            -- DU cannot reproduce accent shades or cleanly erase a colored knob.
-            UIManager:setDirty(nil, colored and "ui" or "fast", Geom:new{
+            ZenSlider.refreshDrag(Geom:new{
                 x = dirty_x,
                 y = label_y,
                 w = math.max(slider_dimen.x + slider_dimen.w, number_x + number_width) - dirty_x,

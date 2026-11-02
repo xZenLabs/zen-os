@@ -680,4 +680,14 @@ function M.getDiskFreeText()
     return nil
 end
 
+--- Run fn without powerd's FrontlightStateChanged broadcast. Mid-drag it makes ReaderFooter
+--- repaint the dithered ReaderUI, which dithers (and flashes) every other refresh that frame.
+function M.withoutFrontlightBroadcast(powerd, fn)
+    local state_changed = rawget(powerd, "stateChanged")
+    powerd.stateChanged = function() end
+    local ok, err = pcall(fn)
+    powerd.stateChanged = state_changed
+    if not ok then error(err, 0) end
+end
+
 return M

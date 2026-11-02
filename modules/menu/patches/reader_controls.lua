@@ -797,7 +797,7 @@ return function(plugin)
                                 Screen.bb:invertRect(cell.x, cell.y, cell.w, cell.h)
                             end
                             local colored = Accent.isEnabled(plugin.config)
-                            UIManager:setDirty(nil, colored and "ui" or "fast", slider:dirtyDimen():combine(cell), colored)
+                            ZenSlider.refreshDrag(slider:dirtyDimen():combine(cell), colored)
                         end
                         if not pending then
                             pending = true
@@ -984,6 +984,7 @@ return function(plugin)
             if not painted then table.remove(refs.swipe_zones, i) end
         end
         panel:resetLayout()
+        refs.view, refs.view_page = state.section, state.page -- Content swaps need a color clean refresh.
         return LeftContainer:new{ dimen = Geom:new{ w = w, h = panel:getSize().h }, panel }
     end
 
@@ -1002,6 +1003,7 @@ return function(plugin)
         self:updateItems()
     end
     function EmbeddedPanel:updateItems()
+        local old_refs = self._zen_panel_refs
         for _i, ref in ipairs(self._zen_panel_refs and self._zen_panel_refs.sliders or {}) do ref.cancel() end
         local previous = self[1]
         if previous then previous:free() end
@@ -1013,7 +1015,10 @@ return function(plugin)
         self.dimen.h = self[1]:getSize().h
         if previous then
             -- Panel region only; a height change relayouts the parent via on_layout_changed.
-            UIManager:setDirty(self.show_parent or self, "ui", self.dimen.x and self.dimen or nil)
+            -- Swapped sections/pages need a clean refresh; "ui" ghosts old accent fills.
+            local swap_type, dither
+            if Accent.isEnabled(plugin.config) then swap_type, dither = PanelGestures.viewSwapRefresh(old_refs, self._zen_panel_refs) end
+            UIManager:setDirty(self.show_parent or self, swap_type or "ui", self.dimen.x and self.dimen or nil, dither)
             if self.on_layout_changed then self.on_layout_changed() end
         end
     end

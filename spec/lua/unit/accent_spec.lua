@@ -506,6 +506,18 @@ describe("interface accent", function()
         bb:free()
     end)
 
+    it("never dithers live drag refreshes so Kaleido avoids flashing color waveforms", function()
+        local UIManager = require("ui/uimanager")
+        local calls = {}
+        UIManager.setDirty = function(_self, widget, mode, region, dither)
+            calls[#calls + 1] = { widget = widget, mode = mode, region = region, dither = dither }
+        end
+        local Slider, region = require("common/ui/zen_slider"), { x = 1, y = 2, w = 3, h = 4 }
+        Slider.refreshDrag(region, true)
+        Slider.refreshDrag(region, false)
+        assert.are.same({ { mode = "ui", region = region }, { mode = "fast", region = region } }, calls)
+    end)
+
     it("refreshes the whole slider on first contact and skips repeated drag values", function()
         local slider = require("common/ui/zen_slider"):new{
             width = 120, value_min = 0, value_max = 100, value = 50, knob_radius = 8,
