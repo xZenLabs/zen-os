@@ -10,11 +10,12 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 3.9\n"
+"X-Generator: Poedit 3.10\n"
 
 #. Type: unit
 #. Context: Unidad que acompaña una cantidad o una duración en la página de estadísticas de lectura. Unidad que acompaña una cantidad o una duración en los ajustes de estadísticas de lectura.
-#: stats_page.lua:99 stats_page.lua:1330 stats_page.lua:1438 stats_settings.lua:95
+#: stats_page.lua:99 stats_page.lua:1330 stats_page.lua:1438
+#: stats_settings.lua:95
 msgid " days"
 msgstr " días"
 
@@ -170,7 +171,12 @@ msgstr "(Kindle)"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. Nombre de un ajuste en los ajustes de la barra de navegación.
-#: app_launcher_settings.lua:673 app_launcher_settings.lua:815 app_launcher_settings.lua:836 app_launcher_settings.lua:862 app_launcher_settings.lua:875 app_launcher_settings.lua:886 menu_settings.lua:850 menu_settings.lua:862 menu_settings.lua:893 menu_settings.lua:933 navbar_settings.lua:743 navbar_settings.lua:763 navbar_settings.lua:783 navbar_settings.lua:795 navbar_settings.lua:822
+#: app_launcher_settings.lua:673 app_launcher_settings.lua:815
+#: app_launcher_settings.lua:836 app_launcher_settings.lua:862
+#: app_launcher_settings.lua:875 app_launcher_settings.lua:886
+#: menu_settings.lua:850 menu_settings.lua:862 menu_settings.lua:893
+#: menu_settings.lua:933 navbar_settings.lua:743 navbar_settings.lua:763
+#: navbar_settings.lua:783 navbar_settings.lua:795 navbar_settings.lua:822
 msgid "(none)"
 msgstr "(ninguno)"
 
@@ -188,7 +194,8 @@ msgstr "1 autor"
 
 #. Type: label
 #. Context: Etiqueta en el menú de colecciones de libros. Etiqueta en el menú contextual de libros y carpetas. Etiqueta en los grupos de la biblioteca por autores, series y etiquetas.
-#: collections.lua:442 collections.lua:540 context_menu.lua:1116 context_menu.lua:1741 group_view.lua:1395
+#: collections.lua:442 collections.lua:540 context_menu.lua:1116
+#: context_menu.lua:1741 group_view.lua:1395
 msgid "1 book"
 msgstr "1 libro"
 
@@ -273,8 +280,14 @@ msgstr "Ya existe un libro con ese nombre en el destino."
 #. Type: description
 #. Context: Texto de ayuda en la guía de configuración.
 #: quickstart_pages.lua:683
-msgid "A clean, minimal experience for your e-reader.\n\nSwipe or tap Next to continue."
-msgstr "Una experiencia sencilla y minimalista para lectores electrónicos.\n\nDesliza o toca Siguiente para continuar."
+msgid ""
+"A clean, minimal experience for your e-reader.\n"
+"\n"
+"Swipe or tap Next to continue."
+msgstr ""
+"Una experiencia sencilla y minimalista para lectores electrónicos.\n"
+"\n"
+"Desliza o toca Siguiente para continuar."
 
 #. Type: message
 #. Context: Mensaje en el editor de metadatos de libros.
@@ -326,7 +339,8 @@ msgstr "Acerca de"
 
 #. Type: title
 #. Context: Interface accent color settings.
-#: quickstart_pages.lua:576 interface_settings.lua:152 interface_settings.lua:182 library_settings.lua:525 library_settings.lua:551
+#: quickstart_pages.lua:576 interface_settings.lua:152
+#: interface_settings.lua:182 library_settings.lua:525 library_settings.lua:551
 msgid "Accent color"
 msgstr "Color de acento"
 
@@ -338,19 +352,27 @@ msgstr "Aceptar"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. También se usa en otras partes de ZenOS.
-#: app_launcher_settings.lua:183 app_launcher_settings.lua:184 app_launcher_settings.lua:279 app_launcher_settings.lua:583 app_launcher_settings.lua:671 app_launcher_settings.lua:673 menu_settings.lua:717 menu_settings.lua:805 menu_settings.lua:931 menu_settings.lua:933 home_settings.lua:1443 home_settings.lua:1484 navbar_settings.lua:348 navbar_settings.lua:820 navbar_settings.lua:822 navbar_settings.lua:1401
+#: app_launcher_settings.lua:183 app_launcher_settings.lua:184
+#: app_launcher_settings.lua:279 app_launcher_settings.lua:583
+#: app_launcher_settings.lua:671 app_launcher_settings.lua:673
+#: menu_settings.lua:717 menu_settings.lua:805 menu_settings.lua:931
+#: menu_settings.lua:933 home_settings.lua:1443 home_settings.lua:1484
+#: navbar_settings.lua:348 navbar_settings.lua:820 navbar_settings.lua:822
+#: navbar_settings.lua:1401
 msgid "Action"
 msgstr "Acción"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de la barra de navegación.
-#: interface_settings.lua:109 interface_settings.lua:113 navbar_settings.lua:1613
+#: interface_settings.lua:109 interface_settings.lua:113
+#: navbar_settings.lua:1613
 msgid "Active tab"
 msgstr "Pestaña activa"
 
 #. Type: title
 #. Context: Título en los ajustes de botones y páginas del panel de inicio rápido. Título en los ajustes de los botones del panel de ajustes rápidos. Título en los ajustes de distribución y widgets de la página de inicio. También se usa en otras partes de ZenOS.
-#: app_launcher_settings.lua:300 app_launcher_settings.lua:984 menu_settings.lua:708 home_settings.lua:1620 navbar_settings.lua:1435
+#: app_launcher_settings.lua:300 app_launcher_settings.lua:984
+#: menu_settings.lua:708 home_settings.lua:1620 navbar_settings.lua:1435
 msgid "Add"
 msgstr "Añadir"
 
@@ -416,7 +438,8 @@ msgstr "Añadir complemento"
 
 #. Type: title
 #. Context: Título en el menú contextual de libros y carpetas. Nombre de una acción en la guía de configuración.
-#: quickstart_pages.lua:305 context_menu.lua:563 context_menu.lua:744 context_menu.lua:2420
+#: quickstart_pages.lua:305 context_menu.lua:563 context_menu.lua:744
+#: context_menu.lua:2420
 msgid "Add to collection"
 msgstr "Añadir a colección"
 
@@ -495,8 +518,14 @@ msgstr "Todos los libros"
 #. Type: description
 #. Context: Texto de ayuda en la guía de configuración.
 #: quickstart_pages.lua:835
-msgid "All settings are in one unified tab. This icon with the dot indicates an update is available.\n\nInstall ZenOS updates directly from your device."
-msgstr "Toda la configuración está en una pestaña unificada. El icono con el punto indica que hay una actualización disponible.\n\nInstala las actualizaciones de ZenOS directamente desde el dispositivo."
+msgid ""
+"All settings are in one unified tab. This icon with the dot indicates an update is available.\n"
+"\n"
+"Install ZenOS updates directly from your device."
+msgstr ""
+"Toda la configuración está en una pestaña unificada. El icono con el punto indica que hay una actualización disponible.\n"
+"\n"
+"Instala las actualizaciones de ZenOS directamente desde el dispositivo."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Nombre de un ajuste en los ajustes de la barra de navegación.
@@ -560,7 +589,9 @@ msgstr "Visor de anotaciones"
 
 #. Type: title
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Etiqueta en el diálogo de detalles del libro.
-#: dispatch_action.lua:508 annotation_viewer.lua:28 annotation_viewer.lua:594 book_details.lua:386 page_browser_tabs.lua:49 library_settings.lua:47 home_settings.lua:2487
+#: dispatch_action.lua:508 annotation_viewer.lua:28 annotation_viewer.lua:594
+#: book_details.lua:386 page_browser_tabs.lua:49 library_settings.lua:47
+#: home_settings.lua:2487
 msgid "Annotations"
 msgstr "Anotaciones"
 
@@ -584,13 +615,16 @@ msgstr "Apariencia"
 
 #. Type: button
 #. Context: Texto de un botón en la interfaz de ZenOS.
-#: color_wheel_widget.lua:44 zen_slider_dialog.lua:158 menus.lua:178 annotation_viewer.lua:505
+#: color_wheel_widget.lua:44 zen_slider_dialog.lua:158 menus.lua:178
+#: annotation_viewer.lua:505
 msgid "Apply"
 msgstr "Aplicar"
 
 #. Type: button
 #. Context: Texto de un botón en el menú del estado de lectura de un libro. Etiqueta en los menús y diálogos de la carpeta de libros archivados. Etiqueta en la barra de navegación de la biblioteca. También se usa en otras partes de ZenOS.
-#: archive_actions.lua:164 archive_actions.lua:207 archive_actions.lua:211 archive_actions.lua:255 navbar.lua:251 end_book_data.lua:31 book_status.lua:242 library_settings.lua:1243 navbar_settings.lua:195
+#: archive_actions.lua:164 archive_actions.lua:207 archive_actions.lua:211
+#: archive_actions.lua:255 navbar.lua:251 end_book_data.lua:31
+#: book_status.lua:242 library_settings.lua:1243 navbar_settings.lua:195
 msgid "Archive"
 msgstr "Archivar"
 
@@ -686,7 +720,8 @@ msgstr "Error de autenticación. La contraseña podría ser incorrecta."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Texto de ayuda en el editor de metadatos de libros. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
-#: metadata_editor.lua:965 annotation_settings.lua:24 reader_settings.lua:292 home_settings.lua:825
+#: metadata_editor.lua:965 annotation_settings.lua:24 reader_settings.lua:292
+#: home_settings.lua:825
 msgid "Author"
 msgstr "Autor"
 
@@ -698,13 +733,18 @@ msgstr "autores"
 
 #. Type: title
 #. Context: Título en el menú de acciones de gestos y atajos. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Opción seleccionable en la guía de configuración. También se usa en otras partes de ZenOS.
-#: dispatch_action.lua:550 nav_button_model.lua:10 quickstart_pages.lua:718 metadata_editor.lua:48 metadata_editor.lua:508 context_menu.lua:2631 group_view.lua:1411 group_view.lua:1456 navbar.lua:296 library_settings.lua:42 library_settings.lua:846 home_settings.lua:1070 navbar_settings.lua:177
+#: dispatch_action.lua:550 nav_button_model.lua:10 quickstart_pages.lua:718
+#: metadata_editor.lua:48 metadata_editor.lua:508 context_menu.lua:2631
+#: group_view.lua:1411 group_view.lua:1456 navbar.lua:296
+#: library_settings.lua:42 library_settings.lua:846 home_settings.lua:1070
+#: navbar_settings.lua:177
 msgid "Authors"
 msgstr "Autores"
 
 #. Type: setting
 #. Context: sub_item_table = choices(cfg.details, entry[1], { { "auto", _("Auto") }, { "show", _("Show") }, { "hide", _("Hide") }, }, "auto"),
-#: annotation_settings.lua:27 app_launcher_settings.lua:1038 app_launcher_settings.lua:1100
+#: annotation_settings.lua:27 app_launcher_settings.lua:1038
+#: app_launcher_settings.lua:1100
 msgid "Auto"
 msgstr "Automático"
 
@@ -740,7 +780,8 @@ msgstr "Rotación automática"
 
 #. Type: setting
 #. Context: En la información del dispositivo: memoria RAM disponible para las aplicaciones. En las pantallas de Bluetooth: dispositivo detectado que aún no está emparejado ni conectado. En las pantallas de Wi-Fi: red detectada sin conexión activa ni guardada.
-#: bluetooth_switcher.lua:115 bluetooth_switcher.lua:188 network_switcher.lua:622 network_switcher.lua:778 about_settings.lua:95
+#: bluetooth_switcher.lua:115 bluetooth_switcher.lua:188
+#: network_switcher.lua:622 network_switcher.lua:778 about_settings.lua:95
 msgid "Available"
 msgstr "Disponible"
 
@@ -794,7 +835,8 @@ msgstr "Barra"
 
 #. Type: title
 #. Context: Título en el menú de estadísticas de la batería. Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes generales. También se usa en otras partes de ZenOS.
-#: quick_settings.lua:1074 battery_stats_menu.lua:100 general_settings.lua:76 reader_settings.lua:281 status_bar_settings.lua:34
+#: quick_settings.lua:1074 battery_stats_menu.lua:100 general_settings.lua:76
+#: reader_settings.lua:281 status_bar_settings.lua:34
 msgid "Battery"
 msgstr "Batería"
 
@@ -866,7 +908,8 @@ msgstr "Azul"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes generales. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. También se usa en otras partes de ZenOS.
-#: quick_settings.lua:561 general_settings.lua:40 menu_settings.lua:87 reader_settings.lua:286 status_bar_settings.lua:28
+#: quick_settings.lua:561 general_settings.lua:40 menu_settings.lua:87
+#: reader_settings.lua:286 status_bar_settings.lua:28
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
@@ -898,7 +941,7 @@ msgstr "Desenfocar fondo del menú"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
 #: reader_settings.lua:1582 home_settings.lua:401 home_settings.lua:1736
 msgid "Bold"
-msgstr "Negrita"
+msgstr "Usar negrita"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
@@ -910,11 +953,12 @@ msgstr "negrita"
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Nombre de un ajuste en los ajustes de la barra de estado de la biblioteca.
 #: interface_settings.lua:137 home_settings.lua:898 status_bar_settings.lua:303
 msgid "Bold text"
-msgstr "Texto en negrita"
+msgstr "Usar negrita"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Etiqueta en la biblioteca de libros. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
-#: browser_list_item_layout.lua:204 annotation_settings.lua:24 reader_settings.lua:544 home_settings.lua:1040
+#: browser_list_item_layout.lua:204 annotation_settings.lua:24
+#: reader_settings.lua:544 home_settings.lua:1040
 msgid "Book"
 msgstr "Libro"
 
@@ -926,7 +970,9 @@ msgstr "Libro añadido a la lista de descarga"
 
 #. Type: title
 #. Context: Título en los ajustes de botones y páginas del panel de inicio rápido. Etiqueta en el editor de metadatos de libros. Etiqueta en la pantalla de lectura. También se usa en otras partes de ZenOS.
-#: metadata_editor.lua:400 metadata_editor.lua:401 book_info_card.lua:102 book_details.lua:506 book_info_widget.lua:135 page_browser_tabs.lua:51 library_settings.lua:223 library_settings.lua:1196
+#: metadata_editor.lua:400 metadata_editor.lua:401 book_info_card.lua:102
+#: book_details.lua:506 book_info_widget.lua:135 page_browser_tabs.lua:51
+#: library_settings.lua:223 library_settings.lua:1196
 msgid "Book details"
 msgstr "Información del libro"
 
@@ -974,7 +1020,8 @@ msgstr "Carrusel de libros"
 
 #. Type: title
 #. Context: Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido.
-#: dispatch_action.lua:532 buttons.lua:43 page_browser_tabs.lua:52 app_launcher_settings.lua:98 app_launcher_settings.lua:1072
+#: dispatch_action.lua:532 buttons.lua:43 page_browser_tabs.lua:52
+#: app_launcher_settings.lua:98 app_launcher_settings.lua:1072
 msgid "Book switcher"
 msgstr "Selector de libros"
 
@@ -998,19 +1045,23 @@ msgstr "Marcador"
 
 #. Type: title
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Etiqueta en la visita guiada por la pantalla de lectura.
-#: dispatch_action.lua:514 buttons.lua:36 annotation_viewer.lua:28 page_browser_tabs.lua:47
+#: dispatch_action.lua:514 buttons.lua:36 annotation_viewer.lua:28
+#: page_browser_tabs.lua:47
 msgid "Bookmarks"
 msgstr "Marcadores"
 
 #. Type: label
 #. Context: Etiqueta en el menú de colecciones de libros. Etiqueta en el menú contextual de libros y carpetas. Etiqueta en los grupos de la biblioteca por autores, series y etiquetas.
-#: collections.lua:443 collections.lua:541 context_menu.lua:1116 context_menu.lua:1741 group_view.lua:1396
+#: collections.lua:443 collections.lua:541 context_menu.lua:1116
+#: context_menu.lua:1741 group_view.lua:1396
 msgid "books"
 msgstr "libros"
 
 #. Type: title
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca. Opción seleccionable en los ajustes de objetivos de lectura y el widget correspondiente de la página de inicio. Etiqueta en la biblioteca de libros. También se usa en otras partes de ZenOS.
-#: reading_goals.lua:146 browser_list_item_layout.lua:204 reading_goals.lua:106 reading_goals.lua:281 annotation_viewer.lua:29 library_settings.lua:1347 navbar_settings.lua:1015
+#: reading_goals.lua:146 browser_list_item_layout.lua:204 reading_goals.lua:106
+#: reading_goals.lua:281 annotation_viewer.lua:29 library_settings.lua:1347
+#: navbar_settings.lua:1015
 msgid "Books"
 msgstr "Libros"
 
@@ -1046,7 +1097,8 @@ msgstr "Barra de estado inferior"
 
 #. Type: title
 #. Context: Action triggered by swiping up from the bottom of the reader.
-#: app_launcher_settings.lua:132 app_launcher_settings.lua:1014 reader_settings.lua:1392 reader_settings.lua:1415
+#: app_launcher_settings.lua:132 app_launcher_settings.lua:1014
+#: reader_settings.lua:1392 reader_settings.lua:1415
 msgid "Bottom swipe gesture"
 msgstr "Gesto de deslizamiento desde abajo"
 
@@ -1058,7 +1110,10 @@ msgstr "Descripción breve del error"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión. Etiqueta en la interfaz de ZenOS. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. También se usa en otras partes de ZenOS.
-#: color_wheel_widget.lua:502 brightness_slider.lua:44 global_settings.lua:491 global_settings.lua:511 global_settings.lua:558 global_settings.lua:571 global_settings.lua:614 global_settings.lua:627 reader_settings.lua:287 status_bar_settings.lua:33
+#: color_wheel_widget.lua:502 brightness_slider.lua:44 global_settings.lua:491
+#: global_settings.lua:511 global_settings.lua:558 global_settings.lua:571
+#: global_settings.lua:614 global_settings.lua:627 reader_settings.lua:287
+#: status_bar_settings.lua:33
 msgid "Brightness"
 msgstr "Brillo"
 
@@ -1088,7 +1143,10 @@ msgstr "Etiquetas de los botones"
 
 #. Type: title
 #. Context: Título en los ajustes de botones y páginas del panel de inicio rápido. Título en los ajustes de la pantalla del final del libro. Título en los ajustes de los botones del panel de ajustes rápidos.
-#: app_launcher_settings.lua:99 app_launcher_settings.lua:982 app_launcher_settings.lua:1017 app_launcher_settings.lua:1062 end_book_settings.lua:73 end_book_settings.lua:182 menu_settings.lua:706 menu_settings.lua:1238 reader_controls_settings.lua:43
+#: app_launcher_settings.lua:99 app_launcher_settings.lua:982
+#: app_launcher_settings.lua:1017 app_launcher_settings.lua:1062
+#: end_book_settings.lua:73 end_book_settings.lua:182 menu_settings.lua:706
+#: menu_settings.lua:1238 reader_controls_settings.lua:43
 msgid "Buttons"
 msgstr "Botones"
 
@@ -1124,7 +1182,20 @@ msgstr "Búsqueda en Calibre"
 
 #. Type: button
 #. Context: Texto de un botón en el editor de metadatos de libros. Etiqueta en la interfaz de ZenOS. Texto de un botón en la biblioteca de libros. También se usa en otras partes de ZenOS.
-#: color_wheel_widget.lua:395 mosaic_layout_dialog.lua:53 metadata_editor.lua:1227 home_page.lua:2465 metadata_editor.lua:968 metadata_editor.lua:1187 network_switcher.lua:563 menus.lua:102 annotation_viewer.lua:422 annotation_viewer.lua:504 book_note.lua:104 zen_bugreporter.lua:211 zen_bugreporter.lua:258 zen_bugreporter.lua:289 zen_updater.lua:1367 zen_updater.lua:1670 zenpm_installer.lua:323 app_launcher_settings.lua:201 app_launcher_settings.lua:294 end_book_settings.lua:113 global_settings.lua:302 menu_settings.lua:975 menu_settings.lua:1091 reader_settings.lua:185 reader_settings.lua:342 reader_settings.lua:852 reader_settings.lua:1225 home_settings.lua:1202 home_settings.lua:2054 home_settings.lua:2132 metadata_settings.lua:38 navbar_settings.lua:861 navbar_settings.lua:991 navbar_settings.lua:1062 navbar_settings.lua:1198 status_bar_settings.lua:272 status_bar_settings.lua:368
+#: color_wheel_widget.lua:395 mosaic_layout_dialog.lua:53
+#: metadata_editor.lua:1227 home_page.lua:2465 metadata_editor.lua:968
+#: metadata_editor.lua:1187 network_switcher.lua:563 menus.lua:102
+#: annotation_viewer.lua:422 annotation_viewer.lua:504 book_note.lua:104
+#: zen_bugreporter.lua:211 zen_bugreporter.lua:258 zen_bugreporter.lua:289
+#: zen_updater.lua:1367 zen_updater.lua:1670 zenpm_installer.lua:323
+#: app_launcher_settings.lua:201 app_launcher_settings.lua:294
+#: end_book_settings.lua:113 global_settings.lua:302 menu_settings.lua:975
+#: menu_settings.lua:1091 reader_settings.lua:185 reader_settings.lua:342
+#: reader_settings.lua:852 reader_settings.lua:1225 home_settings.lua:1202
+#: home_settings.lua:2054 home_settings.lua:2132 metadata_settings.lua:38
+#: navbar_settings.lua:861 navbar_settings.lua:991 navbar_settings.lua:1062
+#: navbar_settings.lua:1198 status_bar_settings.lua:272
+#: status_bar_settings.lua:368
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -1166,7 +1237,8 @@ msgstr "Centrar libros"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Nombre de un ajuste en los ajustes de la barra de estado de la biblioteca.
-#: interface_settings.lua:138 reader_settings.lua:571 status_bar_settings.lua:323
+#: interface_settings.lua:138 reader_settings.lua:571
+#: status_bar_settings.lua:323
 msgid "Center items"
 msgstr "Elementos centrales"
 
@@ -1192,7 +1264,7 @@ msgstr "Capítulo"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
 #: reader_settings.lua:728
 msgid "Chapter marks"
-msgstr "Marcas de capítulo"
+msgstr "Mostrar marcas de capítulo"
 
 #. Type: title
 #. Context: local titles = { bookmarks = _("Bookmarks"), highlights = _("Highlights"), annotations = _("Annotations") } local facets = { { "file", _("Books") }, { "chapter", _("Chapters") }, { "tags", _("Tags") }, { "color", _("Color") }, { "style",...
@@ -1250,7 +1322,8 @@ msgstr "Elegir una edición"
 
 #. Type: title
 #. Context: Título en los ajustes de botones y páginas del panel de inicio rápido. Título en los ajustes de los botones del panel de ajustes rápidos. Título en los ajustes de distribución y widgets de la página de inicio. También se usa en otras partes de ZenOS.
-#: app_launcher_settings.lua:497 menu_settings.lua:463 home_settings.lua:1421 navbar_settings.lua:686 navbar_settings.lua:708
+#: app_launcher_settings.lua:497 menu_settings.lua:463 home_settings.lua:1421
+#: navbar_settings.lua:686 navbar_settings.lua:708
 msgid "Choose control"
 msgstr "Elegir control"
 
@@ -1268,7 +1341,8 @@ msgstr "Elegir elemento"
 
 #. Type: title
 #. Context: Título en los ajustes de botones y páginas del panel de inicio rápido. Título en los ajustes de los botones del panel de ajustes rápidos. Título en los ajustes de distribución y widgets de la página de inicio. También se usa en otras partes de ZenOS.
-#: app_launcher_settings.lua:435 menu_settings.lua:442 home_settings.lua:1403 navbar_settings.lua:489
+#: app_launcher_settings.lua:435 menu_settings.lua:442 home_settings.lua:1403
+#: navbar_settings.lua:489
 msgid "Choose KOReader menu"
 msgstr "Elegir menú de KOReader"
 
@@ -1280,7 +1354,8 @@ msgstr "Seleccionar manualmente"
 
 #. Type: title
 #. Context: Título en los ajustes de botones y páginas del panel de inicio rápido. Título en los ajustes de los botones del panel de ajustes rápidos. Título en los ajustes de distribución y widgets de la página de inicio. También se usa en otras partes de ZenOS.
-#: app_launcher_settings.lua:341 app_launcher_settings.lua:411 menu_settings.lua:427 home_settings.lua:1381 navbar_settings.lua:474
+#: app_launcher_settings.lua:341 app_launcher_settings.lua:411
+#: menu_settings.lua:427 home_settings.lua:1381 navbar_settings.lua:474
 msgid "Choose plugin menu"
 msgstr "Elegir menú del complemento"
 
@@ -1299,18 +1374,23 @@ msgstr "Elegir etiqueta"
 #. Type: description
 #. Context: Texto de ayuda en la guía de configuración.
 #: quickstart_pages.lua:709
-msgid "Choose which tabs appear in your navigation bar.\nYou can rearrange or adjust these anytime in Settings."
-msgstr "Elige qué pestañas aparecen en la barra de navegación.\nPuedes reorganizarlas o ajustarlas en cualquier momento desde la configuración."
+msgid ""
+"Choose which tabs appear in your navigation bar.\n"
+"You can rearrange or adjust these anytime in Settings."
+msgstr ""
+"Elige qué pestañas aparecen en la barra de navegación.\n"
+"Puedes reorganizarlas o ajustarlas en cualquier momento desde la configuración."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de funciones adicionales e integraciones.
 #: extras_settings.lua:41
 msgid "Classic"
-msgstr "Lista con nombre de archivo"
+msgstr "Nombre de archivo"
 
 #. Type: button
 #. Context: Texto de un botón en los ajustes avanzados. Etiqueta en la interfaz de ZenOS. Etiqueta en el menú contextual de libros y carpetas. También se usa en otras partes de ZenOS.
-#: folder_cover_picker.lua:53 folder_cover_picker.lua:412 context_menu.lua:2742 metadata_editor.lua:1047 advanced_settings.lua:134 metadata_settings.lua:88
+#: folder_cover_picker.lua:53 folder_cover_picker.lua:412 context_menu.lua:2742
+#: metadata_editor.lua:1047 advanced_settings.lua:134 metadata_settings.lua:88
 msgid "Clear"
 msgstr "Limpiar"
 
@@ -1364,7 +1444,8 @@ msgstr "¿Borrar token de la API de Hardcover?"
 
 #. Type: button
 #. Context: Texto de un botón en la interfaz de ZenOS. Nombre de un ajuste en las pantallas de actualización de ZenOS.
-#: zen_slider_dialog.lua:157 annotation_viewer.lua:163 zen_updater.lua:1761 zen_updater.lua:1778
+#: zen_slider_dialog.lua:157 annotation_viewer.lua:163 zen_updater.lua:1761
+#: zen_updater.lua:1778
 msgid "Close"
 msgstr "Cerrar"
 
@@ -1388,13 +1469,16 @@ msgstr "Almacenamiento en la nube"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Opción seleccionable en la guía de configuración. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:14 quickstart_pages.lua:717 collections.lua:937 collections.lua:949 navbar.lua:291 home_settings.lua:1072 navbar_settings.lua:176
+#: nav_button_model.lua:14 quickstart_pages.lua:717 collections.lua:937
+#: collections.lua:949 navbar.lua:291 home_settings.lua:1072
+#: navbar_settings.lua:176
 msgid "Collections"
 msgstr "Colecciones"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
-#: annotation_viewer.lua:30 annotation_viewer.lua:142 highlight_menu_items.lua:10 reader_settings.lua:215
+#: annotation_viewer.lua:30 annotation_viewer.lua:142
+#: highlight_menu_items.lua:10 reader_settings.lua:215
 msgid "Color"
 msgstr "Color"
 
@@ -1406,9 +1490,10 @@ msgstr "Selector de color"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Nombre de un ajuste en los ajustes de la barra de estado de la biblioteca.
-#: interface_settings.lua:137 reader_settings.lua:745 status_bar_settings.lua:311
+#: interface_settings.lua:137 reader_settings.lua:745
+#: status_bar_settings.lua:311
 msgid "Colored status icons"
-msgstr "Iconos en color"
+msgstr "Usar iconos en color"
 
 #. Type: setting
 #. Context: Ajustes de colores y nombres de los subrayados.
@@ -1448,7 +1533,8 @@ msgstr "Conéctate a una red antes de buscar metadatos."
 
 #. Type: status
 #. Context: Mensaje de estado en el menú de dispositivos Bluetooth y los diálogos de emparejamiento. Etiqueta en el menú de redes Wi-Fi y los diálogos de conexión.
-#: bluetooth_switcher.lua:114 bluetooth_switcher.lua:187 network_switcher.lua:620 network_switcher.lua:768 network_switcher.lua:1007
+#: bluetooth_switcher.lua:114 bluetooth_switcher.lua:187
+#: network_switcher.lua:620 network_switcher.lua:768 network_switcher.lua:1007
 msgid "Connected"
 msgstr "Conectado"
 
@@ -1484,7 +1570,8 @@ msgstr "Conectando con "
 
 #. Type: label
 #. Context: Etiqueta en el menú de redes Wi-Fi y los diálogos de conexión. Etiqueta en los diálogos de conexión Wi-Fi de los dispositivos Kobo.
-#: network_switcher.lua:71 network_switcher.lua:392 network_switcher.lua:441 kobo.lua:270 kobo.lua:313 kobo.lua:360
+#: network_switcher.lua:71 network_switcher.lua:392 network_switcher.lua:441
+#: kobo.lua:270 kobo.lua:313 kobo.lua:360
 msgid "Connection failed"
 msgstr "Error de conexión"
 
@@ -1514,7 +1601,9 @@ msgstr "Menú contextual"
 
 #. Type: button
 #. Context: Texto de un botón en el formulario de informe de errores. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Opción seleccionable en la guía de configuración. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:19 quickstart_pages.lua:714 navbar.lua:276 zen_bugreporter.lua:241 end_book_settings.lua:12 home_settings.lua:1072 navbar_settings.lua:173
+#: nav_button_model.lua:19 quickstart_pages.lua:714 navbar.lua:276
+#: zen_bugreporter.lua:241 end_book_settings.lua:12 home_settings.lua:1072
+#: navbar_settings.lua:173
 msgid "Continue"
 msgstr "Continuar"
 
@@ -1538,27 +1627,33 @@ msgstr "Contraer el inicio"
 
 #. Type: label
 #. Context: Reader control for contrast in fixed-layout documents (PDF/CBZ).
-#: model.lua:338 reader_controls.lua:558 buttons.lua:31 page_browser_tabs.lua:46
+#: model.lua:338 reader_controls.lua:558 buttons.lua:31
+#: page_browser_tabs.lua:46
 msgid "Contrast"
 msgstr "Contraste"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. También se usa en otras partes de ZenOS.
-#: app_launcher_settings.lua:590 app_launcher_settings.lua:836 menu_settings.lua:712 home_settings.lua:1491 navbar_settings.lua:763 navbar_settings.lua:1416
+#: app_launcher_settings.lua:590 app_launcher_settings.lua:836
+#: menu_settings.lua:712 home_settings.lua:1491 navbar_settings.lua:763
+#: navbar_settings.lua:1416
 msgid "Control"
-msgstr "Control"
+msgstr "Configuración rápida"
 
 #. Type: title
 #. Context: Título en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. También se usa en otras partes de ZenOS.
-#: quick_settings.lua:1358 app_launcher_settings.lua:849 home_settings.lua:1598 navbar_settings.lua:775
+#: quick_settings.lua:1358 app_launcher_settings.lua:849 home_settings.lua:1598
+#: navbar_settings.lua:775
 msgid "Control settings"
 msgstr "Configuración de controles"
 
 #. Type: title
 #. Context: Título en los ajustes de distribución y widgets de la página de inicio. Nombre de un ajuste en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión. Nombre de un ajuste en los ajustes de apariencia de la interfaz. También se usa en otras partes de ZenOS.
-#: global_settings.lua:877 interface_settings.lua:129 menu_settings.lua:1234 home_settings.lua:1529 home_settings.lua:1689 home_settings.lua:1716 home_settings.lua:1765
+#: global_settings.lua:877 interface_settings.lua:129 menu_settings.lua:1234
+#: home_settings.lua:1529 home_settings.lua:1689 home_settings.lua:1716
+#: home_settings.lua:1765
 msgid "Controls"
-msgstr "Controles"
+msgstr "Panel de configuración rápida"
 
 #. Type: button
 #. Context: Texto de un botón en el menú contextual de libros y carpetas.
@@ -1694,7 +1789,8 @@ msgstr "No se ha podido actualizar %1."
 
 #. Type: title
 #. Context: Título en el editor de metadatos de libros. Etiqueta en la interfaz de ZenOS.
-#: folder_cover_picker.lua:301 folder_cover_picker.lua:425 folder_cover_picker.lua:445 metadata_editor.lua:1054
+#: folder_cover_picker.lua:301 folder_cover_picker.lua:425
+#: folder_cover_picker.lua:445 metadata_editor.lua:1054
 msgid "Cover"
 msgstr "Portada"
 
@@ -1808,7 +1904,16 @@ msgstr "Página actual/total"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el panel de ajustes rápidos. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en la barra de navegación de la biblioteca. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:138 nav_button_model.lua:146 nav_button_model.lua:155 navbar.lua:2127 quick_settings.lua:1231 menu_settings.lua:203 menu_settings.lua:370 menu_settings.lua:374 menu_settings.lua:376 menu_settings.lua:377 menu_settings.lua:797 menu_settings.lua:803 menu_settings.lua:804 reader_settings.lua:880 reader_settings.lua:1391 home_settings.lua:952 home_settings.lua:994 navbar_settings.lua:233 navbar_settings.lua:325 navbar_settings.lua:340 navbar_settings.lua:346 navbar_settings.lua:347 navbar_settings.lua:531 navbar_settings.lua:536 navbar_settings.lua:538 navbar_settings.lua:539 navbar_settings.lua:1047 navbar_settings.lua:1048 status_bar_settings.lua:357
+#: nav_button_model.lua:138 nav_button_model.lua:146 nav_button_model.lua:155
+#: navbar.lua:2127 quick_settings.lua:1231 menu_settings.lua:203
+#: menu_settings.lua:370 menu_settings.lua:374 menu_settings.lua:376
+#: menu_settings.lua:377 menu_settings.lua:797 menu_settings.lua:803
+#: menu_settings.lua:804 reader_settings.lua:880 reader_settings.lua:1391
+#: home_settings.lua:952 home_settings.lua:994 navbar_settings.lua:233
+#: navbar_settings.lua:325 navbar_settings.lua:340 navbar_settings.lua:346
+#: navbar_settings.lua:347 navbar_settings.lua:531 navbar_settings.lua:536
+#: navbar_settings.lua:538 navbar_settings.lua:539 navbar_settings.lua:1047
+#: navbar_settings.lua:1048 status_bar_settings.lua:357
 msgid "Custom"
 msgstr "Personalizado"
 
@@ -1834,7 +1939,7 @@ msgstr "Paquete de iconos personalizado: %1"
 #. Context: Nombre de un ajuste en los ajustes de funciones adicionales e integraciones. Nombre de un ajuste en los ajustes de apariencia de la interfaz.
 #: extras_settings.lua:191 interface_settings.lua:497
 msgid "Custom icons"
-msgstr "Iconos personalizados"
+msgstr "Usar iconos personalizados"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
@@ -1856,7 +1961,9 @@ msgstr "Etiqueta de pestaña personalizada"
 
 #. Type: title
 #. Context: Título en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Nombre de un ajuste en los ajustes de la barra de estado de la biblioteca.
-#: reader_settings.lua:290 reader_settings.lua:328 reader_settings.lua:336 status_bar_settings.lua:37 status_bar_settings.lua:259 status_bar_settings.lua:267
+#: reader_settings.lua:290 reader_settings.lua:328 reader_settings.lua:336
+#: status_bar_settings.lua:37 status_bar_settings.lua:259
+#: status_bar_settings.lua:267
 msgid "Custom text"
 msgstr "Texto personalizado"
 
@@ -1900,7 +2007,7 @@ msgstr "Alternar"
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Etiqueta de los objetivos diarios en los ajustes y en la página de inicio; el objetivo se mide en páginas leídas o minutos de lectura al día.
 #: reading_goals.lua:9 reading_goals.lua:236 home_settings.lua:2497
 msgid "Daily"
-msgstr "Diariamente"
+msgstr "Diario"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
@@ -1910,7 +2017,8 @@ msgstr "Grafito oscuro"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
-#: global_settings.lua:111 global_settings.lua:614 global_settings.lua:627 global_settings.lua:769 global_settings.lua:782 reader_settings.lua:1079
+#: global_settings.lua:111 global_settings.lua:614 global_settings.lua:627
+#: global_settings.lua:769 global_settings.lua:782 reader_settings.lua:1079
 msgid "Dark mode"
 msgstr "Modo oscuro"
 
@@ -1922,7 +2030,9 @@ msgstr "Gris cálido oscuro"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Etiqueta en la página de estadísticas de lectura. Nombre de un ajuste en los ajustes de la barra de estado de la biblioteca.
-#: stats_page.lua:1445 annotation_viewer.lua:569 annotation_settings.lua:32 home_settings.lua:777 home_settings.lua:779 home_settings.lua:781 status_bar_settings.lua:36
+#: stats_page.lua:1445 annotation_viewer.lua:569 annotation_settings.lua:32
+#: home_settings.lua:777 home_settings.lua:779 home_settings.lua:781
+#: status_bar_settings.lua:36
 msgid "Date"
 msgstr "Fecha"
 
@@ -1994,13 +2104,17 @@ msgstr "Disminuir"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los diálogos de selección de valores de ajustes. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. También se usa en otras partes de ZenOS.
-#: menus.lua:133 reader_settings.lua:772 reader_settings.lua:803 navbar_settings.lua:989
+#: menus.lua:133 reader_settings.lua:772 reader_settings.lua:803
+#: navbar_settings.lua:989
 msgid "Default"
 msgstr "Predeterminado"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Etiqueta en la interfaz de ZenOS. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca. También se usa en otras partes de ZenOS.
-#: library_font_path.lua:151 interface_settings.lua:213 interface_settings.lua:245 library_settings.lua:135 reader_settings.lua:583 reader_settings.lua:617 reader_settings.lua:962 reader_settings.lua:1561 home_settings.lua:322
+#: library_font_path.lua:151 interface_settings.lua:213
+#: interface_settings.lua:245 library_settings.lua:135 reader_settings.lua:583
+#: reader_settings.lua:617 reader_settings.lua:962 reader_settings.lua:1561
+#: home_settings.lua:322
 msgid "default"
 msgstr "predeterminado"
 
@@ -2036,7 +2150,16 @@ msgstr "Valores por defecto"
 
 #. Type: button
 #. Context: Texto de un botón en el menú contextual de libros y carpetas. Nombre de una acción en el explorador de catálogos de libros en línea. Etiqueta en la cuenta atrás para una captura de pantalla y la notificación de guardado. También se usa en otras partes de ZenOS.
-#: context_menu.lua:720 context_menu.lua:728 context_menu.lua:2269 opds.lua:1882 opds.lua:1886 countdown_screenshot.lua:161 annotation_viewer.lua:148 annotation_viewer.lua:150 end_book_data.lua:34 highlight_menu_items.lua:10 app_launcher_settings.lua:918 app_launcher_settings.lua:936 global_settings.lua:350 menu_settings.lua:1011 menu_settings.lua:1042 menu_settings.lua:1123 menu_settings.lua:1129 reader_settings.lua:994 reader_settings.lua:1186 home_settings.lua:1566 home_settings.lua:1579 home_settings.lua:2103 home_settings.lua:2191 navbar_settings.lua:898 navbar_settings.lua:926 navbar_settings.lua:1312 navbar_settings.lua:1318
+#: context_menu.lua:720 context_menu.lua:728 context_menu.lua:2269
+#: opds.lua:1882 opds.lua:1886 countdown_screenshot.lua:161
+#: annotation_viewer.lua:148 annotation_viewer.lua:150 end_book_data.lua:34
+#: highlight_menu_items.lua:10 app_launcher_settings.lua:918
+#: app_launcher_settings.lua:936 global_settings.lua:350 menu_settings.lua:1011
+#: menu_settings.lua:1042 menu_settings.lua:1123 menu_settings.lua:1129
+#: reader_settings.lua:994 reader_settings.lua:1186 home_settings.lua:1566
+#: home_settings.lua:1579 home_settings.lua:2103 home_settings.lua:2191
+#: navbar_settings.lua:898 navbar_settings.lua:926 navbar_settings.lua:1312
+#: navbar_settings.lua:1318
 msgid "Delete"
 msgstr "Eliminar"
 
@@ -2061,8 +2184,13 @@ msgstr "¿Eliminar preajuste?"
 #. Type: dialog
 #. Context: Texto de un diálogo en el menú contextual de libros y carpetas.
 #: context_menu.lua:727
-msgid "Delete selected files?\nIf you delete a file, it is permanently lost."
-msgstr "¿Eliminar archivos seleccionados?\n\nSi eliminas un archivo, se perderá definitivamente."
+msgid ""
+"Delete selected files?\n"
+"If you delete a file, it is permanently lost."
+msgstr ""
+"¿Eliminar archivos seleccionados?\n"
+"\n"
+"Si eliminas un archivo, se perderá definitivamente."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
@@ -2120,7 +2248,9 @@ msgstr "Descendente"
 
 #. Type: title
 #. Context: Título en los ajustes de apariencia y funcionamiento de la biblioteca. Texto de ayuda en el editor de metadatos de libros. Nombre de una acción en el explorador de catálogos de libros en línea. También se usa en otras partes de ZenOS.
-#: metadata_editor.lua:53 metadata_editor.lua:411 metadata_editor.lua:412 metadata_editor.lua:540 opds.lua:2160 library_settings.lua:54 library_settings.lua:154 library_settings.lua:178 home_settings.lua:829
+#: metadata_editor.lua:53 metadata_editor.lua:411 metadata_editor.lua:412
+#: metadata_editor.lua:540 opds.lua:2160 library_settings.lua:54
+#: library_settings.lua:154 library_settings.lua:178 home_settings.lua:829
 msgid "Description"
 msgstr "Descripción"
 
@@ -2156,7 +2286,8 @@ msgstr "Diccionario"
 
 #. Type: dialog
 #. Context: Texto de un diálogo en la pantalla de lectura.
-#: lookup_plugin_items.lua:8 dict_quick_lookup.lua:291 dict_quick_lookup.lua:490
+#: lookup_plugin_items.lua:8 dict_quick_lookup.lua:291
+#: dict_quick_lookup.lua:490
 msgid "Dictionary lookup"
 msgstr "Búsqueda en diccionario"
 
@@ -2228,13 +2359,16 @@ msgstr "Espacio en disco"
 
 #. Type: label
 #. Context: Etiqueta en el menú de colecciones de libros. Etiqueta en el menú contextual de libros y carpetas.
-#: collections.lua:455 collections.lua:564 collections.lua:637 context_menu.lua:1149 context_menu.lua:2619
+#: collections.lua:455 collections.lua:564 collections.lua:637
+#: context_menu.lua:1149 context_menu.lua:2619
 msgid "Display"
 msgstr "Modo de visualización"
 
 #. Type: title
 #. Context: Título en el menú de colecciones de libros. Título en el menú contextual de libros y carpetas. Título en los grupos de la biblioteca por autores, series y etiquetas. También se usa en otras partes de ZenOS.
-#: collections.lua:425 collections.lua:523 collections.lua:616 context_menu.lua:2606 group_view.lua:580 kindle_virtual_library.lua:280 extras_settings.lua:61
+#: collections.lua:425 collections.lua:523 collections.lua:616
+#: context_menu.lua:2606 group_view.lua:580 kindle_virtual_library.lua:280
+#: extras_settings.lua:61
 msgid "Display mode"
 msgstr "Modo de visualización"
 
@@ -2272,7 +2406,7 @@ msgstr "Puntos"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:1204
 msgid "Double-tap to open a book"
-msgstr "Doble toque para abrir los libros"
+msgstr "Abrir libros con doble toque"
 
 #. Type: action
 #. Context: Nombre de una acción en el explorador de catálogos de libros en línea.
@@ -2324,7 +2458,9 @@ msgstr "Relleno dinámico 2"
 
 #. Type: action
 #. Context: Nombre de una acción en la guía de configuración. Etiqueta en el menú contextual de libros y carpetas. Nombre de una acción en el explorador de catálogos de libros en línea. También se usa en otras partes de ZenOS.
-#: quickstart_pages.lua:307 context_menu.lua:2854 opds.lua:1876 network_switcher.lua:707 annotation_viewer.lua:138 annotation_viewer.lua:141 book_info_widget.lua:116
+#: quickstart_pages.lua:307 context_menu.lua:2854 opds.lua:1876
+#: network_switcher.lua:707 annotation_viewer.lua:138 annotation_viewer.lua:141
+#: book_info_widget.lua:116
 msgid "Edit"
 msgstr "Editar"
 
@@ -2338,7 +2474,7 @@ msgstr "Editar metadatos"
 #. Context: Nombre de un ajuste en los ajustes de la pantalla del final del libro. Nombre de un ajuste en los ajustes de estadísticas de lectura. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
 #: end_book_settings.lua:271 stats_settings.lua:339 home_settings.lua:2673
 msgid "Edit mode"
-msgstr "Modo de edición"
+msgstr "Personalizar página"
 
 #. Type: action
 #. Context: end rows[#rows + 1] = {{ text = record.note ~= "" and _("Edit note") or _("Add note"), callback = function() action("note") end }}
@@ -2498,7 +2634,8 @@ msgstr "Coincidencia exacta de ISBN"
 
 #. Type: action
 #. Context: end }, { text = _("Exclude") .. (mode == "exclude" and " ✓" or ""), callback = function() UIManager:close(picker); show_facet(pbw, key, title, "exclude")
-#: annotation_viewer.lua:459 annotation_viewer.lua:491 annotation_viewer.lua:545
+#: annotation_viewer.lua:459 annotation_viewer.lua:491
+#: annotation_viewer.lua:545
 msgid "Exclude"
 msgstr "Excluir"
 
@@ -2522,7 +2659,8 @@ msgstr "Los ajustes guardados de cada libro tienen prioridad sobre estos valores
 
 #. Type: button
 #. Context: Texto de un botón en el panel de ajustes rápidos. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en la barra de navegación de la biblioteca. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:25 navbar.lua:341 quick_settings.lua:698 quick_settings.lua:702 menu_settings.lua:98 navbar_settings.lua:186
+#: nav_button_model.lua:25 navbar.lua:341 quick_settings.lua:698
+#: quick_settings.lua:702 menu_settings.lua:98 navbar_settings.lua:186
 msgid "Exit"
 msgstr "Salir"
 
@@ -2612,7 +2750,10 @@ msgstr "No se ha podido enviar el informe: "
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Opción seleccionable en la guía de configuración. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:8 quickstart_pages.lua:716 collections.lua:355 collections.lua:989 collections.lua:1025 context_menu.lua:554 favorites.lua:122 favorites.lua:125 favorites.lua:159 favorites.lua:168 navbar.lua:286 home_settings.lua:1069 navbar_settings.lua:175
+#: nav_button_model.lua:8 quickstart_pages.lua:716 collections.lua:355
+#: collections.lua:989 collections.lua:1025 context_menu.lua:554
+#: favorites.lua:122 favorites.lua:125 favorites.lua:159 favorites.lua:168
+#: navbar.lua:286 home_settings.lua:1069 navbar_settings.lua:175
 msgid "Favorites"
 msgstr "Favoritos"
 
@@ -2626,7 +2767,7 @@ msgstr "Libro destacado"
 #. Context: Opción de menú en los menús de KOReader y el selector de menús del panel de inicio rápido.
 #: native_menu.lua:6
 msgid "File browser"
-msgstr "Explorador de archivos"
+msgstr "Navegador de archivos"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
@@ -2650,7 +2791,7 @@ msgstr "Tipo de archivo"
 #. Context: Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
 #: quick_settings.lua:1093 menu_settings.lua:117
 msgid "Filebrowser"
-msgstr "Explorador de archivos"
+msgstr "Navegador de archivos"
 
 #. Type: dialog
 #. Context: Texto de un diálogo en el panel de ajustes rápidos.
@@ -2660,7 +2801,8 @@ msgstr "El complemento Filebrowser no está instalado."
 
 #. Type: title
 #. Context: Título en el editor de metadatos de libros. Etiqueta en el menú contextual de libros y carpetas. Etiqueta en los grupos de la biblioteca por autores, series y etiquetas. También se usa en otras partes de ZenOS.
-#: metadata_editor.lua:513 metadata_editor.lua:961 context_menu.lua:2630 group_view.lua:867 library_settings.lua:846
+#: metadata_editor.lua:513 metadata_editor.lua:961 context_menu.lua:2630
+#: group_view.lua:867 library_settings.lua:846
 msgid "Filename"
 msgstr "Nombre del archivo"
 
@@ -2678,7 +2820,8 @@ msgstr "Relleno"
 
 #. Type: action
 #. Context: Etiqueta en el menú contextual de libros y carpetas.
-#: context_menu.lua:1238 context_menu.lua:2839 annotation_viewer.lua:556 annotation_viewer.lua:582
+#: context_menu.lua:1238 context_menu.lua:2839 annotation_viewer.lua:556
+#: annotation_viewer.lua:582
 msgid "Filter"
 msgstr "Filtrar"
 
@@ -2696,7 +2839,9 @@ msgstr "Buscar metadatos"
 
 #. Type: status
 #. Context: Mensaje de estado en la biblioteca de libros. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en el menú contextual de libros y carpetas. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:36 browser_list_item_layout.lua:472 context_menu.lua:685 context_menu.lua:1188 context_menu.lua:2542 context_menu.lua:2785 stats_page.lua:941 stats_page.lua:953
+#: nav_button_model.lua:36 browser_list_item_layout.lua:472
+#: context_menu.lua:685 context_menu.lua:1188 context_menu.lua:2542
+#: context_menu.lua:2785 stats_page.lua:941 stats_page.lua:953
 msgid "Finished"
 msgstr "Finalizado"
 
@@ -2710,7 +2855,7 @@ msgstr "Firmware: "
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:376
 msgid "First cover image"
-msgstr "Primera portada"
+msgstr "Mostrar primera portada"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Etiqueta en la interfaz de ZenOS.
@@ -2734,7 +2879,7 @@ msgstr "Documentos de diseño fijo"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
 #: reader_settings.lua:1654
 msgid "Flash on every CBZ page turn"
-msgstr "Actualización completa al cammbiar de página en CBZ"
+msgstr "Actualizar por completo al cambiar de página en CBZ"
 
 #. Type: message
 #. Context: Mensaje en los ajustes avanzados.
@@ -2756,7 +2901,11 @@ msgstr "Puntuación colgante"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Etiqueta en los selectores de carpetas y etiquetas de la biblioteca. Etiqueta en la biblioteca de libros. También se usa en otras partes de ZenOS.
-#: library_destination.lua:6 browser_list_item_layout.lua:198 navbar.lua:235 app_launcher_settings.lua:618 app_launcher_settings.lua:794 menu_settings.lua:722 menu_settings.lua:872 home_settings.lua:1119 home_settings.lua:1473 navbar_settings.lua:157 navbar_settings.lua:753 navbar_settings.lua:1406
+#: library_destination.lua:6 browser_list_item_layout.lua:198 navbar.lua:235
+#: app_launcher_settings.lua:618 app_launcher_settings.lua:794
+#: menu_settings.lua:722 menu_settings.lua:872 home_settings.lua:1119
+#: home_settings.lua:1473 navbar_settings.lua:157 navbar_settings.lua:753
+#: navbar_settings.lua:1406
 msgid "Folder"
 msgstr "Carpeta"
 
@@ -2786,19 +2935,29 @@ msgstr "Preajustes de carpeta"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca. Etiqueta en la biblioteca de libros. Etiqueta en la pantalla de biblioteca vacía.
-#: browser_list_item_layout.lua:198 empty_library.lua:39 library_settings.lua:360
+#: browser_list_item_layout.lua:198 empty_library.lua:39
+#: library_settings.lua:360
 msgid "Folders"
 msgstr "Carpetas"
 
 #. Type: title
 #. Context: Título en los ajustes de apariencia y funcionamiento de la biblioteca. Título en los ajustes de distribución y widgets de la página de inicio.
-#: library_settings.lua:154 home_settings.lua:381 home_settings.lua:689 home_settings.lua:1716
+#: library_settings.lua:154 home_settings.lua:381 home_settings.lua:689
+#: home_settings.lua:1716
 msgid "font"
 msgstr "fuente"
 
 #. Type: title
 #. Context: Título en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca. También se usa en otras partes de ZenOS.
-#: reader_controls.lua:558 buttons.lua:30 buttons.lua:108 settings.lua:211 page_browser_tabs.lua:46 interface_settings.lua:209 interface_settings.lua:215 interface_settings.lua:241 interface_settings.lua:247 library_settings.lua:131 library_settings.lua:137 reader_settings.lua:579 reader_settings.lua:586 reader_settings.lua:613 reader_settings.lua:619 reader_settings.lua:1562 reader_settings.lua:1568 reader_settings.lua:1608 home_settings.lua:368 home_settings.lua:371 home_settings.lua:675 home_settings.lua:677 home_settings.lua:1702 home_settings.lua:1705 home_settings.lua:1784 home_settings.lua:1786
+#: reader_controls.lua:558 buttons.lua:30 buttons.lua:108 settings.lua:211
+#: page_browser_tabs.lua:46 interface_settings.lua:209
+#: interface_settings.lua:215 interface_settings.lua:241
+#: interface_settings.lua:247 library_settings.lua:131 library_settings.lua:137
+#: reader_settings.lua:579 reader_settings.lua:586 reader_settings.lua:613
+#: reader_settings.lua:619 reader_settings.lua:1562 reader_settings.lua:1568
+#: reader_settings.lua:1608 home_settings.lua:368 home_settings.lua:371
+#: home_settings.lua:675 home_settings.lua:677 home_settings.lua:1702
+#: home_settings.lua:1705 home_settings.lua:1784 home_settings.lua:1786
 msgid "Font"
 msgstr "Fuente"
 
@@ -2810,13 +2969,20 @@ msgstr "Familia tipográfica"
 
 #. Type: title
 #. Context: Título en los ajustes de apariencia y funcionamiento de la biblioteca. Título en los ajustes de estadísticas de lectura. Título en los ajustes de distribución y widgets de la página de inicio.
-#: library_settings.lua:178 stats_settings.lua:121 home_settings.lua:355 home_settings.lua:658 home_settings.lua:754 home_settings.lua:1689
+#: library_settings.lua:178 stats_settings.lua:121 home_settings.lua:355
+#: home_settings.lua:658 home_settings.lua:754 home_settings.lua:1689
 msgid "font size"
 msgstr "tamaño de fuente"
 
 #. Type: title
 #. Context: Título en los ajustes de la pantalla del final del libro. Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca. También se usa en otras partes de ZenOS.
-#: pin_settings.lua:21 pin_settings.lua:28 end_book_settings.lua:141 end_book_settings.lua:144 interface_settings.lua:221 interface_settings.lua:228 library_settings.lua:170 reader_settings.lua:592 reader_settings.lua:598 reader_settings.lua:1533 reader_settings.lua:1540 stats_settings.lua:114 home_settings.lua:348 home_settings.lua:651 home_settings.lua:1682 home_settings.lua:2212 home_settings.lua:2306 home_settings.lua:2563
+#: pin_settings.lua:21 pin_settings.lua:28 end_book_settings.lua:141
+#: end_book_settings.lua:144 interface_settings.lua:221
+#: interface_settings.lua:228 library_settings.lua:170 reader_settings.lua:592
+#: reader_settings.lua:598 reader_settings.lua:1533 reader_settings.lua:1540
+#: stats_settings.lua:114 home_settings.lua:348 home_settings.lua:651
+#: home_settings.lua:1682 home_settings.lua:2212 home_settings.lua:2306
+#: home_settings.lua:2563
 msgid "Font size"
 msgstr "Tamaño de fuente"
 
@@ -2842,7 +3008,7 @@ msgstr "Opciones de notas"
 #. Context: table.insert(items, { text = _("Footnotes and pinned pages"), icon_name = "pin",
 #: reference_drawer.lua:625 reader_settings.lua:1459
 msgid "Footnotes and pinned pages"
-msgstr "Notas y páginas fijadas"
+msgstr "Notas y páginas destacadas"
 
 #. Type: label
 #. Context: Reader tab controls, defaults, profiles, and themes.
@@ -2864,7 +3030,8 @@ msgstr "Forzar sincronización de todos los catálogos"
 
 #. Type: button
 #. Context: Texto de un botón en el menú de dispositivos Bluetooth y los diálogos de emparejamiento. Nombre de una acción en el menú de redes Wi-Fi y los diálogos de conexión.
-#: bluetooth_switcher.lua:144 bluetooth_switcher.lua:147 network_switcher.lua:573 network_switcher.lua:717 network_switcher.lua:720
+#: bluetooth_switcher.lua:144 bluetooth_switcher.lua:147
+#: network_switcher.lua:573 network_switcher.lua:717 network_switcher.lua:720
 msgid "Forget"
 msgstr "Olvidar"
 
@@ -2896,7 +3063,7 @@ msgstr "Capacidad de carga completa"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:367
 msgid "Gallery"
-msgstr "Galería"
+msgstr "Mostrar galería"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el menú principal de ajustes de Zen.
@@ -2912,7 +3079,8 @@ msgstr "Géneros"
 
 #. Type: label
 #. Context: Etiqueta en la guía de configuración. Etiqueta en la interfaz de ZenOS.
-#: quickstart_screen.lua:515 quickstart_screen.lua:558 zen_screen.lua:510 zen_screen.lua:516
+#: quickstart_screen.lua:515 quickstart_screen.lua:558 zen_screen.lua:510
+#: zen_screen.lua:516
 msgid "Get Started"
 msgstr "Comenzar"
 
@@ -2990,7 +3158,8 @@ msgstr "Agrupar series de libros en carpetas"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de proveedores de metadatos de libros. Etiqueta en el editor de metadatos de libros.
-#: metadata_editor.lua:678 metadata_editor.lua:1152 metadata_editor.lua:123 metadata_settings.lua:164
+#: metadata_editor.lua:678 metadata_editor.lua:1152 metadata_editor.lua:123
+#: metadata_settings.lua:164
 msgid "Hardcover"
 msgstr "Hardcover"
 
@@ -3074,7 +3243,8 @@ msgstr "Ocultar cuando esté apagado"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
-#: dict_quick_lookup.lua:110 highlight_menu.lua:180 highlight_menu.lua:248 reader_settings.lua:1267
+#: dict_quick_lookup.lua:110 highlight_menu.lua:180 highlight_menu.lua:248
+#: reader_settings.lua:1267
 msgid "Highlight"
 msgstr "Resaltado"
 
@@ -3116,7 +3286,8 @@ msgstr "Resaltados y anotaciones"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de la barra de navegación. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Opción seleccionable en la guía de configuración. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:20 quickstart_pages.lua:715 history.lua:203 history.lua:224 navbar.lua:281 navbar_settings.lua:174
+#: nav_button_model.lua:20 quickstart_pages.lua:715 history.lua:203
+#: history.lua:224 navbar.lua:281 navbar_settings.lua:174
 msgid "History"
 msgstr "Historial"
 
@@ -3130,11 +3301,16 @@ msgstr "Mantén pulsado un widget para abrir sus ajustes directamente"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:984
 msgid "Hold to skip"
-msgstr "Mantener pulsado para saltar"
+msgstr "Salto de páginas al mantener pulsado"
 
 #. Type: title
 #. Context: Título en el menú de acciones de gestos y atajos. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Opción seleccionable en la guía de configuración. También se usa en otras partes de ZenOS.
-#: dispatch_action.lua:538 nav_button_model.lua:21 quickstart_pages.lua:713 context_menu.lua:332 navbar.lua:231 quick_settings.lua:843 end_book_data.lua:30 zen_settings.lua:68 menu_settings.lua:101 home_settings.lua:1527 home_settings.lua:1952 home_settings.lua:2636 home_settings.lua:2652 home_settings.lua:2764 navbar_settings.lua:151 navbar_settings.lua:989 navbar_settings.lua:1024
+#: dispatch_action.lua:538 nav_button_model.lua:21 quickstart_pages.lua:713
+#: context_menu.lua:332 navbar.lua:231 quick_settings.lua:843
+#: end_book_data.lua:30 zen_settings.lua:68 menu_settings.lua:101
+#: home_settings.lua:1527 home_settings.lua:1952 home_settings.lua:2636
+#: home_settings.lua:2652 home_settings.lua:2764 navbar_settings.lua:151
+#: navbar_settings.lua:989 navbar_settings.lua:1024
 msgid "Home"
 msgstr "Inicio"
 
@@ -3188,19 +3364,22 @@ msgstr "División de palabras"
 
 #. Type: title
 #. Context: Título en los ajustes de la pantalla del final del libro. Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de la barra de navegación.
-#: end_book_settings.lua:167 end_book_settings.lua:171 interface_settings.lua:126 navbar_settings.lua:1585
+#: end_book_settings.lua:167 end_book_settings.lua:171
+#: interface_settings.lua:126 navbar_settings.lua:1585
 msgid "Icon size:"
 msgstr "Tamaño de icono:"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Nombre de un ajuste en los ajustes de la pantalla del final del libro. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. También se usa en otras partes de ZenOS.
-#: app_launcher_settings.lua:741 end_book_settings.lua:55 menu_settings.lua:943 menu_settings.lua:1066 navbar_settings.lua:831 navbar_settings.lua:1171
+#: app_launcher_settings.lua:741 end_book_settings.lua:55 menu_settings.lua:943
+#: menu_settings.lua:1066 navbar_settings.lua:831 navbar_settings.lua:1171
 msgid "Icon: %1"
 msgstr "Icono: %1"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de la barra de navegación.
-#: interface_settings.lua:108 interface_settings.lua:124 navbar_settings.lua:1564
+#: interface_settings.lua:108 interface_settings.lua:124
+#: navbar_settings.lua:1564
 msgid "Icons"
 msgstr "Iconos"
 
@@ -3224,7 +3403,8 @@ msgstr "Imagen: ninguna"
 
 #. Type: action
 #. Context: rows[1] = { { text = _("Include") .. (mode == "include" and " ✓" or ""), callback = function() UIManager:close(picker); show_facet(pbw, key, title, "include")
-#: annotation_viewer.lua:456 annotation_viewer.lua:491 annotation_viewer.lua:542
+#: annotation_viewer.lua:456 annotation_viewer.lua:491
+#: annotation_viewer.lua:542
 msgid "Include"
 msgstr "Incluir"
 
@@ -3242,7 +3422,8 @@ msgstr "Incluir tema del lector"
 
 #. Type: title
 #. Context: Título en la interfaz de ZenOS. Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. También se usa en otras partes de ZenOS.
-#: incognito_mode.lua:256 quick_settings.lua:998 menu_settings.lua:93 reader_settings.lua:284 status_bar_settings.lua:29
+#: incognito_mode.lua:256 quick_settings.lua:998 menu_settings.lua:93
+#: reader_settings.lua:284 status_bar_settings.lua:29
 msgid "Incognito"
 msgstr "Incógnito"
 
@@ -3334,7 +3515,7 @@ msgstr "Interfaz"
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz.
 #: extras_settings.lua:295 interface_settings.lua:483
 msgid "Invert with dark mode"
-msgstr "Invertir con el modo oscuro"
+msgstr "Invertir en el modo oscuro"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de información sobre ZenOS y el dispositivo. Etiqueta en el menú de redes Wi-Fi y los diálogos de conexión.
@@ -3364,7 +3545,7 @@ msgstr "Justificar texto"
 #. Context: { text = _("Justify text in popups"), enabled = ui.rolling ~= nil,
 #: pin_settings.lua:49
 msgid "Justify text in popups"
-msgstr "Justificar el texto en ventanas emergentes"
+msgstr "Justificar texto en ventanas emergentes"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de proveedores de metadatos de libros.
@@ -3392,7 +3573,8 @@ msgstr "Conserva la extensión de archivo actual."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de la barra de navegación. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en el menú contextual de libros y carpetas. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:16 context_menu.lua:1480 context_menu.lua:1907 navbar.lua:261 navbar_settings.lua:170
+#: nav_button_model.lua:16 context_menu.lua:1480 context_menu.lua:1907
+#: navbar.lua:261 navbar_settings.lua:170
 msgid "Kindle Library"
 msgstr "Biblioteca Kindle"
 
@@ -3404,7 +3586,11 @@ msgstr "KOReader"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el panel de ajustes rápidos. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:153 quick_settings.lua:1172 app_launcher_settings.lua:604 app_launcher_settings.lua:861 menu_settings.lua:545 menu_settings.lua:737 menu_settings.lua:791 menu_settings.lua:861 home_settings.lua:1501 navbar_settings.lua:334 navbar_settings.lua:578 navbar_settings.lua:794 navbar_settings.lua:1426
+#: nav_button_model.lua:153 quick_settings.lua:1172
+#: app_launcher_settings.lua:604 app_launcher_settings.lua:861
+#: menu_settings.lua:545 menu_settings.lua:737 menu_settings.lua:791
+#: menu_settings.lua:861 home_settings.lua:1501 navbar_settings.lua:334
+#: navbar_settings.lua:578 navbar_settings.lua:794 navbar_settings.lua:1426
 msgid "KOReader menu"
 msgstr "Menú de KOReader"
 
@@ -3416,7 +3602,12 @@ msgstr "Menú de lectura de KOReader"
 
 #. Type: title
 #. Context: Título en los ajustes de la pantalla del final del libro. Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. También se usa en otras partes de ZenOS.
-#: app_launcher_settings.lua:754 app_launcher_settings.lua:758 end_book_settings.lua:106 end_book_settings.lua:111 end_book_settings.lua:131 end_book_settings.lua:134 menu_settings.lua:963 menu_settings.lua:1080 home_settings.lua:1559 navbar_settings.lua:849 navbar_settings.lua:980 navbar_settings.lua:1086 navbar_settings.lua:1188 navbar_settings.lua:1195
+#: app_launcher_settings.lua:754 app_launcher_settings.lua:758
+#: end_book_settings.lua:106 end_book_settings.lua:111
+#: end_book_settings.lua:131 end_book_settings.lua:134 menu_settings.lua:963
+#: menu_settings.lua:1080 home_settings.lua:1559 navbar_settings.lua:849
+#: navbar_settings.lua:980 navbar_settings.lua:1086 navbar_settings.lua:1188
+#: navbar_settings.lua:1195
 msgid "Label"
 msgstr "Etiqueta"
 
@@ -3428,7 +3619,8 @@ msgstr "Tamaño de etiqueta:"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de la barra de navegación.
-#: interface_settings.lua:107 interface_settings.lua:119 navbar_settings.lua:1512
+#: interface_settings.lua:107 interface_settings.lua:119
+#: navbar_settings.lua:1512
 msgid "Labels"
 msgstr "Etiquetas"
 
@@ -3446,7 +3638,8 @@ msgstr "Cuadrícula horizontal"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca. Etiqueta en el editor de metadatos de libros.
-#: metadata_editor.lua:51 metadata_editor.lua:511 library_settings.lua:45 library_settings.lua:848
+#: metadata_editor.lua:51 metadata_editor.lua:511 library_settings.lua:45
+#: library_settings.lua:848
 msgid "Language"
 msgstr "Idioma"
 
@@ -3458,7 +3651,8 @@ msgstr "idiomas"
 
 #. Type: title
 #. Context: Título en los grupos de la biblioteca por autores, series y etiquetas. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en la barra de navegación de la biblioteca. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:12 group_view.lua:1412 group_view.lua:1458 navbar.lua:306 home_settings.lua:1071 navbar_settings.lua:179
+#: nav_button_model.lua:12 group_view.lua:1412 group_view.lua:1458
+#: navbar.lua:306 home_settings.lua:1071 navbar_settings.lua:179
 msgid "Languages"
 msgstr "Idiomas"
 
@@ -3476,7 +3670,8 @@ msgstr "Apellido"
 
 #. Type: button
 #. Context: Texto de un botón en los diálogos de confirmación de cambios en los ajustes. Etiqueta en la interfaz de ZenOS. Nombre de un ajuste en las pantallas de actualización de ZenOS. También se usa en otras partes de ZenOS.
-#: zen_screen.lua:490 zen_screen.lua:503 zen_settings_apply.lua:93 zen_updater.lua:1594 zenpm_installer.lua:386
+#: zen_screen.lua:490 zen_screen.lua:503 zen_settings_apply.lua:93
+#: zen_updater.lua:1594 zenpm_installer.lua:386
 msgid "Later"
 msgstr "Más tarde"
 
@@ -3488,7 +3683,9 @@ msgstr "más reciente"
 
 #. Type: button
 #. Context: Texto de un botón en el panel de inicio rápido. Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. También se usa en otras partes de ZenOS.
-#: app_launcher.lua:376 quick_settings.lua:1155 app_launcher_settings.lua:1161 app_launcher_settings.lua:1166 interface_settings.lua:131 menu_settings.lua:77 menu_settings.lua:1088
+#: app_launcher.lua:376 quick_settings.lua:1155 app_launcher_settings.lua:1161
+#: app_launcher_settings.lua:1166 interface_settings.lua:131
+#: menu_settings.lua:77 menu_settings.lua:1088
 msgid "Launcher"
 msgstr "Lanzador"
 
@@ -3518,7 +3715,8 @@ msgstr "Izquierda"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Nombre de un ajuste en los ajustes de la barra de estado de la biblioteca.
-#: interface_settings.lua:138 reader_settings.lua:567 status_bar_settings.lua:319
+#: interface_settings.lua:138 reader_settings.lua:567
+#: status_bar_settings.lua:319
 msgid "Left items"
 msgstr "Elementos a la izquierda"
 
@@ -3536,7 +3734,10 @@ msgstr "Márgenes izquierdo/derecho"
 
 #. Type: title
 #. Context: Título en el menú de acciones de gestos y atajos. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en la barra de navegación de la biblioteca. También se usa en otras partes de ZenOS.
-#: dispatch_action.lua:544 nav_button_model.lua:15 navbar.lua:227 stats_page.lua:66 end_book_data.lua:27 zen_settings.lua:73 global_settings.lua:861 stats_settings.lua:33 navbar_settings.lua:168 navbar_settings.lua:237 navbar_settings.lua:1033
+#: dispatch_action.lua:544 nav_button_model.lua:15 navbar.lua:227
+#: stats_page.lua:66 end_book_data.lua:27 zen_settings.lua:73
+#: global_settings.lua:861 stats_settings.lua:33 navbar_settings.lua:168
+#: navbar_settings.lua:237 navbar_settings.lua:1033
 msgid "Library"
 msgstr "Biblioteca"
 
@@ -3560,7 +3761,8 @@ msgstr "Claro"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
-#: global_settings.lua:111 global_settings.lua:558 global_settings.lua:571 global_settings.lua:713 global_settings.lua:726 reader_settings.lua:1080
+#: global_settings.lua:111 global_settings.lua:558 global_settings.lua:571
+#: global_settings.lua:713 global_settings.lua:726 reader_settings.lua:1080
 msgid "Light mode"
 msgstr "Modo claro"
 
@@ -3584,13 +3786,15 @@ msgstr "Lista"
 
 #. Type: label
 #. Context: Etiqueta en el menú de colecciones de libros. Etiqueta en el menú contextual de libros y carpetas. Etiqueta en los grupos de la biblioteca por autores, series y etiquetas. También se usa en otras partes de ZenOS.
-#: collections.lua:430 collections.lua:528 collections.lua:621 context_menu.lua:2611 group_view.lua:585 kindle_virtual_library.lua:285
+#: collections.lua:430 collections.lua:528 collections.lua:621
+#: context_menu.lua:2611 group_view.lua:585 kindle_virtual_library.lua:285
 msgid "List (basic)"
 msgstr "Lista básica"
 
 #. Type: label
 #. Context: Etiqueta en el menú de colecciones de libros. Etiqueta en el menú contextual de libros y carpetas. Etiqueta en los grupos de la biblioteca por autores, series y etiquetas. También se usa en otras partes de ZenOS.
-#: collections.lua:429 collections.lua:527 collections.lua:620 context_menu.lua:2610 group_view.lua:584 kindle_virtual_library.lua:284
+#: collections.lua:429 collections.lua:527 collections.lua:620
+#: context_menu.lua:2610 group_view.lua:584 kindle_virtual_library.lua:284
 msgid "List (detailed)"
 msgstr "Lista detallada"
 
@@ -3706,11 +3910,12 @@ msgstr "Selección de metadatos"
 #. Context: Nombre de un ajuste en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión.
 #: global_settings.lua:395
 msgid "Match whole words"
-msgstr "Solo palabras completas"
+msgstr "Buscar solo palabras completas"
 
 #. Type: title
 #. Context: Título en los ajustes de botones y páginas del panel de inicio rápido. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
-#: app_launcher_settings.lua:44 app_launcher_settings.lua:51 home_settings.lua:1854 home_settings.lua:1863
+#: app_launcher_settings.lua:44 app_launcher_settings.lua:51
+#: home_settings.lua:1854 home_settings.lua:1863
 msgid "Max books shown"
 msgstr "Número máximo de libros"
 
@@ -3730,7 +3935,7 @@ msgstr "Máximo de 7 pestañas"
 #. Context: Dialog text in the reader control button settings.
 #: reader_controls_settings.lua:17
 msgid "Maximum 8 reader controls per book"
-msgstr "Máximo de 8 controles de lectura por libro"
+msgstr "Máximo de 8 controles por libro"
 
 #. Type: dialog
 #. Context: Texto de un diálogo en los ajustes de los botones del panel de ajustes rápidos.
@@ -3800,7 +4005,8 @@ msgstr "Se ha producido un error en la búsqueda de metadatos."
 
 #. Type: title
 #. Context: Título en el editor de metadatos de libros.
-#: metadata_editor.lua:611 metadata_editor.lua:613 metadata_editor.lua:626 metadata_editor.lua:634
+#: metadata_editor.lua:611 metadata_editor.lua:613 metadata_editor.lua:626
+#: metadata_editor.lua:634
 msgid "Metadata results"
 msgstr "Resultados de metadatos"
 
@@ -3818,7 +4024,8 @@ msgstr "Métrico"
 
 #. Type: unit
 #. Context: Unidad que acompaña una cantidad o una duración en los ajustes de objetivos de lectura y el widget correspondiente de la página de inicio. Unidad que acompaña una cantidad o una duración en la interfaz de ZenOS.
-#: reading_goals.lua:103 reading_goals.lua:281 incognito_mode.lua:248 incognito_mode.lua:262
+#: reading_goals.lua:103 reading_goals.lua:281 incognito_mode.lua:248
+#: incognito_mode.lua:262
 msgid "min"
 msgstr "min."
 
@@ -3884,7 +4091,9 @@ msgstr "Más del autor"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de funciones adicionales e integraciones. Etiqueta en el menú de colecciones de libros. Etiqueta en el menú contextual de libros y carpetas. También se usa en otras partes de ZenOS.
-#: collections.lua:428 collections.lua:526 collections.lua:619 context_menu.lua:2609 group_view.lua:583 kindle_virtual_library.lua:283 extras_settings.lua:39 library_settings.lua:998
+#: collections.lua:428 collections.lua:526 collections.lua:619
+#: context_menu.lua:2609 group_view.lua:583 kindle_virtual_library.lua:283
+#: extras_settings.lua:39 library_settings.lua:998
 msgid "Mosaic"
 msgstr "Cuadrícula"
 
@@ -3896,7 +4105,8 @@ msgstr "Cuadrícula — miniaturas grandes de portadas"
 
 #. Type: button
 #. Context: Texto de un botón en el menú contextual de libros y carpetas. Nombre de una acción en la guía de configuración.
-#: quickstart_pages.lua:304 context_menu.lua:505 context_menu.lua:714 context_menu.lua:2101
+#: quickstart_pages.lua:304 context_menu.lua:505 context_menu.lua:714
+#: context_menu.lua:2101
 msgid "Move"
 msgstr "Mover"
 
@@ -3938,7 +4148,8 @@ msgstr "Nombre"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de la barra de navegación.
-#: interface_settings.lua:100 interface_settings.lua:134 navbar_settings.lua:1500
+#: interface_settings.lua:100 interface_settings.lua:134
+#: navbar_settings.lua:1500
 msgid "Navbar"
 msgstr "Barra de navegación"
 
@@ -3998,7 +4209,8 @@ msgstr "Las redes con cifrado WEP no son compatibles."
 
 #. Type: status
 #. Context: Mensaje de estado en la biblioteca de libros. Etiqueta en el editor de metadatos de libros. Etiqueta en el menú contextual de libros y carpetas. También se usa en otras partes de ZenOS.
-#: metadata_editor.lua:609 browser_list_item_layout.lua:467 context_menu.lua:2454 zen_renderer.lua:828 strip_common.lua:532
+#: metadata_editor.lua:609 browser_list_item_layout.lua:467
+#: context_menu.lua:2454 zen_renderer.lua:828 strip_common.lua:532
 msgid "New"
 msgstr "Nuevo"
 
@@ -4036,7 +4248,7 @@ msgstr "Nueva nota"
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
 #: home_settings.lua:2494
 msgid "New quote"
-msgstr "Frecuencia de cambio de cita"
+msgstr "Frecuencia de cambio"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de la barra de navegación. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en la barra de navegación de la biblioteca.
@@ -4220,7 +4432,8 @@ msgstr "No se han encontrado libros con metadatos de etiquetas"
 
 #. Type: message
 #. Context: Mensaje en las pantallas de actualización de ZenOS.
-#: zen_updater.lua:213 zen_updater.lua:218 zen_updater.lua:815 zen_updater.lua:828
+#: zen_updater.lua:213 zen_updater.lua:218 zen_updater.lua:815
+#: zen_updater.lua:828
 msgid "No changelog provided."
 msgstr "No se ha proporcionado registro de cambios."
 
@@ -4244,7 +4457,8 @@ msgstr "No se han encontrado submenús de KOReader"
 
 #. Type: dialog
 #. Context: Texto de un diálogo en los ajustes de botones y páginas del panel de inicio rápido. Texto de un diálogo en los ajustes de los botones del panel de ajustes rápidos. Texto de un diálogo en los ajustes de la barra de navegación.
-#: app_launcher_settings.lua:329 app_launcher_settings.lua:399 menu_settings.lua:415 navbar_settings.lua:463
+#: app_launcher_settings.lua:329 app_launcher_settings.lua:399
+#: menu_settings.lua:415 navbar_settings.lua:463
 msgid "No launchable plugin menus found"
 msgstr "No se han encontrado menús de complementos ejecutables"
 
@@ -4328,7 +4542,8 @@ msgstr "No hay ningún paquete ZenPM disponible para este dispositivo."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de estadísticas de lectura. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
-#: reader_settings.lua:1380 stats_settings.lua:231 home_settings.lua:912 home_settings.lua:2358
+#: reader_settings.lua:1380 stats_settings.lua:231 home_settings.lua:912
+#: home_settings.lua:2358
 msgid "None"
 msgstr "Ninguno"
 
@@ -4376,7 +4591,8 @@ msgstr "Texto de la nota"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. También se usa en otras partes de ZenOS.
-#: app_launcher_settings.lua:173 menu_settings.lua:795 home_settings.lua:1443 navbar_settings.lua:338
+#: app_launcher_settings.lua:173 menu_settings.lua:795 home_settings.lua:1443
+#: navbar_settings.lua:338
 msgid "Nothing"
 msgstr "Nada"
 
@@ -4400,13 +4616,23 @@ msgstr "de"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca. Etiqueta en la biblioteca de libros. Etiqueta en la interfaz de ZenOS. También se usa en otras partes de ZenOS.
-#: status_bar.lua:384 incognito_mode.lua:248 bluetooth_switcher.lua:253 network_switcher.lua:935 network_switcher.lua:953 network_switcher.lua:1022 reader_controls.lua:839 reader_top_status_bar.lua:210 library_settings.lua:1145 home_settings.lua:589 home_settings.lua:600
+#: status_bar.lua:384 incognito_mode.lua:248 bluetooth_switcher.lua:253
+#: network_switcher.lua:935 network_switcher.lua:953 network_switcher.lua:1022
+#: reader_controls.lua:839 reader_top_status_bar.lua:210
+#: library_settings.lua:1145 home_settings.lua:589 home_settings.lua:600
 msgid "Off"
 msgstr "Desactivado"
 
 #. Type: button
 #. Context: Texto de un botón en el formulario de informe de errores. Nombre de una acción en el aviso sobre el complemento CoverBrowser necesario. Texto de un botón en las pantallas de actualización de ZenOS. También se usa en otras partes de ZenOS.
-#: coverbrowser_check.lua:46 zen_bugreporter.lua:416 zen_updater.lua:1295 zen_updater.lua:1303 zen_updater.lua:1308 zen_updater.lua:1313 zen_updater.lua:1319 zen_updater.lua:1339 zen_updater.lua:1389 zen_updater.lua:1391 zen_updater.lua:1393 zen_updater.lua:1400 zen_updater.lua:1402 zen_updater.lua:1557 zen_updater.lua:1577 zen_updater.lua:1695 zen_updater.lua:1707 zen_updater.lua:1713 zen_updater.lua:1719 zenpm_installer.lua:350 zenpm_installer.lua:358 zenpm_installer.lua:361 zenpm_installer.lua:369 zenpm_installer.lua:378
+#: coverbrowser_check.lua:46 zen_bugreporter.lua:416 zen_updater.lua:1295
+#: zen_updater.lua:1303 zen_updater.lua:1308 zen_updater.lua:1313
+#: zen_updater.lua:1319 zen_updater.lua:1339 zen_updater.lua:1389
+#: zen_updater.lua:1391 zen_updater.lua:1393 zen_updater.lua:1400
+#: zen_updater.lua:1402 zen_updater.lua:1557 zen_updater.lua:1577
+#: zen_updater.lua:1695 zen_updater.lua:1707 zen_updater.lua:1713
+#: zen_updater.lua:1719 zenpm_installer.lua:350 zenpm_installer.lua:358
+#: zenpm_installer.lua:361 zenpm_installer.lua:369 zenpm_installer.lua:378
 msgid "OK"
 msgstr "Aceptar"
 
@@ -4424,7 +4650,9 @@ msgstr "Activado"
 
 #. Type: status
 #. Context: Mensaje de estado en la biblioteca de libros. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en el menú contextual de libros y carpetas.
-#: nav_button_model.lua:35 browser_list_item_layout.lua:475 context_menu.lua:684 context_menu.lua:1187 context_menu.lua:2541 context_menu.lua:2784
+#: nav_button_model.lua:35 browser_list_item_layout.lua:475
+#: context_menu.lua:684 context_menu.lua:1187 context_menu.lua:2541
+#: context_menu.lua:2784
 msgid "On hold"
 msgstr "En espera"
 
@@ -4454,7 +4682,8 @@ msgstr "Mostrar solo durante la lectura"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Etiqueta en la interfaz de ZenOS.
-#: color_wheel_widget.lua:511 interface_settings.lua:463 interface_settings.lua:473
+#: color_wheel_widget.lua:511 interface_settings.lua:463
+#: interface_settings.lua:473
 msgid "Opacity"
 msgstr "Opacidad"
 
@@ -4478,7 +4707,9 @@ msgstr "Abrir"
 
 #. Type: title
 #. Context: Título en el menú de acciones de gestos y atajos. Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Nombre de un ajuste en los ajustes de la barra de navegación.
-#: dispatch_action.lua:404 dispatch_action.lua:406 dispatch_action.lua:586 app_launcher_settings.lua:564 app_launcher_settings.lua:624 navbar_settings.lua:1137 navbar_settings.lua:1139
+#: dispatch_action.lua:404 dispatch_action.lua:406 dispatch_action.lua:586
+#: app_launcher_settings.lua:564 app_launcher_settings.lua:624
+#: navbar_settings.lua:1137 navbar_settings.lua:1139
 msgid "Open folder"
 msgstr "Abrir carpeta"
 
@@ -4574,7 +4805,11 @@ msgstr "Naranja"
 
 #. Type: title
 #. Context: Título en la interfaz de ZenOS. Etiqueta en el menú contextual de libros y carpetas. Etiqueta en los grupos de la biblioteca por autores, series y etiquetas. También se usa en otras partes de ZenOS.
-#: tbr_index.lua:939 tbr_index.lua:947 context_menu.lua:2664 context_menu.lua:2724 group_view.lua:637 group_view.lua:682 group_view.lua:924 app_launcher_settings.lua:108 app_launcher_settings.lua:1106 home_settings.lua:1153 navbar_settings.lua:1279
+#: tbr_index.lua:939 tbr_index.lua:947 context_menu.lua:2664
+#: context_menu.lua:2724 group_view.lua:637 group_view.lua:682
+#: group_view.lua:924 app_launcher_settings.lua:108
+#: app_launcher_settings.lua:1106 home_settings.lua:1153
+#: navbar_settings.lua:1279
 msgid "Order"
 msgstr "Orden"
 
@@ -4628,7 +4863,8 @@ msgstr "pág."
 
 #. Type: unit
 #. Context: Reader tab controls, defaults, profiles, and themes.
-#: reader_controls.lua:230 reader_controls.lua:559 buttons.lua:32 annotation_settings.lua:31
+#: reader_controls.lua:230 reader_controls.lua:559 buttons.lua:32
+#: annotation_settings.lua:31
 msgid "Page"
 msgstr "Página"
 
@@ -4652,15 +4888,16 @@ msgstr "Página %s"
 
 #. Type: title
 #. Context: Título en la guía de configuración.
-#: quickstart_pages.lua:825 quickstart_pages.lua:943 buttons.lua:41 reader_settings.lua:1420
+#: quickstart_pages.lua:825 quickstart_pages.lua:943 buttons.lua:41
+#: reader_settings.lua:1420
 msgid "Page Browser"
-msgstr "Explorador de páginas"
+msgstr "Navegador de páginas"
 
 #. Type: label
 #. Context: local labels = { browser = { "view_carousel_outline", _("Page browser") }, aa = { paging and "appbar.contrast" or "font", paging and _("Contrast") or _("Font") },
 #: page_browser_tabs.lua:45
 msgid "Page browser"
-msgstr "navegador de páginas"
+msgstr "Navegador de páginas"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
@@ -4688,13 +4925,17 @@ msgstr "Página x / y"
 
 #. Type: unit
 #. Context: Unidad que acompaña una cantidad o una duración en la interfaz de ZenOS. Unidad que acompaña una cantidad o una duración en el menú contextual de libros y carpetas. Unidad que acompaña una cantidad o una duración en la página de estadísticas de lectura. También se usa en otras partes de ZenOS.
-#: utils.lua:357 context_menu.lua:1606 stats_page.lua:430 reading_goals.lua:102 reading_goals.lua:281 book_info_card.lua:203
+#: utils.lua:357 context_menu.lua:1606 stats_page.lua:430 reading_goals.lua:102
+#: reading_goals.lua:281 book_info_card.lua:203
 msgid "pages"
 msgstr "páginas"
 
 #. Type: unit
 #. Context: Unidad que acompaña una cantidad o una duración en los ajustes de objetivos de lectura y el widget correspondiente de la página de inicio. Unidad que acompaña una cantidad o una duración en la página de estadísticas de lectura. Unidad que acompaña una cantidad o una duración en los ajustes de botones y páginas del panel de inicio rápido. También se usa en otras partes de ZenOS.
-#: reading_goals.lua:132 stats_page.lua:76 stats_page.lua:914 stats_page.lua:923 stats_page.lua:931 stats_page.lua:1353 stats_page.lua:1434 book_info.lua:53 library_settings.lua:50 library_settings.lua:847 stats_settings.lua:75
+#: reading_goals.lua:132 stats_page.lua:76 stats_page.lua:914
+#: stats_page.lua:923 stats_page.lua:931 stats_page.lua:1353
+#: stats_page.lua:1434 book_info.lua:53 library_settings.lua:50
+#: library_settings.lua:847 stats_settings.lua:75
 msgid "Pages"
 msgstr "Páginas"
 
@@ -4712,7 +4953,8 @@ msgstr "Páginas leídas esta semana"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Etiqueta en la página de estadísticas de lectura. Etiqueta en la página de inicio y sus widgets. También se usa en otras partes de ZenOS.
-#: stats_page.lua:906 stats_triplet.lua:62 book_info.lua:51 book_info_card.lua:185 home_settings.lua:2243
+#: stats_page.lua:906 stats_triplet.lua:62 book_info.lua:51
+#: book_info_card.lua:185 home_settings.lua:2243
 msgid "Pages today"
 msgstr "Páginas leídas hoy"
 
@@ -4796,7 +5038,8 @@ msgstr "Frase"
 
 #. Type: title
 #. Context: end dialog = require("ui/widget/buttondialog"):new{ title = _("Pin"), buttons = rows } UIManager:show(dialog)
-#: pin_footer.lua:212 references.lua:191 page_browser.lua:2481 reader_settings.lua:298
+#: pin_footer.lua:212 references.lua:191 page_browser.lua:2481
+#: reader_settings.lua:298
 msgid "Pin"
 msgstr "Fijar"
 
@@ -4810,13 +5053,13 @@ msgstr "Fijar esta página"
 #. Context: { text = _("Pinned page options"), sub_item_table_func = function()
 #: reference_drawer.lua:626 reader_settings.lua:1464
 msgid "Pinned page options"
-msgstr "Opciones de las páginas fijadas"
+msgstr "Opciones de las páginas destacadas"
 
 #. Type: title
 #. Context: event = "ShowZenUIPinnedPages", title = _("ZenOS") .. ": " .. _("Pinned pages"), reader = true,
 #: dispatch_action.lua:526 reader_footer.lua:192
 msgid "Pinned pages"
-msgstr "Páginas fijadas"
+msgstr "Páginas destacadas"
 
 #. Type: message
 #. Context: Mensaje en los ajustes de funciones adicionales e integraciones.
@@ -4832,7 +5075,10 @@ msgstr "Elimina el complemento Project: Title de la carpeta de complementos y re
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el panel de ajustes rápidos. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:151 quick_settings.lua:1195 app_launcher_settings.lua:886 menu_settings.lua:484 menu_settings.lua:782 menu_settings.lua:850 home_settings.lua:1496 navbar_settings.lua:331 navbar_settings.lua:511 navbar_settings.lua:783
+#: nav_button_model.lua:151 quick_settings.lua:1195
+#: app_launcher_settings.lua:886 menu_settings.lua:484 menu_settings.lua:782
+#: menu_settings.lua:850 home_settings.lua:1496 navbar_settings.lua:331
+#: navbar_settings.lua:511 navbar_settings.lua:783
 msgid "Plugin"
 msgstr "Complemento"
 
@@ -4840,7 +5086,7 @@ msgstr "Complemento"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:1259
 msgid "Plugin actions"
-msgstr "Acciones de los complementos"
+msgstr "Permitir acciones de los complementos"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes avanzados.
@@ -4876,11 +5122,12 @@ msgstr "Posición"
 #. Context: Nombre de un ajuste en los ajustes de funciones adicionales e integraciones.
 #: extras_settings.lua:66
 msgid "Prefer large covers"
-msgstr "Prefiero las tapas grandes"
+msgstr "Usar portades grandes"
 
 #. Type: title
 #. Context: Título en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión. Título en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Título en los ajustes de distribución y widgets de la página de inicio.
-#: global_settings.lua:298 reader_settings.lua:1221 home_settings.lua:2049 home_settings.lua:2127
+#: global_settings.lua:298 reader_settings.lua:1221 home_settings.lua:2049
+#: home_settings.lua:2127
 msgid "Preset name"
 msgstr "Nombre del preajuste"
 
@@ -5078,7 +5325,8 @@ msgstr "Leer ahora"
 
 #. Type: title
 #. Context: Título en el menú contextual de libros y carpetas. Nombre de una acción en la guía de configuración. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
-#: quickstart_pages.lua:306 context_menu.lua:700 context_menu.lua:738 context_menu.lua:2439 context_menu.lua:2535 library_settings.lua:847
+#: quickstart_pages.lua:306 context_menu.lua:700 context_menu.lua:738
+#: context_menu.lua:2439 context_menu.lua:2535 library_settings.lua:847
 msgid "Read status"
 msgstr "Estado de lectura"
 
@@ -5102,7 +5350,9 @@ msgstr "Lectura: %s"
 
 #. Type: title
 #. Context: Título en la guía de configuración. Etiqueta en la interfaz de ZenOS. Nombre de un ajuste en el menú principal de ajustes de Zen. También se usa en otras partes de ZenOS.
-#: quickstart_pages.lua:803 action_filter.lua:72 annotation_viewer.lua:590 reference_drawer.lua:624 highlight_menu.lua:246 page_browser.lua:1123 zen_settings.lua:81 global_settings.lua:904 home_settings.lua:1527
+#: quickstart_pages.lua:803 action_filter.lua:72 annotation_viewer.lua:590
+#: reference_drawer.lua:624 highlight_menu.lua:246 page_browser.lua:1123
+#: zen_settings.lua:81 global_settings.lua:904 home_settings.lua:1527
 msgid "Reader"
 msgstr "Lector"
 
@@ -5114,9 +5364,10 @@ msgstr "Acción de lectura"
 
 #. Type: button
 #. Context: Reader settings for the controls tab.
-#: page_browser.lua:1096 reader_controls_settings.lua:38 reader_settings.lua:1378
+#: page_browser.lua:1096 reader_controls_settings.lua:38
+#: reader_settings.lua:1378
 msgid "Reader controls"
-msgstr "Controles de lectura"
+msgstr "Controles del lector"
 
 #. Type: action
 #. Context: Reader tab controls.
@@ -5128,11 +5379,13 @@ msgstr "Ajustes del tema del lector"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
 #: menus.lua:209 reader_settings.lua:1070 reader_settings.lua:1087
 msgid "Reader themes"
-msgstr "Temas de lectura"
+msgstr "Aplicas temas de lectura"
 
 #. Type: status
 #. Context: Mensaje de estado en la biblioteca de libros. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en el menú contextual de libros y carpetas. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:33 browser_list_item_layout.lua:481 context_menu.lua:682 context_menu.lua:1185 context_menu.lua:2539 context_menu.lua:2782 stats_page.lua:952
+#: nav_button_model.lua:33 browser_list_item_layout.lua:481
+#: context_menu.lua:682 context_menu.lua:1185 context_menu.lua:2539
+#: context_menu.lua:2782 stats_page.lua:952
 msgid "Reading"
 msgstr "Leyendo"
 
@@ -5150,7 +5403,8 @@ msgstr "Calendario de lectura"
 
 #. Type: title
 #. Context: Título en los ajustes de objetivos de lectura y el widget correspondiente de la página de inicio. Etiqueta en la página de estadísticas de lectura. Nombre de un ajuste en los ajustes de estadísticas de lectura.
-#: stats_page.lua:69 reading_goals.lua:166 reading_goals.lua:194 stats_settings.lua:36
+#: stats_page.lua:69 reading_goals.lua:166 reading_goals.lua:194
+#: stats_settings.lua:36
 msgid "Reading goals"
 msgstr "Objetivos de lectura"
 
@@ -5186,7 +5440,8 @@ msgstr "Tendencia de lectura"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos.
-#: nav_button_model.lua:7 home_settings.lua:1069 home_settings.lua:1076 home_settings.lua:1079
+#: nav_button_model.lua:7 home_settings.lua:1069 home_settings.lua:1076
+#: home_settings.lua:1079
 msgid "Recent"
 msgstr "Recientes"
 
@@ -5198,7 +5453,8 @@ msgstr "Filtros de Recientes"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Etiqueta en el menú contextual de libros y carpetas. Etiqueta en los grupos de la biblioteca por autores, series y etiquetas.
-#: context_menu.lua:2633 group_view.lua:868 home_settings.lua:954 home_settings.lua:992
+#: context_menu.lua:2633 group_view.lua:868 home_settings.lua:954
+#: home_settings.lua:992
 msgid "Recently read"
 msgstr "Leído recientemente"
 
@@ -5212,7 +5468,7 @@ msgstr "Rojo"
 #. Context: sub_item_table = { make_enable_feature_item("reader_references", _("Reference drawer")), {
 #: reader_settings.lua:1462
 msgid "Reference drawer"
-msgstr "Panel de referencia"
+msgstr "Mostrar panel de referencia"
 
 #. Type: label
 #. Context: Reader tab controls, defaults, profiles, and themes.
@@ -5246,13 +5502,15 @@ msgstr "Los metadatos de la versión no son válidos o están incompletos."
 
 #. Type: setting
 #. Context: En la información del dispositivo, indica el espacio de almacenamiento que queda libre. En los detalles del libro, incluidos los del panel de inicio rápido, indica el tiempo de lectura estimado para terminar el libro.
-#: book_info_card.lua:183 book_details.lua:416 book_details.lua:436 about_settings.lua:84
+#: book_info_card.lua:183 book_details.lua:416 book_details.lua:436
+#: about_settings.lua:84
 msgid "Remaining"
 msgstr "Restante"
 
 #. Type: button
 #. Context: Texto de un botón en el menú contextual de libros y carpetas. Etiqueta en la página de libros recientes del panel de inicio rápido. Texto de un botón en los ajustes de apariencia y funcionamiento de la biblioteca. También se usa en otras partes de ZenOS.
-#: context_menu.lua:2887 book_switcher_page.lua:442 library_settings.lua:1094 home_settings.lua:1653
+#: context_menu.lua:2887 book_switcher_page.lua:442 library_settings.lua:1094
+#: home_settings.lua:1653
 msgid "Remove"
 msgstr "Eliminar"
 
@@ -5288,7 +5546,8 @@ msgstr "Eliminar del constructor de vocabulario"
 
 #. Type: action
 #. Context: end add{ text = _("Remove pin"), callback = function() References.setPin(self.ui, self.page, true)
-#: reference_drawer.lua:615 references.lua:169 references.lua:191 page_browser.lua:2481
+#: reference_drawer.lua:615 references.lua:169 references.lua:191
+#: page_browser.lua:2481
 msgid "Remove pin"
 msgstr "Quitar página fijada"
 
@@ -5312,7 +5571,8 @@ msgstr "¿Eliminar esta carpeta de las carpetas de inicio adicionales?"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Etiqueta en el menú de colecciones de libros. Etiqueta en el menú contextual de libros y carpetas.
-#: collections.lua:364 context_menu.lua:2369 home_settings.lua:2059 home_settings.lua:2184
+#: collections.lua:364 context_menu.lua:2369 home_settings.lua:2059
+#: home_settings.lua:2184
 msgid "Rename"
 msgstr "Renombrar"
 
@@ -5336,7 +5596,8 @@ msgstr "Mantener pulsado para activar botones"
 
 #. Type: button
 #. Context: Texto de un botón en el menú de estadísticas de la batería. Texto de un botón en los ajustes de apariencia de la interfaz. Texto de un botón en los ajustes de los botones del panel de ajustes rápidos. También se usa en otras partes de ZenOS.
-#: color_wheel_widget.lua:567 details.lua:56 battery_stats_menu.lua:57 interface_settings.lua:322 menu_settings.lua:1335 home_settings.lua:1800
+#: color_wheel_widget.lua:567 details.lua:56 battery_stats_menu.lua:57
+#: interface_settings.lua:322 menu_settings.lua:1335 home_settings.lua:1800
 msgid "Reset"
 msgstr "Restablecer"
 
@@ -5344,7 +5605,7 @@ msgstr "Restablecer"
 #. Context: Interface accent color settings.
 #: interface_settings.lua:194
 msgid "Reset accent color"
-msgstr "Restablecer el color de acento"
+msgstr "Restablecer color de acento"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el menú de estadísticas de la batería.
@@ -5362,7 +5623,7 @@ msgstr "Restablecer colores y nombres"
 #. Context: Texto de un diálogo en los ajustes de los botones del panel de ajustes rápidos. Texto de un diálogo en los ajustes de distribución y widgets de la página de inicio.
 #: menu_settings.lua:1334 home_settings.lua:1799
 msgid "Reset Controls to defaults?"
-msgstr "¿Restablecer Configuración rápida a los valores predeterminados?"
+msgstr "¿Restablecer el panel de configuración rápida a los valores predeterminados?"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz.
@@ -5408,7 +5669,8 @@ msgstr "Reinicia KOReader para aplicar el paquete actualizado"
 
 #. Type: button
 #. Context: Texto de un botón en los avisos sobre complementos incompatibles. Texto de un botón en el formulario de informe de errores. Texto de un botón en los diálogos de confirmación de cambios en los ajustes. También se usa en otras partes de ZenOS.
-#: incompatible_plugins_check.lua:303 zen_bugreporter.lua:210 zen_settings_apply.lua:92 zenpm_installer.lua:385 global_settings.lua:46
+#: incompatible_plugins_check.lua:303 zen_bugreporter.lua:210
+#: zen_settings_apply.lua:92 zenpm_installer.lua:385 global_settings.lua:46
 msgid "Restart now"
 msgstr "Reiniciar ahora"
 
@@ -5504,13 +5766,15 @@ msgstr "Derecha"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Nombre de un ajuste en los ajustes de la barra de estado de la biblioteca.
-#: interface_settings.lua:138 reader_settings.lua:575 status_bar_settings.lua:327
+#: interface_settings.lua:138 reader_settings.lua:575
+#: status_bar_settings.lua:327
 msgid "Right items"
 msgstr "Elementos a la derecha"
 
 #. Type: title
 #. Context: Título en los ajustes de los botones del panel de ajustes rápidos. Nombre de un ajuste en el panel de ajustes rápidos.
-#: quick_settings.lua:660 menu_settings.lua:94 menu_settings.lua:661 menu_settings.lua:663 menu_settings.lua:1203
+#: quick_settings.lua:660 menu_settings.lua:94 menu_settings.lua:661
+#: menu_settings.lua:663 menu_settings.lua:1203
 msgid "Rotate"
 msgstr "Rotación"
 
@@ -5540,7 +5804,9 @@ msgstr "El complemento RSS Reader no está instalado."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión. Etiqueta en el editor de metadatos de libros. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. También se usa en otras partes de ZenOS.
-#: metadata_editor.lua:662 metadata_editor.lua:927 metadata_editor.lua:1045 metadata_editor.lua:1242 book_note.lua:105 global_settings.lua:307 reader_settings.lua:1230 home_settings.lua:2137 metadata_settings.lua:43
+#: metadata_editor.lua:662 metadata_editor.lua:927 metadata_editor.lua:1045
+#: metadata_editor.lua:1242 book_note.lua:105 global_settings.lua:307
+#: reader_settings.lua:1230 home_settings.lua:2137 metadata_settings.lua:43
 msgid "Save"
 msgstr "Guardar"
 
@@ -5672,7 +5938,12 @@ msgstr "Barra de desplazamiento"
 
 #. Type: title
 #. Context: Título en el explorador de catálogos de libros en línea. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Opción seleccionable en la guía de configuración. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:22 quickstart_pages.lua:721 collections.lua:650 metadata_editor.lua:969 navbar.lua:326 navbar.lua:331 search.lua:109 opds.lua:1724 opds.lua:1917 opds.lua:1921 native_menu.lua:9 quick_settings.lua:725 quick_settings.lua:765 buttons.lua:37 annotation_viewer.lua:423 dict_quick_lookup.lua:110 highlight_menu.lua:233 page_browser.lua:2948 navbar_settings.lua:183
+#: nav_button_model.lua:22 quickstart_pages.lua:721 collections.lua:650
+#: metadata_editor.lua:969 navbar.lua:326 navbar.lua:331 search.lua:109
+#: opds.lua:1724 opds.lua:1917 opds.lua:1921 native_menu.lua:9
+#: quick_settings.lua:725 quick_settings.lua:765 buttons.lua:37
+#: annotation_viewer.lua:423 dict_quick_lookup.lua:110 highlight_menu.lua:233
+#: page_browser.lua:2948 navbar_settings.lua:183
 msgid "Search"
 msgstr "Búsqueda"
 
@@ -5714,7 +5985,8 @@ msgstr "Buscar en la configuración"
 
 #. Type: message
 #. Context: Mensaje en el menú de dispositivos Bluetooth y los diálogos de emparejamiento.
-#: bluetooth_switcher.lua:261 bluetooth_switcher.lua:316 bluetooth_switcher.lua:319
+#: bluetooth_switcher.lua:261 bluetooth_switcher.lua:316
+#: bluetooth_switcher.lua:319
 msgid "Searching for devices…"
 msgstr "Buscando dispositivos…"
 
@@ -5726,7 +5998,8 @@ msgstr "Buscando redes…"
 
 #. Type: dialog
 #. Context: Texto de un diálogo en el editor de metadatos de libros.
-#: metadata_editor.lua:487 metadata_editor.lua:586 metadata_editor.lua:740 metadata_editor.lua:883
+#: metadata_editor.lua:487 metadata_editor.lua:586 metadata_editor.lua:740
+#: metadata_editor.lua:883
 msgid "Searching metadata…"
 msgstr "Buscando metadatos…"
 
@@ -5762,7 +6035,8 @@ msgstr "Enviar con LocalSend"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Nombre de un ajuste en los ajustes de la barra de estado de la biblioteca.
-#: reader_settings.lua:536 reader_settings.lua:694 status_bar_settings.lua:335 status_bar_settings.lua:338
+#: reader_settings.lua:536 reader_settings.lua:694 status_bar_settings.lua:335
+#: status_bar_settings.lua:338
 msgid "Separator"
 msgstr "Separador"
 
@@ -5774,7 +6048,12 @@ msgstr "series"
 
 #. Type: title
 #. Context: Título en el menú de acciones de gestos y atajos. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Opción seleccionable en la guía de configuración. También se usa en otras partes de ZenOS.
-#: dispatch_action.lua:556 nav_button_model.lua:11 quickstart_pages.lua:719 metadata_editor.lua:49 metadata_editor.lua:509 metadata_editor.lua:1070 context_menu.lua:2632 group_view.lua:1413 group_view.lua:1462 navbar.lua:301 end_book_data.lua:28 end_book_settings.lua:13 library_settings.lua:43 library_settings.lua:421 library_settings.lua:846 home_settings.lua:826 home_settings.lua:1071 navbar_settings.lua:178
+#: dispatch_action.lua:556 nav_button_model.lua:11 quickstart_pages.lua:719
+#: metadata_editor.lua:49 metadata_editor.lua:509 metadata_editor.lua:1070
+#: context_menu.lua:2632 group_view.lua:1413 group_view.lua:1462 navbar.lua:301
+#: end_book_data.lua:28 end_book_settings.lua:13 library_settings.lua:43
+#: library_settings.lua:421 library_settings.lua:846 home_settings.lua:826
+#: home_settings.lua:1071 navbar_settings.lua:178
 msgid "Series"
 msgstr "Series"
 
@@ -5798,7 +6077,12 @@ msgstr "Páginas de la sesión"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los diálogos de selección de valores de ajustes. Etiqueta en la interfaz de ZenOS. Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. También se usa en otras partes de ZenOS.
-#: color_wheel_widget.lua:400 app_launcher_settings.lua:207 end_book_settings.lua:115 menu_settings.lua:977 menu_settings.lua:1093 reader_settings.lua:190 reader_settings.lua:347 reader_settings.lua:857 home_settings.lua:1204 navbar_settings.lua:863 navbar_settings.lua:993 navbar_settings.lua:1064 navbar_settings.lua:1200 status_bar_settings.lua:277 status_bar_settings.lua:373
+#: color_wheel_widget.lua:400 app_launcher_settings.lua:207
+#: end_book_settings.lua:115 menu_settings.lua:977 menu_settings.lua:1093
+#: reader_settings.lua:190 reader_settings.lua:347 reader_settings.lua:857
+#: home_settings.lua:1204 navbar_settings.lua:863 navbar_settings.lua:993
+#: navbar_settings.lua:1064 navbar_settings.lua:1200
+#: status_bar_settings.lua:277 status_bar_settings.lua:373
 msgid "Set"
 msgstr "Establecer"
 
@@ -5888,7 +6172,12 @@ msgstr "Establecer carpeta de sincronización"
 
 #. Type: title
 #. Context: Título en el menú de ajustes de Zen. Opción de menú en los menús de KOReader y el selector de menús del panel de inicio rápido. Nombre de un ajuste en el panel de ajustes rápidos. También se usa en otras partes de ZenOS.
-#: native_menu.lua:10 quick_settings.lua:1155 annotation_viewer.lua:586 reference_drawer.lua:621 highlight_menu.lua:242 page_browser.lua:1120 battery_stats_menu.lua:93 zen_settings_page.lua:198 zen_settings_page.lua:223 zen_settings_page.lua:280 zen_settings_page.lua:866 zen_settings_page.lua:1051 menu_settings.lua:67 menu_settings.lua:1087
+#: native_menu.lua:10 quick_settings.lua:1155 annotation_viewer.lua:586
+#: reference_drawer.lua:621 highlight_menu.lua:242 page_browser.lua:1120
+#: battery_stats_menu.lua:93 zen_settings_page.lua:198
+#: zen_settings_page.lua:223 zen_settings_page.lua:280
+#: zen_settings_page.lua:866 zen_settings_page.lua:1051 menu_settings.lua:67
+#: menu_settings.lua:1087
 msgid "Settings"
 msgstr "Configuración"
 
@@ -5932,7 +6221,7 @@ msgstr "Mostrar asistente de IA"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:1318
 msgid "Show all files from subfolders"
-msgstr "Mostrar todos los archivos de las subcarpetas"
+msgstr "Mostrar todos los libros de las subcarpetas"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
@@ -5944,7 +6233,7 @@ msgstr "Mostrar autor"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:746
 msgid "Show author below cover (mosaic)"
-msgstr "Mostrar autor bajo de la portada"
+msgstr "Mostrar autor bajo la portada"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
@@ -5966,7 +6255,8 @@ msgstr "Mostrar títulos"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. También se usa en otras partes de ZenOS.
-#: interface_settings.lua:137 reader_settings.lua:700 home_settings.lua:888 status_bar_settings.lua:295
+#: interface_settings.lua:137 reader_settings.lua:700 home_settings.lua:888
+#: status_bar_settings.lua:295
 msgid "Show bottom border"
 msgstr "Mostrar borde inferior"
 
@@ -6016,7 +6306,7 @@ msgstr "Mostrar archivos ocultos"
 #. Context: Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
 #: menu_settings.lua:1301
 msgid "Show Home in Controls"
-msgstr "Mostrar Inicio en Configuración rápida"
+msgstr "Mostrar Inicio en el panel de configuración rápida"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de la pantalla del final del libro. Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de la barra de navegación.
@@ -6044,7 +6334,9 @@ msgstr "Mostrar KOAssistant"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. También se usa en otras partes de ZenOS.
-#: app_launcher_settings.lua:1084 interface_settings.lua:120 menu_settings.lua:1243 reader_settings.lua:147 reader_settings.lua:1273 navbar_settings.lua:1515
+#: app_launcher_settings.lua:1084 interface_settings.lua:120
+#: menu_settings.lua:1243 reader_settings.lua:147 reader_settings.lua:1273
+#: navbar_settings.lua:1515
 msgid "Show labels"
 msgstr "Mostrar etiquetas"
 
@@ -6052,7 +6344,7 @@ msgstr "Mostrar etiquetas"
 #. Context: Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
 #: menu_settings.lua:1310
 msgid "Show Launcher in Controls"
-msgstr "Mostrar Lanzador en Configuración rápida"
+msgstr "Mostrar Lanzador en el panel de configuración rápida"
 
 #. Type: message
 #. Context: Mensaje en los ajustes de apariencia y funcionamiento de la biblioteca.
@@ -6130,7 +6422,7 @@ msgstr "Mostrar título"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:730
 msgid "Show title below cover (mosaic)"
-msgstr "Mostrar título bajo de la portada"
+msgstr "Mostrar título bajo la portada"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de la barra de navegación.
@@ -6178,7 +6470,7 @@ msgstr "Mostrar icono Zen - fondo blanco"
 #. Context: Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
 #: menu_settings.lua:1319
 msgid "Show Zen Settings in Controls"
-msgstr "Mostrar configuración de Zen en la Configuración rápida."
+msgstr "Mostrar configuración de Zen en el panel de configuración rápida."
 
 #. Type: label
 #. Context: Etiqueta en el menú de dispositivos Bluetooth y los diálogos de emparejamiento. Etiqueta en el menú de redes Wi-Fi y los diálogos de conexión.
@@ -6218,7 +6510,8 @@ msgstr "Saltar 20 páginas"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes generales. Nombre de un ajuste en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión. También se usa en otras partes de ZenOS.
-#: quick_settings.lua:711 general_settings.lua:66 global_settings.lua:801 menu_settings.lua:99
+#: quick_settings.lua:711 general_settings.lua:66 global_settings.lua:801
+#: menu_settings.lua:99
 msgid "Sleep"
 msgstr "Suspensión"
 
@@ -6242,7 +6535,8 @@ msgstr "Sólo guiones de no separación"
 
 #. Type: action
 #. Context: Etiqueta en el menú de colecciones de libros. Etiqueta en el menú contextual de libros y carpetas.
-#: collections.lua:463 collections.lua:555 context_menu.lua:1159 annotation_viewer.lua:566 annotation_viewer.lua:584
+#: collections.lua:463 collections.lua:555 context_menu.lua:1159
+#: annotation_viewer.lua:566 annotation_viewer.lua:584
 msgid "Sort"
 msgstr "Orden"
 
@@ -6314,7 +6608,9 @@ msgstr "Fuentes"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. También se usa en otras partes de ZenOS.
-#: app_launcher_settings.lua:571 app_launcher_settings.lua:631 menu_settings.lua:727 home_settings.lua:1074 home_settings.lua:1106 home_settings.lua:1463 navbar_settings.lua:1411
+#: app_launcher_settings.lua:571 app_launcher_settings.lua:631
+#: menu_settings.lua:727 home_settings.lua:1074 home_settings.lua:1106
+#: home_settings.lua:1463 navbar_settings.lua:1411
 msgid "Specific tag"
 msgstr "Etiqueta específica"
 
@@ -6328,7 +6624,7 @@ msgstr "Estable"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:385
 msgid "Stack"
-msgstr "Pila"
+msgstr "Mostrar pila"
 
 #. Type: setting
 #. Context: { text = _("Preview length"), sub_item_table = choices(cfg, "preview_length", { { "short", _("Short") }, { "standard", _("Standard") }, { "long", _("Long") }, }, "standard") },
@@ -6368,7 +6664,9 @@ msgstr "El calendario de estadísticas no está disponible"
 
 #. Type: title
 #. Context: Título en el menú de acciones de gestos y atajos. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Opción seleccionable en la guía de configuración. También se usa en otras partes de ZenOS.
-#: dispatch_action.lua:568 nav_button_model.lua:24 quickstart_pages.lua:722 navbar.lua:336 zen_settings.lua:64 stats_settings.lua:277 stats_settings.lua:301 stats_settings.lua:330 navbar_settings.lua:185
+#: dispatch_action.lua:568 nav_button_model.lua:24 quickstart_pages.lua:722
+#: navbar.lua:336 zen_settings.lua:64 stats_settings.lua:277
+#: stats_settings.lua:301 stats_settings.lua:330 navbar_settings.lua:185
 msgid "Stats"
 msgstr "Estadísticas"
 
@@ -6418,7 +6716,7 @@ msgstr "Elementos de la barra de estado"
 #. Context: Texto de ayuda en el formulario de informe de errores.
 #: zen_bugreporter.lua:284
 msgid "Steps to reproduce, expected vs. actual behavior"
-msgstr "Pasos para reproducirlo, comportamiento esperado y real"
+msgstr "Pasos para reproducir, comportamiento esperado y comportamiento observado"
 
 #. Type: setting
 #. Context: Opción de los ajustes del dispositivo que muestra la capacidad total de almacenamiento; su submenú detalla el espacio libre, usado y total.
@@ -6446,7 +6744,8 @@ msgstr "Iniciar flujo desde la página"
 
 #. Type: action
 #. Context: {{ text = _("Color"), callback = function() select("color") end }}, {{ text = _("Style"), callback = function() select("style") end }}, }, viewer.button_table:getButtonById("edit").dimen)
-#: annotation_viewer.lua:30 annotation_viewer.lua:143 highlight_menu_items.lua:10
+#: annotation_viewer.lua:30 annotation_viewer.lua:143
+#: highlight_menu_items.lua:10
 msgid "Style"
 msgstr "Estilo"
 
@@ -6458,7 +6757,8 @@ msgstr "Hoja de estilo"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de la barra de navegación.
-#: interface_settings.lua:102 interface_settings.lua:106 navbar_settings.lua:1509
+#: interface_settings.lua:102 interface_settings.lua:106
+#: navbar_settings.lua:1509
 msgid "Styling"
 msgstr "Estilo"
 
@@ -6495,14 +6795,20 @@ msgstr "Desliza hacia abajo desde la parte superior para acceder a la configurac
 #. Type: description
 #. Context: Texto de ayuda en la guía de configuración.
 #: quickstart_pages.lua:826
-msgid "Swipe up from the bottom while reading to open the Page Browser.\n\nSkim through pages or skip chapters, browse the table of contents, manage bookmarks, adjust fonts and more."
-msgstr "Desliza hacia arriba desde la parte inferior mientras lees para abrir el Explorador de páginas.\n\nHojea páginas o salta capítulos, navega por el índice, gestiona marcadores, ajusta fuentes y más."
+msgid ""
+"Swipe up from the bottom while reading to open the Page Browser.\n"
+"\n"
+"Skim through pages or skip chapters, browse the table of contents, manage bookmarks, adjust fonts and more."
+msgstr ""
+"Desliza hacia arriba desde la parte inferior mientras lees para abrir el navegador de páginas.\n"
+"\n"
+"Hojea páginas o salta capítulos, navega por el índice, gestiona marcadores, ajusta fuentes y más."
 
 #. Type: label
 #. Context: Etiqueta en la visita guiada por la pantalla de lectura.
 #: reader_tour.lua:22
 msgid "Swipe up to open the Page Browser"
-msgstr "Desliza hacia arriba para abrir el Explorador de páginas"
+msgstr "Desliza hacia arriba para abrir el navegador de páginas"
 
 #. Type: button
 #. Context: Texto de un botón en el explorador de catálogos de libros en línea. Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
@@ -6530,25 +6836,32 @@ msgstr "Pestaña"
 
 #. Type: title
 #. Context: Título en el menú de acciones de gestos y atajos. Etiqueta en la visita guiada por la pantalla de lectura. Etiqueta en la pantalla de lectura. También se usa en otras partes de ZenOS.
-#: dispatch_action.lua:496 page_browser_panels.lua:61 page_browser_tabs.lua:50 zen_toc_widget.lua:474
+#: dispatch_action.lua:496 page_browser_panels.lua:61 page_browser_tabs.lua:50
+#: zen_toc_widget.lua:474
 msgid "Table of contents"
 msgstr "Tabla de contenido"
 
 #. Type: title
 #. Context: Título en los ajustes de distribución y widgets de la página de inicio. Nombre de un ajuste en los ajustes de apariencia de la interfaz. Título en los ajustes de la barra de navegación.
-#: interface_settings.lua:101 reader_settings.lua:1436 home_settings.lua:1519 home_settings.lua:1529 home_settings.lua:1618 home_settings.lua:1776 navbar_settings.lua:1433 navbar_settings.lua:1504
+#: interface_settings.lua:101 reader_settings.lua:1436 home_settings.lua:1519
+#: home_settings.lua:1529 home_settings.lua:1618 home_settings.lua:1776
+#: navbar_settings.lua:1433 navbar_settings.lua:1504
 msgid "Tabs"
 msgstr "Pestañas"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de botones y páginas del panel de inicio rápido. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:144 app_launcher_settings.lua:815 menu_settings.lua:788 menu_settings.lua:893 navbar_settings.lua:322 navbar_settings.lua:743
+#: nav_button_model.lua:144 app_launcher_settings.lua:815 menu_settings.lua:788
+#: menu_settings.lua:893 navbar_settings.lua:322 navbar_settings.lua:743
 msgid "Tag"
 msgstr "Mostrar etiqueta"
 
 #. Type: title
 #. Context: Título en el menú de acciones de gestos y atajos. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en los grupos de la biblioteca por autores, series y etiquetas. También se usa en otras partes de ZenOS.
-#: dispatch_action.lua:562 nav_button_model.lua:13 nav_button_model.lua:141 group_view.lua:607 group_view.lua:1413 group_view.lua:1460 navbar.lua:311 annotation_viewer.lua:29 annotation_settings.lua:32 library_settings.lua:44 library_settings.lua:847 home_settings.lua:1071 navbar_settings.lua:181
+#: dispatch_action.lua:562 nav_button_model.lua:13 nav_button_model.lua:141
+#: group_view.lua:607 group_view.lua:1413 group_view.lua:1460 navbar.lua:311
+#: annotation_viewer.lua:29 annotation_settings.lua:32 library_settings.lua:44
+#: library_settings.lua:847 home_settings.lua:1071 navbar_settings.lua:181
 msgid "Tags"
 msgstr "Etiquetas"
 
@@ -6560,7 +6873,8 @@ msgstr "etiquetas"
 
 #. Type: title
 #. Context: Título en los ajustes de los botones del panel de ajustes rápidos. Nombre de un ajuste en el panel de ajustes rápidos.
-#: quick_settings.lua:899 menu_settings.lua:114 menu_settings.lua:669 menu_settings.lua:671
+#: quick_settings.lua:899 menu_settings.lua:114 menu_settings.lua:669
+#: menu_settings.lua:671
 msgid "Tailscale"
 msgstr "Tailscale"
 
@@ -6568,11 +6882,12 @@ msgstr "Tailscale"
 #. Context: Texto de ayuda en la guía de configuración.
 #: quickstart_pages.lua:703
 msgid "Tap and hold any book or folder in your library to reveal details."
-msgstr "Mantén pulsado cualquier libro o carpeta de la biblioteca para ver su información."
+msgstr "Mantén pulsado cualquier libro o carpeta de la biblioteca para accedir a su información."
 
 #. Type: action
 #. Context: end rows[#rows + 1] = {{ text = _("Text"), callback = launch(function() local text_dialog, text_rows = nil, {}
-#: annotation_viewer.lua:315 annotation_viewer.lua:538 annotation_viewer.lua:550
+#: annotation_viewer.lua:315 annotation_viewer.lua:538
+#: annotation_viewer.lua:550
 msgid "Text"
 msgstr "Texto"
 
@@ -6597,8 +6912,12 @@ msgstr "Estilos de texto"
 #. Type: description
 #. Context: Texto de ayuda en la guía de configuración.
 #: quickstart_pages.lua:843
-msgid "The best interface is the one you forget is there.\nNow go get lost in a good book."
-msgstr "La mejor interfaz es aquella que olvidas que está ahí.\nAhora, sumérgete en un buen libro."
+msgid ""
+"The best interface is the one you forget is there.\n"
+"Now go get lost in a good book."
+msgstr ""
+"La mejor interfaz es aquella que olvidas que está ahí.\n"
+"Ahora, sumérgete en un buen libro."
 
 #. Type: error
 #. Context: Mensaje de error en el editor de metadatos de libros.
@@ -6782,7 +7101,10 @@ msgstr "Este año"
 
 #. Type: title
 #. Context: Título en los ajustes de distribución y widgets de la página de inicio. Opción seleccionable en los ajustes de objetivos de lectura y el widget correspondiente de la página de inicio. Etiqueta en la página de estadísticas de lectura. También se usa en otras partes de ZenOS.
-#: reading_goals.lua:138 stats_page.lua:1354 stats_page.lua:1434 reader_settings.lua:280 stats_settings.lua:81 home_settings.lua:754 home_settings.lua:770 home_settings.lua:772 home_settings.lua:774 status_bar_settings.lua:35
+#: reading_goals.lua:138 stats_page.lua:1354 stats_page.lua:1434
+#: reader_settings.lua:280 stats_settings.lua:81 home_settings.lua:754
+#: home_settings.lua:770 home_settings.lua:772 home_settings.lua:774
+#: status_bar_settings.lua:35
 msgid "Time"
 msgstr "Hora"
 
@@ -6884,19 +7206,28 @@ msgstr "Temporizador: %1 s"
 
 #. Type: title
 #. Context: Título en el editor de metadatos de libros. Etiqueta en el menú contextual de libros y carpetas. Etiqueta en los grupos de la biblioteca por autores, series y etiquetas. También se usa en otras partes de ZenOS.
-#: metadata_editor.lua:47 metadata_editor.lua:507 context_menu.lua:2628 group_view.lua:665 group_view.lua:865 metadata_editor.lua:964 app_launcher_settings.lua:876 app_launcher_settings.lua:880 library_settings.lua:846 home_settings.lua:824
+#: metadata_editor.lua:47 metadata_editor.lua:507 context_menu.lua:2628
+#: group_view.lua:665 group_view.lua:865 metadata_editor.lua:964
+#: app_launcher_settings.lua:876 app_launcher_settings.lua:880
+#: library_settings.lua:846 home_settings.lua:824
 msgid "Title"
 msgstr "Título"
 
 #. Type: label
 #. Context: Etiqueta en la biblioteca de libros. Etiqueta en el menú contextual de libros y carpetas. Etiqueta en los grupos de la biblioteca por autores, series y etiquetas.
-#: add_sort_title_natural.lua:31 context_menu.lua:2629 group_view.lua:666 group_view.lua:866
+#: add_sort_title_natural.lua:31 context_menu.lua:2629 group_view.lua:666
+#: group_view.lua:866
 msgid "Title natural"
 msgstr "Título natural"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de la pantalla del final del libro. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Opción seleccionable en la guía de configuración. También se usa en otras partes de ZenOS.
-#: nav_button_model.lua:9 nav_button_model.lua:34 quickstart_pages.lua:720 browser_list_item_layout.lua:469 context_menu.lua:683 context_menu.lua:1186 context_menu.lua:2540 context_menu.lua:2783 group_view.lua:1394 group_view.lua:1671 navbar.lua:316 end_book_data.lua:29 end_book_settings.lua:14 home_settings.lua:953 home_settings.lua:993 home_settings.lua:1070 navbar_settings.lua:182
+#: nav_button_model.lua:9 nav_button_model.lua:34 quickstart_pages.lua:720
+#: browser_list_item_layout.lua:469 context_menu.lua:683 context_menu.lua:1186
+#: context_menu.lua:2540 context_menu.lua:2783 group_view.lua:1394
+#: group_view.lua:1671 navbar.lua:316 end_book_data.lua:29
+#: end_book_settings.lua:14 home_settings.lua:953 home_settings.lua:993
+#: home_settings.lua:1070 navbar_settings.lua:182
 msgid "To Be Read"
 msgstr "Por leer"
 
@@ -6976,11 +7307,12 @@ msgstr "Total de libros"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. Etiqueta en la página de estadísticas de lectura. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
 #: stats_page.lua:938 reader_settings.lua:296 home_settings.lua:593
 msgid "Total pages"
-msgstr "Total de páginas"
+msgstr "Número total de páginas"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de la pantalla del final del libro. Etiqueta en la página de estadísticas de lectura. Etiqueta en la página de inicio y sus widgets.
-#: stats_page.lua:917 stats_page.lua:926 stats_page.lua:933 stats_page.lua:959 stats_triplet.lua:59 end_book_settings.lua:18
+#: stats_page.lua:917 stats_page.lua:926 stats_page.lua:933 stats_page.lua:959
+#: stats_triplet.lua:59 end_book_settings.lua:18
 msgid "Total time"
 msgstr "Tiempo total"
 
@@ -7006,7 +7338,7 @@ msgstr "Traducir"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:1296
 msgid "Treat file updates as New"
-msgstr "Tratar archivos actualizados como nuevos"
+msgstr "Tratar libros actualizados como nuevos"
 
 #. Type: label
 #. Context: Reader tab controls, defaults, profiles, and themes.
@@ -7017,8 +7349,14 @@ msgstr "Confiar en guiones suaves"
 #. Type: description
 #. Context: Texto de ayuda en la guía de configuración.
 #: quickstart_pages.lua:747
-msgid "Turn on Zen mode to strip KOReader down to its bare essentials.\n\nRemove visual clutter for a focused, distraction-free reading experience. Exit at anytime from Settings."
-msgstr "Activa el modo Zen para dejar KOReader en lo esencial.\n\nReduce los elementos visuales innecesarios y disfruta de una lectura sin distracciones. Puedes salir en cualquier momento desde Configuración."
+msgid ""
+"Turn on Zen mode to strip KOReader down to its bare essentials.\n"
+"\n"
+"Remove visual clutter for a focused, distraction-free reading experience. Exit at anytime from Settings."
+msgstr ""
+"Activa el modo Zen para dejar KOReader en lo esencial.\n"
+"\n"
+"Reduce los elementos visuales innecesarios y disfruta de una lectura sin distracciones. Puedes salir en cualquier momento desde Configuración."
 
 #. Type: message
 #. Context: Mensaje en el menú de dispositivos Bluetooth y los diálogos de emparejamiento.
@@ -7096,7 +7434,7 @@ msgstr "Barrra deslizante unificada de brillo/calidez"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:655
 msgid "Uniform covers"
-msgstr "Tamaño uniforme"
+msgstr "Unificar tamaño"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en las pantallas de actualización de ZenOS.
@@ -7124,7 +7462,8 @@ msgstr "error desconocido"
 
 #. Type: dialog
 #. Context: Texto de un diálogo en la biblioteca de libros. Mensaje de error en el editor de metadatos de libros. Texto de un diálogo en la pantalla de lectura.
-#: metadata_editor.lua:1317 kindle_virtual_library.lua:355 lookup_plugin_items.lua:8
+#: metadata_editor.lua:1317 kindle_virtual_library.lua:355
+#: lookup_plugin_items.lua:8
 msgid "Unknown error"
 msgstr "Error desconocido"
 
@@ -7136,7 +7475,8 @@ msgstr "Preajuste sin nombre"
 
 #. Type: label
 #. Context: Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en el menú contextual de libros y carpetas.
-#: nav_button_model.lua:32 context_menu.lua:681 context_menu.lua:1184 context_menu.lua:2454 context_menu.lua:2781
+#: nav_button_model.lua:32 context_menu.lua:681 context_menu.lua:1184
+#: context_menu.lua:2454 context_menu.lua:2781
 msgid "Unread"
 msgstr "No leído"
 
@@ -7336,13 +7676,13 @@ msgstr "Usa un token limitado a read:catalog. Se almacena localmente como texto 
 #. Context: Navbar active-tab styling toggle. When enabled, uses the interface accent instead of the saved custom highlight colors.
 #: navbar_settings.lua:1680
 msgid "Use accent color"
-msgstr "Usar el color de acento"
+msgstr "Usar color de acento"
 
 #. Type: setting
 #. Context: { text = _("Use book font in popups"), enabled = ui.rolling ~= nil,
 #: pin_settings.lua:15
 msgid "Use book font in popups"
-msgstr "Usar la fuente del libro en ventanas emergentes"
+msgstr "Usar fuente del libro en ventanas emergentes"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
@@ -7364,7 +7704,8 @@ msgstr "Usar fuente predeterminada"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
-#: library_settings.lua:191 home_settings.lua:445 home_settings.lua:715 home_settings.lua:1747
+#: library_settings.lua:191 home_settings.lua:445 home_settings.lua:715
+#: home_settings.lua:1747
 msgid "Use default style"
 msgstr "Usar estilo predeterminado"
 
@@ -7436,7 +7777,8 @@ msgstr "Carpeta virtual"
 
 #. Type: action
 #. Context: v.id = "vocabulary" v.text = show_labels() and _("Vocabulary") or nil v.callback = function()
-#: dict_quick_lookup.lua:111 dict_quick_lookup.lua:296 dict_quick_lookup.lua:496
+#: dict_quick_lookup.lua:111 dict_quick_lookup.lua:296
+#: dict_quick_lookup.lua:496
 msgid "Vocabulary"
 msgstr "Vocabulario"
 
@@ -7450,11 +7792,13 @@ msgstr "Vocabulario"
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz.
 #: interface_settings.lua:393 interface_settings.lua:473
 msgid "Wallpaper"
-msgstr "Fondo de pantalla"
+msgstr "Usar fondo de pantalla"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión. Etiqueta en la interfaz de ZenOS.
-#: brightness_slider.lua:44 warmth_slider.lua:48 global_settings.lua:646 global_settings.lua:666 global_settings.lua:713 global_settings.lua:726 global_settings.lua:769 global_settings.lua:782
+#: brightness_slider.lua:44 warmth_slider.lua:48 global_settings.lua:646
+#: global_settings.lua:666 global_settings.lua:713 global_settings.lua:726
+#: global_settings.lua:769 global_settings.lua:782
 msgid "Warmth"
 msgstr "Calidez"
 
@@ -7522,7 +7866,7 @@ msgstr "Al activarlo, la búsqueda solo coincide con palabras completas. Al desa
 #. Context: Mensaje en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:1205
 msgid "When enabled, tap the same book twice in rapid succession to open it. Keyboard controls are unchanged."
-msgstr "Al estar activado, toca rápidamente dos veces el mismo libro para abrirlo. Los controles del teclado no cambian."
+msgstr "Al activar esta opción, basta con tocar dos veces seguidas un mismo libro para abrirlo. Los controles del teclado no se ven afectados."
 
 #. Type: message
 #. Context: text = _("Reader action"), help_text = _("When enabled, this action is hidden in the library."), checked_func = function()
@@ -7550,7 +7894,8 @@ msgstr "Mientras está activo"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes generales. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos. También se usa en otras partes de ZenOS.
-#: quick_settings.lua:586 quick_settings.lua:588 general_settings.lua:17 menu_settings.lua:86 reader_settings.lua:285 status_bar_settings.lua:30
+#: quick_settings.lua:586 quick_settings.lua:588 general_settings.lua:17
+#: menu_settings.lua:86 reader_settings.lua:285 status_bar_settings.lua:30
 msgid "Wi-Fi"
 msgstr "Wi-Fi"
 
@@ -7604,7 +7949,10 @@ msgstr "Configuración de widgets"
 
 #. Type: title
 #. Context: Título en los ajustes de estadísticas de lectura. Nombre de un ajuste en los ajustes de la pantalla del final del libro. Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
-#: end_book_settings.lua:269 stats_settings.lua:212 stats_settings.lua:278 stats_settings.lua:302 stats_settings.lua:334 home_settings.lua:1529 home_settings.lua:2001 home_settings.lua:2637 home_settings.lua:2653 home_settings.lua:2667
+#: end_book_settings.lua:269 stats_settings.lua:212 stats_settings.lua:278
+#: stats_settings.lua:302 stats_settings.lua:334 home_settings.lua:1529
+#: home_settings.lua:2001 home_settings.lua:2637 home_settings.lua:2653
+#: home_settings.lua:2667
 msgid "Widgets"
 msgstr "Widgets"
 
@@ -7684,19 +8032,19 @@ msgstr "Resumen de lectura"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
 #: reader_settings.lua:1265
 msgid "Zen highlight menu"
-msgstr "Menú de resaltado"
+msgstr "Mostrar menú de resaltado"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión. Nombre de un ajuste en los ajustes de apariencia de la interfaz.
 #: zen_settings.lua:63 global_settings.lua:974
 msgid "Zen Keyboard"
-msgstr "Teclado"
+msgstr "Activar Teclado Zen"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
 #: interface_settings.lua:500 menu_settings.lua:91
 msgid "Zen mode"
-msgstr "Modo Zen"
+msgstr "Activar modo Zen"
 
 #. Type: title
 #. Context: Título en la guía de configuración.
@@ -7726,13 +8074,13 @@ msgstr "Modo Zen: activado"
 #. Context: Nombre de un ajuste en el menú principal de ajustes de Zen. Nombre de un ajuste en los ajustes de funciones adicionales e integraciones.
 #: zen_settings.lua:61 extras_settings.lua:81
 msgid "Zen OPDS"
-msgstr "Zen OPDS"
+msgstr "Activar Zen OPDS"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
 #: reader_settings.lua:1379
 msgid "Zen page browser"
-msgstr "Explorador de páginas"
+msgstr "Navegador de páginas"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
@@ -7744,13 +8092,13 @@ msgstr "Preajustes"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
 #: reader_settings.lua:1264
 msgid "Zen quick lookup"
-msgstr "Búsqueda rápida"
+msgstr "Mostrar búsqueda rápida"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión. Nombre de un ajuste en los ajustes de apariencia de la interfaz.
 #: zen_settings.lua:62 global_settings.lua:380
 msgid "Zen Search"
-msgstr "Búsqueda"
+msgstr "Activar Búsqueda Zen"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
@@ -7760,7 +8108,14 @@ msgstr "ZenFM"
 
 #. Type: title
 #. Context: Título en la interfaz de ZenOS. Etiqueta en el menú de acciones de gestos y atajos. Nombre de un ajuste en el menú principal de ajustes de Zen. También se usa en otras partes de ZenOS.
-#: main.lua:533 dispatch_action.lua:404 dispatch_action.lua:406 dispatch_action.lua:496 dispatch_action.lua:502 dispatch_action.lua:508 dispatch_action.lua:514 dispatch_action.lua:520 dispatch_action.lua:526 dispatch_action.lua:532 dispatch_action.lua:538 dispatch_action.lua:544 dispatch_action.lua:550 dispatch_action.lua:556 dispatch_action.lua:562 dispatch_action.lua:568 dispatch_action.lua:586 zen_settings.lua:122 zen_updater.lua:1555 zen_updater.lua:1575 zen_updater.lua:1588 zen_updater.lua:1599 about_settings.lua:43
+#: main.lua:533 dispatch_action.lua:404 dispatch_action.lua:406
+#: dispatch_action.lua:496 dispatch_action.lua:502 dispatch_action.lua:508
+#: dispatch_action.lua:514 dispatch_action.lua:520 dispatch_action.lua:526
+#: dispatch_action.lua:532 dispatch_action.lua:538 dispatch_action.lua:544
+#: dispatch_action.lua:550 dispatch_action.lua:556 dispatch_action.lua:562
+#: dispatch_action.lua:568 dispatch_action.lua:586 zen_settings.lua:122
+#: zen_updater.lua:1555 zen_updater.lua:1575 zen_updater.lua:1588
+#: zen_updater.lua:1599 about_settings.lua:43
 msgid "ZenOS"
 msgstr "ZenOS"
 
