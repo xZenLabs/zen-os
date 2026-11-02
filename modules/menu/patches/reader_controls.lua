@@ -790,7 +790,8 @@ return function(plugin)
                         end
                         if not pending then
                             pending = true
-                            UIManager:scheduleIn(0.15, preview)
+                            -- CRE previews re-layout the book; throttle them harder than paged docs.
+                            UIManager:scheduleIn(ui.rolling and 0.5 or 0.15, preview)
                         end
                     else
                         UIManager:setDirty(tm, "ui", widget and widget.dimen or slider.dimen)
@@ -1000,7 +1001,8 @@ return function(plugin)
         end
         self.dimen.h = self[1]:getSize().h
         if previous then
-            UIManager:setDirty(self.show_parent or self, "ui")
+            -- Panel region only; a height change relayouts the parent via on_layout_changed.
+            UIManager:setDirty(self.show_parent or self, "ui", self.dimen.x and self.dimen or nil)
             if self.on_layout_changed then self.on_layout_changed() end
         end
     end

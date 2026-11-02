@@ -813,4 +813,21 @@ describe("battery stats", function()
         assert.are.equal(1600, stats.design_mah)
         assert.are.equal(75, stats.health)
     end)
+
+    it("keeps a charging session across FileManager and ReaderUI instance swaps", function()
+        charging, level = true, 20
+        BatteryStats.start()
+        local session_start = stored.charge_session.start_time
+        local writes_before = writes
+        now, level = now + 600, 30
+        BatteryStats.flush() -- old plugin instance closes
+        BatteryStats.start() -- new instance: already running, no reload or gap sample
+        assert.are.equal(writes_before + 1, writes)
+        now, level = now + 600, 40
+        scheduled[#scheduled].callback()
+
+        assert.are.equal(session_start, stored.charge_session.start_time)
+        assert.are.equal(40, stored.charge_session.level)
+        assert.is_nil(stored.events[#stored.events].gap)
+    end)
 end)

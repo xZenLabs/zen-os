@@ -874,7 +874,7 @@ def test_fixed_layout_reader_controls(extension):
                     current = changed["config"][name]
                     assert current < previous if name == "white_threshold" else current > previous
                     if name == "white_threshold":
-                        assert current == state["slider_states"][name]["presets"][1]
+                        assert current == previous - 1
             contrast = state["config"]["contrast"]
             driver.command("reader_controls", action="choose", id="contrast_increase")
             assert driver.command("reader_controls")["config"]["contrast"] > contrast
@@ -958,7 +958,7 @@ def test_fixed_layout_reader_controls(extension):
             state = _page_with(driver, "zoom_overlap_h")
             for name in ["zoom_overlap_h", "zoom_overlap_v"]:
                 previous = state["config"][name]
-                expected = next(preset for preset in state["slider_states"][name]["presets"] if preset > previous)
+                expected = previous + 1
                 driver.command("reader_controls", action="choose", id=name + "_increase")
                 state = driver.command("reader_controls", action="paint")
                 assert state["config"][name] == expected > previous
@@ -1193,6 +1193,14 @@ def test_reader_font_pickers_swipes_steps_and_formatting_background():
             assert driver.command("reader_controls")["config"]["font_size"] == size
             state = driver.command("reader_controls", action="choose", id="font_size_increase")
             assert state["config"]["font_size"] == size + 0.5
+            driver.command("reader_controls", action="choose", id="font_size_more")
+            driver.command("reader_controls", action="setting_menu", button="Set value")
+            assert not driver.command("reader_controls", action="setting_menu")["ok"]
+            spin = driver.command("reader_controls", action="spin")
+            assert spin["ok"] and spin["value"] == size + 0.5 and spin["value_step"] == 0.5
+            driver.command("reader_controls", action="spin", value=size + 3)
+            assert not driver.command("reader_controls", action="spin")["ok"]
+            assert driver.command("reader_controls")["config"]["font_size"] == size + 3
             state = driver.command("reader_controls")
             assert state["font_count"] == 0
             assert "font_base_weight_more" in state["controls"]

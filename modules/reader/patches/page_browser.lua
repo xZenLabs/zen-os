@@ -8,6 +8,7 @@ local function apply_page_browser()
     -- Dependencies
     -- -----------------------------------------------------------------------
     local UIManager    = require("ui/uimanager")
+    local time         = require("ui/time")
     local Event        = require("ui/event")
     local Device       = require("device")
     local ReaderThumbnail = require("apps/reader/modules/readerthumbnail")
@@ -1382,11 +1383,11 @@ local function apply_page_browser()
                 local nr = self._zen_nb_rows_override or nc
                 self._zen_nb_cols_override = nil
                 self._zen_nb_rows_override = nil
-                logger.dbg("forcing cols="..nc.." rows="..nr)
+                logger.dbg("forcing cols=", nc, "rows=", nr)
                 if ds then
                     _saved_ds_cols = ds:readSetting("page_browser_nb_cols")
                     _saved_ds_rows = ds:readSetting("page_browser_nb_rows")
-                    logger.dbg("saved ds cols="..tostring(_saved_ds_cols).." rows="..tostring(_saved_ds_rows))
+                    logger.dbg("saved ds cols=", _saved_ds_cols, "rows=", _saved_ds_rows)
                     ds:saveSetting("page_browser_nb_cols", nc)
                     ds:saveSetting("page_browser_nb_rows", nr)
                     _zen_ds_patched = true
@@ -1403,7 +1404,7 @@ local function apply_page_browser()
 
             _orig_updateLayout(self)
 
-            logger.dbg("after orig nb_cols="..tostring(self.nb_cols).." nb_rows="..tostring(self.nb_rows).." nb_grid_items="..tostring(self.nb_grid_items))
+            logger.dbg("after orig nb_cols=", self.nb_cols, "nb_rows=", self.nb_rows, "nb_grid_items=", self.nb_grid_items)
 
             -- Restore span_height so the detached BookMapRow is self-consistent.
             self.span_height = orig_span_h
@@ -1420,7 +1421,7 @@ local function apply_page_browser()
                 else
                     ds:delSetting("page_browser_nb_rows")
                 end
-                logger.dbg("restored ds cols="..tostring(_saved_ds_cols).." rows="..tostring(_saved_ds_rows))
+                logger.dbg("restored ds cols=", _saved_ds_cols, "rows=", _saved_ds_rows)
             end
             end -- panel_only_rebuild else
 
@@ -1742,11 +1743,11 @@ local function apply_page_browser()
                 UIManager:setDirty(nil, "fast", pbw._zen_scrub_dimen or pbw.dimen)
             end
 
-            -- Deferred scrub dirty: fires the throttled setDirty at the end
-            -- of the throttle window so the most recent state is displayed.
+            -- Trailing scrub paint: shows the latest page once pan events pause.
+            local SCRUB_PAINT_INTERVAL = time.ms(100)
             self._zen_scrub_dirty_func = function()
                 if not self._zen_scrubbing then return end
-                self._zen_last_scrub_dirty = os.clock()
+                self._zen_last_scrub_dirty = time.now()
                 directPaintScrub(self.focus_page or self.cur_page or 1,
                     chapter_title(visible_page_raw(self, self.focus_page or self.cur_page or 1)))
             end
@@ -1774,9 +1775,16 @@ local function apply_page_browser()
                             if dragging then
                                 UIManager:unschedule(self._zen_deferred_update)
                                 UIManager:scheduleIn(0.25, self._zen_deferred_update)
-                                -- Paint grid placeholders + slider + label
-                                -- directly to Screen.bb and push one A2 refresh.
-                                directPaintScrub(v, chapter_title(visible_page_raw(self, v)))
+                                -- Paint grid placeholders + slider + label directly to Screen.bb
+                                -- with one A2 refresh, at most every SCRUB_PAINT_INTERVAL.
+                                UIManager:unschedule(self._zen_scrub_dirty_func)
+                                local last = self._zen_last_scrub_dirty
+                                if last and time.now() - last < SCRUB_PAINT_INTERVAL then
+                                    UIManager:scheduleIn(time.to_s(SCRUB_PAINT_INTERVAL), self._zen_scrub_dirty_func)
+                                else
+                                    self._zen_last_scrub_dirty = time.now()
+                                    directPaintScrub(v, chapter_title(visible_page_raw(self, v)))
+                                end
                             else
                                 UIManager:unschedule(self._zen_deferred_update)
                                 UIManager:unschedule(self._zen_scrub_dirty_func)
@@ -1973,12 +1981,9 @@ local function apply_page_browser()
                 return
             end
             local desired_focus_id = current_focus_id(self)
-            logger.dbg("focus_page="..tostring(self.focus_page)
-                .." cur_page="..tostring(self.cur_page)
-                .." scrubbing="..tostring(self._zen_scrubbing)
-                .." post_scrub="..tostring(self._zen_post_scrub)
-                .." nb_grid_items="..tostring(self.nb_grid_items)
-                .." nb_pages="..tostring(self.nb_pages))
+            logger.dbg("focus_page=", self.focus_page, "cur_page=", self.cur_page,
+                "scrubbing=", self._zen_scrubbing, "post_scrub=", self._zen_post_scrub,
+                "nb_grid_items=", self.nb_grid_items, "nb_pages=", self.nb_pages)
             configure_carousel_grid(self)
             -- On the very first call (focus_page is nil, init → updateLayout → update),
             -- pre-initialise focus_page from cur_page with clamping so the grid
@@ -1994,7 +1999,7 @@ local function apply_page_browser()
                 local min_fp = shift + 1
                 local max_fp = math.max(min_fp, total - items + 1 + shift)
                 self.focus_page = math.max(min_fp, math.min(max_fp, fp))
-                logger.dbg("clamped focus_page to "..tostring(self.focus_page))
+                logger.dbg("clamped focus_page to", self.focus_page)
             end
 
             -- Block showTile() from re-adding native page number widgets.
@@ -2097,8 +2102,7 @@ local function apply_page_browser()
                     w = tile.bb:getWidth(),
                     h = tile.bb:getHeight(),
                 }
-                logger.dbg("first tile bitmap seen, size "
-                    ..self._zen_tile_size.w.."x"..self._zen_tile_size.h)
+                logger.dbg("first tile bitmap seen, size", self._zen_tile_size.w, self._zen_tile_size.h)
             end
             -- During scrubbing and for one full repaint cycle after scrubbing
             -- ends, suppress per-tile display refreshes.  Without this, each
@@ -2106,13 +2110,9 @@ local function apply_page_browser()
             -- the multi-flash artifact on the panel area.
             -- _zen_post_scrub is cleared by the next paintTo call.
             local suppressed = (self._zen_scrubbing or self._zen_post_scrub) and do_refresh
-            logger.dbg("idx="..tostring(grid_idx)
-                .." page="..tostring(page)
-                .." has_bitmap="..tostring(has_bitmap)
-                .." do_refresh="..tostring(do_refresh)
-                .." suppressed="..tostring(suppressed ~= nil and suppressed ~= false)
-                .." scrubbing="..tostring(self._zen_scrubbing)
-                .." post_scrub="..tostring(self._zen_post_scrub))
+            logger.dbg("idx=", grid_idx, "page=", page, "has_bitmap=", has_bitmap,
+                "do_refresh=", do_refresh, "suppressed=", suppressed ~= nil and suppressed ~= false,
+                "scrubbing=", self._zen_scrubbing, "post_scrub=", self._zen_post_scrub)
             if suppressed then
                 return show_tile(self, grid_idx, page, tile, false)
             end
@@ -2309,7 +2309,7 @@ local function apply_page_browser()
 
         local _orig_onTap = PageBrowserWidget.onTap
         PageBrowserWidget.onTap = function(self, arg, ges)
-            logger.dbg("onTap at "..ges.pos.x..","..ges.pos.y)
+            logger.dbg("onTap at", ges.pos.x, ges.pos.y)
             if self._zen_status_row and self._zen_status_row.dimen:contains(ges.pos) then
                 require("modules/global/patches/menu_top_swipe").handleTap(nil, ges)
                 return true
@@ -2901,7 +2901,13 @@ local function apply_page_browser()
             _orig_initGesListener(self_rm)
         end
         register_page_browser_zone(self_rm.ui)
-        UIManager:scheduleIn(0.5, function() start_reader_tour(self_rm.ui) end)
+        -- One pending tour check per menu (also runs on rotation); skip once the book closed.
+        if self_rm._zen_tour_timer then UIManager:unschedule(self_rm._zen_tour_timer) end
+        self_rm._zen_tour_timer = function()
+            self_rm._zen_tour_timer = nil
+            if self_rm.ui and self_rm.ui.document then start_reader_tour(self_rm.ui) end
+        end
+        UIManager:scheduleIn(0.5, self_rm._zen_tour_timer)
     end
 
     -- onReaderReady is aliased to initGesListener in KOReader; keep in sync
@@ -3203,8 +3209,9 @@ local function apply_page_browser()
                 local orig_close_cb = menu.close_callback
                 menu.close_callback = function()
                     orig_close_cb()
-                    if self.view then
-                        UIManager:setDirty(self.view, "partial")
+                    -- ReaderView is not a window; dirty ReaderUI so paintTo actually runs.
+                    if self.ui then
+                        UIManager:setDirty(self.ui, "partial")
                     end
                 end
             end

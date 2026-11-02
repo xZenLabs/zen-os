@@ -545,14 +545,20 @@ local function apply_quick_settings()
 
     local open_quick_setting_settings
 
+    -- Picker-list hits are memoized: the fallback lists four icon dirs on every panel build.
+    local picker_icon_cache = {}
     local function resolveConfiguredIcon(name, fallback)
         if type(name) == "string" and name:sub(1, 1) == "/" then return name end
         local path = utils.resolveIcon(_icons_dir, name)
         if path then return path end
-        for _i, item in ipairs(utils.getIconPickerList(_plugin_root)) do
-            if item.name == name then return item.file end
+        if type(name) == "string" and picker_icon_cache[name] == nil then
+            picker_icon_cache[name] = false
+            for _i, item in ipairs(utils.getIconPickerList(_plugin_root)) do
+                if item.name == name then picker_icon_cache[name] = item.file; break end
+            end
         end
-        return utils.resolveLocalIcon(_icons_dir, fallback)
+        return type(name) == "string" and picker_icon_cache[name]
+            or utils.resolveLocalIcon(_icons_dir, fallback)
     end
 
     local button_defs = {
@@ -785,7 +791,10 @@ local function apply_quick_settings()
                     UIManager:broadcastEvent(Event:new("StartWirelessConnection"))
                 end
                 UIManager:scheduleIn(1, function()
-                    touch_menu:updateItems(1)
+                    -- Skip if the menu closed meanwhile; rebuilding re-binds the clock to a dead menu.
+                    if UIManager:isWidgetShown(touch_menu.show_parent or touch_menu) then
+                        touch_menu:updateItems(1)
+                    end
                 end)
             end,
         },

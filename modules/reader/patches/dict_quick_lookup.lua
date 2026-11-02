@@ -453,6 +453,7 @@ local function apply()
         if ui and is_enabled()
             and not self_dql.is_wiki and not self_dql.is_wiki_fullpage then
             local orig_handle = ui.handleEvent
+            local own_handle = rawget(ui, "handleEvent")
             ui.handleEvent = function(ui_self, event, ...)
                 local result = orig_handle(ui_self, event, ...)
                 -- Post-process after all DictButtonsReady handlers have run.
@@ -548,7 +549,8 @@ local function apply()
                 return result
             end
             local ok, err = pcall(orig_init, self_dql, ...)
-            ui.handleEvent = orig_handle -- always restore
+            -- Always restore; drop the instance field if there was none so later class patches still apply.
+            rawset(ui, "handleEvent", own_handle)
             if not ok then error(err) end
         else
             return orig_init(self_dql, ...)

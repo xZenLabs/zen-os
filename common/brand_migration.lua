@@ -740,6 +740,17 @@ function M.deletePluginSettings(options)
             end
         end
     end
+
+    -- Rebuildable caches kept outside the ZenOS settings tree.
+    if lfs then
+        local settings_parent = settings_parent_path(options)
+        if settings_parent then
+            for _i, suffix in ipairs({ "", "-wal", "-shm", "-journal" }) do
+                remove_tree(join(settings_parent, "docprops_cache.sqlite" .. suffix), lfs)
+            end
+        end
+        if data_dir then remove_tree(join(data_dir, "cache/zen-opds-covers"), lfs) end
+    end
     return true
 end
 

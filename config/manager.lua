@@ -1105,14 +1105,16 @@ local function migrate_changed_defaults(cfg)
         changed = true
     end
 
-    if cfg._meta.reader_pin_header_migrated ~= true then
+    local top_bar = type(cfg.reader_top_status_bar) == "table" and cfg.reader_top_status_bar
+    if cfg._meta.reader_pin_header_migrated ~= true and top_bar then
         local has_pin = false
         for _i, slot in ipairs({ "left_order", "center_order", "right_order" }) do
-            for _j, key in ipairs(cfg.reader_top_status_bar[slot]) do
+            if type(top_bar[slot]) ~= "table" then top_bar[slot] = {} end
+            for _j, key in ipairs(top_bar[slot]) do
                 if key == "pin" then has_pin = true end
             end
         end
-        if not has_pin then table.insert(cfg.reader_top_status_bar.right_order, "pin") end
+        if not has_pin then table.insert(top_bar.right_order, "pin") end
         cfg._meta.reader_pin_header_migrated = true
         changed = true
     end
@@ -1179,20 +1181,25 @@ local function migrate_changed_defaults(cfg)
         changed = true
     end
 
-    if cfg._meta.end_book_appearance_default_migrated ~= true then
-        cfg.end_book.modules.featured.show_description = false
-        cfg.end_book.modules.strip.center_books = false
+    local end_book = type(cfg.end_book) == "table" and cfg.end_book or nil
+    local end_modules = end_book and type(end_book.modules) == "table" and end_book.modules
+    if cfg._meta.end_book_appearance_default_migrated ~= true and end_modules then
+        if type(end_modules.featured) == "table" then end_modules.featured.show_description = false end
+        if type(end_modules.strip) == "table" then end_modules.strip.center_books = false end
         cfg._meta.end_book_appearance_default_migrated = true
         changed = true
     end
 
-    local has_rating = false
-    for _i, id in ipairs(cfg.end_book.rows.order) do
-        if id == "rating" then has_rating = true; break end
-    end
-    if not has_rating then
-        table.insert(cfg.end_book.rows.order, "rating")
-        changed = true
+    local end_rows = end_book and type(end_book.rows) == "table" and end_book.rows
+    if end_rows and type(end_rows.order) == "table" then
+        local has_rating = false
+        for _i, id in ipairs(end_rows.order) do
+            if id == "rating" then has_rating = true; break end
+        end
+        if not has_rating then
+            table.insert(end_rows.order, "rating")
+            changed = true
+        end
     end
 
     if cfg._meta.library_font_hyperreadable_default_migrated ~= true then

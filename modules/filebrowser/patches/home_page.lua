@@ -1260,8 +1260,15 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
                 series_index = metadata.series_index or series_index
                 description = metadata.description or description
                 if bi and type(BookInfoManager.setBookInfoProperties) == "function" then
-                    pcall(BookInfoManager.setBookInfoProperties,
-                        BookInfoManager, path, metadata)
+                    -- Write only on change: each DB write invalidates the group-tab caches.
+                    local changed = false
+                    for key, value in pairs(metadata) do
+                        if bi[key] ~= value then changed = true; break end
+                    end
+                    if changed then
+                        pcall(BookInfoManager.setBookInfoProperties,
+                            BookInfoManager, path, metadata)
+                    end
                 end
             end
             has_real_cover = not not (bi and bi.cover_fetched and bi.has_cover
@@ -3970,6 +3977,7 @@ function M.showHomeView(injectNavbar, initial_refresh_type)
 
     UIManager:show(menu)
     UIManager:nextTick(function()
+        if menu._zen_home_closing then return end -- replaced/closed before first build
         rebuild(true, initial_refresh_type)
         if menu._zen_status_refresh then
             menu:_zen_status_refresh()

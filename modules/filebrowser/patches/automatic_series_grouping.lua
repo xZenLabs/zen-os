@@ -99,23 +99,20 @@ local function apply_automatic_series_grouping()
         item.doc_props = props
     end
 
+    -- Shin chilling BOOKINFO_DB_VERSION >= 20201210
+    local DIR_SQL = "SELECT " .. table.concat({
+        "directory", "filename", "filesize", "filemtime", "in_progress",
+        "unsupported", "cover_fetched", "has_meta", "has_cover",
+        "cover_sizetag", "ignore_meta", "ignore_cover", "pages",
+        "title", "authors", "series", "series_index", "language",
+        "keywords", "description",
+    }, ",") .. " FROM bookinfo WHERE directory=? AND in_progress=0;"
+
     local function prefetch_directory_metadata(dir_path)
         BookInfoManager:openDbConnection()
 
-        if not BookInfoManager._zen_dir_stmt then
-            -- Shin chilling BOOKINFO_DB_VERSION >= 20201210
-            local cols = {
-                "directory", "filename", "filesize", "filemtime", "in_progress",
-                "unsupported", "cover_fetched", "has_meta", "has_cover",
-                "cover_sizetag", "ignore_meta", "ignore_cover", "pages",
-                "title", "authors", "series", "series_index", "language",
-                "keywords", "description"
-            }
-            local sql = "SELECT " .. table.concat(cols, ",") .. " FROM bookinfo WHERE directory=? AND in_progress=0;"
-            BookInfoManager._zen_dir_stmt = BookInfoManager.db_conn:prepare(sql)
-        end
-
-        local stmt = BookInfoManager._zen_dir_stmt
+        -- Prepared per call: closeDbConnection() (before every extraction) closes cached statements.
+        local stmt = BookInfoManager.db_conn:prepare(DIR_SQL)
         stmt:bind(dir_path)
 
         local metadata_map = {}
@@ -138,7 +135,7 @@ local function apply_automatic_series_grouping()
                 }
             end
         end
-        stmt:clearbind():reset()
+        stmt:close()
         return metadata_map
     end
 
@@ -149,7 +146,7 @@ local function apply_automatic_series_grouping()
         local path = item.path or item.file
         if not path then return nil end
 
-        local _, filename = util.splitFilePathName(path)
+        local filename = select(2, util.splitFilePathName(path))
 
         if cache and cache[filename] then
             item.doc_props = cache[filename]
@@ -344,7 +341,7 @@ local function apply_automatic_series_grouping()
         end
 
         if first_file_path then
-            local directory, _ = util.splitFilePathName(first_file_path)
+            local directory = util.splitFilePathName(first_file_path)
             local ok, cached_map = pcall(prefetch_directory_metadata, directory)
             if ok and cached_map then
                 current_dir_cache = cached_map

@@ -364,19 +364,19 @@ local function setup_display_mode(menu, is_group_view, tab_id, group_name)
             -- Called as menu.getBookInfo(filepath) — dot syntax, ONE arg only.
             menu.getBookInfo = function(file_path)
                 if not file_path then return {} end
-                local pages = zen_utils.getStablePageCount(file_path)
-                local ok_ds, DocSettings = pcall(require, "docsettings")
-                if not ok_ds then return { pages = pages } end
-                if not DocSettings:hasSidecarFile(file_path) then return { pages = pages } end
-                local ok2, doc = pcall(DocSettings.open, DocSettings, file_path)
-                if not ok2 or not doc then return { pages = pages } end
-                local summary = doc:readSetting("summary")
-                local stats   = doc:readSetting("stats")
-                pages = pages or zen_utils.getStablePageCount(file_path, stats and stats.pages)
+                -- Cached status lookup shares its sidecar with the page count.
+                local data = book_status.getFileStatusData(file_path)
+                local pages = zen_utils.getStablePageCount(file_path, nil, {
+                    doc_settings = data.doc_settings,
+                    sidecar_checked = data.sidecar_checked,
+                    book_info = data.book_info,
+                    book_info_checked = data.book_info ~= nil or data.doc_settings ~= nil,
+                })
+                if not data.doc_settings then return { pages = pages } end
                 return {
                     been_opened      = true,
-                    percent_finished = doc:readSetting("percent_finished"),
-                    status           = summary and summary.status,
+                    percent_finished = data.percent_finished,
+                    status           = data.status,
                     pages            = pages,
                 }
             end

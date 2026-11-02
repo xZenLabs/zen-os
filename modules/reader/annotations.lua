@@ -203,30 +203,35 @@ function Session:loadAll(on_update)
     history:reload(false)
     local realpath = require("ffi/util").realpath
     local current_file = self.ui and self.ui.document.file
-    local paths, seen = {}, {}
+    local entries, seen = history.hist or {}, {}
     if current_file then seen[current_file], seen[realpath(current_file) or current_file] = true, true end
-    for _i, entry in ipairs(history.hist or {}) do
-        local path = entry.file and (realpath(entry.file) or entry.file)
-        if path and not seen[path] and lfs.attributes(path, "mode") == "file" then
-            seen[path] = true
-            paths[#paths + 1] = path
-        end
-    end
     self.loading = true
     local offset = 1
     local UIManager = require("ui/uimanager")
+    local time = require("ui/time")
+    local last_update -- full viewer rebuilds are throttled to one per second while loading
     self.worker = function()
         if self.closed then return end
-        for _i = 1, 10 do
-            local file = paths[offset]
-            if not file then break end
-            local ok, records = pcall(load_book, file)
-            if ok then self.books[file] = records end
+        -- Paths resolve inside each batch so opening "All books" never stalls on the whole history.
+        local loaded = 0
+        while loaded < 10 and offset <= #entries do
+            local entry = entries[offset]
             offset = offset + 1
+            local file = entry.file and (realpath(entry.file) or entry.file)
+            if file and not seen[file] and lfs.attributes(file, "mode") == "file" then
+                seen[file] = true
+                loaded = loaded + 1
+                local ok, records = pcall(load_book, file)
+                if ok then self.books[file] = records end
+            end
         end
-        self.loading = offset <= #paths
+        self.loading = offset <= #entries
         self.loaded = not self.loading
-        on_update()
+        local now = time.now()
+        if self.loaded or not last_update or now - last_update >= time.s(1) then
+            last_update = now
+            on_update()
+        end
         if self.loading and not self.closed then UIManager:scheduleIn(0.01, self.worker) end
     end
     UIManager:nextTick(self.worker)

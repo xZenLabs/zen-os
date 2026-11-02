@@ -120,7 +120,6 @@ local function apply_reader_top_status_bar()
 
     -- === Caches for slow item fetchers ===
 
-    local cached_disk_text, cached_disk_time = nil, 0
     local cached_ram_text,  cached_ram_time  = nil, 0
 
     local colors = {
@@ -181,33 +180,7 @@ local function apply_reader_top_status_bar()
     end
 
     local function getDiskItem()
-        local now = os.time()
-        if cached_disk_text and (now - cached_disk_time) < 300 then
-            return "\u{F0A0}", " " .. cached_disk_text, colors.resource
-        end
-        local paths = require("common/paths")
-        local home_dir = paths.getHomeDir()
-        local dirs = {}
-        if home_dir and home_dir ~= "" then table.insert(dirs, home_dir) end
-        for _i, p in ipairs({ "/mnt/us", "/mnt/onboard", "/sdcard", "/" }) do
-            table.insert(dirs, p)
-        end
-        for _i, dir in ipairs(dirs) do
-            local pipe = io.popen("df -h " .. dir .. " 2>/dev/null")
-            if pipe then
-                for line in pipe:lines() do
-                    local avail = line:match("%S+%s+%S+%s+%S+%s+(%S+)")
-                    if avail and avail:match("^%d") then
-                        pipe:close()
-                        cached_disk_text = avail
-                        cached_disk_time = now
-                        return "\u{F0A0}", " " .. avail, colors.resource
-                    end
-                end
-                pipe:close()
-            end
-        end
-        return "\u{F0A0}", " ?", colors.resource
+        return "\u{F0A0}", " " .. (zen_utils.getDiskFreeText() or "?"), colors.resource
     end
 
     local function getFrontlightItem()
@@ -463,16 +436,12 @@ local function apply_reader_top_status_bar()
     local function measureTextsWidth(texts, face, sep)
         if type(texts) ~= "table" or #texts == 0 then return 0 end
         local total = 0
+        if #texts > 1 and sep ~= "" then
+            local sep_w = TextWidget:new{ text = sep, face = face, padding = 0 }
+            total = sep_w:getSize().w * (#texts - 1)
+            sep_w:free()
+        end
         for i = 1, #texts do
-            if i > 1 and sep ~= "" then
-                local sep_w = TextWidget:new{
-                    text = sep,
-                    face = face,
-                    padding = 0,
-                }
-                total = total + sep_w:getSize().w
-                sep_w:free()
-            end
             if texts[i].file then
                 total = total + texts[i].size
             else
@@ -489,13 +458,13 @@ local function apply_reader_top_status_bar()
     -- Builds a HorizontalGroup from pre-collected texts.
     -- Truncate overflowing text while preserving SVG icons.
     -- Returns (group_or_nil, widgets_list, natural_width).
-    local function buildGroupFromTexts(texts, face, sep, max_width)
+    local function buildGroupFromTexts(texts, face, sep, max_width, natural_w)
         if type(texts) ~= "table" or #texts == 0 then return nil, {}, 0 end
-        if max_width and max_width <= 0 then return nil, {}, measureTextsWidth(texts, face, sep) end
+        natural_w = natural_w or measureTextsWidth(texts, face, sep) -- callers pass it; avoids re-shaping per paint
+        if max_width and max_width <= 0 then return nil, {}, natural_w end
         local group = HorizontalGroup:new{}
         local widgets = {}
         local has_image = false
-        local natural_w = measureTextsWidth(texts, face, sep)
         for i = 1, #texts do
             if i > 1 and sep ~= "" then
                 local sep_w = ColorTextWidget:new{
@@ -834,9 +803,9 @@ local function apply_reader_top_status_bar()
             end
         end
 
-        local left_grp, left_ws = buildGroupFromTexts(left_texts, face, left_sep, left_cap)
-        local center_grp, center_ws = buildGroupFromTexts(center_texts, face, center_sep, center_cap)
-        local right_grp, right_ws = buildGroupFromTexts(right_texts, face, right_sep, right_cap)
+        local left_grp, left_ws = buildGroupFromTexts(left_texts, face, left_sep, left_cap, left_nat)
+        local center_grp, center_ws = buildGroupFromTexts(center_texts, face, center_sep, center_cap, center_nat)
+        local right_grp, right_ws = buildGroupFromTexts(right_texts, face, right_sep, right_cap, right_nat)
 
         for _i, w in ipairs(left_ws)   do table.insert(all_widgets, w) end
         for _i, w in ipairs(center_ws) do table.insert(all_widgets, w) end

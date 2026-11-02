@@ -253,32 +253,6 @@ local function annotation_quotes(perf)
         add_book(item.file)
     end
 
-    local DataStorage = require("datastorage")
-    local db_path = DataStorage:getDataDir() .. "/bookinfo_cache.db"
-    if lfs.attributes(db_path, "mode") == "file" then
-        local ok_sq, SQ3 = pcall(require, "lua-ljsqlite3/init")
-        local ok_db, db
-        if ok_sq then ok_db, db = pcall(SQ3.open, db_path) end
-        if ok_db and db then
-            local ok_stmt, stmt = pcall(function()
-                return db:prepare(
-                    "SELECT directory, filename FROM bookinfo "
-                    .. "WHERE directory IS NOT NULL AND filename IS NOT NULL"
-                )
-            end)
-            if ok_stmt and stmt then
-                pcall(function()
-                    for row in stmt:nrows() do
-                        local separator = row.directory:sub(-1) == "/" and "" or "/"
-                        add_book(row.directory .. separator .. row.filename)
-                    end
-                end)
-                pcall(function() stmt:close() end)
-            end
-            pcall(function() db:close() end)
-        end
-    end
-
     table.sort(quotes, function(a, b)
         if a.filepath ~= b.filepath then return a.filepath < b.filepath end
         local a_page, b_page = tonumber(a.page) or 0, tonumber(b.page) or 0

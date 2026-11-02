@@ -447,7 +447,7 @@ describe("page browser entry", function()
         _G.__ZEN_UI_PLUGIN = plugin
         require("modules/reader/patches/page_browser")()
 
-        local ui = { registerTouchZones = function() end }
+        local ui = { registerTouchZones = function() end, document = {} }
         ReaderMenu.onReaderReady({ ui = ui })
         expect(scheduled.delay == 0.5)
         scheduled.callback()

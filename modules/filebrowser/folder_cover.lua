@@ -405,6 +405,8 @@ function M.entries(menu, entry, load_members, limit)
     return nil, false
 end
 
+local finished_cache = {} -- path -> { mtime, revision, at, value }
+
 local function member_status(entry)
     if entry._zen_effective_status then return entry._zen_effective_status end
     if entry.status ~= nil or entry.percent_finished ~= nil then
@@ -416,25 +418,38 @@ local function member_status(entry)
     if ok then return status end
 end
 
+local function scan_all_finished(menu, path)
+    local ok, iter, dir_obj = pcall(lfs.dir, path)
+    if not ok then return false end
+    local collate_id = sort_policy(menu, path)
+    local needs_attributes = collate_id == "access" or collate_id == "date"
+        or collate_id == "size"
+    local seen = 0
+    for name in iter, dir_obj do
+        local book = visible_book(menu, path, name, needs_attributes)
+        if book then
+            seen = seen + 1
+            if member_status({ path = book }) ~= "complete" then return false end
+        end
+    end
+    return seen > 0
+end
+
 function M.allBooksFinished(menu, entry, entries, count)
     count = tonumber(count) or 0
     if count < 1 then return false end
     if type(entries) ~= "table" or #entries < count then
         if is_directory(entry) and not is_virtual(entry, menu) and entry.path then
-            local ok, iter, dir_obj = pcall(lfs.dir, entry.path)
-            if not ok then return false end
-            local collate_id = sort_policy(menu, entry.path)
-            local needs_attributes = collate_id == "access" or collate_id == "date"
-                or collate_id == "size"
-            local seen = 0
-            for name in iter, dir_obj do
-                local path = visible_book(menu, entry.path, name, needs_attributes)
-                if path then
-                    seen = seen + 1
-                    if member_status({ path = path }) ~= "complete" then return false end
-                end
+            -- Tiles repaint often; rescan only after a folder or status change (60 s cap for external edits).
+            local mtime = lfs.attributes(entry.path, "modification")
+            local revision = BookStatus.revision and BookStatus.revision() or 0
+            local hit = finished_cache[entry.path]
+            if hit and hit.mtime == mtime and hit.revision == revision and os.time() - hit.at < 60 then
+                return hit.value
             end
-            return seen > 0
+            local value = scan_all_finished(menu, entry.path)
+            finished_cache[entry.path] = { mtime = mtime, revision = revision, at = os.time(), value = value }
+            return value
         end
         local loaded = { M.entries(menu, entry, true, count) }
         entries = loaded[1]
@@ -1059,8 +1074,10 @@ function M.clear(path)
     if not path then
         descriptor_cache = { values = {}, order = {} }
         history_cache = nil
+        finished_cache = {}
         return
     end
+    finished_cache[path] = nil
     descriptor_cache.values[path] = nil
     for index = #descriptor_cache.order, 1, -1 do
         if descriptor_cache.order[index] == path then

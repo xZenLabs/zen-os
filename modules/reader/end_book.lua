@@ -120,8 +120,9 @@ end
 function EndBook:refreshBookMenu(path)
     if self.closed then return end
     local home = SharedState.get(self.plugin, "home")
-    home.invalidateBookCache(path or self._book_menu_path)
-    home.invalidateLibraryCache()
+    -- Per-book invalidation also refreshes TBR for this path; no full library rescan.
+    path = path or self._book_menu_path
+    if path then home.invalidateBookCache(path) else home.invalidateLibraryCache() end
     self.data:invalidateRecommendations()
     self:rebuild()
 end

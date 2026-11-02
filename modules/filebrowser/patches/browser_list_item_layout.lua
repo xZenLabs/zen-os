@@ -457,7 +457,13 @@ local function apply_browser_list_item_layout()
             -- ── Progress / right widget ───────────────────────────────────────
             local status_data = book_status.getFileStatusData(filepath, book_info)
             local percent_finished = status_data.percent_finished
-            local pages = show.pages and zen_utils.getStablePageCount(filepath, book_info.pages or bookinfo.pages)
+            -- Reuse the status lookup's sidecar; avoids a DocSettings parse per row per redraw.
+            local pages = show.pages and zen_utils.getStablePageCount(filepath, book_info.pages or bookinfo.pages, {
+                doc_settings = status_data.doc_settings,
+                sidecar_checked = status_data.sidecar_checked,
+                book_info = status_data.book_info,
+                book_info_checked = status_data.book_info ~= nil or status_data.doc_settings ~= nil,
+            })
             local display_status = status_data.display_status or status_data.effective_status
             local is_new = display_status == "new"
             self._zen_effective_status = display_status

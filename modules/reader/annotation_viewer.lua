@@ -79,7 +79,7 @@ end
 
 local function refresh(pbw, file)
     if pbw._zen_closed then return end
-    M.session(pbw):refreshCurrent()
+    -- updateLayout -> M.build re-reads the current book; no second note read here.
     if file and (not pbw.ui or file ~= pbw.ui.document.file) then M.session(pbw):refreshBook(file) end
     pbw:updateLayout()
     UIManager:setDirty(pbw, "ui")

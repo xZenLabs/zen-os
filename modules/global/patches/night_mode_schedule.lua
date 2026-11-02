@@ -124,7 +124,10 @@ local function apply_night_mode_schedule()
                 end
             end
         end
-        UIManager:setDirty("all", getFullRefreshMode())
+        -- Forced resume re-checks with no change need no full-screen flash (HW invert is re-asserted above).
+        if changed or hw_invert then
+            UIManager:setDirty("all", getFullRefreshMode())
+        end
     end
 
     -- -------------------------------------------------------------------------

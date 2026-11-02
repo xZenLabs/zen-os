@@ -384,7 +384,13 @@ local function apply_browser_item_table_cache()
                 if is_directory then
                     read_time = directory_times[item._zen_canonical_path]
                 else
-                    read_time = HistoryIndex.fileTime(map, item.path, canonical_path)
+                    -- Memoized on the cached item: realpath per file per listing is costly.
+                    read_time = HistoryIndex.fileTime(map, item.path, function(path)
+                        if item._zen_canonical_path == nil then
+                            item._zen_canonical_path = canonical_path(path) or false
+                        end
+                        return item._zen_canonical_path or nil
+                    end)
                 end
                 if read_time then
                     item.attr = item.attr or {}
@@ -965,25 +971,28 @@ local function apply_browser_item_table_cache()
     end
 
     local function patch_coverbrowser(coverbrowser)
-        if not coverbrowser or coverbrowser._zen_item_table_cache_invalidation
-                or type(coverbrowser.onBookInfoUpdated) ~= "function" then return end
+        if not coverbrowser or coverbrowser._zen_item_table_cache_invalidation then return end
+        -- Stock CoverBrowser exposes onInvalidateMetadataCache(file); onBookInfoUpdated is legacy.
+        local method = type(coverbrowser.onBookInfoUpdated) == "function" and "onBookInfoUpdated"
+            or type(coverbrowser.onInvalidateMetadataCache) == "function" and "onInvalidateMetadataCache"
+        if not method then return end
         coverbrowser._zen_item_table_cache_invalidation = true
-        local original = coverbrowser.onBookInfoUpdated
-        function coverbrowser:onBookInfoUpdated(...)
-            local result = original(self, ...)
-            local FolderCover = package.loaded["modules/filebrowser/folder_cover"]
-            if FolderCover and type(FolderCover.clear) == "function" then
-                FolderCover.clear()
-            end
+        local original = coverbrowser[method]
+        coverbrowser[method] = function(self, file, ...)
+            local result = original(self, file, ...)
             local ok, FileManager = pcall(require, "apps/filemanager/filemanager")
             local chooser = ok and FileManager.instance and FileManager.instance.file_chooser
             if G_reader_settings:readSetting("collate", "strcoll") ~= "access"
                     or status_filter_active(chooser or FileChooser) then
-                shared_cache = { values = {}, order = {} }
-                clear_persisted_cache()
-                if chooser then
-                    chooser._zen_prepared_item_table = nil
+                local dir = type(file) == "string" and file:match("^(.*)/[^/]+$")
+                if dir and dir ~= "" then
+                    FileChooser._zen_invalidate_item_table_path(chooser or FileChooser, dir)
+                else
+                    FileChooser._zen_clear_item_table_cache(chooser or FileChooser)
                 end
+            else
+                local FolderCover = package.loaded["modules/filebrowser/folder_cover"]
+                if FolderCover and type(FolderCover.clear) == "function" then FolderCover.clear() end
             end
             return result
         end

@@ -29,7 +29,11 @@ function ReturnButton:refresh()
     UIManager:setDirty(self.ui, function() return "ui", self.dimen end)
 end
 
+local tracking -- button whose tab touch is being followed
+
 function ReturnButton:hide(refresh)
+    -- Drop the module-level touch reference so a closed ReaderUI can be collected.
+    if tracking == self then tracking, self.touch = nil, nil end
     if self.pending_callback then UIManager:unschedule(self.pending_callback); self.pending_callback = nil end
     if self.expire then UIManager:unschedule(self.expire); self.expire = nil end
     local visible = self.visible
@@ -88,8 +92,6 @@ function ReturnButton:paintTo(bb, x, y)
     self.dimen = frame.dimen
     frame:free()
 end
-
-local tracking -- button whose tab touch is being followed
 
 local function extend(touch, x, y)
     touch.down, touch.up = math.max(touch.down, y - touch.y), math.max(touch.up, touch.y - y)

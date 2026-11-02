@@ -16,7 +16,7 @@ describe("reader controls settings", function()
                     event = "SetFontSize", more_options_param = { value_min = 12, value_max = 255, value_step = 0.5 } },
                 { name = "h_page_margins", name_text = "L/R Margins", default_value = { 10, 10 },
                     values = { { 5, 5 }, { 10, 10 }, { 20, 20 }, { 40, 40 } },
-                    event = "SetPageHorizMargins", more_options_param = { left_min = 0, left_max = 140, left_step = 1 } },
+                    event = "SetPageHorizMargins", more_options = true, more_options_param = { left_min = 0, left_max = 140, left_step = 1 } },
                 { name = "view_mode", name_text = "View Mode", default_value = 0, values = { 0, 1 },
                     args = { "page", "scroll" }, event = "SetViewMode" },
                 { name = "font_fine_tune", values = { -1, 1 } },
@@ -145,11 +145,11 @@ describe("reader controls settings", function()
 
     it("keeps asymmetric margins until the paired slider is moved", function()
         local slider = Settings.slider(reader, "h_page_margins")
-        assert.are.equal(2, slider.value)
+        assert.are.equal(20, slider.value)
         assert.are.same({ 10, 30 }, reader.document.configurable.h_page_margins)
-        assert.are.same({ 40, 40 }, slider.decode(slider.value + 1))
-        assert.are.same({ 40, 40 }, slider.advance({ 10, 30 }, 1))
-        assert.are.equal(1, slider.default_value)
+        assert.are.same({ 21, 21 }, slider.decode(slider.value + 1))
+        assert.are.same({ 21, 21 }, slider.advance({ 10, 30 }, 1))
+        assert.are.equal(10, slider.default_value)
     end)
 
     it("reads the active native margin sync state before the stored setting", function()
@@ -168,28 +168,28 @@ describe("reader controls settings", function()
         assert.are.equal(23.75, slider.advance(23.25, 1))
     end)
 
-    it("uses native preset order and spacing instead of the granular picker range", function()
+    it("steps by KOReader's spin step in native preset order", function()
         reader.config.options[1].options[#reader.config.options[1].options + 1] = {
             name = "white_threshold", values = { 255, 224, 192, 160, 128, 96, 64, 32 }, default_value = 255,
-            more_options_param = { value_min = 0, value_max = 255, value_step = 1 },
+            more_options = true, more_options_param = { value_min = 0, value_max = 255, value_step = 1 },
         }
         reader.document.configurable.white_threshold = 255
         local slider = Settings.slider(reader, "white_threshold")
         assert.are.equal(0, slider.value)
-        assert.are.equal(4, slider.value_max)
-        assert.are.equal(224, slider.decode(1))
+        assert.are.equal(127, slider.value_max)
+        assert.are.equal(254, slider.decode(1))
         assert.are.equal(128, slider.decode(slider.value_max))
-        assert.are.equal(32, slider.advance(64, 1))
+        assert.are.equal(63, slider.advance(64, 1))
         assert.are.equal(0, slider.default_value)
         reader.document.configurable.white_threshold = 230
         slider = Settings.slider(reader, "white_threshold")
-        assert.are.equal((255 - 230) / (255 - 224), slider.value)
+        assert.are.equal(25, slider.value)
         assert.are.equal(230, reader.document.configurable.white_threshold)
-        assert.are.equal(224, slider.advance(230, 1))
-        assert.are.equal(255, slider.advance(230, -1))
+        assert.are.equal(229, slider.advance(230, 1))
+        assert.are.equal(231, slider.advance(230, -1))
         assert.are.equal(255, slider.advance(255, -1))
         globals:saveSetting("copt_white_threshold", 208)
-        assert.are.equal(1.5, Settings.slider(reader, "white_threshold").default_value)
+        assert.are.equal(47, Settings.slider(reader, "white_threshold").default_value)
     end)
 
     it("zooms font size to five nearby presets while retaining native fine steps", function()
@@ -236,17 +236,18 @@ describe("reader controls settings", function()
         assert.are.equal(100.25, slider.decode(slider.value))
     end)
 
-    it("keeps uneven and negative native steps without filling gaps", function()
+    it("fills preset gaps with KOReader's negative-range spin step", function()
         reader.config.options[1].options[#reader.config.options[1].options + 1] = {
             name = "font_base_weight", values = { -1, -0.5, 0, 0.5, 1, 1.5, 3 }, default_value = 0,
-            more_options_param = { value_min = -3, value_max = 5.5, value_step = 0.25 },
+            more_options = true, more_options_param = { value_min = -3, value_max = 5.5, value_step = 0.25 },
         }
         reader.document.configurable.font_base_weight = 1.5
         local slider = Settings.slider(reader, "font_base_weight")
-        assert.are.equal(-1, slider.decode(0))
-        assert.are.equal(3, slider.decode(slider.value + 1))
-        assert.are.equal(2, slider.default_value)
+        assert.are.equal(-1, slider.decode(slider.value_min))
+        assert.are.equal(1.75, slider.decode(slider.value + 1))
+        assert.are.equal(12, slider.default_value)
         assert.are.equal(1.5, slider.advance(1.25, 1))
+        assert.are.equal(-3, slider.advance(-3, -1))
     end)
 
     it("displays contrast using KOReader's gamma table between preset values", function()

@@ -552,7 +552,8 @@ end
 
 function Drawer:showImage()
     local viewer = require("ui/widget/imageviewer"):new{
-        image = self.preview.bb, image_disposable = false, fullscreen = true, with_title_bar = false,
+        -- Own copy: rotation closes the drawer and frees preview.bb under the viewer.
+        image = self.preview.bb:copy(), image_disposable = true, fullscreen = true, with_title_bar = false,
     }
     viewer.onTap = function(image_viewer) image_viewer:onClose(); return true end
     UIManager:show(viewer)

@@ -675,9 +675,10 @@ local function apply_context_menu()
                         close_actions()
                         show_collection_picker(files, function()
                             file_chooser:refreshPath()
+                            -- Collection membership is per book; skip the full TBR library rescan.
                             local home = zen_plugin and SharedState.get(zen_plugin, "home")
-                            if home and home.invalidateLibraryCache then
-                                home.invalidateLibraryCache()
+                            if home and home.invalidateBookCache then
+                                for file in pairs(files) do home.invalidateBookCache(file) end
                             end
                         end)
                     end,

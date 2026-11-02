@@ -336,6 +336,11 @@ function M.chargingChanged()
     UIManager:scheduleIn(1.5, charge_timer)
 end
 
+-- FileManager/ReaderUI swaps: record a sample but keep the session (no gap).
+function M.flush()
+    if settings and not sleeping then sample() end
+end
+
 function M.stop()
     if not settings then return end
     UIManager:unschedule(timer)

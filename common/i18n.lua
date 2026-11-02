@@ -130,8 +130,14 @@ end
 -- Inject ZenOS translations into the live GetText tables.
 -- Called at startup and again after every changeLang().
 -- ---------------------------------------------------------------------------
+local _parsed_lang, _parsed_t, _parsed_c
 local function applyZenTranslations(GetText, lang)
-    local translations, contexts = loadTranslationsForLang(lang)
+    -- Parse each .po once per language; refresh() only re-injects.
+    if _parsed_lang ~= lang then
+        _parsed_t, _parsed_c = loadTranslationsForLang(lang)
+        _parsed_lang = lang
+    end
+    local translations, contexts = _parsed_t, _parsed_c
     _translations = translations or {}
     _contexts = contexts or {}
     if not translations then

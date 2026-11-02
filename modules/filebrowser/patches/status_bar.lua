@@ -261,8 +261,6 @@ local function apply_status_bar()
     end
 
     -- Disk free space cache
-    local cached_disk_text = nil
-    local cached_disk_time = 0
     -- RAM usage cache
     local cached_ram_text = nil
     local cached_ram_time = 0
@@ -332,7 +330,7 @@ local function apply_status_bar()
         end
         local statm = io.open("/proc/self/statm", "r")
         if statm then
-            local _, rss = statm:read("*number", "*number")
+            local _size, rss = statm:read("*number", "*number")
             statm:close()
             if rss then
                 cached_ram_text = string.format("%dM", math.floor(rss / 256))
@@ -344,36 +342,7 @@ local function apply_status_bar()
     end
 
     local function getDiskInfo()
-        local now = os.time()
-        if cached_disk_text and (now - cached_disk_time) < 300 then
-            return "\u{F0A0}", " " .. cached_disk_text, colors.disk
-        end
-        -- Use the home_dir KOReader is actually browsing, then common fallbacks.
-        local home_dir = paths.getHomeDir()
-        local search_paths = {}
-        if home_dir and home_dir ~= "" then
-            table.insert(search_paths, home_dir)
-        end
-        for _i, p in ipairs({ "/mnt/us", "/mnt/onboard", "/sdcard", "/" }) do
-            table.insert(search_paths, p)
-        end
-        for _i, spath in ipairs(search_paths) do
-            local pipe = io.popen("df -h " .. spath .. " 2>/dev/null")
-            if pipe then
-                for line in pipe:lines() do
-                    local avail = line:match("%S+%s+%S+%s+%S+%s+(%S+)")
-                    -- Only accept lines where the available field starts with a digit
-                    if avail and avail:match("^%d") then
-                        pipe:close()
-                        cached_disk_text = avail
-                        cached_disk_time = now
-                        return "\u{F0A0}", " " .. avail, colors.disk
-                    end
-                end
-                pipe:close()
-            end
-        end
-        return "\u{F0A0}", " ?", colors.disk
+        return "\u{F0A0}", " " .. (utils.getDiskFreeText() or "?"), colors.disk
     end
 
     local function getFrontlightInfo()
@@ -1449,8 +1418,10 @@ local function apply_status_bar()
                 end
                 return orig_new(cls, t)
             end
-            orig_setupLayout(self)
+            -- Always restore: a layout error must not strip every TitleBar app-wide.
+            local ok, err = pcall(orig_setupLayout, self)
             TitleBar.new = orig_new
+            if not ok then error(err, 0) end
         else
             orig_setupLayout(self)
         end
@@ -1592,8 +1563,8 @@ local function apply_status_bar()
     local orig_onResume = FileManager.onResume
     FileManager.onResume = function(self)
         if orig_onResume then orig_onResume(self) end
+        local fm = self
         if is_enabled() then
-            local fm = self
             -- Refresh whichever bar is currently visible.  Two attempts because
             -- the screensaver may still be the topmost widget immediately after
             -- resume and block the guard on the first try.
@@ -1602,14 +1573,16 @@ local function apply_status_bar()
             end
             UIManager:scheduleIn(0.5, doResumeRefresh)
             UIManager:scheduleIn(1.5, doResumeRefresh)
-            -- Restart the shared minute heartbeat after the display settles.
-            UIManager:scheduleIn(2, function()
-                if FileManager.instance ~= fm or not _fm_autoRefresh then return end
-                clock_timer.resume()
+        end
+        -- Always unpause the shared heartbeat after the display settles; other
+        -- subscribers (Settings, Home, OPDS clocks) stop ticking otherwise.
+        UIManager:scheduleIn(2, function()
+            clock_timer.resume()
+            if is_enabled() and FileManager.instance == fm and _fm_autoRefresh then
                 syncMinuteRefresh(fm)
                 clock_timer.restart()
-            end)
-        end
+            end
+        end)
     end
 
     local orig_onCloseWidget = FileManager.onCloseWidget

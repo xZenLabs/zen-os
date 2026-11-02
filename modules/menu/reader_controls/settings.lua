@@ -125,21 +125,42 @@ function M.slider(reader, name, visible_presets)
     local params = fine and fine.more_options_param or option.more_options_param or {}
     local values = option.values or {}
     local function scalar(v) return type(v) == "table" and (v[1] + v[2]) / 2 or v end
-    local position, decode, advance, maximum
-    if fine or #values < 2 then
-        local lo = params.value_min or values[1]
-        local hi = params.value_max or values[#values]
-        local step = fine and fine.args and math.abs(fine.args[1]) or params.value_step or 1
-        if type(lo) ~= "number" or type(hi) ~= "number" or hi <= lo then return end
+    local function wrap(v) return name == "h_page_margins" and { v, v } or v end
+    local position, decode, advance, maximum, pick
+    -- KOReader steps more_options values by its spin widget step, not by preset.
+    if fine or #values < 2 or option.more_options and (type(value) ~= "table" or name == "h_page_margins") then
+        local vt, shift = params.value_table, params.value_table_shift or 0
+        local lo = vt and 1 - shift or params.value_min or params.left_min or scalar(values[1])
+        local hi = vt and #vt - shift or params.value_max or params.left_max or scalar(values[#values])
+        local step = fine and fine.args and math.abs(fine.args[1]) or params.value_step or params.left_step or 1
+        if type(lo) ~= "number" or type(hi) ~= "number" or hi == lo then return end
+        if hi < lo then lo, hi = hi, lo end
+        -- Keep the preset order's direction (e.g. white threshold runs 255 → 32).
+        local sign = #values > 1 and scalar(values[1]) > scalar(values[#values]) and -1 or 1
+        local origin = sign > 0 and lo or hi
+        local function clamp(v) return wrap(tonumber(string.format("%.6f", math.max(lo, math.min(hi, v))))) end
         maximum = math.floor((hi - lo) / step + 0.5)
-        position = function(v) return math.max(0, math.min(maximum, (scalar(v) - lo) / step)) end
-        decode = function(index)
-            local v = tonumber(string.format("%.6f", math.min(hi, lo + index * step)))
-            return name == "h_page_margins" and { v, v } or v
-        end
-        advance = function(current, direction)
-            local v = tonumber(string.format("%.6f", math.max(lo, math.min(hi, scalar(current) + direction * step))))
-            return name == "h_page_margins" and { v, v } or v
+        position = function(v) return math.max(0, math.min(maximum, (scalar(v) - origin) * sign / step)) end
+        decode = function(index) return clamp(origin + sign * index * step) end
+        advance = function(current, direction) return clamp(scalar(current) + sign * direction * step) end
+        pick = function(callback)
+            local decimals = #(tostring(step):match("%.(%d+)$") or "")
+            local default = G_reader_settings:readSetting(M.group(reader) .. "_" .. name)
+            if default == nil then default = option.default_value end
+            local current = scalar(conf[name])
+            require("ui/uimanager"):show(require("ui/widget/spinwidget"):new{
+                title_text = params.name_text or M.label(reader, option),
+                value = current, value_min = lo, value_max = hi, value_step = step,
+                value_hold_step = params.value_hold_step or params.left_hold_step
+                    or #values > 1 and math.abs(scalar(values[2]) - scalar(values[1])) or nil,
+                value_table = vt, value_index = vt and current + shift,
+                default_value = default ~= nil and scalar(default) + (vt and shift or 0) or nil,
+                precision = params.precision or decimals > 0 and "%." .. decimals .. "f" or nil,
+                unit = params.unit,
+                callback = function(spin)
+                    callback(wrap(vt and spin.value_index - shift or spin.value))
+                end,
+            })
         end
     else
         for _i, v in ipairs(values) do if type(scalar(v)) ~= "number" then return end end
@@ -177,8 +198,9 @@ function M.slider(reader, name, visible_presets)
         end
         local count = visible_presets or 5
         local first = math.max(1, math.min(#values - count + 1, center - math.floor(count / 2)))
-        minimum = math.min(position(values[first]), math.floor(current), math.floor(anchor))
-        visible_maximum = math.max(position(values[math.min(#values, first + count - 1)]), math.ceil(current), math.ceil(anchor))
+        local a, b = position(values[first]), position(values[math.min(#values, first + count - 1)])
+        minimum = math.floor(math.min(a, b, current, anchor) + 0.000001)
+        visible_maximum = math.ceil(math.max(a, b, current, anchor) - 0.000001)
     end
     return {
         option = option,
@@ -189,6 +211,7 @@ function M.slider(reader, name, visible_presets)
         position = position,
         decode = decode,
         advance = advance,
+        pick = pick,
     }
 end
 

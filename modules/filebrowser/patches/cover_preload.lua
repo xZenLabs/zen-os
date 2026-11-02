@@ -177,6 +177,8 @@ local function apply_cover_preload()
         if home_covers_filemanager(menu) then return "hidden_under_home" end
     end
 
+    local METADATA_COLLATES = { title = true, authors = true, series = true, keywords = true }
+
     -- Polling may re-cache pre-extraction metadata while the child is running.
     local function reconcile_completed_extraction()
         if is_extracting() then return false end
@@ -204,6 +206,20 @@ local function apply_cover_preload()
         end
         if type(BookInfoManager.closeDbConnection) == "function" then
             BookInfoManager:closeDbConnection()
+        end
+        -- Metadata sorts listed these folders before extraction; drop those cached orders.
+        local collate = G_reader_settings:readSetting("collate")
+        if METADATA_COLLATES[collate]
+                and type(FileChooser._zen_invalidate_item_table_path) == "function" then
+            local seen = {}
+            for index = 1, #files do
+                local dir = files[index] and files[index].filepath
+                dir = dir and dir:match("^(.*)/[^/]+$")
+                if dir and not seen[dir] then
+                    seen[dir] = true
+                    FileChooser:_zen_invalidate_item_table_path(dir)
+                end
+            end
         end
         logger.measure("Cover extraction reconciled", 0,
             "files=", #files,

@@ -109,8 +109,16 @@ function M.install(plugin)
             })
             return
         end
-        M.restore(reader, plugin, snapshot)
-        local result = execute(self, actions, exec_props)
+        -- One batched update so CRE re-renders once, not once per restored option.
+        local UIManager = require("ui/uimanager")
+        local Event = require("ui/event")
+        UIManager:broadcastEvent(Event:new("BatchedUpdate"))
+        local ok, result = pcall(function()
+            M.restore(reader, plugin, snapshot)
+            return execute(self, actions, exec_props)
+        end)
+        UIManager:broadcastEvent(Event:new("BatchedUpdateDone"))
+        if not ok then error(result) end
         reader:saveSettings()
         return result
     end

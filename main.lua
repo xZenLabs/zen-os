@@ -132,6 +132,8 @@ local zen_update_icon = _plugin_root and require("common/utils").resolveIcon(
 
 -- Holds the single plugin instance so the FileManagerMenu patch can reach it.
 local _zen_plugin_ref = nil
+local _process_init_done = false
+local _plugin_version
 -- Weak-keyed table of FileManagerMenu/ReaderMenu instances that have been patched,
 -- so the on_update_found callback can rebuild their tab_item_table dynamically.
 local _zen_menu_instances = setmetatable({}, { __mode = "k" })
@@ -231,7 +233,8 @@ function ZenUI:init()
         return
     end
     i18n.refresh()
-    self.config = ConfigManager.load()
+    -- Migrations already ran at module load; instances share the live config.
+    self.config = ConfigManager.get() or ConfigManager.load()
     require("modules/reader/book_note").install()
     BatteryStats.start()
     if _plugin_root then
@@ -240,38 +243,42 @@ function ZenUI:init()
     end
     _G.__ZEN_UI_LIBRARY_FONT_CFG = self.config and self.config.library_font or nil
     _zen_plugin_ref = self
-    for _i, integration in ipairs({
-        { name = "ZenPM", method = "ensure_zenpm_launcher_entry" },
-        { name = "ZenFM", method = "ensure_zenfm_launcher_entry" },
-    }) do
-        local ok, added_or_error = pcall(function()
-            return require("modules/menu/app_launcher/model")[integration.method]()
-        end)
-        if not ok then
-            logger.warn(integration.name .. " launcher integration failed:", added_or_error)
-        elseif added_or_error then
-            logger.info("Added " .. integration.name .. " to the launcher")
-        end
-    end
-    require("ui/uimanager"):nextTick(function()
-        if _plugin_root and require("device"):isKindle() then
-            local ok, installed, err = pcall(function()
-                return require("common/kindle_launcher").install(
-                    _plugin_root, "/mnt/us/documents/ZenReader.sh")
+    -- KOReader builds a ZenUI per FileManager/ReaderUI; launcher upkeep runs once per process.
+    if not _process_init_done then
+        _process_init_done = true
+        for _i, integration in ipairs({
+            { name = "ZenPM", method = "ensure_zenpm_launcher_entry" },
+            { name = "ZenFM", method = "ensure_zenfm_launcher_entry" },
+        }) do
+            local ok, added_or_error = pcall(function()
+                return require("modules/menu/app_launcher/model")[integration.method]()
             end)
-            if not ok or not installed then
-                logger.warn("Kindle launcher install failed:", err or installed)
+            if not ok then
+                logger.warn(integration.name .. " launcher integration failed:", added_or_error)
+            elseif added_or_error then
+                logger.info("Added " .. integration.name .. " to the launcher")
             end
         end
-        local ok, added_or_error = pcall(function()
-            return require("modules/menu/app_launcher/model").ensure_zenpm_plugin_entries()
+        require("ui/uimanager"):nextTick(function()
+            if _plugin_root and require("device"):isKindle() then
+                local ok, installed, err = pcall(function()
+                    return require("common/kindle_launcher").install(
+                        _plugin_root, "/mnt/us/documents/ZenReader.sh")
+                end)
+                if not ok or not installed then
+                    logger.warn("Kindle launcher install failed:", err or installed)
+                end
+            end
+            local ok, added_or_error = pcall(function()
+                return require("modules/menu/app_launcher/model").ensure_zenpm_plugin_entries()
+            end)
+            if not ok then
+                logger.warn("ZenPM plugin launcher integration failed:", added_or_error)
+            elseif added_or_error then
+                logger.info("Added newly installed ZenPM plugins to the launcher")
+            end
         end)
-        if not ok then
-            logger.warn("ZenPM plugin launcher integration failed:", added_or_error)
-        elseif added_or_error then
-            logger.info("Added newly installed ZenPM plugins to the launcher")
-        end
-    end)
+    end
     self:onDispatcherRegisterActions()
     -- Initialize updater state; release metadata stays live-only.
     zen_updater.init_banner()
@@ -386,15 +393,18 @@ function ZenUI:init()
     -- -----------------------------------------------------------------------
     do
         local function get_plugin_version()
+            if _plugin_version then return _plugin_version end
             if _plugin_root then
                 local ok, meta = pcall(dofile, _plugin_root .. "/_meta.lua")
                 if ok and type(meta) == "table" and type(meta.version) == "string" then
-                    return meta.version
+                    _plugin_version = meta.version
+                    return _plugin_version
                 end
             end
             local ok, meta = pcall(require, "_meta")
-            return (ok and type(meta) == "table" and type(meta.version) == "string")
+            _plugin_version = (ok and type(meta) == "table" and type(meta.version) == "string")
                 and meta.version or "0.0.0"
+            return _plugin_version
         end
 
         local current_ver = get_plugin_version()
@@ -1007,7 +1017,7 @@ end
 
 function ZenUI:onCloseWidget()
     if self._zenos_brand_inert then return end
-    BatteryStats.stop()
+    BatteryStats.flush()
     cancel_item_table_cache_persist()
     close_zen_standalone_views(self._zen_shared)
     local cache = package.loaded["common/docprops_cache"]
@@ -1025,6 +1035,8 @@ function ZenUI:deletePluginSettings()
     if G_reader_settings:readSetting("end_document_action") == "zen_end_book" then
         G_reader_settings:saveSetting("end_document_action", "book_status")
     end
+    local docprops_cache = package.loaded["common/docprops_cache"]
+    if docprops_cache then pcall(docprops_cache.close) end
 
     pcall(BrandMigration.deletePluginSettings)
 

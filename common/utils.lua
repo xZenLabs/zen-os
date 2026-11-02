@@ -214,7 +214,7 @@ function M.isCustomIconsEnabled()
     _custom_icons_enabled = false
     pcall(function()
         local ConfigManager = require("config/manager")
-        local cfg = ConfigManager.load()
+        local cfg = ConfigManager.get() or ConfigManager.load()
         if cfg and cfg.features and cfg.features.custom_icons_enabled == true then
             _custom_icons_enabled = true
         end
@@ -652,6 +652,32 @@ function M.closeWidgetsAbove(anchor_widget)
         table.insert(to_close, entry.widget)
     end
     for _i, w in ipairs(to_close) do UIManager:close(w) end
+end
+
+-- Free space on the library mount (df -h "Avail"); cached 5 min, failures too, to limit shell spawns.
+local disk_free_text, disk_free_at
+function M.getDiskFreeText()
+    local now = os.time()
+    if disk_free_at and now - disk_free_at < 300 then return disk_free_text end
+    disk_free_at, disk_free_text = now, nil
+    local lfs = require("libs/libkoreader-lfs")
+    local util = require("util")
+    local dirs = { require("common/paths").getHomeDir(), "/mnt/us", "/mnt/onboard", "/sdcard", "/" }
+    for i = 1, 5 do
+        local dir = dirs[i]
+        if type(dir) == "string" and dir ~= "" and lfs.attributes(dir, "mode") == "directory" then
+            local pipe = io.popen("df -h " .. util.shell_escape({ dir }) .. " 2>/dev/null")
+            if pipe then
+                for line in pipe:lines() do
+                    local avail = line:match("%S+%s+%S+%s+%S+%s+(%S+)")
+                    if avail and avail:match("^%d") then disk_free_text = avail; break end
+                end
+                pipe:close()
+                if disk_free_text then return disk_free_text end
+            end
+        end
+    end
+    return nil
 end
 
 return M

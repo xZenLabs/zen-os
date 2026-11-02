@@ -79,10 +79,15 @@ local function evict_status_if_needed()
     end
 end
 
+local status_revision = 0 -- bumps when a known status changes or is invalidated
+
 local function remember_status(file_path, signature, data, source, validated_at)
     if not signature then return end
     local cached = status_cache[file_path]
-    if not cached then status_cache_size = status_cache_size + 1 end
+    if not cached then status_cache_size = status_cache_size + 1
+    elseif cached.data.effective_status ~= data.effective_status then
+        status_revision = status_revision + 1
+    end
     cached = {
         signature = signature,
         data = copy_status_data(data),
@@ -137,10 +142,16 @@ end
 function M.invalidate(file_path)
     if type(file_path) == "string" and file_path ~= "" then
         remove_cached_status(file_path)
+        status_revision = status_revision + 1
     end
 end
 
+function M.revision()
+    return status_revision
+end
+
 function M.clearCache()
+    status_revision = status_revision + 1
     status_cache = {}
     status_cache_size = 0
     status_cache_tick = 0

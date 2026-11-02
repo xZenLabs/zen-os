@@ -26,7 +26,10 @@ describe("reader profile integration", function()
         dispatcher = { execute = function(_self, actions) applied[#applied + 1] = { "native", actions.font_size } end }
         ZenSpec.replace("dispatcher", dispatcher)
         ZenSpec.replace("apps/reader/readerui", { instance = reader })
-        ZenSpec.replace("ui/uimanager", { show = function() applied[#applied + 1] = { "incompatible" } end })
+        ZenSpec.replace("ui/uimanager", {
+            show = function() applied[#applied + 1] = { "incompatible" } end,
+            broadcastEvent = function(_self, event) applied[#applied + 1] = { event.handler } end,
+        })
         ZenSpec.replace("ui/widget/infomessage", { new = function(_self, args) return args end })
         ZenSpec.unload("modules/menu/reader_controls/profiles")
         Profiles = require("modules/menu/reader_controls/profiles")
@@ -53,14 +56,16 @@ describe("reader profile integration", function()
         assert.are.same({ { "auto_straighten", 5 } }, applied)
     end)
 
-    it("restores supplemental settings before native profile edits", function()
+    it("restores supplemental settings before native profile edits in one batch", function()
         local profile = Profiles.capture(reader, plugin, "Test", true)
         profile.font_size = 31
         Profiles.install(plugin)
         dispatcher:execute(profile)
-        assert.are.same({ "auto_straighten", 5 }, applied[1])
-        assert.are.equal("theme", applied[2][1])
-        assert.are.same({ "native", 31 }, applied[3])
+        assert.are.same({ "onBatchedUpdate" }, applied[1])
+        assert.are.same({ "auto_straighten", 5 }, applied[2])
+        assert.are.equal("theme", applied[3][1])
+        assert.are.same({ "native", 31 }, applied[4])
+        assert.are.same({ "onBatchedUpdateDone" }, applied[5])
     end)
 
     it("does not apply a snapshot when only opening its QuickMenu", function()

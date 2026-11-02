@@ -1104,7 +1104,7 @@ def test_page_browser_icon_pack_and_layout_menu(custom_icons: bool) -> None:
         header_names = ["more_vertical", "view_carousel_outline", "font", "bookmark_outline", "lookup_highlight", "toc",
                         "annotations", "info", "close"]
         names = header_names + ["grid", "grid_slide", "coverflow", "chevron.left", "chevron.right", "quick_search",
-                                "quicksettings", "appbar.settings", "plus", "filter", "sort", "pin", "pin_remove",
+                                "quicksettings", "settings_cog", "plus", "filter", "sort", "pin", "pin_remove",
                                 "bookmark", "bookmark_remove"]
         for name in names:
             (pack / (name + ".svg")).write_text(
@@ -1189,7 +1189,7 @@ def test_page_browser_icon_pack_and_layout_menu(custom_icons: bool) -> None:
                 paths.append((name, state["footer_icons"][control]))
             more_rows = _page_browser_more_rows(driver)
             assert [row["text"] for row in more_rows] == ["Reader controls", "Settings"]
-            paths.extend(zip(["quicksettings", "appbar.settings"], [row["icon"] for row in more_rows]))
+            paths.extend(zip(["quicksettings", "settings_cog"], [row["icon"] for row in more_rows]))
             assert driver.command("activate_reader_control", name="page_browser_more")["activated"]
             assert driver.command("activate_reader_control", name="page_browser_controls")["activated"]
             assert driver.command("activate_reader_control", name="page_browser_section_themes")["activated"]
@@ -1213,7 +1213,7 @@ def test_page_browser_icon_pack_and_layout_menu(custom_icons: bool) -> None:
             annotation_rows = _wait_command(driver, "page_browser_state", lambda result:
                                             result["page_browser"].get("more_menu", {}).get("bounds"))["page_browser"]["more_menu"]["rows"]
             assert [row["text"] for row in annotation_rows] == ["New note", "Filter", "Sort", "Settings"]
-            paths.extend(zip(["plus", "filter", "sort", "quicksettings"], [row["icon"] for row in annotation_rows]))
+            paths.extend(zip(["plus", "filter", "sort", "settings_cog"], [row["icon"] for row in annotation_rows]))
             for name, path in paths:
                 if custom_icons:
                     assert Path(path).resolve() == (pack / (name + ".svg")).resolve()

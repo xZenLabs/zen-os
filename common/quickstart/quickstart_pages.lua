@@ -249,7 +249,7 @@ local function buildContextMenuBB(slot_w, slot_h, cover_info)
             local ok_iw,  ImageWidget     = pcall(require, "ui/widget/imagewidget")
             local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
             if ok_iw and ok_bim then
-                local _, _, sf = BookInfoManager.getCachedCoverSize(
+                local _w, _h, sf = BookInfoManager.getCachedCoverSize(
                     cover_info.w, cover_info.h, cover_max_w, cover_max_h)
                 cover_frame = FrameContainer:new{
                     padding    = 0,

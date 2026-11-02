@@ -9,8 +9,10 @@ local ROOT_DIR = settings_migration.root
 -- Resolve and, when needed, rename the complete settings tree before opening
 -- any individual LuaSettings file.
 local LuaSettings = require("luasettings")
+local util = require("util")
 
 local M = {}
+local _store_cache = {} -- kind -> { mtime, size, data }; avoids re-parsing on hot reads
 
 local VALID_KINDS = {
     home = true,
@@ -69,6 +71,20 @@ local function open_store(kind)
     return LuaSettings:open(path)
 end
 
+-- Shared parsed store; callers must not mutate it.
+local function read_store(kind)
+    local path = kind_path(kind)
+    if not path then return nil end
+    local attr = lfs.attributes(path)
+    local cached = _store_cache[kind]
+    if cached and attr and cached.mtime == attr.modification and cached.size == attr.size then
+        return cached.data
+    end
+    local data = normalize_store(LuaSettings:open(path).data)
+    _store_cache[kind] = attr and { mtime = attr.modification, size = attr.size, data = data } or nil
+    return data
+end
+
 function M.rootDir()
     return ensure_root_dir()
 end
@@ -78,9 +94,9 @@ function M.kindPath(kind)
 end
 
 function M.loadStore(kind)
-    local settings = open_store(kind)
-    if not settings then return empty_store() end
-    return normalize_store(settings.data)
+    local data = read_store(kind)
+    if not data then return empty_store() end
+    return util.tableDeepCopy(data)
 end
 
 function M.saveStore(kind, data)
@@ -88,6 +104,7 @@ function M.saveStore(kind, data)
     if not settings then return false end
     settings.data = normalize_store(data)
     settings:flush()
+    _store_cache[kind] = nil
     return true
 end
 
@@ -114,6 +131,7 @@ function M.ensureStore(kind, initial_settings)
     if changed then
         settings.data = store
         settings:flush()
+        _store_cache[kind] = nil
     end
     return changed
 end
@@ -143,7 +161,8 @@ function M.saveSettings(kind, settings_data)
 end
 
 function M.getActivePreset(kind)
-    return M.loadStore(kind).active_preset
+    local data = read_store(kind)
+    return data and data.active_preset
 end
 
 function M.setActivePreset(kind, name)

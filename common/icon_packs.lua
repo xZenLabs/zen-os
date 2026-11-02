@@ -19,6 +19,7 @@ local dark_icon_cache = setmetatable({}, { __mode = "k" })
 local active_config
 local active_pack_dir
 local last_scan = { packs = {}, errors = {}, installed = {} }
+local scanned = false
 local test_icons_root
 local rename_path = os.rename
 
@@ -526,6 +527,7 @@ local function scan_pack_folders(errors)
 end
 
 function M.scan()
+    scanned = true
     local result = { packs = {}, errors = {}, installed = {} }
     if not make_path(packs_root()) then
         result.errors[1] = { file = packs_root(), message = "could not create icon pack folder" }
@@ -561,7 +563,10 @@ function M.scan()
 end
 
 function M.initialize(config)
-    local result = M.scan()
+    -- Disabled custom icons need no boot-time pack walk; getLastScan() scans on demand.
+    local features = type(config) == "table" and config.features
+    local result = type(features) == "table" and features.custom_icons_enabled == true
+        and M.scan() or last_scan
     build_resolved_map(config)
     install_icon_hook()
     return result
@@ -602,6 +607,7 @@ function M.isPackPickerIconAllowed(name)
 end
 
 function M.getLastScan()
+    if not scanned then M.scan() end
     return last_scan
 end
 

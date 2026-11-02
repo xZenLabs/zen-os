@@ -700,6 +700,20 @@ function M.reader_controls(params)
             local button = dialog.buttons[params.index or 1][1]
             if params.hold then button.hold_callback() else button.callback() end
         end
+    elseif params.action == "spin" then
+        local spin = find_widget(function(widget) return widget.value_widget and widget.value_step end)
+        if not spin then return { ok = false } end
+        local state = { ok = true, value = spin.value, value_min = spin.value_min, value_max = spin.value_max,
+            value_step = spin.value_step, precision = spin.precision }
+        if params.value then
+            spin.value_widget.value = params.value
+            for _i, row in ipairs(spin.layout or {}) do
+                for _j, button in ipairs(row) do
+                    if button.text == spin.ok_text then button.callback() end
+                end
+            end
+        end
+        return state
     elseif params.action == "font_menu" then
         local dialog = font_menu()
         if dialog then

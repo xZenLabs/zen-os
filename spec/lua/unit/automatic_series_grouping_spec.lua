@@ -105,25 +105,31 @@ describe("automatic series grouping patch", function()
             end,
         })
         ZenSpec.replace("bookinfomanager", {
+            -- Mirrors ljsqlite3: closing a connection closes every statement it prepared.
             openDbConnection = function(self)
-                directory_prefetches = directory_prefetches + 1
-                self.db_conn = {
-                    prepare = function()
-                        local position = 0
-                        return {
-                            bind = function(stmt, directory)
-                                stmt.directory = directory
-                                position = 0
-                            end,
-                            step = function()
-                                position = position + 1
-                                return cached_rows[position]
-                            end,
-                            clearbind = function(stmt) return stmt end,
-                            reset = function(stmt) return stmt end,
-                        }
-                    end,
-                }
+                if self.db_conn then return end
+                local conn = {}
+                conn.prepare = function()
+                    directory_prefetches = directory_prefetches + 1
+                    local position = 0
+                    return {
+                        bind = function(stmt, directory)
+                            assert(not conn.closed, "object is closed")
+                            stmt.directory = directory
+                            position = 0
+                        end,
+                        step = function()
+                            position = position + 1
+                            return cached_rows[position]
+                        end,
+                        close = function(stmt) stmt.closed = true end,
+                    }
+                end
+                self.db_conn = conn
+            end,
+            closeDbConnection = function(self)
+                if self.db_conn then self.db_conn.closed = true end
+                self.db_conn = nil
             end,
             getDocProps = function(_, path)
                 doc_props_lookups = doc_props_lookups + 1
@@ -285,6 +291,26 @@ describe("automatic series grouping patch", function()
         FileChooser.switchItemTable(fc, nil, items)
         assert.are.same({ alpha, no_cover, finale }, fc.item_table[1].series_items)
         assert.are.equal(1, directory_prefetches)
+        assert.are.equal(0, doc_props_lookups)
+    end)
+
+    it("keeps batch metadata after CoverBrowser closes the database connection", function()
+        cached_rows = {
+            { "/library/Series-A/", "01 - Alpha.epub", nil, nil, nil, nil, nil, nil,
+                nil, nil, nil, nil, 101, "Alpha", "Zen Author", "Series A", 1, "en", "" },
+            { "/library/Series-A/", "02 - Beta.epub", nil, nil, nil, nil, nil, nil,
+                nil, nil, nil, nil, 102, "Beta", "Zen Author", "Series A", 2, "en", "" },
+        }
+        local function fresh_items()
+            return { item("/library/Series-A/01 - Alpha.epub", "01 - Alpha"),
+                item("/library/Series-A/02 - Beta.epub", "02 - Beta") }
+        end
+        local BookInfoManager = require("bookinfomanager")
+        FileChooser.switchItemTable(chooser(), nil, fresh_items())
+        BookInfoManager:closeDbConnection() -- KOReader does this before every extraction
+        FileChooser.switchItemTable(chooser(), nil, fresh_items())
+
+        assert.are.equal(2, directory_prefetches)
         assert.are.equal(0, doc_props_lookups)
     end)
 

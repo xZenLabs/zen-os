@@ -73,6 +73,16 @@ local function apply_cache_bookinfo_get_doc_props()
             if not stmt then return end
             stmt:bind(key, props_json, os.time()):step()
             stmt:close()
+            -- Drop rows for older size/mtime versions of this file; otherwise the table only grows.
+            local prefix = key:match("^(.*_)%d+_%d+$")
+            if prefix then
+                stmt = db:prepare("DELETE FROM doc_props_cache WHERE substr(cache_key, 1, ?) = ?"
+                    .. " AND substr(cache_key, ?) NOT GLOB '*[^0-9_]*' AND cache_key != ?")
+                if stmt then
+                    stmt:bind(#prefix, prefix, #prefix + 1, key):step()
+                    stmt:close()
+                end
+            end
         end)
     end
 

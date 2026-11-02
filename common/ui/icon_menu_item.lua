@@ -143,13 +143,19 @@ function M.enableFullRowFocus(frame, unfocused_invert)
     return frame
 end
 
+-- Memoized per item table: every row asks, which made a page rebuild O(rows x items).
 local function get_menu_icon_width(menu)
+    local items = menu and menu.item_table
+    if not items then return nil end
+    local cached = menu._zen_icon_width
+    if cached and cached.items == items and cached.count == #items then return cached.width end
     local width
-    for _i, item in ipairs(menu and menu.item_table or {}) do
+    for _i, item in ipairs(items) do
         if type(item) == "table" and item.icon_glyph then
             width = math.max(width or 0, M.getWidth(item))
         end
     end
+    menu._zen_icon_width = { items = items, count = #items, width = width }
     return width
 end
 

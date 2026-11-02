@@ -99,8 +99,10 @@ function M.pinnedPage(ui)
 end
 
 function M.isPinned(ui, page)
+    local pins = M.pins(ui)
+    if #pins == 0 then return false end -- common case on every header paint
     local location = page and ui.rolling and ui.document:getPageXPointer(page)
-    for _i, pin in ipairs(M.pins(ui)) do
+    for _i, pin in ipairs(pins) do
         if pin.page == page or location and pin.location == location then return true end
     end
     return false

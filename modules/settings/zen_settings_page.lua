@@ -642,7 +642,10 @@ function ZenSettingsPage:backToUpperMenu(no_close)
     local parent_title = parent._zen_title
     local parent_page = parent._zen_page or 1
     if parent.needs_refresh and type(parent.refresh_func) == "function" then
+        local was_root = parent == self._root_items
         parent = parent.refresh_func() or parent
+        -- Keep back-to-root and search on the rebuilt tree.
+        if was_root then self._root_items = parent end
     end
     parent._zen_title = parent._zen_title or parent_title
     self.item_table = parent

@@ -183,8 +183,11 @@ function M.recommendations(file, book, author_groups, series_groups, get_status)
     local result = { author = {}, next_series = {}, other_series = {} }
     local realpath = require("ffi/util").realpath
     local current_file = realpath(file) or file
+    local current_name = current_file:match("[^/]*$")
     local function is_current(path)
-        return path == file or path == current_file or realpath(path) == current_file
+        if path == file or path == current_file then return true end
+        -- realpath is a syscall chain; only symlinked copies with the same filename can match.
+        return path:match("[^/]*$") == current_name and realpath(path) == current_file
     end
     local authors, seen = {}, {}
     for author in (book.authors or ""):gmatch("[^\n]+") do

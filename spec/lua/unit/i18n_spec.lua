@@ -121,4 +121,27 @@ describe("ZenOS translations", function()
 
         assert.are.equal("Rótulo externo", wrapper("External label"))
     end)
+
+    it("parses each catalog once and only re-injects on refresh", function()
+        local opened = {}
+        local open = io.open
+        rawset(io, "open", function(path, ...)
+            if type(path) == "string" and path:match("%.po$") then opened[#opened + 1] = path end
+            return open(path, ...)
+        end)
+        local ok, err = pcall(function()
+            local I18n = require("common/i18n")
+            I18n.install()
+            GetText.translation = {}
+            assert.is_true(I18n.refresh())
+            assert.is_true(I18n.refresh())
+            assert.are.equal("Biblioteca", GetText("Library"))
+            assert.are.equal(1, #opened)
+
+            methods.changeLang("pt_PT")
+            assert.are.equal(2, #opened)
+        end)
+        rawset(io, "open", open)
+        assert(ok, err)
+    end)
 end)

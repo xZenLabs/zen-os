@@ -680,12 +680,17 @@ local function apply_zen_renderer()
         local size = badge_size(frame, config)
         local radius = math.floor(size / 2)
         local color, foreground = badge_colors(config)
-        local font_size = utils.getBadgeFontSize(config, size, 0.26, 7)
+        local max_size = utils.getBadgeFontSize(config, size, 0.26, 7)
+        -- Reuse the fitted size; restarting from the max reshapes a widget per step every paint.
+        local fit = item._zen_series_fit
+        local font_size = fit and fit.text == text and fit.radius == radius and fit.max == max_size
+            and fit.size or max_size
         local widget = badge_text(item, "_zen_series_badge", text, font_size, foreground)
         while font_size > 7 and widget:getSize().w > math.floor(radius * 1.3) do
             font_size = font_size - 1
             widget = badge_text(item, "_zen_series_badge", text, font_size, foreground)
         end
+        item._zen_series_fit = { text = text, radius = radius, max = max_size, size = font_size }
         local widget_size = widget:getSize()
         local inset = utils.getBadgeInset(radius)
         local x = frame.dimen.x + frame.dimen.w - radius - inset
@@ -838,6 +843,16 @@ local function apply_zen_renderer()
         if width > 0 and height > 0 then
             bb:lightenRect(frame.dimen.x + border, frame.dimen.y + border, width, height, 0.4)
         end
+    end
+
+    -- Cached badge text widgets live outside the widget tree; free them with the item.
+    local BADGE_KEYS = { "_zen_pages_badge", "_zen_series_badge", "_zen_progress_badge", "_zen_favorite_badge" }
+    function ZenMosaicItem:free()
+        for _i, key in ipairs(BADGE_KEYS) do
+            local cached = self[key]
+            if cached then cached.widget:free(); self[key] = nil end
+        end
+        return InputContainer.free(self)
     end
 
     function ZenMosaicItem:paintTo(bb, x, y)

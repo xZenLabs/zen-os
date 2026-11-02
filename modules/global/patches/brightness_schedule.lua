@@ -92,8 +92,13 @@ local function apply_brightness_schedule()
         end
     end
 
-    local function set_brightness(value, force)
+    local function set_brightness(value, force, allow_turn_on)
         local Powerd = Device.powerd
+        -- Boot/resume reapply must not relight a frontlight the user switched off.
+        if Powerd and not allow_turn_on and type(Powerd.isFrontlightOff) == "function"
+                and Powerd:isFrontlightOff() then
+            return
+        end
         if Powerd then
             local lo = 0
             local hi = Powerd.fl_max or 100
@@ -119,10 +124,10 @@ local function apply_brightness_schedule()
         end
     end
 
-    local function apply_mode_value(force)
+    local function apply_mode_value(force, allow_turn_on)
         if not uses_mode_values() then return end
         local cfg = get_config()
-        set_brightness(Screen.night_mode and cfg.night_value or cfg.day_value, force)
+        set_brightness(Screen.night_mode and cfg.night_value or cfg.day_value, force, allow_turn_on)
     end
 
     -- -------------------------------------------------------------------------
@@ -134,14 +139,14 @@ local function apply_brightness_schedule()
 
     day_fn = function()
         if is_enabled() then
-            set_brightness(get_config().day_value)
+            set_brightness(get_config().day_value, false, true)
             UIManager:scheduleIn(86400, day_fn)
         end
     end
 
     night_fn = function()
         if is_enabled() then
-            set_brightness(get_config().night_value)
+            set_brightness(get_config().night_value, false, true)
             UIManager:scheduleIn(86400, night_fn)
         end
     end
@@ -179,7 +184,7 @@ local function apply_brightness_schedule()
         local orig_toggle_night_mode = Screen.toggleNightMode
         Screen.toggleNightMode = function(self, ...)
             local result = orig_toggle_night_mode(self, ...)
-            apply_mode_value()
+            apply_mode_value(false, true)
             return result
         end
     end

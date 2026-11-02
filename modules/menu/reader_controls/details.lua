@@ -63,6 +63,13 @@ function M.show(reader, name, apply, refresh, anchor)
             close()
         end }},
     }
+    local spec = not is_font and Settings.slider(reader, name)
+    if spec and spec.pick then
+        table.insert(actions, 1, {{ text = _("Set value"), callback = function()
+            close()
+            spec.pick(commit)
+        end }})
+    end
     if params.names then
         table.insert(actions, 1, {{ text = (synced and "✓ " or "") .. _("Sync"), callback = function()
             if not synced then

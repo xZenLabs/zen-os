@@ -3,7 +3,7 @@ local util = require("util")
 describe("reader setting context menus", function()
     local Details, reader, shown, applied, original, globals, anchor, closed, refreshes
     local modules = { "modules/menu/reader_controls/details", "ui/uimanager", "ui/widget/confirmbox",
-        "common/ui/zen_anchored_menu" }
+        "common/ui/zen_anchored_menu", "ui/widget/spinwidget" }
 
     local function action(text)
         for _i, row in ipairs(shown.buttons) do
@@ -44,6 +44,7 @@ describe("reader setting context menus", function()
             end,
         })
         ZenSpec.replace("ui/widget/confirmbox", { new = function(_self, config) return config end })
+        ZenSpec.replace("ui/widget/spinwidget", { new = function(_self, config) return config end })
         ZenSpec.replace("common/ui/zen_anchored_menu", { new = function(config)
             config.layout = config.buttons
             config.moveFocusTo = function() end
@@ -83,9 +84,10 @@ describe("reader setting context menus", function()
         local popup = open("font_size")
         assert.are.equal(anchor, popup.anchor)
         assert.is_true(popup.anchor_right)
-        assert.are.equal(2, #popup.buttons)
-        assert.are.equal("Set as default", popup.buttons[1][1].text)
-        assert.are.equal("Reset", popup.buttons[2][1].text)
+        assert.are.equal(3, #popup.buttons)
+        assert.are.equal("Set value", popup.buttons[1][1].text)
+        assert.are.equal("Set as default", popup.buttons[2][1].text)
+        assert.are.equal("Reset", popup.buttons[3][1].text)
         assert.is_nil(popup.rows_per_page)
         assert.is_nil(popup.value_widget)
         action("Reset")
@@ -111,6 +113,17 @@ describe("reader setting context menus", function()
         open("font_size")
         action("Reset")
         assert.are.equal(24, reader.document.configurable.font_size)
+    end)
+
+    it("picks an exact value with KOReader's spin step", function()
+        local popup = open("font_size")
+        action("Set value")
+        assert.are.same({ popup }, closed)
+        assert.are.equal(23, shown.value)
+        assert.are.equal(0.5, shown.value_step)
+        assert.are.equal("%.1f", shown.precision)
+        shown.callback({ value = 30.5 })
+        assert.are.same({ { "font_size", 30.5 } }, applied)
     end)
 
     it("restores gamma's native default index, including zero", function()
@@ -153,7 +166,7 @@ describe("reader setting context menus", function()
 
     it("keeps margin sync available and saves both defaults", function()
         local popup = open("t_page_margin")
-        assert.are.equal(3, #popup.buttons)
+        assert.are.equal(4, #popup.buttons)
         action("Sync")
         assert.is_nil(shown)
         assert.are.same({ popup }, closed)

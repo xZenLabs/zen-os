@@ -52,6 +52,7 @@ describe("updater repository redirects", function()
         })
         ZenSpec.replace("common/plugin_root", "/plugins/zenos.koplugin")
         ZenSpec.replace("config/manager", {
+            get = function() return config end,
             load = function() return config end,
             save = function() end,
         })

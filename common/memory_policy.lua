@@ -23,13 +23,18 @@ local function clamp(value, minimum, maximum)
     return math.max(minimum, math.min(maximum, value))
 end
 
+-- /proc/meminfo is parsed at most once per second; background loops poll every 50 ms.
+local mem_read_at, mem_available, mem_total
 local function read_memory()
     if type(util.calcFreeMem) ~= "function" then return nil, nil end
+    local now = os.time()
+    if mem_read_at == now then return mem_available, mem_total end
     local ok, available, total = pcall(util.calcFreeMem)
     available, total = tonumber(available), tonumber(total)
     if not ok or not available or not total or available < 0 or total < 1 then
-        return nil, nil
+        available, total = nil, nil
     end
+    mem_read_at, mem_available, mem_total = now, available, total
     return available, total
 end
 
