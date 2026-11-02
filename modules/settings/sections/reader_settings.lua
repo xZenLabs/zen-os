@@ -245,7 +245,6 @@ function M.build(ctx)
                         text = _("Set as default"),
                         radio = true,
                         checked_func = function()
-                            local Screen = require("device").screen
                             return color_name == (G_reader_settings:readSetting("highlight_color")
                                 or (Screen:isColorEnabled() and "yellow" or "gray"))
                         end,
@@ -883,11 +882,11 @@ function M.build(ctx)
                 local custom = theme_settings().custom
                 for key, theme in pairs(custom) do
                     if type(theme) == "table" then
-                        local theme_name = type(theme.name) == "string"
+                        local custom_name = type(theme.name) == "string"
                             and theme.name or _("Custom theme")
                         table.insert(theme_items, {
-                            text = theme_name,
-                            _zen_settings_content_func = theme_preview_content(key, theme_name),
+                            text = custom_name,
+                            _zen_settings_content_func = theme_preview_content(key, custom_name),
                             checked_func = function() return get_theme(mode) == key end,
                             callback = function(touchmenu_instance)
                                 theme_settings()[mode] = key
