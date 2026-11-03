@@ -130,7 +130,9 @@ function M.getStyleFace(font_face, size, default_name)
         if ok and face then return face end
         unloadable[font_name] = true
     end
+    -- Fallback may hit the same broken file (cfont remapped by menu_font); end on stock font.
     return Font:getFace(default_name or M.getFontName(), size)
+        or Font:getFace(DEFAULT_FACE, size) or Font:getFace("NotoSans-Regular.ttf", size)
 end
 
 function M.withMenuFaces(callback, menu_faces)

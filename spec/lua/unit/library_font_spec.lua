@@ -191,5 +191,6 @@ describe("library font", function()
             if call[1] == missing then missing_probes = missing_probes + 1 end
         end
         assert.are.equal(1, missing_probes)
+        assert.are.equal("cfont", library_font.getStyleFace(missing, 14, missing).orig_font)
     end)
 end)

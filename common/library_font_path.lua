@@ -132,7 +132,10 @@ function M.registerFontAliases(Font, FontList)
             Font.fontmap[path] = prefix .. path:sub(2)
         elseif path:sub(1, #global_prefix) == global_prefix
                 and installed[path:match("^([^/]+)/", #global_prefix + 1)] then
-            Font.fontmap[path] = path:sub(#global_prefix + 1)
+            local relative = path:sub(#global_prefix + 1)
+            Font.fontmap[path] = relative
+            -- Plugin paths resolved before install (or stored) must load the copy.
+            Font.fontmap[bundled_prefix .. relative] = relative
         end
     end
     Font.fontmap[NERD_FONT] = prefix .. bundled_prefix:sub(2) .. NERD_FONT
