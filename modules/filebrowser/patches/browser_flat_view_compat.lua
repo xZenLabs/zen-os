@@ -63,6 +63,7 @@ local function apply_browser_flat_view_compat()
                 table.insert(files, item)
             end,
         })
+        return true -- readable; KOReader >= 2026.10 warns on falsy
     end
 
     if type(FileChooser.getPathList) == "function" then
@@ -78,8 +79,7 @@ local function apply_browser_flat_view_compat()
         FileChooser.getList = function(self, path, collate, ...)
             if flat_view_enabled(path) then
                 local dirs, files = {}, {}
-                scan_flat(self, path, collate, dirs, files)
-                return dirs, files
+                return dirs, files, scan_flat(self, path, collate, dirs, files)
             end
             return orig_getList(self, path, collate, ...)
         end

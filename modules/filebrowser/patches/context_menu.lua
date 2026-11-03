@@ -91,20 +91,20 @@ local function apply_context_menu()
         local orig_pathchooser_gen_items = PathChooser.genItemTableFromPath
 
         function PathChooser:genItemTableFromPath(path)
-            local items = orig_pathchooser_gen_items(self, path)
+            local items, readable = orig_pathchooser_gen_items(self, path)
             local parent = type(path) == "string" and require("ffi/util").dirname(path)
             if type(parent) ~= "string" or parent == path then
-                return items
+                return items, readable
             end
             for _i, item in ipairs(items) do
-                if item.is_go_up then return items end
+                if item.is_go_up then return items, readable end
             end
             table.insert(items, self.show_current_dir_for_hold and 2 or 1, {
                 text = BD.mirroredUILayout() and BD.ltr("../ \u{2B06}") or "\u{2B06} ../",
                 path = path .. "/..",
                 is_go_up = true,
             })
-            return items
+            return items, readable
         end
     end
 
@@ -191,7 +191,7 @@ local function apply_context_menu()
         local MAX_DEPTH = 3
         local items    = {}
         local parent = ffiUtil3.dirname(root)
-        if not in_move_roots(self, root) then return items end
+        if not in_move_roots(self, root) then return items, true end
 
         if parent and parent ~= root and in_move_roots(self, parent) then
             table.insert(items, {
@@ -292,7 +292,7 @@ local function apply_context_menu()
             end
         end
 
-        return items
+        return items, true
     end
 
     function MoveChooser:onMenuSelect(item)
@@ -383,7 +383,7 @@ local function apply_context_menu()
 
         if type(orig_getList) == "function" then
             function FileChooser:getList(path, collate)
-                local dirs, files = orig_getList(self, path, collate)
+                local dirs, files, readable = orig_getList(self, path, collate)
                 local status_filter = FileChooser.show_filter and FileChooser.show_filter.status
                 if self.name == "filemanager" and collate and status_filter then
                     for index = #dirs, 1, -1 do
@@ -393,7 +393,7 @@ local function apply_context_menu()
                         if count == 0 then table.remove(dirs, index) end
                     end
                 end
-                return dirs, files
+                return dirs, files, readable
             end
         end
     end

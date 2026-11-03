@@ -22,6 +22,7 @@ describe("file browser item-table cache", function()
     local attributes_calls
     local directory_reads
     local flat_directories
+    local source_readable
 
     local module_names = {
         "common/cover_utils",
@@ -74,7 +75,7 @@ describe("file browser item-table cache", function()
                         }
                     end
                 end
-                return source_items[path] or { { path = path } }
+                return source_items[path] or { { path = path } }, source_readable[path]
             end,
         }
     end
@@ -118,6 +119,7 @@ describe("file browser item-table cache", function()
         attributes_calls = 0
         directory_reads = 0
         flat_directories = nil
+        source_readable = {}
         saved_modules = {}
         for _i, name in ipairs(module_names) do
             saved_modules[name] = package.loaded[name]
@@ -267,6 +269,22 @@ describe("file browser item-table cache", function()
         assert.is_true(second.dim)
     end)
 
+    it("propagates KOReader folder readability and skips caching unreadable folders", function()
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        source_readable["/locked"] = false
+
+        local _items, readable = chooser:genItemTableFromPath("/locked")
+        assert.is_false(readable)
+        _items, readable = chooser:genItemTableFromPath("/locked")
+        assert.is_false(readable)
+        assert.are.equal(2, generated["/locked"])
+
+        _items, readable = chooser:genItemTableFromPath("/library")
+        assert.is_true(readable)
+        _items, readable = chooser:genItemTableFromPath("/library")
+        assert.is_true(readable)
+        assert.are.equal(1, generated["/library"])
+    end)
     it("keeps the library root cached while a child folder is open", function()
         local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
 

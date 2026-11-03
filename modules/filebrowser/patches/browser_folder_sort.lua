@@ -227,14 +227,14 @@ local function apply_browser_folder_sort()
         self._zen_sort_override = override
         local saved_reverse = self.reverse_collate
 
-        local ok, result_or_err = pcall(orig_genItemTableFromPath, self, path, ...)
+        local ok, result_or_err, readable = pcall(orig_genItemTableFromPath, self, path, ...)
 
         if ok then pcall(sort_directory_items, self, result_or_err, override) end
         self._zen_sort_override = nil
         self.reverse_collate = saved_reverse
 
         if ok then
-            return result_or_err
+            return result_or_err, readable
         else
             -- Fallback: run without override so the browser stays functional.
             return orig_genItemTableFromPath(self, path, ...)
