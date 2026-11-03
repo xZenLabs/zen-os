@@ -480,8 +480,9 @@ describe("reader settings", function()
             original_settings = G_reader_settings
             _G.G_reader_settings = ZenSpec.memorySettings()
             ReaderUI = { instance = nil }
-            screen = { isColorEnabled = function() return true end }
-            package.loaded["device"].screen = screen
+            -- reader_settings captured device.screen at load; mutate it in place
+            screen = package.loaded["device"].screen
+            screen.isColorEnabled = function() return true end
             ZenSpec.replace("apps/reader/readerui", ReaderUI)
         end)
 

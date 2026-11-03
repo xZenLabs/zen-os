@@ -1589,10 +1589,10 @@ def test_reader_shared_selection_and_setting_layout(show_chevrons):
             state = driver.command("reader_controls", action="paint")
             assert state["zen_buttons"]["Reader theme settings"]
             assert state["outlined"]["Reader theme settings"]
-            assert state["theme_count"] == 5
+            assert state["theme_count"] == 8
             theme_bounds = [state["bounds"][name] for name in state["radios"]]
             assert len({bounds["x"] for bounds in theme_bounds}) == 2
-            assert len({bounds["y"] for bounds in theme_bounds}) == 3
+            assert len({bounds["y"] for bounds in theme_bounds}) == 4
             assert state["bounds"]["Reader theme settings"]["y"] < min(bounds["y"] for bounds in theme_bounds)
             assert state["menu_bottom"] == state["screen_height"]
             assert state["bounds"]["Default"]["y"] < min(entry["y"] for entry in state["header"])
@@ -1634,24 +1634,31 @@ def test_reader_theme_chooser_paging_and_selection():
             driver.command("reader_controls", action="choose", id="themes")
             state = driver.command("reader_controls", action="paint")
             assert state["theme_count"] == 8
-            assert state["theme_pages"] == 2 and state["theme_page"] == 1
+            # 18 builtin + 10 custom themes, 8 per page.
+            assert state["theme_pages"] == 4 and state["theme_page"] == 1
             assert len({state["bounds"][name]["y"] for name in state["radios"]}) == 4
             first = set(state["radios"])
             _wait_command(driver, "reader_controls", lambda result: not result.get("locked"))
             driver.command("reader_controls", action="swipe", zone="themes")
             state = driver.command("reader_controls", action="paint")
-            assert state["theme_count"] == 7
+            assert state["theme_count"] == 8
             assert state["theme_page"] == 2
             assert not first.intersection(state["radios"])
             assert "Use global theme settings" not in state["radios"]
             assert state["zen_buttons"]["Reader theme settings"]
+            for page in [1, 4]:
+                _wait_command(driver, "reader_controls", lambda result: not result.get("locked"))
+                driver.command("reader_controls", action="swipe", zone="themes", direction="east")
+                state = driver.command("reader_controls", action="paint")
+                assert state["theme_page"] == page
+            assert set(state["radios"]) == {f"Theme {i:02}" for i in range(6, 10)}
             driver.command("reader_controls", action="choose", id="Theme 09")
             state = driver.command("reader_controls", action="paint")
             assert state["radios"]["Theme 09"]
             assert state["theme"]["light_mode"]["name"] == "Theme 09"
             assert state["global_themes"]["light_mode"] == "custom_9"
             _wait_command(driver, "reader_controls", lambda result: not result.get("locked"))
-            driver.command("reader_controls", action="swipe", zone="themes", direction="east")
+            driver.command("reader_controls", action="swipe", zone="themes")
             state = driver.command("reader_controls", action="paint")
             assert state["theme_page"] == 1
             assert set(state["radios"]) == first
