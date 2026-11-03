@@ -277,11 +277,13 @@ function Row:paintTo(bb, x, y)
         local quote = self.quote.dimen
         local line_h = self.quote.line_height_px
         local lines = math.min(#self.quote.vertical_string_list, self.quote.lines_per_page)
+        local color = self.decoration_color or Blitbuffer.COLOR_BLACK
+        local paint = Blitbuffer.isColor8(color) and bb.paintRect or bb.paintRectRGB32
         for line = 1, lines do
             local line_y = quote.y + line * line_h - Screen:scaleBySize(2)
             if self.decoration == "strikeout" then line_y = line_y - math.floor(line_h / 2) end
             local line_width = self.quote.vertical_string_list[line].width or quote.w
-            bb:paintRect(quote.x, line_y, math.min(quote.w, line_width), Screen:scaleBySize(1), Blitbuffer.COLOR_BLACK)
+            paint(bb, quote.x, line_y, math.min(quote.w, line_width), Screen:scaleBySize(1), color)
         end
     end
     if self.top_border then bb:paintRect(x, y, self.dimen.w, 1, Blitbuffer.COLOR_LIGHT_GRAY) end
@@ -367,7 +369,14 @@ local function make_row(pbw, record, dimen, font_size, quote_lines, note_lines)
                 foreground = Blitbuffer.COLOR_WHITE
             end
         end
-        row.decoration = (record.style == "underscore" or record.style == "strikeout") and record.style or nil
+        if record.style == "underscore" or record.style == "strikeout" then
+            row.decoration = record.style
+            -- Match ReaderView: grays draw black, colors pre-invert so night mode shows the true hue.
+            local color = highlight(pbw):getHighlightColor(record.color)
+            if color and not Blitbuffer.isColor8(color) then
+                row.decoration_color = Screen.night_mode and color:invert() or color
+            end
+        end
         add(record.text, font_size, quote_lines,
             { background = background, foreground = foreground, quote = true, inset = padding / 2 })
         add(record.note, font_size, note_lines,

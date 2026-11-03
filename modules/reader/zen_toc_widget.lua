@@ -26,6 +26,7 @@ local TextWidget     = require("ui/widget/textwidget")
 local UIManager      = require("ui/uimanager")
 local lfs            = require("libs/libkoreader-lfs")
 local Screen         = Device.screen
+local Accent         = require("common/ui/accent")
 local pager          = require("common/ui/zen_pager")
 local LibraryFont    = require("modules/filebrowser/patches/library_font")
 local Pill           = require("common/ui/pill")
@@ -260,7 +261,10 @@ function ZenTocWidget.paintRow(bb, x, y, w, h, style, row)
     if row.state == "current" then
         local inset = style.inset
         local cx, cy, cw, ch = x + inset, y + inset, w - 2 * inset, h - 2 * inset
-        bb:paintBorder(cx, cy, cw, ch, style.card_border, Blitbuffer.COLOR_BLACK, style.card_radius)
+        local accent = Accent.color() -- Black when accents are off or unsupported.
+        local rgb = not Blitbuffer.isColor8(accent)
+        local paintBorder = rgb and bb.paintBorderRGB32 or bb.paintBorder
+        paintBorder(bb, cx, cy, cw, ch, style.card_border, accent, style.card_radius)
         local left, right = x + style.pad + indent, x + w - style.pad -- Aligned with plain rows.
         local top = cy + style.card_pad
         local pn_w = paint_label(bb, { text = page_label, face = style.face, bold = true,
@@ -281,10 +285,11 @@ function ZenTocWidget.paintRow(bb, x, y, w, h, style, row)
         local bar_w = bar_right - bar_x
         if bar_w <= style.gap then return end
         local bar_y = line_y + math.floor((style.small_h - style.bar_h) / 2)
-        bb:paintBorder(bar_x, bar_y, bar_w, style.bar_h, style.bar_border,
-            Blitbuffer.COLOR_BLACK, Pill.radius(bar_w, style.bar_h))
-        Pill.paint(bb, bar_x, bar_y, math.max(style.bar_h, math.floor(bar_w * p.done / p.total)),
-            style.bar_h, Blitbuffer.COLOR_BLACK)
+        paintBorder(bb, bar_x, bar_y, bar_w, style.bar_h, style.bar_border,
+            accent, Pill.radius(bar_w, style.bar_h))
+        local fill_w = math.max(style.bar_h, math.floor(bar_w * p.done / p.total))
+        local paintFill = rgb and bb.paintRoundedRectRGB32 or bb.paintRoundedRect
+        paintFill(bb, bar_x, bar_y, fill_w, style.bar_h, accent, Pill.radius(fill_w, style.bar_h))
         return
     end
     local color = row.state == "read" and Blitbuffer.COLOR_GRAY_5 or Blitbuffer.COLOR_BLACK

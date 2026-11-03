@@ -78,6 +78,7 @@ describe("Zen TOC hardware focus", function()
             COLOR_LIGHT_GRAY = "light_gray",
             COLOR_WHITE = "white",
             gray = function(value) return value end,
+            isColor8 = function() return true end,
         })
         ZenSpec.replace("ui/font", {
             getFace = function(_, name, size, index)
