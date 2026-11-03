@@ -814,6 +814,34 @@ describe("battery stats", function()
         assert.are.equal(75, stats.health)
     end)
 
+    it("reads Kindle max77696 charge in milliamp hours and overrides its design capacity", function()
+        local lfs = require("libs/libkoreader-lfs")
+        battery_path = os.tmpname()
+        os.remove(battery_path)
+        assert.is_true(lfs.mkdir(battery_path))
+        local function write(name, value)
+            local file = assert(io.open(battery_path .. "/" .. name, "w"))
+            assert(file:write(value))
+            file:close()
+        end
+        write("type", "Battery")
+        write("charge_full", "1293\n")
+        write("charge_now", "1179\n")
+        write("charge_full_design", "790000\n")
+
+        BatteryStats.start()
+        local stats = BatteryStats.snapshot()
+        assert.are.equal(1293, stats.full_mah)
+        assert.are.equal(1179, stats.current_mah)
+        assert.are.equal(790, stats.design_mah)
+        assert.is_nil(stats.health)
+
+        package.loaded.device.model = "KindleVoyage"
+        stats = BatteryStats.snapshot()
+        assert.are.equal(1300, stats.design_mah)
+        assert.is_true(math.abs(stats.health - 1293 / 13) < 0.001)
+    end)
+
     it("keeps a charging session across FileManager and ReaderUI instance swaps", function()
         charging, level = true, 20
         BatteryStats.start()

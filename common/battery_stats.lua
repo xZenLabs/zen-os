@@ -121,6 +121,11 @@ local function battery_dir()
     return found
 end
 
+-- Kindle sysfs design capacity is wrong (Voyage reports 790), so use known values per model
+local KINDLE_DESIGN_MAH = {
+    KindleVoyage = 1300,
+}
+
 local function device_capacity()
     local dir = battery_dir()
     if not dir then return nil, nil end
@@ -137,11 +142,20 @@ local function device_capacity()
         full, design = full - empty, design - design_empty
         if current_charge then current_charge = math.max(0, current_charge - empty) end
     end
-    local full_mah = full and full >= 50000 and full <= 100000000 and full / 1000 or nil
-    local design_mah = design and design >= 50000 and design <= 100000000 and design / 1000 or nil
-    local current_mah = current_charge and current_charge <= 100000000 and current_charge / 1000 or nil
+    -- µAh per spec, but Kindle max77696 writes charge_full/charge_now in mAh
+    local function divisor(raw) return raw and raw < 50000 and 1 or 1000 end
+    local function to_mah(raw, div)
+        local mah = raw and raw / div
+        return mah and mah <= 100000 and mah or nil
+    end
+    local full_div = divisor(full)
+    local full_mah = to_mah(full, full_div)
+    if full_mah and full_mah < 50 then full_mah = nil end
+    local design_mah = KINDLE_DESIGN_MAH[Device.model] or to_mah(design, divisor(design))
+    if design_mah and design_mah < 50 then design_mah = nil end
+    local current_mah = to_mah(current_charge, full_div)
     local health = full_mah and design_mah and full_mah / design_mah * 100 or nil
-    if health and (health <= 0 or health > 200) then health = nil end
+    if health and (health <= 0 or health > 120) then health = nil end
     return full_mah, design_mah, health, current_mah
 end
 
