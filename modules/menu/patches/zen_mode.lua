@@ -20,6 +20,7 @@ local function apply_zen_mode()
         ["search"] = true,
         ["menu"] = true,
         ["navi"] = true,
+        ["reader"] = true, -- KOReader nightly file browser "open last doc" tab
     }
 
     local blocked_contains = {

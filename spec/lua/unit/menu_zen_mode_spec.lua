@@ -23,6 +23,7 @@ describe("Zen mode menu patch", function()
                     { id = "quicksettings" },
                     { id = "settings" },
                     { id = "search" },
+                    { id = "reader" },
                     { id = "history" },
                     { id = "filemanager", icon = "appbar.filebrowser" },
                     { id = "zen_ui", icon = "_zen_settings_tab" },
@@ -85,7 +86,7 @@ describe("Zen mode menu patch", function()
         local menu = setmetatable({}, { __index = FileManagerMenu })
         menu:onShowMenu()
         assert.are.same({
-            "quicksettings", "settings", "search", "history", "filemanager",
+            "quicksettings", "settings", "search", "reader", "history", "filemanager",
             "zen_ui", "zen_library_home",
         }, tab_ids(menu))
 
@@ -96,7 +97,7 @@ describe("Zen mode menu patch", function()
         plugin.config.features.zen_mode = false
         refresh_menus()
         assert.are.same({
-            "quicksettings", "settings", "search", "history", "zen_ui", "zen_library_home",
+            "quicksettings", "settings", "search", "reader", "history", "zen_ui", "zen_library_home",
         }, tab_ids(menu))
     end)
 
