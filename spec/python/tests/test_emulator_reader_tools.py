@@ -873,7 +873,7 @@ def test_page_browser_settings_subsections_and_themes(document_type: str, width:
             frame_dir = Path(__file__).resolve().parents[2] / ".artifacts" / "page-browser"
             frame_dir.mkdir(parents=True, exist_ok=True)
             pages = {}
-            theme_names = set()
+            theme_names, theme_counts = set(), []
             for section in first["subsections"]:
                 assert driver.command("activate_reader_control", name=f"page_browser_section_{section}")["activated"]
                 choices = _page_browser_more_rows(driver)
@@ -942,7 +942,12 @@ def test_page_browser_settings_subsections_and_themes(document_type: str, width:
                         assert not theme_names.intersection(state["radios"])
                         theme_names.update(state["radios"])
                         assert "Reader theme settings" not in state["controls"]
-                        assert "reader_theme_more" not in state["controls"]
+                        # Page browser keeps the theme menu in the tab row, below every theme.
+                        more = state["bounds"]["reader_theme_more"]
+                        assert more["y"] > max(state["bounds"][name]["y"] for name in state["radios"])
+                        theme_counts.append(len(state["radios"]))
+                    if section == "font":
+                        assert "embedded_css_1" not in state["controls"]
                     if page < state["page_num"]:
                         assert driver.command("activate_reader_control", name="page_browser_font_next")["activated"]
                 pages[section] = state["page_num"]
@@ -951,6 +956,7 @@ def test_page_browser_settings_subsections_and_themes(document_type: str, width:
                     assert driver.command("reader_controls")["page"] == 1
                     assert driver.command("activate_reader_control", name="page_browser_font_previous")["activated"]
                     assert driver.command("reader_controls")["page"] == pages[section]
+            assert len(set(theme_counts[:-1])) <= 1
             for section in first["subsections"]:
                 assert driver.command("activate_reader_control", name=f"page_browser_section_{section}")["activated"]
                 assert driver.command("reader_controls")["page"] == pages[section]
@@ -973,7 +979,7 @@ def test_page_browser_settings_subsections_and_themes(document_type: str, width:
                     assert driver.command("activate_reader_control", name="page_browser_font_previous")["activated"]
                 themes = driver.command("reader_controls")
                 assert themes["theme_count"] > 0
-                assert "reader_theme_more" not in themes["controls"]
+                assert "reader_theme_more" in themes["controls"]
                 driver.screenshot(frame_dir / (f"current-themes-{width}.png" if width else "current-themes.png"))
                 assert driver.command("reader_controls")["section"] == "themes"
                 chosen = driver.command("reader_controls", action="choose", id="Light sepia")
@@ -1193,7 +1199,7 @@ def test_page_browser_icon_pack_and_layout_menu(custom_icons: bool) -> None:
             assert driver.command("activate_reader_control", name="page_browser_more")["activated"]
             assert driver.command("activate_reader_control", name="page_browser_controls")["activated"]
             assert driver.command("activate_reader_control", name="page_browser_section_themes")["activated"]
-            assert "reader_theme_more" not in driver.command("reader_controls")["controls"]
+            assert "reader_theme_more" in driver.command("reader_controls")["controls"]
             assert driver.command("activate_reader_control", name="page_browser_pages")["activated"]
             assert driver.command("activate_reader_control", name="page_browser_layout_menu")["activated"]
             menu = _wait_command(driver, "page_browser_state", lambda result:

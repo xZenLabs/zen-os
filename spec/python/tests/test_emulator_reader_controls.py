@@ -549,7 +549,13 @@ def test_reader_controls_native_settings_defaults_profiles_and_direct_actions():
             driver.command("reader_controls", action="open")
             driver.command("reader_controls", action="choose", id="themes")
             assert driver.command("reader_controls")["hatched_background"] is False
-            driver.command("reader_controls", action="choose", id="Reader theme settings")
+            embedded_css = driver.command("reader_controls")["config"]["embedded_css"]
+            driver.command("reader_controls", action="choose", id="reader_theme_more")
+            assert driver.command("reader_controls", action="setting_menu")["ok"]
+            driver.command("reader_controls", action="setting_menu", button="Embedded Style")
+            assert driver.command("reader_controls")["config"]["embedded_css"] == 1 - embedded_css
+            driver.command("reader_controls", action="choose", id="reader_theme_more")
+            driver.command("reader_controls", action="setting_menu", button="Reader theme settings")
             assert driver.command("arrange_page_state")["ok"]
             assert driver.command("arrange_page_select", index=1, toggle=True)["ok"]
             assert driver.command("reader_controls")["hatched_background"] is False
@@ -1587,13 +1593,15 @@ def test_reader_shared_selection_and_setting_layout(show_chevrons):
             driver.screenshot(Path("/tmp/zen-reader-selection-page.png"))
             driver.command("reader_controls", action="choose", id="themes")
             state = driver.command("reader_controls", action="paint")
-            assert state["zen_buttons"]["Reader theme settings"]
-            assert state["outlined"]["Reader theme settings"]
+            assert "reader_theme_more" in state["controls"]
+            assert "embedded_css_1" not in state["controls"]
             assert state["theme_count"] == 8
             theme_bounds = [state["bounds"][name] for name in state["radios"]]
             assert len({bounds["x"] for bounds in theme_bounds}) == 2
             assert len({bounds["y"] for bounds in theme_bounds}) == 4
-            assert state["bounds"]["Reader theme settings"]["y"] < min(bounds["y"] for bounds in theme_bounds)
+            more = state["bounds"]["reader_theme_more"]
+            assert more["y"] < min(bounds["y"] for bounds in theme_bounds)
+            assert more["x"] > max(bounds["x"] for bounds in theme_bounds)
             assert state["menu_bottom"] == state["screen_height"]
             assert state["bounds"]["Default"]["y"] < min(entry["y"] for entry in state["header"])
             driver.screenshot(Path("/tmp/zen-reader-selection-themes.png"))
@@ -1645,7 +1653,7 @@ def test_reader_theme_chooser_paging_and_selection():
             assert state["theme_page"] == 2
             assert not first.intersection(state["radios"])
             assert "Use global theme settings" not in state["radios"]
-            assert state["zen_buttons"]["Reader theme settings"]
+            assert "reader_theme_more" in state["controls"]
             for page in [1, 4]:
                 _wait_command(driver, "reader_controls", lambda result: not result.get("locked"))
                 driver.command("reader_controls", action="swipe", zone="themes", direction="east")
