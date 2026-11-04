@@ -9,6 +9,7 @@ local FocusManager = require("ui/widget/focusmanager")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
 local GestureRange = require("ui/gesturerange")
+local GlyphIcons = require("common/ui/glyph_icons")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local ImageWidget = require("ui/widget/imagewidget")
@@ -749,19 +750,19 @@ function Drawer:showMenu()
     local dialog
     local rows = {}
     local function add(item)
-        rows[#rows + 1] = {{ text = item.text, enabled = item.enabled,
+        rows[#rows + 1] = {{ text = item.text, icon = item.icon, enabled = item.enabled,
             checked_func = item.checked_func, callback = function()
                 UIManager:close(dialog)
                 item.callback()
             end }}
     end
-    add{ text = _("Remove pin"), callback = function()
+    add{ text = _("Remove pin"), icon = utils.resolveIcon(icons_dir, "pin_remove"), callback = function()
         References.setPin(self.ui, self.page, true)
         local index = self.pin_index
         self:onClose()
         References.openPinned(self.ui, index)
     end }
-    add{ text = _("Settings"), callback = function()
+    add{ text = _("Settings"), icon = GlyphIcons.iconPath(GlyphIcons.SVG.settings), callback = function()
         self:onClose()
         require("modules/settings/zen_settings_page").show(self.plugin, {
             path = { { key = "text", value = _("Reader") },
