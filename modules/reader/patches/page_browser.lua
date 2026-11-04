@@ -27,6 +27,29 @@ local function apply_page_browser()
     local slider_gap = 0
     local RESUME_TTL_SECONDS = 6
 
+    -- Chapter title + page progress, centred as one block in a panel row.
+    local function format_progress(page_text, total_text, percent)
+        return require("ffi/util").template(require("gettext")("Page %1 of %2"), page_text, total_text)
+            .. " · " .. percent .. "%"
+    end
+
+    local function make_progress_label(text, max_width)
+        return require("ui/widget/textwidget"):new{
+            text = text, face = require("ui/font"):getFace("cfont", 16), max_width = max_width, padding = 0,
+        }
+    end
+
+    local function add_chapter_rows(group, x, y, w, row_h, chapter, progress)
+        local CenterContainer = require("ui/widget/container/centercontainer")
+        local Geom = require("ui/geometry")
+        local ch, ph = chapter:getSize().h, progress:getSize().h
+        local top = y + math.floor((row_h - ch - ph) / 2)
+        group[#group + 1] = CenterContainer:new{
+            dimen = Geom:new{ w = w, h = ch }, chapter, overlap_offset = { x, top } }
+        group[#group + 1] = CenterContainer:new{
+            dimen = Geom:new{ w = w, h = ph }, progress, overlap_offset = { x, top + ch } }
+    end
+
     local function reset_thumbnail_cache(thumbnail)
         -- A cancelled worker may still cache its result after the settings change.
         local request = thumbnail.req_in_progress
@@ -436,11 +459,9 @@ local function apply_page_browser()
         local slider_y = panel_pad_top + row_h + Screen:scaleBySize(slider_gap)
         local contents = OverlapGroup:new{
             dimen = Geom:new{ w = slot_w, h = panel_h }, allow_mirroring = false,
-            CenterContainer:new{
-                dimen = Geom:new{ w = slot_w, h = row_h }, chapter_label,
-                overlap_offset = { 0, panel_pad_top },
-            },
         }
+        add_chapter_rows(contents, 0, panel_pad_top, slot_w, row_h, chapter_label,
+            make_progress_label(format_progress(42, 240, 17), math.floor(slot_w * 0.6)))
         for i, button in ipairs(buttons) do
             local x = math.floor(slot_w * (i <= 2 and 0.12 or 0.88) - button_size.w / 2)
             local y = (i == 1 or i == 4) and panel_pad_top or slider_y
@@ -747,6 +768,12 @@ local function apply_page_browser()
         local function visible_page_raw(pbw, page)
             local pages = pbw._zen_visible_pages
             return pages and pages[page] or page
+        end
+
+        local function page_progress_text(pbw, page)
+            local np = math.max(1, pbw.nb_pages or 1)
+            return format_progress(get_page_display_text(pbw, visible_page_raw(pbw, page)),
+                get_page_display_text(pbw, visible_page_raw(pbw, np)), math.floor(page / np * 100))
         end
 
         local function visible_page_index(pbw, page)
@@ -1570,6 +1597,7 @@ local function apply_page_browser()
                 max_width = math.floor(grid_w * 0.6),
                 padding   = 0,
             }
+            local progress_label = make_progress_label(page_progress_text(self, cp), math.floor(grid_w * 0.6))
 
             -- Throttle interval for setDirty during drag (seconds).
             -- GL16 takes ~450ms on Kobo; firing faster than this just queues
@@ -1602,17 +1630,19 @@ local function apply_page_browser()
             -- A2-waveform hardware refresh of just the slider area via
             -- setDirty(nil, ...) — nil means "don't repaint any widgets."
             -- A2 completes in ~60ms so frames can't pile up.
-            local function directPaintSlider(sl, label, label_text)
+            local function directPaintSlider(sl, label, label_text, page)
                 if not sl or not sl.dimen or not sl.dimen.x then return end
                 sl:paintTo(Screen.bb, sl.dimen.x, sl.dimen.y)
                 if label and label_text then
                     local zone = self._zen_chapter_zone
-                    local label_y = zone.y + math.floor((zone.h - label:getSize().h) / 2)
-                    Screen.bb:paintRect(zone.x, zone.y, zone.w, zone.h, Blitbuffer.COLOR_WHITE)
+                    local prog = self._zen_progress_label
                     label:setText(label_text)
-                    local new_w = label:getSize().w
-                    local label_x = zone.x + math.floor((zone.w - new_w) / 2)
-                    label:paintTo(Screen.bb, label_x, label_y)
+                    prog:setText(page_progress_text(self, page))
+                    local ch = label:getSize().h
+                    local label_y = zone.y + math.floor((zone.h - ch - prog:getSize().h) / 2)
+                    Screen.bb:paintRect(zone.x, zone.y, zone.w, zone.h, Blitbuffer.COLOR_WHITE)
+                    label:paintTo(Screen.bb, zone.x + math.floor((zone.w - label:getSize().w) / 2), label_y)
+                    prog:paintTo(Screen.bb, zone.x + math.floor((zone.w - prog:getSize().w) / 2), label_y + ch)
                 end
                 -- No A2 here — the caller pushes one consolidated refresh.
             end
@@ -1735,7 +1765,7 @@ local function apply_page_browser()
                 pbw._zen_placeholders_painted = true
 
                 -- Paint slider + chapter label
-                directPaintSlider(sl, clbl, chap_text)
+                directPaintSlider(sl, clbl, chap_text, fp)
 
                 -- One A2 refresh over grid + label + slider avoids double flashes.
                 -- DU can't render accent fills (ghosting), so a colored slider
@@ -1810,6 +1840,7 @@ local function apply_page_browser()
 
             self._zen_slider     = zen_slider
             self._zen_chap_label = chap_label
+            self._zen_progress_label = progress_label
 
             local pbw = self
             local function make_button(icon, callback)
@@ -1904,13 +1935,10 @@ local function apply_page_browser()
                 contents[#contents + 1] = self._zen_page_actions
             end
             local chapter_w = math.floor(grid_w * 0.6)
-            local chapter_row = CenterContainer:new{
-                dimen = Geom:new{ w = chapter_w, h = row_h }, chap_label,
-                overlap_offset = { math.floor((grid_w - chapter_w) / 2), chapter_y },
-            }
-            contents[#contents + 1] = chapter_row
+            local chapter_x = math.floor((grid_w - chapter_w) / 2)
+            add_chapter_rows(contents, chapter_x, chapter_y, chapter_w, row_h, chap_label, progress_label)
             self._zen_chapter_zone = Geom:new{
-                x = (self.dimen.x or 0) + chapter_row.overlap_offset[1],
+                x = (self.dimen.x or 0) + chapter_x,
                 y = (self.dimen.y or 0) + panel_y + chapter_y, w = chapter_w, h = row_h,
             }
             for i, button in ipairs({ layout_button, skip_left_btn, skip_right_btn, search_button }) do
@@ -2077,6 +2105,9 @@ local function apply_page_browser()
                     title = self.ui.toc:getTocTitleByPage(visible_page_raw(self, cp)) or ""
                 end
                 self._zen_chap_label:setText(title)
+            end
+            if self._zen_progress_label then
+                self._zen_progress_label:setText(page_progress_text(self, cp))
             end
             if not self._zen_rebuilding_focus_layout then
                 rebuild_focus_layout(self, desired_focus_id)

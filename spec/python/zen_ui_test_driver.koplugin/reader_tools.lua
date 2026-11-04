@@ -1020,7 +1020,7 @@ function M.reader_controls(params)
     local refs = tm and tm._zen_panel_refs
     local dividers, settings_row_bounds = {}, {}
     for _i, widget in ipairs(tm and tm._reader_controls_embedded and tm[1][1] or {}) do
-        if widget == refs.pager or widget == refs.section_row then break end
+        if widget == refs.pager or widget[1] == refs.section_tabs then break end
         local line = widget[1]
         local row_bounds = widget.dimen or line and line.dimen
         if line and widget.dimen and getmetatable(line) == require("ui/widget/linewidget") then

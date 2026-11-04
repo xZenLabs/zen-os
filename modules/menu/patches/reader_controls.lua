@@ -27,7 +27,6 @@ return function(plugin)
     local Pager = require("common/ui/zen_pager")
     local util = require("util")
     local HorizontalGroup = require("ui/widget/horizontalgroup")
-    local OverlapGroup = require("ui/widget/overlapgroup")
     local HorizontalSpan = require("ui/widget/horizontalspan")
     local RightContainer = require("ui/widget/container/rightcontainer")
     local VerticalGroup = require("ui/widget/verticalgroup")
@@ -200,7 +199,9 @@ return function(plugin)
                 option("word_expansion")
                 option("font_gamma", true)
                 option("font_hinting")
-                option("font_kerning") -- Embedded style/fonts live in the Themes menu.
+                option("font_kerning")
+                option("embedded_css")
+                option("embedded_fonts") -- KOReader enables it only with embedded style and book fonts.
             else
                 option("contrast", true)
                 option("white_threshold", true)
@@ -287,12 +288,12 @@ return function(plugin)
                 action(_("Enable KOReader's Profiles plugin to save reader profiles."), function() end)
             end
         elseif section == "themes" then
-            local function refresh()
+            local themes = Menus.themeRows(ui, plugin, function()
                 if tm._reader_controls_embedded then changed("reader_theme") end
                 tm:updateItems(1)
-            end
-            local themes = Menus.themeRows(ui, plugin, refresh)
-            rows.theme_menu = function(widget) Menus.themeMenu(ui, plugin, widget.dimen, apply, refresh) end
+            end)
+            local settings = table.remove(themes)
+            if not tm._reader_controls_embedded then rows[1] = settings end
             for _i, theme in ipairs(themes) do theme.theme_choice = true end
             if tm._reader_controls_embedded then
                 for i = 1, #themes, 2 do rows[#rows + 1] = { pair = { themes[i], themes[i + 1] } } end
@@ -888,28 +889,13 @@ return function(plugin)
             else widget = button(row, state.section == "profiles" and label_width + pad * 2 or w, layout, label_width) end
             widgets[#widgets + 1] = { widget = widget, layout = layout, height = widget:getSize().h }
         end
-        local function theme_more(layout, button_size)
-            local more = icon_button("more_vertical", descriptors.theme_menu, layout,
-                math.min(Screen:scaleBySize(28), button_size), button_size)
-            more._reader_setting = "reader_theme_more"
-            return more
-        end
         local divider_h = Screen:scaleBySize(1)
-        -- Reader controls repeat the menu above every page; the page browser puts it in the tab row.
-        local header_item
-        if descriptors.theme_menu and not embedded then
-            local layout = {}
-            local more = theme_more(layout, Screen:scaleBySize(40))
-            header_item = { layout = layout, height = more:getSize().h,
-                widget = RightContainer:new{ dimen = Geom:new{ w = w - pad, h = more:getSize().h }, more } }
-        end
-        local body_budget = budget - (header_item and header_item.height + divider_h or 0)
         local divider_padding = tm._reader_controls_embedded and Screen:scaleBySize(1.5) or 0
         local body_pages, used = { {} }, 0
         for _i, item in ipairs(widgets) do
             -- Divider padding is respread below, so only the line counts toward fit.
             if used > 0 and (settings_page and #body_pages[#body_pages] == 3
-                    or used + divider_h + item.height > body_budget) then
+                    or used + divider_h + item.height > budget) then
                 body_pages[#body_pages + 1] = {}; used = 0
             end
             local page = body_pages[#body_pages]
@@ -918,7 +904,6 @@ return function(plugin)
         end
         state.page = math.max(1, math.min(state.page, #body_pages))
         local visible_items = body_pages[state.page]
-        if header_item then table.insert(visible_items, 1, header_item) end
         if embedded and #visible_items > 0 then
             -- Spread rows into spare pager space without changing pagination.
             local spare = budget - #visible_items * divider_h
@@ -982,16 +967,8 @@ return function(plugin)
             }
             if refs.pager then panel[#panel + 1] = refs.pager end
             panel[#panel + 1] = VerticalSpan:new{ width = section_gap }
-            local tabs_h = refs.section_tabs:getSize().h
-            local tabs = CenterContainer:new{ dimen = Geom:new{ w = w, h = tabs_h }, refs.section_tabs }
-            if descriptors.theme_menu then
-                local more = theme_more(section_layout, tabs_h)
-                header_widgets[more] = true
-                tabs = OverlapGroup:new{ dimen = Geom:new{ w = w, h = tabs_h }, tabs,
-                    RightContainer:new{ dimen = Geom:new{ w = w - pad, h = tabs_h }, more } }
-            end
-            refs.section_row = tabs
-            panel[#panel + 1] = tabs
+            panel[#panel + 1] = CenterContainer:new{ dimen = Geom:new{ w = w, h = refs.section_tabs:getSize().h },
+                refs.section_tabs }
             panel[#panel + 1] = VerticalSpan:new{ width = footer_padding }
             refs.layout_rows[#refs.layout_rows + 1] = pager_layout
             refs.layout_rows[#refs.layout_rows + 1] = section_layout

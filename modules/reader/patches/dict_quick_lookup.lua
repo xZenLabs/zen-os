@@ -49,11 +49,91 @@ local function apply()
         return Labels.prepare(buttons, widget.width - 2 * (Size.border.window + Size.padding.default))
     end
 
+    -- Large windows keep their stock full-screen layout.
+    local function docks(widget)
+        local settings = _plugin_ref and _plugin_ref.config.dict_quick_lookup
+        local request = DictQuickLookup.temp_large_window_request
+        return type(settings) == "table" and settings.bottom_sheet ~= false
+            and not widget.is_wiki_fullpage and not G_reader_settings:isTrue("dict_largewindow")
+            and not (request and request.is_large_window)
+    end
+
+    -- Remaps stock black-on-white pixels to the reader theme: white -> background, black -> text.
+    local function tint(bb, x, y, w, h, radius)
+        local ReaderThemes = require("common/reader_themes")
+        local background, foreground = ReaderThemes.getBackgroundColor(_plugin_ref), ReaderThemes.getTextColor(_plugin_ref)
+        if not (background and foreground) then return end
+        -- Software night mode stores pixels inverted; work on raw pixels so the C blitter stays usable.
+        local inverse = bb.getInverse and bb:getInverse() == 1
+        if inverse then background, foreground = foreground:invert(), background:invert() end
+        local Blitbuffer = require("ffi/blitbuffer")
+        local light, dark = background:getColorRGB32(), foreground:getColorRGB32()
+        -- Dark-background themes skip the first inversion so white still lands on the background.
+        local swap = light.r + light.g + light.b < dark.r + dark.g + dark.b
+        if swap then light, dark = dark, light end
+        if not swap and light.r + light.g + light.b == 765 and dark.r + dark.g + dark.b == 0 then return end
+        local function ratio(l, d) return l > d and math.floor(255 * (l - d) / l + 0.5) or 0 end
+        local scale = Blitbuffer.ColorRGB32(ratio(light.r, dark.r), ratio(light.g, dark.g), ratio(light.b, dark.b), 0xFF)
+        -- light * (1 - (1 - c) * (light - dark) / light), all in C blit passes.
+        if inverse then bb:setInverse(0) end
+        local ok, err = pcall(require("common/ui/button_feedback").eachSpan,
+            { x = x, y = y, w = w, h = h }, radius or 0, function(sx, sy, sw, sh)
+                if not swap then bb:invertRect(sx, sy, sw, sh) end
+                bb:multiplyRectRGB(sx, sy, sw, sh, scale)
+                bb:invertRect(sx, sy, sw, sh)
+                bb:multiplyRectRGB(sx, sy, sw, sh, light)
+            end)
+        if inverse then bb:setInverse(1) end
+        if not ok then error(err, 0) end
+    end
+
     local init = DictQuickLookup.init
     DictQuickLookup.init = function(self, ...)
+        local Screen = docks(self) and require("device").screen
+        local w, h, margin
+        if Screen then
+            w, h, margin = Screen:getWidth(), Screen:getHeight(), Screen:scaleBySize(8)
+            self.width = self.width or (w > h and math.floor(w / 2) or w) - 2 * margin
+        end
         local result = init(self, ...)
         if is_enabled() and show_labels() and not self.is_wiki and not self.is_wiki_fullpage then
             Labels.apply(self.button_table, self.button_table.buttons)
+        end
+        if Screen and self.dict_frame and self[1] then
+            -- Match the footnote drawer: docked to the bottom, rounded corners pushed off-screen.
+            local Size = require("ui/size")
+            local extension = Size.radius.window + Size.border.window
+            self.dict_frame.padding_bottom = extension
+            self.region = require("ui/geometry"):new{ x = w > h and w - self.width - margin or 0, y = 0,
+                w = w > h and self.width or w, h = h + extension }
+            self.align = "bottom"
+            self[1].dimen, self[1].align = self.region, "bottom"
+            -- Down chevron instead of X, like a dismissable sheet.
+            local close = self.dict_title and self.dict_title.right_button
+            local chevron = close and utils.resolveLocalIcon(
+                require("libs/libkoreader-lfs").currentdir() .. "/resources/icons/mdlight/", "chevron.up")
+            if chevron then
+                close.icon_rotation_angle = 180
+                close:setIcon(chevron)
+            end
+        end
+        local dots = is_enabled() and self.definition_widget and self.results
+        if dots and self.displaynb_text then self.displaynb_text.paintTo = function() end end
+        local themed = self.ui and self.ui.document
+        if self.dict_frame and (dots or themed) then
+            local paint = self.dict_frame.paintTo
+            self.dict_frame.paintTo = function(frame, bb, x, y)
+                paint(frame, bb, x, y)
+                local size = frame:getSize()
+                local definition = self.definition_widget and self.definition_widget.dimen
+                if dots and definition then
+                    -- Result dots replace "1 / N", centered in the padding above the buttons.
+                    require("common/ui/zen_pager").paint(bb, x, definition.y + definition.h, size.w,
+                        require("ui/size").padding.large, self.dict_index, #self.results, "dots", nil,
+                        require("device").screen:scaleBySize(6))
+                end
+                if themed then tint(bb, x, y, size.w, size.h, frame.radius) end
+            end
         end
         return result
     end

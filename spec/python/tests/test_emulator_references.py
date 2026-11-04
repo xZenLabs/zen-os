@@ -134,9 +134,9 @@ def _assert_pin_alignment(driver, state, name):
 def _assert_pin_header_padding(state):
     drawer = state["drawer"]
     assert not drawer.get("control_radius") and not drawer.get("dots_background")
-    bounds, menu = (drawer[key] for key in ("bounds", "menu"))
+    bounds, menu, close = (drawer[key] for key in ("bounds", "menu", "close"))
     right = min(state["screen"]["w"], bounds["x"] + bounds["w"])
-    assert not drawer.get("close") and not drawer.get("close_icon")
+    assert drawer["close_icon"].endswith("/chevron.up.svg")
     label = drawer["page_label"]
     assert drawer["page_label_text"].endswith(str(drawer["page"]))
     assert drawer["page_icon"].endswith("/pin.svg")
@@ -145,17 +145,17 @@ def _assert_pin_header_padding(state):
     padding = math.ceil(4 * scale)
     assert label["x"] + padding == drawer["page_icon_bounds"]["x"]
     assert drawer["page_label_content_width"] + 2 * padding == label["w"]
-    assert label["x"] + label["w"] <= menu["x"]
-    assert label["y"] == menu["y"] and label["h"] == menu["h"]
+    assert label["x"] + label["w"] + (math.ceil(8 * scale) if drawer["full_image"] else 0) == menu["x"]
+    assert label["y"] == menu["y"] == close["y"] and label["h"] == menu["h"] == close["h"]
     assert drawer["content"]["y"] - label["y"] - label["h"] == math.ceil(8 * scale)
-    assert right - menu["x"] - menu["w"] == math.ceil(8 * scale) + math.ceil(2 * scale)
+    assert right - close["x"] - close["w"] == math.ceil(8 * scale) + math.ceil(2 * scale)
     _assert_pin_header_icon_padding(state)
 
 
 def _assert_pin_header_icon_padding(state):
     drawer = state["drawer"]
     scale = min(state["screen"].values()) / 600
-    for name in ("menu", "zoom", "zoom_in", "zoom_out"):
+    for name in ("menu", "zoom", "zoom_in", "zoom_out", "close"):
         if not drawer.get(name):
             continue
         padding = math.ceil((2 if name == "menu" else 4) * scale)
@@ -1417,7 +1417,7 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             assert not drawer.get("zoom_in") and not drawer.get("zoom_out")
             assert drawer["page_label"]["x"] + drawer["page_label"]["w"] <= zoom["x"]
             gap = math.ceil(8 * min(opened["screen"].values()) / 600)
-            assert zoom["x"] + zoom["w"] + gap == menu["x"]
+            assert zoom["x"] + zoom["w"] + gap == drawer["close"]["x"]
             assert zoom["y"] == menu["y"] and zoom["h"] == menu["h"]
             toggled = _ref(driver, "pin_control", target="zoom")
             assert toggled["drawer"]["full_image"]
@@ -1469,9 +1469,9 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             zoom_out, zoom_in = filled["zoom_out"], filled["zoom_in"]
             assert filled["zoom_in_icon"].endswith("/icons/zoom_in.svg")
             assert filled["zoom_out_icon"].endswith("/icons/zoom_out.svg")
-            assert zoom_out["x"] == zoom_in["x"] == filled["menu"]["x"]
+            assert zoom_out["x"] == zoom_in["x"] == filled["close"]["x"]
             assert zoom_in["y"] + zoom_in["h"] + gap == zoom_out["y"]
-            assert zoom_in["x"] + zoom_in["w"] == filled["menu"]["x"] + filled["menu"]["w"]
+            assert zoom_in["x"] + zoom_in["w"] == filled["close"]["x"] + filled["close"]["w"]
             assert zoom_in["y"] == filled["menu"]["y"] + filled["menu"]["h"] + 2 * gap
             assert zoom_out["y"] + zoom_out["h"] < filled["pager"]["y"]
             snapshot = Image.open(_capture(driver, f"pin-{format}-full.png")).convert("RGB")

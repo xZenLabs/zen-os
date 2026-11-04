@@ -420,7 +420,7 @@ local defaults = {
         show_koassistant    = true,
         show_ai_assistant   = true,
     },
-    dict_quick_lookup = { show_labels = false },
+    dict_quick_lookup = { show_labels = false, bottom_sheet = true },
 
     night_mode_schedule = {
         night_on_h  = 20,

@@ -121,13 +121,15 @@ local function apply_touch_menu_footer()
             local bottom = bottom_menu and bottom_menu[1]
             local hatch_bottom = bottom and bottom:contentRange().y or self.screen_size.h
             if hatch_bottom > menu_bottom then
-                if self._zen_hatched_background and self._zen_hatch_night_mode ~= Screen.night_mode then
+                if self._zen_hatched_background and (self._zen_hatch_night_mode ~= Screen.night_mode
+                        or self._zen_hatch_bottom ~= hatch_bottom) then
                     self._zen_hatched_background:free()
                     self._zen_hatched_background = nil
                 end
                 if not self._zen_hatched_background then
                     self._zen_hatched_background = bb:copy()
                     self._zen_hatch_night_mode = Screen.night_mode
+                    self._zen_hatch_bottom = hatch_bottom
                     Hatching.paint(self._zen_hatched_background, 0, 0, self.screen_size.w, hatch_bottom)
                 end
                 bb:blitFrom(self._zen_hatched_background, 0, menu_bottom, 0, menu_bottom,

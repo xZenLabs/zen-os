@@ -2244,6 +2244,12 @@ msgstr "Pembatas"
 msgid "Dividing lines"
 msgstr "Garis pembatas"
 
+#. Type: setting
+#. Context: Settings label in the reader Lookup settings.
+#: reader_settings.lua:1445
+msgid "Dock to bottom"
+msgstr "Tambatkan ke bawah"
+
 #. Type: label
 #. Context: Reader tab controls, defaults, profiles, and themes.
 #: reader_controls.lua:559 buttons.lua:33

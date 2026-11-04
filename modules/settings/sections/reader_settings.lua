@@ -1441,6 +1441,16 @@ function M.build(ctx)
                         config.dict_quick_lookup.show_labels = config.dict_quick_lookup.show_labels ~= true
                         plugin:saveConfig()
                     end,
+                }, {
+                    text = _("Dock to bottom"),
+                    checked_func = function()
+                        return type(config.dict_quick_lookup) ~= "table" or config.dict_quick_lookup.bottom_sheet ~= false
+                    end,
+                    callback = function()
+                        config.dict_quick_lookup = config.dict_quick_lookup or {}
+                        config.dict_quick_lookup.bottom_sheet = config.dict_quick_lookup.bottom_sheet == false
+                        plugin:saveConfig()
+                    end,
                 }},
             },
             {

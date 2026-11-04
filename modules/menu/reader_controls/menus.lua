@@ -138,37 +138,9 @@ function M.themeRows(reader, plugin, refresh)
     for _i, key in ipairs(names) do
         add(custom[key].name or _("Custom theme"), key)
     end
+    rows[#rows + 1] = { text = _("Reader theme settings"), zen_button = true, outlined = true,
+        callback = function() M.themes(reader, plugin, refresh) end }
     return rows
-end
-
-function M.themeMenu(reader, plugin, anchor, apply, refresh)
-    local GlyphIcons = require("common/ui/glyph_icons")
-    local options, buttons, dialog = Settings.options(reader), {}, nil
-    local conf = reader.document.configurable
-    for _i, entry in ipairs({ { "embedded_css", "reader_themes" }, { "embedded_fonts", "font" } }) do
-        local name, opt = entry[1], options[entry[1]]
-        -- Embedded fonts need embedded style on and fonts in the book.
-        if Settings.available(reader, opt) then
-            local on = conf[name] ~= 0
-            buttons[#buttons + 1] = {{ text = (on and "✓ " or "") .. Settings.label(reader, opt),
-                icon = GlyphIcons.iconPath(GlyphIcons.SVG[entry[2]]),
-                callback = function()
-                    UIManager:close(dialog)
-                    apply(name, on and 0 or 1)
-                    -- Reopen so the embedded fonts row follows embedded style.
-                    UIManager:nextTick(function() M.themeMenu(reader, plugin, anchor, apply, refresh) end)
-                end }}
-        end
-    end
-    buttons[#buttons + 1] = {{ text = _("Reader theme settings"), icon = GlyphIcons.iconPath(GlyphIcons.SVG.settings),
-        callback = function()
-            UIManager:close(dialog)
-            M.themes(reader, plugin, refresh)
-        end }}
-    dialog = require("common/ui/zen_anchored_menu").new{ buttons = buttons, anchor = anchor, anchor_right = true }
-    dialog._reader_setting = "reader_theme"
-    UIManager:show(dialog)
-    return dialog
 end
 
 function M.saveProfile(reader, plugin, include_theme, name)

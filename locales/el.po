@@ -2245,6 +2245,12 @@ msgstr "Διαχωριστική γραμμή"
 msgid "Dividing lines"
 msgstr "Διαχωριστικές γραμμές"
 
+#. Type: setting
+#. Context: Settings label in the reader Lookup settings.
+#: reader_settings.lua:1445
+msgid "Dock to bottom"
+msgstr "Αγκύρωση στο κάτω μέρος"
+
 #. Type: label
 #. Context: Reader tab controls, defaults, profiles, and themes.
 #: reader_controls.lua:559 buttons.lua:33

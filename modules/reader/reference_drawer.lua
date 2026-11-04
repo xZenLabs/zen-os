@@ -273,8 +273,12 @@ function Drawer:buildLayout()
             self.zoom_button = self:button(nil, function() self:zoom(nil, not self.full_image) end, self.bar_height,
                 utils.resolveLocalIcon(icons_dir, self.full_image and "fullscreen_exit" or "fullscreen"))
         end
-        local buttons_width = self.bar_height * (self.zoom_button and 2 or 1)
-            + (self.zoom_button and self.padding or 0)
+        self.close_button = self:button(nil, function() self:onClose() end, self.bar_height,
+            utils.resolveLocalIcon(stock_icons_dir, "chevron.up"), 180)
+        local right = { self.zoom_button, self.close_button }
+        if not self.zoom_button then table.remove(right, 1) end
+        local menu_gap = self.full_image and self.padding or 0 -- Bordered pills need a gap.
+        local buttons_width = self.bar_height * (#right + 1) + self.padding * (#right - 1) + menu_gap
         local left_span = math.floor((self.body_width - buttons_width - self.padding + self.right_padding) / 2)
         self.page_button = self:button(T(_("Page %1"), References.pageLabel(self.ui, self.page)),
             function() self:onExpand() end, left_span, nil, nil, "left")
@@ -292,16 +296,16 @@ function Drawer:buildLayout()
         self.page_button.dimen.w = left_span
         self.page_button.label_container.dimen.w = left_span - 2 * self.page_button.padding_h
         table.insert(contents, 1, VerticalSpan:new{ width = self.header_gap })
-        local header = { allow_mirroring = false,
-            self.page_button,
-            HorizontalSpan:new{ width = self.body_width - left_span - buttons_width - (self.padding - self.right_padding) },
-            self.menu_button, HorizontalSpan:new{ width = self.padding - self.right_padding } }
+        -- Page, menu | zoom, close.
+        local header = { allow_mirroring = false, self.page_button, HorizontalSpan:new{ width = menu_gap }, self.menu_button,
+            HorizontalSpan:new{ width = self.body_width - left_span - buttons_width - (self.padding - self.right_padding) } }
         self.layout = {{ self.page_button, self.menu_button }, { self.content }}
-        if self.zoom_button then
-            table.insert(header, 3, HorizontalSpan:new{ width = self.padding })
-            table.insert(header, 3, self.zoom_button)
-            table.insert(self.layout[1], 2, self.zoom_button)
+        for i, button in ipairs(right) do
+            if i > 1 then header[#header + 1] = HorizontalSpan:new{ width = self.padding } end
+            header[#header + 1] = button
+            table.insert(self.layout[1], button)
         end
+        header[#header + 1] = HorizontalSpan:new{ width = self.padding - self.right_padding }
         table.insert(contents, 1, HorizontalGroup:new(header))
         if self.pager_height > 0 then
             self.pager = PinPager:new{ drawer = self,

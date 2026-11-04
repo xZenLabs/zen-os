@@ -144,4 +144,6 @@ function M.flashButton(dimen)
     if dimen and dimen.x and dimen.y then M.flash(dimen) end
 end
 
+M.eachSpan = each_span
+
 return M
