@@ -1511,10 +1511,12 @@ function M.reference_action(params)
             from_xpointer = link.a_xpointer, link_y = link.start_y }, false,
             G_reader_settings:isTrue("footnote_link_in_popup"))
     elseif action == "gesture" then
+        local inner = params.target == "body" or params.target == "header" or params.target == "minimap"
         local bounds = params.target == "body" and drawer.content.dimen
+            or params.target == "minimap" and drawer.minimap.dimen
             or params.target == "header" and drawer.page_button.dimen or drawer.frame.dimen
         local pos = require("ui/geometry"):new{ x = bounds.x + bounds.w * (params.x_ratio or 0.5), y = bounds.y + bounds.h / 2 }
-        if params.target ~= "body" and params.target ~= "header" then
+        if not inner then
             pos.y = bounds.y + math.floor(drawer.top_padding / 2)
         end
         if params.y_ratio then pos.y = bounds.y + bounds.h * params.y_ratio end
@@ -1697,6 +1699,8 @@ function M.reference_action(params)
             zoom_out_icon_bounds = drawer.zoom_out_button and drawer.zoom_out_button.label_widget.dimen,
             close_icon = drawer.close_button and drawer.close_button.label_widget.file,
             close_icon_bounds = drawer.close_button and drawer.close_button.label_widget.dimen,
+            minimap = drawer.minimap,
+            panning = drawer.live_pan ~= nil,
             close = drawer.close_button and drawer.close_button.dimen, page = drawer.page, footnote = drawer.footnote ~= nil,
             bounds = drawer.frame.dimen, content = drawer.content.dimen, scale = drawer.scale,
             image = drawer.htmlwidget == nil,

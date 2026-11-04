@@ -582,7 +582,7 @@ def test_pin_drawer_preserves_reading_and_page_actions(format, use_pack):
             opened = _ref(driver, "open_pin")
             _assert_pin_header_padding(opened)
             assert opened["drawer"]["content"]["h"] + math.ceil(32 * scale) == content["h"]
-            assert opened["drawer"]["page"] == pin
+            assert opened["drawer"]["page"] == second_pin["pins"][0]["page"]  # Newest pin on top, opened first.
             assert opened["page"] == start["page"] and opened["history"] == start["history"]
             _capture(driver, f"{format}-drawer.png")
             pin = second_pin["pins"][1]["page"]
@@ -620,7 +620,7 @@ def test_pin_drawer_preserves_reading_and_page_actions(format, use_pack):
             _ref(driver, "close_book")
             assert driver.open_book(book)["ok"]
             _wait_reader(driver)
-            assert _ref(driver)["pin_anchor"] == pinned["pin_anchor"]
+            assert _ref(driver)["pin_anchor"] == second_pin["pin_anchor"]  # Native pin mirrors the top one.
         finally:
             stop(process)
 
@@ -1324,7 +1324,8 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
                     archive.writestr(f"{index}.png", buffer.getvalue())
         socket = root / "driver.sock"
         process = launch(Path(os.environ["KOREADER_DIR"]), root / "home", socket, library, zen_config_source=(
-            "return { highlight_lookup = { show_labels = " + str(show_labels).lower() + " } }"
+            "return { reader_pins = { minimap = true }, highlight_lookup = { show_labels = "
+            + str(show_labels).lower() + " } }"
         ))
         try:
             wait_for_socket(socket)
@@ -1384,20 +1385,20 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             assert restored["full_image"] and restored["scale"] == pytest.approx(single_zoomed["scale"])
             _ref(driver, "close")
             _ref(driver, "pin", page=original["page_count"])
-            fresh = _ref(driver, "open_pin", index=2)["drawer"]
+            fresh = _ref(driver, "open_pin", index=1)["drawer"]
             assert fresh["image"] and not fresh["full_image"]
             assert max(fresh["image_view"][axis] / fresh["content"][axis] for axis in ("w", "h")) == pytest.approx(1, abs=0.01)
             fresh_scale = fresh["scale"]
-            restored = _ref(driver, "previous")["drawer"]
+            restored = _ref(driver, "next")["drawer"]
             assert restored["full_image"] and restored["scale"] == pytest.approx(single_zoomed["scale"])
-            _ref(driver, "next")
+            _ref(driver, "previous")
             _ref(driver, "pin_control", target="zoom")
             _ref(driver, "zoom", factor=2)
             _ref(driver, "pin_menu")
             _ref(driver, "pin_popup_action", text="Remove pin")
             _ref(driver, "close")
             _ref(driver, "pin", page=original["page_count"])
-            fresh = _ref(driver, "open_pin", index=2)["drawer"]
+            fresh = _ref(driver, "open_pin", index=1)["drawer"]
             assert not fresh["full_image"]
             assert fresh["scale"] == pytest.approx(fresh_scale)
             _ref(driver, "pin_menu")
@@ -1406,8 +1407,8 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             _ref(driver, "pin_control", target="zoom")
             _ref(driver, "close")
             _ref(driver, "pin", page=3)
-            opened = _ref(driver, "open_pin")
-            assert opened["drawer"]["image"]
+            opened = _ref(driver, "open_pin", index=2)
+            assert opened["drawer"]["image"] and not opened["drawer"].get("minimap")  # Fitted: nothing to pan.
             assert opened["double_tap_disabled"]
             drawer = opened["drawer"]
             _assert_pin_header_padding(opened)
@@ -1489,6 +1490,17 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             magnified = _ref(driver, "pin_control", target="zoom_in")
             assert magnified["drawer"]["full_image"] and magnified["drawer"]["scale"] > filled["scale"]
             assert not magnified["pin_popup_buttons"]
+            # Minimap: bottom-left inside the image, gray with a lighter viewport box.
+            minimap, viewport = magnified["drawer"]["minimap"], magnified["drawer"]["content"]
+            area, view = minimap["dimen"], minimap["view"]
+            assert area["x"] > viewport["x"] and area["x"] + area["w"] < viewport["x"] + viewport["w"] // 2
+            assert area["y"] > viewport["y"] + viewport["h"] // 2 and area["y"] + area["h"] < viewport["y"] + viewport["h"]
+            assert area["x"] < view["x"] and area["y"] < view["y"]
+            assert view["x"] + view["w"] <= area["x"] + area["w"] and view["y"] + view["h"] <= area["y"] + area["h"]
+            mapped = Image.open(_capture(driver, f"pin-{format}-minimap.png")).convert("RGB")
+            gray = mapped.getpixel((area["x"] + 1, area["y"] + area["h"] // 2))
+            light = mapped.getpixel((view["x"] + view["w"] // 2, view["y"] + view["h"] // 2))
+            assert gray[0] == gray[1] == gray[2] and gray[0] < light[0]
             # Hold-drag pans live: each event applies only its delta, before release.
             held = _ref(driver, "gesture", target="body", gesture="hold")["drawer"]["image_view"]
             step = _ref(driver, "gesture", target="body", gesture="hold_pan", relative={"x": 10, "y": 10})["drawer"]
@@ -1502,6 +1514,19 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             _ref(driver, "gesture", target="body", gesture="pan", relative={"x": -10, "y": -10})
             swiped = _ref(driver, "gesture", target="body", gesture="swipe", direction="west", distance=500)["drawer"]
             assert swiped["image_view"] == step["image_view"] and swiped["pin_index"] == magnified["drawer"]["pin_index"]
+            _ref(driver, "gesture", target="body", gesture="pan", relative={"x": 100000, "y": 100000})
+            corner = _ref(driver, "gesture", target="body", gesture="pan_release")["drawer"]["minimap"]
+            assert (corner["view"]["x"], corner["view"]["y"]) == (corner["dimen"]["x"], corner["dimen"]["y"])
+            # Dragging on the minimap moves its viewport box, panning the image the same way, scaled up.
+            origin = _ref(driver, "gesture", target="minimap", gesture="hold")["drawer"]["image_view"]
+            dragged = _ref(driver, "gesture", target="minimap", gesture="hold_pan", relative={"x": 3, "y": 3})["drawer"]
+            for axis in ("x", "y"):
+                assert dragged["image_view"][axis] - origin[axis] == pytest.approx(3 / corner["ratio"], abs=1)
+            done = _ref(driver, "gesture", target="body", gesture="hold_release")["drawer"]
+            assert done["image_view"] == dragged["image_view"] and done["minimap"]["view"]["x"] > corner["view"]["x"]
+            # Drags released outside the drawer still settle.
+            assert _ref(driver, "gesture", target="body", gesture="pan", relative={"x": 15, "y": 15})["drawer"]["panning"]
+            assert not _ref(driver, "gesture", target="outside", gesture="pan_release")["drawer"]["panning"]
             reduced = _ref(driver, "pin_control", target="zoom_out")
             assert reduced["drawer"]["full_image"] and reduced["drawer"]["scale"] < magnified["drawer"]["scale"]
             fitted = _ref(driver, "pin_control", target="zoom")
@@ -1554,7 +1579,7 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             assert reset["drawer"]["center"] == {"x": 0.5, "y": 0.5}
             assert reset["double_tap_disabled"]
             next_pin = _ref(driver, "pin_control", target="next")
-            assert next_pin["drawer"]["pin_index"] == 2
+            assert next_pin["drawer"]["pin_index"] == 1  # Wraps to the newer page-3 pin on top.
             if format == "epub":
                 assert not next_pin["drawer"]["image"]
                 assert not next_pin["drawer"].get("zoom")
@@ -1569,7 +1594,7 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             assert driver.command("settings_page_select", label="Position")["ok"]
             assert driver.command("settings_page_select", label="Left")["ok"]
             assert driver.command("close_settings_page")["ok"]
-            left = _ref(driver, "open_pin", index=1)["drawer"]
+            left = _ref(driver, "open_pin", index=2)["drawer"]
             assert left["bounds"]["x"] < 0
             assert left["content"]["x"] == 0
             assert left["content"]["w"] == left["bounds"]["x"] + left["bounds"]["w"] - left["border"]
@@ -1583,7 +1608,7 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             assert left_panned["center"]["y"] > left_zoomed["center"]["y"]
             _capture(driver, f"pin-{format}-full-left.png")
             next_pin = _ref(driver, "pin_control", target="next")["drawer"]
-            assert next_pin["pin_index"] == 2
+            assert next_pin["pin_index"] == 1
             if format == "epub":
                 assert not next_pin["full_image"]
                 assert not next_pin.get("zoom_in") and not next_pin.get("zoom_out")

@@ -3204,6 +3204,12 @@ msgstr "Pictogram: %1"
 msgid "Icons"
 msgstr "Pictogrammen"
 
+#. Type: setting
+#. Context: { text = _("Image minimap"), checked_func = function() return settings.minimap end,
+#: pin_settings.lua:72
+msgid "Image minimap"
+msgstr "Minikaart van afbeelding"
+
 #. Type: message
 #. Context: Melding in de instellingen voor het uiterlijk van de gebruikersinterface.
 #: interface_settings.lua:374

@@ -3204,6 +3204,12 @@ msgstr "Biểu tượng: %1"
 msgid "Icons"
 msgstr "Biểu tượng"
 
+#. Type: setting
+#. Context: { text = _("Image minimap"), checked_func = function() return settings.minimap end,
+#: pin_settings.lua:72
+msgid "Image minimap"
+msgstr "Bản đồ nhỏ của hình ảnh"
+
 #. Type: message
 #. Context: Thông báo cho người dùng trong phần cài đặt giao diện.
 #: interface_settings.lua:374

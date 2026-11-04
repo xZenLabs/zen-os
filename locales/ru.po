@@ -3205,6 +3205,12 @@ msgstr "Значок: %1"
 msgid "Icons"
 msgstr "Значки"
 
+#. Type: setting
+#. Context: { text = _("Image minimap"), checked_func = function() return settings.minimap end,
+#: pin_settings.lua:72
+msgid "Image minimap"
+msgstr "Миникарта изображения"
+
 #. Type: message
 #. Context: Сообщение в настройках внешнего вида интерфейса.
 #: interface_settings.lua:374

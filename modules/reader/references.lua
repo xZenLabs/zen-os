@@ -131,7 +131,9 @@ function M.setPin(ui, page, remove, image)
             ui.doc_settings:saveSetting("zen_pinned_image_settings", images)
         end
     elseif not found then
-        locations[#locations + 1] = location
+        -- Newest on top, and the drawer opens on it.
+        table.insert(locations, 1, location)
+        ui.doc_settings:saveSetting("zen_last_pinned_page", ui.rolling and location or page)
     else return end
     ui.doc_settings:saveSetting("zen_pinned_pages", locations)
     local images = ui.doc_settings:readSetting("zen_pinned_images")

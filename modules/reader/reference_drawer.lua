@@ -44,7 +44,7 @@ function PinImage:_render()
     self._offset_y = math.floor(self.center_y_ratio * self._bb_h - self.height / 2)
 end
 
--- Live drags repaint only the drawer with "fast"; the final call settles with a dithered "ui" refresh and saves.
+-- Live drags repaint only the drawer with "fast"; the final call settles with a dithered refresh and saves.
 function PinImage:panBy(x, y, live)
     if not self._bb then return end
     local max_x, max_y = self._max_off_center_x_ratio, self._max_off_center_y_ratio
@@ -54,7 +54,17 @@ function PinImage:panBy(x, y, live)
     local offset_y = math.floor(self.center_y_ratio * self._bb_h - self.height / 2 + 0.5)
     if offset_x ~= self._offset_x or offset_y ~= self._offset_y or (not live and self.live_moved) then
         self._offset_x, self._offset_y, self.live_moved = offset_x, offset_y, live
-        UIManager:setDirty(self.drawer, live and "fast" or "ui", self.dimen, not live)
+        local drawer = self.drawer
+        if live then
+            -- Only the image changes: skip repainting the page under the translucent drawer, and its shadow.
+            local alpha = rawget(drawer, "alpha") -- Usually nil: the class default applies.
+            drawer.alpha, drawer.image_only = false, true
+            UIManager:setDirty(drawer, "fast", self.dimen)
+            drawer.alpha = alpha
+        else
+            -- GC16 flash: "flashui" maps to REAGL on some Kindles, which leaves the fast-refresh ghosting.
+            UIManager:setDirty(drawer, "full", self.dimen, true)
+        end
     end
     if not live then self.drawer:saveImageSettings() end
     return self.center_x_ratio, self.center_y_ratio
@@ -211,18 +221,22 @@ function Drawer:init()
     self.ges_events.EdgeSwipe = { GestureRange:new{ ges = "swipe",
         range = function() return Geom:new{ x = self.frame.dimen.x, y = self.frame.dimen.y,
             w = self.frame.dimen.w, h = self.top_padding + self.border_size } end } }
-    for _i, name in ipairs({ "Swipe", "Pan", "PanRelease", "Pinch", "Spread" }) do
-        local gesture = ({ Swipe = "swipe", Pan = "pan", PanRelease = "pan_release",
+    for _i, name in ipairs({ "Swipe", "MultiSwipe", "Pan", "PanRelease", "Pinch", "Spread" }) do
+        local gesture = ({ Swipe = "swipe", MultiSwipe = "multiswipe", Pan = "pan", PanRelease = "pan_release",
             Pinch = "pinch", Spread = "spread" })[name]
         self.ges_events[name] = { GestureRange:new{ ges = gesture,
             range = function() return self.content.dimen end } }
     end
-    if not self.footnote then self.ges_events.Swipe[1].range = self.dimen end
-    self.ges_events.PanRelease[1].range = self.dimen -- Finish drags released outside the preview.
+    if not self.footnote then
+        self.ges_events.Swipe[1].range = self.dimen
+        self.ges_events.MultiSwipe[1].range = self.dimen
+    end
+    -- Releases anywhere on screen settle drags that left the preview; the handlers ignore releases without a drag.
+    self.ges_events.PanRelease[1].range = nil
     if not self.footnote then
         self.ges_events.Hold = { GestureRange:new{ ges = "hold", range = function() return self.content.dimen end } }
         self.ges_events.HoldPan = { GestureRange:new{ ges = "hold_pan", range = self.dimen } }
-        self.ges_events.HoldRelease = { GestureRange:new{ ges = "hold_release", range = self.dimen } }
+        self.ges_events.HoldRelease = { GestureRange:new{ ges = "hold_release" } }
     elseif self.footnote.ges_events then
         for _i, name in ipairs({ "HoldStartText", "HoldPanText", "HoldReleaseText" }) do
             self.ges_events[name] = self.footnote.ges_events[name]
@@ -381,6 +395,11 @@ function Drawer:buildLayout()
 end
 
 function Drawer:paintTo(bb, x, y)
+    if self.image_only then
+        self.image_only = nil
+        FocusManager.paintTo(self, bb, x, y)
+        return self:paintMinimap(bb)
+    end
     local frame, shadow, opacity = self.frame, self.shadow_size, self.alpha
     local width, height = frame:getSize().w, frame.height
     local radius = frame.radius + frame.bordersize
@@ -402,6 +421,65 @@ function Drawer:paintTo(bb, x, y)
         shade(bb, fx + width - radius, fy + height + shadow - row - 1, span, 1, opacity)
     end
     FocusManager.paintTo(self, bb, x, y)
+    self:paintMinimap(bb)
+end
+
+-- Per-row {left, right} corner insets traced from KOReader's own rounded rect, so corners match the drawer frame.
+local corner_cuts = {}
+local function cornerCuts(radius)
+    if corner_cuts[radius] then return corner_cuts[radius] end
+    local size = 2 * radius
+    local mask = Blitbuffer.new(size, size, Blitbuffer.TYPE_BB8)
+    mask:fill(Blitbuffer.COLOR_BLACK)
+    mask:paintRoundedRect(0, 0, size, size, Blitbuffer.COLOR_WHITE, radius)
+    local cuts = {}
+    for row = 0, size - 1 do
+        local left, right = 0, 0
+        while left < radius and mask:getPixel(left, row).a == 0 do left = left + 1 end
+        while right < radius and mask:getPixel(size - 1 - right, row).a == 0 do right = right + 1 end
+        cuts[row] = { left, right }
+    end
+    mask:free()
+    corner_cuts[radius] = cuts
+    return cuts
+end
+
+-- Fill a rounded rect via fill(x, y, w, h): trimmed corner rows, then the middle band at once.
+local function fillRounded(fill, x, y, w, h, radius)
+    radius = math.min(radius, math.floor(math.min(w, h) / 2))
+    if radius < 1 then return fill(x, y, w, h) end
+    local cuts = cornerCuts(radius)
+    for row = 0, radius - 1 do
+        local top, bottom = cuts[row], cuts[2 * radius - 1 - row]
+        fill(x + top[1], y + row, w - top[1] - top[2], 1)
+        fill(x + bottom[1], y + h - row - 1, w - bottom[1] - bottom[2], 1)
+    end
+    fill(x, y + radius, w, h - 2 * radius)
+end
+
+-- Bottom-left overview of an overflowing image: gray image area, light box for the visible viewport.
+function Drawer:paintMinimap(bb)
+    self.minimap = nil
+    local image = not self.htmlwidget and self.plugin.config.reader_pins.minimap and self.content
+    if not (image and image._bb and image.dimen) then return end
+    local bb_w, bb_h, view_w, view_h = image._bb_w, image._bb_h, image.width, image.height
+    if bb_w <= view_w and bb_h <= view_h then return end
+    local ratio = Screen:scaleBySize(56) / math.max(bb_w, bb_h)
+    local w, h = math.max(1, math.floor(bb_w * ratio + 0.5)), math.max(1, math.floor(bb_h * ratio + 0.5))
+    local bottom = image.dimen.y + image.dimen.h
+    if self.pager and self.pager.dimen and self.pager.dimen.y < bottom then bottom = self.pager.dimen.y end
+    local gap = Screen:scaleBySize(4)
+    local x, y = math.max(image.dimen.x, 0) + gap, bottom - gap - h
+    local x0, y0 = math.max(0, image._offset_x), math.max(0, image._offset_y)
+    local x1, y1 = math.min(bb_w, image._offset_x + view_w), math.min(bb_h, image._offset_y + view_h)
+    local view = Geom:new{ x = x + math.floor(x0 * ratio), y = y + math.floor(y0 * ratio),
+        w = math.max(1, math.ceil((x1 - x0) * ratio)), h = math.max(1, math.ceil((y1 - y0) * ratio)) }
+    self.minimap = { dimen = Geom:new{ x = x, y = y, w = w, h = h }, view = view, ratio = ratio }
+    local radius = Size.radius.default
+    local darken, lighten = bb.darkenRect, bb.lightenRect
+    if Screen.night_mode then darken, lighten = lighten, darken end
+    fillRounded(function(rx, ry, rw, rh) darken(bb, rx, ry, rw, rh, 0.45) end, x, y, w, h, radius)
+    fillRounded(function(rx, ry, rw, rh) lighten(bb, rx, ry, rw, rh, 0.6) end, view.x, view.y, view.w, view.h, radius)
 end
 
 function Drawer:onEdgeSwipe(_arg, ges)
@@ -522,30 +600,43 @@ function Drawer:onPan(_arg, ges)
         return true
     end
     -- ges.relative is cumulative from touch start; apply only the delta since the last event.
-    local last = self.live_pan or { x = 0, y = 0 }
-    self.content:panBy(last.x - ges.relative.x, last.y - ges.relative.y, true)
+    local last = self.live_pan
+    if not last then
+        last = { x = 0, y = 0 }
+        -- Drags starting on the minimap move its viewport box, so the image pans the other way, scaled up.
+        self.minimap_drag = self.minimap and self.minimap.dimen:contains(ges.start_pos or ges.pos) and self.minimap.ratio
+    end
+    local scale = self.minimap_drag and -1 / self.minimap_drag or 1
+    self.content:panBy((last.x - ges.relative.x) * scale, (last.y - ges.relative.y) * scale, true)
     self.live_pan = ges.relative
     return true
 end
 
 function Drawer:onPanRelease()
+    if not (self.live_pan or self.pan) then return false end
     if self.live_pan then
         self.content:panBy(0, 0)
     elseif not self.htmlwidget and self.pan then
         self.content:panBy(-self.pan.x, -self.pan.y)
     end
-    self.pan, self.live_pan = nil, nil
+    self.pan, self.live_pan, self.minimap_drag = nil, nil, nil
     return true
 end
 
-function Drawer:onHold() return not self.htmlwidget end
-function Drawer:onHoldPan(arg, ges)
+function Drawer:onHold()
     if self.htmlwidget then return false end
+    self.holding = true
+    return true
+end
+function Drawer:onHoldPan(arg, ges)
+    if not self.holding then return false end
     return self:onPan(arg, ges)
 end
 function Drawer:onHoldRelease()
-    if self.htmlwidget then return false end
-    return self:onPanRelease()
+    if not self.holding then return false end
+    self.holding = nil
+    self:onPanRelease()
+    return true
 end
 
 function Drawer:onSwipe(_arg, ges)
@@ -572,6 +663,8 @@ function Drawer:onSwipe(_arg, ges)
     end
     return true
 end
+-- Drags that bend arrive as multiswipe; unhandled, they skip the settle and reach the reader's gestures.
+Drawer.onMultiSwipe = Drawer.onSwipe
 
 function Drawer:onTapClose(_arg, ges)
     if self.tap_guard_until and time.now() < self.tap_guard_until then return true end

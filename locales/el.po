@@ -3205,6 +3205,12 @@ msgstr "Εικονίδιο: %1"
 msgid "Icons"
 msgstr "Εικονίδια"
 
+#. Type: setting
+#. Context: { text = _("Image minimap"), checked_func = function() return settings.minimap end,
+#: pin_settings.lua:72
+msgid "Image minimap"
+msgstr "Μικροχάρτης εικόνας"
+
 #. Type: message
 #. Context: Μήνυμα στις ρυθμίσεις εμφάνισης του περιβάλλοντος χρήστη.
 #: interface_settings.lua:374

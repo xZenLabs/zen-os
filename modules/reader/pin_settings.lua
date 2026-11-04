@@ -68,6 +68,11 @@ function M.items(ui, plugin, refresh)
                 },
             },
         },
+        {
+            text = _("Image minimap"),
+            checked_func = function() return settings.minimap end,
+            callback = function() settings.minimap = not settings.minimap; save() end,
+        },
     }
 end
 

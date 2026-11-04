@@ -3204,6 +3204,12 @@ msgstr "Icône : %1"
 msgid "Icons"
 msgstr "Icônes"
 
+#. Type: setting
+#. Context: { text = _("Image minimap"), checked_func = function() return settings.minimap end,
+#: pin_settings.lua:72
+msgid "Image minimap"
+msgstr "Mini-carte de l'image"
+
 #. Type: message
 #. Context: Message dans les réglages d’apparence de l’interface.
 #: interface_settings.lua:374

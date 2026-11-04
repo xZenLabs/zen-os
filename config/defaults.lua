@@ -36,6 +36,7 @@ local defaults = {
         use_book_font = true,
         relative_font_size = 0,
         justify = true,
+        minimap = true,
     },
     updater = {
         just_updated_version = "",

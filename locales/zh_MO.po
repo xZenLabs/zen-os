@@ -3204,6 +3204,12 @@ msgstr "圖示：%1"
 msgid "Icons"
 msgstr "圖示"
 
+#. Type: setting
+#. Context: { text = _("Image minimap"), checked_func = function() return settings.minimap end,
+#: pin_settings.lua:72
+msgid "Image minimap"
+msgstr "圖片小地圖"
+
 #. Type: message
 #. Context: 介面外觀設定中向用戶顯示的提示訊息。
 #: interface_settings.lua:374
