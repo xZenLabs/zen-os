@@ -712,6 +712,14 @@ local function apply_metadata_editor()
                     or _("No metadata providers are available. Open settings?"))
             return
         end
+        local NetworkMgr = require("ui/network/manager")
+        if not NetworkMgr:isConnected() then
+            -- Prompt for Wi-Fi, then rerun once connected.
+            NetworkMgr:runWhenConnected(function()
+                start_hardcover_search(editor, draft, query, cover_only, replace_callback, only_key)
+            end)
+            return
+        end
         local auto_pick = metadata_config().hardcover_auto_match ~= false
         local explicit_query = query ~= nil
         query = query or draft

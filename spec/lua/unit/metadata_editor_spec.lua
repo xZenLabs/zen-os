@@ -349,6 +349,8 @@ describe("metadata editor Hardcover controller", function()
     local preview_refreshes
     local trapper_wrap_calls
     local scheduled_callbacks
+    local wifi_connected
+    local wifi_waiting
 
     local function run_scheduled()
         while #scheduled_callbacks > 0 do
@@ -377,6 +379,8 @@ describe("metadata editor Hardcover controller", function()
         preview_refreshes = 0
         trapper_wrap_calls = 0
         scheduled_callbacks = {}
+        wifi_connected = true
+        wifi_waiting = {}
         search_result = {{
             id = 7,
             title = "Remote title",
@@ -422,6 +426,10 @@ describe("metadata editor Hardcover controller", function()
             get = function() return google_key end,
         })
         ZenSpec.replace("bookinfomanager", { getBookInfo = function() return {} end })
+        ZenSpec.replace("ui/network/manager", {
+            isConnected = function() return wifi_connected end,
+            runWhenConnected = function(_self, callback) wifi_waiting[#wifi_waiting + 1] = callback end,
+        })
         ZenSpec.replace("ui/widget/infomessage", {
             new = function(_self, options) return options end,
         })
@@ -592,6 +600,19 @@ describe("metadata editor Hardcover controller", function()
         assert.are.equal("Searching metadata…", shown_widgets[1].text)
         assert.is_true(shown_widgets[1].closed)
         assert.are.equal(1, trapper_wrap_calls)
+    end)
+
+    it("prompts for Wi-Fi and searches once connected", function()
+        wifi_connected = false
+        local editor = { applyHardcover = function() end }
+
+        shown.on_hardcover(shown.metadata, editor)
+
+        assert.are.equal(1, #wifi_waiting)
+        assert.is_nil(search_query)
+        wifi_connected = true
+        wifi_waiting[1]()
+        assert.are.equal("Local title", search_query.title)
     end)
 
     it("always shows the results list in manual mode", function()
