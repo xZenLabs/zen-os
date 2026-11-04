@@ -3966,6 +3966,12 @@ msgstr "Labelgrootte navigatiebalk"
 msgid "Navbar Tabs"
 msgstr "Navigatietabbladen"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Naar pagina %1?"
+
 #. Type: setting
 #. Context: Naam van een instelling in de instellingen voor het uiterlijk en gedrag van de bibliotheek.
 #: library_settings.lua:49

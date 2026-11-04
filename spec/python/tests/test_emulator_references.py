@@ -92,11 +92,20 @@ def _ref(driver: ZenDriver, action="state", **params):
         while "bounds" not in state["return_button"] and time.monotonic() < deadline:
             time.sleep(0.05)
             state = driver.command("reference_action", action="state")["references"]
-    if action in {"expand", "gesture", "goto", "browser_jump", "toc_jump", "return", "turn", "expire_return", "suspend"} or (
+    if action in {"confirm", "expand", "gesture", "goto", "browser_jump", "toc_jump", "return", "turn", "expire_return", "suspend"} or (
         action != "state" and state.get("drawer") and "bounds" not in state["drawer"]
     ):
         return _ref(driver)
     return state
+
+
+def _navigate(driver: ZenDriver, action="expand", **params):
+    prompt = _ref(driver, action, **params)
+    assert prompt["confirm_text"]
+    assert prompt.get("drawer") and prompt["history"] == _ref(driver, "confirm", cancel=True)["history"]
+    assert _ref(driver)["page"] == prompt["page"]
+    _ref(driver, action, **params)
+    return _ref(driver, "confirm")
 
 
 def _browser(driver: ZenDriver):
@@ -443,7 +452,7 @@ def test_return_button_tracks_jumps_without_tracking_page_turns(format):
             _ref(driver, "pin", page=3)
             pin = _ref(driver, "open_pin")
             assert not pin["return_button"]["visible"]
-            expanded = _ref(driver, "expand")
+            expanded = _navigate(driver)
             assert expanded["return_button"]["visible"]
             same_pin = _ref(driver, "open_pin")
             no_op = _ref(driver, "check_pin_navigation")
@@ -462,7 +471,7 @@ def test_return_button_tracks_jumps_without_tracking_page_turns(format):
                 _ref(driver, "return")
                 _ref(driver, "footnote", index=2)
                 assert not _ref(driver)["return_button"]["visible"]
-                assert _ref(driver, "expand")["return_button"]["visible"]
+                assert _navigate(driver)["return_button"]["visible"]
                 _ref(driver, "return")
             _ref(driver, "goto", page=3)
             assert not _ref(driver, "suspend")["return_button"]["visible"]
@@ -590,7 +599,7 @@ def test_pin_drawer_preserves_reading_and_page_actions(format, use_pack):
             _ref(driver, "zoom", factor=1.25)
             _ref(driver, "close")
             assert _ref(driver, "open_pin")["drawer"]["page"] == pin
-            expanded = _ref(driver, "expand")
+            expanded = _navigate(driver)
             assert expanded["page"] == pin and expanded["history"] == start["history"] + 1
             _browser(driver)
             for mode in ("single", "carousel", "grid"):
@@ -660,7 +669,7 @@ def test_footnote_drawer_reopens_and_returns_after_expansion():
             reopened = _ref(driver, "open_note")
             assert reopened["drawer"]["ratio"] == pytest.approx(scrolled["drawer"]["ratio"])
             assert not reopened["browser_open"] and reopened["location"] == start["location"]
-            expanded = _ref(driver, "gesture", target="body")
+            expanded = _navigate(driver, "gesture", target="body")
             assert not expanded.get("drawer") and expanded["page"] != start["page"]
             assert expanded["history"] == start["history"] + 1
             assert expanded["return_button"]["visible"]
@@ -750,7 +759,7 @@ def test_reference_popup_defaults_theme_outline_and_gestures(night):
             assert not closed.get("drawer") and closed["location"] == current["location"]
             assert closed["history"] == current["history"]
             _ref(driver, "open_note")
-            expanded = _ref(driver, "gesture", gesture="swipe", direction="north")
+            expanded = _navigate(driver, "gesture", gesture="swipe", direction="north")
             assert not expanded.get("drawer") and expanded["history"] == current["history"] + 1
             _browser(driver)
             assert _ref(driver, "page_action", id="back")["page"] == current["page"]
@@ -763,7 +772,7 @@ def test_reference_popup_defaults_theme_outline_and_gestures(night):
             assert image.getpixel((button["x"] + button["w"] - 2, button["y"] + button["h"] - 2)) == background
             assert not _ref(driver, "gesture", gesture="swipe", direction="south").get("drawer")
             _ref(driver, "open_pin")
-            expanded = _ref(driver, "gesture", target="header")
+            expanded = _navigate(driver, "gesture", target="header")
             assert not expanded.get("drawer") and expanded["page"] == expanded["pin"]
         finally:
             stop(process)
@@ -1249,7 +1258,7 @@ def test_pinned_preview_spacing_and_swipe_dismissal(format):
                 assert closed.get("location") == original.get("location")
                 assert len(closed["pins"]) == 1
             _ref(driver, "open_pin")
-            navigated = _ref(driver, "gesture", target="header")
+            navigated = _navigate(driver, "gesture", target="header")
             assert not navigated.get("drawer") and navigated["page"] == opened["drawer"]["page"]
             assert navigated["history"] == original["history"] + 1
             if format == "epub":

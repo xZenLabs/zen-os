@@ -3966,6 +3966,12 @@ msgstr "Navigációs sáv címkemérete"
 msgid "Navbar Tabs"
 msgstr "Navigációs sáv fülei"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Ugrás a(z) %1. oldalra?"
+
 #. Type: setting
 #. Context: A beállítás neve a könyvtár megjelenésének és működésének beállításainál.
 #: library_settings.lua:49

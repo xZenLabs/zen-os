@@ -3967,6 +3967,12 @@ msgstr "Размер меток панели навигации"
 msgid "Navbar Tabs"
 msgstr "Вкладки навигации"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Перейти на страницу %1?"
+
 #. Type: setting
 #. Context: Название настройки в настройках внешнего вида и поведения библиотеки.
 #: library_settings.lua:49

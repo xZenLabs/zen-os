@@ -694,11 +694,22 @@ function Drawer:showImage()
 end
 
 function Drawer:onExpand()
-    if self.footnote then self.footnote.follow_callback(); return true end
-    if self.page == self.ui:getCurrentPage() then return true end
-    self:onClose()
-    self.ui.link:addCurrentLocationToStack()
-    self.ui:handleEvent(Event:new("GotoPage", self.page))
+    local footnote = self.footnote
+    local page = footnote and self.ui.document:getPageFromXPointer(self.link.xpointer) or self.page
+    if page == self.ui:getCurrentPage() then
+        if footnote then footnote.follow_callback() end
+        return true
+    end
+    UIManager:show(require("ui/widget/confirmbox"):new{
+        text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+        ok_text = _("Yes"), cancel_text = _("No"),
+        ok_callback = function()
+            if footnote then return footnote.follow_callback() end
+            self:onClose()
+            self.ui.link:addCurrentLocationToStack()
+            self.ui:handleEvent(Event:new("GotoPage", page))
+        end,
+    })
     return true
 end
 

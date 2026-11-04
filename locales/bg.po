@@ -3975,6 +3975,12 @@ msgstr "Размер на етикетите в навигационната л�
 msgid "Navbar Tabs"
 msgstr "Раздели в навигационната лента"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Към страница %1?"
+
 #. Type: setting
 #. Context: Име на настройка в настройките за външния вид и поведението на библиотеката.
 #: library_settings.lua:49

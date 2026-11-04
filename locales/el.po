@@ -3967,6 +3967,12 @@ msgstr "Μέγεθος ονομασιών γραμμής πλοήγησης"
 msgid "Navbar Tabs"
 msgstr "Καρτέλες γραμμής πλοήγησης"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Μετάβαση στη σελίδα %1;"
+
 #. Type: setting
 #. Context: Ονομασία ρύθμισης στις ρυθμίσεις εμφάνισης και λειτουργίας της βιβλιοθήκης.
 #: library_settings.lua:49

@@ -3966,6 +3966,12 @@ msgstr "Dimensione etichette barra di navigazione"
 msgid "Navbar Tabs"
 msgstr "Schede di navigazione"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Vai alla pagina %1?"
+
 #. Type: setting
 #. Context: Nome di un’impostazione nelle impostazioni dell’aspetto e del comportamento della biblioteca.
 #: library_settings.lua:49

@@ -3966,6 +3966,12 @@ msgstr "Taille des libellés de la barre de navigation"
 msgid "Navbar Tabs"
 msgstr "Onglets de navigation"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Aller à la page %1 ?"
+
 #. Type: setting
 #. Context: Nom d’un réglage dans les réglages d’apparence et de fonctionnement de la bibliothèque.
 #: library_settings.lua:49

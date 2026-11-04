@@ -4183,6 +4183,12 @@ msgstr "Tamaño de las etiquetas de la barra de navegación"
 msgid "Navbar Tabs"
 msgstr "Pestañas de navegación"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Ir a la página %1?"
+
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:49

@@ -4020,6 +4020,12 @@ msgstr "Navbar label size"
 msgid "Navbar Tabs"
 msgstr "Navbar Tabs"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Navigate to page %1?"
+
 #. Type: setting
 #. Context: Settings label in the Library appearance and behavior settings.
 #: library_settings.lua:49

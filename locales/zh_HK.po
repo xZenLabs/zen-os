@@ -3966,6 +3966,12 @@ msgstr "導航列標籤大小"
 msgid "Navbar Tabs"
 msgstr "導航分頁"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "跳至第 %1 頁？"
+
 #. Type: setting
 #. Context: 書庫的顯示及操作設定中的設定項目名稱。
 #: library_settings.lua:49

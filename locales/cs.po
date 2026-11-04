@@ -3966,6 +3966,12 @@ msgstr "Velikost popisku lišty navigace"
 msgid "Navbar Tabs"
 msgstr "Karty navigace"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Přejít na stránku %1?"
+
 #. Type: setting
 #. Context: Název nastavení v nastavení vzhledu a chování knihovny.
 #: library_settings.lua:49

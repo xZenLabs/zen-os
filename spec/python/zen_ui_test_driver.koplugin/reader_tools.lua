@@ -37,6 +37,10 @@ local function find_widget(predicate)
     end
 end
 
+local function confirm_box()
+    return find_widget(function(widget) return getmetatable(widget) == require("ui/widget/confirmbox") end)
+end
+
 local function menu_anchor(widget)
     local anchor = widget._zen_anchor_source or widget.anchor
     return type(anchor) == "function" and anchor() or anchor
@@ -1372,6 +1376,11 @@ function M.reference_action(params)
     elseif action == "open_note" then References.openFootnote(ui)
     elseif action == "close" then drawer:onClose()
     elseif action == "expand" then drawer:onExpand()
+    elseif action == "confirm" then
+        local box = confirm_box()
+        if not box then return { ok = false, error = "Confirm box missing" } end
+        UIManager:close(box)
+        if params.cancel then box.cancel_callback() else box.ok_callback() end
     elseif action == "check_pin_navigation" then
         local dirty, repaint = UIManager.setDirty, UIManager.widgetRepaint
         navigation_updates = 0
@@ -1612,6 +1621,7 @@ function M.reference_action(params)
     return { ok = true, references = {
         page = ui:getCurrentPage(), page_count = ui.document:getPageCount(),
         navigation_updates = navigation_updates, top_menu_open = top_menu_open,
+        confirm_text = (confirm_box() or {}).text,
         footer_left_margin = require("common/reader_status_bar").getHorizontalMargins(ui.document,
             footer.horizontal_margin, require("pluginloader"):getPluginInstance("zenos")),
         location = ui.rolling and ui.document:getXPointer() or nil,

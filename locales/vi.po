@@ -3966,6 +3966,12 @@ msgstr "Kích thước nhãn thanh điều hướng"
 msgid "Navbar Tabs"
 msgstr "Tab thanh điều hướng"
 
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Chuyển đến trang %1?"
+
 #. Type: setting
 #. Context: Tên mục cài đặt trong phần cài đặt cách hiển thị và hoạt động của thư viện.
 #: library_settings.lua:49
