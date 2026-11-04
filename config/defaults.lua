@@ -406,7 +406,7 @@ local defaults = {
     },
     annotation_viewer = {
         preview_length = "standard",
-        details = { book = "auto", author = "auto", chapter = true, page = true, date = true, label = true, tags = false },
+        details = { book = "auto", author = "auto", chapter = true, page = true, date = true, label = true },
     },
     highlight_lookup = {
         show_labels         = false,

@@ -137,7 +137,7 @@ function Drawer:init()
     if state.drawer then state.drawer:onClose() end
     self.dimen = Screen:getSize()
     self.landscape = self.dimen.w > self.dimen.h
-    self.side_margin = self.footnote and Screen:scaleBySize(8) or 0
+    self.side_margin = self.footnote and Screen:scaleBySize(self.landscape and 8 or 2) or 0 -- Portrait: inset clears bezel.
     self.width = (self.landscape and math.floor(self.dimen.w / 2) or self.dimen.w) - 2 * self.side_margin
     self.height = self.landscape and self.dimen.h or math.floor(self.dimen.h * 0.4)
     if not self.footnote then

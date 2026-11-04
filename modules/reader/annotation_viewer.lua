@@ -15,6 +15,7 @@ local LibraryFont = require("modules/filebrowser/patches/library_font")
 local Menu = require("ui/widget/menu")
 local Screen = require("device").screen
 local Size = require("ui/size")
+local SolidCircle = require("common/ui/zen_solid_circle")
 local T = require("ffi/util").template
 local TextBoxWidget = require("ui/widget/textboxwidget")
 local TextWidget = require("ui/widget/textwidget")
@@ -67,6 +68,13 @@ local function color_label(pbw, record)
     -- Inverted highlights ignore their color.
     if record.kind ~= "highlight" or record.style == "invert" then return "" end
     return highlight(pbw):getHighlightColorString(record.color)
+end
+
+local function highlight_fill(pbw, record)
+    -- Night-mode-aware color shows true; grays pre-invert to match the page.
+    local color = highlight(pbw):getHighlightColor(record.color, false, true) or Blitbuffer.COLOR_LIGHT_GRAY
+    if Screen.night_mode and Blitbuffer.isColor8(color) then color = color:invert() end
+    return color
 end
 
 function M.session(pbw)
@@ -242,7 +250,7 @@ function M.showDetails(pbw, record)
     viewer = require("ui/widget/textviewer"):new{
         title = record.kind == "note" and _("Book note") or record.title,
         show_menu = false,
-        text = table.concat({ record.title, table.concat(present, " · "), "", record.text, "", record.note }, "\n"),
+        text = table.concat({ record.title, table.concat(present, " | "), "", record.text, "", record.note }, "\n"),
         buttons_table = {{ { text = primary.text, callback = primary.callback } }}, close_callback = function() refresh(pbw) end,
     }
     viewer._zen_more = add_more_button(viewer, function() show_actions(pbw, record, actions, anchor) end)
@@ -301,9 +309,10 @@ local function make_row(pbw, record, dimen, font_size, quote_lines, note_lines)
     local function add(text, size, lines, options)
         if text == "" or budget < size then return end
         options = options or {}
-        local icon_size = options.icon and Screen:scaleBySize(size) or 0
+        local lead = options.icon or options.swatch
+        local icon_size = lead and Screen:scaleBySize(size) or 0
         local box = TextBoxWidget:new{
-            text = text, width = width - (options.inset or 0) * 2 - (options.icon and icon_size + padding / 2 or 0),
+            text = text, width = width - (options.inset or 0) * 2 - (lead and icon_size + padding / 2 or 0),
             face = LibraryFont.getFace(size), height = math.min(budget, math.ceil(Screen:scaleBySize(size) * 1.4) * lines),
             height_adjust = true, height_overflow_show_ellipsis = true,
             fgcolor = options.foreground or Blitbuffer.COLOR_BLACK,
@@ -312,9 +321,12 @@ local function make_row(pbw, record, dimen, font_size, quote_lines, note_lines)
         budget = budget - box:getSize().h - (options.inset or 0) * 2 - padding / 2
         if options.quote then row.quote = box end
         local content = box
-        if options.icon then
+        if lead then
             content = HorizontalGroup:new{
-                IconWidget:new{ file = utils.resolveLocalIcon(icons_dir, options.icon), width = icon_size, height = icon_size },
+                options.icon and IconWidget:new{ file = utils.resolveLocalIcon(icons_dir, options.icon), width = icon_size, height = icon_size }
+                    -- Rounded swatch; border keeps light colors visible on grayscale screens.
+                    or SolidCircle:new{ width = icon_size, background = options.swatch,
+                        radius = math.floor(icon_size / 4), bordersize = Size.border.thin },
                 HorizontalSpan:new{ width = padding / 2 }, box,
             }
         end
@@ -332,7 +344,6 @@ local function make_row(pbw, record, dimen, font_size, quote_lines, note_lines)
         if field == "book" or field == "author" then
             return mode == "show" or ((mode == nil or mode == "auto") and all_books)
         end
-        if field == "tags" then return mode == true end
         return mode ~= false
     end
     local marker = markers[record.kind]
@@ -343,31 +354,26 @@ local function make_row(pbw, record, dimen, font_size, quote_lines, note_lines)
     end
     if visible("page") and record.page_label ~= "" then location[#location + 1] = page_text(record) end
     if marker and visible("book") then table.insert(location, 1, record.title) end
-    local text = table.concat(location, " · "):gsub("%s+", " ")
+    local label = visible("label") and color_label(pbw, record) or ""
+    if label ~= "" then table.insert(location, 1, label) end
+    local text = table.concat(location, " | "):gsub("%s+", " ")
     if marker and text == "" then text = kind_labels[record.kind] end
-    add(text, font_size, 1, { icon = marker })
+    local swatch = record.kind == "highlight"
+        and (record.style == "invert" and Blitbuffer.COLOR_BLACK or highlight_fill(pbw, record))
+    add(text, font_size, 1, { icon = marker, swatch = swatch or nil })
     local details = {}
     if visible("date") and record.datetime ~= "" then
         details[#details + 1] = DateFormat.formatISODate(record.datetime)
     end
-    local label = visible("label") and color_label(pbw, record) or ""
-    if label ~= "" then details[#details + 1] = label end
     if visible("author") and record.author ~= "" then details[#details + 1] = record.author end
-    if visible("tags") then
-        for _i, tag in ipairs(record.tags) do details[#details + 1] = tag end
-    end
-    add(table.concat(details, " · "), font_size, 1)
+    add(table.concat(details, " | "), font_size, 1)
     if not marker then
         local background, foreground = Blitbuffer.COLOR_WHITE, Blitbuffer.COLOR_BLACK
         if record.style == "invert" then
             background, foreground = Blitbuffer.COLOR_BLACK, Blitbuffer.COLOR_WHITE
         elseif record.style == "lighten" then
-            -- Night-mode-aware color shows true; grays and text pre-invert to match the page.
-            background = highlight(pbw):getHighlightColor(record.color, false, true) or Blitbuffer.COLOR_LIGHT_GRAY
-            if Screen.night_mode then
-                if Blitbuffer.isColor8(background) then background = background:invert() end
-                foreground = Blitbuffer.COLOR_WHITE
-            end
+            background = swatch
+            if Screen.night_mode then foreground = Blitbuffer.COLOR_WHITE end
         end
         if record.style == "underscore" or record.style == "strikeout" then
             row.decoration = record.style
@@ -399,7 +405,10 @@ function M.build(pbw, kind, width, height)
     font_size = math.max(10, math.min(40, font_size))
     local props = pbw.ui and pbw.ui.doc_props or {}
     local book_title = props.display_title or props.title or pbw.ui and pbw.ui.document.file:match("([^/]+)$")
-    local summary = { session.scope == "all" and _("All books") or book_title }
+    local details = cfg.details or {}
+    local summary = {}
+    if session.scope == "all" then summary[1] = _("All books")
+    elseif details.book ~= "hide" then summary[1] = book_title end
     if session.query ~= "" then summary[#summary + 1] = session.query end
     for _i, facet in ipairs(facets) do
         local filter = session.filters[facet[1]]
@@ -442,17 +451,25 @@ function M.build(pbw, kind, width, height)
         for i, button in ipairs(buttons) do rows[i] = { button } end
         return rows
     end
-    -- Book title sits under the header, left-aligned with row content.
-    local subtitle = TextWidget:new{
-        text = table.concat(summary, " · "), face = LibraryFont.getFace(20), bold = true,
-        max_width = width - ROW_SIDE * 2, fgcolor = Blitbuffer.COLOR_BLACK,
-        overlap_offset = { ROW_SIDE, title_bar.titlebar_height },
-    }
-    table.insert(title_bar, subtitle)
-    title_bar.titlebar_height = title_bar.titlebar_height + subtitle:getSize().h + ROW_PADDING
+    -- Book title and author sit under the header, left-aligned with row content.
+    local function add_line(text, size, bold)
+        if not text or text == "" then return end
+        local line = TextWidget:new{
+            text = text, face = LibraryFont.getFace(size), bold = bold,
+            max_width = width - ROW_SIDE * 2, fgcolor = Blitbuffer.COLOR_BLACK,
+            overlap_offset = { ROW_SIDE, title_bar.titlebar_height },
+        }
+        table.insert(title_bar, line)
+        title_bar.titlebar_height = title_bar.titlebar_height + line:getSize().h
+        return line
+    end
+    title_bar._zen_subtitle = add_line(table.concat(summary, " · "), 22, true)
+    if session.scope ~= "all" and details.author ~= "hide" then
+        title_bar._zen_author = add_line(props.authors and (props.authors:gsub("\n", ", ")), 18)
+    end
+    title_bar.titlebar_height = title_bar.titlebar_height + ROW_PADDING
     title_bar.dimen.h = title_bar.titlebar_height
     require("ui/widget/overlapgroup").init(title_bar) -- Resync cached size with dimen.
-    title_bar._zen_subtitle = subtitle
     local StyledMenu = Menu:extend{}
     function StyledMenu:mergeTitleBarIntoLayout()
         if pbw._zen_standalone then return Menu.mergeTitleBarIntoLayout(self) end

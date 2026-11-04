@@ -62,9 +62,9 @@ def test_annotation_dispatcher_destinations() -> None:
                 state = _state(driver)
                 assert state["active_tab"] == tab
                 assert state["content_items"] == (1 if tab == "bookmarks" else 2 if tab == "highlights" else 3)
-                assert state["annotation_rows"][0][0]["text"] == "First · Page 1"
-                assert state["annotation_rows"][0][1]["text"] == (
-                    "October 18 2026 · Yellow" if tab == "highlights" else "October 18 2026")
+                assert state["annotation_rows"][0][0]["text"] == (
+                    "Yellow | First | Page 1" if tab == "highlights" else "First | Page 1")
+                assert state["annotation_rows"][0][1]["text"] == "October 18 2026"
                 _action(driver, "close")
             _action(driver, "dispatch", name="zen_ui_show_annotation_viewer")
             current = driver.command("annotation_viewer_state")
@@ -254,11 +254,11 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
                 assert state["annotation_subtitle"] == "Reader Tools Fixture"
             else:
                 assert "first" in state["annotation_subtitle"].lower()
-            assert state["annotation_subtitle_size"] == 20
+            assert state["annotation_subtitle_size"] == 22
             assert state["annotation_subtitle_black"]
             assert state["annotation_subtitle_bold"]
             assert state["annotation_rows"][0] == [
-                {"text": "First · Page 1", "size": 18, "black": True},
+                {"text": "First | Page 1", "size": 18, "black": True},
                 {"text": "October 18 2026", "size": 18, "black": True},
             ]
             bookmark = state["annotation_bookmarks"][0]
@@ -267,7 +267,7 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
             _action(driver, "details")
             state = _state(driver)
             assert "Page 1" in state["annotation_text"]
-            assert "\nOctober 18 2026 · Page 1\n" in state["annotation_text"]
+            assert "\nOctober 18 2026 | Page 1\n" in state["annotation_text"]
             assert state["annotation_buttons"] == [["Go to"]]
             driver.screenshot(frames / "bookmark-details.png")
             _action(driver, "details_more")
@@ -290,19 +290,19 @@ def test_annotations_and_floating_book_note(document_type: str) -> None:
             _action(driver, "tab", tab="annotations")
             state = _state(driver)
             assert state["annotation_items"][0]["kind"] == "bookmark"
-            assert state["annotation_rows"][0][0]["text"] == "First · Page 1"
+            assert state["annotation_rows"][0][0]["text"] == "First | Page 1"
             assert state["annotation_rows"][0][1]["text"] == "October 18 2026"
             assert len(state["annotation_rows"][0]) == 2
             _action(driver, "tab", tab="highlights")
             state = _state(driver)
             assert len(state["annotation_items"]) == 2
-            assert state["annotation_subtitle_size"] == 20
+            assert state["annotation_subtitle_size"] == 22
             assert state["annotation_subtitle_black"]
             assert state["annotation_subtitle_bold"]
             assert state["annotation_subtitle"] != "This book"
             assert state["annotation_rows"][0][:2] == [
-                {"text": "First · Page 1", "size": 18, "black": True},
-                {"text": "October 18 2026 · Yellow", "size": 18, "black": True},
+                {"text": "Yellow | First | Page 1", "size": 18, "black": True},
+                {"text": "October 18 2026", "size": 18, "black": True},
             ]
             frame = frames / "annotation-borders.png"
             driver.screenshot(frame)

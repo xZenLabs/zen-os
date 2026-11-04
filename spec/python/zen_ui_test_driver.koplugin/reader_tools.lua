@@ -155,6 +155,7 @@ function M.page_browser_state()
         end
     end
     local annotation_title = panel and panel.name == "page_browser_annotations" and panel.title_bar
+    local annotation_subtitle = annotation_title and annotation_title._zen_subtitle
     local button_labels = {}
     for _i, buttons in ipairs(top.buttons_table or note_editor and note_editor.buttons or {}) do
         local labels = {}
@@ -167,9 +168,11 @@ function M.page_browser_state()
         for _j, frame in ipairs(row[1] and row[1][1] or {}) do
             local box = frame[1]
             if box and not box.text and box[3] and box[3].text then
-                annotation_bookmarks[#annotation_bookmarks + 1] = {
-                    icon = box[1].file, lines = #box[3].vertical_string_list, max_lines = box[3].lines_per_page,
-                }
+                if box[1].file then
+                    annotation_bookmarks[#annotation_bookmarks + 1] = {
+                        icon = box[1].file, lines = #box[3].vertical_string_list, max_lines = box[3].lines_per_page,
+                    }
+                end
                 box = box[3]
             end
             if box and box.text and box.face then
@@ -233,11 +236,11 @@ function M.page_browser_state()
         annotation_dialog = annotation_dialog and { bounds = annotation_dialog.movable.dimen,
             rows = menu_rows(annotation_dialog), anchor = menu_anchor(annotation_dialog) } or nil,
         annotation_text = browser._zen_annotations and top.text or nil,
-        annotation_subtitle = annotation_title and annotation_title._zen_subtitle.text,
-        annotation_subtitle_size = annotation_title and annotation_title._zen_subtitle.face.orig_size,
-        annotation_subtitle_bold = annotation_title and annotation_title._zen_subtitle.bold == true,
-        annotation_subtitle_x = annotation_title and annotation_title._zen_subtitle.overlap_offset[1],
-        annotation_subtitle_black = annotation_title and annotation_title._zen_subtitle.fgcolor
+        annotation_subtitle = annotation_subtitle and annotation_subtitle.text,
+        annotation_subtitle_size = annotation_subtitle and annotation_subtitle.face.orig_size,
+        annotation_subtitle_bold = annotation_subtitle and annotation_subtitle.bold == true,
+        annotation_subtitle_x = annotation_subtitle and annotation_subtitle.overlap_offset[1],
+        annotation_subtitle_black = annotation_subtitle and annotation_subtitle.fgcolor
             == require("ffi/blitbuffer").COLOR_BLACK,
         annotation_more_bounds = browser._zen_annotation_more and browser._zen_annotation_more.dimen,
         annotation_search = annotation_title and {

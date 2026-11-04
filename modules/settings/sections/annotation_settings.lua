@@ -21,23 +21,18 @@ function M.build(ctx)
         return items
     end
     local details = {}
-    for _i, entry in ipairs({ { "book", _("Book") }, { "author", _("Author") } }) do
+    for _i, entry in ipairs({ { "book", _("Book title") }, { "author", _("Author") } }) do
         details[#details + 1] = { text = entry[2],
             sub_item_table = choices(cfg.details, entry[1], {
                 { "auto", _("Auto") }, { "show", _("Show") }, { "hide", _("Hide") },
             }, "auto"),
         }
     end
-    for _i, entry in ipairs({ { "chapter", _("Chapter"), true }, { "page", _("Page"), true },
-            { "date", _("Date"), true }, { "label", _("Label"), true }, { "tags", _("Tags"), false } }) do
-        details[#details + 1] = { text = entry[2], checked_func = function()
-            if cfg.details[entry[1]] == nil then return entry[3] end
-            return cfg.details[entry[1]] == true
-        end, callback = function()
-            local value = cfg.details[entry[1]]
-            if value == nil then value = entry[3] end
-            cfg.details[entry[1]] = not value; save()
-        end }
+    for _i, entry in ipairs({ { "chapter", _("Chapter") }, { "page", _("Page") },
+            { "date", _("Date") }, { "label", _("Label") } }) do
+        details[#details + 1] = { text = entry[2],
+            checked_func = function() return cfg.details[entry[1]] ~= false end,
+            callback = function() cfg.details[entry[1]] = cfg.details[entry[1]] == false; save() end }
     end
     return {
         text = _("Annotation viewer"),

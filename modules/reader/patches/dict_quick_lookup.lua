@@ -92,7 +92,8 @@ local function apply()
         local Screen = docks(self) and require("device").screen
         local w, h, margin
         if Screen then
-            w, h, margin = Screen:getWidth(), Screen:getHeight(), Screen:scaleBySize(8)
+            w, h = Screen:getWidth(), Screen:getHeight()
+            margin = Screen:scaleBySize(w > h and 8 or 2) -- Portrait: inset clears bezel.
             self.width = self.width or (w > h and math.floor(w / 2) or w) - 2 * margin
         end
         local result = init(self, ...)

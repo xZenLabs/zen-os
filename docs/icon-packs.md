@@ -53,7 +53,7 @@ selecting a pack does not modify those fallback files.
 Download `zen-icon-pack.zip` from [xZenLabs/zen-icon-pack](https://github.com/xZenLabs/zen-icon-pack), then extract it. It contains the replaceable icons for ZenOS's Navbar,
 KOReader's top menu tabs, the bottom reader configuration-bar tabs,
 highlight/dictionary/lookup actions, chevrons, dialogs, bookmarks,
-and shared reader controls. The current sample contains 71 icons, including
+and shared reader controls. The current sample contains 189 icons, including
 highlight styling, annotation sorting, and reference controls. Packs may include
 additional icon filenames listed below.
 
