@@ -44,10 +44,20 @@ function PinImage:_render()
     self._offset_y = math.floor(self.center_y_ratio * self._bb_h - self.height / 2)
 end
 
-function PinImage:panBy(x, y)
-    local center_x, center_y = ImageWidget.panBy(self, x, y)
-    self.drawer:saveImageSettings()
-    return center_x, center_y
+-- Live drags repaint only the drawer with "fast"; the final call settles with a dithered "ui" refresh and saves.
+function PinImage:panBy(x, y, live)
+    if not self._bb then return end
+    local max_x, max_y = self._max_off_center_x_ratio, self._max_off_center_y_ratio
+    self.center_x_ratio = math.max(0.5 - max_x, math.min((x + self._offset_x + self.width / 2) / self._bb_w, 0.5 + max_x))
+    self.center_y_ratio = math.max(0.5 - max_y, math.min((y + self._offset_y + self.height / 2) / self._bb_h, 0.5 + max_y))
+    local offset_x = math.floor(self.center_x_ratio * self._bb_w - self.width / 2 + 0.5) -- Round: float ratios must not drift.
+    local offset_y = math.floor(self.center_y_ratio * self._bb_h - self.height / 2 + 0.5)
+    if offset_x ~= self._offset_x or offset_y ~= self._offset_y or (not live and self.live_moved) then
+        self._offset_x, self._offset_y, self.live_moved = offset_x, offset_y, live
+        UIManager:setDirty(self.drawer, live and "fast" or "ui", self.dimen, not live)
+    end
+    if not live then self.drawer:saveImageSettings() end
+    return self.center_x_ratio, self.center_y_ratio
 end
 
 function PinImage:paintTo(bb, x, y)
@@ -209,7 +219,11 @@ function Drawer:init()
     end
     if not self.footnote then self.ges_events.Swipe[1].range = self.dimen end
     self.ges_events.PanRelease[1].range = self.dimen -- Finish drags released outside the preview.
-    if self.footnote and self.footnote.ges_events then
+    if not self.footnote then
+        self.ges_events.Hold = { GestureRange:new{ ges = "hold", range = function() return self.content.dimen end } }
+        self.ges_events.HoldPan = { GestureRange:new{ ges = "hold_pan", range = self.dimen } }
+        self.ges_events.HoldRelease = { GestureRange:new{ ges = "hold_release", range = self.dimen } }
+    elseif self.footnote.ges_events then
         for _i, name in ipairs({ "HoldStartText", "HoldPanText", "HoldReleaseText" }) do
             self.ges_events[name] = self.footnote.ges_events[name]
         end
@@ -503,17 +517,39 @@ function Drawer:onSpread() return self:zoom(1.25) end
 function Drawer:onPinch() return self:zoom(0.8) end
 
 function Drawer:onPan(_arg, ges)
-    self.pan = ges.relative
+    if self.htmlwidget or self.scale <= self.fit_scale then
+        self.pan = ges.relative
+        return true
+    end
+    -- ges.relative is cumulative from touch start; apply only the delta since the last event.
+    local last = self.live_pan or { x = 0, y = 0 }
+    self.content:panBy(last.x - ges.relative.x, last.y - ges.relative.y, true)
+    self.live_pan = ges.relative
     return true
 end
 
 function Drawer:onPanRelease()
-    if not self.htmlwidget and self.pan then self.content:panBy(-self.pan.x, -self.pan.y) end
-    self.pan = nil
+    if self.live_pan then
+        self.content:panBy(0, 0)
+    elseif not self.htmlwidget and self.pan then
+        self.content:panBy(-self.pan.x, -self.pan.y)
+    end
+    self.pan, self.live_pan = nil, nil
     return true
 end
 
+function Drawer:onHold() return not self.htmlwidget end
+function Drawer:onHoldPan(arg, ges)
+    if self.htmlwidget then return false end
+    return self:onPan(arg, ges)
+end
+function Drawer:onHoldRelease()
+    if self.htmlwidget then return false end
+    return self:onPanRelease()
+end
+
 function Drawer:onSwipe(_arg, ges)
+    if self.live_pan then return self:onPanRelease() end -- Quick drag lifted as a swipe: already moved live.
     if not self.frame.dimen:contains(ges.pos) then return TopMenu.handleSwipe(ges) end
     if not self.footnote and ges.direction == "south"
             and ges.pos.y < self.frame.dimen.y + self.frame.dimen.h * 0.07 then

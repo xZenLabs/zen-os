@@ -1696,6 +1696,7 @@ function M.reference_action(params)
             zoom_out_icon = drawer.zoom_out_button and drawer.zoom_out_button.label_widget.file,
             zoom_out_icon_bounds = drawer.zoom_out_button and drawer.zoom_out_button.label_widget.dimen,
             close_icon = drawer.close_button and drawer.close_button.label_widget.file,
+            close_icon_bounds = drawer.close_button and drawer.close_button.label_widget.dimen,
             close = drawer.close_button and drawer.close_button.dimen, page = drawer.page, footnote = drawer.footnote ~= nil,
             bounds = drawer.frame.dimen, content = drawer.content.dimen, scale = drawer.scale,
             image = drawer.htmlwidget == nil,

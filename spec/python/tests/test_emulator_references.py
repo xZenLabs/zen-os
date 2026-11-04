@@ -1489,6 +1489,19 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             magnified = _ref(driver, "pin_control", target="zoom_in")
             assert magnified["drawer"]["full_image"] and magnified["drawer"]["scale"] > filled["scale"]
             assert not magnified["pin_popup_buttons"]
+            # Hold-drag pans live: each event applies only its delta, before release.
+            held = _ref(driver, "gesture", target="body", gesture="hold")["drawer"]["image_view"]
+            step = _ref(driver, "gesture", target="body", gesture="hold_pan", relative={"x": 10, "y": 10})["drawer"]
+            moved = _ref(driver, "gesture", target="body", gesture="hold_pan", relative={"x": 20, "y": 20})["drawer"]
+            assert step["image_view"] != held and step["pin_index"] == magnified["drawer"]["pin_index"]
+            for axis in ("x", "y"):
+                assert moved["image_view"][axis] - held[axis] == 2 * (step["image_view"][axis] - held[axis])
+            released = _ref(driver, "gesture", target="body", gesture="hold_release")["drawer"]
+            assert released["image_view"] == moved["image_view"]
+            # A quick drag lifted as a swipe keeps its live position instead of paging or jumping.
+            _ref(driver, "gesture", target="body", gesture="pan", relative={"x": -10, "y": -10})
+            swiped = _ref(driver, "gesture", target="body", gesture="swipe", direction="west", distance=500)["drawer"]
+            assert swiped["image_view"] == step["image_view"] and swiped["pin_index"] == magnified["drawer"]["pin_index"]
             reduced = _ref(driver, "pin_control", target="zoom_out")
             assert reduced["drawer"]["full_image"] and reduced["drawer"]["scale"] < magnified["drawer"]["scale"]
             fitted = _ref(driver, "pin_control", target="zoom")
