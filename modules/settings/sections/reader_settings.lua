@@ -279,12 +279,10 @@ function M.build(ctx)
     end
 
     local items, appearance_items = {}, {}
-    if not ctx.themes_only then
-        items[#items + 1] = IconItem.decorate({
-            text = _("Appearance"),
-            sub_item_table = appearance_items,
-        }, icons.navbar_styling)
-    end
+    items[#items + 1] = IconItem.decorate({
+        text = _("Appearance"),
+        sub_item_table = appearance_items,
+    }, icons.navbar_styling)
 
     -- -------------------------------------------------------------------------
     -- Top status bar
@@ -792,7 +790,6 @@ function M.build(ctx)
     end
 
     local function save_themes()
-        if ctx.save_themes then return ctx.save_themes(config.reader_themes) end
         ReaderThemes.saveConfig(plugin)
         if config.features.reader_themes == true then ctx.apply_feature("reader_themes") end
     end
@@ -1243,12 +1240,6 @@ function M.build(ctx)
             make_custom_themes_item(),
         },
     })
-
-    if ctx.themes_only then
-        for _i, item in ipairs(appearance_items) do
-            if item.text == _("Reader themes") then return item end
-        end
-    end
 
     -- -------------------------------------------------------------------------
     -- Footer presets

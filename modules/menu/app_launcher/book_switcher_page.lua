@@ -52,9 +52,10 @@ function M.layout(opts)
     local height = math.max(1, tonumber(opts.height) or Screen:getHeight())
     local padding = math.max(4, Screen:scaleBySize(8))
     local top_padding = padding + Screen:scaleBySize(8)
+    local bottom_padding = opts.symmetric and top_padding or padding
     local gap = math.max(2, Screen:scaleBySize(opts.fill and 12 or 2))
     local inner_w = math.max(1, width - padding * 2)
-    local max_content_h = math.max(1, height - top_padding - padding)
+    local max_content_h = math.max(1, height - top_padding - bottom_padding)
     local count = M.normalizeCount(opts.book_count)
     local columns = math.min(4, count)
     local render = M.rendererOptions(opts.config)
@@ -105,6 +106,7 @@ function M.layout(opts)
         height = height,
         padding = padding,
         top_padding = top_padding,
+        bottom_padding = bottom_padding,
         gap = gap,
         columns = columns,
         inner_w = inner_w,
@@ -234,7 +236,7 @@ function M.buildReader(opts)
     local cfg = Model.ensure()
     local panel, refs = M.build{
         width = opts.width, height = opts.height, config = opts.plugin.config,
-        launcher_config = cfg, fill = opts.fill, exclude_path = opts.ui.document.file,
+        launcher_config = cfg, fill = opts.fill, symmetric = true, exclude_path = opts.ui.document.file,
         open_book = function(path, _cover, release_cover)
             release_cover()
             opts.close()
@@ -282,6 +284,7 @@ function M.build(opts)
     local layout = M.layout{
         width = width, height = height, config = opts.config,
         book_count = math.min(count, math.max(1, #books)), fill = opts.fill,
+        symmetric = opts.symmetric,
     }
     local padding = layout.padding
     local top_padding = layout.top_padding
@@ -466,7 +469,7 @@ function M.build(opts)
             widget = cell, callback = callback, hold_callback = hold_callback,
         }
     end
-    panel[#panel + 1] = VerticalSpan:new{ width = padding }
+    panel[#panel + 1] = VerticalSpan:new{ width = layout.bottom_padding }
     return panel, refs
 end
 

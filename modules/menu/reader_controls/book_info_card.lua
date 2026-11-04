@@ -71,7 +71,7 @@ function M.build(opts)
     local width = math.max(1, tonumber(opts.width) or Screen:getWidth())
     local height = math.max(1, tonumber(opts.height) or Screen:getHeight())
     local layout = BookSwitcherPage.layout{
-        width = width, height = height, config = opts.config,
+        width = width, height = height, config = opts.config, symmetric = true,
     }
     local info = BookInfo.normalize(opts.book_info)
     local detail_order = info.order
@@ -273,10 +273,8 @@ function M.build(opts)
             detail_column,
         },
     }
-    local content = VerticalGroup:new{ align = "center", detail_row }
-    if layout.strip_h > 0 then
-        content[#content + 1] = VerticalSpan:new{ width = layout.strip_h }
-    end
+    -- Height matches switcher cells; content centered within.
+    local content = CenterContainer:new{ dimen = Geom:new{ w = inner_w, h = cell_h }, detail_row }
 
     local DetailsCell = InputContainer:extend{}
     function DetailsCell:init()
@@ -328,7 +326,7 @@ function M.build(opts)
         align = "center",
         VerticalSpan:new{ width = layout.top_padding },
         CenterContainer:new{ dimen = Geom:new{ w = width, h = cell_h }, cell },
-        VerticalSpan:new{ width = padding },
+        VerticalSpan:new{ width = layout.bottom_padding },
     }, refs
 end
 

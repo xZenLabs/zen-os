@@ -138,8 +138,6 @@ function M.themeRows(reader, plugin, refresh)
     for _i, key in ipairs(names) do
         add(custom[key].name or _("Custom theme"), key)
     end
-    rows[#rows + 1] = { text = _("Reader theme settings"), zen_button = true, outlined = true,
-        callback = function() M.themes(reader, plugin, refresh) end }
     return rows
 end
 
@@ -181,26 +179,6 @@ function M.profileMenu(reader, plugin, name, include_theme)
         end
     end
     return show(name, items)
-end
-
-function M.themes(reader, plugin, refresh)
-    local cfg = plugin.config
-    local function save()
-        Themes.saveConfig(plugin)
-        Themes.applyCurrent(plugin)
-        reader:saveSettings()
-        refresh()
-    end
-    local item = require("modules/settings/sections/reader_settings").build{
-        config = cfg, plugin = plugin, themes_only = true,
-        save_themes = save, save_and_apply = save, apply_feature = save,
-    }
-    local items = {
-        { text = _("Enable"), checked_func = function() return cfg.features.reader_themes end,
-            callback = function() cfg.features.reader_themes = not cfg.features.reader_themes; save() end },
-    }
-    for _i, child in ipairs(item.sub_item_table) do items[#items + 1] = child end
-    return show(_("Reader themes"), items)
 end
 
 return M

@@ -292,8 +292,6 @@ return function(plugin)
                 if tm._reader_controls_embedded then changed("reader_theme") end
                 tm:updateItems(1)
             end)
-            local settings = table.remove(themes)
-            if not tm._reader_controls_embedded then rows[1] = settings end
             for _i, theme in ipairs(themes) do theme.theme_choice = true end
             if tm._reader_controls_embedded then
                 for i = 1, #themes, 2 do rows[#rows + 1] = { pair = { themes[i], themes[i + 1] } } end
@@ -379,7 +377,7 @@ return function(plugin)
             local callback = function() if item.callback then item.callback(tm, button_widget) end end
             local font_pad = pad
             width = width - font_pad * 2
-            local setting_title = not item.zen_button and item.title and TextWidget:new{
+            local setting_title = item.title and TextWidget:new{
                 text = item.title, face = Font:getFace("x_smallinfofont") }
             local title_width = setting_title and (label_width or setting_title:getSize().w) or 0
             if setting_title then setting_title:setMaxWidth(title_width) end
@@ -389,14 +387,13 @@ return function(plugin)
                 more._reader_setting = item.name .. "_more"
                 width = width - more:getSize().w
             end
-            if item.zen_button or item.name == "font_face" then
+            if item.name == "font_face" then
                 local label = TextWidget:new{ text = item.text, face = Font:getFace("cfont", 18), bold = true }
                 local button_width = math.min(width - (setting_title and title_width + pad or 0),
                     label:getSize().w + pad * 4)
                 label:free()
                 widget = ZenActionButton:new{ text = item.text, width = button_width, height = Screen:scaleBySize(40),
-                    font_size = 18, callback = callback, outlined = item.name == "font_face" or item.outlined,
-                    radius = item.name == "font_face" and Screen:scaleBySize(4) or nil }
+                    font_size = 18, callback = callback, outlined = true, radius = Screen:scaleBySize(4) }
             elseif item.radio then
                 swatch = item.theme_key and ThemePreview.new{ plugin = plugin, key = item.theme_key,
                     width = math.min(Screen:scaleBySize(96), math.floor(width * 0.45)),
@@ -426,14 +423,7 @@ return function(plugin)
             widget._reader_theme_choice = item.theme_choice == true
             track(widget, callback, item.hold, layout)
             if more then layout[#layout + 1] = more end
-            if item.zen_button then
-                local button_width = widget:getSize().w
-                local title = item.title and TextWidget:new{ text = item.title,
-                    face = Font:getFace("x_smallinfofont"), bold = true, max_width = width - button_width - pad }
-                widget = HorizontalGroup:new{ align = "center",
-                    LeftContainer:new{ dimen = Geom:new{ w = width - button_width, h = widget:getSize().h },
-                        title or HorizontalSpan:new{ width = 0 } }, widget }
-            elseif item.theme_choice then
+            if item.theme_choice then
                 local swatch_w = swatch and swatch:getSize().w or 0
                 widget = HorizontalGroup:new{ align = "center",
                     LeftContainer:new{ dimen = Geom:new{ w = width - swatch_w, h = Screen:scaleBySize(40) }, widget },
@@ -446,7 +436,7 @@ return function(plugin)
                 widget = title and HorizontalGroup:new{ align = "center", title, right } or right
             end
             if more then widget = HorizontalGroup:new{ align = "center", widget, more } end
-            local pad_v = item.zen_button and pad / 2 or item.name == "font_face" and pad / 4 or 0
+            local pad_v = item.name == "font_face" and pad / 4 or 0
             return FrameContainer:new{ bordersize = 0, padding = 0, padding_left = pad, padding_right = pad,
                 padding_top = pad_v, padding_bottom = pad_v, widget }
         end
