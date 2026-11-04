@@ -65,6 +65,7 @@ common/tbr_index.lua|unit
 common/ui/accent.lua|unit
 common/ui/background.lua|unit
 common/ui/book_progress.lua|unit
+common/ui/bottom_sheet.lua|integration
 common/ui/button_label_width.lua|unit
 common/ui/button_feedback.lua|unit
 common/ui/corner_banner.lua|unit

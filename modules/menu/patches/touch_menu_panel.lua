@@ -97,6 +97,60 @@ function M.install(plugin)
     local _ = require("gettext")
     local Screen = Device.screen
 
+    local Blitbuffer = require("ffi/blitbuffer")
+
+    -- Elbow tiles rendered once per geometry, then blitted on every bar paint.
+    local elbow_tiles = {}
+    local function elbow_tile(radius, inner_x, inner_y, left, top, anti_alias)
+        local key = ("%d:%d:%d:%d"):format(radius, inner_x, inner_y,
+            (left and 1 or 0) + (top and 2 or 0) + (anti_alias and 4 or 0))
+        local tile = elbow_tiles[key]
+        if tile then return tile end
+        tile = Blitbuffer.new(radius, radius, Blitbuffer.TYPE_BB8)
+        local center_x, center_y = left and 0 or radius, top and radius or 0
+        local r2, ix2, iy2 = radius * radius, inner_x * inner_x, inner_y * inner_y
+        for row = 0, radius - 1 do
+            for col = 0, radius - 1 do
+                local hits = 0 -- 4x4 supersampled coverage
+                for i = 0.125, 1, 0.25 do
+                    local dy2 = (row + i - center_y) ^ 2
+                    for j = 0.125, 1, 0.25 do
+                        local dx2 = (col + j - center_x) ^ 2
+                        if dx2 + dy2 <= r2 and dx2 / ix2 + dy2 / iy2 >= 1 then hits = hits + 1 end
+                    end
+                end
+                if not anti_alias then hits = hits >= 8 and 16 or 0 end
+                tile:setPixel(col, row, Blitbuffer.Color8(255 - math.floor(hits * 255 / 16)))
+            end
+        end
+        elbow_tiles[key] = tile
+        return tile
+    end
+
+    -- Round the elbows where the active tab's dividers meet the bar line.
+    local function paint_tab_elbows(bar, bb, x, y)
+        local line = bar.bar_sep
+        local segment = line and line.empty_segments and line.empty_segments[1]
+        local group = bar[1] and bar[1][1]
+        if not (segment and group) then return end
+        local Size = require("ui/size")
+        local radius = Size.radius.window
+        local line_on_top = group[1] == line
+        local line_y = line_on_top and y or y + bar.bar_icon_group:getSize().h
+        local square_y = line_on_top and line_y or line_y + line.dimen.h - radius
+        -- Inner edge is an ellipse so the stroke blends from divider width to line height.
+        local inner_x, inner_y = radius - Size.span.vertical_default, radius - line.dimen.h
+        local anti_alias = G_reader_settings:nilOrTrue("anti_alias_ui")
+        for side = 1, 2 do
+            local left = side == 1
+            local edge = left and segment.s or segment.e
+            if edge > 0 and edge < line.dimen.w then
+                bb:blitFrom(elbow_tile(radius, inner_x, inner_y, left, line_on_top, anti_alias),
+                    x + (left and edge - radius or edge), square_y, 0, 0, radius, radius)
+            end
+        end
+    end
+
     local function ensure_panel_gestures(touch_menu)
         local gestures = touch_menu.ges_events
         if gestures
@@ -161,6 +215,34 @@ function M.install(plugin)
             end
         end
         ensure_panel_gestures(self)
+        local Bar = self.bar and getmetatable(self.bar)
+        if Bar and not Bar.__zen_rounded_tabs then
+            Bar.__zen_rounded_tabs = true
+            local paint_bar = Bar.paintTo
+            function Bar:paintTo(bb, x, y)
+                paint_bar(self, bb, x, y)
+                paint_tab_elbows(self, bb, x, y)
+            end
+        end
+        local frame = self.menu_frame
+        if frame then
+            -- Match the bottom sheet: round the inner corners, push the docked edge's corners off-screen.
+            local radius = require("ui/size").radius.window
+            local extension = radius + frame.bordersize
+            -- Content is centered, so dropping side padding only pulls the corners on-screen.
+            frame.padding_left, frame.padding_right, frame.radius = 0, 0, radius
+            local paint = frame.paintTo
+            frame.paintTo = function(f, bb, x, y)
+                local docked_bottom = self._zen_panel_refs and self._zen_panel_refs.bottom_tabs and true
+                f.padding_top = docked_bottom and 0 or extension
+                -- Bottom tabs sit on the edge line, so their dividers reach it.
+                f.padding_bottom = docked_bottom and extension or nil
+                paint(f, bb, x, docked_bottom and y or y - extension)
+                -- Keep the docked edge line the tab dividers join.
+                local edge = docked_bottom and y + f:getSize().h - extension - f.bordersize or y
+                bb:paintRect(x, edge, f:getSize().w, f.bordersize, f.color)
+            end
+        end
     end
 
     local orig_updateItems = TouchMenu.updateItems
@@ -257,7 +339,8 @@ function M.install(plugin)
 
         local old_dimen = self.dimen:copy()
         self.dimen.w = self.width
-        self.dimen.h = self.item_group:getSize().h + self.bordersize * 2 + self.padding
+        self.dimen.h = self.item_group:getSize().h + self.bordersize * 2
+            + (refs and refs.bottom_tabs and 0 or self.padding)
         self.dimen.y = refs and refs.bottom_tabs and Screen:getHeight() - self.dimen.h or 0
         local tab_x, tab_y = self.cur_tab, 1
         if refs and refs.bottom_tabs then tab_x, tab_y = 1, #self.layout end

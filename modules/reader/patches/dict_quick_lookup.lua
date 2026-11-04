@@ -89,18 +89,20 @@ local function apply()
 
     local init = DictQuickLookup.init
     DictQuickLookup.init = function(self, ...)
-        local Screen = docks(self) and require("device").screen
-        local w, h, margin
-        if Screen then
+        local BottomSheet = docks(self) and require("common/ui/bottom_sheet")
+        local w, h, margin, width
+        if BottomSheet then
+            local Screen = require("device").screen
             w, h = Screen:getWidth(), Screen:getHeight()
-            margin = Screen:scaleBySize(w > h and 8 or 2) -- Portrait: inset clears bezel.
-            self.width = self.width or (w > h and math.floor(w / 2) or w) - 2 * margin
+            margin, width = BottomSheet.dock(w, h)
+            self.width = self.width or width
         end
         local result = init(self, ...)
         if is_enabled() and show_labels() and not self.is_wiki and not self.is_wiki_fullpage then
             Labels.apply(self.button_table, self.button_table.buttons)
         end
-        if Screen and self.dict_frame and self[1] then
+        local docked = BottomSheet and self.dict_frame and self[1]
+        if docked then
             -- Match the footnote drawer: docked to the bottom, rounded corners pushed off-screen.
             local Size = require("ui/size")
             local extension = Size.radius.window + Size.border.window
@@ -109,6 +111,15 @@ local function apply()
                 w = w > h and self.width or w, h = h + extension }
             self.align = "bottom"
             self[1].dimen, self[1].align = self.region, "bottom"
+            self.alpha = BottomSheet.alpha
+            -- Stock refreshes only the frame; widen it to the shadow.
+            self.onShow = function(widget)
+                UIManager:setDirty(widget, function()
+                    local dimen = widget.dict_frame.dimen
+                    return "flashui", BottomSheet.refreshArea(dimen.x, dimen.y, dimen.w, dimen.h)
+                end)
+                return true
+            end
             -- Down chevron instead of X, like a dismissable sheet.
             local close = self.dict_title and self.dict_title.right_button
             local chevron = close and utils.resolveLocalIcon(
@@ -121,11 +132,12 @@ local function apply()
         local dots = is_enabled() and self.definition_widget and self.results
         if dots and self.displaynb_text then self.displaynb_text.paintTo = function() end end
         local themed = self.ui and self.ui.document
-        if self.dict_frame and (dots or themed) then
+        if self.dict_frame and (dots or themed or docked) then
             local paint = self.dict_frame.paintTo
             self.dict_frame.paintTo = function(frame, bb, x, y)
-                paint(frame, bb, x, y)
                 local size = frame:getSize()
+                if docked then BottomSheet.paintShadow(bb, x, y, size.w, size.h, frame.radius + frame.bordersize) end
+                paint(frame, bb, x, y)
                 local definition = self.definition_widget and self.definition_widget.dimen
                 if dots and definition then
                     -- Result dots replace "1 / N", centered in the padding above the buttons.

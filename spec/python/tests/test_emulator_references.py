@@ -303,7 +303,7 @@ def test_reference_popups_preserve_the_reader_header(landscape):
                 assert opened["drawer"] and opened["location"] == original["location"]
                 bounds = opened["drawer"]["bounds"]
                 if reference == "footnote":
-                    margin = math.ceil(8 * min(opened["screen"].values()) / 600)
+                    margin = math.ceil((8 if landscape else 2) * min(opened["screen"].values()) / 600)
                     available = opened["screen"]["w"] // (2 if landscape else 1)
                     assert bounds["w"] == available - 2 * margin
                     assert bounds["x"] > 0
@@ -317,7 +317,8 @@ def test_reference_popups_preserve_the_reader_header(landscape):
                 assert ImageChops.difference(page.crop(strip), after.crop(strip)).getbbox()
                 assert max(ImageChops.difference(expected, after.crop(strip)).convert("L").getextrema()) <= 1
                 outside = (bounds["x"] - shadow - 1, middle)
-                assert after.getpixel(outside) == page.getpixel(outside)
+                if outside[0] >= 0:  # Portrait margin is narrower than the shadow.
+                    assert after.getpixel(outside) == page.getpixel(outside)
                 for turn in range(3):
                     previous = _ref(driver)
                     changed = _ref(driver, "next")
