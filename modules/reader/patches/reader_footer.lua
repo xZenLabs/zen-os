@@ -184,6 +184,25 @@ local function apply_reader_footer()
         return result
     end
 
+    -- Unlocked tap hides the bar(s) picked in "Hide on tap" instead of cycling items.
+    if not ReaderFooter._zen_tap_hide_patched and ReaderFooter.TapFooter then
+        ReaderFooter._zen_tap_hide_patched = true
+        local orig_TapFooter = ReaderFooter.TapFooter
+        ReaderFooter.TapFooter = function(self, ges)
+            local target = ReaderStatusBar.getTapHide(zen_plugin, self)
+            if not target or (self.view.flipping_visible and ges) then
+                return orig_TapFooter(self, ges)
+            end
+            if target == "top" then
+                ReaderStatusBar.toggleTopBar(self.view)
+                return true
+            end
+            local fcfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_footer
+            if type(fcfg) == "table" and fcfg.status_bar_enabled == false then return end
+            return ReaderStatusBar.toggleFooter(self)
+        end
+    end
+
     -- Older KOReader menus need the second filler inserted before additional_content.
     local orig_addToMainMenu = ReaderFooter.addToMainMenu
     ReaderFooter.addToMainMenu = function(self, menu_items)

@@ -351,8 +351,14 @@ function M.chargingChanged()
 end
 
 -- FileManager/ReaderUI swaps: record a sample but keep the session (no gap).
+-- Throttled: rapid open/close would otherwise rewrite battery.lua every swap.
+local FLUSH_MIN_SECONDS = 60
 function M.flush()
-    if settings and not sleeping then sample() end
+    if not settings or sleeping then return end
+    local events = settings:readSetting("events")
+    local previous = events and events[#events]
+    if previous and os.time() - previous.time < FLUSH_MIN_SECONDS then return end
+    sample()
 end
 
 function M.stop()

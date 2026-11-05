@@ -1794,6 +1794,48 @@ function M.build(ctx)
                     footer:refreshFooter(true, true)
                 end,
             })
+            local ReaderStatusBar = require("common/reader_status_bar")
+            local tap_hide_options = {
+                { false, _("Off") },
+                { "bottom", _("Bottom") },
+                { "top", _("Top") },
+                { "both", _("Top + bottom") },
+            }
+            local tap_hide_items = {}
+            for _i, opt in ipairs(tap_hide_options) do
+                tap_hide_items[#tap_hide_items + 1] = {
+                    text = opt[2],
+                    radio = true,
+                    checked_func = function()
+                        return ReaderStatusBar.getTapHide(plugin, footer) == opt[1]
+                    end,
+                    callback = function()
+                        footer.settings.lock_tap = not opt[1]
+                        if opt[1] then config.reader_footer.tap_hide = opt[1] end
+                        plugin:saveConfig()
+                        -- Reveal anything a previous mode hid.
+                        ReaderStatusBar.resetTopBarTapHidden()
+                        if footer.mode == footer.mode_list.off
+                                and dispatch_action.isBottomStatusBarEnabled(plugin) then
+                            ReaderStatusBar.toggleFooter(footer)
+                        end
+                        footer:refreshFooter(true, true)
+                        local reader = require("apps/reader/readerui").instance
+                        if reader then UIManager:setDirty(reader, "ui") end
+                    end,
+                }
+            end
+            table.insert(result, {
+                text_func = function()
+                    local value = ReaderStatusBar.getTapHide(plugin, footer)
+                    for _i, opt in ipairs(tap_hide_options) do
+                        if opt[1] == value then
+                            return string.format("%s %s", _("Hide on tap") .. ":", opt[2])
+                        end
+                    end
+                end,
+                sub_item_table = tap_hide_items,
+            })
             if mock.status_bar and mock.status_bar.sub_item_table then
                 for _i, item in ipairs(mock.status_bar.sub_item_table) do
                     if item.text == _("Status bar items") then

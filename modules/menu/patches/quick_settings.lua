@@ -1715,7 +1715,6 @@ local function apply_quick_settings()
     -- ============================================================
 
     local FileManagerMenu = require("apps/filemanager/filemanagermenu")
-    local ReaderMenu = require("apps/reader/modules/readermenu")
 
     local orig_fm_setUpdateItemTable = FileManagerMenu.setUpdateItemTable
 
@@ -1726,14 +1725,17 @@ local function apply_quick_settings()
         end
     end
 
-    local orig_reader_setUpdateItemTable = ReaderMenu.setUpdateItemTable
+    require("common/on_require").whenLoaded("apps/reader/readerui", function()
+        local ReaderMenu = require("apps/reader/modules/readermenu")
+        local orig_reader_setUpdateItemTable = ReaderMenu.setUpdateItemTable
 
-    function ReaderMenu:setUpdateItemTable()
-        orig_reader_setUpdateItemTable(self)
-        if is_enabled() and self.tab_item_table then
-            table.insert(self.tab_item_table, 1, make_quick_settings_tab(false))
+        function ReaderMenu:setUpdateItemTable()
+            orig_reader_setUpdateItemTable(self)
+            if is_enabled() and self.tab_item_table then
+                table.insert(self.tab_item_table, 1, make_quick_settings_tab(false))
+            end
         end
-    end
+    end)
 end
 
 return apply_quick_settings

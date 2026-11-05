@@ -55,120 +55,51 @@ local function load_patch(feature)
     return patch_fn
 end
 
-function M.init(logger, plugin)
-    if initialized then
-        return true
-    end
+-- Also patch library-side UI (statistics, book status, end-book menu, screensaver,
+-- dictionary), so they apply at boot.
+local BOOT_FEATURES = {
+    "stable_page_statistics", "book_status", "end_book", "screensaver_cover", "dict_quick_lookup",
+}
 
-    local references_fn = load_patch("reader_references")
-    if references_fn then run_feature(logger, plugin, "reader_references", references_fn) end
-
+-- ReaderUI-only; applied when KOReader first requires ReaderUI.
+local READER_FEATURES = {
+    "reader_references",
     -- Route KOReader's File browser gesture through the same transition as ZenOS.
-    local library_navigation_fn = load_patch("library_navigation")
-    if library_navigation_fn then
-        run_feature(logger, plugin, "library_navigation", library_navigation_fn)
-    end
+    "library_navigation",
+    "page_browser", -- self-disables when feature is off
+    "opening_banner", -- replaces the "Opening file..." popup with a bottom banner
+    "status_on_open",
+    "reader_footer", -- two-filler L/C/R layout support
+    "reader_footer_time_format",
+    "reader_footer_cbz_hide", -- self-disables when off
+    "reader_flash_cbz",
+    "margin_hold_guard", -- swallow holds inside page margins
+    "bookmarks", -- larger black page numbers in the bookmark/highlight list
+    "highlight_names",
+    "night_highlights",
+    "highlight_menu", -- self-disables when feature is off
+}
 
-    -- Always apply: page browser (self-disables when feature is off).
-    local page_browser_fn = load_patch("page_browser")
-    if page_browser_fn then
-        run_feature(logger, plugin, "page_browser", page_browser_fn)
+local function apply(logger, plugin, features)
+    for _i, feature in ipairs(features) do
+        local fn = load_patch(feature)
+        if fn then run_feature(logger, plugin, feature, fn) end
     end
+end
 
-    -- Make page-based reading statistics follow active stable page labels.
-    local stable_page_statistics_fn = load_patch("stable_page_statistics")
-    if stable_page_statistics_fn then
-        run_feature(logger, plugin, "stable_page_statistics", stable_page_statistics_fn)
+-- Optional patches; zen_settings_apply may already have applied them at runtime.
+local function apply_runtime(logger, plugin, runtime_patches, feature)
+    if runtime_patches[feature] then return end
+    local fn = load_patch(feature)
+    if fn then
+        if run_feature(logger, plugin, feature, fn) then runtime_patches[feature] = true end
+    elseif logger then
+        logger.warn("reader patch module missing", feature)
     end
+end
 
-    -- Always apply: replaces the "Opening file..." popup with a bottom banner
-    local opening_banner_fn = load_patch("opening_banner")
-    if opening_banner_fn then
-        run_feature(logger, plugin, "opening_banner", opening_banner_fn)
-    end
-
-    -- Keep Book Status available alongside the end-of-book screen.
-    local book_status_fn = load_patch("book_status")
-    if book_status_fn then
-        run_feature(logger, plugin, "book_status", book_status_fn)
-    end
-
-    local end_book_fn = load_patch("end_book")
-    if end_book_fn then
-        run_feature(logger, plugin, "end_book", end_book_fn)
-    end
-
-    local status_on_open_fn = load_patch("status_on_open")
-    if status_on_open_fn then
-        run_feature(logger, plugin, "status_on_open", status_on_open_fn)
-    end
-
-    -- Always apply: replace koreader.png fallback screensaver with zen_ui.svg
-    local screensaver_cover_fn = load_patch("screensaver_cover")
-    if screensaver_cover_fn then
-        run_feature(logger, plugin, "screensaver_cover", screensaver_cover_fn)
-    end
-
-    -- Always apply: two-filler L/C/R layout support.
-    local reader_footer_fn = load_patch("reader_footer")
-    if reader_footer_fn then
-        run_feature(logger, plugin, "reader_footer", reader_footer_fn)
-    end
-
-    -- Always apply the selected chapter-time display format.
-    local reader_footer_time_format_fn = load_patch("reader_footer_time_format")
-    if reader_footer_time_format_fn then
-        run_feature(logger, plugin, "reader_footer_time_format", reader_footer_time_format_fn)
-    end
-
-    -- Always apply: hide footer in CBZ files when setting is on (self-disables when off).
-    local reader_footer_cbz_hide_fn = load_patch("reader_footer_cbz_hide")
-    if reader_footer_cbz_hide_fn then
-        run_feature(logger, plugin, "reader_footer_cbz_hide", reader_footer_cbz_hide_fn)
-    end
-
-    local reader_flash_cbz_fn = load_patch("reader_flash_cbz")
-    if reader_flash_cbz_fn then
-        run_feature(logger, plugin, "reader_flash_cbz", reader_flash_cbz_fn)
-    end
-
-    -- Always apply: swallow holds inside page margins to prevent accidental word selection.
-    local margin_hold_guard_fn = load_patch("margin_hold_guard")
-    if margin_hold_guard_fn then
-        run_feature(logger, plugin, "margin_hold_guard", margin_hold_guard_fn)
-    end
-
-    -- Always apply: larger black page numbers in the bookmark/highlight list.
-    local bookmarks_fn = load_patch("bookmarks")
-    if bookmarks_fn then
-        run_feature(logger, plugin, "bookmarks", bookmarks_fn)
-    end
-
-    -- Always apply: user-defined highlight color names.
-    local highlight_names_fn = load_patch("highlight_names")
-    if highlight_names_fn then
-        run_feature(logger, plugin, "highlight_names", highlight_names_fn)
-    end
-
-    -- Always apply: day-colored highlights with dark text in night mode.
-    local night_highlights_fn = load_patch("night_highlights")
-    if night_highlights_fn then
-        run_feature(logger, plugin, "night_highlights", night_highlights_fn)
-    end
-
-    -- Always apply: icon-only DictQuickLookup buttons (self-disables when feature is off).
-    local dict_quick_lookup_fn = load_patch("dict_quick_lookup")
-    if dict_quick_lookup_fn then
-        run_feature(logger, plugin, "dict_quick_lookup", dict_quick_lookup_fn)
-    end
-
-    -- Always apply: custom highlight/lookup popup (self-disables when feature is off).
-    local highlight_menu_fn = load_patch("highlight_menu")
-    logger.dbg("load_patch(highlight_menu)=", tostring(highlight_menu_fn))
-    if highlight_menu_fn then
-        local ok = run_feature(logger, plugin, "highlight_menu", highlight_menu_fn)
-        logger.dbg("run_feature(highlight_menu) ok=", tostring(ok))
-    end
+local function apply_reader(logger, plugin)
+    apply(logger, plugin, READER_FEATURES)
 
     -- Ensure the runtime-patches registry exists.
     local runtime_patches = rawget(_G, "__ZEN_UI_RUNTIME_PATCHES")
@@ -178,15 +109,7 @@ function M.init(logger, plugin)
     end
 
     if is_feature_enabled(plugin, "reader_top_status_bar") then
-        local fn = load_patch("reader_top_status_bar")
-        if fn then
-            local ok = run_feature(logger, plugin, "reader_top_status_bar", fn)
-            if ok then
-                runtime_patches["reader_top_status_bar"] = true
-            end
-        elseif logger then
-            logger.warn("reader patch module missing", "reader_top_status_bar")
-        end
+        apply_runtime(logger, plugin, runtime_patches, "reader_top_status_bar")
     end
 
     local Device = require("device")
@@ -195,18 +118,17 @@ function M.init(logger, plugin)
     local reader_controls = plugin.config and type(plugin.config.reader_controls) == "table"
     if reader_controls then require("modules/menu/reader_controls/profiles").install(plugin) end
     if is_feature_enabled(plugin, "reader_themes") or color_kindle or reader_controls then
-        local fn = load_patch("reader_themes")
-        if fn then
-            local ok = run_feature(logger, plugin, "reader_themes", fn)
-            if ok then
-                runtime_patches["reader_themes"] = true
-            end
-        elseif logger then
-            logger.warn("reader patch module missing", "reader_themes")
-        end
+        apply_runtime(logger, plugin, runtime_patches, "reader_themes")
     end
+end
 
+function M.init(logger, plugin)
+    if initialized then
+        return true
+    end
     initialized = true
+    apply(logger, plugin, BOOT_FEATURES)
+    require("common/on_require").whenLoaded("apps/reader/readerui", function() apply_reader(logger, plugin) end)
     return true
 end
 

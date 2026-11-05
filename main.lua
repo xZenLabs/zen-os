@@ -64,7 +64,6 @@ local ConfigManager = require("config/manager")
 local BatteryStats = require("common/battery_stats")
 local _startup_config = ConfigManager.load()
 local registry = require("modules/registry")
-local zen_settings_page = require("modules/settings/zen_settings_page")
 local zen_updater   = require("modules/settings/zen_updater")
 local paths         = require("common/paths")
 local library_navigation = require("common/library_navigation")
@@ -651,7 +650,7 @@ function ZenUI:init()
                     m_self.menu_container = nil
                 end
                 if _zen_plugin_ref then
-                    zen_settings_page.show(_zen_plugin_ref)
+                    require("modules/settings/zen_settings_page").show(_zen_plugin_ref)
                 end
             end)
         end

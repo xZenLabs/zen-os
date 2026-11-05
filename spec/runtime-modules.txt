@@ -315,3 +315,4 @@ modules/menu/reader_controls/book_info.lua|unit
 modules/menu/reader_controls/book_info_card.lua|unit
 modules/menu/reader_controls/details.lua|unit
 modules/settings/sections/reader_controls_settings.lua|unit
+common/on_require.lua|unit

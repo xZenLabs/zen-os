@@ -62,12 +62,14 @@ local function apply_reader_top_status_bar()
         local footer = view.footer
         if not (footer and footer.mode_list) or footer.mode ~= footer.mode_list.off then return false end
         if footer.has_no_mode and footer.settings.disable_progress_bar then return false end
+        if ReaderStatusBar.getTapHide(zen_plugin) == "bottom" then return false end
         local fcfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_footer
         return not (type(fcfg) == "table" and fcfg.status_bar_enabled == false)
     end
 
     local function should_show(view)
-        if not is_enabled() or not view or footer_toggled_off(view) then return false end
+        if not is_enabled() or not view or footer_toggled_off(view)
+                or ReaderStatusBar.isTopBarTapHidden(zen_plugin, view.footer) then return false end
         if view.render_mode ~= nil then
             local cfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
             return type(cfg) == "table" and not cfg.hide_in_cbz

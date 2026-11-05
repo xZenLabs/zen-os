@@ -997,6 +997,41 @@ describe("shared document cache", function()
         assert.same({}, warnings)
     end)
 
+    it("scans integrity once per process and re-verifies a removed file", function()
+        local sqlite3 = require("lua-ljsqlite3/init")
+        local open, checks = sqlite3.open, 0
+        sqlite3.open = function(path)
+            local db = open(path)
+            return {
+                exec = function(_self, sql)
+                    if sql:find("quick_check", 1, true) then checks = checks + 1 end
+                    return db:exec(sql)
+                end,
+                prepare = function(_self, sql) return db:prepare(sql) end,
+                close = function() db:close() end,
+            }
+        end
+        local function count()
+            return Cache.withDB(function(db)
+                return tonumber(db:exec("SELECT count(*) FROM doc_props_cache")[1][1])
+            end)
+        end
+        local ok, err = pcall(function()
+            assert.are.equal(0, count())
+            Cache.close()
+            assert.are.equal(0, count())
+            assert.are.equal(1, checks)
+            Cache.close()
+            for name in host_lfs.dir(directory) do
+                if name ~= "." and name ~= ".." then os.remove(directory .. "/" .. name) end
+            end
+            assert.are.equal(0, count())
+            assert.are.equal(2, checks)
+        end)
+        sqlite3.open = open
+        assert(ok, err)
+    end)
+
     it("uses full syncing when WAL is unavailable", function()
         use_wal = false
         Cache.withDB(function(db)

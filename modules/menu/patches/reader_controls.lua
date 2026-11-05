@@ -200,8 +200,6 @@ return function(plugin)
                 option("font_gamma", true)
                 option("font_hinting")
                 option("font_kerning")
-                option("embedded_css")
-                option("embedded_fonts") -- KOReader enables it only with embedded style and book fonts.
             else
                 option("contrast", true)
                 option("white_threshold", true)
@@ -240,6 +238,8 @@ return function(plugin)
                         end }
                 end
                 option("rakuyomi_view_mode")
+                option("embedded_css")
+                option("embedded_fonts") -- KOReader enables it only with embedded style and book fonts.
             else
                 option("page_margin", true)
                 option("page_scroll")

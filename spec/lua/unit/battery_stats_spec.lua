@@ -858,4 +858,17 @@ describe("battery stats", function()
         assert.are.equal(40, stored.charge_session.level)
         assert.is_nil(stored.events[#stored.events].gap)
     end)
+
+    it("skips instance-swap samples within a minute of the last sample", function()
+        BatteryStats.start()
+        local writes_before, count = writes, #stored.events
+        now, level = now + 30, 99
+        BatteryStats.flush()
+        assert.are.equal(writes_before, writes)
+        assert.are.equal(count, #stored.events)
+        now = now + 30
+        BatteryStats.flush()
+        assert.are.equal(writes_before + 1, writes)
+        assert.are.equal(99, stored.events[#stored.events].level)
+    end)
 end)

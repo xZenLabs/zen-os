@@ -392,6 +392,7 @@ local defaults = {
         status_bar_enabled = true,
         chapter_time_format = "number",
         hide_in_cbz = true,
+        tap_hide = "both",
     },
     page_browser = {
         tab_order = { "browser", "aa", "bookmarks", "highlights", "toc", "annotations", "pins", "book_details",

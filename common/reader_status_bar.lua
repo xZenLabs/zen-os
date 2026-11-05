@@ -82,6 +82,45 @@ function M.getFooterForSettings()
     return footer
 end
 
+local TOP_TAP_HIDDEN = "zen_top_bar_tap_hidden"
+
+-- Which bar(s) a status bar tap hides: "bottom", "top" or "both"; false when lock_tap is on.
+function M.getTapHide(plugin, footer)
+    if footer and footer.settings and footer.settings.lock_tap then return false end
+    local fcfg = plugin and plugin.config and plugin.config.reader_footer
+    return type(fcfg) == "table" and fcfg.tap_hide or "both"
+end
+
+function M.isTopBarTapHidden(plugin, footer)
+    return M.getTapHide(plugin, footer) == "top" and G_reader_settings:isTrue(TOP_TAP_HIDDEN)
+end
+
+function M.resetTopBarTapHidden()
+    G_reader_settings:delSetting(TOP_TAP_HIDDEN)
+end
+
+function M.toggleTopBar(view)
+    G_reader_settings:flipNilOrFalse(TOP_TAP_HIDDEN)
+    require("ui/uimanager"):setDirty(view.dialog, "ui", view._zen_header_dimen)
+end
+
+-- Off <-> on regardless of all_at_once (stock tap cycles items when it's off).
+function M.toggleFooter(footer)
+    local off = footer.mode_list.off
+    if footer.mode == off then
+        if not footer._zen_tap_mode then return footer:onToggleFooterMode() end
+        footer.mode = footer._zen_tap_mode
+    else
+        footer._zen_tap_mode = footer.mode
+        footer.mode = off
+    end
+    footer:applyFooterMode()
+    G_reader_settings:saveSetting("reader_footer_mode", footer.mode)
+    footer:onUpdateFooter(true)
+    footer:rescheduleFooterAutoRefreshIfNeeded()
+    return true
+end
+
 function M.isMarginAlignmentEnabled(plugin)
     local features = plugin and plugin.config and plugin.config.features
     return features and features.reader_status_bar_margins == true or false

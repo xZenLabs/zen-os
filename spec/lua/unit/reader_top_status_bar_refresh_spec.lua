@@ -316,6 +316,8 @@ describe("reader top status bar refresh", function()
             getHeaderFace = reader_status_bar.getHeaderFace,
             getHorizontalMargins = reader_status_bar.getHorizontalMargins,
             isMarginAlignmentEnabled = reader_status_bar.isMarginAlignmentEnabled,
+            getTapHide = reader_status_bar.getTapHide,
+            isTopBarTapHidden = reader_status_bar.isTopBarTapHidden,
             disableKoreaderAltStatusBar = function(settings, reader)
                 settings = settings or G_reader_settings
                 settings:saveSetting("copt_status_line", 1)

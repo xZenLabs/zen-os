@@ -72,13 +72,17 @@ function M.init(logger, plugin)
         end
     end
 
-    -- Always apply: swipe zones keep quick settings first; footer moves pagination left
-    for _i, feature in ipairs({ "reader_controls", "disable_top_menu_swipe_zones", "touch_menu_footer" }) do
+    local function apply_always(feature)
         local fn = load_patch(feature)
         if fn and run_feature(logger, plugin, feature, fn) then
             runtime_patches[feature] = true
         end
     end
+    -- Always apply: swipe zones keep quick settings first; footer moves pagination left
+    apply_always("disable_top_menu_swipe_zones")
+    apply_always("touch_menu_footer")
+    -- ReaderMenu-only; waits for ReaderUI.
+    require("common/on_require").whenLoaded("apps/reader/readerui", function() apply_always("reader_controls") end)
 
     initialized = true
     return true

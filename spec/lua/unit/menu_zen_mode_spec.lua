@@ -12,6 +12,7 @@ describe("Zen mode menu patch", function()
         "apps/filemanager/filemanagermenu",
         "apps/reader/modules/readermenu",
         "apps/reader/modules/readerconfig",
+        "apps/reader/readerui",
         "common/shared_state",
         "modules/menu/patches/zen_mode",
     }
@@ -65,6 +66,7 @@ describe("Zen mode menu patch", function()
         ZenSpec.replace("apps/filemanager/filemanagermenu", FileManagerMenu)
         ZenSpec.replace("apps/reader/modules/readermenu", ReaderMenu)
         ZenSpec.replace("apps/reader/modules/readerconfig", ReaderConfig)
+        ZenSpec.replace("apps/reader/readerui", {}) -- reader patches apply once ReaderUI is loaded
         ZenSpec.replace("common/shared_state", {
             register = function(_plugin, entries)
                 refresh_menus = entries.refreshZenModeMenus

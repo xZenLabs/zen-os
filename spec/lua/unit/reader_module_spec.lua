@@ -23,6 +23,35 @@ describe("reader module initialization", function()
         "reader_themes",
     }
 
+    local boot_order = {
+        "stable_page_statistics",
+        "book_status",
+        "end_book",
+        "screensaver_cover",
+        "dict_quick_lookup",
+    }
+    local core_order = {
+        "stable_page_statistics",
+        "book_status",
+        "end_book",
+        "screensaver_cover",
+        "dict_quick_lookup",
+        "reader_references",
+        "library_navigation",
+        "page_browser",
+        "opening_banner",
+        "status_on_open",
+        "reader_footer",
+        "reader_footer_time_format",
+        "reader_footer_cbz_hide",
+        "reader_flash_cbz",
+        "margin_hold_guard",
+        "bookmarks",
+        "highlight_names",
+        "night_highlights",
+        "highlight_menu",
+    }
+
     local function prepare_patches(calls, failing_name)
         for _i, name in ipairs(patch_names) do
             ZenSpec.replace("modules/reader/patches/" .. name, function()
@@ -31,6 +60,8 @@ describe("reader module initialization", function()
                 assert.is_table(_G.__ZEN_UI_PLUGIN)
             end)
         end
+        ZenSpec.replace("apps/reader/readerui", {})
+        ZenSpec.unload("common/on_require")
         ZenSpec.unload("modules/reader/reader")
         return require("modules/reader/reader")
     end
@@ -56,27 +87,7 @@ describe("reader module initialization", function()
         local plugin = { config = { features = { reader_top_status_bar = false } } }
 
         assert.is_true(Reader.init(logger, plugin))
-        assert.same({
-            "reader_references",
-            "library_navigation",
-            "page_browser",
-            "stable_page_statistics",
-            "opening_banner",
-            "book_status",
-            "end_book",
-            "status_on_open",
-            "screensaver_cover",
-            "reader_footer",
-            "reader_footer_time_format",
-            "reader_footer_cbz_hide",
-            "reader_flash_cbz",
-            "margin_hold_guard",
-            "bookmarks",
-            "highlight_names",
-            "night_highlights",
-            "dict_quick_lookup",
-            "highlight_menu",
-        }, calls)
+        assert.same(core_order, calls)
         assert.is_nil(_G.__ZEN_UI_PLUGIN)
         assert.is_nil(_G.__ZEN_UI_RUNTIME_PATCHES.reader_top_status_bar)
 
@@ -143,10 +154,36 @@ describe("reader module initialization", function()
 
         assert.is_true(Reader.init(logger, { config = { features = {} } }))
         assert.are.equal(previous, _G.__ZEN_UI_PLUGIN)
-        assert.are.equal("status_on_open", calls[8])
+        assert.are.equal("end_book", calls[3])
+        assert.are.equal(19, #calls)
         assert.are.equal(1, #warnings)
         assert.are.equal("grouped reader feature failed", warnings[1][1])
         assert.are.equal("book_status", warnings[1][2])
         assert.matches("failed book_status", warnings[1][3])
+    end)
+
+    it("defers ReaderUI-only patches until KOReader first requires ReaderUI", function()
+        local calls = {}
+        local Reader = prepare_patches(calls)
+        ZenSpec.unload("apps/reader/readerui")
+        local plugin = { config = { features = { reader_top_status_bar = true } } }
+        local logger = { dbg = function() end, warn = function() end }
+
+        Reader.init(logger, plugin)
+        assert.same(boot_order, calls)
+
+        local searchers = package.loaders
+        local reader_ui = {}
+        package.loaders = { searchers[1], function(name)
+            if name == "apps/reader/readerui" then return function() return reader_ui end end
+        end }
+        local ok, loaded = pcall(require, "apps/reader/readerui")
+        package.loaders = searchers
+        ZenSpec.unload("apps/reader/readerui")
+        assert.is_true(ok, loaded)
+        assert.are.equal(reader_ui, loaded)
+        assert.are.equal(20, #calls)
+        assert.are.equal("reader_top_status_bar", calls[20])
+        assert.is_nil(package.preload["apps/reader/readerui"])
     end)
 end)

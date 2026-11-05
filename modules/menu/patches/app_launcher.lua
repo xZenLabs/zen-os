@@ -580,8 +580,9 @@
 
     local ok_fm, FileManagerMenu = pcall(require, "apps/filemanager/filemanagermenu")
     if ok_fm then patch_menu_class(FileManagerMenu, true) end
-    local ok_rm, ReaderMenu = pcall(require, "apps/reader/modules/readermenu")
-    if ok_rm then patch_menu_class(ReaderMenu, false) end
+    require("common/on_require").whenLoaded("apps/reader/readerui", function()
+        patch_menu_class(require("apps/reader/modules/readermenu"), false)
+    end)
 
     local TouchMenu = require("ui/widget/touchmenu")
     if not TouchMenu.__zen_app_launcher_open_first_patched then
