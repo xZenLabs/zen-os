@@ -28,6 +28,7 @@ local BookOpenTap = require("common/book_open_tap")
 local ButtonModel = require("common/nav_button_model")
 local _ = require("gettext")
 local logger = require("common/zen_logger").new("home_strip")
+local icons = require("common/inline_icon_map")
 
 local M = {}
 M.CONTROLS_HEIGHT = 30
@@ -310,7 +311,7 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
         end
         WidgetResources.free(_cached_fav_mark)
         _cached_fav_mark = TextWidget:new{
-            text    = "\u{2606}",
+            text    = icons.favorite,
             face    = Font:getFace("cfont", utils.getBadgeFontSize(config, size, 0.45, 6)),
             fgcolor = is_dark and Blitbuffer.COLOR_WHITE or Blitbuffer.COLOR_BLACK,
             padding = 0,
@@ -416,7 +417,7 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
                                icon_y + math.floor((icon_h-sq)/2), sq, sq, badge_fg)
             elseif do_tbr or do_pause then
                 local fs = utils.getBadgeFontSize(config, base_sz, 0.40, 7)
-                local icon = do_tbr and "\u{F0150}" or "\u{F03E4}"
+                local icon = do_tbr and icons.tbr or icons.on_hold
                 if not _cached_pause_tw or _cached_pause_icon ~= icon
                         or _cached_pause_fs ~= fs or _cached_pause_dark ~= is_dark then
                     WidgetResources.free(_cached_pause_tw)

@@ -1,3 +1,4 @@
+local icons = require("common/inline_icon_map")
 -- Post-update "What's New" bullet lists, keyed by version string.
 -- Add an entry for each release with noteworthy changes.
 -- Omit a version to show no changelog on that update.
@@ -98,8 +99,8 @@ return {
     },
     ["2.0.0"] = {
         "IMPORTANT: This update has breaking changes, settings changed in v2.0 will not be saved if you go back to v1.x. Update via settings or completely delete old zen_ui.koplugin",
-        "\u{F02DC} NEW Home page + widgets",
-        "\u{F15FC} NEW Launcher",
+        icons.settings_home .. " NEW Home page + widgets",
+        icons.settings_launcher .. " NEW Launcher",
         "Major performance improvements across the entire app",
         "Added default tab option for navbar (Navbar > Tab settings)",
         "Added automatic grouping of series into virtual folders (Library > Folders)",

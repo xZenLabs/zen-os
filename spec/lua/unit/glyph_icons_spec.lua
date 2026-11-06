@@ -9,6 +9,7 @@ describe("glyph icons", function()
         "ui/widget/iconwidget",
         "ui/widget/textwidget",
         "common/plugin_root",
+        "ui/widget/buttondialog",
         "common/utils",
         "common/ui/glyph_icons",
     }
@@ -66,18 +67,21 @@ describe("glyph icons", function()
             return dir .. name .. ".svg"
         end
         local glyphs = require("common/inline_icon_map")
-        local function button(text, enabled)
+        local function button(text, enabled, align)
             return {
-                text = text, enabled = enabled,
+                text = text, enabled = enabled, align = align,
                 label_widget = { face = { size = 20 }, free = function() end },
                 label_container = { dimen = { w = 200, h = 40 } },
             }
         end
+        local centered = button("Cancel", true)
         local rows = {
             { button(glyphs.reading .. "  Read now", true) },
             { button(glyphs.download .. "  Download", false) },
             { button(glyphs.check .. "  Done", true) },
-            { button("Plain", true) },
+            { button("Plain", true, "left") },
+            { centered },
+            { button(glyphs.edit .. "  Edit  " .. glyphs.arrow_right, true) },
         }
         local dialog = { buttontable = { buttons_layout = rows } }
 
@@ -100,6 +104,35 @@ describe("glyph icons", function()
         assert.are.same({ "text", glyphs.check, "Done" }, { icon.kind, icon.text, label.text })
         icon, label = parts(rows[4])
         assert.are.same({ "span", "Plain" }, { icon.kind, label.text })
-        assert.are.same({ "settings_book_open_variant", "settings_download" }, resolved)
+        assert.is_nil(centered.label_container[1])
+        icon, label = parts(rows[6])
+        local arrow = rows[6][1].label_container[1][5]
+        assert.are.same({ "/zen/icons/settings_square_edit_outline.svg", "Edit",
+            "/zen/icons/settings_chevron_right.svg" }, { icon.file, label.text, arrow.file })
+    end)
+
+    it("aligns ButtonDialogs with glyph buttons once installed", function()
+        package.loaded["common/utils"].resolveIcon = function(dir, name) return dir .. name .. ".svg" end
+        local glyphs = require("common/inline_icon_map")
+        local function dialog(text)
+            return { buttontable = { buttons_layout = { { {
+                text = text, align = "left",
+                label_widget = { face = { size = 20 }, free = function() end },
+                label_container = { dimen = { w = 200, h = 40 } },
+            } } } } }
+        end
+        local ButtonDialog = { init = function() end }
+        ZenSpec.replace("ui/widget/buttondialog", ButtonDialog)
+
+        local GlyphIcons = require("common/ui/glyph_icons")
+        GlyphIcons.install()
+        GlyphIcons.install()
+        local with_icon, plain = dialog(glyphs.delete .. "  Delete"), dialog("Plain")
+        ButtonDialog.init(with_icon)
+        ButtonDialog.init(plain)
+
+        local row = with_icon.buttontable.buttons_layout[1][1]
+        assert.are.equal("/zen/icons/settings_delete_outline.svg", row.label_container[1][1][1].file)
+        assert.is_nil(plain.buttontable.buttons_layout[1][1].label_container[1])
     end)
 end)

@@ -1,4 +1,5 @@
 local M = {}
+local _ = require("gettext")
 
 function M.migrate(config)
     local legacy = config.annotation_viewer and config.annotation_viewer.tabs
@@ -39,7 +40,6 @@ end
 
 function M.list(config, ui, include_disabled, extra_tab)
     local cfg = M.get(config)
-    local _ = require("gettext")
     local paging = ui and ui.paging
     local labels = {
         browser = { "view_carousel_outline", _("Page browser") },
@@ -91,7 +91,7 @@ function M.show(config, plugin, ui)
         rows[#rows + 1] = row
     end
     return require("common/ui/zen_arrange_list").show{
-        title = require("gettext")("Tabs"), item_table = rows, plugin = plugin,
+        title = _("Tabs"), item_table = rows, plugin = plugin,
         callback = function()
             local order = {}
             for _i, row in ipairs(rows) do order[#order + 1] = row.orig_item end

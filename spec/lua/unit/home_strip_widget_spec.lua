@@ -1077,8 +1077,8 @@ describe("home strip widget", function()
             tab_frames[1].bordersize,
             tab_frames[2].bordersize,
         })
-        assert.are.equal("\u{F0141}", icon_map.arrow_left)
-        assert.are.equal("\u{F0142}", icon_map.arrow_right)
+        assert.are.equal("\u{E840}", icon_map.arrow_left)
+        assert.are.equal("\u{E841}", icon_map.arrow_right)
         assert.are.equal(50, icon_cells[icon_map.arrow_left].dimen.w)
         assert.are.equal(159, icon_cells.search.dimen.w)
         assert.are.equal(26, icon_cells.search.dimen.h)

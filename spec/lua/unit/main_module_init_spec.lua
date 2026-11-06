@@ -24,6 +24,7 @@ describe("ZenOS module initialization", function()
                 install = function() assert.is_true(icons_initialized) end,
             },
             ["common/icon_packs"] = { initialize = function() icons_initialized = true end },
+            ["common/ui/glyph_icons"] = { install = noop },
             ["common/utils"] = {
                 overrideIcons = noop,
                 resolveIcon = function(dir, name)

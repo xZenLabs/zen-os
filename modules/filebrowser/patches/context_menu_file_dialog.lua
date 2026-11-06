@@ -187,7 +187,7 @@ return function(ctx, self_fc, item)
         end
         if display_cb then
             table.insert(buttons, {{
-                text = "\u{F06D0}  " .. _("Display") .. "  " .. submenu_arrow,
+                text = icons.display .. "  " .. _("Display") .. "  " .. submenu_arrow,
                 align = "left",
                 callback = function()
                     UIManager:close(self_fc.file_dialog)
@@ -197,7 +197,7 @@ return function(ctx, self_fc, item)
         end
         if sort_cb then
             table.insert(buttons, {{
-                text = "\u{F04BF}  " .. _("Sort") .. "  " .. submenu_arrow,
+                text = icons.sort .. "  " .. _("Sort") .. "  " .. submenu_arrow,
                 align = "left",
                 callback = function()
                     UIManager:close(self_fc.file_dialog)
@@ -1093,7 +1093,7 @@ return function(ctx, self_fc, item)
             edit_dialog = new_context_menu_dialog{
                 buttons = apply_button_group_font({
                     {{
-                        text = "\u{F0192}  " .. C_("File", "Paste"),
+                        text = icons.paste .. "  " .. C_("File", "Paste"),
                         align = "left",
                         enabled = (file_manager.clipboard or file_manager._zen_selected_clipboard) and true or false,
                         callback = paste,
@@ -1107,7 +1107,7 @@ return function(ctx, self_fc, item)
         local edit_buttons = {
             {
                 {
-                    text = "\u{F0190}  " .. _("Cut"),
+                    text = icons.cut .. "  " .. _("Cut"),
                     align = "left",
                     enabled = is_not_parent_folder,
                     callback = function()
@@ -1118,7 +1118,7 @@ return function(ctx, self_fc, item)
             },
             {
                 {
-                    text = "\u{F018F}  " .. C_("File", "Copy"),
+                    text = icons.copy .. "  " .. C_("File", "Copy"),
                     align = "left",
                     enabled = is_not_parent_folder,
                     callback = function()
@@ -1129,7 +1129,7 @@ return function(ctx, self_fc, item)
             },
             {
                 {
-                    text = "\u{F0192}  " .. C_("File", "Paste"),
+                    text = icons.paste .. "  " .. C_("File", "Paste"),
                     align = "left",
                     enabled = (file_manager.clipboard or file_manager._zen_selected_clipboard) and true or false,
                     callback = paste,
@@ -1139,7 +1139,7 @@ return function(ctx, self_fc, item)
         if is_file and is_not_parent_folder and not item._zen_home_context then
             table.insert(edit_buttons, 1, {
                 {
-                    text = "\u{F01BE}  " .. _("Move"),
+                    text = icons.move .. "  " .. _("Move"),
                     align = "left",
                     callback = function()
                         UIManager:close(edit_dialog)
@@ -1234,7 +1234,7 @@ return function(ctx, self_fc, item)
                 and not item._zen_disable_select then
             table.insert(edit_buttons, 1, {
                 {
-                    text = "\u{F0489}  " .. _("Select"),
+                    text = icons.select .. "  " .. _("Select"),
                     align = "left",
                     callback = function()
                         UIManager:close(edit_dialog)
@@ -1307,7 +1307,7 @@ return function(ctx, self_fc, item)
         if allow_delete and not is_kindle_processed then
             table.insert(edit_buttons, {
                 {
-                    text = "\u{F0156}  " .. _("Delete"),
+                    text = icons.delete .. "  " .. _("Delete"),
                     align = "left",
                     enabled = is_not_parent_folder,
                     callback = function()
@@ -1407,7 +1407,7 @@ return function(ctx, self_fc, item)
     if not is_file and is_not_parent_folder and not is_home_dir and not is_virtual_folder then
         table.insert(buttons, {
             {
-                text = "\u{F0CB6}  " .. _("Rename"),
+                text = icons.rename .. "  " .. _("Rename"),
                 align = "left",
                 callback = function()
                     close_dialog()
@@ -1420,7 +1420,7 @@ return function(ctx, self_fc, item)
     if item._is_current_dir then
         table.insert(buttons, {
             {
-                text = "\u{F0B9D}  " .. _("New folder"),
+                text = icons.new_folder .. "  " .. _("New folder"),
                 align = "left",
                 callback = function()
                     close_dialog()
@@ -1437,7 +1437,7 @@ return function(ctx, self_fc, item)
             local coll_name = item._zen_collection_name
             table.insert(buttons, {
                 {
-                    text = "\u{F04D2}  " .. _("Remove from collection"),
+                    text = icons.fav_remove .. "  " .. _("Remove from collection"),
                     align = "left",
                     callback = function()
                         close_dialog()
@@ -1458,7 +1458,7 @@ return function(ctx, self_fc, item)
         if not item._zen_collection_name then
             table.insert(buttons, {
                 {
-                    text = "\u{F04CE}  " .. _("Add to collection") .. "  " .. submenu_arrow,
+                    text = icons.fav_add .. "  " .. _("Add to collection") .. "  " .. submenu_arrow,
                     align = "left",
                     callback = function()
                         close_dialog()
@@ -1562,7 +1562,7 @@ return function(ctx, self_fc, item)
                             or (not is_explicit_tbr and ((to_status == nil and is_unread)
                                 or (to_status ~= nil and current_status == to_status)))
                         return {{
-                            text = icon .. "  " .. label .. (is_cur and "  \u{2713}" or ""),
+                            text = icon .. "  " .. label .. (is_cur and "  " .. icons.check or ""),
                             align = "left",
                             enabled = not is_cur,
                             callback = function()
@@ -1634,7 +1634,7 @@ return function(ctx, self_fc, item)
             local function viewBtn(label, icon, mode)
                 local active = cur_mode == mode
                 return {{
-                    text = icon .. "  " .. label .. (active and "  \u{2713}" or ""),
+                    text = icon .. "  " .. label .. (active and "  " .. icons.check or ""),
                     align = "left",
                     enabled = not active,
                     callback = function()
@@ -1647,9 +1647,9 @@ return function(ctx, self_fc, item)
                 title = _("Display mode"),
                 title_align = "center",
                 buttons = apply_button_group_font({
-                    viewBtn(_("Mosaic"), "\u{F11D9}", "mosaic_image"),
-                    viewBtn(_("List (detailed)"), "\u{F148B}", "list_image_meta"),
-                    viewBtn(_("List (basic)"), "\u{F0279}", "list_image_filename"),
+                    viewBtn(_("Mosaic"), icons.view_mosaic, "mosaic_image"),
+                    viewBtn(_("List (detailed)"), icons.view_list, "list_image_meta"),
+                    viewBtn(_("List (basic)"), icons.view_basic, "list_image_filename"),
                 }),
             }
             UIManager:show(view_dialog)
@@ -1657,7 +1657,7 @@ return function(ctx, self_fc, item)
 
         table.insert(buttons, {
             {
-                text = "\u{F06D0}  " .. _("Display") .. "  " .. submenu_arrow,
+                text = icons.display .. "  " .. _("Display") .. "  " .. submenu_arrow,
                 align = "left",
                 callback = showViewSubmenu,
             },
@@ -1666,13 +1666,13 @@ return function(ctx, self_fc, item)
 
     if not is_file and is_not_parent_folder then
         local SORT_OPTIONS = {
-            { key = "title", text = "\u{F031}  " .. _("Title") },
-            { key = "title_natural", text = "\u{F04BB}  " .. _("Title natural") },
+            { key = "title", text = icons.font .. "  " .. _("Title") },
+            { key = "title_natural", text = icons.title .. "  " .. _("Title natural") },
             { key = "strcoll", text = icons.filename .. "  " .. _("Filename") },
-            { key = "authors", text = "\u{F0013}  " .. _("Authors") },
-            { key = "series", text = "\u{F0436}  " .. _("Series") },
-            { key = "access", text = "\u{F02DA}  " .. _("Recently read") },
-            { key = "date_added", text = "\u{F073}  " .. _("Date added") },
+            { key = "authors", text = icons.authors .. "  " .. _("Authors") },
+            { key = "series", text = icons.series .. "  " .. _("Series") },
+            { key = "access", text = icons.history .. "  " .. _("Recently read") },
+            { key = "date_added", text = icons.calendar .. "  " .. _("Date added") },
         }
 
         if is_primary_home then
@@ -1680,7 +1680,7 @@ return function(ctx, self_fc, item)
             if g_sort then
                 table.insert(buttons, {
                     {
-                        text = "\u{F04BF}  " .. _("Sort library") .. "  " .. submenu_arrow,
+                        text = icons.sort .. "  " .. _("Sort library") .. "  " .. submenu_arrow,
                         align = "left",
                         callback = function()
                             close_dialog()
@@ -1691,7 +1691,7 @@ return function(ctx, self_fc, item)
                             for _i, opt in ipairs(SORT_OPTIONS) do
                                 local is_active = cur == opt.key
                                 table.insert(sort_buttons, {{
-                                    text = opt.text .. (is_active and "  \u{2713}" or ""),
+                                    text = opt.text .. (is_active and "  " .. icons.check or ""),
                                     align = "left",
                                     enabled = not is_active,
                                     callback = function()
@@ -1702,7 +1702,7 @@ return function(ctx, self_fc, item)
                                 }})
                             end
                             table.insert(sort_buttons, {{
-                                text = "\u{F04BF}  " .. _("Order") .. "  " .. submenu_arrow,
+                                text = icons.sort .. "  " .. _("Order") .. "  " .. submenu_arrow,
                                 align = "left",
                                 callback = function()
                                     UIManager:close(sort_dialog)
@@ -1739,7 +1739,7 @@ return function(ctx, self_fc, item)
 
                 table.insert(buttons, {
                     {
-                        text = "\u{F04BF}  " .. _("Sort folder") .. "  " .. submenu_arrow,
+                        text = icons.sort .. "  " .. _("Sort folder") .. "  " .. submenu_arrow,
                         align = "left",
                         callback = function()
                             close_dialog()
@@ -1751,7 +1751,7 @@ return function(ctx, self_fc, item)
                             for _i, opt in ipairs(SORT_OPTIONS) do
                                 local is_active = cur_collate == opt.key
                                 table.insert(sort_buttons, {{
-                                    text = opt.text .. (is_active and "  \u{2713}" or ""),
+                                    text = opt.text .. (is_active and "  " .. icons.check or ""),
                                     align = "left",
                                     enabled = not is_active,
                                     callback = function()
@@ -1762,7 +1762,7 @@ return function(ctx, self_fc, item)
                                 }})
                             end
                             table.insert(sort_buttons, {{
-                                text = "\u{F04BF}  " .. _("Order") .. "  " .. submenu_arrow,
+                                text = icons.sort .. "  " .. _("Order") .. "  " .. submenu_arrow,
                                 align = "left",
                                 callback = function()
                                     UIManager:close(sort_dialog)
@@ -1780,7 +1780,7 @@ return function(ctx, self_fc, item)
                             if current_override then
                                 table.insert(sort_buttons, {})
                                 table.insert(sort_buttons, {{
-                                    text = "\u{F099B}  " .. _("Clear"),
+                                    text = icons.clear .. "  " .. _("Clear"),
                                     align = "left",
                                     callback = function()
                                         fsd_api.clear(real_folder)
@@ -1892,7 +1892,7 @@ return function(ctx, self_fc, item)
     if not item._zen_hide_edit and not is_virtual_folder and (not is_kindle_book or is_kindle_processed) then
         table.insert(buttons, {
             {
-                text = "\u{F090C}  " .. _("Edit") .. "  " .. submenu_arrow,
+                text = icons.edit .. "  " .. _("Edit") .. "  " .. submenu_arrow,
                 align = "left",
                 callback = showEditSubmenu,
             },

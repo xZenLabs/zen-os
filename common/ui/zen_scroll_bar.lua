@@ -1,3 +1,4 @@
+local icons = require("common/inline_icon_map")
 local function apply_zen_scroll_bar()
     -- Replaces the pagination footer with a pill-bar, dot-style, or page-number
     -- scroll indicator. Style is read live from config; no restart needed to toggle.
@@ -227,7 +228,7 @@ local function apply_zen_scroll_bar()
                         input           = "",
                         input_type      = "number",
                         input_hint      = "1 - " .. tostring(nb),
-                        button_text     = "\u{F124} " .. _("Go"),
+                        button_text     = icons.go .. " " .. _("Go"),
                         button_callback = function(dialog)
                             local p = tonumber(dialog:getInputText())
                             if p and p >= 1 and p <= nb then

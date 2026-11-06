@@ -495,8 +495,6 @@ def render_report(results: dict, baseline: dict | None = None) -> str:
     corpora = results.get("corpora", {})
     lines = [
         "# ZenOS benchmark report", "",
-        "Scenarios and metrics follow [kindle_benchmark](https://github.com/d1-m4ss/kindle_benchmark) "
-        "(SCENARIOS.md). Emulator numbers are for relative comparison only, not device latency.", "",
         "| | |", "|---|---|",
         *(f"| {key} | {value} |" for key, value in env.items()), "",
     ]

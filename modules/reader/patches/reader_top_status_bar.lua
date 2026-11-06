@@ -141,14 +141,14 @@ local function apply_reader_top_status_bar()
         local state = WifiState.get()
         if not state then return nil end
         if state == "searching" then
-            return "\u{ECA8}", nil, colors.wifi_searching, true
+            return inline_icons.wifi_on, nil, colors.wifi_searching, true
         end
         if state == "on" then
-            return "\u{ECA8}", nil, colors.wifi_on
+            return inline_icons.wifi_on, nil, colors.wifi_on
         end
         local cfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
         if type(cfg) == "table" and cfg.wifi_hide_when_off == true then return nil end
-        return "\u{ECA9}", nil, colors.wifi_off
+        return inline_icons.wifi_off, nil, colors.wifi_off
     end
 
     local function getBluetoothItem()
@@ -164,7 +164,7 @@ local function apply_reader_top_status_bar()
     local function getRamItem()
         local now = os.time()
         if cached_ram_text and (now - cached_ram_time) < 30 then
-            return "\u{EA5A}", " " .. cached_ram_text, colors.resource
+            return inline_icons.settings_ram, " " .. cached_ram_text, colors.resource
         end
         local statm = io.open("/proc/self/statm", "r")
         if statm then
@@ -173,10 +173,10 @@ local function apply_reader_top_status_bar()
             if rss_pages then
                 cached_ram_text = string.format("%dM", math.floor(rss_pages / 256))
                 cached_ram_time = now
-                return "\u{EA5A}", " " .. cached_ram_text, colors.resource
+                return inline_icons.settings_ram, " " .. cached_ram_text, colors.resource
             end
         end
-        return "\u{EA5A}", " ?M", colors.resource
+        return inline_icons.settings_ram, " ?M", colors.resource
     end
 
     -- df runs once on first paint, then after a page-turn refresh when stale (getDiskFreeText caches 5 min).
@@ -193,7 +193,7 @@ local function apply_reader_top_status_bar()
             end
             UIManager:nextTick(_disk_refresh)
         end
-        return "\u{F0A0}", " " .. disk_text, colors.resource
+        return inline_icons.settings_storage, " " .. disk_text, colors.resource
     end
 
     local function getFrontlightItem()

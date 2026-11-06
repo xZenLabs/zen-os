@@ -1344,7 +1344,7 @@ function StatsPage.create(createStatusRow, repaintTitleBar, zen_plugin)
         for _i, range in ipairs({ 7, 14, 30, 90 }) do
             local selected = blocks_config[block_idx].range_days == range
             buttons[#buttons + 1] = {{
-                text = tostring(range) .. _(" days") .. (selected and "  \u{2713}" or ""),
+                text = tostring(range) .. _(" days") .. (selected and "  " .. icons.check or ""),
                 enabled = not selected,
                 callback = function()
                     UIManager:close(menu._zen_block_dlg)
@@ -1374,7 +1374,7 @@ function StatsPage.create(createStatusRow, repaintTitleBar, zen_plugin)
             if current_metric == "duration" then current_metric = "time" end
             local selected = current_metric == item.id
             buttons[#buttons + 1] = {{
-                text = item.text .. (selected and "  \u{2713}" or ""),
+                text = item.text .. (selected and "  " .. icons.check or ""),
                 enabled = not selected,
                 callback = function()
                     UIManager:close(menu._zen_block_dlg)
@@ -1414,7 +1414,7 @@ function StatsPage.create(createStatusRow, repaintTitleBar, zen_plugin)
             local item_month = month
             local selected = item_month == selected_month
             buttons[#buttons + 1] = {{
-                text = monthLabel(item_month) .. (selected and "  \u{2713}" or ""),
+                text = monthLabel(item_month) .. (selected and "  " .. icons.check or ""),
                 enabled = not selected,
                 callback = function()
                     UIManager:close(menu._zen_block_dlg)

@@ -1,3 +1,4 @@
+local icons = require("common/inline_icon_map")
 -- Groups books in the file browser into virtual folders by metadata series name.
 local function apply_automatic_series_grouping()
     local BD = require("ui/bidi")
@@ -460,7 +461,7 @@ local function apply_automatic_series_grouping()
                 end
             else
                 has_group = not hide_grouped_series
-                group.mandatory = tostring(#group.series_items) .. " \u{F016}"
+                group.mandatory = tostring(#group.series_items) .. " " .. icons.file_count
                 set_series_status(group)
                 self:sortSeriesItems(group.series_items, group, file_chooser)
             end

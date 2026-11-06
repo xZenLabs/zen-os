@@ -1670,7 +1670,7 @@ function M.build_update_now_item(plugin)
     return {
         text_func = function()
             if M._has_update then
-                return "\u{F01B} " .. _("Update available")
+                return icons.upgrade .. " " .. _("Update available")
             end
             return _("Update ZenOS")
         end,

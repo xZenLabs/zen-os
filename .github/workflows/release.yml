@@ -71,10 +71,6 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install fonttools
-        if: steps.version_check.outputs.skip == 'false'
-        run: pip install fonttools
-
       - name: Download latest ZenOS Launcher
         if: steps.version_check.outputs.skip == 'false'
         env:

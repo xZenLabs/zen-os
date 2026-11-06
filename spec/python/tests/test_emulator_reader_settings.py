@@ -117,8 +117,8 @@ def test_reader_settings_hierarchy_icons_and_bottom_swipe(configured):
                                           "Footnotes and pinned pages", "Annotation viewer",
                                           "Restore library location on exit", "Reader controls", "End of book"]
             assert [item.get("icon_glyph") for item in state()["items"]] == [
-                "\U000f03d8", "\U000f0349", "\U000f0740",
-                "\U000f1486", None, None, "\U000f006f", "\U000f14f7", "\U000f14f3",
+                "\uead7", "\uea48", "\uee3e",
+                "\uec6b", None, None, "\ue76e", "\ue7bd", "\ue7c0",
             ]
             select("Reader controls")
             assert state()["labels"] == ["Buttons"]

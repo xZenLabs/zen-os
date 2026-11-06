@@ -386,14 +386,14 @@ function M.overrideIcons(overrides, prefer_user_icon)
     end
 end
 
-local __ = require("gettext")
+local _ = require("gettext")
 
 --- Localised page-count label (abbreviated or full word form).
 --- @param pages number
 --- @param long  boolean|nil  true for full form ("pages"), false for short ("p.")
 --- @return string
 function M.formatPageCount(pages, long)
-    local label = long and __("pages") or __("p.")
+    local label = long and _("pages") or _("p.")
     return tostring(pages) .. "\u{00A0}" .. label
 end
 

@@ -27,6 +27,10 @@ _G.ZenSpec = {
         _G[name] = nil
     end,
     replace = function(name, module)
+        -- Partial icon-map stubs fall back to the real glyphs.
+        if name == "common/inline_icon_map" and type(module) == "table" and not getmetatable(module) then
+            setmetatable(module, { __index = dofile(root .. "/common/inline_icon_map.lua") })
+        end
         package.loaded[name] = module
     end,
     -- Real Wi-Fi probe without caching, for specs that flip NetworkMgr state without events.

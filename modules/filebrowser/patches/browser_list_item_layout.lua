@@ -1,3 +1,6 @@
+local icons = require("common/inline_icon_map")
+local FILE_COUNT = "(%d+)%s*" .. icons.file_count
+local FOLDER_COUNT = "(%d+)%s*" .. icons.folder_count
 local function apply_browser_list_item_layout()
     -- Capture plugin reference while __ZEN_UI_PLUGIN is still set by run_feature.
     local _plugin_ref = rawget(_G, "__ZEN_UI_PLUGIN")
@@ -132,7 +135,7 @@ local function apply_browser_list_item_layout()
                     end
 
                     -- Folder icon: open for up-folder, outline for regular directories
-                    local folder_icon = is_go_up and "\u{F024B}" or "\u{F024A}"
+                    local folder_icon = is_go_up and icons.folder_up or icons.settings_folders
                     local cover_frame = FrameContainer:new{
                         width = cover_w + 2 * border_size,
                         height = max_img + 2 * border_size,
@@ -184,7 +187,7 @@ local function apply_browser_list_item_layout()
                     local fs_title = _fontSize(18, 21)
                     fs_title = math.min(fs_title, math.max(9, math.floor(content_h * 0.45)))
                     local title_text = is_go_up
-                        and (BD.mirroredUILayout() and BD.ltr("../ \u{F062}") or "\u{F062}  ../")
+                        and (BD.mirroredUILayout() and BD.ltr("../ " .. icons.arrow_up) or icons.arrow_up .. "  ../")
                         or BD.directory(FolderCover.title(self.entry, self.text, self.menu))
 
                     local right_widgets = {}
@@ -197,8 +200,8 @@ local function apply_browser_list_item_layout()
                         local file_count = type(mandatory) == "number" and mandatory or 0
                         local dir_count = 0
                         if type(mandatory) == "string" then
-                            file_count = tonumber(mandatory:match("(%d+)%s*\xef\x80\x96")) or 0
-                            dir_count = tonumber(mandatory:match("(%d+)%s*\xef\x84\x94")) or 0
+                            file_count = tonumber(mandatory:match(FILE_COUNT)) or 0
+                            dir_count = tonumber(mandatory:match(FOLDER_COUNT)) or 0
                         end
                         if synthetic_count then file_count = synthetic_count end
                         local fs_right = _fontSize(16, 20)
@@ -467,13 +470,13 @@ local function apply_browser_list_item_layout()
                 status_label = _("New")
             elseif display_status == "tbr" then
                 status_label = _("To Be Read")
-                progress_str = "\u{F0150}"  -- MD Clock icon
+                progress_str = icons.tbr
             elseif display_status == "complete" then
                 status_label = _("Finished")
-                progress_str = "\u{F012C}"  -- MD check
+                progress_str = icons.finished
             elseif display_status == "abandoned" then
                 status_label = _("On hold")
-                progress_str = "\u{F03E4}"
+                progress_str = icons.on_hold
             elseif percent_finished then
                 -- has recorded progress
                 status_label = string.format(_("%d%% Read"), math.floor(100 * percent_finished))

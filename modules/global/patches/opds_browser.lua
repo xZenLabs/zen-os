@@ -13,6 +13,7 @@ local function apply_opds()
     if OPDSBrowser._zen_opds_patched then return end
     OPDSBrowser._zen_opds_patched = true
 
+    local _ = require("gettext")
     local BD              = require("ui/bidi")
     local Blitbuffer      = require("ffi/blitbuffer")
     local CenterContainer = require("ui/widget/container/centercontainer")
@@ -45,7 +46,6 @@ local function apply_opds()
     local CoverUtils      = require("common/cover_utils")
     local CoverCache      = require("common/opds_cover_cache")
     local icons           = require("common/inline_icon_map")
-    local GlyphIcons      = require("common/ui/glyph_icons")
     local lfs             = require("libs/libkoreader-lfs")
     local utils           = require("common/utils")
     local Screen          = Device.screen
@@ -522,7 +522,6 @@ local function apply_opds()
         end
         refresh_download_state(job.identity, ok)
         if not ok then
-            local _ = require("gettext")
             local text = result and result:match("^err:(.+)$")
             UIManager:show(require("ui/widget/infomessage"):new{
                 text = text or (_("Download failed: ") .. (job.title or "")),
@@ -1714,7 +1713,7 @@ local function apply_opds()
                 self._zen_network_wait = nil
                 self._zen_network_action = nil
                 UIManager:show(require("ui/widget/infomessage"):new{
-                    text = require("gettext")("Error connecting to the network"),
+                    text = _("Error connecting to the network"),
                 })
                 return
             end
@@ -1813,7 +1812,6 @@ local function apply_opds()
     -- Anchor menus to the action button immediately left of Close.
     function OPDSBrowser:showOPDSMenu()
         local ButtonDialog = require("ui/widget/buttondialog")
-        local _            = require("gettext")
         local dialog
         dialog = ButtonDialog:new{
             buttons = {
@@ -1855,14 +1853,13 @@ local function apply_opds()
         local ButtonDialog = require("ui/widget/buttondialog")
         local ffiUtil      = require("ffi/util")
         local url_mod      = require("socket.url")
-        local _            = require("gettext")
         local T            = ffiUtil.template
         local buttons      = {}
         local dialog
         local catalog_url  = self.paths[#self.paths].url
 
         table.insert(buttons, {{
-            text = "\u{f067} " .. _("Add catalog"), align = "left",
+            text = icons.add .. " " .. _("Add catalog"), align = "left",
             callback = function()
                 UIManager:close(dialog); self:addSubCatalog(catalog_url)
             end,
@@ -1871,7 +1868,7 @@ local function apply_opds()
 
         if self.search_url then
             table.insert(buttons, {{
-                text = "\u{f002} " .. _("Search"), align = "left",
+                text = icons.search .. " " .. _("Search"), align = "left",
                 callback = function()
                     UIManager:close(dialog); self:searchCatalog(self.search_url)
                 end,
@@ -1882,7 +1879,7 @@ local function apply_opds()
         if self.facet_groups then
             for group_name, facets in ffiUtil.orderedPairs(self.facet_groups) do
                 table.insert(buttons, {
-                    { text = "\u{f0b0} " .. group_name, enabled = false, align = "left" }
+                    { text = icons.filter .. " " .. group_name, enabled = false, align = "left" }
                 })
                 for __, link in ipairs(facets) do
                     local facet_text = link.title
@@ -1890,7 +1887,7 @@ local function apply_opds()
                         facet_text = T(_("%1 (%2)"), facet_text, link["thr:count"])
                     end
                     if link["opds:activeFacet"] == "true" then
-                        facet_text = "\u{2713} " .. facet_text
+                        facet_text = icons.check .. " " .. facet_text
                     end
                     table.insert(buttons, {{
                         text = facet_text, align = "left",
@@ -1934,7 +1931,6 @@ local function apply_opds()
         local ButtonDialog   = require("ui/widget/buttondialog")
         local ConfirmBox     = require("ui/widget/confirmbox")
         local LeftContainer  = require("ui/widget/container/leftcontainer")
-        local _              = require("gettext")
         local default_url    = get_opds_default_url()
         local is_default     = default_url == item.url
 
@@ -1990,7 +1986,7 @@ local function apply_opds()
         }
 
         local dialog
-        dialog = GlyphIcons.alignButtonIcons(ButtonDialog:new{
+        dialog = ButtonDialog:new{
             _added_widgets = { header },
             buttons = {
                 {{ text = icons.sync .. "  " .. _("Sync"), align = "left",
@@ -2011,8 +2007,8 @@ local function apply_opds()
                     end }},
                 {},
                 {{ text = is_default
-                            and ("\u{F04D2}  " .. _("Remove default"))
-                            or  ("\u{F04CE}  " .. _("Set as default")),
+                            and (icons.fav_remove .. "  " .. _("Remove default"))
+                            or  (icons.fav_add .. "  " .. _("Set as default")),
                     align = "left",
                     callback = function()
                         UIManager:close(dialog)
@@ -2023,13 +2019,13 @@ local function apply_opds()
                         end
                     end }},
                 {},
-                {{ text = "\u{F090C}  " .. _("Edit"), align = "left",
+                {{ text = icons.edit .. "  " .. _("Edit"), align = "left",
                     callback = function()
                         UIManager:close(dialog)
                         self:addEditCatalog(item)
                     end }},
                 {},
-                {{ text = "\u{F0156}  " .. _("Delete"), align = "left",
+                {{ text = icons.delete .. "  " .. _("Delete"), align = "left",
                     callback = function()
                         UIManager:show(ConfirmBox:new{
                             text     = _("Delete OPDS catalog?"),
@@ -2041,7 +2037,7 @@ local function apply_opds()
                         })
                     end }},
             },
-        })
+        }
         UIManager:show(dialog)
         return true
     end
@@ -2050,7 +2046,6 @@ local function apply_opds()
     function OPDSBrowser:searchCatalog(item_url)
         local InputDialog  = require("ui/widget/inputdialog")
         local util         = require("util")
-        local _            = require("gettext")
         local catalog_name = self.catalog_title or self.root_catalog_title or ""
         local browser      = self
         local dialog
@@ -2068,7 +2063,7 @@ local function apply_opds()
             input_hint                  = _("Alexandre Dumas"),
             buttons = {{
                 {
-                    text             = "\u{F002} " .. _("Search"),
+                    text             = icons.search .. " " .. _("Search"),
                     is_enter_default = true,
                     callback         = _doSearch,
                 },
@@ -2119,7 +2114,6 @@ local function apply_opds()
         local TextViewer     = require("ui/widget/textviewer")
         local url_mod        = require("socket.url")
         local util           = require("util")
-        local _              = require("gettext")
 
         local current_dir = self:getCurrentDownloadDir()
 
@@ -2260,7 +2254,7 @@ local function apply_opds()
                 if filetype then
                     local a  = acq
                     local fn = filename
-                    table.insert(buttons, {{ text = "\u{F01DA}  " .. _( "Download") .. " " .. url_mod.unescape(a.title or string.upper(filetype)), align = "left", bold = true,
+                    table.insert(buttons, {{ text = icons.download .. "  " .. _( "Download") .. " " .. url_mod.unescape(a.title or string.upper(filetype)), align = "left", bold = true,
                         enabled = not pending,
                         callback = function()
                             UIManager:close(self.download_dialog)
@@ -2298,7 +2292,7 @@ local function apply_opds()
         if type(item.content) == "string" then
             local content_ref = item.content
             local title_ref   = item.title or item.text
-            table.insert(buttons, {{ text = "\u{F02FD}  " .. _("Description"), align = "left", bold = true,
+            table.insert(buttons, {{ text = icons.details .. "  " .. _("Description"), align = "left", bold = true,
                 callback = function()
                     UIManager:show(TextViewer:new{
                         title = title_ref, title_multilines = true,
@@ -2310,7 +2304,7 @@ local function apply_opds()
         end
 
         local item_ref = item
-        table.insert(buttons, {{ text = "\u{F07C}  " .. _("Change folder"), align = "left", bold = true,
+        table.insert(buttons, {{ text = icons.folder_open .. "  " .. _("Change folder"), align = "left", bold = true,
             callback = function()
                 UIManager:close(self.download_dialog)
                 require("ui/downloadmgr"):new{
@@ -2322,10 +2316,10 @@ local function apply_opds()
             end,
         }})
 
-        self.download_dialog = GlyphIcons.alignButtonIcons(ButtonDialog:new{
+        self.download_dialog = ButtonDialog:new{
             _added_widgets = { header },
             buttons        = buttons,
-        })
+        }
         UIManager:show(self.download_dialog)
     end
 end

@@ -1,5 +1,7 @@
 local M = {}
+local _ = require("gettext")
 local PluginScan = require("modules/menu/app_launcher/plugin_scan")
+local icons = require("common/inline_icon_map")
 
 local PLUGIN_KEYS = { "kindle", "kindle_plugin" }
 local OPEN_METHOD = "onShowKindleLibrary"
@@ -289,12 +291,11 @@ local function show_display_mode(menu)
         or BookInfoManager:getSetting("filemanager_display_mode")
     local ButtonDialog = require("ui/widget/buttondialog")
     local UIManager = require("ui/uimanager")
-    local _ = require("gettext")
     local dialog
     local function button(label, icon, mode)
         local active = current == mode
         return {{
-            text = icon .. "  " .. label .. (active and "  \u{2713}" or ""),
+            text = icon .. "  " .. label .. (active and "  " .. icons.check or ""),
             align = "left",
             enabled = not active,
             callback = function()
@@ -311,9 +312,9 @@ local function show_display_mode(menu)
         title = _("Display mode"),
         title_align = "center",
         buttons = {
-            button(_("Mosaic"), "\u{F00A}", "mosaic_image"),
-            button(_("List (detailed)"), "\u{F03A}", "list_image_meta"),
-            button(_("List (basic)"), "\u{F0CA}", "list_image_filename"),
+            button(_("Mosaic"), icons.view_mosaic, "mosaic_image"),
+            button(_("List (detailed)"), icons.view_list, "list_image_meta"),
+            button(_("List (basic)"), icons.view_basic, "list_image_filename"),
         },
     }
     UIManager:show(dialog)
@@ -371,8 +372,6 @@ function M.showBookContextMenu(menu, item, after_change)
         end
     end
 
-    local icons = require("common/inline_icon_map")
-    local _ = require("gettext")
     local clear_cache = {{
         text = icons.delete .. "  " .. _("Clear cache"),
         align = "left",
@@ -425,7 +424,7 @@ function M._decorateLibraryView(menu, plugin)
     StandalonePage.apply_status_row(menu, {
         createStatusRow = SharedState.get(plugin, "createStatusRow"),
         repaintTitleBar = SharedState.get(plugin, "repaintTitleBar"),
-        label = require("gettext")("Kindle Library"),
+        label = _("Kindle Library"),
     })
 
     menu.onMenuHold = function(self, item)
@@ -472,7 +471,7 @@ local function apply_view_integration(plugin)
     function Menu:init()
         local is_kindle = M.isLibraryView(self)
         if is_kindle then
-            self.title = require("gettext")("Kindle Library")
+            self.title = _("Kindle Library")
             self._zen_renderer = true
             self._do_center_partial_rows = false
         end

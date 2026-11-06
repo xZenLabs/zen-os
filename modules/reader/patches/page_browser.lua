@@ -1,3 +1,4 @@
+local icons = require("common/inline_icon_map")
 -- zen_ui: page_browser patch
 -- Opens KOReader's native PageBrowserWidget from the bottom swipe zone
 -- or a physical Menu-key hold.
@@ -10,6 +11,7 @@ local function apply_page_browser()
     local UIManager    = require("ui/uimanager")
     local Event        = require("ui/event")
     local Device       = require("device")
+    local _            = require("gettext")
     local ReaderThumbnail = require("apps/reader/modules/readerthumbnail")
     local PresetStore   = require("config/preset_store")
     local BottomSwipe  = require("common/reader_bottom_swipe")
@@ -24,7 +26,7 @@ local function apply_page_browser()
 
     -- Chapter title + page progress, centred as one block in a panel row.
     local function format_progress(page_text, total_text, percent)
-        return require("ffi/util").template(require("gettext")("Page %1 of %2"), page_text, total_text)
+        return require("ffi/util").template(_("Page %1 of %2"), page_text, total_text)
             .. " · " .. percent .. "%"
     end
 
@@ -659,12 +661,11 @@ local function apply_page_browser()
         local Screen_s    = require("device").screen
         local BD          = require("ui/bidi")
         local ZenModalClose = require("common/ui/zen_modal_close")
-        local _           = require("gettext")
         local logger_rs   = require("common/zen_logger").new("page_browser")
 
         local _orig_InputDialog_onTap = InputDialog.onTap
 
-        local SEARCH_ICON = "\u{F002}"
+        local SEARCH_ICON = icons.search
 
         local function enable_search_dialog_close(dialog)
             local function close_dialog()

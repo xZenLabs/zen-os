@@ -275,7 +275,7 @@ local function apply_nonblocking_wifi()
         UIManager:show(wifi_notice)
     end
     NetworkMgr.showWifiStarting = function(self)
-        self:showWifiNotice(require("gettext")("Turning on Wi-Fi…"))
+        self:showWifiNotice(_("Turning on Wi-Fi…"))
     end
     NetworkMgr.cancelWifiOperations = function(self)
         cancel()

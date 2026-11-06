@@ -449,7 +449,7 @@ local function build_group_item_table(groups, data_type)
         local count = #files
         table.insert(items, {
             text        = display,
-            mandatory   = tostring(count) .. " \u{F016}",
+            mandatory   = tostring(count) .. " " .. icons.file_count,
             _zen_files  = files,
             _zen_type   = data_type,
             _zen_author = group.author,
@@ -566,7 +566,7 @@ local function showDisplayModeDialog(menu, tab_id, group_name)
     local function viewBtn(label, icon, mode)
         local active = cur_mode == mode
         return {{
-            text     = icon .. "  " .. label .. (active and "  \u{2713}" or ""),
+            text     = icon .. "  " .. label .. (active and "  " .. icons.check or ""),
             align    = "left",
             enabled  = not active,
             callback = function()
@@ -580,9 +580,9 @@ local function showDisplayModeDialog(menu, tab_id, group_name)
         title       = _("Display mode"),
         title_align = "center",
         buttons     = {
-            viewBtn(_("Mosaic"),          "\u{F00A}", "mosaic_image"),
-            viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"),
-            viewBtn(_("List (basic)"),    "\u{F0CA}", "list_image_filename"),
+            viewBtn(_("Mosaic"),          icons.view_mosaic, "mosaic_image"),
+            viewBtn(_("List (detailed)"), icons.view_list, "list_image_meta"),
+            viewBtn(_("List (basic)"),    icons.view_basic, "list_image_filename"),
         },
     }
     UIManager:show(view_dialog)
@@ -634,7 +634,7 @@ local function showGroupSortDialog(tab_id, menu)
             rebuild()
         end)
         buttons[#buttons + 1] = {{
-            text = "\u{F0DC}  " .. _("Order") .. "  " .. submenu_arrow,
+            text = icons.sort .. "  " .. _("Order") .. "  " .. submenu_arrow,
             align = "left",
             callback = function()
                 UIManager:close(sort_dialog)
@@ -662,13 +662,13 @@ local function showGroupSortDialog(tab_id, menu)
     local sort_dialog
     local buttons = {}
     local options = {
-        { key = "title", text = "\u{F031}  " .. _("Title") },
-        { key = "title_natural", text = "\u{F04BB}  " .. _("Title natural") },
+        { key = "title", text = icons.font .. "  " .. _("Title") },
+        { key = "title_natural", text = icons.title .. "  " .. _("Title natural") },
     }
     for _i, option in ipairs(options) do
         local active = current == option.key
         buttons[#buttons + 1] = {{
-            text = option.text .. (active and "  \u{2713}" or ""),
+            text = option.text .. (active and "  " .. icons.check or ""),
             align = "left",
             enabled = not active,
             callback = function()
@@ -679,7 +679,7 @@ local function showGroupSortDialog(tab_id, menu)
         }}
     end
     buttons[#buttons + 1] = {{
-        text = "\u{F0DC}  " .. _("Order") .. "  " .. submenu_arrow,
+        text = icons.sort .. "  " .. _("Order") .. "  " .. submenu_arrow,
         align = "left",
         callback = function()
             UIManager:close(sort_dialog)
@@ -805,7 +805,7 @@ local function group_series_book_items(items, tab_id)
         if type(entry) == "table" then
             result[#result + 1] = {
                 text = entry.series,
-                mandatory = tostring(#entry.files) .. " \u{F016}",
+                mandatory = tostring(#entry.files) .. " " .. icons.file_count,
                 _zen_files = entry.files,
                 is_series_group = true,
             }
@@ -861,11 +861,11 @@ local function showDetailSortDialog(group_name, tab_id, menu, files, reload_file
     local cur_reverse = get_detail_reverse(tab_id, group_name, reverse_fallback)
 
     local SORT_OPTIONS = {
-        { key = "series_index",  text = "\u{F0CB}  " .. _("Series number") },
-        { key = "title",         text = "\u{F031}  " .. _("Title") },
-        { key = "title_natural", text = "\u{F04BB}  " .. _("Title natural") },
+        { key = "series_index",  text = icons.series .. "  " .. _("Series number") },
+        { key = "title",         text = icons.font .. "  " .. _("Title") },
+        { key = "title_natural", text = icons.title .. "  " .. _("Title natural") },
         { key = "strcoll",       text = icons.filename .. "  " .. _("Filename") },
-        { key = "access",        text = "\u{F073}  " .. _("Recently read") },
+        { key = "access",        text = icons.calendar .. "  " .. _("Recently read") },
     }
 
     local function rebuildMenu(collate, reverse)
@@ -908,7 +908,7 @@ local function showDetailSortDialog(group_name, tab_id, menu, files, reload_file
     for _i, opt in ipairs(SORT_OPTIONS) do
         local is_active = cur_collate == opt.key
         table.insert(sort_buttons, {{
-            text     = opt.text .. (is_active and "  \u{2713}" or ""),
+            text     = opt.text .. (is_active and "  " .. icons.check or ""),
             align    = "left",
             enabled  = not is_active,
             callback = function()
@@ -921,14 +921,14 @@ local function showDetailSortDialog(group_name, tab_id, menu, files, reload_file
 
     -- Order submenu
     table.insert(sort_buttons, {{
-        text     = "\u{F0DC}  " .. _("Order") .. "  " .. submenu_arrow,
+        text     = icons.sort .. "  " .. _("Order") .. "  " .. submenu_arrow,
         align    = "left",
         callback = function()
             UIManager:close(sort_dialog)
             local order_dialog
             local order_buttons = {
                 {{
-                    text     = "\u{F15D}  " .. _("Ascending") .. (not cur_reverse and "  \u{2713}" or ""),
+                    text     = icons.sort_asc .. "  " .. _("Ascending") .. (not cur_reverse and "  " .. icons.check or ""),
                     align    = "left",
                     enabled  = cur_reverse,
                     callback = function()
@@ -938,7 +938,7 @@ local function showDetailSortDialog(group_name, tab_id, menu, files, reload_file
                     end,
                 }},
                 {{
-                    text     = "\u{F15E}  " .. _("Descending") .. (cur_reverse and "  \u{2713}" or ""),
+                    text     = icons.sort_desc .. "  " .. _("Descending") .. (cur_reverse and "  " .. icons.check or ""),
                     align    = "left",
                     enabled  = not cur_reverse,
                     callback = function()
@@ -950,7 +950,7 @@ local function showDetailSortDialog(group_name, tab_id, menu, files, reload_file
             }
             if tab_id == "to_be_read" then
                 order_buttons[#order_buttons + 1] = {{
-                    text = "\u{F0DC}  " .. _("Order TBR"),
+                    text = icons.sort .. "  " .. _("Order TBR"),
                     align = "left",
                     callback = function()
                         UIManager:close(order_dialog)
@@ -994,7 +994,7 @@ local function refresh_after_delete(path)
                 if #item._zen_files == 0 then
                     table.remove(menu.item_table, index)
                 else
-                    item.mandatory = tostring(#item._zen_files) .. " \u{F016}"
+                    item.mandatory = tostring(#item._zen_files) .. " " .. icons.file_count
                 end
             end
         end

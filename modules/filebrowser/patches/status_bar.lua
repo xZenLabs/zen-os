@@ -297,12 +297,12 @@ local function apply_status_bar()
     local function getWifiInfo()
         local state = WifiState.get()
         if state == "searching" then
-            return "\u{ECA8}", nil, colors.wifi_searching, nil, true
+            return inline_icons.wifi_on, nil, colors.wifi_searching, nil, true
         end
         if state == "on" then
-            return "\u{ECA8}", nil, colors.wifi_on
+            return inline_icons.wifi_on, nil, colors.wifi_on
         elseif not config.wifi_hide_when_off then
-            return "\u{ECA9}", nil, colors.wifi_off
+            return inline_icons.wifi_off, nil, colors.wifi_off
         end
         return nil
     end
@@ -331,7 +331,7 @@ local function apply_status_bar()
     local function getRamInfo()
         local now = os.time()
         if cached_ram_text and (now - cached_ram_time) < 30 then
-            return "\u{EA5A}", " " .. cached_ram_text, colors.ram
+            return inline_icons.settings_ram, " " .. cached_ram_text, colors.ram
         end
         local statm = io.open("/proc/self/statm", "r")
         if statm then
@@ -340,14 +340,14 @@ local function apply_status_bar()
             if rss then
                 cached_ram_text = string.format("%dM", math.floor(rss / 256))
                 cached_ram_time = now
-                return "\u{EA5A}", " " .. cached_ram_text, colors.ram
+                return inline_icons.settings_ram, " " .. cached_ram_text, colors.ram
             end
         end
-        return "\u{EA5A}", " ?M", colors.ram
+        return inline_icons.settings_ram, " ?M", colors.ram
     end
 
     local function getDiskInfo()
-        return "\u{F0A0}", " " .. (utils.getDiskFreeText() or "?"), colors.disk
+        return inline_icons.settings_storage, " " .. (utils.getDiskFreeText() or "?"), colors.disk
     end
 
     local function getFrontlightInfo()
@@ -436,9 +436,7 @@ local function apply_status_bar()
         local function iconFace()
             local text_face = f()
             local size = text_face.orig_size or text_face.size or 14
-            return Font:getFace("nerdfonts/symbols.ttf", size)
-                or Font:getFace("SymbolsNerdFont-Regular.ttf", size)
-                or text_face
+            return Font:getFace("nerdfonts/symbols.ttf", size) or text_face
         end
         for _i, key in ipairs(order) do
             local builtin = item_fetchers[key]

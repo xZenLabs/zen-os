@@ -266,10 +266,12 @@ local function scan_descriptor(menu, path, max_covers, fallback_count, allow_exp
     return { count = count, entries = candidates, exact = exact }
 end
 
+local FILE_COUNT = "(%d+)%s*" .. require("common/inline_icon_map").file_count
+
 local function mandatory_file_count(mandatory)
     if type(mandatory) == "number" then return mandatory end
     if type(mandatory) ~= "string" then return nil end
-    return tonumber(mandatory:match("(%d+)%s*\xef\x80\x96"))
+    return tonumber(mandatory:match(FILE_COUNT))
         or tonumber(mandatory:match("^%D*(%d+)%D*$"))
 end
 

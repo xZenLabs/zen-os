@@ -1,171 +1,164 @@
--- common/inline_icon_map.lua
--- Centralized NerdFont (Symbols Only) inline glyph map.
--- Rendered via SymbolsNerdFont-Regular.ttf (registered as fallback in main.lua).
--- Codepoints verified from existing usages in context_menu.lua, collections.lua,
--- opds.lua, status_bar.lua, etc. Uses \u{} escapes throughout (same as codebase).
+-- Inline glyphs from KOReader's bundled nerdfonts/symbols.ttf (Font.fallbacks).
+-- Settings rows and aligned button dialogs swap mapped glyphs for SVGs (glyph_icons.SVG);
+-- keep codepoints unique per SVG so that reverse lookup stays unambiguous.
 --
 -- Usage:
 --   local icons = require("common/inline_icon_map")
 --   text = icons.eye .. "  " .. _("View")
 
 return {
-    -- file operations (context_menu.lua)
-    delete       = "\u{F0156}",  -- mdi-delete
-    rename       = "\u{F0CB6}",  -- mdi-rename-box
-    move         = "\u{F01BE}",  -- mdi-folder-move
-    copy         = "\u{F018F}",  -- mdi-content-copy
-    cut          = "\u{F0190}",  -- mdi-content-cut
-    paste        = "\u{F0192}",  -- mdi-content-paste
-    save         = "\u{F0193}",  -- mdi-content-save
-    select       = "\u{F0489}",  -- mdi-cursor-default-click
-    new_folder   = "\u{F0B9D}",  -- mdi-folder-plus
-    folder_open  = "\u{F07C}",   -- mdi-folder-open
+    -- file operations
+    delete       = "\u{E855}",
+    rename       = "\u{EAEA}",
+    move         = "\u{E8B5}",
+    copy         = "\u{E88E}",
+    cut          = "\u{E88F}",
+    paste        = "\u{E891}",
+    save         = "\u{E892}",
+    select       = "\u{EB88}",
+    new_folder   = "\u{E956}",
+    folder_open  = "\u{F07C}",
+    folder_up    = "\u{EE6E}",
     archive      = "\u{F19C}",
-    connect      = "\u{F0337}",  -- mdi-link-variant
+    connect      = "\u{EA36}",
 
-    -- view modes (context_menu.lua)
-    view_mosaic  = "\u{F11D9}",  -- mdi-view-module
-    view_list    = "\u{F148B}",  -- mdi-view-list
-    view_basic   = "\u{F0279}",  -- mdi-format-list-bulleted
-    display      = "\u{F06D0}",  -- mdi-monitor
-    eye          = "\u{F0208}",  -- mdi-eye
-    divider      = "\u{F01D4}",  -- mdi-format-vertical-align-center
+    -- KOReader FileChooser item counts (parsed from item.mandatory)
+    file_count   = "\u{F016}",
+    folder_count = "\u{F114}",
 
-    -- sorting (context_menu.lua)
-    sort         = "\u{F04BF}",  -- mdi-sort
-    sort_asc     = "\u{F15D}",   -- mdi-sort-ascending
-    sort_desc    = "\u{F15E}",   -- mdi-sort-descending
-    clear        = "\u{F099B}",  -- mdi-close-circle
+    -- view modes
+    view_mosaic  = "\u{EC6F}",
+    view_list    = "\u{EC71}",
+    view_basic   = "\u{E978}",
+    display      = "\u{EDCE}",
+    divider      = "\u{E8D3}",
 
-    -- favourites (context_menu.lua)
-    fav_add      = "\u{F04CE}",  -- mdi-star
-    fav_remove   = "\u{F04D2}",  -- mdi-star-outlined
+    -- sorting
+    sort         = "\u{EBBE}",
+    sort_asc     = "\u{F15D}",
+    sort_desc    = "\u{F15E}",
+    clear        = "\u{E23C}",
 
-    -- read status (context_menu.lua)
-    read_status  = "\u{F00C0}",  -- bookmark
-    status       = "\u{F00BA}",  -- mdi-book-open-blank-variant (unread)
-    reading      = "\u{F14F7}",  -- mdi-book-open
-    book_switcher = "\u{F02DA}",
-    tbr          = "\u{F0150}",  -- mdi-clock (to-be-read)
-    on_hold      = "\u{F03E4}",
-    finished     = "\u{F012C}",  -- mdi-check-circle
+    -- favourites
+    fav_add      = "\u{EBCD}",
+    fav_remove   = "\u{EBD1}",
+    favorite     = "\u{2606}",
 
-    -- metadata sort keys (context_menu.lua / collections.lua)
-    title        = "\u{F04BB}",  -- mdi-format-title
-    font         = "\u{F031}",   -- nf-fa-font
-    filename     = "\u{F0224}",
-    authors      = "\u{F0013}",  -- mdi-account
-    series       = "\u{F0436}",  -- mdi-library-books
-    language     = "\u{F05CA}",  -- mdi-translate
-    history      = "\u{F02DA}",  -- mdi-history
-    keywords     = "\u{F12F7}",  -- mdi-tag-multiple
+    -- read status
+    read_status  = "\u{E7BF}",
+    status       = "\u{E7B9}",
+    reading      = "\u{E7BD}",
+    book_switcher = "\u{E9D9}",
+    tbr          = "\u{E84F}",
+    on_hold      = "\u{EAE3}",
+    finished     = "\u{E82B}",
 
-    -- details / info (context_menu.lua / opds.lua)
-    details      = "\u{F02FD}", -- same information icon as About
-    edit         = "\u{F090C}",  -- mdi-pencil
-    label        = "\u{F04F9}",
-    icon         = "\u{F02F5}",
-    custom_icons = "\u{EFA8}",
-    plugin       = "\u{F06A5}",
-    action       = "\u{F140B}",
-    more         = "\u{F01D8}",  -- mdi-dots-horizontal
-    more_vertical = "\u{F01D9}",  -- mdi-dots-vertical
-    settings       = "\u{F0493}",
+    -- metadata sort keys
+    title        = "\u{EBBA}",
+    font         = "\u{F031}",
+    filename     = "\u{E923}",
+    authors      = "\u{E712}",
+    series       = "\u{E7BA}",
+    language     = "\u{ECC9}",
+    history      = "\u{E9D9}",
+    keywords     = "\u{EBFA}",
 
-    -- network / sync (opds.lua)
-    search       = "\u{F0349}",  -- mdi-magnify
-    sync         = "\u{F04E6}",  -- mdi-sync
-    download     = "\u{F01DA}",  -- mdi-download
-    add          = "\u{F067}",   -- nf-fa-plus
-    filter       = "\u{F0233}",  -- mdi-filter-variant
-    refresh      = "\u{F0450}",  -- mdi-refresh
-    skip_forward = "\u{F04AD}",  -- mdi-skip-next
+    -- details / actions
+    details      = "\u{E9FC}",
+    edit         = "\u{EAEC}",
+    label        = "\u{EBF8}",
+    icon         = "\u{E9F4}",
+    custom_icons = "\u{E9F8}",
+    plugin       = "\u{EDA3}",
+    action       = "\u{EDD3}",
+    more         = "\u{E8D7}",
+    more_vertical = "\u{E8D8}",
+    settings     = "\u{F013}",
 
-    -- status bar (status_bar.lua)
-    wifi_on      = "\u{ECA8}",   -- nf-md-wifi
-    wifi_off     = "\u{ECA9}",   -- nf-md-wifi-off
-    bluetooth_on = "\u{F293}",  -- nf-fa-bluetooth
-    incognito    = "\u{F05F9}", -- mdi-incognito
-    ram          = "\u{EA5A}",   -- nf-cod-chip
-    disk         = "\u{F0A0}",   -- mdi-harddisk
+    -- network / sync
+    add          = "\u{F067}",
+    search       = "\u{EA48}",
+    sync         = "\u{EBE5}",
+    download     = "\u{E8D9}",
+    filter       = "\u{E932}",
+    refresh      = "\u{EB4F}",
+    skip_forward = "\u{EBAC}",
+
+    -- status bar
+    wifi_on      = "\u{ECA8}",
+    wifi_off     = "\u{ECA9}",
+    bluetooth_on = "\u{F293}",
+    incognito    = "\u{ECF8}",
 
     -- screenshot dialog
-    wallpaper    = "\u{F05DA}",  -- mdi-wallpaper
-    send         = "\u{F048A}",  -- mdi-send
+    wallpaper    = "\u{ECD9}",
+    send         = "\u{EB89}",
 
-    -- ZenOS settings root
-    settings_launcher = "\u{F15FC}",
-    settings_quick    = "\u{f0521}",
-    settings_library  = "\u{F125F}",
-    settings_home     = "\u{F02DE}",
-    settings_reader   = "\u{F14F7}",
-    vocabulary        = "\u{F1349}",
-    settings_about    = "\u{F02FD}",
-    widgets           = "\u{F072C}",
-    settings_global   = "\u{F0574}",
-    settings_status   = "\u{F12F0}",
-    battery           = "\u{F0080}",
-    reader_themes     = "\u{F00E3}",
-    reader_status_bar_margins = "\u{F061E}",
-    reader_flash_cbz  = "\u{F0241}",
-    end_book         = "\u{F14F3}",
-    settings_folders  = "\u{F0256}",
-    settings_folder_name = "\u{F04FC}",
-    settings_covers   = "\u{F168B}",  -- mdi-view-module
-    settings_scroll   = "\u{F0BB8}",
-    settings_layout   = "\u{F0758}",
-    settings_subfolders = "\u{F0645}",
-    settings_underline = "\u{F0287}",
-    settings_background = "\u{F0E09}",
-    settings_accent   = "\u{F00E3}",
-    settings_menu_blur = "\u{F00B5}",
-    settings_home_folder = "\u{F10B6}",
-    settings_navbar   = "\u{F10A9}",
-    navbar_tabs       = "\u{F0837}",
-    navbar_styling    = "\u{F03D8}",
-    settings_stats    = "\u{F012A}",
-    calendar          = "\u{F073}",  -- nf-fa-calendar
-    settings_opds     = "\u{F0B7D}",
-    settings_sleep    = "\u{F04B2}",
-    keyboard          = "\u{F030C}",  -- mdi-keyboard
-    schedule_brightness = "\u{F0599}",
-    schedule_night    = "\u{F0594}",  -- mdi-weather-night
-    schedule_warmth   = "\u{F0510}",
-    flip_lh_rh        = "\u{F0A0E}",
-    settings_lockdown = "\u{F033E}",
-    settings_device   = "\u{F04F7}",
-    settings_storage  = "\u{F02CA}",  -- mdi-harddisk
-    settings_ram      = "\u{F035B}",  -- mdi-memory
-    settings_cpu      = "\u{F061A}",  -- mdi-chip
-    settings_setup    = "\u{F0C5A}",
-    settings_bug      = "\u{F00E4}",
-    settings_advanced = "\u{F1064}",
-
-    -- book status actions (book_status.lua)
-    restart      = "\u{F0709}",  -- mdi-restart
-    next_book    = "\u{f0054}",   -- nf-md-arrow-right
+    -- ZenOS settings
+    settings_launcher = "\u{E73A}",
+    settings_quick    = "\u{EC20}",
+    settings_library  = "\u{EA30}",
+    settings_home     = "\u{E9DD}",
+    settings_reader   = "\u{E7BD}",
+    settings_about    = "\u{E9FC}",
+    widgets           = "\u{EE2A}",
+    settings_global   = "\u{EC73}",
+    settings_status   = "\u{E8DB}",
+    battery           = "\u{E77F}",
+    reader_themes     = "\u{E7E2}",
+    reader_status_bar_margins = "\u{ED1D}",
+    reader_flash_cbz  = "\u{E940}",
+    end_book          = "\u{E7C0}",
+    settings_folders  = "\u{E955}",
+    settings_folder_name = "\u{EBFB}",
+    settings_covers   = "\u{E9E9}",
+    settings_scroll   = "\u{EBE0}",
+    settings_layout   = "\u{EE56}",
+    settings_subfolders = "\u{ED44}",
+    settings_underline = "\u{E986}",
+    settings_background = "\u{E9E8}",
+    settings_accent   = "\u{E7E2}",
+    settings_menu_blur = "\u{E7B4}",
+    settings_home_folder = "\u{ED9F}",
+    settings_navbar   = "\u{EDF9}",
+    navbar_tabs       = "\u{EF35}",
+    navbar_styling    = "\u{EAD7}",
+    settings_stats    = "\u{E829}",
+    calendar          = "\u{F073}",
+    settings_opds     = "\u{E861}",
+    settings_sleep    = "\u{EBB1}",
+    keyboard          = "\u{EA0B}",
+    schedule_brightness = "\u{EC98}",
+    schedule_night    = "\u{EC93}",
+    schedule_warmth   = "\u{EC0F}",
+    flip_lh_rh        = "\u{E946}",
+    settings_lockdown = "\u{EA3D}",
+    settings_device   = "\u{EBF6}",
+    settings_storage  = "\u{E9C9}",
+    settings_ram      = "\u{EA5A}",
+    settings_cpu      = "\u{E266}",
+    settings_setup    = "\u{E84C}",
+    settings_bug      = "\u{E7E3}",
+    settings_advanced = "\u{E20F}",
 
     -- misc
-    update       = "\u{F01B}",   -- nf-fa-cloud-download
-    disable      = "\u{F04DB}",
-    downgrade    = "\u{F0CDC}",
-    upgrade      = "\u{F0CE2}",
-    enable       = "\u{F040A}",
-    chapter_time_format = "\u{F19B9}",
-    bottom_swipe = "\u{F0740}",
-    page_browser = "\u{F1486}",
-    restore_library_location = "\u{F006F}",
-    hide_reader_actions = "\u{F0209}",
-    remove       = "\u{F0374}",
-    check        = "\u{2713}",   -- plain checkmark
-    arrow_left   = "\u{F0141}",  -- mdi-chevron-left
-    arrow_right  = "\u{F0142}",  -- mdi-chevron-right
-    go           = "\u{F124}",   -- nf-fa-location-arrow
-    open_menu    = "\u{F073D}",  -- mdi-menu-open
-    double_tap   = "\u{F073C}",
-    koreader_menu = "\u{F035C}",  -- mdi-menu
-    koreader_file_browser = "\u{F0AB6}",
-    koreader_navigation = "\u{F0B64}",
-    koreader_typesetting = "\u{F09EE}",
-    bullet       = "\u{2022}",   -- bullet point
+    restart      = "\u{EE07}",
+    upgrade      = "\u{E75F}",
+    enable       = "\u{EB09}",
+    chapter_time_format = "\u{EAE9}",
+    bottom_swipe = "\u{EE3E}",
+    page_browser = "\u{EC6B}",
+    restore_library_location = "\u{E76E}",
+    hide_reader_actions = "\u{E908}",
+    check        = "\u{2713}",
+    arrow_left   = "\u{E840}",
+    arrow_right  = "\u{E841}",
+    arrow_up     = "\u{F062}",
+    go           = "\u{F124}",
+    open_menu    = "\u{EE3B}",
+    double_tap   = "\u{EE3A}",
+    koreader_menu = "\u{EA5B}",
+    koreader_file_browser = "\u{E954}",
+    koreader_navigation = "\u{E7BE}",
+    koreader_typesetting = "\u{E918}",
 }

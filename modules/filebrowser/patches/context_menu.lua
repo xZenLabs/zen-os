@@ -22,7 +22,6 @@ local function apply_context_menu()
     local paths        = require("common/paths")
     local SharedState  = require("common/shared_state")
     local icons        = require("common/inline_icon_map")
-    local GlyphIcons   = require("common/ui/glyph_icons")
     local submenu_arrow = icons.arrow_right
     local zen_plugin   = rawget(_G, "__ZEN_UI_PLUGIN")
     local Cover        = require("common/cover_utils")
@@ -62,7 +61,7 @@ local function apply_context_menu()
     end
 
     local function new_context_menu_dialog(options)
-        local dialog = GlyphIcons.alignButtonIcons(ButtonDialog:new(options))
+        local dialog = ButtonDialog:new(options)
         local cover = options._zen_cover_widget
         -- Mono panels already show the cover cleanly; only color needs the extra flash.
         if cover and Device.screen:isColorScreen() then
@@ -385,7 +384,7 @@ local function apply_context_menu()
                     for index = #dirs, 1, -1 do
                         local mandatory = dirs[index] and dirs[index].mandatory
                         local count = type(mandatory) == "string"
-                            and tonumber(mandatory:match("(%d+)%s*\xef\x80\x96"))
+                            and tonumber(mandatory:match("(%d+)%s*" .. icons.file_count))
                         if count == 0 then table.remove(dirs, index) end
                     end
                 end
@@ -475,7 +474,7 @@ local function apply_context_menu()
             end
             items[#items + 1] = {
                 text = (name == ReadCollection.default_collection_name and _("Favorites") or name)
-                    .. (already_in and "  \u{2713}" or ""),
+                    .. (already_in and "  " .. icons.check or ""),
                 mandatory = already_in and _("added") or nil,
                 dim = already_in,
                 _cn = name,
@@ -664,7 +663,7 @@ local function apply_context_menu()
                     callback = show_status_menu,
                 }},
                 {{
-                    text = "\u{F04CE}  " .. _("Add to collection") .. "  " .. submenu_arrow,
+                    text = icons.fav_add .. "  " .. _("Add to collection") .. "  " .. submenu_arrow,
                     align = "left",
                     enabled = enabled,
                     callback = function()
@@ -887,17 +886,16 @@ local function apply_context_menu()
 
         file_chooser.showSortOrderDialog = function(self_fc, opts)
             local UIManager_sod    = require("ui/uimanager")
-            local _sod             = require("gettext")
             local cur_rev          = opts.current_reverse or false
-            local forward_text     = opts.forward_text or _sod("Ascending")
-            local reverse_text     = opts.reverse_text or _sod("Descending")
+            local forward_text     = opts.forward_text or _("Ascending")
+            local reverse_text     = opts.reverse_text or _("Descending")
             local order_dialog
             order_dialog = new_context_menu_dialog{
-                title       = opts.title or _sod("Sort order"),
+                title       = opts.title or _("Sort order"),
                 title_align = "center",
                 buttons     = {
                     {{
-                        text     = "\u{F15D}  " .. forward_text .. (not cur_rev and "  \u{2713}" or ""),
+                        text     = icons.sort_asc .. "  " .. forward_text .. (not cur_rev and "  " .. icons.check or ""),
                         align    = "left",
                         enabled  = cur_rev,
                         callback = function()
@@ -906,7 +904,7 @@ local function apply_context_menu()
                         end,
                     }},
                     {{
-                        text     = "\u{F15E}  " .. reverse_text .. (cur_rev and "  \u{2713}" or ""),
+                        text     = icons.sort_desc .. "  " .. reverse_text .. (cur_rev and "  " .. icons.check or ""),
                         align    = "left",
                         enabled  = not cur_rev,
                         callback = function()

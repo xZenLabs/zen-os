@@ -5,7 +5,6 @@ local M = {}
 
 M.BUNDLED_DEFAULT = "fonts/hyperreadable/Hyperreadable-Regular.ttf"
 M.FAMILIES = { "hyperreadable", "libron", "readerly" }
-local NERD_FONT = "SymbolsNerdFont-Regular.ttf"
 
 -- Families copied into KOReader's fonts dir; others resolve to the plugin copy.
 local fontdir
@@ -144,7 +143,6 @@ function M.registerFontAliases(Font, FontList)
             Font.fontmap[bundled_prefix .. relative] = relative
         end
     end
-    Font.fontmap[NERD_FONT] = prefix .. bundled_prefix:sub(2) .. NERD_FONT
 end
 
 local function default_font()

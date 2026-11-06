@@ -1,3 +1,4 @@
+local icons = require("common/inline_icon_map")
 -- Zen-owned book, folder, and virtual-group tiles for library mosaic views.
 local function apply_zen_renderer()
     local MosaicMenu = require("mosaicmenu")
@@ -725,8 +726,8 @@ local function apply_zen_renderer()
             return
         end
 
-        local text = do_tbr and "\u{F0150}"
-            or (do_pause and "\u{F03E4}"
+        local text = do_tbr and icons.tbr
+            or (do_pause and icons.on_hold
                 or (math.floor(100 * item.percent_finished + 0.5) .. "%"))
         local font_size = utils.getBadgeFontSize(config, size, (do_tbr or do_pause) and 0.40 or 0.24, 7)
         local widget = badge_text(item, "_zen_progress_badge", text, font_size, foreground)
@@ -749,7 +750,7 @@ local function apply_zen_renderer()
         local y = frame.dimen.y + radius + inset
         paint_circle(bb, x, y, radius + 2, foreground)
         paint_circle(bb, x, y, radius, color)
-        local widget = badge_text(item, "_zen_favorite_badge", "\u{2606}",
+        local widget = badge_text(item, "_zen_favorite_badge", icons.favorite,
             utils.getBadgeFontSize(config, radius * 2, 0.45, 6), foreground)
         local widget_size = widget:getSize()
         widget:paintTo(bb, x - math.ceil(widget_size.w / 2), y - math.ceil(widget_size.h / 2))

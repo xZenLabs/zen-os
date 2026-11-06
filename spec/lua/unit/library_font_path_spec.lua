@@ -74,7 +74,6 @@ describe("bundled UI font paths", function()
         assert.are.equal(lfs.attributes(ZenSpec.root .. "/" .. face, "size"),
             lfs.attributes(global, "size"))
         assert.is_true(added[global])
-        assert.is_nil(lfs.attributes(fontdir .. "/SymbolsNerdFont-Regular.ttf"))
         assert.are.equal(global, paths.resolve(face))
         assert.are.equal(face, paths.toConfig(global))
         assert.are.equal(fontdir .. "/stock/Stock.ttf", paths.toConfig(fontdir .. "/stock/Stock.ttf"))

@@ -54,12 +54,6 @@ end
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local _ = require("gettext")
 
--- Early conflict detection: checked before any potentially interfering code
--- (font registration, icon injection) runs at module-load time.
--- ptutil is unique to ProjectTitle and is required at the top of its main.lua,
--- so it will be in package.loaded before our module-level code runs.
-local _pt_active = package.loaded["ptutil"] ~= nil
-
 local ConfigManager = require("config/manager")
 local BatteryStats = require("common/battery_stats")
 local _startup_config = ConfigManager.load()
@@ -111,20 +105,13 @@ if _plugin_root then
             if ok_font and Font then
                 LibraryFontPath.registerFontAliases(Font, FontList)
             end
-            -- SymbolsNerdFont also serves as glyph fallback for MDI icons.
-            -- Skipped when ProjectTitle is active: crengine fails to register
-            -- the font on some devices, causing a width=0 crash.
-            if not _pt_active then
-                if ok_font and Font and Font.fallbacks then
-                    pcall(table.insert, Font.fallbacks, "SymbolsNerdFont-Regular.ttf")
-                end
-            end
         end
     end
 end
 
 -- Custom packs are an additional first-priority layer over the existing loader.
 require("common/icon_packs").initialize(_startup_config)
+require("common/ui/glyph_icons").install()
 require("modules/filebrowser/patches/home/components/registry").install()
 local zen_update_icon = _plugin_root and require("common/utils").resolveIcon(
     _plugin_root .. "/icons/", "zen_ui_update")
