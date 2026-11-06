@@ -1156,7 +1156,8 @@ local function apply_navbar()
                     _refresh_library_path(fc, home_dir)
                 elseif not from_home and not reveal_hidden_filemanager then
                     fc._zen_needs_cover_refresh = nil
-                    _refresh_library_path(fc, home_dir, true)
+                    -- Keeps the listing cache; it checks the folder itself.
+                    _refresh_library_path(fc, home_dir)
                 elseif not refreshSuppressedCoversNow(fm)
                         and type(fc.onGotoPage) == "function" then
                     fc:onGotoPage(1)

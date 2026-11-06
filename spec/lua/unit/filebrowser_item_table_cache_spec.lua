@@ -23,6 +23,7 @@ describe("file browser item-table cache", function()
     local directory_reads
     local flat_directories
     local source_readable
+    local calibre_files
 
     local module_names = {
         "common/cover_utils",
@@ -38,7 +39,7 @@ describe("file browser item-table cache", function()
         "common/paths", "modules/filebrowser/patches/library_font", "common/utils",
         "gettext", "apps/filemanager/filemanager", "luasettings",
         "config/preset_store", "ui/uimanager", "version",
-        "common/shared_state",
+        "common/shared_state", "common/book_status",
     }
 
     local function new_filechooser_class()
@@ -117,6 +118,7 @@ describe("file browser item-table cache", function()
         directory_reads = 0
         flat_directories = nil
         source_readable = {}
+        calibre_files = {}
         saved_modules = {}
         for _i, name in ipairs(module_names) do
             saved_modules[name] = package.loaded[name]
@@ -144,6 +146,16 @@ describe("file browser item-table cache", function()
         ZenSpec.replace("libs/libkoreader-lfs", {
             attributes = function(path, field)
                 attributes_calls = attributes_calls + 1
+                if path:match("metadata%.calibre$") then
+                    local file = calibre_files[path]
+                    if not file then return nil end
+                    local attr = {
+                        mode = "file", modification = file.modification,
+                        change = file.modification, size = file.size, ino = 1,
+                    }
+                    if field then return attr[field] end
+                    return attr
+                end
                 local mode = path:match("%.[^/]+$") and "file" or "directory"
                 local attr = {
                     mode = mode,
@@ -374,7 +386,9 @@ describe("file browser item-table cache", function()
         assert.are.same({}, chooser:genItemTableFromPath("/library"))
         run_scheduled()
         source_items["/library"] = { book }
-        scan_time = scan_time + 1
+        -- FAT32 keeps timestamps in 2 s steps, so the listing is trusted again
+        -- only once the clock is two seconds past the directory's timestamp.
+        scan_time = scan_time + 2
 
         chooser = apply_new_filechooser()
         assert.are.same({ book }, chooser:genItemTableFromPath("/library"))
@@ -903,5 +917,147 @@ describe("file browser item-table cache", function()
         chooser:_zen_invalidate_item_table_path("/library")
         chooser:_zen_invalidate_item_table_path("/library/other")
         assert.are.equal(1, opens)
+    end)
+
+    it("rescans a normal listing whose folder changed in the scan's timestamp window", function()
+        local scan_time = 1000
+        stub(os, "time", function() return scan_time end)
+        -- FAT32 rounds down to an even second, so a write just after the scan
+        -- can carry a timestamp one second before it.
+        directory_mtimes["/library"] = scan_time - 1
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(2, generated["/library"])
+
+        scan_time = scan_time + 5
+        chooser:genItemTableFromPath("/library")
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(3, generated["/library"])
+        os.time:revert()
+    end)
+
+    it("rescans a normal listing whose child folder changed in the scan's timestamp window", function()
+        local scan_time = 1000
+        stub(os, "time", function() return scan_time end)
+        directory_mtimes["/library"] = 1
+        directory_mtimes["/library/Author"] = scan_time
+        source_items["/library"] = {
+            { text = "Author/", path = "/library/Author", attr = { mode = "directory" } },
+        }
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(1, generated["/library"])
+
+        fake_now = fake_now + 10
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(2, generated["/library"])
+        os.time:revert()
+    end)
+
+    it("keeps listings whose folders carry timestamps later than the scan", function()
+        local scan_time = 1000
+        stub(os, "time", function() return scan_time end)
+        directory_mtime = scan_time + 3600
+        source_items["/library"] = {
+            { text = "Author/", path = "/library/Author", attr = { mode = "directory" } },
+        }
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        fake_now = fake_now + 10
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(1, generated["/library"])
+        os.time:revert()
+    end)
+
+    it("rescans listings in and above a Calibre library when its book list changes", function()
+        setting_values["inbox_dir"] = "/library/Calibre/"
+        calibre_files["/other/Lib/metadata.calibre"] = { modification = 1, size = 10 }
+        local paths = { "/library", "/library/Calibre", "/library/Calibre/Author",
+            "/library/Calibrated", "/other/Lib/Author", "/other/Elsewhere" }
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        local function generate_all()
+            fake_now = fake_now + 10
+            for _i, path in ipairs(paths) do chooser:genItemTableFromPath(path) end
+        end
+        generate_all()
+        generate_all()
+        assert.are.equal(1, generated["/library"])
+
+        -- Calibre's first book list in the inbox, then a re-sent book that
+        -- overwrites its file without touching any folder.
+        calibre_files["/library/Calibre/.metadata.calibre"] = { modification = 1, size = 100 }
+        generate_all()
+        calibre_files["/library/Calibre/.metadata.calibre"] = { modification = 1, size = 140 }
+        generate_all()
+        assert.are.equal(3, generated["/library"])
+        assert.are.equal(3, generated["/library/Calibre"])
+        assert.are.equal(3, generated["/library/Calibre/Author"])
+        assert.are.equal(1, generated["/library/Calibrated"])
+        assert.are.equal(1, generated["/other/Lib/Author"])
+
+        -- A library outside the inbox is found above the listing.
+        calibre_files["/other/Lib/metadata.calibre"] = { modification = 1, size = 20 }
+        generate_all()
+        assert.are.equal(2, generated["/other/Lib/Author"])
+        assert.are.equal(1, generated["/other/Elsewhere"])
+
+        -- Restored snapshots check the book list too.
+        run_scheduled()
+        calibre_files["/library/Calibre/.metadata.calibre"] = { modification = 1, size = 180 }
+        apply_new_filechooser():genItemTableFromPath("/library")
+        assert.are.equal(4, generated["/library"])
+    end)
+
+    it("rescans when the book list was saved in the scan's timestamp window", function()
+        local scan_time = 1000
+        stub(os, "time", function() return scan_time end)
+        directory_mtime = 1
+        setting_values["inbox_dir"] = "/library"
+        calibre_files["/library/.metadata.calibre"] = { modification = scan_time, size = 10 }
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        scan_time = scan_time + 5
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(2, generated["/library"])
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(2, generated["/library"])
+        os.time:revert()
+    end)
+
+    it("checks the book list when restoring a snapshot", function()
+        setting_values["inbox_dir"] = "/library"
+        calibre_files["/library/.metadata.calibre"] = { modification = 1, size = 10 }
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        run_scheduled()
+
+        calibre_files["/library/.metadata.calibre"] = { modification = 1, size = 20 }
+        local fresh = apply_new_filechooser()
+        fresh:genItemTableFromPath("/library")
+        assert.are.equal(2, generated["/library"])
+    end)
+
+    it("rebuilds a status-filtered listing after a status change", function()
+        local revision = 1
+        package.loaded["common/book_status"] = { revision = function() return revision end }
+        local chooser = setmetatable({
+            name = "filemanager", show_filter = { status = { reading = true } },
+        }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(1, generated["/library"])
+
+        revision = 2
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(2, generated["/library"])
+
+        -- Unfiltered listings ignore status changes.
+        chooser.show_filter = {}
+        chooser:genItemTableFromPath("/library")
+        revision = 3
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(3, generated["/library"])
     end)
 end)
