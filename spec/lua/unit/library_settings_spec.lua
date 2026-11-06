@@ -263,7 +263,7 @@ describe("library settings", function()
             plugin = {}, save_and_apply = function() end,
         })
         find_item(items, "Portrait").callback()
-        assert.are.same({ 3, 3 }, { shown.columns, shown.rows })
+        assert.are.same({ 3, 2 }, { shown.columns, shown.rows })
         shown.callback(2, 8)
         find_item(items, "Landscape").callback()
         assert.are.same({ 4, 2 }, { shown.columns, shown.rows })
@@ -274,7 +274,7 @@ describe("library settings", function()
             nb_cols_landscape = 8, nb_rows_landscape = 2, files_per_page = 6 }, saved)
         assert.are.same(saved, fc_class)
         find_item(items, "Reset to default").callback()
-        assert.are.same({ nb_cols_portrait = 3, nb_rows_portrait = 3,
+        assert.are.same({ nb_cols_portrait = 3, nb_rows_portrait = 2,
             nb_cols_landscape = 4, nb_rows_landscape = 2, files_per_page = 6 }, saved)
         assert.are.same(saved, fc_class)
     end)

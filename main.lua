@@ -330,14 +330,19 @@ function ZenUI:init()
         self:saveConfig()
     end
 
-    -- First-run: default portrait list mode to 5 items per page.
+    -- First-run: default portrait list mode to 5 items per page;
+    -- fresh installs also get a 3×2 portrait mosaic.
     if not self.config._meta.files_per_page_defaulted then
         local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
         if ok_bim then
-            BookInfoManager:saveSetting("files_per_page", 5)
+            local defaults = { files_per_page = 5 }
+            if self.config._meta.quickstart_shown_for_version == false then
+                defaults.nb_cols_portrait, defaults.nb_rows_portrait = 3, 2
+            end
             local ok_fc, FileChooser = pcall(require, "ui/widget/filechooser")
-            if ok_fc then
-                FileChooser.files_per_page = 5
+            for key, value in pairs(defaults) do
+                BookInfoManager:saveSetting(key, value)
+                if ok_fc then FileChooser[key] = value end
             end
         end
         self.config._meta.files_per_page_defaulted = true

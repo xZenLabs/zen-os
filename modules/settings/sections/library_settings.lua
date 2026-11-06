@@ -795,7 +795,7 @@ function M.build(ctx)
     for _i, orientation in ipairs({ "portrait", "landscape" }) do
         local portrait = orientation == "portrait"
         local cols_key, rows_key = "nb_cols_" .. orientation, "nb_rows_" .. orientation
-        local default_cols, default_rows = portrait and 3 or 4, portrait and 3 or 2
+        local default_cols, default_rows = portrait and 3 or 4, 2
         mosaic_items[#mosaic_items + 1] = {
             text = portrait and _("Portrait") or _("Landscape"),
             text_func = function()
@@ -819,7 +819,7 @@ function M.build(ctx)
         text = _("Reset to default"),
         keep_menu_open = true,
         callback = function(touchmenu_instance)
-            save_layout({ nb_cols_portrait = 3, nb_rows_portrait = 3,
+            save_layout({ nb_cols_portrait = 3, nb_rows_portrait = 2,
                 nb_cols_landscape = 4, nb_rows_landscape = 2 }, touchmenu_instance)
         end,
     }

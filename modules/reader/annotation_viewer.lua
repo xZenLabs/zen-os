@@ -299,7 +299,7 @@ function Row:paintTo(bb, x, y)
     if self.focused then bb:paintBorder(x, y, self.dimen.w, self.dimen.h, 2, Blitbuffer.COLOR_BLACK) end
 end
 
-local function make_row(pbw, record, dimen, font_size, quote_lines, note_lines)
+local function make_row(pbw, record, dimen, font_size, quote_lines, note_lines, compact)
     local padding = ROW_PADDING
     local group = VerticalGroup:new{ align = "left" }
     local row = Row:new{ dimen = dimen:copy(), callback = function() M.showDetails(pbw, record) end,
@@ -307,7 +307,7 @@ local function make_row(pbw, record, dimen, font_size, quote_lines, note_lines)
     local width = dimen.w - ROW_SIDE * 2
     local budget = dimen.h - padding * 2
     local function add(text, size, lines, options)
-        if text == "" or budget < size then return end
+        if text == "" or lines < 1 or budget < size then return end
         options = options or {}
         local lead = options.icon or options.swatch
         local icon_size = lead and Screen:scaleBySize(size) or 0
@@ -366,7 +366,7 @@ local function make_row(pbw, record, dimen, font_size, quote_lines, note_lines)
         details[#details + 1] = DateFormat.formatISODate(record.datetime)
     end
     if visible("author") and record.author ~= "" then details[#details + 1] = record.author end
-    add(table.concat(details, " | "), font_size, 1)
+    add(table.concat(details, " | "), font_size, compact and 0 or 1)
     if not marker then
         local background, foreground = Blitbuffer.COLOR_WHITE, Blitbuffer.COLOR_BLACK
         if record.style == "invert" then
@@ -481,24 +481,32 @@ function M.build(pbw, kind, width, height)
         local pages, page, used = {}, {}, 0
         local key = table.concat({ self.inner_dimen.w, self.available_height, font_size,
             cfg.preview_length or "standard", session.scope, kind }, ":")
+        local dimen = Geom:new{ w = self.inner_dimen.w, h = self.available_height }
+        local function probe(record, quote_lines, note_lines, compact)
+            local row = make_row(pbw, record, dimen, font_size, quote_lines, note_lines, compact)
+            local h = row.dimen.h
+            row:free()
+            return h
+        end
         for i, item in ipairs(self.item_table) do
-            if not item.height then
-                local record = item.record
-                local identity = record.annotation or record.id or record.file
-                local stamp = { key, record.text, record.note, record.title, record.author,
-                    record.chapter, record.page_label, record.datetime, table.concat(record.tags, " · ") }
-                local cached = session.row_heights[identity]
-                if not cached or not util.tableEquals(cached.stamp, stamp) then
-                    local probe = make_row(pbw, record,
-                        Geom:new{ w = self.inner_dimen.w, h = self.available_height }, font_size, limits[1], limits[2])
-                    cached = { stamp = stamp, height = probe.dimen.h }
-                    session.row_heights[identity] = cached
-                    probe:free()
-                end
-                item.height = cached.height
+            local record = item.record
+            local identity = record.annotation or record.id or record.file
+            local stamp = { key, record.text, record.note, record.title, record.author,
+                record.chapter, record.page_label, record.datetime, table.concat(record.tags, " · ") }
+            local cached = session.row_heights[identity]
+            if not cached or not util.tableEquals(cached.stamp, stamp) then
+                -- min: compact header plus one quote line, the smallest row worth clipping into leftover space.
+                cached = { stamp = stamp, height = probe(record, limits[1], limits[2]), min = probe(record, 1, 0, true) }
+                session.row_heights[identity] = cached
             end
-            if used + item.height > self.available_height and #page > 0 then
-                pages[#pages + 1], page, used = page, {}, 0
+            item.height, item.compact = cached.height, nil
+            local room = self.available_height - used
+            if item.height > room and #page > 0 then
+                if cached.min <= room then
+                    item.height, item.compact = room, true -- truncate into the gap instead of leaving it blank
+                else
+                    pages[#pages + 1], page, used = page, {}, 0
+                end
             end
             page[#page + 1], used = i, used + item.height
         end
@@ -518,7 +526,7 @@ function M.build(pbw, kind, width, height)
         for index, old in ipairs(self.item_group) do
             local item = self.item_table[old.idx]
             if item then
-                local row = make_row(pbw, item.record, old.dimen, font_size, limits[1], limits[2])
+                local row = make_row(pbw, item.record, old.dimen, font_size, limits[1], limits[2], item.compact)
                 row.idx = old.idx
                 row.top_border = index == 1
                 self.item_group[index] = row
