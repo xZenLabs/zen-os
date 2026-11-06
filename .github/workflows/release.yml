@@ -15,7 +15,8 @@ jobs:
 
   benchmark:
     name: Benchmark
-    needs: luacheck
+    needs: release
+    if: needs.release.outputs.released == 'true'
     uses: ./.github/workflows/benchmark.yml
 
   luacheck:
@@ -39,6 +40,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      released: ${{ steps.version_check.outputs.skip == 'false' }}
 
     steps:
       - name: Checkout
