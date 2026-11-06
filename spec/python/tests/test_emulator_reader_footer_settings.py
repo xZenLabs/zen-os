@@ -175,7 +175,7 @@ def test_progress_bar_only_footer_tap_toggles_both_ways(settings) -> None:
             stop(process)
 
 
-def test_preset_footer_tap_cycles_items_then_hides_repeatedly() -> None:
+def test_preset_footer_tap_hides_then_restores_item_repeatedly() -> None:
     runtime = Path(os.environ["KOREADER_DIR"])
     with tempfile.TemporaryDirectory(prefix="zen-footer-cycle-") as temporary:
         root = Path(temporary)
@@ -195,7 +195,8 @@ def test_preset_footer_tap_cycles_items_then_hides_repeatedly() -> None:
                            settings={"lock_tap": False, "all_at_once": False})
             names = [driver.command("reference_action", action="footer_tap")["references"]["mode_name"]
                      for _i in range(8)]
-            assert names == ["page_progress", "percentage", "off", "chapter_time_to_read"] * 2
+            # Hide on tap toggles off and restores the shown item; it never cycles items.
+            assert names == ["off", "chapter_time_to_read"] * 4, names
         finally:
             stop(process)
 

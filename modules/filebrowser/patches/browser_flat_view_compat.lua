@@ -29,8 +29,10 @@ local function apply_browser_flat_view_compat()
         G_reader_settings:saveSetting("show_flat_view", false)
     end
 
-    local function flat_view_enabled(path)
-        return zen_flat_view_enabled()
+    -- Library only; PathChooser etc. must keep real folder navigation.
+    local function flat_view_enabled(path, self)
+        return (self == nil or self.name == "filemanager")
+            and zen_flat_view_enabled()
             and not paths.hasUnsafeFlatViewHomeRoot()
             and is_in_home(path)
     end
@@ -69,7 +71,7 @@ local function apply_browser_flat_view_compat()
     if type(FileChooser.getPathList) == "function" then
         local orig_getPathList = FileChooser.getPathList
         FileChooser.getPathList = function(self, path, collate, dirs, files, ...)
-            if flat_view_enabled(path) then
+            if flat_view_enabled(path, self) then
                 return scan_flat(self, path, collate, dirs, files)
             end
             return orig_getPathList(self, path, collate, dirs, files, ...)
@@ -77,7 +79,7 @@ local function apply_browser_flat_view_compat()
     elseif type(FileChooser.getList) == "function" then
         local orig_getList = FileChooser.getList
         FileChooser.getList = function(self, path, collate, ...)
-            if flat_view_enabled(path) then
+            if flat_view_enabled(path, self) then
                 local dirs, files = {}, {}
                 return dirs, files, scan_flat(self, path, collate, dirs, files)
             end
