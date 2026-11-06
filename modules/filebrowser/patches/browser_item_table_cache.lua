@@ -523,6 +523,18 @@ local function apply_browser_item_table_cache()
         return status_filter(self) ~= nil
     end
 
+    -- A status change rewrites only the book's sidecar, which leaves folder
+    -- timestamps alone, so filtered listings are keyed on ZenOS's status
+    -- revision (bumped by every status change ZenOS makes).
+    local function status_filter_key(self)
+        local filter = status_filter(self)
+        if filter == nil then return "nil" end
+        local BookStatus = package.loaded["common/book_status"]
+        local revision = type(BookStatus) == "table" and type(BookStatus.revision) == "function"
+            and BookStatus.revision()
+        return stable_table_key(filter) .. "@" .. tostring(revision or 0)
+    end
+
     local function stable_key(self, path, override)
         local flat_config = plugin and plugin.config and plugin.config.browser_flat_view
         local show_hidden = self.show_hidden
@@ -536,7 +548,7 @@ local function apply_browser_item_table_cache()
             tostring(G_reader_settings:readSetting("collate", "strcoll")),
             tostring(G_reader_settings:isTrue("collate_mixed")),
             tostring(G_reader_settings:isTrue("reverse_collate")),
-            tostring(show_hidden), stable_table_key(status_filter(self)), folder_sort_key(override),
+            tostring(show_hidden), status_filter_key(self), folder_sort_key(override),
             tostring(automatic_series_enabled()), tostring(hide_grouped_series_enabled()),
             tostring(dim_finished_enabled()),
             up_folder_visibility_key(), tostring(show_flat_view),
@@ -563,14 +575,35 @@ local function apply_browser_item_table_cache()
         return tostring(lfs.attributes(path, "modification") or 0)
     end
 
-    local function child_directory_signatures(item_table)
+    -- Timestamps are whole seconds, and FAT32 (Kobo and most e-readers) keeps
+    -- them in 2 s steps, so a folder changed just after a scan can keep the
+    -- timestamp the scan saw. Treat a folder whose timestamp falls in that
+    -- window as changed. Timestamps later than the scan's end were already
+    -- there (e.g. a computer with a fast clock) and do not count.
+    local function changed_near_scan(modification, value)
+        local started = value and value.scanned_at
+        if type(started) ~= "number" or type(modification) ~= "number" then return false end
+        local finished = value.scanned_until
+        return modification >= started - 1
+            and (type(finished) ~= "number" or modification <= finished + 1)
+    end
+
+    -- Also reports whether any child directory changed near the value's scan.
+    local function child_directory_signatures(item_table, value)
         local signatures = {}
+        local near_scan = false
         for _i, item in ipairs(item_table or {}) do
             if item.attr and item.attr.mode == "directory" and type(item.path) == "string" then
-                signatures[item.path] = directory_signature(item.path)
+                local attr = lfs.attributes(item.path)
+                if type(attr) == "table" then
+                    signatures[item.path] = attr_signature(attr)
+                    near_scan = near_scan or changed_near_scan(attr.modification, value)
+                else
+                    signatures[item.path] = directory_signature(item.path)
+                end
             end
         end
-        return signatures
+        return signatures, near_scan
     end
 
     -- True when the freshly scanned map matches the stored one, in both
@@ -593,16 +626,20 @@ local function apply_browser_item_table_cache()
     -- scanned map is kept on the value so callers that repopulate the cache
     -- (history re-order, disk restore) do not scan a second time.
     local CHILD_VALIDATION_TTL_S = 5
-    local function validate_children(value)
+    local function validate_children(value, path)
+        if type(path) == "string"
+                and changed_near_scan(lfs.attributes(path, "modification"), value) then
+            return false
+        end
         if value.recursive then
             local signatures = value.child_directory_signatures
             if type(signatures) ~= "table" or next(signatures) == nil then return false end
-            for path, signature in pairs(signatures) do
-                if type(path) ~= "string" then return false end
-                local attributes = lfs.attributes(path)
-                -- Second-resolution timestamps can hide changes made during the scan.
+            for dir, signature in pairs(signatures) do
+                if type(dir) ~= "string" then return false end
+                local attributes = lfs.attributes(dir)
                 if not attributes or attr_signature(attributes) ~= signature
-                        or (attributes.modification or 0) >= (value.scanned_at or 0) then
+                        or not value.scanned_at
+                        or changed_near_scan(attributes.modification, value) then
                     return false
                 end
             end
@@ -612,8 +649,8 @@ local function apply_browser_item_table_cache()
                 and now() - value.last_children_check < CHILD_VALIDATION_TTL_S then
             return true
         end
-        local fresh = child_directory_signatures(value.table)
-        local ok = signatures_match(value.child_directory_signatures, fresh)
+        local fresh, near_scan = child_directory_signatures(value.table, value)
+        local ok = not near_scan and signatures_match(value.child_directory_signatures, fresh)
         value.child_directory_signatures = fresh
         value.last_children_check = now()
         value.last_children_ok = ok
@@ -701,7 +738,7 @@ local function apply_browser_item_table_cache()
 
     local function get_cached(path, key)
         local value = shared_cache.values[path]
-        return value and value.key == key and validate_children(value) and value or nil
+        return value and value.key == key and validate_children(value, path) and value or nil
     end
 
     local function put_cached(path, value)
@@ -727,7 +764,7 @@ local function apply_browser_item_table_cache()
         local value = cache.values[path]
         if not value then return nil, "disk_miss" end
         if value.key ~= key then return nil, "disk_stale" end
-        if not validate_children(value) then return nil, "disk_stale_children" end
+        if not validate_children(value, path) then return nil, "disk_stale_children" end
         if not value.recursive and not tree_signature_matches(value.tree_signature) then
             return nil, "disk_stale_tree"
         end
@@ -740,6 +777,7 @@ local function apply_browser_item_table_cache()
             child_directory_signatures = value.child_directory_signatures,
             recursive = value.recursive,
             scanned_at = value.scanned_at,
+            scanned_until = value.scanned_until,
             tree_signature_mode = value.tree_signature_mode or "legacy",
         }, "disk_hit"
     end
@@ -758,6 +796,7 @@ local function apply_browser_item_table_cache()
             child_directory_signatures = value.child_directory_signatures,
             recursive = value.recursive,
             scanned_at = value.scanned_at,
+            scanned_until = value.scanned_until,
             tree_signature_mode = value.recursive and "full" or nil,
             needs_tree_signature = not value.recursive,
             requires_full_tree = value.recursive or self.show_flat_view == true
@@ -959,12 +998,14 @@ local function apply_browser_item_table_cache()
         if collate_mode == "access" then
             result = apply_history_order(self, result, collate, reverse)
         end
-        local value = { key = key, stable_key = stable, table = result }
+        local value = {
+            key = key, stable_key = stable, table = result,
+            scanned_at = scanned_at, scanned_until = os.time(),
+        }
         local directories = self._zen_flat_view_directories
         self._zen_flat_view_directories = nil
         if directories and directories[path] then
             value.recursive = true
-            value.scanned_at = scanned_at
             value.child_directory_signatures = {}
             for dir, attributes in pairs(directories) do
                 value.child_directory_signatures[dir] = attr_signature(attributes)
@@ -1034,13 +1075,74 @@ local function apply_browser_item_table_cache()
         end
     end
 
+    -- Drops cached listings for root, the folders inside it, and the folders
+    -- that contain it (their counts, covers and flat views include it).
+    local function invalidate_related_paths(chooser, root)
+        root = root:gsub("(.)/+$", "%1")
+        local function related(path)
+            if type(path) ~= "string" then return false end
+            if path == root then return true end
+            local inside, outside = path, root
+            if #path < #root then inside, outside = root, path end
+            return inside:sub(1, #outside + 1) == outside .. "/"
+                or (outside == "/" and inside:sub(1, 1) == "/")
+        end
+        local paths, seen = {}, {}
+        local function collect(order)
+            for _i, path in ipairs(order or {}) do
+                if not seen[path] and related(path) then
+                    seen[path] = true
+                    paths[#paths + 1] = path
+                end
+            end
+        end
+        collect(shared_cache.order)
+        collect(load_persisted_cache().order)
+        for _i, path in ipairs(paths) do
+            FileChooser._zen_invalidate_item_table_path(chooser, path)
+        end
+        return #paths
+    end
+
+    -- Calibre's wireless connection writes books into its folder tree and then
+    -- saves its book list; that save follows every book received, metadata
+    -- update and deletion. Folder timestamps can miss these writes (see
+    -- changed_near_scan), so drop the affected listings directly.
+    local function patch_calibre_metadata()
+        local metadata = package.loaded["metadata"]
+        if type(metadata) ~= "table" or metadata._zen_item_table_cache_invalidation
+                or type(metadata.saveBookList) ~= "function"
+                or type(metadata.addBook) ~= "function"
+                or type(metadata.removeBook) ~= "function" then
+            return
+        end
+        metadata._zen_item_table_cache_invalidation = true
+        local original = metadata.saveBookList
+        metadata.saveBookList = function(self, ...)
+            local result = original(self, ...)
+            local root = type(self) == "table" and self.path
+            if type(root) == "string" and root ~= "" then
+                local ok, FileManager = pcall(require, "apps/filemanager/filemanager")
+                local chooser = ok and FileManager.instance and FileManager.instance.file_chooser
+                local ok_drop, dropped = pcall(invalidate_related_paths, chooser or FileChooser, root)
+                if not ok_drop then
+                    logger.warn("Calibre listing invalidation failed", tostring(dropped))
+                end
+            end
+            return result
+        end
+    end
+
     local ok_userpatch, userpatch = pcall(require, "userpatch")
     if ok_userpatch and userpatch and type(userpatch.registerPatchPluginFunc) == "function" then
         userpatch.registerPatchPluginFunc("coverbrowser", patch_coverbrowser)
+        userpatch.registerPatchPluginFunc("calibre", patch_calibre_metadata)
     else
         local ok_coverbrowser, coverbrowser = pcall(require, "coverbrowser")
         if ok_coverbrowser then patch_coverbrowser(coverbrowser) end
     end
+    -- The Calibre plugin may already be loaded.
+    patch_calibre_metadata()
 end
 
 return apply_browser_item_table_cache

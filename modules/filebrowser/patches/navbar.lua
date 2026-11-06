@@ -1089,7 +1089,8 @@ local function apply_navbar()
         return revealed
     end
 
-    local function onTabBooks()
+    -- reselect: Library was opened while the file manager was already showing.
+    local function onTabBooks(reselect)
         local fm = FileManager.instance
         local home_dir = paths.getHomeDir()
                          or require("apps/filemanager/filemanagerutil").getDefaultDir()
@@ -1156,7 +1157,9 @@ local function apply_navbar()
                     _refresh_library_path(fc, home_dir)
                 elseif not from_home and not reveal_hidden_filemanager then
                     fc._zen_needs_cover_refresh = nil
-                    _refresh_library_path(fc, home_dir, true)
+                    -- Switching from another tab keeps the listing cache; it checks
+                    -- the folder itself. Tapping Library again forces a full rescan.
+                    _refresh_library_path(fc, home_dir, reselect == true)
                 elseif not refreshSuppressedCoversNow(fm)
                         and type(fc.onGotoPage) == "function" then
                     fc:onGotoPage(1)
@@ -1723,12 +1726,16 @@ local function apply_navbar()
         local top_widget = top and top.widget
         local source = source_tab_id or (top_widget and top_widget._zen_navbar_tab_id)
         local same_page = source == tab_id
+        -- Library opened while the file manager itself is showing (not from a
+        -- group view or Home) counts as tapping it again.
+        local reselect = tab_id == "books" and (same_page
+            or (source == nil and top_widget ~= nil and top_widget == FileManager.instance))
         if tab_id ~= "home" and same_page then
-            if tab_id == "books" then cb() end
+            if tab_id == "books" then cb(reselect) end
             return
         end
         if shouldTrackActiveTab(tab_id) then
-            cb()
+            cb(reselect)
             if not same_page then refreshAfterNavbarPageSwitch() end
             return
         end

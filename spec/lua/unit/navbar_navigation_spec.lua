@@ -1829,6 +1829,28 @@ describe("file browser navbar navigation", function()
         assert.are.equal(1, page_refreshes)
     end)
 
+    it("keeps the Library listing cache when switching from another tab", function()
+        local fm = make_instance()
+        local fc = fm.file_chooser
+        fc.path = "/library"
+        fc._zen_invalidate_item_table_path = function(_self, path)
+            calls[#calls + 1] = "invalidate:" .. path
+        end
+        fc.refreshPath = function() calls[#calls + 1] = "refresh" end
+        package.loaded["common/utils"].closeWidgetsAbove = function(anchor)
+            while UIManager._window_stack[#UIManager._window_stack].widget ~= anchor do
+                table.remove(UIManager._window_stack)
+            end
+        end
+        UIManager._window_stack = {
+            { widget = fm }, { widget = { _zen_navbar_tab_id = "authors" } },
+        }
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
+
+        assert.are.same({ "refresh" }, calls)
+    end)
+
     it("refreshes every navbar page switch, including Authors to Library and Home", function()
         local fm = make_instance()
         UIManager._window_stack = { { widget = fm } }
