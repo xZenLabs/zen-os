@@ -10,13 +10,13 @@ local iso_ok, IsoLanguage = pcall(require, "ui/data/isolanguage")
 local paths = require("common/paths")
 local MemoryPolicy = require("common/memory_policy")
 local bimOk, BookInfoManager = pcall(require, "bookinfomanager")
+local BookSources = require("common/book_sources")
 
 local M = {}
 local GROUP_CACHE_TTL_S = 300
 local DIRECTORY_METADATA_CACHE_MAX = 32
 local DIRECTORY_METADATA_CACHE_MAX_CONSTRAINED = 4
 local group_cache = {}
-local kindle_metadata_cache
 local cache_hits = 0
 local cache_misses = 0
 
@@ -35,6 +35,7 @@ local function cache_generation()
         tostring(paths.getHomeDir()),
         file_signature(db_path),
         file_signature(db_path and (db_path .. "-wal")),
+        tostring(BookSources.revision()),
     }, "|")
 end
 
@@ -66,7 +67,7 @@ end
 
 function M.invalidate()
     group_cache = {}
-    kindle_metadata_cache = nil
+    BookSources.invalidate()
 end
 
 function M.getCacheStats()
@@ -80,45 +81,6 @@ local function splitAuthors(authors_str)
     local trimmed = authors_str:match("^%s*(.-)%s*$")
     if trimmed == "" then return {} end
     return { trimmed }
-end
-
-local function get_kindle_metadata()
-    local ok_kindle, Kindle = pcall(require,
-        "modules/filebrowser/patches/kindle_virtual_library")
-    if not ok_kindle or type(Kindle.getBookPaths) ~= "function" then return {} end
-    local ok_paths, book_paths = pcall(Kindle.getBookPaths)
-    if not ok_paths or type(book_paths) ~= "table" then return {} end
-
-    local generation = cache_generation() .. "|" .. table.concat(book_paths, "\0")
-    if kindle_metadata_cache and kindle_metadata_cache.generation == generation
-            and kindle_metadata_cache.expires_at > now() then
-        return kindle_metadata_cache.value
-    end
-
-    local books = {}
-    local seen = {}
-    for _i, filepath in ipairs(book_paths) do
-        if type(filepath) == "string" and filepath ~= "" and not seen[filepath]
-                and lfs.attributes(filepath, "mode") == "file" then
-            seen[filepath] = true
-            local ok_info, info
-            if type(Kindle.getBookMetadata) == "function" then
-                ok_info, info = pcall(Kindle.getBookMetadata, filepath)
-            else
-                ok_info, info = pcall(BookInfoManager.getBookInfo,
-                    BookInfoManager, filepath, false)
-            end
-            if ok_info and type(info) == "table" then
-                books[#books + 1] = { file = filepath, info = info }
-            end
-        end
-    end
-    kindle_metadata_cache = not MemoryPolicy.limitGroupCache() and {
-        generation = generation,
-        expires_at = now() + GROUP_CACHE_TTL_S,
-        value = books,
-    } or nil
-    return books
 end
 
 local function add_unseen_file(seen, filepath)
@@ -166,7 +128,7 @@ end
 
 -- Returns a sorted list of author groups:
 --   { { author="Name", files={"/abs/path", ...} }, ... }
--- Includes existing books within home_dir and the Kindle virtual library.
+-- Includes existing books within home_dir and books from common/book_sources.
 -- Each book appears under every author it has (multi-author support).
 function M.getGroupedByAuthor()
     local started_at = now()
@@ -209,7 +171,7 @@ function M.getGroupedByAuthor()
                 end
             end
         end)
-        for _i, book in ipairs(get_kindle_metadata()) do
+        for _i, book in ipairs(BookSources.books()) do
             if add_unseen_file(seen_files, book.file) then
                 local authors = book.info.authors
                 if type(authors) == "table" then authors = table.concat(authors, "\n") end
@@ -236,7 +198,7 @@ end
 
 -- Returns a sorted list of language groups:
 --   { { language="en", files={"/abs/path", ...} }, ... }
--- Includes existing books within home_dir and the Kindle virtual library.
+-- Includes existing books within home_dir and books from common/book_sources.
 function M.getGroupedByLanguage()
     local started_at = now()
     if not bimOk then
@@ -282,7 +244,7 @@ function M.getGroupedByLanguage()
                 add_unseen_file(seen_files, raw_filepath)
                 add_language(raw_filepath, result[3] and result[3][index])
             end)
-        for _i, book in ipairs(get_kindle_metadata()) do
+        for _i, book in ipairs(BookSources.books()) do
             if add_unseen_file(seen_files, book.file) then
                 add_language(book.file, book.info.language)
             end
@@ -304,7 +266,7 @@ end
 -- Returns a sorted list of series groups:
 --   { { series="Name", items={ {file="/abs/path", series_index=N}, ... } }, ... }
 -- Items within each series are sorted by series_index (then filename as tiebreak).
--- Includes existing books within home_dir and the Kindle virtual library.
+-- Includes existing books within home_dir and books from common/book_sources.
 function M.getGroupedBySeries()
     local started_at = now()
     if not bimOk then
@@ -347,7 +309,7 @@ function M.getGroupedBySeries()
             add_series(raw_filepath, filename, result[3] and result[3][index],
                 result[4] and result[4][index])
         end)
-        for _i, book in ipairs(get_kindle_metadata()) do
+        for _i, book in ipairs(BookSources.books()) do
             if add_unseen_file(seen_files, book.file) then
                 add_series(book.file, book.file:match("([^/]+)$"), book.info.series,
                     book.info.series_index)
@@ -519,7 +481,7 @@ function M.getLightMetadata(directory)
         logger.warn("light metadata query error:", err)
         return {}
     end
-    for _i, book in ipairs(get_kindle_metadata()) do
+    for _i, book in ipairs(BookSources.books()) do
         local normalized = paths.normPath(book.file)
         if not metadata[book.file] and not metadata[normalized] then
             put_metadata(metadata, book.file, book.info)
@@ -570,7 +532,7 @@ end
 -- Returns a sorted list of tag groups from the keywords (Calibre tags) column:
 --   { { tag="Name", files={"/abs/path", ...} }, ... }
 -- Books may appear under multiple tags. Tags are split by comma and trimmed.
--- Includes existing books within home_dir and the Kindle virtual library.
+-- Includes existing books within home_dir and books from common/book_sources.
 function M.getGroupedByTags()
     local started_at = now()
     if not bimOk then
@@ -613,7 +575,7 @@ function M.getGroupedByTags()
             add_unseen_file(seen_files, raw_filepath)
             add_tags(raw_filepath, result[3] and result[3][index])
         end)
-        for _i, book in ipairs(get_kindle_metadata()) do
+        for _i, book in ipairs(BookSources.books()) do
             if add_unseen_file(seen_files, book.file) then
                 add_tags(book.file, book.info.keywords)
             end
