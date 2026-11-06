@@ -233,7 +233,7 @@ msgstr "12 horas  (3:30 PM)"
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz.
 #: interface_settings.lua:137
 msgid "12-hour time"
-msgstr "Formato de 12 horas"
+msgstr "koreader de 12 horas"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
@@ -410,7 +410,7 @@ msgstr "Añadir control"
 #. Context: Mensaje en la guía de configuración.
 #: quickstart_pages.lua:740
 msgid "Add custom buttons for other plugins or actions."
-msgstr "Añadir botones personalizados para otros complementos o acciones."
+msgstr "Añade botones personalizados para otros complementos o acciones."
 
 #. Type: message
 #. Context: Mensaje en los ajustes de apariencia y funcionamiento de la biblioteca.
@@ -471,7 +471,7 @@ msgstr "Dirección"
 #. Context: Quickstart coachmark highlighting the KOReader settings section.
 #: menu_tour.lua:15
 msgid "Adjust KOReader settings here. These tabs were previously located in the top menu"
-msgstr "Ajusta aquí la configuración de KOReader. Estas pestañas se encontraban antes en el menú superior"
+msgstr "Configura KOReader aquí."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes generales.
@@ -523,9 +523,9 @@ msgid ""
 "\n"
 "Install ZenOS updates directly from your device."
 msgstr ""
-"Toda la configuración está en una pestaña unificada. El icono con el punto indica que hay una actualización disponible.\n"
+"Todos los ajustes están reunidos en una única pestaña. El icono con un punto indica que hay una actualización disponible..\n"
 "\n"
-"Instala las actualizaciones de ZenOS directamente desde el dispositivo."
+"Actualiza Zen OS directamente desde el dispositivo."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Nombre de un ajuste en los ajustes de la barra de navegación.
@@ -1023,7 +1023,7 @@ msgstr "Carrusel de libros"
 #: dispatch_action.lua:532 buttons.lua:43 page_browser_tabs.lua:52
 #: app_launcher_settings.lua:98 app_launcher_settings.lua:1072
 msgid "Book switcher"
-msgstr "Selector de libros"
+msgstr "Activar selector de libros"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de la pantalla del final del libro. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
@@ -1378,8 +1378,8 @@ msgid ""
 "Choose which tabs appear in your navigation bar.\n"
 "You can rearrange or adjust these anytime in Settings."
 msgstr ""
-"Elige qué pestañas aparecen en la barra de navegación.\n"
-"Puedes reorganizarlas o ajustarlas en cualquier momento desde la configuración."
+"Elige las pestañas que aparecen en la barra de navegación.\n"
+"Puedes configurarlas o reorganizarlas en cualquier momento."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de funciones adicionales e integraciones.
@@ -1792,7 +1792,7 @@ msgstr "No se ha podido actualizar %1."
 #: folder_cover_picker.lua:301 folder_cover_picker.lua:425
 #: folder_cover_picker.lua:445 metadata_editor.lua:1054
 msgid "Cover"
-msgstr "Portada"
+msgstr "Cubierta"
 
 #. Type: title
 #. Context: Título en el aviso sobre el complemento CoverBrowser necesario.
@@ -1804,7 +1804,7 @@ msgstr "El complemento CoverBrowser no está activado, algunas funciones no func
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:364 library_settings.lua:480
 msgid "Covers"
-msgstr "Portadas"
+msgstr "Cubiertas"
 
 #. Type: setting
 #. Context: Opción de los ajustes del dispositivo que muestra la frecuencia máxima del procesador; su submenú indica el modelo, el número de núcleos y las frecuencias.
@@ -2337,7 +2337,7 @@ msgstr "Desactiva el modo Zen para acceder a los menús predeterminados de KORea
 #. Context: Mensaje en la visita guiada por los menús.
 #: menu_tour.lua:11
 msgid "Disable Zen Mode with this icon to adjust KOReader settings that aren’t available in Zen Settings."
-msgstr "Desactiva el modo Zen con este icono para configurar las opciones de KOReader que no están disponibles en la configuración de Zen."
+msgstr "Desactiva el modo Zen con este icono para configurar las opciones de KOReader no disponibles en Zen."
 
 #. Type: label
 #. Context: Etiqueta en el editor de metadatos de libros.
@@ -2448,7 +2448,7 @@ msgstr "Descargando"
 #. Context: Mensaje en el editor de metadatos de libros.
 #: metadata_editor.lua:378
 msgid "Downloading cover…"
-msgstr "Descargando portada…"
+msgstr "Descargando cubierta…"
 
 #. Type: subtitle
 #. Context: Subtítulo en las pantallas de instalación de ZenPM.
@@ -2546,7 +2546,7 @@ msgstr "Activar programación de calidez"
 #. Context: Mensaje en los ajustes de funciones adicionales e integraciones.
 #: extras_settings.lua:82
 msgid "Enable ZenOS enhancements to the OPDS browser: cover art, list view, hold menu, and navigation improvements."
-msgstr "Activa las mejoras de ZenOS en el navegador OPDS: portadas, vista de lista, menú al mantener pulsado y mejoras de navegación."
+msgstr "Activa las mejoras de ZenOS en el navegador OPDS: cubiertas, vista de lista, menú al mantener pulsado y mejoras de navegación."
 
 #. Type: message
 #. Context: Mensaje en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión.
@@ -2698,7 +2698,7 @@ msgstr "Extra grande"
 #. Context: Mensaje en los ajustes avanzados.
 #: advanced_settings.lua:21
 msgid "Extract and cache book metadata and cover images for books in the current directory. Requires CoverBrowser plugin."
-msgstr "Extrae y almacena en la memoria caché los metadatos y portadas de los libros del directorio actual. Requiere el complemento CoverBrowser."
+msgstr "Extrae y almacena en la memoria caché los metadatos y cubiertas de los libros del directorio actual. Requiere el complemento CoverBrowser."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes avanzados.
@@ -2728,7 +2728,7 @@ msgstr "No se ha podido borrar la caché:"
 #. Context: Texto de un diálogo en el menú contextual de libros y carpetas.
 #: context_menu.lua:2041
 msgid "Failed to clear folder cover."
-msgstr "No se ha podido eliminar la portada de la carpeta."
+msgstr "No se ha podido eliminar la cubierta de la carpeta."
 
 #. Type: status
 #. Context: Mensaje de estado en los menús y diálogos de la carpeta de libros archivados.
@@ -2746,7 +2746,7 @@ msgstr "No se ha podido mover el libro."
 #. Context: Texto de un diálogo en el menú contextual de libros y carpetas.
 #: context_menu.lua:2023
 msgid "Failed to set folder cover."
-msgstr "No se ha podido establecer la portada de la carpeta."
+msgstr "No se ha podido establecer la cubierta de la carpeta."
 
 #. Type: dialog
 #. Context: Texto de un diálogo en el formulario de informe de errores.
@@ -2861,7 +2861,7 @@ msgstr "Firmware: "
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:376
 msgid "First cover image"
-msgstr "Mostrar primera portada"
+msgstr "Mostrar primera cubierta"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Etiqueta en la interfaz de ZenOS.
@@ -2996,7 +2996,7 @@ msgstr "Tamaño de fuente"
 #. Context: Texto de ayuda en la guía de configuración.
 #: quickstart_pages.lua:804
 msgid "Font, margins, contrast, line spacing etc - tested together for the best reading experience"
-msgstr "Fuente, márgenes, contraste e interlineado, combinados para ofrecer la mejor experiencia de lectura"
+msgstr "Fuente, márgenes, contraste e interlineado, todo pensado para ofrecerte la mejor experiencia de lectura."
 
 #. Type: label
 #. Context: Reader tab controls, defaults, profiles, and themes.
@@ -3515,7 +3515,7 @@ msgstr "Instalando ZenPM"
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
 #: home_settings.lua:851
 msgid "Interactive"
-msgstr "Interactivo"
+msgstr "Activar modo interactivo"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Etiqueta en el menú de redes Wi-Fi y los diálogos de conexión.
@@ -4026,7 +4026,7 @@ msgstr "Resultados de metadatos"
 #. Context: Mensaje en el editor de metadatos de libros.
 #: metadata_editor.lua:1167
 msgid "Metadata was saved, but the cover image could not be saved."
-msgstr "Los metadatos se han guardado, pero no se ha podido guardar la imagen de portada."
+msgstr "Los metadatos se han guardado, pero no se ha podido guardar la imagen de cubierta."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de estadísticas de lectura. Nombre de una acción en la página de estadísticas de lectura.
@@ -4113,7 +4113,7 @@ msgstr "Cuadrícula"
 #. Context: Opción seleccionable en la guía de configuración.
 #: quickstart_pages.lua:691
 msgid "Mosaic - large cover thumbnails"
-msgstr "Cuadrícula — miniaturas grandes de portadas"
+msgstr "Cuadrícula — miniaturas grandes de cubiertas"
 
 #. Type: button
 #. Context: Texto de un botón en el menú contextual de libros y carpetas. Nombre de una acción en la guía de configuración.
@@ -4526,7 +4526,7 @@ msgstr "No hay datos de lectura"
 #. Context: Texto de un diálogo en el menú de acciones de gestos y atajos. Mensaje en la pantalla de lectura.
 #: dispatch_action.lua:342 zen_toc_widget.lua:541
 msgid "No table of contents available."
-msgstr "No hay ninguna tabla de contenido disponible."
+msgstr "No hay ningún índice disponible."
 
 #. Type: dialog
 #. Context: Texto de un diálogo en los selectores de carpetas y etiquetas de la biblioteca.
@@ -4569,7 +4569,7 @@ msgstr "Ninguno"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:394
 msgid "None (folder name only)"
-msgstr "Sin portada: solo nombre de carpeta"
+msgstr "Sin cubierta: solo nombre de carpeta"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
@@ -4678,7 +4678,7 @@ msgstr "En espera"
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
 #: home_settings.lua:2507
 msgid "On Home refresh"
-msgstr "Al iniciar"
+msgstr "Al actualizar Inicio"
 
 #. Type: label
 #. Context: Etiqueta en el editor de metadatos de libros.
@@ -5397,7 +5397,7 @@ msgstr "Ajustes del tema del lector"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
 #: menus.lua:209 reader_settings.lua:1070 reader_settings.lua:1087
 msgid "Reader themes"
-msgstr "Aplicas temas de lectura"
+msgstr "Aplicar temas de lectura"
 
 #. Type: status
 #. Context: Mensaje de estado en la biblioteca de libros. Etiqueta en las pestañas de navegación y los botones de ajustes rápidos. Etiqueta en el menú contextual de libros y carpetas. También se usa en otras partes de ZenOS.
@@ -6162,7 +6162,7 @@ msgstr "Establecer tipos de archivo para sincronizar"
 #. Context: Título en la interfaz de ZenOS. Título en el menú contextual de libros y carpetas.
 #: folder_cover_picker.lua:465 context_menu.lua:1988 context_menu.lua:2226
 msgid "Set folder cover"
-msgstr "Establecer portada de carpeta"
+msgstr "Establecer cubierta de carpeta"
 
 #. Type: button
 #. Context: precision = absolute and "%d" or "%+d", ok_text = _("Set font size"), callback = function(widget)
@@ -6251,7 +6251,7 @@ msgstr "Mostrar autor"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:746
 msgid "Show author below cover (mosaic)"
-msgstr "Mostrar autor bajo la portada"
+msgstr "Mostrar autor bajo la cubierta"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
@@ -6263,7 +6263,7 @@ msgstr "Mostrar insignias"
 #. Context: Opción seleccionable en la guía de configuración.
 #: quickstart_pages.lua:758
 msgid "Show Book cover"
-msgstr "Mostrar portada del libro"
+msgstr "Mostrar cubierta del libro"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio.
@@ -6386,7 +6386,7 @@ msgstr "Mostrar otros elementos"
 #. Context: Mensaje en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
 #: reader_settings.lua:1309
 msgid "Show other KOReader quick lookup options alongside Zen buttons."
-msgstr "Mostrar otras opciones de búsqueda rápida de KOReader junto a los botones Zen."
+msgstr "Mostrar otras opciones de búsqueda de KOReader junto a los botones Zen."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
@@ -6422,7 +6422,7 @@ msgstr "Mostrar separador"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:573
 msgid "Show series number on covers"
-msgstr "Mostrar número de libro de la serie en las portadas"
+msgstr "Mostrar número de libro de la serie en las cubiertas"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
@@ -6440,7 +6440,7 @@ msgstr "Mostrar título"
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:730
 msgid "Show title below cover (mosaic)"
-msgstr "Mostrar título bajo la portada"
+msgstr "Mostrar título bajo la cubierta"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz. Nombre de un ajuste en los ajustes de la barra de navegación.
@@ -6808,7 +6808,7 @@ msgstr "Domingo"
 #. Context: Texto de ayuda en la guía de configuración.
 #: quickstart_pages.lua:739
 msgid "Swipe down from the top to reach quick settings like brightness, Wi-Fi, night mode, zen mode and more."
-msgstr "Desliza hacia abajo desde la parte superior para acceder a la configuración rápida como el brillo, las redes Wi-Fi, el modo oscuro, el modo Zen y mucho más."
+msgstr "Desliza hacia abajo desde la parte superior de la pantalla para acceder al panel de configuración rápida, donde encontrarás opciones como el brillo, el Wi-Fi, el modo oscuro, el modo Zen y mucho más."
 
 #. Type: description
 #. Context: Texto de ayuda en la guía de configuración.
@@ -6818,9 +6818,9 @@ msgid ""
 "\n"
 "Skim through pages or skip chapters, browse the table of contents, manage bookmarks, adjust fonts and more."
 msgstr ""
-"Desliza hacia arriba desde la parte inferior mientras lees para abrir el navegador de páginas.\n"
+"Desliza hacia arriba desde la parte inferior de la pantalla mientras lees para abrir el navegador de páginas.\n"
 "\n"
-"Hojea páginas o salta capítulos, navega por el índice, gestiona marcadores, ajusta fuentes y más."
+"Explora las páginas, salta de capítulo, consulta el índice, gestiona tus marcadores, ajusta la fuente y mucho más."
 
 #. Type: label
 #. Context: Etiqueta en la visita guiada por la pantalla de lectura.
@@ -6857,7 +6857,7 @@ msgstr "Pestaña"
 #: dispatch_action.lua:496 page_browser_panels.lua:61 page_browser_tabs.lua:50
 #: zen_toc_widget.lua:474
 msgid "Table of contents"
-msgstr "Tabla de contenido"
+msgstr "Índice"
 
 #. Type: title
 #. Context: Título en los ajustes de distribución y widgets de la página de inicio. Nombre de un ajuste en los ajustes de apariencia de la interfaz. Título en los ajustes de la barra de navegación.
@@ -6934,20 +6934,20 @@ msgid ""
 "The best interface is the one you forget is there.\n"
 "Now go get lost in a good book."
 msgstr ""
-"La mejor interfaz es aquella que olvidas que está ahí.\n"
+"La mejor interfaz es aquella de la que te olvidas.\n"
 "Ahora, sumérgete en un buen libro."
 
 #. Type: error
 #. Context: Mensaje de error en el editor de metadatos de libros.
 #: metadata_editor.lua:347 metadata_editor.lua:1098 metadata_editor.lua:1168
 msgid "The cover image could not be saved."
-msgstr "No se ha podido guardar la imagen de portada."
+msgstr "No se ha podido guardar la imagen de cubierta."
 
 #. Type: message
 #. Context: Mensaje en la guía de configuración.
 #: quickstart_pages.lua:827
 msgid "The default KOReader reader menu is inside the Aa icon."
-msgstr "El menú de lectura predeterminado de KOReader está dentro del icono Aa."
+msgstr "El menú de lectura predeterminado de KOReader se encuentra en el icono Aa."
 
 #. Type: message
 #. Context: Mensaje en el editor de metadatos de libros.
@@ -7061,7 +7061,7 @@ msgstr "Este archivo ya no está disponible."
 #. Context: Mensaje en la visita guiada por los menús.
 #: menu_tour.lua:14
 msgid "This is Zen Settings. ZenOS settings/updates and common KOReader settings live here."
-msgstr "Esta es la configuración de Zen. Aquí encontrarás las actualizaciones y opciones de ZenOS, junto con las configuraciones habituales de KOReader."
+msgstr "Encuentra aquí todas las opciones de configuración de ZenOS, además de las de KOReader."
 
 #. Type: message
 #. Context: Mensaje en el editor de metadatos de libros.
@@ -7372,9 +7372,9 @@ msgid ""
 "\n"
 "Remove visual clutter for a focused, distraction-free reading experience. Exit at anytime from Settings."
 msgstr ""
-"Activa el modo Zen para dejar KOReader en lo esencial.\n"
+"Activa el modo Zen para reducir KOReader a lo esencial.\n"
 "\n"
-"Reduce los elementos visuales innecesarios y disfruta de una lectura sin distracciones. Puedes salir en cualquier momento desde Configuración."
+"Elimina los elementos visuales innecesarios y disfruta de una lectura sin distracciones."
 
 #. Type: message
 #. Context: Mensaje en el menú de dispositivos Bluetooth y los diálogos de emparejamiento.
@@ -7446,7 +7446,7 @@ msgstr "Subrayado sobre el icono"
 #. Context: Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
 #: menu_settings.lua:1273
 msgid "Unified brightness/warmth slider"
-msgstr "Barrra deslizante unificada de brillo/calidez"
+msgstr "Barra deslizante unificada de brillo/calidez"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
@@ -7848,7 +7848,7 @@ msgstr "Introducción a ZenOS"
 #. Context: Texto de ayuda en la guía de configuración.
 #: quickstart_pages.lua:754
 msgid "What should your device show when it goes to sleep?"
-msgstr "¿Qué debe mostrar el dispositivo al entrar en reposo?"
+msgstr "¿Qué debe mostrar la pantalla del dispositivo al entrar en reposo?"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en las pantallas de actualización de ZenOS.
@@ -7896,7 +7896,7 @@ msgstr "Cuando está habilitada, esta acción queda oculta en la biblioteca."
 #. Context: Texto de ayuda en la guía de configuración.
 #: quickstart_pages.lua:780
 msgid "Which time format do you prefer?"
-msgstr "¿Qué formato de hora prefieres?"
+msgstr "¿Qué formato horario prefieres?"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el menú de estadísticas de la batería.
