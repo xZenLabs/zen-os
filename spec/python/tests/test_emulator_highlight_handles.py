@@ -208,7 +208,9 @@ def test_highlighting_preserves_reader_bars_and_margins(saved: bool, theme: str)
         (config / "config.lua").write_text(
             "return { updater = { update_auto_check = false }, "
             "features = { reader_themes = true }, reader_themes = { light_mode = '" + theme + "' }, "
-            "reader_top_status_bar = { left_order = {}, center_order = {'time'}, right_order = {} } }\n",
+            # Static header text: a clock tick between screenshots would break the band diff.
+            "reader_top_status_bar = { left_order = {}, center_order = {'custom_text'}, right_order = {}, "
+            "custom_text = 'Highlight layout' } }\n",
             encoding="utf-8",
         )
         socket = root / "driver.sock"
