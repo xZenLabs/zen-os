@@ -84,8 +84,6 @@ local function apply_navbar()
 
     local navbar_icon_size = Screen:scaleBySize(34)
     local navbar_v_padding = Screen:scaleBySize(4)
-    local navbar_icon_size_default = 34
-    local navbar_label_size_default = 20
     local navbar_icon_size_min, navbar_icon_size_max = 24, 48
     local navbar_label_size_min, navbar_label_size_max = 10, 28
     -- Dead zone at left/right edges to avoid stealing corner gesture taps
@@ -128,8 +126,8 @@ local function apply_navbar()
         tab_order = { "books", "manga", "news", "continue", "home" },
         show_icons = true,
         show_labels = true,
-        icon_size = navbar_icon_size_default,
-        label_size = navbar_label_size_default,
+        icon_size = 34,
+        label_size = 20,
         books_label = "",  -- empty = auto-translated "Library"
         home_label = "",   -- empty = auto-translated "Home"
         default_tab = "books",
@@ -203,12 +201,12 @@ local function apply_navbar()
             config.icon_size,
             navbar_icon_size_min,
             navbar_icon_size_max,
-            navbar_icon_size_default)
+            config_default.icon_size)
         config.label_size = clampNavbarSize(
             config.label_size,
             navbar_label_size_min,
             navbar_label_size_max,
-            navbar_label_size_default)
+            config_default.label_size)
         -- migrate old hard-coded English default
         if config.books_label == "Library" then config.books_label = "" end
         if config.home_label == "Home" then config.home_label = "" end
@@ -1711,15 +1709,10 @@ local function apply_navbar()
         return first_enabled_default_tab()
     end
 
-    local navbar_refresh_pending = false
+    -- One full-screen refresh merged with the page's own in this tick. "partial" lets
+    -- KOReader flash every full_refresh_count switches, as stock does.
     local function refreshAfterNavbarPageSwitch()
-        if navbar_refresh_pending then return end
-        navbar_refresh_pending = true
-        UIManager:nextTick(function()
-            navbar_refresh_pending = false
-            UIManager:setDirty(nil, getFullRefreshMode())
-            UIManager:forceRePaint()
-        end)
+        UIManager:setDirty(nil, G_reader_settings:isTrue("avoid_flashing_ui") and "ui" or "partial")
     end
 
     local function runTabCallback(tab_id, source_tab_id)
@@ -2027,15 +2020,31 @@ local function apply_navbar()
                         bb:paintBorderRGB32(x, y, size.w, size.h, Screen:scaleBySize(2), background, self.radius)
                     elseif opacity > 0 and opacity < 100 then
                         local size = self:getSize()
-                        local fill = Blitbuffer.new(size.w, size.h, Blitbuffer.TYPE_BBRGB32)
-                        fill:paintRectRGB32(0, 0, size.w, size.h, Blitbuffer.ColorRGB32(0, 0, 0, 0))
-                        fill:paintRoundedRectRGB32(0, 0, size.w, size.h, background, self.radius)
+                        -- Cached per size/night mode; color is fixed per widget.
+                        local fill = self._zen_fill
+                        if not fill or fill:getWidth() ~= size.w or fill:getHeight() ~= size.h
+                                or self._zen_fill_night ~= Screen.night_mode then
+                            if fill then fill:free() end
+                            fill = Blitbuffer.new(size.w, size.h, Blitbuffer.TYPE_BBRGB32)
+                            fill:paintRectRGB32(0, 0, size.w, size.h, Blitbuffer.ColorRGB32(0, 0, 0, 0))
+                            fill:paintRoundedRectRGB32(0, 0, size.w, size.h, background, self.radius)
+                            self._zen_fill, self._zen_fill_night = fill, Screen.night_mode
+                        end
                         bb:alphablitFrom(fill, x, y, 0, 0, size.w, size.h)
-                        fill:free()
                     end
                     self.background = filled and opacity == 100 and background or nil
                     paint(self, bb, x, y)
                     self.background = filled and fill_color or nil
+                end
+                if filled and opacity > 0 and opacity < 100 then
+                    local free = icon_label_group.free
+                    function icon_label_group:free(...)
+                        if self._zen_fill then
+                            self._zen_fill:free()
+                            self._zen_fill = nil
+                        end
+                        return free(self, ...)
+                    end
                 end
             end
         end
@@ -2067,20 +2076,22 @@ local function apply_navbar()
 
     local navbar_h_padding = Screen:scaleBySize(10)
 
-    local navbar_max_tabs = 7
-
     local function getVisibleTabs()
         local visible = {}
         for _i, id in ipairs(config.tab_order) do
             if is_tab_enabled(id) and tabs_by_id[id] then
                 table.insert(visible, tabs_by_id[id])
-                if #visible >= navbar_max_tabs then break end
+                if #visible >= 7 then break end -- max tabs
             end
         end
         return visible
     end
 
-    local function createNavBar()
+    -- Bounded memo of shared label sizes + last measured navbar height.
+    local navbar_layout_cache = { font_sizes = {}, font_count = 0 }
+
+    -- Syncs config/tabs and computes the shared layout inputs (no widgets).
+    local function prepareNavBar()
         if not is_navbar_enabled() then
             return nil
         end
@@ -2218,7 +2229,32 @@ local function apply_navbar()
         for _i, tab in ipairs(visible_tabs) do
             table.insert(tab_labels, tab.label)
         end
-        local shared_font_size = getSharedFontSize(tab_labels, label_max_w)
+        local cache = navbar_layout_cache
+        local font_key = table.concat(tab_labels, "\0") .. "\0" .. label_max_w .. "\0"
+            .. table.concat(navbar_font_size_steps, ",") .. "\0" .. library_font.getFontName()
+        local shared_font_size = cache.font_sizes[font_key]
+        if not shared_font_size then
+            if cache.font_count >= 16 then cache.font_sizes, cache.font_count = {}, 0 end
+            shared_font_size = getSharedFontSize(tab_labels, label_max_w)
+            cache.font_sizes[font_key] = shared_font_size
+            cache.font_count = cache.font_count + 1
+        end
+        return {
+            visible_tabs = visible_tabs,
+            screen_w = screen_w,
+            inner_w = inner_w,
+            num_tabs = num_tabs,
+            label_max_w = label_max_w,
+            shared_font_size = shared_font_size,
+        }
+    end
+
+    local function createNavBar(layout)
+        layout = layout or prepareNavBar()
+        if not layout then return nil end
+        local visible_tabs, screen_w, inner_w = layout.visible_tabs, layout.screen_w, layout.inner_w
+        local num_tabs, label_max_w = layout.num_tabs, layout.label_max_w
+        local shared_font_size = layout.shared_font_size
 
         -- Build tab content widgets and measure their natural widths
         local tab_widgets = {}
@@ -2361,18 +2397,25 @@ local function apply_navbar()
 
     local Menu = require("ui/widget/menu")
 
+    -- Height only depends on these inputs; build a throwaway navbar only when they change.
     getNavbarHeight = function()
-        if not is_navbar_enabled() then
-            _G.__ZEN_UI_NAVBAR_HEIGHT = 0
-            return 0
+        local layout = prepareNavBar()
+        local h = 0
+        if layout then
+            local cache = navbar_layout_cache
+            local sig = table.concat({
+                layout.screen_w, navbar_icon_size, navbar_v_padding, layout.shared_font_size,
+                library_font.getFontName(), tostring(config.show_icons), tostring(config.show_labels),
+                tostring(config.active_tab_filled), tostring(config.active_tab_outlined),
+                tostring(config.show_top_border), tostring(Screen:isColorScreen()),
+            }, "|")
+            if sig ~= cache.height_sig then
+                local nb = createNavBar(layout)
+                cache.height_sig, cache.height = sig, nb:getSize().h
+                nb:free()
+            end
+            h = cache.height
         end
-        local nb = createNavBar()
-        if not nb then
-            _G.__ZEN_UI_NAVBAR_HEIGHT = 0
-            return 0
-        end
-        local h = nb:getSize().h
-        nb:free()
         _G.__ZEN_UI_NAVBAR_HEIGHT = h
         return h
     end
@@ -2489,9 +2532,10 @@ local function apply_navbar()
     local orig_menu_init = Menu.init
 
     function Menu:init()
+        local standalone = not _skip_standalone_navbar and isStandaloneNavbarView(self)
         if self.name == "filemanager" and not self.height then
             self.height = Screen:getHeight() - getNavbarHeight()
-        elseif not _skip_standalone_navbar and isStandaloneNavbarView(self) then
+        elseif standalone then
             -- Override height even if already set (e.g. Rakuyomi sets height = screen_h)
             local reserve = getNavbarHeight()
             self.height = Screen:getHeight() - reserve
@@ -2501,7 +2545,7 @@ local function apply_navbar()
             end
         end
         orig_menu_init(self)
-        if not _skip_standalone_navbar and isStandaloneNavbarView(self) then
+        if standalone then
             preventStandaloneSwipeClose(self)
         end
         -- Plugin views can need delayed injection when they can't be hooked via show functions.
@@ -3513,7 +3557,7 @@ local function apply_navbar()
         end
         local home = get_shared("home")
         if gv and gv.closeAll then gv.closeAll() end
-        if home and home.closeAll then home.closeAll() end
+        if home and not (home.park and home.park()) and home.closeAll then home.closeAll() end
         local fm = FileManager.instance
         if fm then
             if fm.history and fm.history.booklist_menu then
@@ -4195,7 +4239,8 @@ local function apply_navbar()
         UIManager:forceRePaint()
     end
 
-    _G.__ZEN_UI_REINJECT_NAVBARS = function()
+    -- skip_fm: FM was just reinit (setupLayout already re-injected its navbar).
+    _G.__ZEN_UI_REINJECT_NAVBARS = function(skip_fm)
         local stack = UIManager._window_stack
         local top = stack and stack[#stack]
         local top_widget = top and top.widget
@@ -4212,11 +4257,11 @@ local function apply_navbar()
             if standalone_result == "reopened" then
                 return
             end
-            local fm = FileManager.instance
+            local fm = not skip_fm and FileManager.instance
             if fm then
                 injectNavbar(fm)
             end
-        else
+        elseif not skip_fm then
             _G.__ZEN_UI_REINJECT_FM_NAVBAR()
         end
     end

@@ -36,8 +36,9 @@ end
 
 local function open_zen_file()
     if not _zen_settings_file then
-        local LuaSettings = require("luasettings")
-        _zen_settings_file = LuaSettings:open(get_settings_path())
+        local path = get_settings_path()
+        _zen_settings_file = BrandMigration.takeConfigSettings(path)
+            or require("luasettings"):open(path)
     end
     return _zen_settings_file
 end
@@ -820,16 +821,14 @@ local function capture_reader_footer_settings()
     }
 end
 
-local function load_reader_theme_settings(cfg)
+local function load_reader_theme_settings(cfg, reader_store)
     if type(cfg) ~= "table" then return end
-    local reader_store = PresetStore.loadStore("reader")
     if type(reader_store.reader_themes) == "table" then
         cfg.reader_themes = reader_store.reader_themes
     end
 end
 
-local function migrate_reader_preset_zen_settings()
-    local store = PresetStore.loadStore("reader")
+local function migrate_reader_preset_zen_settings(store)
     local changed = false
 
     local function migrate(preset)
@@ -886,14 +885,13 @@ local function migrate_reader_footer_backup(cfg)
     return true
 end
 
-local function migrate_page_browser_layout(cfg)
+local function migrate_page_browser_layout(cfg, store)
     if type(cfg) ~= "table" then return false end
 
     local function valid_layout(layout)
         return layout == "single" or layout == "carousel" or layout == "grid"
     end
 
-    local store = PresetStore.loadStore("reader")
     if type(store) ~= "table" then return false end
     if type(store.settings) ~= "table" then store.settings = {} end
 
@@ -948,8 +946,7 @@ local function migrate_launcher_book_info(cfg)
     return true
 end
 
-local function migrate_home_quote_font_size()
-    local store = PresetStore.loadStore("home")
+local function migrate_home_quote_font_size(store)
     local changed = false
 
     local function migrate(page)
@@ -1012,12 +1009,11 @@ local function migrate_home_quote_font_size()
         local page = type(preset) == "table" and (preset.home_page or preset)
         migrate(page)
     end
-    return changed and PresetStore.saveStore("home", store)
+    return changed
 end
 
-local function migrate_home_strip_config()
+local function migrate_home_strip_config(store)
     if type(HomePresets.normalizeStripConfig) ~= "function" then return false end
-    local store = PresetStore.loadStore("home")
     local changed = HomePresets.normalizeStripConfig(store.settings)
     local active_preset = type(store.settings) == "table"
         and store.settings.active_preset or nil
@@ -1039,36 +1035,35 @@ local function migrate_home_strip_config()
         local page = type(preset) == "table" and (preset.home_page or preset)
         if HomePresets.normalizeStripConfig(page) then changed = true end
     end
-    return changed and PresetStore.saveStore("home", store)
+    return changed
 end
 
-local function migrate_home_featured_config()
+local function migrate_home_featured_config(store)
     if type(HomePresets.normalizeFeaturedConfig) ~= "function" then return false end
-    local store = PresetStore.loadStore("home")
     local changed = HomePresets.normalizeFeaturedConfig(store.settings)
     for _name, preset in pairs(store.presets) do
         local page = type(preset) == "table" and (preset.home_page or preset)
         if HomePresets.normalizeFeaturedConfig(page) then changed = true end
     end
-    return changed and PresetStore.saveStore("home", store)
+    return changed
 end
 
-local function migrate_home_layout_grid()
+local function migrate_home_layout_grid(store)
     if type(HomePresets.normalizeLayoutGrid) ~= "function" then return false end
-    local store = PresetStore.loadStore("home")
     local changed = HomePresets.normalizeLayoutGrid(store.settings)
     for _name, preset in pairs(store.presets) do
         local page = type(preset) == "table" and (preset.home_page or preset)
         if HomePresets.normalizeLayoutGrid(page) then changed = true end
     end
-    return changed and PresetStore.saveStore("home", store)
+    return changed
 end
 
 local function migrate_settings_files()
+    -- Initial settings are built only for stores that do not exist yet.
     local changed = PresetStore.migrateStores({
-        home = HomePresets.defaultHomePage(),
-        reader = capture_reader_footer_settings(),
-        screensaver = capture_screensaver_settings(),
+        home = HomePresets.defaultHomePage,
+        reader = capture_reader_footer_settings,
+        screensaver = capture_screensaver_settings,
     })
     if HomeQuotes.ensureFile() then
         changed = true
@@ -1079,16 +1074,13 @@ local function migrate_settings_files()
     if GoogleBooksKey.ensureFile() then
         changed = true
     end
-    if migrate_home_quote_font_size() then
-        changed = true
-    end
-    if migrate_home_featured_config() then
-        changed = true
-    end
-    if migrate_home_strip_config() then
-        changed = true
-    end
-    if migrate_home_layout_grid() then
+    -- Home migrations share one private copy and save once.
+    local home = PresetStore.loadStore("home")
+    local home_changed = migrate_home_quote_font_size(home)
+    home_changed = migrate_home_featured_config(home) or home_changed
+    home_changed = migrate_home_strip_config(home) or home_changed
+    home_changed = migrate_home_layout_grid(home) or home_changed
+    if home_changed and PresetStore.saveStore("home", home) then
         changed = true
     end
     return changed
@@ -1339,10 +1331,11 @@ function M.load()
     cfg, migrated_bim     = migrate_bim_folder_cover_keys(cfg)
     local migrated_reader_backup = migrate_reader_footer_backup(cfg)
     local migrated_settings_files = migrate_settings_files()
-    local migrated_page_browser = migrate_page_browser_layout(cfg)
+    local reader_store = PresetStore.loadStore("reader")
+    local migrated_page_browser = migrate_page_browser_layout(cfg, reader_store)
     local migrated_book_info = migrate_launcher_book_info(cfg)
-    load_reader_theme_settings(cfg)
-    local migrated_reader_presets = migrate_reader_preset_zen_settings()
+    load_reader_theme_settings(cfg, reader_store)
+    local migrated_reader_presets = migrate_reader_preset_zen_settings(reader_store)
     local migrated_changed_defaults
     cfg, migrated_changed_defaults = migrate_changed_defaults(cfg)
     local initialized_brand_marker = fresh_config

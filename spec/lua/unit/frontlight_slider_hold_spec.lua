@@ -50,7 +50,10 @@ describe("frontlight slider", function()
             getSize = function() return { w = 100, h = 30 } end,
             paintTo = function() end,
         }))
-        ZenSpec.replace("ui/geometry", widget_class({}))
+        ZenSpec.replace("ui/geometry", { new = function(_, o)
+            o.x, o.y = o.x or 0, o.y or 0
+            return o
+        end })
         ZenSpec.replace("ui/widget/horizontalgroup", widget_class({
             getSize = function() return { w = 400, h = 40 } end,
         }))
@@ -75,12 +78,19 @@ describe("frontlight slider", function()
                 scaleBySize = function(_, value) return value end,
             },
         })
-        local slider_class = widget_class({
+        local slider_class_methods
+        local slider_class = {
+            new = function(_, opts)
+                opts.dimen = { x = 0, y = 0, w = 300, h = 40 }
+                return setmetatable(opts, { __index = slider_class_methods })
+            end,
+        }
+        slider_class_methods = {
             getSize = function() return { w = 300, h = 40 } end,
             dirtyDimen = function(self) return self.dimen end,
             setValue = function(self, value) self.value = value end,
             paintTo = function() end,
-        })
+        }
         slider_class.refreshDrag = function(region, colored)
             dirty_calls[#dirty_calls + 1] = { mode = "drag", region = region, colored = colored }
         end
@@ -274,39 +284,64 @@ describe("frontlight slider", function()
         assert.are.equal(8, powerd.warmth)
     end)
 
-    it("refreshes status values after slider and step changes in both layouts", function()
+    it("refreshes the status row only for brightness changes, once per drag", function()
         for _i, mode in ipairs({ "brightness", "unified_warmth", "warmth" }) do
             local powerd = power_device()
             local opts = slider_opts(powerd)
             opts.show_warmth = true
+            opts.status_frontlight = true
             local menu = touch_menu()
             local status_values = {}
             menu._zen_status_timer = function(self)
                 assert.are.equal(menu, self)
-                status_values[#status_values + 1] = mode == "brightness" and powerd.intensity or powerd.warmth
+                status_values[#status_values + 1] = powerd.intensity
             end
             local module = mode == "warmth" and "warmth_slider" or "brightness_slider"
             local group = require("modules/menu/patches/" .. module)(menu, opts)
             if mode == "unified_warmth" then opts.refs.toggles[2].callback() end
-            assert.are.same({}, status_values)
             local slider = opts.refs.sliders[1].slider
             slider.on_change(12)
-            assert.are.same({ 12 }, status_values)
 
-            local number_box = find_widget(group, function(widget)
-                return widget.dimen and widget[1] and widget[1].text == "12"
-            end)
-            number_box.dimen.x, number_box.dimen.y = 130, 60
-            slider.dimen = { x = 150, y = 110, w = 300, h = 40 }
             slider._dragging = true
             slider.on_change(13)
-            assert.are.same({ 12, 13 }, status_values)
+            slider.on_change(14)
             slider._dragging = false
+            slider.on_drag_end()
 
             button(group, "＋").callback()
             button(group, "−").callback()
             button(group, "−").hold_callback()
-            assert.are.same({ 12, 13, 14, 13, 0 }, status_values)
+            if mode == "brightness" then
+                assert.are.same({ 12, 14, 15, 14, 0 }, status_values)
+            else
+                assert.are.same({}, status_values)
+            end
+        end
+
+        local opts = slider_opts(power_device())
+        local menu = touch_menu()
+        local calls = 0
+        menu._zen_status_timer = function() calls = calls + 1 end
+        require("modules/menu/patches/brightness_slider")(menu, opts)
+        opts.refs.sliders[1].slider.on_change(12)
+        assert.are.equal(0, calls)
+    end)
+
+    it("repaints only the slider and value for step taps", function()
+        for _i, module in ipairs({ "brightness_slider", "warmth_slider" }) do
+            local opts = slider_opts(power_device())
+            opts.show_warmth = module == "warmth_slider"
+            local menu = touch_menu()
+            local group = require("modules/menu/patches/" .. module)(menu, opts)
+            local slider = opts.refs.sliders[1].slider
+            slider.dimen = { x = 150, y = 110, w = 300, h = 40 }
+            local number_box = find_widget(group, function(widget)
+                return widget.dimen and widget[1] and widget[1].text ~= nil and widget[1].text:match("^%d+$")
+            end)
+            number_box.dimen.x, number_box.dimen.y = 130, 60
+            dirty_calls = {}
+            button(group, "＋").callback()
+            assert.are.same({ { mode = "ui", region = { x = 130, y = 60, w = 320, h = 90 } } }, dirty_calls)
         end
     end)
 

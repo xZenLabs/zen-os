@@ -72,17 +72,18 @@ local function copy_resume_path(path)
     return copy
 end
 
-local function item_text(item)
-    if type(item) ~= "table" then return "" end
-    local text
+local function raw_item_text(item)
     if type(item.text_func) == "function" then
         local ok, value = pcall(item.text_func)
-        if ok then text = value end
-    else
-        text = item.text
+        return ok and value or nil
     end
-    text = type(text) == "string" and text or ""
-    return ArrangeState.stripSubmenuCaret(text)
+    return item.text
+end
+
+local function item_text(item, raw)
+    if type(item) ~= "table" then return "" end
+    if raw == nil then raw = raw_item_text(item) end
+    return ArrangeState.stripSubmenuCaret(type(raw) == "string" and raw or "")
 end
 
 local function search_item_text(item)
@@ -160,17 +161,12 @@ local function callback_for(item)
     return item.callback
 end
 
-local function has_declared_submenu(item, display_text)
+-- raw_text: precomputed raw label (false = none) to avoid a second text_func call.
+local function has_declared_submenu(item, display_text, raw_text)
     if item.sub_item_table ~= nil or type(item.sub_item_table_func) == "function" then
         return true
     end
-    local raw_text
-    if type(item.text_func) == "function" then
-        local ok, value = pcall(item.text_func)
-        if ok then raw_text = value end
-    else
-        raw_text = item.text
-    end
+    if raw_text == nil then raw_text = raw_item_text(item) end
     return (type(raw_text) == "string"
         and ArrangeState.stripSubmenuCaret(raw_text) ~= raw_text)
         or item._zen_settings_submenu == true
@@ -202,10 +198,11 @@ function ZenSettingsPage:_prepareItems()
     local caret = BD.mirroredUILayout() and "chevron.left" or "chevron.right"
     for _i, item in ipairs(self.item_table or {}) do
         if type(item) == "table" then
-            local text = item_text(item)
+            local raw = raw_item_text(item) or false
+            local text = item_text(item, raw)
             item._zen_settings_row = true
             item._zen_display_text = text
-            item._zen_has_submenu = has_declared_submenu(item, text)
+            item._zen_has_submenu = has_declared_submenu(item, text, raw)
                 or (item._zen_search_result
                     and type(item._zen_search_result.open_callback) == "function")
             item._zen_caret_icon = caret
@@ -698,6 +695,9 @@ function ZenSettingsPage:_flushDeferredSettingsApplies()
     self._deferred_settings_applies_flushed = true
     local ok, settings_apply = pcall(require, "modules/settings/zen_settings_apply")
     if ok and type(settings_apply.flush_deferred_on_settings_close) == "function" then
+        -- The flush's own full refresh replaces ours on close.
+        self._apply_full_refresh = type(settings_apply.pending_full_refresh) == "function"
+            and settings_apply.pending_full_refresh()
         settings_apply.flush_deferred_on_settings_close()
     end
 end
@@ -782,7 +782,7 @@ function ZenSettingsPage:onCloseWidget()
                 end
             end
         end
-        UIManager:setDirty("all", getFullRefreshMode())
+        if not self._apply_full_refresh then UIManager:setDirty("all", getFullRefreshMode()) end
     end
     UIManager:nextTick(self._close_refresh)
     return Menu.onCloseWidget(self)

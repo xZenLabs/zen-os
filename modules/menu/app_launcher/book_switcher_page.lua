@@ -4,26 +4,18 @@ local BookStatus = require("common/book_status")
 local icons = require("common/inline_icon_map")
 local paths = require("common/paths")
 
-M.BOOK_COUNT = 4
+local PagePlan = require("modules/menu/app_launcher/page_plan")
+M.BOOK_COUNT = PagePlan.BOOK_COUNT
+M.normalizeCount = PagePlan.normalizeCount
+M.isEnabled = PagePlan.isEnabled
 
 local function launcher_config(config)
     return type(config) == "table" and config or {}
 end
 
-function M.normalizeCount(value)
-    return math.min(8, math.max(1, math.floor(tonumber(value) or M.BOOK_COUNT)))
-end
-
-function M.isEnabled(config, library_context)
-    local cfg = launcher_config(config)
-    return cfg.show_book_switcher == true
-        and not (library_context == true and cfg.book_switcher_reader_only == true)
-end
-
 function M.pagePosition(config, library_context, button_page_count)
     if not M.isEnabled(config, library_context) then return nil end
-    local plan = require("modules/menu/app_launcher/page_plan").build(
-        button_page_count, config, library_context)
+    local plan = PagePlan.build(button_page_count, config, library_context)
     for index, page in ipairs(plan) do
         if page.kind == "book_switcher" then return index end
     end

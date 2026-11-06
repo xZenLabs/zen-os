@@ -22,6 +22,7 @@ local VerticalGroup = require("ui/widget/verticalgroup")
 local ZenToggle = require("common/ui/zen_toggle")
 
 local Screen = Device.screen
+local find_upvalue = require("common/utils").findUpvalueTable
 
 local M = {}
 
@@ -230,6 +231,7 @@ local function rebuild_touch_menu_item(row)
         line_width = row.item_frame:getSize().w,
         row.item_frame,
     }
+    if row[1] then row[1]:free() end
     row[1] = row._underline_container
 end
 
@@ -432,6 +434,7 @@ local function rebuild_settings_menu_item(row)
             },
         },
     }
+    if row[1] then row[1]:free() end
     row[1] = row._underline_container
 end
 
@@ -467,18 +470,13 @@ function M.installMenuPatch()
     if not Menu._zen_icon_item_patched then
         Menu._zen_icon_item_patched = true
         local orig_updateItems = Menu.updateItems
-        local MenuItem
-        for i = 1, 64 do
-            local name, value = debug.getupvalue(orig_updateItems, i)
-            if name == nil then break end
-            if name == "MenuItem" then
-                MenuItem = value
-                break
-            end
-        end
+        -- Other patches may wrap updateItems first; follow the chain.
+        local MenuItem = find_upvalue(orig_updateItems, "MenuItem")
         if MenuItem and type(MenuItem.init) == "function" then
             local orig_menu_item_init = MenuItem.init
             MenuItem.init = function(self, ...)
+                -- Row is rebuilt below; skip stock multi-line xtext shaping.
+                if self.entry and self.entry._zen_settings_row then self.single_line = true end
                 local result = orig_menu_item_init(self, ...)
                 rebuild_settings_menu_item(self)
                 return result
@@ -517,15 +515,7 @@ function M.installMenuPatch()
 
     local ok_touch, TouchMenu = pcall(require, "ui/widget/touchmenu")
     if not ok_touch or TouchMenu._zen_icon_item_patched then return end
-    local TouchMenuItem
-    for i = 1, 64 do
-        local name, value = debug.getupvalue(TouchMenu.updateItems, i)
-        if name == nil then break end
-        if name == "TouchMenuItem" then
-            TouchMenuItem = value
-            break
-        end
-    end
+    local TouchMenuItem = find_upvalue(TouchMenu.updateItems, "TouchMenuItem")
     if not (TouchMenuItem and type(TouchMenuItem.init) == "function") then return end
     TouchMenu._zen_icon_item_patched = true
     local orig_touch_init = TouchMenuItem.init

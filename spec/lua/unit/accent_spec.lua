@@ -589,4 +589,25 @@ describe("interface accent", function()
         _G.__ZEN_UI_PLUGIN.config.accent_color = "#FFFF80"
         Accent.styleIcon({ _render = function() error("light accents keep dark icons") end }, true)
     end)
+
+    it("shares one cached inverted bitmap per icon file and size", function()
+        local source = Blitbuffer.new(2, 2, Blitbuffer.TYPE_BBRGB32)
+        source:setPixel(0, 0, Blitbuffer.ColorRGB32(0, 0, 0, 255))
+        local function icon(file)
+            return { file = file, _is_straight_alpha = true,
+                _render = function(self) self._bb, self._bb_disposable = source, false end }
+        end
+        local first, second = icon("/icons/a.svg"), icon("/icons/a.svg")
+        Accent.styleIcon(first, true)
+        Accent.styleIcon(second, true)
+        assert.are.equal(first._bb, second._bb)
+        assert.is_false(first._bb_disposable)
+        assert.are_not.equal(source, first._bb)
+        assert.are.equal(0, source:getPixel(0, 0).r)
+        assert.are.equal(255, first._bb:getPixel(0, 0).r)
+        local other = icon("/icons/b.svg")
+        Accent.styleIcon(other, true)
+        assert.are_not.equal(first._bb, other._bb)
+        source:free()
+    end)
 end)

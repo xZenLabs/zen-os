@@ -247,12 +247,29 @@ local function graphDateLabels(series, max_labels)
     return labels
 end
 
-local function queryStats()
-    local stats = StatsDB.queryStats()
-    local book_counts = LibraryDB.getBookCounts()
-    stats.books_finished = book_counts.finished
-    stats.books_reading = book_counts.reading
-    stats.total_books = BookInfoDB.getTotalBookCount()
+local BLOCK_STAT_PARTS = {
+    today = { "today", "streak" },
+    this_week = { "week" },
+    this_month = { "month" },
+    this_year = { "year", "books_year" },
+    all_time = { "lifetime" },
+    personal_records = { "peaks" },
+    goal_progress = { "today", "week", "month", "year" },
+}
+
+local function queryStats(blocks)
+    local parts, ids = {}, {}
+    for _i, block in ipairs(blocks) do
+        ids[block.id] = true
+        for _j, part in ipairs(BLOCK_STAT_PARTS[block.id] or {}) do parts[part] = true end
+    end
+    local stats = StatsDB.queryStats(parts)
+    if ids.all_time or ids.library then
+        local book_counts = LibraryDB.getBookCounts()
+        stats.books_finished = book_counts.finished
+        stats.books_reading = book_counts.reading
+    end
+    if ids.library then stats.total_books = BookInfoDB.getTotalBookCount() end
     return stats
 end
 
@@ -302,7 +319,7 @@ end
 
 local function queryDashboardData(blocks)
     local data = {
-        stats = queryStats(),
+        stats = queryStats(blocks),
         current_book = nil,
         series = {},
     }
@@ -1575,7 +1592,7 @@ function StatsPage.create(createStatusRow, repaintTitleBar, zen_plugin)
     end
 
     UIManager:scheduleIn(0, function()
-        UIManager:setDirty(menu, "flashui")
+        UIManager:setDirty(menu, "ui")
     end)
 
     return menu, true

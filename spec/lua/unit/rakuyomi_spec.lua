@@ -1,3 +1,4 @@
+require("ffi/loadlib")
 describe("Rakuyomi availability", function()
     local original_filemanager
     local original_bookinfomanager

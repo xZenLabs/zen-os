@@ -127,7 +127,20 @@ local function read_state_from_command()
     return value
 end
 
+-- Short cache: Controls rebuilds poll availability; power requests (facade changing) read live.
+local cached_value, cached_source, cached_at
+local function power_changing()
+    local facade = package.loaded["modules/menu/bluetooth/bluetooth"]
+    return type(facade) == "table" and facade.isChanging and facade.isChanging()
+end
+
+function M.onSuspend() cached_at = nil end
+
 function M.readState()
+    local now = os.time()
+    if cached_at and now - cached_at < 2 and not power_changing() then
+        return cached_value, cached_source
+    end
     local value = with_lipc(function(handle)
         local ok, state = pcall(handle.get_int_property, handle, SERVICE, "BTstate")
         return ok and state or nil
@@ -137,7 +150,8 @@ function M.readState()
         value = read_state_from_command()
         source = "command"
     end
-    return type(value) == "number" and value or nil, source
+    cached_value, cached_source, cached_at = type(value) == "number" and value or nil, source, now
+    return cached_value, source
 end
 
 -- request: { id, done, verify, logState } from bluetooth.setEnabled.

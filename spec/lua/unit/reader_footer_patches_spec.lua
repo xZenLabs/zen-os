@@ -214,6 +214,11 @@ describe("reader footer patches", function()
         assert.is_false(footer.view.footer_visible)
         assert.same({ true, true }, refresh_args)
 
+        -- Already hidden: no container rebuild.
+        refresh_args = nil
+        ReaderFooter.onReaderReady(footer)
+        assert.is_nil(refresh_args)
+
         footer.view.footer_visible = true
         ReaderFooter.applyFooterMode(footer, 3)
         assert.are.equal(3, mode)

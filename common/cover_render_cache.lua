@@ -235,6 +235,20 @@ function M:releaseShared(path, bb)
     return false
 end
 
+-- Releases a getShared() lease once, when the widget holding it is freed.
+function M:releaseOnFree(widget, path, bb)
+    if not widget or not path then return end
+    local original_free = widget.free
+    widget.free = function(w, ...)
+        local result = original_free(w, ...)
+        if path then
+            self:releaseShared(path, bb)
+            path = nil
+        end
+        return result
+    end
+end
+
 function M:put(path, width, height, bb)
     if not path or not bb then return nil end
     local cache_key = exact_key(path, width, height)

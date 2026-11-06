@@ -156,7 +156,7 @@ describe("TouchMenu footer", function()
         local result = menu:paintTo(bb, 0, 0)
         assert.are.equal("painted", result)
         assert.are.same({ "hatch", "menu" }, paint_order)
-        assert.are.same({ 0, 0, 600, 800, 2, "black", 0.4 }, hatch_args)
+        assert.are.same({ 0, 300, 600, 500, 2, "black", 0.4 }, hatch_args)
         assert.are.same({ 0, 300, 0, 300, 600, 500 }, restored)
 
         hatch_args = nil
@@ -164,11 +164,14 @@ describe("TouchMenu footer", function()
         assert.is_nil(hatch_args)
         assert.are.equal(1, copies)
 
-        for _i, height in ipairs({ 200, 600, 300 }) do
+        -- Shrinking hatches only the newly exposed rows, aligned to the stripe period.
+        for _i, case in ipairs({ { 199, { 0, 196, 600, 104, 2, "black", 0.4 } }, { 600 }, { 300 } }) do
+            local height = case[1]
+            hatch_args = nil
             menu.dimen.h = height
             menu:paintTo(bb, 0, 0)
             assert.are.same({ 0, height, 0, height, 600, 800 - height }, restored)
-            assert.is_nil(hatch_args)
+            assert.are.same(case[2], hatch_args)
             assert.are.equal(1, copies)
         end
 

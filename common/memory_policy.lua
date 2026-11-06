@@ -101,6 +101,9 @@ function M.applyCoverBudgets(render_cache, decode_cache, profile)
     set_budget(decode_cache, profile.decode_bytes * factor)
     apply_loaded_home_budget(profile)
     if profile.pressure == "critical" and last_pressure ~= "critical" then
+        if home_cache_api and type(home_cache_api.discardParked) == "function" then
+            home_cache_api.discardParked()
+        end
         collectgarbage()
         collectgarbage()
     end

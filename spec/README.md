@@ -10,6 +10,41 @@ Run all commands from the plugin root through `./spec/run`.
   through KOReader's plugin manager, and verifies both restart boundaries plus final state.
 - `update-goldens` is the only command allowed to replace committed PNG baselines.
 - `package-check` builds the plugin and asserts that test assets are absent.
+- `bench` runs emulator benchmarks and writes `spec/.artifacts/benchmark/REPORT.md`.
+
+## Benchmarks
+
+`./spec/run bench` measures the scenarios and metrics of
+[kindle_benchmark](https://github.com/d1-m4ss/kindle_benchmark) (`SCENARIOS.md`) against
+ZenOS only: start/home/library navigation, first render, sequential and cached paging,
+folder enter/back, sort, open/close book, reader page turn, quick settings, repeated
+navigation, memory checkpoints, and restart (spawn → first screen, spawn → library).
+Each sample records wall time, first content paint, action CPU, heap delta, refresh
+requests, requested and submitted dirty area, and a framebuffer hash.
+
+The harness (`zen_ui_test_driver.koplugin/zen_bench.lua`) runs in-process with no
+socket polling; `zen_bench.py` generates deterministic synthetic corpora (cached in
+`spec/.cache/bench-corpus`), orchestrates processes and aggregates. A scenario that
+fails its semantic postcondition fails the test; timings never do. The emulator is
+pinned to the upstream 1236×1648 @ 300 DPI framebuffer, so numbers are comparable in
+shape but stay emulator-relative.
+
+| Variable | Default |
+|---|---|
+| `ZEN_UI_BENCH_CORPORA` | `flat_50,flat_2000,hierarchical_50,hierarchical_2000` |
+| `ZEN_UI_BENCH_STARTUP_CORPUS` | last corpus |
+| `ZEN_UI_BENCH_RESTARTS` | `3` |
+| `ZEN_UI_BENCH_WARMUP` / `ZEN_UI_BENCH_MEASURE` | `2` / `10` |
+| `ZEN_UI_BENCH_BASELINE` | previous `results.json`; adds Δ columns |
+| `ZEN_UI_BENCH_VARIANTS` | `zenos,stock` (stock disables ZenOS; adds a ZenOS vs stock section) |
+| `ZEN_UI_BENCH_JITP` | scenario name or `startup`; writes `raw/*.json.folded` sampled stacks |
+
+Profiled runs are for attribution, not timing: the 1 ms sampling signal can disturb
+CoverBrowser's forked extractor. `python spec/python/zen_bench.py <file>.folded` prints
+inclusive/self time per frame; the folded files also feed standard flame graph tools.
+
+Keep a baseline by copying `spec/.artifacts/benchmark/results.json` before a change.
+`python spec/python/zen_bench.py results.json --baseline old.json` re-renders a report.
 
 Set `KOREADER_DIR` to an emulator runtime directory containing `luajit`,
 `frontend`, `spec/rocks`, and bundled plugins such as CoverBrowser. Emulator

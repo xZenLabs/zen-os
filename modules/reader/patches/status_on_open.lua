@@ -5,7 +5,25 @@ local function apply_status_on_open()
     ReaderUI._zen_new_status_on_open_patched = true
 
     local book_status = require("common/book_status")
+    local UIManager = require("ui/uimanager")
     local orig_onReaderReady = ReaderUI.onReaderReady
+
+    -- Collection/index writes and the sidecar flush run after the first page paint.
+    local function finishOpen(reader, doc_settings, file, was_tbr, status_changed)
+        if was_tbr then
+            pcall(function() require("common/tbr_index").setExplicit(file, false) end)
+        end
+        -- Skip once closed: closing already flushed the sidecar.
+        if reader.document and reader.doc_settings == doc_settings then
+            local acknowledged = book_status.acknowledgeNewVersion(doc_settings)
+            if (status_changed or acknowledged) and type(doc_settings.flush) == "function" then
+                doc_settings:flush()
+            end
+        end
+        if file then
+            pcall(function() require("common/tbr_index").refreshPath(file, doc_settings) end)
+        end
+    end
 
     function ReaderUI:onReaderReady(...)
         if orig_onReaderReady then
@@ -18,26 +36,17 @@ local function apply_status_on_open()
         local was_tbr = false
         if file then
             pcall(function()
-                local TBRIndex = require("common/tbr_index")
-                was_tbr = TBRIndex.isExplicit(file)
-                if was_tbr then TBRIndex.setExplicit(file, false) end
+                was_tbr = require("common/tbr_index").isExplicit(file)
             end)
         end
-        local was_on_hold = summary.status == "abandoned"
-        if was_tbr or was_on_hold then
+        local status_changed = was_tbr or summary.status == "abandoned"
+        if status_changed then
             summary.status = "reading"
             require("apps/filemanager/filemanagerutil").saveSummary(doc_settings, summary)
             require("ui/widget/booklist").setBookInfoCacheProperty(file, "status", "reading")
             book_status.invalidate(file)
         end
-        local acknowledged = book_status.acknowledgeNewVersion(doc_settings)
-        if (was_tbr or was_on_hold or acknowledged)
-                and type(doc_settings.flush) == "function" then
-            doc_settings:flush()
-        end
-        pcall(function()
-            if file then require("common/tbr_index").refreshPath(file, doc_settings) end
-        end)
+        UIManager:nextTick(finishOpen, self, doc_settings, file, was_tbr, status_changed)
         local meta = plugin and plugin.config and plugin.config._meta
         if type(meta) == "table" and meta.reader_defaults_apply_on_next_open == true then
             local ok_defaults, applied = pcall(function()

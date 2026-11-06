@@ -58,12 +58,21 @@ return function()
     if ReaderLink._zen_references_patched then return end
     ReaderLink._zen_references_patched = true
     local tap = ReaderLink.onTap
+    local probes = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }
     ReaderLink.onTap = function(self, arg, ges)
         local result = tap(self, arg, ges)
         if result or not References.enabled(self.ui) or self.ui.paging
             or G_reader_settings:isFalse("tap_to_follow_links")
             or G_reader_settings:isTrue("larger_tap_area_to_follow_links") then return result end
-        return self:onGoToPageLink(ges, true, require("device").screen:scaleByDPI(8))
+        -- Hit-test a few nearby points for an internal link; avoids getPageLinks on every page-turn tap.
+        local d = require("device").screen:scaleByDPI(8)
+        local x, y = ges.pos.x, ges.pos.y
+        for _i, o in ipairs(probes) do
+            local link = self:getLinkFromGes({ pos = { x = math.max(0, x + o[1] * d), y = math.max(0, y + o[2] * d) } })
+            if link and type(link.xpointer) == "string" and link.xpointer:sub(1, 1) == "#" then
+                return self:onGotoLink(link, false, G_reader_settings:isTrue("footnote_link_in_popup"))
+            end
+        end
     end
     local ReaderHighlight = require("apps/reader/modules/readerhighlight")
     local hold = ReaderHighlight.onHold

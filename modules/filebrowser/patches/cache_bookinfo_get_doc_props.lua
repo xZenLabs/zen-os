@@ -36,11 +36,32 @@ local function apply_cache_bookinfo_get_doc_props()
         return string.format("%s_%s_%s", file, attrs.size, attrs.modification)
     end
 
+    -- Statements are reused while docprops_cache keeps the same handle open.
+    local SQL = {
+        select = "SELECT props FROM doc_props_cache WHERE cache_key = ?",
+        insert = "INSERT OR REPLACE INTO doc_props_cache (cache_key, props, created_at) VALUES (?, ?, ?)",
+        -- Key range instead of substr() so the PRIMARY KEY index is used.
+        prune = "DELETE FROM doc_props_cache WHERE cache_key >= ? AND cache_key < ?"
+            .. " AND substr(cache_key, ?) NOT GLOB '*[^0-9_]*' AND cache_key != ?",
+    }
+    local stmt_db, stmts = nil, {}
+
+    local function statement(db, name)
+        if stmt_db ~= db then stmt_db, stmts = db, {} end
+        local stmt = stmts[name]
+        if not stmt or stmt._closed then
+            stmt = db:prepare(SQL[name])
+            stmts[name] = stmt
+        end
+        if stmt then stmt:reset():clearbind() end
+        return stmt
+    end
+
     ---@param key string
     ---@return table|nil
     local function getPropsFromCache(key)
         return Cache.withDB(function(db)
-            local stmt = db:prepare("SELECT props FROM doc_props_cache WHERE cache_key = ?")
+            local stmt = statement(db, "select")
             if not stmt then return nil end
 
             stmt:bind(key)
@@ -55,7 +76,7 @@ local function apply_cache_bookinfo_get_doc_props()
                 end
             end
 
-            stmt:close()
+            stmt:reset()
             return result
         end)
     end
@@ -69,18 +90,17 @@ local function apply_cache_bookinfo_get_doc_props()
         if not status then return end
 
         Cache.withDB(function(db)
-            local stmt = db:prepare("INSERT OR REPLACE INTO doc_props_cache (cache_key, props, created_at) VALUES (?, ?, ?)")
+            local stmt = statement(db, "insert")
             if not stmt then return end
             stmt:bind(key, props_json, os.time()):step()
-            stmt:close()
+            stmt:reset()
             -- Drop rows for older size/mtime versions of this file; otherwise the table only grows.
             local prefix = key:match("^(.*_)%d+_%d+$")
             if prefix then
-                stmt = db:prepare("DELETE FROM doc_props_cache WHERE substr(cache_key, 1, ?) = ?"
-                    .. " AND substr(cache_key, ?) NOT GLOB '*[^0-9_]*' AND cache_key != ?")
+                stmt = statement(db, "prune")
                 if stmt then
-                    stmt:bind(#prefix, prefix, #prefix + 1, key):step()
-                    stmt:close()
+                    stmt:bind(prefix, prefix .. "\255", #prefix + 1, key):step()
+                    stmt:reset()
                 end
             end
         end)

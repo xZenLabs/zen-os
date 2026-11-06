@@ -88,12 +88,9 @@ describe("file browser item-table cache", function()
         return setmetatable({ name = "filemanager" }, { __index = FileChooser })
     end
 
+    -- Snapshot writes happen on FlushSettings (suspend) / SaveSettings (FM close).
     local function run_scheduled()
-        while #scheduled > 0 do
-            local pending = scheduled
-            scheduled = {}
-            for _i, callback in ipairs(pending) do callback() end
-        end
+        FileChooser:onFlushSettings()
     end
 
     before_each(function()
@@ -826,19 +823,85 @@ describe("file browser item-table cache", function()
         assert.are.equal(1, generated["/library/series"])
     end)
 
-    it("debounces snapshot writes and cancels them before cleanup", function()
+    it("defers snapshot writes to a flush event and cancels them before cleanup", function()
         local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
         chooser:genItemTableFromPath("/library")
         chooser:_zen_clear_item_table_cache()
         chooser:_zen_clear_item_table_cache()
 
-        assert.are.equal(1, #scheduled)
+        assert.are.equal(0, #scheduled)
         assert.is_nil(persisted_store.flushed)
         chooser:_zen_cancel_item_table_cache_persist()
         persisted_store.data = { removed = true }
         run_scheduled()
+        chooser:onSaveSettings()
 
         assert.is_nil(persisted_store.flushed)
         assert.are.same({ removed = true }, persisted_store.data)
+    end)
+
+    it("batches several listings into one write and skips idle flushes", function()
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        chooser:genItemTableFromPath("/library/series")
+        chooser:onSaveSettings()
+        chooser:onFlushSettings()
+
+        assert.are.equal(1, persisted_store.flushed)
+        assert.are.same({ "/library", "/library/series" }, persisted_store.data.order)
+    end)
+
+    it("does not rewrite the snapshot when a reader return only reorders history", function()
+        collate_mode = "access"
+        source_items["/library"] = {
+            { text = "A.epub", path = "/library/A.epub", is_file = true,
+                attr = { mode = "file", modification = 1 } },
+        }
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        run_scheduled()
+        assert.are.equal(1, persisted_store.flushed)
+
+        directory_mtime = 2
+        _G.__ZEN_UI_LAST_READ_FILE = "/library/A.epub"
+        chooser:genItemTableFromPath("/library")
+        run_scheduled()
+
+        assert.are.equal("history_reorder", chooser._zen_last_item_table_cache_result.cache)
+        assert.are.equal(1, persisted_store.flushed)
+    end)
+
+    it("drops a deferred snapshot whose folder changed before the flush", function()
+        source_items["/library"] = {
+            { text = "Book.epub", path = "/library/Book.epub", is_file = true },
+        }
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        directory_mtime = 2
+        run_scheduled()
+
+        assert.is_nil(persisted_store.data.values["/library"])
+    end)
+
+    it("releases the loaded snapshot after a flush and reloads only for a matching key", function()
+        source_items["/library"] = {
+            { text = "Book.epub", path = "/library/Book.epub", is_file = true },
+        }
+        local opens = 0
+        package.loaded["luasettings"].open = function()
+            opens = opens + 1
+            return persisted_store
+        end
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        run_scheduled()
+        assert.are.equal(1, opens)
+
+        chooser:genItemTableFromPath("/library/other")
+        assert.are.equal(1, opens)
+
+        chooser:_zen_invalidate_item_table_path("/library")
+        chooser:_zen_invalidate_item_table_path("/library/other")
+        assert.are.equal(1, opens)
     end)
 end)

@@ -111,18 +111,7 @@ local function apply_zen_renderer()
             or not BookInfoManager.isCachedCoverInvalid(info, specs)
     end
 
-    local function queue_cover_hydration(item, kind)
-        if item._zen_cover_hydration_queued then return end
-        local menu = item.menu
-        if not menu then return end
-        menu._zen_cover_hydration_items = menu._zen_cover_hydration_items or {}
-        item._zen_cover_hydration_queued = true
-        item._zen_cover_hydration_kind = kind or "book"
-        menu._zen_cover_hydration_items[#menu._zen_cover_hydration_items + 1] = item
-        if type(menu._zen_request_cover_hydration) == "function" then
-            menu:_zen_request_cover_hydration()
-        end
-    end
+    local queue_cover_hydration = FolderCover.queueHydration
 
     local function is_file_manager_select_mode(path)
         local ok, FileManager = pcall(require, "apps/filemanager/filemanager")
@@ -846,7 +835,10 @@ local function apply_zen_renderer()
     end
 
     -- Cached badge text widgets live outside the widget tree; free them with the item.
-    local BADGE_KEYS = { "_zen_pages_badge", "_zen_series_badge", "_zen_progress_badge", "_zen_favorite_badge" }
+    local BADGE_KEYS = {
+        "_zen_pages_badge", "_zen_series_badge", "_zen_progress_badge",
+        "_zen_favorite_badge", "_zen_folder_count_badge",
+    }
     function ZenMosaicItem:free()
         for _i, key in ipairs(BADGE_KEYS) do
             local cached = self[key]

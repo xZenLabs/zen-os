@@ -51,6 +51,7 @@ M._last_error       = nil   -- last update-check error message for UI
 M._banner_loaded    = false -- true after init_banner() has run
 M._wakeup_timer     = nil   -- pending UIManager scheduled function (for unschedule)
 M._check_cancelled  = false -- set to true by cancel_wakeup_check to abort mid-poll
+M._check_running    = false -- true while an automatic check task is in flight
 M._on_update_found  = nil   -- optional callback fired when background check detects a new update
 
 -- ---------------------------------------------------------------------------
@@ -942,6 +943,7 @@ end
 --- Cancel any pending background wakeup check.
 function M.cancel_wakeup_check()
     M._check_cancelled = true
+    M._check_running = false
     local ok_um, UIManager = pcall(require, "ui/uimanager")
     if ok_um and UIManager and M._wakeup_timer then
         UIManager:unschedule(M._wakeup_timer)
@@ -967,6 +969,12 @@ function M.schedule_wakeup_check()
         logger.info("automatic update check status=skipped reason=interval")
         return
     end
+    -- Radio off: no timers; on_network_connected() re-arms once it connects.
+    local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
+    if not ok_nm or not NetworkMgr or not NetworkMgr:isWifiOn() then
+        logger.info("automatic update check status=skipped reason=wifi_off")
+        return
+    end
 
     local ok_um, UIManager = pcall(require, "ui/uimanager")
     if not ok_um or not UIManager then
@@ -975,8 +983,7 @@ function M.schedule_wakeup_check()
     end
 
     local function has_network()
-        local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
-        return ok_nm and NetworkMgr and NetworkMgr:isConnected()
+        return NetworkMgr:isConnected()
     end
 
     -- Run the network check; on failure retry with exponential backoff.
@@ -993,10 +1000,12 @@ function M.schedule_wakeup_check()
 
     run_check_with_retry = function(retry_count, error_delay)
         if M._check_cancelled then return end
+        M._check_running = true
         network_check_async(
             nil,  -- invisible trap: taps pass through normally
             nil,
             function(net_ok)
+                M._check_running = false
                 if M._check_cancelled then return end
                 if net_ok then
                     persist_state(os.time())
@@ -1012,6 +1021,7 @@ function M.schedule_wakeup_check()
                 end
             end,
             function()
+                M._check_running = false
                 -- Any tap dismisses the invisible trap and kills the check; retry later.
                 if not M._check_cancelled and retry_count < NET_ERROR_MAX_RETRIES then
                     schedule_retry(retry_count + 1, error_delay)
@@ -1024,7 +1034,7 @@ function M.schedule_wakeup_check()
     -- Deferred so the HTTPS call never blocks the onResume/init handler directly.
     local function attempt()
         M._wakeup_timer = nil
-        if M._check_cancelled then return end
+        if M._check_cancelled or not is_check_due() then return end
         local net_up = has_network()
         if not net_up then
             -- No network after settle delay -- retry once after NET_RETRY_DELAY.
@@ -1047,6 +1057,12 @@ function M.schedule_wakeup_check()
 
     M._wakeup_timer = attempt
     UIManager:scheduleIn(NET_SETTLE_DELAY, attempt)
+end
+
+--- Wi-Fi connected: start a due check unless one is already pending or running.
+function M.on_network_connected()
+    if M._wakeup_timer or M._check_running then return end
+    M.schedule_wakeup_check()
 end
 
 --- Check for updates with a live network request.

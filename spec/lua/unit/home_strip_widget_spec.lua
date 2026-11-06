@@ -2564,29 +2564,30 @@ describe("home strip widget", function()
         })
 
         widget:paintTo({}, 0, 0)
-        assert.are.same({ 0.35 }, scheduled_delays)
-        run_scheduled()
-        assert.are.equal(2, page_requests)
-        assert.are.equal(1, #cover_books)
+        assert.are.same({}, scheduled_delays)
+        assert.are.equal(1, page_requests)
 
         assert.is_true(widget:onSwipeStrip(nil, {
             pos = { x = 10, y = 10 }, direction = "west",
         }))
         assert.are.equal(2, page_requests)
         assert.are.equal(2, #cover_books)
+        assert.are.same({ 0.35 }, scheduled_delays)
+        run_scheduled()
+        assert.are.equal(3, page_requests)
 
         assert.is_true(widget:onSwipeStrip(nil, {
             pos = { x = 10, y = 10 }, direction = "east",
         }))
-        assert.are.equal(2, page_requests)
+        assert.are.equal(3, page_requests)
         assert.are.equal(2, #cover_books)
 
         run_scheduled()
-        assert.are.same({ 0, 1, -1 }, requested_deltas)
+        assert.are.same({ 0, 0, 1, -1 }, requested_deltas)
 
         widget:free()
         while #scheduled > 0 do run_scheduled() end
-        assert.are.equal(3, page_requests)
+        assert.are.equal(4, page_requests)
         assert.are.equal(2, #cover_books)
     end)
 
@@ -2619,9 +2620,15 @@ describe("home strip widget", function()
                 end,
                 isStripCoverWorkBusy = function() return false end,
             },
+            shiftStrip = function(_source, _count, _order, _direction, _component_id, _two_rows, refresh)
+                refresh()
+                return true
+            end,
         })
 
         widget:paintTo({}, 0, 0)
+        assert.are.equal(0, #scheduled)
+        assert.is_true(widget:onSwipeStrip(nil, { pos = { x = 10, y = 10 }, direction = "west" }))
         run_scheduled()
         assert.are.equal(4, warmed)
         assert.are.same({ 0.05 }, scheduled_delays)
@@ -2647,11 +2654,16 @@ describe("home strip widget", function()
                 end,
                 isStripCoverWorkBusy = function() return true end,
             },
+            shiftStrip = function(_source, _count, _order, _direction, _component_id, _two_rows, refresh)
+                refresh()
+                return true
+            end,
         })
 
         widget:paintTo({}, 0, 0)
+        assert.is_true(widget:onSwipeStrip(nil, { pos = { x = 10, y = 10 }, direction = "west" }))
         run_scheduled()
-        assert.are.equal(1, page_requests)
+        assert.are.equal(2, page_requests)
         assert.are.equal(0, #scheduled)
     end)
 
@@ -2671,11 +2683,16 @@ describe("home strip widget", function()
                     return { { path = "/library/current.epub", title = "Current" } }, true
                 end,
             },
+            shiftStrip = function(_source, _count, _order, _direction, _component_id, _two_rows, refresh)
+                refresh()
+                return true
+            end,
         })
 
         widget:paintTo({}, 0, 0)
+        assert.is_true(widget:onSwipeStrip(nil, { pos = { x = 10, y = 10 }, direction = "west" }))
         run_scheduled()
-        assert.are.equal(1, page_requests)
+        assert.are.equal(2, page_requests)
         assert.are.equal(0, #scheduled)
     end)
 
@@ -2708,9 +2725,6 @@ describe("home strip widget", function()
         widget:paintTo({}, 0, 0)
         run_scheduled()
         assert.are.equal(1, warm_requests)
-        assert.are.same({ 0.35, 0.4 }, scheduled_delays)
-
-        run_scheduled()
         assert.are.same({ 0.4 }, scheduled_delays)
         widget:free()
         assert.are.equal(0, #scheduled)

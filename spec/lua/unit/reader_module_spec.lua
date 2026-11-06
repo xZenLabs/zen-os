@@ -25,6 +25,7 @@ describe("reader module initialization", function()
 
     local boot_order = {
         "stable_page_statistics",
+        "opening_banner",
         "book_status",
         "end_book",
         "screensaver_cover",
@@ -32,6 +33,7 @@ describe("reader module initialization", function()
     }
     local core_order = {
         "stable_page_statistics",
+        "opening_banner",
         "book_status",
         "end_book",
         "screensaver_cover",
@@ -39,7 +41,6 @@ describe("reader module initialization", function()
         "reader_references",
         "library_navigation",
         "page_browser",
-        "opening_banner",
         "status_on_open",
         "reader_footer",
         "reader_footer_time_format",
@@ -154,7 +155,7 @@ describe("reader module initialization", function()
 
         assert.is_true(Reader.init(logger, { config = { features = {} } }))
         assert.are.equal(previous, _G.__ZEN_UI_PLUGIN)
-        assert.are.equal("end_book", calls[3])
+        assert.are.equal("end_book", calls[4])
         assert.are.equal(19, #calls)
         assert.are.equal(1, #warnings)
         assert.are.equal("grouped reader feature failed", warnings[1][1])

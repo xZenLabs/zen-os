@@ -3,7 +3,9 @@ local PresetStore = require("config/preset_store")
 
 local M = {}
 
-local DEFAULT_QUOTES = require("modules/filebrowser/patches/home/quote_list")
+local function default_quotes()
+    return require("modules/filebrowser/patches/home/quote_list")
+end
 
 local TEMPLATE = [[return {
     -- Add your quotes here, then enable Custom quotes in the Quotes widget settings.
@@ -14,6 +16,8 @@ local TEMPLATE = [[return {
 ]]
 
 local annotation_cache
+local dirty_annotation_paths = {}
+local quotes_memo -- { key, annotations, quotes, signature }
 local quote_state
 local hold_current_once = false
 
@@ -137,22 +141,10 @@ local function book_info(data, path)
     return title, authors
 end
 
--- Per-book annotation cache so a full-library rescan after an annotation
--- edit re-parses only the sidecars that actually changed.  The key is the
--- sidecar path plus its modification time and size, so an entry is reused
--- while the file on disk is byte-identical.  Bounded FIFO.
+-- Per-book annotation cache: sidecar path -> { mtime, size, items, walk }.
+-- A changed sidecar replaces its entry; a full rescan drops unseen sidecars.
 local book_annotation_cache = {}
-local book_annotation_order = {}
-local BOOK_ANNOTATION_CACHE_MAX = 4096
-
-local function cache_book_annotations(key, items)
-    book_annotation_cache[key] = items
-    book_annotation_order[#book_annotation_order + 1] = key
-    if #book_annotation_order > BOOK_ANNOTATION_CACHE_MAX then
-        local oldest = table.remove(book_annotation_order, 1)
-        book_annotation_cache[oldest] = nil
-    end
-end
+local annotation_walk = 0
 
 -- Extracts one book's annotation quotes from its sidecar.  Uses the light
 -- openSettingsFile() instead of DocSettings:open(), which stats up to ten
@@ -169,11 +161,11 @@ local function book_annotations(path, perf)
     local attrs = lfs.attributes(sidecar_file)
     local mtime, size = attrs and attrs.modification, attrs and attrs.size
     if not mtime or not size or size <= 0 then return nil end
-    local key = sidecar_file .. "\31" .. tostring(mtime) .. "\31" .. tostring(size)
-    local cached = book_annotation_cache[key]
-    if cached then
+    local cached = book_annotation_cache[sidecar_file]
+    if cached and cached.mtime == mtime and cached.size == size then
+        cached.walk = annotation_walk
         perf.sidecar_cache_hits = perf.sidecar_cache_hits + 1
-        return cached
+        return cached.items
     end
     perf.sidecar_cache_misses = perf.sidecar_cache_misses + 1
 
@@ -216,7 +208,9 @@ local function book_annotations(path, perf)
         end
     end
 
-    cache_book_annotations(key, items)
+    book_annotation_cache[sidecar_file] = {
+        mtime = mtime, size = size, items = items, walk = annotation_walk,
+    }
     return items
 end
 
@@ -232,14 +226,45 @@ local function append_annotations(quotes, path, seen_quotes, perf)
     end
 end
 
+local function sort_annotations(quotes)
+    table.sort(quotes, function(a, b)
+        if a.filepath ~= b.filepath then return a.filepath < b.filepath end
+        local a_page, b_page = tonumber(a.page) or 0, tonumber(b.page) or 0
+        if a_page ~= b_page then return a_page < b_page end
+        return a.text < b.text
+    end)
+    return quotes
+end
+
+-- Re-reads only the invalidated books and splices them into a fresh list.
+local function refresh_dirty_annotations(perf)
+    local dirty = dirty_annotation_paths
+    dirty_annotation_paths = {}
+    local quotes = {}
+    for _i, quote in ipairs(annotation_cache) do
+        if not dirty[quote.filepath] then quotes[#quotes + 1] = quote end
+    end
+    for _i, item in ipairs(require("readhistory").hist or {}) do
+        local path = item.file
+        if dirty[path] then
+            dirty[path] = nil
+            append_annotations(quotes, path, {}, perf)
+        end
+    end
+    annotation_cache = sort_annotations(quotes)
+end
+
 local function annotation_quotes(perf)
     local started_at = os.clock()
     if annotation_cache then
         perf.annotation_cache_hits = perf.annotation_cache_hits + 1
+        if next(dirty_annotation_paths) then refresh_dirty_annotations(perf) end
         perf.annotation_ms = (os.clock() - started_at) * 1000
         return annotation_cache
     end
     perf.annotation_cache_misses = perf.annotation_cache_misses + 1
+    dirty_annotation_paths = {}
+    annotation_walk = annotation_walk + 1
     local quotes, seen_books, seen_quotes = {}, {}, {}
 
     local function add_book(path)
@@ -252,14 +277,11 @@ local function annotation_quotes(perf)
     for _i, item in ipairs(ReadHistory.hist or {}) do
         add_book(item.file)
     end
+    for sidecar, cached in pairs(book_annotation_cache) do
+        if cached.walk ~= annotation_walk then book_annotation_cache[sidecar] = nil end
+    end
 
-    table.sort(quotes, function(a, b)
-        if a.filepath ~= b.filepath then return a.filepath < b.filepath end
-        local a_page, b_page = tonumber(a.page) or 0, tonumber(b.page) or 0
-        if a_page ~= b_page then return a_page < b_page end
-        return a.text < b.text
-    end)
-    annotation_cache = quotes
+    annotation_cache = sort_annotations(quotes)
     perf.annotation_ms = (os.clock() - started_at) * 1000
     return quotes
 end
@@ -288,22 +310,32 @@ function M.getQuotes(config)
         sidecar_cache_hits = 0,
         sidecar_cache_misses = 0,
     }
+    -- Rebuild only when sources, custom file stats, or the annotation list change.
+    local key_parts, custom_files = { use_defaults and "d" or "" }, {}
+    if use_custom then
+        ensure_template(quotes_path())
+        custom_files = selected_custom_files(config)
+        for _i, filename in ipairs(custom_files) do
+            local attrs = lfs.attributes(quote_file_path(filename))
+            attrs = type(attrs) == "table" and attrs or {}
+            key_parts[#key_parts + 1] = filename .. "|" .. tostring(attrs.modification) .. "|" .. tostring(attrs.size)
+        end
+    end
+    local annotations = use_annotations and annotation_quotes(perf) or nil
+    local key = table.concat(key_parts, "\0")
+    if quotes_memo and quotes_memo.key == key and quotes_memo.annotations == annotations then
+        return quotes_memo.quotes, perf
+    end
+
     local quotes = {}
     local function append(items)
         for _i, quote in ipairs(items) do quotes[#quotes + 1] = quote end
     end
-
-    if use_defaults then append(DEFAULT_QUOTES) end
-
-    if use_custom then
-        ensure_template(quotes_path())
-        for _i, filename in ipairs(selected_custom_files(config)) do
-            append(load_quote_file(filename))
-        end
-    end
-
-    if use_annotations then append(annotation_quotes(perf)) end
-    if #quotes == 0 then append(DEFAULT_QUOTES) end
+    if use_defaults then append(default_quotes()) end
+    for _i, filename in ipairs(custom_files) do append(load_quote_file(filename)) end
+    if annotations then append(annotations) end
+    if #quotes == 0 then append(default_quotes()) end
+    quotes_memo = { key = key, annotations = annotations, quotes = quotes }
     return quotes, perf
 end
 
@@ -331,6 +363,8 @@ function M.listFiles(config)
 end
 
 local function quotes_signature(quotes)
+    local memo = quotes_memo and quotes_memo.quotes == quotes and quotes_memo
+    if memo and memo.signature then return memo.signature end
     local hash = 5381
     for _i, quote in ipairs(quotes) do
         local value = table.concat({
@@ -344,7 +378,9 @@ local function quotes_signature(quotes)
             hash = (hash * 33 + value:byte(i)) % 2147483647
         end
     end
-    return tostring(#quotes) .. ":" .. tostring(hash)
+    local signature = tostring(#quotes) .. ":" .. tostring(hash)
+    if memo then memo.signature = signature end
+    return signature
 end
 
 local function shuffled_order(count)
@@ -383,11 +419,20 @@ local function load_deck(quotes)
     return order, position, created, signature
 end
 
+-- Flushes only when a stored value actually changes.
 local function save_deck(store, order, position, signature)
-    store:saveSetting("deck_order", table.concat(order, ","))
-    store:saveSetting("deck_position", position)
-    store:saveSetting("deck_signature", signature)
-    if store.flush then store:flush() end
+    local changed = false
+    local function put(key, value)
+        if store:readSetting(key) == value then return end
+        store:saveSetting(key, value)
+        changed = true
+    end
+    put("quote_day", os.date("%Y-%j"))
+    put("deck_order", table.concat(order, ","))
+    put("deck_position", position)
+    put("deck_signature", signature)
+    if changed and store.flush then store:flush() end
+    return changed
 end
 
 local function advance(order, position)
@@ -421,19 +466,13 @@ function M.selectQuote(config, rotation)
         if not created then order, position = advance(order, position) end
     end
 
-    if changed then
-        store:saveSetting("quote_day", today)
-        save_deck(store, order, position, signature)
-        perf.state_writes = 1
-    else
-        perf.state_writes = 0
-    end
+    perf.state_writes = changed and save_deck(store, order, position, signature) and 1 or 0
     return quotes[order[position]], perf
 end
 
 function M.stepQuote(config, delta)
     local quotes = M.getQuotes(config)
-    local order, position, _, signature = load_deck(quotes)
+    local order, position, _created, signature = load_deck(quotes)
     if not order then return nil end
     if delta < 0 then
         position = position - 1
@@ -441,15 +480,20 @@ function M.stepQuote(config, delta)
     else
         order, position = advance(order, position)
     end
-    local store = state_store()
-    store:saveSetting("quote_day", os.date("%Y-%j"))
-    save_deck(store, order, position, signature)
+    save_deck(state_store(), order, position, signature)
     hold_current_once = true
     return quotes[order[position]]
 end
 
-function M.invalidateAnnotations()
-    annotation_cache = nil
+-- path: refresh only that book on next use; nil drops the whole list.
+function M.invalidateAnnotations(path)
+    if type(path) == "string" and annotation_cache then
+        local ok, ffiutil = pcall(require, "ffi/util")
+        local real = ok and type(ffiutil.realpath) == "function" and ffiutil.realpath(path)
+        dirty_annotation_paths[real or path] = true -- ReadHistory stores realpaths
+    else
+        annotation_cache = nil
+    end
 end
 
 function M.ensureFile()

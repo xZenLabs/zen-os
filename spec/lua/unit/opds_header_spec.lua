@@ -292,18 +292,47 @@ describe("OPDS header", function()
             attributes = function(path) return existing_files[path] end,
         })
         ZenSpec.unload("modules/global/patches/opds")
+        ZenSpec.unload("modules/global/patches/opds_browser")
         _G.G_reader_settings = ZenSpec.memorySettings()
         _G.__ZEN_UI_PLUGIN = {
             config = { opds = {} },
             saveConfig = function() saved = saved + 1 end,
         }
-        require("modules/global/patches/opds")()
+        require("modules/global/patches/opds_browser")()
     end)
 
     after_each(function()
         ZenSpec.unload("modules/global/patches/opds")
+        ZenSpec.unload("modules/global/patches/opds_browser")
         _G.__ZEN_UI_PLUGIN = nil
         for _i, name in ipairs(replaced) do package.loaded[name] = originals[name] end
+    end)
+
+    it("defers the patch body until the first browser init", function()
+        local Deferred = { init = function(self) self.stock_init = true end }
+        ZenSpec.replace("opdsbrowser", Deferred)
+        ZenSpec.unload("modules/global/patches/opds_browser")
+        local loaded = 0
+        package.preload["modules/global/patches/opds_browser"] = function()
+            loaded = loaded + 1
+            local Browser_ = require("opdsbrowser")
+            return function()
+                local orig = Browser_.init
+                Browser_.init = function(self) orig(self); self.zen = true end
+            end
+        end
+        local ok, err = pcall(function()
+            require("modules/global/patches/opds")()
+            assert.are.equal(0, loaded)
+            local first, second = {}, {}
+            Deferred.init(first)
+            Deferred.init(second)
+            assert.are.equal(1, loaded)
+            assert.is_true(first.stock_init and first.zen)
+            assert.is_true(second.stock_init and second.zen)
+        end)
+        package.preload["modules/global/patches/opds_browser"] = nil
+        assert(ok, err)
     end)
 
     it("keeps back, refresh, search, and close together in a focusable header row", function()

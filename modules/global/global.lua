@@ -1,3 +1,5 @@
+local WifiState = require("common/wifi_state")
+
 local M = {}
 local initialized = false
 
@@ -190,12 +192,13 @@ function M.init(logger, plugin)
     if nonblocking_wifi_fn then
         run_patch(logger, plugin, "nonblocking_wifi", nonblocking_wifi_fn)
     end
-    local SCHEDULE_STATES = {
-        "__ZEN_UI_NIGHT_SCHEDULE",
+    local NIGHT_SCHEDULE_STATES = { "__ZEN_UI_NIGHT_SCHEDULE" }
+    local FRONTLIGHT_SCHEDULE_STATES = {
         "__ZEN_UI_BRIGHTNESS_SCHEDULE",
         "__ZEN_UI_WARMTH_SCHEDULE",
     }
-    local FRONTLIGHT_SCHEDULE_STATES = {
+    local SCHEDULE_STATES = {
+        "__ZEN_UI_NIGHT_SCHEDULE",
         "__ZEN_UI_BRIGHTNESS_SCHEDULE",
         "__ZEN_UI_WARMTH_SCHEDULE",
     }
@@ -215,7 +218,7 @@ function M.init(logger, plugin)
     end
 
     local function reschedule_schedules()
-        reschedule_states(SCHEDULE_STATES)
+        reschedule_states(NIGHT_SCHEDULE_STATES)
     end
 
     local function reapply_frontlight_schedules()
@@ -226,14 +229,19 @@ function M.init(logger, plugin)
         UIManager:unschedule(reschedule_schedules)
         UIManager:unschedule(reapply_frontlight_schedules)
         UIManager:scheduleIn(0.1, reschedule_schedules)
-        -- Some frontlights ignore writes immediately after resume.
+        -- Frontlight waits: some ignore writes immediately after resume.
         UIManager:scheduleIn(1.5, reapply_frontlight_schedules)
     end
 
     if type(UIManager.broadcastEvent) == "function" then
         local orig_broadcastEvent = UIManager.broadcastEvent
         UIManager.broadcastEvent = function(self, event, ...)
-            if event and event.handler == "onResume" then
+            local handler = event and event.handler
+            -- Status bars read cached Wi-Fi state; any network change or wake re-probes it.
+            if handler == "onResume" or (type(handler) == "string" and handler:find("^onNetwork")) then
+                WifiState.invalidate()
+            end
+            if handler == "onResume" then
                 schedule_resume_reapply()
             elseif event and event.handler == "onSuspend" then
                 UIManager:unschedule(reschedule_schedules)

@@ -6,6 +6,7 @@ describe("CoverBrowser decoded cover cache patch", function()
     local metadata_reads
     local current_time
     local forced_info
+    local statements_seen
 
     local function fake_bb(id)
         local bb = { stride = 4, h = 1, id = id }
@@ -33,8 +34,12 @@ describe("CoverBrowser decoded cover cache patch", function()
         metadata_reads = 0
         current_time = 100
         forced_info = nil
+        statements_seen = {}
         BookInfoManager = {
-            getBookInfo = function(_self, _filepath, get_cover)
+            getBookInfo = function(self, _filepath, get_cover)
+                if self.get_stmt then
+                    statements_seen[#statements_seen + 1] = self.get_stmt.id
+                end
                 if get_cover then
                     full_reads = full_reads + 1
                 else
@@ -114,6 +119,25 @@ describe("CoverBrowser decoded cover cache patch", function()
         assert.are.equal(1, Cache:stats().metadata_count)
     end)
 
+    it("reads metadata-only lookups through a blob-less statement", function()
+        local stock_stmt, metadata_stmt = { id = "stock" }, {
+            id = "metadata",
+            clearbind = function() end,
+            reset = function() end,
+        }
+        BookInfoManager.db_conn = {}
+        BookInfoManager.get_stmt = stock_stmt
+        ZenSpec.replace("common/db_bookinfo", {
+            getMetadataStatement = function() return metadata_stmt end,
+        })
+
+        BookInfoManager:getBookInfo("/book.epub", false)
+        BookInfoManager:getBookInfo("/book.epub", true)
+
+        assert.are.same({ "metadata", "stock" }, statements_seen)
+        assert.are.equal(stock_stmt, BookInfoManager.get_stmt)
+    end)
+
     it("invalidates a book when CoverBrowser deletes its metadata", function()
         BookInfoManager:getBookInfo("/book.epub", true)
         assert.is_true(Cache:has("/book.epub"))
@@ -140,8 +164,8 @@ describe("CoverBrowser decoded cover cache patch", function()
         }
         BookInfoManager.deleteBookInfo = function(_self, path) deleted = path end
 
-        local info = BookInfoManager:getBookInfo("/crashing.pdf", true)
-        assert.are.equal("too many interruptions or crashes", info.unsupported)
+        local result = BookInfoManager:getBookInfo("/crashing.pdf", true)
+        assert.are.equal("too many interruptions or crashes", result.unsupported)
         assert.is_nil(deleted)
     end)
 end)

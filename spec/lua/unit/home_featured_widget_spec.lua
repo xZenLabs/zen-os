@@ -133,6 +133,12 @@ describe("home featured widget", function()
             uniform_height_for_width = function(width)
                 return math.floor(width / cover_ratio)
             end,
+            target_dims = function(_book, max_w, max_h)
+                if max_h * cover_ratio <= max_w then
+                    return math.floor(max_h * cover_ratio), max_h
+                end
+                return max_w, math.floor(max_w / cover_ratio)
+            end,
             make_cover_widget = function(book, max_w, max_h, opts)
                 cover_calls[#cover_calls + 1] = { book = book, max_w = max_w, max_h = max_h, opts = opts }
                 local width, height
@@ -141,6 +147,7 @@ describe("home featured widget", function()
                 else
                     width, height = max_w, math.floor(max_w / cover_ratio)
                 end
+                cover_calls[#cover_calls].width, cover_calls[#cover_calls].height = width, height
                 local cover = widget_class("cover"):new{ width = width, height = height }
                 return cover, width, height
             end,
@@ -199,6 +206,7 @@ describe("home featured widget", function()
     it("renders the recent book cover, title, author, and description", function()
         local opened
         local actions
+        local featured_cover_dims
         local book = {
             path = "/library/alpha.epub",
             title = "Alpha",
@@ -246,7 +254,11 @@ describe("home featured widget", function()
             height = 220,
             face_label = { size = 12 },
             module_cfg = { show_description = true, progress_meta = { left = "percent", right = "total_pages" } },
-            data = { getFeaturedBook = function(_, source) assert.are.equal("recently_read", source); return book end },
+            data = { getFeaturedBook = function(_, source, _order, _metadata_only, cover_dims)
+                assert.are.equal("recently_read", source)
+                featured_cover_dims = cover_dims
+                return book
+            end },
             setWidgetActions = function(value) actions = value end,
             openBook = function(path) opened = path end,
         }, "recently_read")
@@ -256,6 +268,9 @@ describe("home featured widget", function()
         assert.are.equal("ui/widget/container/topcontainer", widget[1][1].kind)
         assert.are.equal(1, #cover_calls)
         assert.are.equal(book, cover_calls[1].book)
+        -- The provider gets the exact size make_cover_widget renders, to probe RenderCache.
+        local rendered = cover_calls[1]
+        assert.are.same({ w = rendered.width, h = rendered.height }, featured_cover_dims)
         assert.is_true(has_text("Alpha"))
         assert.equals("LibraryFont", text_widget("Alpha").face.name)
         assert.is_true(has_text("Zen Author"))

@@ -1858,6 +1858,11 @@ local Driver = WidgetContainer:extend{}
 function Driver:init()
     self.socket_path = os.getenv("ZEN_UI_TEST_SOCKET")
     self.testing = os.getenv("ZEN_UI_TESTING") == "1"
+    if os.getenv("ZEN_UI_BENCH") == "1" then
+        -- No socket polling: its 20 ms wakeups would add noise to measurements.
+        require("zen_bench").start()
+        return
+    end
     if self.testing and self.socket_path and #self.socket_path < SOCKET_PATH_MAX then
         -- Let FileManager/Reader finish opening and paint before serving commands.
         UIManager:tickAfterNext(function() self:startServer() end)

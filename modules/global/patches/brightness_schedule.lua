@@ -17,26 +17,6 @@ local function apply_brightness_schedule()
         _G.__ZEN_UI_BRIGHTNESS_SCHEDULE = state
     end
 
-    -- Re-install hooks on the current plugin instance (survives FileManager:reinit).
-    do
-        local orig_suspend = zen_plugin.onSuspend
-        zen_plugin.onSuspend = function(self, ...)
-            if state._on_suspend then state._on_suspend() end
-            if type(orig_suspend) == "function" then
-                return orig_suspend(self, ...)
-            end
-        end
-        local orig_resume = zen_plugin.onResume
-        zen_plugin.onResume = function(self, ...)
-            local result
-            if type(orig_resume) == "function" then
-                result = orig_resume(self, ...)
-            end
-            if state._on_resume then state._on_resume() end
-            return result
-        end
-    end
-
     if state.initialized then return end
 
     -- Helpers
@@ -174,9 +154,6 @@ local function apply_brightness_schedule()
     state._on_suspend = function()
         UIManager:unschedule(day_fn)
         UIManager:unschedule(night_fn)
-    end
-    state._on_resume = function()
-        UIManager:nextTick(function() reschedule() end)
     end
     state.initialized = true
 

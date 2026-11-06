@@ -22,6 +22,16 @@ local last_scan = { packs = {}, errors = {}, installed = {} }
 local scanned = false
 local test_icons_root
 local rename_path = os.rename
+-- Bounded memo of icon lookups (resolve misses included; dirs are static until restart).
+local LOOKUP_MAX = 256
+local lookup_cache, lookup_count = {}, 0
+
+local function remember(key, value)
+    if lookup_count >= LOOKUP_MAX then lookup_cache, lookup_count = {}, 0 end
+    lookup_cache[key] = value
+    lookup_count = lookup_count + 1
+    return value
+end
 
 local function is_safe_id(value)
     return type(value) == "string"
@@ -182,16 +192,33 @@ local function validate_pack_dir(path, expected_id)
     return metadata
 end
 
-local function add_pack_icons(map, path)
+-- Maps icon stems straight from one listing (.svg wins over .png); strict rejects unsafe names.
+local function list_pack_icons(path, strict)
+    local map, count = {}, 0
     local ok, iter, dir_obj = pcall(lfs.dir, path)
-    if not ok then return end
+    if not ok then return map, 0 end
     for entry in iter, dir_obj do
-        local stem = entry:match("^(.*)%.svg$") or entry:match("^(.*)%.png$")
-        if stem and is_safe_id(stem) and map[stem] == nil then
-            local icon_path = resolve_local_icon(path, stem)
-            if icon_path then map[stem] = icon_path end
+        local stem, ext = entry:match("^(.*)%.(svg)$")
+        if not stem then stem, ext = entry:match("^(.*)%.(png)$") end
+        if stem then
+            if not is_safe_id(stem) then
+                if strict then return nil, 0 end
+            elseif map[stem] == nil or ext == "svg" then
+                if map[stem] == nil then count = count + 1 end
+                map[stem] = path .. "/" .. entry
+            end
         end
     end
+    return map, count
+end
+
+-- Boot-time pack check: metadata only; the icon listing doubles as the content check.
+local function load_active_pack(path, pack_id)
+    if direct_mode(path) ~= "directory" then return nil end
+    local value = decode_json(read_file(path .. "/pack.json", MAX_JSON_SIZE))
+    if not (value and validate_pack_metadata(value, pack_id)) then return nil end
+    local map, count = list_pack_icons(path, true)
+    return count > 0 and map or nil
 end
 
 local function build_resolved_map(config)
@@ -199,6 +226,7 @@ local function build_resolved_map(config)
     active_pack_dir = nil
     resolved_icons = {}
     custom_icon_paths = {}
+    lookup_cache, lookup_count = {}, 0
 
     local features = type(config) == "table" and config.features
     local enabled = type(features) == "table" and features.custom_icons_enabled == true
@@ -206,15 +234,10 @@ local function build_resolved_map(config)
     local pack_id = type(custom) == "table" and custom.active_pack or ""
     if enabled and is_safe_id(pack_id) then
         local path = packs_root() .. "/" .. pack_id
-        if validate_pack_dir(path, pack_id) then active_pack_dir = path end
-    end
-
-    if enabled then
-        if active_pack_dir then
-            add_pack_icons(resolved_icons, active_pack_dir)
-        elseif pack_id == "" or pack_id == nil then
-            add_pack_icons(resolved_icons, icons_root())
-        end
+        local map = load_active_pack(path, pack_id)
+        if map then active_pack_dir, resolved_icons = path, map end
+    elseif enabled and (pack_id == "" or pack_id == nil) then
+        resolved_icons = list_pack_icons(icons_root())
     end
     for _name, path in pairs(resolved_icons) do custom_icon_paths[path] = true end
 end
@@ -230,7 +253,13 @@ local function install_icon_hook()
             -- TouchMenu also passes absolute plugin paths as icon names.
             if not path and self.icon:sub(1, 1) == "/" then
                 local name = self.icon:match("/([^/]+)%.svg$") or self.icon:match("/([^/]+)%.png$")
-                path = name and resolved_icons[name] or file_mode(self.icon) == "file" and self.icon
+                path = name and resolved_icons[name]
+                if not path then
+                    -- Only hits are memoized: a missing file may appear later.
+                    local key = "\0" .. self.icon
+                    path = lookup_cache[key]
+                    if not path and file_mode(self.icon) == "file" then path = remember(key, self.icon) end
+                end
             end
             if path then self.file = path end
         end
@@ -562,11 +591,24 @@ function M.scan()
     return result
 end
 
+-- Full scans only run at boot for pending ZIPs or interrupted installs.
+local function scan_needed()
+    if not make_path(packs_root()) then return true end
+    local ok, iter, dir_obj = pcall(lfs.dir, packs_root())
+    if not ok then return true end
+    for entry in iter, dir_obj do
+        if entry:sub(1, 5) == ".zen-" or entry:sub(1, 1) ~= "." and entry:lower():sub(-4) == ".zip" then
+            return true
+        end
+    end
+    return false
+end
+
 function M.initialize(config)
-    -- Disabled custom icons need no boot-time pack walk; getLastScan() scans on demand.
+    -- Pack validation is deferred to getLastScan(); boot only lists the packs folder.
     local features = type(config) == "table" and config.features
     local result = type(features) == "table" and features.custom_icons_enabled == true
-        and M.scan() or last_scan
+        and scan_needed() and M.scan() or last_scan
     build_resolved_map(config)
     install_icon_hook()
     return result
@@ -577,16 +619,23 @@ function M.bootstrap()
     install_icon_hook()
 end
 
-function M.resolve(name, plugin_icons_dir)
-    if type(name) ~= "string" then return nil end
-    local path = resolved_icons[name]
-    if path then return path end
-    path = resolve_local_icon(plugin_icons_dir, name)
+local function resolve_uncached(name, plugin_icons_dir)
+    local path = resolve_local_icon(plugin_icons_dir, name)
     if path then return path end
     for _i, dir in ipairs({ "resources/icons/mdlight", "resources/icons", "resources" }) do
         path = resolve_local_icon(lfs.currentdir() .. "/" .. dir, name)
         if path then return path end
     end
+end
+
+function M.resolve(name, plugin_icons_dir)
+    if type(name) ~= "string" then return nil end
+    local path = resolved_icons[name]
+    if path then return path end
+    local key = tostring(plugin_icons_dir) .. "\0" .. name
+    path = lookup_cache[key]
+    if path == nil then path = remember(key, resolve_uncached(name, plugin_icons_dir) or false) end
+    return path or nil
 end
 
 function M.getPickerDirectories(plugin_root_path)
@@ -644,8 +693,10 @@ end
 function M._resetForTests()
     resolved_icons = {}
     custom_icon_paths = {}
+    lookup_cache, lookup_count = {}, 0
     dark_icon_cache = setmetatable({}, { __mode = "k" })
     active_config = nil
+    scanned = false
     active_pack_dir = nil
     last_scan = { packs = {}, errors = {}, installed = {} }
     test_icons_root = nil

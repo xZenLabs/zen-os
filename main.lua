@@ -236,15 +236,16 @@ function ZenUI:init()
     self.config = ConfigManager.get() or ConfigManager.load()
     require("modules/reader/book_note").install()
     BatteryStats.start()
-    if _plugin_root then
-        require("common/utils").copyDefaultCustomTabIcon(
-            _plugin_root .. "/icons/", self.config and self.config.navbar)
-    end
     _G.__ZEN_UI_LIBRARY_FONT_CFG = self.config and self.config.library_font or nil
     _zen_plugin_ref = self
     -- KOReader builds a ZenUI per FileManager/ReaderUI; launcher upkeep runs once per process.
-    if not _process_init_done then
+    local first_instance = not _process_init_done
+    if first_instance then
         _process_init_done = true
+        if _plugin_root then
+            require("common/utils").copyDefaultCustomTabIcon(
+                _plugin_root .. "/icons/", self.config and self.config.navbar)
+        end
         for _i, integration in ipairs({
             { name = "ZenPM", method = "ensure_zenpm_launcher_entry" },
             { name = "ZenFM", method = "ensure_zenfm_launcher_entry" },
@@ -885,31 +886,34 @@ function ZenUI:init()
     end
     zen_updater._on_update_found = update_icon
 
-    -- Settings whose availability depends on external KOReader state (such as
-    -- the configured archive folder) can ask us to rebuild the cached Zen tab.
-    local archive_was_available = paths.getArchiveDir() ~= nil
-    _G.__ZEN_UI_REFRESH_SETTINGS = function(force)
-        local archive_available = paths.getArchiveDir() ~= nil
-        if not force and archive_available == archive_was_available then return end
-        if archive_available and not archive_was_available then
-            _zen_plugin_ref.config.navbar.show_tabs.archive = false
-            _zen_plugin_ref:saveConfig()
+    if first_instance then
+        -- Settings whose availability depends on external KOReader state (such as
+        -- the configured archive folder) can ask us to rebuild the cached Zen tab.
+        -- Closures only use process-wide state, so one copy serves every instance.
+        local archive_was_available = paths.getArchiveDir() ~= nil
+        _G.__ZEN_UI_REFRESH_SETTINGS = function(force)
+            local archive_available = paths.getArchiveDir() ~= nil
+            if not force and archive_available == archive_was_available then return end
+            if archive_available and not archive_was_available then
+                _zen_plugin_ref.config.navbar.show_tabs.archive = false
+                _zen_plugin_ref:saveConfig()
+            end
+            archive_was_available = archive_available
+            for m_instance in pairs(_zen_menu_instances) do
+                refresh_zen_menu_tabs(m_instance)
+            end
+            local settings_page = rawget(_G, "__ZEN_UI_SETTINGS_PAGE")
+            if settings_page and type(settings_page.updateItems) == "function" then
+                settings_page:updateItems()
+            end
+            local reinject = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
+                or rawget(_G, "__ZEN_UI_REINJECT_FM_NAVBAR")
+            if type(reinject) == "function" then reinject() end
         end
-        archive_was_available = archive_available
-        for m_instance in pairs(_zen_menu_instances) do
-            refresh_zen_menu_tabs(m_instance)
-        end
-        local settings_page = rawget(_G, "__ZEN_UI_SETTINGS_PAGE")
-        if settings_page and type(settings_page.updateItems) == "function" then
-            settings_page:updateItems()
-        end
-        local reinject = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
-            or rawget(_G, "__ZEN_UI_REINJECT_FM_NAVBAR")
-        if type(reinject) == "function" then reinject() end
-    end
 
-    -- Trigger background update check on fresh startup too, not only on resume.
-    zen_updater.schedule_wakeup_check()
+        -- Startup update check; resume and NetworkConnected re-arm it later.
+        zen_updater.schedule_wakeup_check()
+    end
 
     -- Signal that ZenOS is loaded while retaining the legacy integration event.
     do
@@ -926,8 +930,12 @@ end
 function ZenUI:addToMainMenu(menu_items) -- luacheck: ignore
 end
 
--- On resume: schedule a background update check (if due + network up).
--- Also called from init() so a fresh KOReader start triggers the same check.
+-- Unpause the shared minute heartbeat once the wake display settles.
+local function resume_clock_timer()
+    require("common/clock_timer").resume()
+end
+
+-- On resume: schedule a background update check (if due + Wi-Fi on).
 function ZenUI:onResume()
     if self._zenos_brand_inert then return end
     BatteryStats.resume()
@@ -937,9 +945,14 @@ function ZenUI:onResume()
         Incognito.onResume(self)
     end
     local UIManager = require("ui/uimanager")
-    UIManager:scheduleIn(1.5, function()
-        refresh_home_date_dependent(self)
-    end)
+    UIManager:unschedule(resume_clock_timer)
+    UIManager:scheduleIn(2, resume_clock_timer)
+end
+
+-- Wi-Fi came up after a skipped check; the updater ignores repeats while one is pending.
+function ZenUI:onNetworkConnected()
+    if self._zenos_brand_inert then return end
+    zen_updater.on_network_connected()
 end
 
 local function invalidate_annotation_quotes(plugin)
@@ -947,7 +960,9 @@ local function invalidate_annotation_quotes(plugin)
         require, "modules/filebrowser/patches/home/home_quotes"
     )
     if ok_quotes and HomeQuotes and HomeQuotes.invalidateAnnotations then
-        HomeQuotes.invalidateAnnotations()
+        -- Reader events concern the open document; FM has none, so invalidate all.
+        local document = plugin.ui and plugin.ui.document
+        HomeQuotes.invalidateAnnotations(document and document.file or nil)
     end
     refresh_home_date_dependent(plugin, true)
 end
@@ -972,10 +987,21 @@ function ZenUI:onCloseDocument()
 end
 
 -- On suspend: cancel the pending timer so checks don't run while asleep.
+-- action: "flush" writes pending library snapshots; "cancel" drops them for good.
+local function item_table_cache_persist(action)
+    local FileChooser = package.loaded["ui/widget/filechooser"]
+    local fn = FileChooser and FileChooser["_zen_" .. action .. "_item_table_cache_persist"]
+    if type(fn) == "function" then fn(FileChooser) end
+end
+
 function ZenUI:onSuspend()
     if self._zenos_brand_inert then return end
     BatteryStats.suspend()
     zen_updater.cancel_wakeup_check()
+    item_table_cache_persist("flush")
+    local UIManager = require("ui/uimanager")
+    UIManager:unschedule(resume_clock_timer)
+    require("common/clock_timer").pause()
     require("modules/menu/bluetooth/bluetooth").onSuspend()
     local ok_incognito, Incognito = pcall(require, "modules/global/patches/incognito_mode")
     if ok_incognito and type(Incognito.onSuspend) == "function" then
@@ -1006,18 +1032,10 @@ local function close_zen_standalone_views(shared)
     end
 end
 
-local function cancel_item_table_cache_persist()
-    local ok, FileChooser = pcall(require, "ui/widget/filechooser")
-    if ok and FileChooser
-            and type(FileChooser._zen_cancel_item_table_cache_persist) == "function" then
-        FileChooser:_zen_cancel_item_table_cache_persist()
-    end
-end
-
 function ZenUI:onCloseWidget()
     if self._zenos_brand_inert then return end
     BatteryStats.flush()
-    cancel_item_table_cache_persist()
+    item_table_cache_persist("flush")
     close_zen_standalone_views(self._zen_shared)
     local cache = package.loaded["common/docprops_cache"]
     if cache then cache.close() end
@@ -1029,7 +1047,7 @@ function ZenUI:deletePluginSettings()
     zen_updater.cancel_wakeup_check()
     BatteryStats.stop()
     zen_updater._on_update_found = nil
-    cancel_item_table_cache_persist()
+    item_table_cache_persist("cancel")
 
     if G_reader_settings:readSetting("end_document_action") == "zen_end_book" then
         G_reader_settings:saveSetting("end_document_action", "book_status")

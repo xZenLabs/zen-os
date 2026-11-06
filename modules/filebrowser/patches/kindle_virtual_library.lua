@@ -4,7 +4,10 @@ local PluginScan = require("modules/menu/app_launcher/plugin_scan")
 local PLUGIN_KEYS = { "kindle", "kindle_plugin" }
 local OPEN_METHOD = "onShowKindleLibrary"
 local THUMBNAILS_DIR = "/mnt/us/system/thumbnails"
+local THUMBNAIL_CACHE_MAX = 512
+local THUMBNAIL_MISS_TTL_S = 30
 local thumbnail_index
+local thumbnail_cache, thumbnail_cache_count = {}, 0
 
 local function suppress_reader_menu(plugin)
     local ui = plugin and plugin.ui
@@ -116,8 +119,7 @@ local function image_size(path)
     return image_size_from_data(data)
 end
 
-local function thumbnail_path(cde_key)
-    if type(cde_key) ~= "string" or cde_key == "" then return nil end
+local function find_thumbnail(cde_key)
     for _i, cde_type in ipairs({ "EBOK", "PDOC" }) do
         local path = THUMBNAILS_DIR .. "/thumbnail_" .. cde_key
             .. "_" .. cde_type .. "_portrait.jpg"
@@ -143,6 +145,35 @@ local function thumbnail_path(cde_key)
     if not path then return nil end
     local width, height = image_size(path)
     if width and height then return path, width, height end
+end
+
+local function modification(path)
+    local ok, lfs = pcall(require, "libs/libkoreader-lfs")
+    return ok and lfs.attributes(path, "modification") or nil
+end
+
+-- Memoized per cde_key: a hit costs one stat instead of reading up to 128KB.
+local function thumbnail_path(cde_key)
+    if type(cde_key) ~= "string" or cde_key == "" then return nil end
+    local hit = thumbnail_cache[cde_key]
+    if hit then
+        if hit.path and modification(hit.path) == hit.mtime then
+            return hit.path, hit.w, hit.h
+        elseif not hit.path and os.time() - hit.checked_at < THUMBNAIL_MISS_TTL_S then
+            return nil
+        end
+    else
+        if thumbnail_cache_count >= THUMBNAIL_CACHE_MAX then
+            thumbnail_cache, thumbnail_cache_count = {}, 0
+        end
+        thumbnail_cache_count = thumbnail_cache_count + 1
+    end
+    local path, width, height = find_thumbnail(cde_key)
+    thumbnail_cache[cde_key] = {
+        path = path, w = width, h = height,
+        mtime = path and modification(path), checked_at = os.time(),
+    }
+    return path, width, height
 end
 M._thumbnailPath = thumbnail_path
 
@@ -383,6 +414,7 @@ function M._decorateLibraryView(menu, plugin)
     menu._zen_renderer = true
     menu._do_center_partial_rows = false
     thumbnail_index = nil
+    thumbnail_cache, thumbnail_cache_count = {}, 0
 
     require("common/ui/background").applyToMenu(menu)
     local StandalonePage = require("modules/filebrowser/patches/standalone_page")

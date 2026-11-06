@@ -1,5 +1,8 @@
 local M = {}
 
+-- (name, size) -> face or false; Font doesn't cache failed loads, which would retry and log every paint.
+local faces, face_count = {}, 0
+
 function M.getHeaderFace(cfg)
     local Font = require("ui/font")
     local footer_settings = G_reader_settings:readSetting("footer")
@@ -8,7 +11,28 @@ function M.getHeaderFace(cfg)
         and ((footer_settings and footer_settings.text_font_face) or "NotoSans-Regular.ttf")
         or face_cfg
     local font_size = type(cfg) == "table" and cfg.font_size or 14
-    return Font:getFace(font_name, font_size) or Font:getFace("cfont", font_size)
+    local key = font_name .. "\0" .. font_size
+    local face = faces[key]
+    if face == nil then
+        if face_count >= 16 then faces, face_count = {}, 0 end
+        face = Font:getFace(font_name, font_size) or false
+        faces[key], face_count = face, face_count + 1
+    end
+    return face or Font:getFace("cfont", font_size)
+end
+
+-- Header band height; pin icons may be taller than the text line.
+function M.getHeaderHeight(cfg, has_pin)
+    local Size = require("ui/size")
+    local text = require("ui/widget/textwidget"):new{ text = "", face = M.getHeaderFace(cfg), padding = 0 }
+    local height = text:getSize().h
+    text:free()
+    if has_pin then
+        height = math.max(height, require("device").screen:scaleBySize((type(cfg) == "table" and cfg.font_size or 14) + 2))
+    end
+    height = height + Size.padding.small
+    if type(cfg) == "table" and cfg.show_bottom_border == true then height = height + Size.line.medium end
+    return height
 end
 
 function M.getFooterForSettings()
@@ -101,7 +125,15 @@ end
 
 function M.toggleTopBar(view)
     G_reader_settings:flipNilOrFalse(TOP_TAP_HIDDEN)
-    require("ui/uimanager"):setDirty(view.dialog, "ui", view._zen_header_dimen)
+    local dimen = view._zen_header_dimen
+    if not dimen then -- Hidden since open: refresh the header band, not the whole screen.
+        local plugin = rawget(_G, "__ZEN_UI_PLUGIN")
+        dimen = require("ui/geometry"):new{
+            x = 0, y = 0, w = require("device").screen:getWidth(),
+            h = M.getHeaderHeight(plugin and plugin.config and plugin.config.reader_top_status_bar, true),
+        }
+    end
+    require("ui/uimanager"):setDirty(view.dialog, "ui", dimen)
 end
 
 -- Off <-> on regardless of all_at_once (stock tap cycles items when it's off).

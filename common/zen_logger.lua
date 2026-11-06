@@ -14,7 +14,8 @@ M.SLOW_THRESHOLD_MS = 500
 local function has_network_identifiers(...)
     for i = 1, select("#", ...) do
         local message = select(i, ...)
-        if type(message) == "string" then
+        -- Every identifier below needs ":", "=" or "."; most log lines exit here.
+        if type(message) == "string" and message:find("[:=%.]") then
             local network = message:match("NetworkMgr:%s*(.*)")
                 or message:match("WpaSupplicant:%s*(.*)")
             if network then
@@ -27,8 +28,8 @@ local function has_network_identifiers(...)
                     return true
                 end
             end
-            local lower = message:lower()
-            if lower:find("%f[%w]e?ssid%W*[=:]") or lower:find("%f[%w]ip%W*[=:]")
+            if message:find("%f[%w][eE]?[sS][sS][iI][dD]%W*[=:]")
+                    or message:find("%f[%w][iI][pP]%W*[=:]")
                     or message:find("%d+%.%d+%.%d+%.%d+")
                     or message:find("%f[%w_:%.][%x:]*::[%x:%.]*%f[^%w_:%.]")
                     or message:find("%f[%w_:%.]%x+:%x+:%x+:%x+:%x+:%x+:%x+:%x+%f[^%w_:%.]") then

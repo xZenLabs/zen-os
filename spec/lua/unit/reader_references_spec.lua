@@ -210,6 +210,27 @@ describe("reader references", function()
         assert.equals(2, #References.pins(ui))
     end)
 
+    it("caches pinned pages for header paints until pins change or the book repaginates", function()
+        References.setPin(ui, 8)
+        local lookups = 0
+        local resolve = ui.document.getPageFromXPointer
+        ui.document.getPageFromXPointer = function(...) lookups = lookups + 1; return resolve(...) end
+        assert.is_true(References.isPinned(ui, 8))
+        assert.is_false(References.isPinned(ui, 9))
+        assert.is_true(References.isPinned(ui, 8))
+        assert.equals(1, lookups)
+
+        References.setPin(ui, 9)
+        assert.is_true(References.isPinned(ui, 9))
+        ui.document.getPageFromXPointer = function(_self, xp) return tonumber(xp:match("%d+")) + 2 end
+        assert.is_true(References.isPinned(ui, 9)) -- Same rendering: cached pages.
+        ui.rolling.rendering_hash = 42
+        assert.is_true(References.isPinned(ui, 11))
+        assert.is_true(References.isPinned(ui, 9)) -- Anchor xpointer still matches.
+        assert.is_true(References.isPinned(ui, 10))
+        assert.is_false(References.isPinned(ui, 12))
+    end)
+
     it("clears temporary state and closes the drawer on document close", function()
         local closed = 0
         ui._zen_references = { footnote = {}, drawer = { onClose = function() closed = closed + 1 end } }
@@ -691,13 +712,26 @@ describe("native footnote adapter", function()
 
     it("adds a small scaled internal-link tap allowance after precise detection misses", function()
         local ges = { pos = { x = 100, y = 200 } }
-        local link = setmetatable({ ui = ui, onGoToPageLink = function(_self, gesture, internal_only, distance)
-            assert.equals(ges, gesture)
-            assert.is_true(internal_only)
-            assert.equals(16, distance)
-            return "nearby link"
-        end }, { __index = ReaderLink })
+        local probed, targets = {}, { ["100,184"] = "#note", ["116,200"] = "http://example.com" }
+        local link = setmetatable({ ui = ui,
+            getLinkFromGes = function(_self, gesture)
+                local key = gesture.pos.x .. "," .. gesture.pos.y
+                probed[#probed + 1] = key
+                return targets[key] and { xpointer = targets[key] }
+            end,
+            onGotoLink = function(_self, target, neglect, popup)
+                assert.equals("#note", target.xpointer)
+                assert.is_false(neglect)
+                assert.is_true(popup)
+                return "nearby link"
+            end,
+            onGoToPageLink = function() error("scanned page links") end,
+        }, { __index = ReaderLink })
+        G_reader_settings:saveSetting("footnote_link_in_popup", true)
         assert.equals("nearby link", link:onTap(nil, ges))
+        assert.same({ "116,200", "84,200", "100,216", "100,184" }, probed)
+        targets["100,184"] = nil
+        assert.is_nil(link:onTap(nil, ges))
         link.native_tap_result = "precise link"
         assert.equals("precise link", link:onTap(nil, ges))
         link.native_tap_result = nil

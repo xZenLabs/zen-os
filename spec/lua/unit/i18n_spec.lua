@@ -123,6 +123,9 @@ describe("ZenOS translations", function()
     end)
 
     it("parses each catalog once and only re-injects on refresh", function()
+        local cache = require("datastorage"):getDataDir() .. "/cache/zen-i18n-"
+        os.remove(cache .. "pt_BR.lua")
+        os.remove(cache .. "pt_PT.lua")
         local opened = {}
         local open = io.open
         rawset(io, "open", function(path, ...)
@@ -140,6 +143,43 @@ describe("ZenOS translations", function()
 
             methods.changeLang("pt_PT")
             assert.are.equal(2, #opened)
+        end)
+        rawset(io, "open", open)
+        assert(ok, err)
+    end)
+
+    it("loads parsed catalogs from the cache and reparses stale ones", function()
+        local cache = require("datastorage"):getDataDir() .. "/cache/zen-i18n-pt_BR.lua"
+        os.remove(cache)
+        local opened = 0
+        local open = io.open
+        rawset(io, "open", function(path, ...)
+            if type(path) == "string" and path:match("%.po$") then opened = opened + 1 end
+            return open(path, ...)
+        end)
+        local ok, err = pcall(function()
+            require("common/i18n").install()
+            assert.are.equal(1, opened)
+            local fh = assert(open(cache, "r"))
+            fh:close()
+
+            local function reload()
+                require("common/i18n").uninstall()
+                ZenSpec.unload("common/i18n")
+                GetText.translation = {}
+                require("common/i18n").install()
+            end
+            reload()
+            assert.are.equal(1, opened)
+            assert.are.equal("Biblioteca", GetText("Library"))
+            assert.are.equal("Barra de navegação", GetText("Navbar"))
+
+            local f = open(cache, "w")
+            f:write('return{stamp="stale",n=1,t={Library="x"},c={}}')
+            f:close()
+            reload()
+            assert.are.equal(2, opened)
+            assert.are.equal("Biblioteca", GetText("Library"))
         end)
         rawset(io, "open", open)
         assert(ok, err)

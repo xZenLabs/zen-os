@@ -58,14 +58,9 @@ local function apply_opening_banner()
     -- the tapped cover cell; falls back to a full-width strip at the bottom
     -- of the screen when cover geometry is unknown (list mode, History, etc.).
 
-    local ReaderUI = require("apps/reader/readerui")
     local UIManager = require("ui/uimanager")
     local Device = require("device")
     local Screen = Device.screen
-
-    if type(ReaderUI.showReaderCoroutine) ~= "function" then
-        return
-    end
 
     -- Capture plugin reference while __ZEN_UI_PLUGIN is still set (it is cleared
     -- after patch application, so rawget at coroutine-time returns nil).
@@ -155,20 +150,6 @@ local function apply_opening_banner()
 
     local function set_opening_banner_cover(cover_widget)
         return set_opening_banner_dimen(cover_widget and cover_widget.dimen, cover_widget, false, true)
-    end
-
-    local ok_highlight, ReaderHighlight = pcall(require, "apps/reader/modules/readerhighlight")
-    if ok_highlight and type(ReaderHighlight.onTap) == "function"
-            and not ReaderHighlight._zen_visible_boxes_guard then
-        ReaderHighlight._zen_visible_boxes_guard = true
-        local orig_onTap = ReaderHighlight.onTap
-        ReaderHighlight.onTap = function(self, arg, ges)
-            local highlight = self.view and self.view.highlight
-            if not self.hold_pos and ges and highlight and highlight.visible_boxes == nil then
-                return
-            end
-            return orig_onTap(self, arg, ges)
-        end
     end
 
     -- Hook MosaicMenuItem.onTapSelect to capture cover cell geometry
@@ -576,146 +557,166 @@ local function apply_opening_banner()
     -- Home and Zen Mosaic book widgets bypass KOReader's stock item hooks.
     rawset(_G, "__ZEN_UI_SET_OPENING_BANNER_COVER", set_opening_banner_cover)
 
-    local orig_show_reader = ReaderUI.showReader
-    ReaderUI.showReader = function(self, ...)
-        if not _last_cover_dimen then _tap_seq = _tap_seq + 1 end
-        return orig_show_reader(self, ...)
-    end
+    -- ReaderUI-side patches wait until KOReader first loads ReaderUI; tap hooks above stay at boot.
+    require("common/on_require").whenLoaded("apps/reader/readerui", function()
+        local ReaderUI = require("apps/reader/readerui")
+        if type(ReaderUI.showReaderCoroutine) ~= "function" then return end
 
-    -- Patch showReaderCoroutine.
-    -- Do not show the stock opening message on duplicate opens, but preserve
-    -- its next-tick transition: replacing ReaderUI during the current gesture
-    -- lets that gesture reach the unpainted reader.
-    local function _show_reader_no_banner(self, file, provider, seamless)
-        logger.info("_show_reader_no_banner called, file=", tostring(file))
-        -- Keep UIManager alive for callers that unwind their widget tree before
-        -- the next tick (notably Rakuyomi), without displaying a second banner.
-        local pending = Widget:new{ invisible = true }
-        UIManager:show(pending)
-        UIManager:nextTick(function()
-            UIManager:close(pending)
-            logger.info("_show_reader_no_banner creating doShowReader coroutine, file=", tostring(file), "provider=", tostring(provider))
-            local co = coroutine.create(function()
-                logger.info("_show_reader_no_banner doShowReader coroutine starting")
-                local started_at = os.clock()
-                local doc_ok, doc_err = pcall(function()
-                    self:doShowReader(file, provider, seamless)
-                end)
-                if not doc_ok then
-                    logger.err("_show_reader_no_banner doShowReader threw error:", tostring(doc_err))
-                    logger.err("_show_reader_no_banner doShowReader traceback:", debug.traceback())
+        local ok_highlight, ReaderHighlight = pcall(require, "apps/reader/modules/readerhighlight")
+        if ok_highlight and type(ReaderHighlight.onTap) == "function"
+                and not ReaderHighlight._zen_visible_boxes_guard then
+            ReaderHighlight._zen_visible_boxes_guard = true
+            local orig_onTap = ReaderHighlight.onTap
+            ReaderHighlight.onTap = function(self, arg, ges)
+                local highlight = self.view and self.view.highlight
+                if not self.hold_pos and ges and highlight and highlight.visible_boxes == nil then
+                    return
                 end
-                logger.info("_show_reader_no_banner doShowReader coroutine finished, ok=", tostring(doc_ok))
-                logger.perf("Book open completed", (os.clock() - started_at) * 1000,
-                    "file=", tostring(file), "ok=", tostring(doc_ok))
-            end)
-            logger.info("_show_reader_no_banner resuming doShowReader coroutine")
-            local ok, err = coroutine.resume(co)
-            logger.info("_show_reader_no_banner doShowReader coroutine resumed, ok=", tostring(ok), "err=", tostring(err))
-            if err ~= nil or ok == false then
-                logger.err("_show_reader_no_banner coroutine crashed, err=", tostring(err), "ok=", tostring(ok))
-                logger.err("doShowReader coroutine crash traceback:", debug.traceback(co, err, 1))
-                Device:setIgnoreInput(false)
-                local Input = require("device/input")
-                Input:inhibitInputUntil(0.2)
-                local InfoMessage = require("ui/widget/infomessage")
-                UIManager:show(InfoMessage:new{
-                    text = _("No reader engine for this file or invalid file."),
-                })
-                self:showFileManager(file)
+                return orig_onTap(self, arg, ges)
             end
-        end)
-    end
+        end
+
+        local orig_show_reader = ReaderUI.showReader
+        ReaderUI.showReader = function(self, ...)
+            if not _last_cover_dimen then _tap_seq = _tap_seq + 1 end
+            return orig_show_reader(self, ...)
+        end
+
+        -- Patch showReaderCoroutine.
+        -- Do not show the stock opening message on duplicate opens, but preserve
+        -- its next-tick transition: replacing ReaderUI during the current gesture
+        -- lets that gesture reach the unpainted reader.
+        local function _show_reader_no_banner(self, file, provider, seamless)
+            logger.info("_show_reader_no_banner called, file=", tostring(file))
+            -- Keep UIManager alive for callers that unwind their widget tree before
+            -- the next tick (notably Rakuyomi), without displaying a second banner.
+            local pending = Widget:new{ invisible = true }
+            UIManager:show(pending)
+            UIManager:nextTick(function()
+                UIManager:close(pending)
+                logger.info("_show_reader_no_banner creating doShowReader coroutine, file=", tostring(file), "provider=", tostring(provider))
+                local co = coroutine.create(function()
+                    logger.info("_show_reader_no_banner doShowReader coroutine starting")
+                    local started_at = os.clock()
+                    local doc_ok, doc_err = pcall(function()
+                        self:doShowReader(file, provider, seamless)
+                    end)
+                    if not doc_ok then
+                        logger.err("_show_reader_no_banner doShowReader threw error:", tostring(doc_err))
+                        logger.err("_show_reader_no_banner doShowReader traceback:", debug.traceback())
+                    end
+                    logger.info("_show_reader_no_banner doShowReader coroutine finished, ok=", tostring(doc_ok))
+                    logger.perf("Book open completed", (os.clock() - started_at) * 1000,
+                        "file=", tostring(file), "ok=", tostring(doc_ok))
+                end)
+                logger.info("_show_reader_no_banner resuming doShowReader coroutine")
+                local ok, err = coroutine.resume(co)
+                logger.info("_show_reader_no_banner doShowReader coroutine resumed, ok=", tostring(ok), "err=", tostring(err))
+                if err ~= nil or ok == false then
+                    logger.err("_show_reader_no_banner coroutine crashed, err=", tostring(err), "ok=", tostring(ok))
+                    logger.err("doShowReader coroutine crash traceback:", debug.traceback(co, err, 1))
+                    Device:setIgnoreInput(false)
+                    local Input = require("device/input")
+                    Input:inhibitInputUntil(0.2)
+                    local InfoMessage = require("ui/widget/infomessage")
+                    UIManager:show(InfoMessage:new{
+                        text = _("No reader engine for this file or invalid file."),
+                    })
+                    self:showFileManager(file)
+                end
+            end)
+        end
 
         ReaderUI.showReaderCoroutine = function(self, file, provider, seamless)
-        logger.info("showReaderCoroutine called, file=", tostring(file), "provider=", tostring(provider), "seamless=", tostring(seamless))
-        local suppress_banner = suppress_next_banner
-        suppress_next_banner = false
-        if seamless then
-            -- Seamless reloads must keep KOReader's behavior (invisible InfoMessage).
-            logger.info("seamless reload, delegating to _show_reader_no_banner")
-            clear_pending_banner()
-            return _show_reader_no_banner(self, file, provider, seamless)
-        end
-        -- While the banner is already on screen + doShowReader is running,
-        -- skip entirely: the first call's nextTick will open the reader.
-        if _banner_active then
-            return
-        end
-        -- KOReader calls showReaderCoroutine more than once per tap in some
-        -- cases (e.g. a DOM-version reload scheduled via nextTick during
-        -- reader init). After the first banner for a given tap, run the
-        -- reload via our InfoMessage-free path so no second banner appears.
-        if suppress_banner or _last_banner_seq == _tap_seq then
-            _last_banner_seq = _tap_seq
-            return _show_reader_no_banner(self, file, provider, seamless)
-        end
-        _last_banner_seq = _tap_seq
-        _banner_active = true
-
-        local cover    = _last_cover_dimen
-        _last_cover_dimen = nil     -- consume immediately
-        local banner
-        if pending_banner and pending_banner_seq == _tap_seq then
-            banner = pending_banner
-            pending_banner = nil
-            pending_banner_seq = nil
-        else
-            clear_pending_banner()
-            local dimen
-            banner, dimen = build_banner(cover)
-            show_banner(banner, dimen)
-        end
-
-        UIManager:nextTick(function()
-            -- Close the banner before opening the reader: an orphaned banner
-            -- prevents _gated_quit from firing (UIManager stack never empties),
-            -- causing KOReader to hang when the user quits from any menu.
-            UIManager:close(banner)
-            logger.warn("nextTick fired, creating doShowReader coroutine")
-
-            -- Keep _banner_active=true until doShowReader completes so any
-            -- spurious second showReaderCoroutine call is blocked by the guard.
-            logger.info("creating coroutine for doShowReader, file=", tostring(file), "provider=", tostring(provider))
-            local co = coroutine.create(function()
-                logger.info("doShowReader coroutine starting")
-                local started_at = os.clock()
-                local doc_ok, doc_err = pcall(function()
-                    self:doShowReader(file, provider, seamless)
-                end)
-                if not doc_ok then
-                    logger.err("doShowReader threw error:", tostring(doc_err))
-                    logger.err("doShowReader traceback:", debug.traceback())
-                end
-                logger.info("doShowReader coroutine finished, ok=", tostring(doc_ok))
-                logger.perf("Book open completed", (os.clock() - started_at) * 1000,
-                    "file=", tostring(file), "ok=", tostring(doc_ok))
-            end)
-            logger.info("resuming doShowReader coroutine")
-            local ok, err = coroutine.resume(co)
-            -- Reset AFTER doShowReader finishes. Sync _last_banner_seq to the
-            -- CURRENT _tap_seq (not just the value when the banner was shown) so
-            -- any tap that arrived during loading (incrementing _tap_seq) doesn't
-            -- bypass the same-seq guard for subsequent reloads. Also discard any
-            -- stale _last_cover_dimen that a mid-load tap may have written.
-            _banner_active = false
-            _last_banner_seq = _tap_seq
-            _last_cover_dimen = nil
-            logger.info("doShowReader coroutine resumed, ok=", tostring(ok), "err=", tostring(err))
-            if err ~= nil or ok == false then
-                logger.err("doShowReader coroutine crashed in showReaderCoroutine, err=", tostring(err), "ok=", tostring(ok))
-                logger.err("doShowReader coroutine crash traceback:", debug.traceback(co, err, 1))
-                Device:setIgnoreInput(false)
-                local Input = require("device/input")
-                Input:inhibitInputUntil(0.2)
-                local InfoMessage = require("ui/widget/infomessage")
-                UIManager:show(InfoMessage:new{
-                    text = _("No reader engine for this file or invalid file."),
-                })
-                self:showFileManager(file)
+            logger.info("showReaderCoroutine called, file=", tostring(file), "provider=", tostring(provider), "seamless=", tostring(seamless))
+            local suppress_banner = suppress_next_banner
+            suppress_next_banner = false
+            if seamless then
+                -- Seamless reloads must keep KOReader's behavior (invisible InfoMessage).
+                logger.info("seamless reload, delegating to _show_reader_no_banner")
+                clear_pending_banner()
+                return _show_reader_no_banner(self, file, provider, seamless)
             end
-        end)
-    end
+            -- While the banner is already on screen + doShowReader is running,
+            -- skip entirely: the first call's nextTick will open the reader.
+            if _banner_active then
+                return
+            end
+            -- KOReader calls showReaderCoroutine more than once per tap in some
+            -- cases (e.g. a DOM-version reload scheduled via nextTick during
+            -- reader init). After the first banner for a given tap, run the
+            -- reload via our InfoMessage-free path so no second banner appears.
+            if suppress_banner or _last_banner_seq == _tap_seq then
+                _last_banner_seq = _tap_seq
+                return _show_reader_no_banner(self, file, provider, seamless)
+            end
+            _last_banner_seq = _tap_seq
+            _banner_active = true
+
+            local cover    = _last_cover_dimen
+            _last_cover_dimen = nil     -- consume immediately
+            local banner
+            if pending_banner and pending_banner_seq == _tap_seq then
+                banner = pending_banner
+                pending_banner = nil
+                pending_banner_seq = nil
+            else
+                clear_pending_banner()
+                local dimen
+                banner, dimen = build_banner(cover)
+                show_banner(banner, dimen)
+            end
+
+            UIManager:nextTick(function()
+                -- Close the banner before opening the reader: an orphaned banner
+                -- prevents _gated_quit from firing (UIManager stack never empties),
+                -- causing KOReader to hang when the user quits from any menu.
+                UIManager:close(banner)
+                logger.warn("nextTick fired, creating doShowReader coroutine")
+
+                -- Keep _banner_active=true until doShowReader completes so any
+                -- spurious second showReaderCoroutine call is blocked by the guard.
+                logger.info("creating coroutine for doShowReader, file=", tostring(file), "provider=", tostring(provider))
+                local co = coroutine.create(function()
+                    logger.info("doShowReader coroutine starting")
+                    local started_at = os.clock()
+                    local doc_ok, doc_err = pcall(function()
+                        self:doShowReader(file, provider, seamless)
+                    end)
+                    if not doc_ok then
+                        logger.err("doShowReader threw error:", tostring(doc_err))
+                        logger.err("doShowReader traceback:", debug.traceback())
+                    end
+                    logger.info("doShowReader coroutine finished, ok=", tostring(doc_ok))
+                    logger.perf("Book open completed", (os.clock() - started_at) * 1000,
+                        "file=", tostring(file), "ok=", tostring(doc_ok))
+                end)
+                logger.info("resuming doShowReader coroutine")
+                local ok, err = coroutine.resume(co)
+                -- Reset AFTER doShowReader finishes. Sync _last_banner_seq to the
+                -- CURRENT _tap_seq (not just the value when the banner was shown) so
+                -- any tap that arrived during loading (incrementing _tap_seq) doesn't
+                -- bypass the same-seq guard for subsequent reloads. Also discard any
+                -- stale _last_cover_dimen that a mid-load tap may have written.
+                _banner_active = false
+                _last_banner_seq = _tap_seq
+                _last_cover_dimen = nil
+                logger.info("doShowReader coroutine resumed, ok=", tostring(ok), "err=", tostring(err))
+                if err ~= nil or ok == false then
+                    logger.err("doShowReader coroutine crashed in showReaderCoroutine, err=", tostring(err), "ok=", tostring(ok))
+                    logger.err("doShowReader coroutine crash traceback:", debug.traceback(co, err, 1))
+                    Device:setIgnoreInput(false)
+                    local Input = require("device/input")
+                    Input:inhibitInputUntil(0.2)
+                    local InfoMessage = require("ui/widget/infomessage")
+                    UIManager:show(InfoMessage:new{
+                        text = _("No reader engine for this file or invalid file."),
+                    })
+                    self:showFileManager(file)
+                end
+            end)
+        end
+    end)
 end
 
 return apply_opening_banner

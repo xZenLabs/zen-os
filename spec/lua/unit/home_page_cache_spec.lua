@@ -2,6 +2,7 @@ local group_paths_by_series = require("common/db_bookinfo").groupPathsBySeries
 
 describe("home data and book caches", function()
     local doc_open_count
+    local original_db_connection
     local history_reload_count
     local status_lookup_count
     local stable_contexts
@@ -57,6 +58,11 @@ describe("home data and book caches", function()
             end,
         })
         ZenSpec.replace("common/reading_goals", {})
+        -- Keep the stats-change signature off the real datastorage.
+        original_db_connection = package.loaded["common/db_connection"]
+        ZenSpec.replace("common/db_connection", {
+            getStatsDbPath = function() return "/data/statistics.sqlite3" end,
+        })
         ZenSpec.replace("common/db_stats", {
             queryHomeStats = function(_fields, exclude_cbz_cbr)
                 stats_query_count = stats_query_count + 1
@@ -89,6 +95,7 @@ describe("home data and book caches", function()
             hasExact = function() return false end,
             renderShared = function(_self, _path, source) return source, true end,
             releaseShared = function() return true end,
+            releaseOnFree = ZenSpec.releaseOnFree,
         })
 
         local doc = {
@@ -186,6 +193,7 @@ describe("home data and book caches", function()
     after_each(function()
         _G.__ZEN_UI_LAST_READ_FILE = nil
         _G.__ZEN_UI_RAKUYOMI = nil
+        package.loaded["common/db_connection"] = original_db_connection
     end)
 
     local function get_home_module(apply)
@@ -696,6 +704,25 @@ describe("home data and book caches", function()
         assert.are.equal(0, perf.quote_layout_cache_hits)
         assert.are.equal(1, perf.quote_layout_cache_misses)
         assert.are.equal(9, perf.quote_layout_probes)
+    end)
+
+    it("refreshes only the quotes row when stepping quotes", function()
+        ZenSpec.replace("modules/filebrowser/patches/home/home_quotes", {
+            stepQuote = function(_cfg, delta) return { text = "Quote " .. delta } end,
+        })
+        ZenSpec.unload("modules/filebrowser/patches/home_page")
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local rebuilds, refreshes = 0, 0
+        set_home_menu(Home, { _home_rebuild = function() rebuilds = rebuilds + 1 end })
+        local provider = get_build_data_provider(Home)({}, { quotes = {} })
+
+        provider:nextQuote(function() refreshes = refreshes + 1 end)
+        assert.are.equal("Quote 1", provider:getCurrentQuote().text)
+        assert.are.same({ 1, 0 }, { refreshes, rebuilds })
+
+        provider:prevQuote()
+        assert.are.equal("Quote -1", provider:getCurrentQuote().text)
+        assert.are.same({ 1, 1 }, { refreshes, rebuilds })
     end)
 
     it("reuses history/status data across providers and opens one sidecar per book miss", function()
@@ -1503,7 +1530,8 @@ describe("home data and book caches", function()
             "recently_read", 4, "default", "strip_recent", 10)
 
         assert.are.equal("/library/book-01.epub", books[1].path)
-        assert.are.equal(40, status_lookup_count)
+        -- The unfiltered recent source accepts every status: only visible books are looked up.
+        assert.are.equal(4, status_lookup_count)
     end)
 
     it("requests only visible TBR rows from the persistent index", function()
@@ -1917,6 +1945,41 @@ describe("home data and book caches", function()
         assert.are.same({ true, "reused" }, { Home.resumeActive() })
     end)
 
+    it("parks a built Home across a reading session and discards it only when forced", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local UIManager = require("ui/uimanager")
+        local closed = {}
+        UIManager.close = function(_self, widget) closed[#closed + 1] = widget end
+        local fm = {}
+        local menu = { _zen_home_rebuild_rows = function() return true end }
+        set_home_menu(Home, menu)
+        UIManager._window_stack = { { widget = fm }, { widget = menu } }
+
+        assert.is_true(Home.park())
+        assert.are.same({ { widget = fm } }, UIManager._window_stack)
+        assert.is_true(menu._zen_home_parked)
+        assert.is_true(menu._zen_home_suspended)
+        assert.is_true(menu._zen_navbar_refresh_pending)
+        assert.is_false(Home.park())
+
+        Home.closeAll() -- FileManager teardown while the reader opens
+        assert.are.same({}, closed)
+        assert.is_true(Home.hasActive())
+
+        Home.discardParked() -- critical memory pressure (shutdown passes closeAll(true))
+        assert.are.same({ menu }, closed)
+        assert.is_false(Home.hasActive())
+    end)
+
+    it("does not park a Home that was never built", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local menu = {}
+        set_home_menu(Home, menu)
+        require("ui/uimanager")._window_stack = { { widget = menu } }
+        assert.is_false(Home.park())
+        assert.is_nil(menu._zen_home_parked)
+    end)
+
     it("defers queued Home cover work after Home is hidden", function()
         local scheduled = {}
         local extraction_calls = 0
@@ -1956,7 +2019,7 @@ describe("home data and book caches", function()
         table.remove(scheduled, 1).callback()
 
         assert.are.equal(0, extraction_calls)
-        assert.is_true(menu._zen_home_needs_rebuild)
+        assert.is_true(menu._zen_home_cover_rows_stale)
     end)
 
     it("loads Favorites as a first-class strip source", function()

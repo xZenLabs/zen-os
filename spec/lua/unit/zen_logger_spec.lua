@@ -76,6 +76,8 @@ describe("Zen logger branding", function()
             { "active network", "ssid=", "Private Wi-Fi" },
             { '{"ssid": "Private Wi-Fi"}' },
             { "device address", "2001:db8::" },
+            { "Wi-Fi ESSID: Private" },
+            { "lease", "IP= assigned" },
         }
         for _i, level in ipairs({ "dbg", "info", "warn", "err" }) do
             for _j, args in ipairs(messages) do

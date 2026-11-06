@@ -514,6 +514,23 @@ describe("reader themes", function()
         local repaint, full_repaint = ReaderFooter:shouldBeRepainted()
         assert.is_true(repaint)
         assert.is_true(full_repaint)
+
+        -- With a CRE page buffer, only the footer backdrop is restored.
+        local blits = {}
+        require("device").screen.bb = { blitFrom = function(_self, ...) blits[#blits + 1] = { ... } end }
+        local page = { getWidth = function() return 600 end, getHeight = function() return 800 end }
+        local footer = setmetatable({
+            footer_content = { dimen = { x = 0, y = 760, w = 600, h = 40 } },
+            view = { document = { buffer = page }, state = { offset = { x = 0, y = 0 } } },
+        }, { __index = ReaderFooter })
+        repaint, full_repaint = footer:shouldBeRepainted()
+        assert.is_true(repaint)
+        assert.is_nil(full_repaint)
+        assert.same({ { page, 0, 760, 0, 760, 600, 40 } }, blits)
+        footer.footer_content.dimen.y = 780
+        assert.is_true(select(2, footer:shouldBeRepainted()))
+        assert.are.equal(1, #blits)
+        require("device").screen.bb = nil
         plugin.config.features.reader_themes = false
         repaint, full_repaint = ReaderFooter:shouldBeRepainted()
         assert.is_true(repaint)

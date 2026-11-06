@@ -104,6 +104,7 @@ common/ui/zen_title_style.lua|unit
 common/ui/zen_toggle.lua|unit
 common/utils.lua|unit
 common/widget_resources.lua|unit
+common/wifi_state.lua|unit
 common/zen_logger.lua|unit
 common/zen_screen.lua|unit
 config/changelog.lua|unit
@@ -141,6 +142,7 @@ modules/filebrowser/patches/book_double_tap.lua|integration
 modules/filebrowser/patches/metadata_editor.lua|unit
 modules/filebrowser/patches/collections.lua|integration
 modules/filebrowser/patches/context_menu.lua|integration
+modules/filebrowser/patches/context_menu_file_dialog.lua|integration
 modules/filebrowser/patches/coverbrowser_check.lua|integration
 modules/filebrowser/patches/coverbrowser_subprocess_compat.lua|integration
 modules/filebrowser/patches/cover_decode_cache.lua|integration
@@ -198,6 +200,7 @@ modules/global/patches/menu_top_swipe.lua|integration
 modules/global/patches/night_mode_schedule.lua|integration
 modules/global/patches/nonblocking_wifi.lua|unit
 modules/global/patches/opds.lua|integration
+modules/global/patches/opds_browser.lua|integration
 modules/global/patches/responsive_keyboard.lua|unit
 modules/global/patches/rounded_scrollbars.lua|unit
 modules/global/patches/warmth_schedule.lua|integration
@@ -274,6 +277,7 @@ modules/reader/annotations.lua|unit
 modules/reader/annotation_viewer.lua|integration
 modules/settings/sections/annotation_settings.lua|unit
 modules/reader/page_browser_preview.lua|unit
+modules/reader/page_browser_widget.lua|integration
 modules/registry.lua|integration
 modules/settings/battery_stats_menu.lua|unit
 modules/settings/sections/about_settings.lua|integration

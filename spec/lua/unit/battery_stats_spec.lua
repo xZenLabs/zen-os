@@ -91,11 +91,11 @@ describe("battery stats", function()
         assert.are.equal(4 * 3600, stats.asleep_time)
         assert.is_true(math.abs(stats.overall - 2.4) < 0.001)
         assert.is_true(math.abs(stats.remaining - 132000) < 1)
-        assert.are.equal(4, writes)
+        assert.are.equal(3, writes) -- Resume keeps its sample in memory.
 
         now, level, charging = now + 3600, 85, true
         BatteryStats.chargingChanged()
-        assert.are.equal(4, writes)
+        assert.are.equal(3, writes)
         scheduled[#scheduled].callback()
         now, level, charging = now + 3600, 95, false
         BatteryStats.chargingChanged()
@@ -870,5 +870,19 @@ describe("battery stats", function()
         BatteryStats.flush()
         assert.are.equal(writes_before + 1, writes)
         assert.are.equal(99, stored.events[#stored.events].level)
+    end)
+
+    it("defers the resume write until the next flush point", function()
+        BatteryStats.start()
+        BatteryStats.suspend()
+        local writes_before = writes
+        now, level = now + 3600, 97
+        BatteryStats.resume()
+        assert.are.equal(writes_before, writes)
+        assert.are.equal(97, stored.events[#stored.events].level)
+        BatteryStats.flush() -- instance swap within a minute still persists it
+        assert.are.equal(writes_before + 1, writes)
+        BatteryStats.flush()
+        assert.are.equal(writes_before + 1, writes)
     end)
 end)

@@ -75,6 +75,38 @@ local function build_brightness_slider(touch_menu, opts)
         fl.prev_non_min = fl.cur > fl.min and fl.cur or math.min(fl.max, fl.min + 1)
     end
 
+    -- Status rows only show brightness; drags refresh them once on release.
+    local status_pending = false
+    local function refresh_status()
+        status_pending = false
+        if opts.status_frontlight and mode == "brightness" and touch_menu._zen_status_timer then
+            touch_menu:_zen_status_timer()
+        end
+    end
+
+    -- Paint slider and value straight to the screen; refresh only that area.
+    local function paint_value(value)
+        progress:paintTo(Screen.bb, progress.dimen.x, progress.dimen.y)
+        local number_x, label_y = number_box.dimen.x, number_box.dimen.y
+        Screen.bb:paintRect(number_x, label_y, number_width, label_h, Blitbuffer.COLOR_WHITE)
+        number:setText(tostring(value))
+        number:paintTo(Screen.bb, number_x, label_y)
+        local dragging = progress._dragging
+        local slider_dimen = dragging and progress:dirtyDimen() or progress.dimen
+        local dirty_x = math.min(slider_dimen.x, number_x)
+        local region = Geom:new{
+            x = dirty_x,
+            y = label_y,
+            w = math.max(slider_dimen.x + slider_dimen.w, number_x + number_width) - dirty_x,
+            h = progress.dimen.y + progress.dimen.h - label_y,
+        }
+        if dragging then
+            ZenSlider.refreshDrag(region, Accent.isEnabled())
+        else
+            UIManager:setDirty(nil, "ui", region)
+        end
+    end
+
     local function setSelected(value)
         if mode == "brightness" then
             if value ~= fl.min and value == fl.cur then return end
@@ -101,9 +133,8 @@ local function build_brightness_slider(touch_menu, opts)
         selected.cur = value
         if mode == "brightness" and value > fl.min then fl.prev_non_min = value end
         progress:setValue(value)
-        number:setText(tostring(value))
-        UIManager:setDirty(show_parent, "ui", touch_menu.dimen)
-        if touch_menu._zen_status_timer then touch_menu:_zen_status_timer() end
+        paint_value(value)
+        refresh_status()
     end
 
     progress.on_drag_start = function()
@@ -118,6 +149,7 @@ local function build_brightness_slider(touch_menu, opts)
             if fl.cur > fl.min then fl.prev_non_min = fl.cur end
         end
         powerd:stateChanged() -- Broadcast once; drag updates were silent.
+        if status_pending then refresh_status() end
     end
 
     progress.on_change = function(value)
@@ -135,26 +167,8 @@ local function build_brightness_slider(touch_menu, opts)
         else
             nl.cur = value
         end
-        if progress._dragging then
-            progress:paintTo(Screen.bb, progress.dimen.x, progress.dimen.y)
-            local number_x, label_y = number_box.dimen.x, number_box.dimen.y
-            Screen.bb:paintRect(number_x, label_y, number_width, label_h, Blitbuffer.COLOR_WHITE)
-            number:setText(tostring(value))
-            number:paintTo(Screen.bb, number_x, label_y)
-            local slider_dimen = progress:dirtyDimen()
-            local dirty_x = math.min(slider_dimen.x, number_x)
-            local colored = Accent.isEnabled()
-            ZenSlider.refreshDrag(Geom:new{
-                x = dirty_x,
-                y = label_y,
-                w = math.max(slider_dimen.x + slider_dimen.w, number_x + number_width) - dirty_x,
-                h = progress.dimen.y + progress.dimen.h - label_y,
-            }, colored)
-        else
-            number:setText(tostring(value))
-            UIManager:setDirty(show_parent, "ui", touch_menu.dimen)
-        end
-        if touch_menu._zen_status_timer then touch_menu:_zen_status_timer() end
+        paint_value(value)
+        if progress._dragging then status_pending = true else refresh_status() end
     end
 
     local function adjust_button(text, callback, hold_callback)

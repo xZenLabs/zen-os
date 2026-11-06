@@ -6,11 +6,12 @@ local now = zen_logger.now
 
 local LEGACY_NEW_MTIME_KEY = "zen_auto_tbr_mtime"
 local NEW_MTIME_KEY = "zen_new_mtime"
-local STATUS_CACHE_MAX = 128
+local STATUS_CACHE_MAX = 2048
 local STATUS_VALIDATE_TTL_S = 5
 local status_cache = {}
 local status_cache_size = 0
 local status_cache_tick = 0
+local primed_path
 local cache_metrics = {
     lookups = 0,
     ttl_hits = 0,
@@ -23,6 +24,35 @@ local function copy_status_data(data)
     local copy = {}
     for key, value in pairs(data or {}) do copy[key] = value end
     return copy
+end
+
+-- Read-only stand-in for cached hits: only the page/progress keys callers read.
+local SNAPSHOT_KEYS = {
+    "percent_finished", "partial_md5_checksum", "doc_pages", "pagemap_use_page_labels",
+    "pagemap_doc_pages", "pagemap_current_page_label", "pagemap_last_page_label",
+}
+local snapshot_mt = { __index = { readSetting = function(self, key) return rawget(self, key) end } }
+
+local function sidecar_snapshot(doc)
+    local snapshot = {}
+    for _i, key in ipairs(SNAPSHOT_KEYS) do snapshot[key] = doc:readSetting(key) end
+    local summary, stats = doc:readSetting("summary"), doc:readSetting("stats")
+    if type(summary) == "table" then snapshot.summary = { status = summary.status } end
+    if type(stats) == "table" then snapshot.stats = { pages = stats.pages } end
+    return setmetatable(snapshot, snapshot_mt)
+end
+
+-- Cached entries hold scalars only; full DocSettings/BookList refs are never retained.
+local function cacheable_status_data(data)
+    local book_info = data.book_info
+    return {
+        status = data.status,
+        percent_finished = data.percent_finished,
+        effective_status = data.effective_status,
+        sidecar_checked = data.sidecar_checked,
+        doc_settings = data.doc_settings and sidecar_snapshot(data.doc_settings) or nil,
+        book_info = type(book_info) == "table" and { pages = book_info.pages } or nil,
+    }
 end
 
 local function remove_cached_status(file_path)
@@ -66,20 +96,23 @@ local function touch_status(cached, validated_at)
     if validated_at then cached.validated_at = validated_at end
 end
 
+-- One sweep drops entries outside the newest 3/4 of ticks: amortized O(1) per insert.
 local function evict_status_if_needed()
-    while status_cache_size > STATUS_CACHE_MAX do
-        local oldest_path, oldest_tick
-        for path, cached in pairs(status_cache) do
-            if oldest_tick == nil or cached.last_used < oldest_tick then
-                oldest_path, oldest_tick = path, cached.last_used
-            end
-        end
-        if not oldest_path then break end
-        remove_cached_status(oldest_path)
+    if status_cache_size <= STATUS_CACHE_MAX then return end
+    local keep_after = status_cache_tick - math.floor(STATUS_CACHE_MAX * 3 / 4)
+    for path, cached in pairs(status_cache) do
+        if cached.last_used <= keep_after then remove_cached_status(path) end
     end
 end
 
 local status_revision = 0 -- bumps when a known status changes or is invalidated
+
+local function display_key()
+    local TBRIndex = package.loaded["common/tbr_index"]
+    local revision = type(TBRIndex) == "table" and type(TBRIndex.peekRevision) == "function"
+        and TBRIndex.peekRevision() or 0
+    return (M.includeNewInTBREnabled() and "new|" or "|") .. tostring(revision)
+end
 
 local function remember_status(file_path, signature, data, source, validated_at)
     if not signature then return end
@@ -90,13 +123,28 @@ local function remember_status(file_path, signature, data, source, validated_at)
     end
     cached = {
         signature = signature,
-        data = copy_status_data(data),
+        data = cacheable_status_data(data),
         source = source,
         validated_at = validated_at or now(),
+        display_status = data.display_status,
+        display_key = display_key(),
     }
     touch_status(cached)
     status_cache[file_path] = cached
     evict_status_if_needed()
+end
+
+-- TTL hits reuse the display status while the TBR revision and setting are unchanged;
+-- validated hits recompute it so external collection edits surface within the TTL.
+local function cached_status_result(file_path, cached, reuse_display)
+    local key = display_key()
+    if not reuse_display or cached.display_key ~= key or cached.display_status == nil then
+        cached.display_status = M.getDisplayStatus(file_path, cached.data.effective_status)
+        cached.display_key = key
+    end
+    local data = copy_status_data(cached.data)
+    data.display_status = cached.display_status
+    return data
 end
 
 local function get_fresh_cached_status(file_path, checked_at, allow_booklist)
@@ -104,7 +152,7 @@ local function get_fresh_cached_status(file_path, checked_at, allow_booklist)
     if not cached or (cached.source == "booklist" and not allow_booklist)
             or checked_at - cached.validated_at >= STATUS_VALIDATE_TTL_S then return nil end
     touch_status(cached)
-    return copy_status_data(cached.data)
+    return cached_status_result(file_path, cached, true)
 end
 
 local function get_validated_cached_status(file_path, signature, checked_at)
@@ -115,7 +163,7 @@ local function get_validated_cached_status(file_path, signature, checked_at)
         return nil, "stale"
     end
     touch_status(cached, checked_at)
-    return copy_status_data(cached.data), "validated_hit"
+    return cached_status_result(file_path, cached, false), "validated_hit"
 end
 
 local function record_cache_result(result, started_at, file_path)
@@ -142,6 +190,7 @@ end
 function M.invalidate(file_path)
     if type(file_path) == "string" and file_path ~= "" then
         remove_cached_status(file_path)
+        if primed_path == file_path then primed_path = nil end
         status_revision = status_revision + 1
     end
 end
@@ -155,6 +204,7 @@ function M.clearCache()
     status_cache = {}
     status_cache_size = 0
     status_cache_tick = 0
+    primed_path = nil
     cache_metrics = {
         lookups = 0,
         ttl_hits = 0,
@@ -377,6 +427,48 @@ local function getBookListInfo(file_path)
     end
 end
 
+local function sidecar_status_data(file_path, doc, context)
+    local summary = doc:readSetting("summary")
+    local status = summary and summary.status
+    local percent_finished = doc:readSetting("percent_finished")
+    local effective_status = get_computed_status(
+        file_path, status, percent_finished, doc, context)
+    return {
+        status = status,
+        percent_finished = percent_finished,
+        effective_status = effective_status,
+        display_status = M.getDisplayStatus(file_path, effective_status),
+        doc_settings = doc,
+        sidecar_checked = true,
+    }
+end
+
+-- Caches a just-flushed in-memory sidecar (e.g. on reader close) so later lookups skip the parse.
+function M.prime(file_path, doc_settings)
+    if type(file_path) ~= "string" or file_path == "" or not doc_settings then return false end
+    local ok_ds, DocSettings = pcall(require, "docsettings")
+    if not ok_ds or not DocSettings then return false end
+    local signature, lfs, file_mtime, sidecar_mtime, has_sidecar =
+        status_signature(DocSettings, file_path)
+    M.invalidate(file_path)
+    if not (signature and has_sidecar) then return false end
+    remember_status(file_path, signature, sidecar_status_data(file_path, doc_settings, {
+        lfs = lfs,
+        DocSettings = DocSettings,
+        file_mtime = file_mtime,
+        sidecar_mtime = sidecar_mtime,
+    }), "sidecar", now())
+    primed_path = file_path
+    return true
+end
+
+-- True once if file_path was primed since the last call.
+function M.takePrimed(file_path)
+    if primed_path == nil or primed_path ~= file_path then return false end
+    primed_path = nil
+    return status_cache[file_path] ~= nil
+end
+
 -- Read status metadata from one authoritative source. A sidecar, when present
 -- and readable, wins; BookList is only consulted as the fallback path.
 function M.getFileStatusData(file_path, fallback_info)
@@ -384,7 +476,6 @@ function M.getFileStatusData(file_path, fallback_info)
     local checked_at = started_at
     local cached = get_fresh_cached_status(file_path, checked_at, fallback_info == nil)
     if cached then
-        cached.display_status = M.getDisplayStatus(file_path, cached.effective_status)
         record_cache_result("ttl_hit", started_at, file_path)
         return cached
     end
@@ -407,30 +498,17 @@ function M.getFileStatusData(file_path, fallback_info)
                 file_path, signature, checked_at)
         end
         if cached then
-            cached.display_status = M.getDisplayStatus(file_path, cached.effective_status)
             record_cache_result(cache_state, started_at, file_path)
             return cached
         end
         local ok_doc, doc = pcall(DocSettings.open, DocSettings, file_path)
         if ok_doc and doc then
-            local summary = doc:readSetting("summary")
-            local status = summary and summary.status
-            local percent_finished = doc:readSetting("percent_finished")
-            local effective_status = get_computed_status(
-                file_path, status, percent_finished, doc, {
-                    lfs = lfs,
-                    DocSettings = DocSettings,
-                    file_mtime = file_mtime,
-                    sidecar_mtime = sidecar_mtime,
-                })
-            local data = {
-                status = status,
-                percent_finished = percent_finished,
-                effective_status = effective_status,
-                display_status = M.getDisplayStatus(file_path, effective_status),
-                doc_settings = doc,
-                sidecar_checked = true,
-            }
+            local data = sidecar_status_data(file_path, doc, {
+                lfs = lfs,
+                DocSettings = DocSettings,
+                file_mtime = file_mtime,
+                sidecar_mtime = sidecar_mtime,
+            })
             remember_status(file_path, signature, data, "sidecar", checked_at)
             record_cache_result(cache_state == "stale" and "stale" or "miss",
                 started_at, file_path)
@@ -445,7 +523,6 @@ function M.getFileStatusData(file_path, fallback_info)
         cached, cache_state = get_validated_cached_status(
             file_path, fallback_key, checked_at)
         if cached then
-            cached.display_status = M.getDisplayStatus(file_path, cached.effective_status)
             record_cache_result(cache_state, started_at, file_path)
             return cached
         end

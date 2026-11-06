@@ -156,6 +156,7 @@ def launch(
     env_overrides: dict[str, str] | None = None,
     language: str | None = None,
     initialize_settings: bool = True,
+    capture_output: bool = False,
 ) -> subprocess.Popen[str]:
     if socket_path.is_socket():
         socket_path.unlink()
@@ -195,7 +196,10 @@ def launch(
     })
     if env_overrides:
         env.update(env_overrides)
-    process = subprocess.Popen([str(koreader_dir / "reader.lua")], cwd=koreader_dir, env=env, text=True)
+    output = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "bufsize": 1} if capture_output else {}
+    process = subprocess.Popen(
+        [str(koreader_dir / "reader.lua")], cwd=koreader_dir, env=env, text=True, **output
+    )
     process._zen_socket_path = socket_path
     return process
 

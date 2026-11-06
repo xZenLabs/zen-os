@@ -562,6 +562,42 @@ describe("home basic widgets", function()
         assert.are.equal(53, author_widget.paint_y)
     end)
 
+    it("swaps the next quote into its own row without a Home rebuild", function()
+        ZenSpec.unload("modules/filebrowser/patches/home/widgets/quotes")
+        local quotes_list = { { text = "First.", author = "A" }, { text = "Second.", author = "B" } }
+        local index, refreshed, content_bounds = 1, {}, nil
+        local step = function(_self, delta, refresh)
+            index = index + delta
+            if refresh then refresh() end
+        end
+        local widget = require("modules/filebrowser/patches/home/widgets/quotes").build({
+            width = 400,
+            height = 120,
+            config = { quotes = { show_author = true } },
+            data = {
+                getCurrentQuote = function() return quotes_list[index] end,
+                nextQuote = function(self, refresh) step(self, 1, refresh) end,
+                prevQuote = function(self, refresh) step(self, -1, refresh) end,
+            },
+            setContentBounds = function(bounds) content_bounds = bounds end,
+            refreshRow = function(dimen) refreshed[#refreshed + 1] = dimen end,
+        })
+        local body = widget[1]
+        local first_content = body[1]
+        body.dimen = { x = 10, y = 20, w = 400, h = 120 }
+        content_bounds.set_shift(-7)
+
+        assert.is_true(widget:onSwipeQuote(nil, { pos = { x = 40, y = 40 }, direction = "west" }))
+
+        assert.are.equal(2, index)
+        assert.are.equal(body, widget[1])
+        assert.are_not.equal(first_content, body[1])
+        assert.is_true(has_text('"Second."'))
+        assert.are.equal(1, #refreshed)
+        assert.are.same({ 10, 13, 400, 127 },
+            { refreshed[1].x, refreshed[1].y, refreshed[1].w, refreshed[1].h })
+    end)
+
     it("reports quote bounds independent of quote length", function()
         ZenSpec.unload("modules/filebrowser/patches/home/widgets/quotes")
         local component = require("modules/filebrowser/patches/home/widgets/quotes")

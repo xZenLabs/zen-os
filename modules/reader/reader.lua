@@ -55,10 +55,12 @@ local function load_patch(feature)
     return patch_fn
 end
 
--- Also patch library-side UI (statistics, book status, end-book menu, screensaver,
--- dictionary), so they apply at boot.
+-- Also patch library-side UI (statistics, opening-banner tap hooks, book status,
+-- end-book menu, screensaver, dictionary), so they apply at boot. Patches that
+-- target reader-only classes defer themselves via common/on_require.
 local BOOT_FEATURES = {
-    "stable_page_statistics", "book_status", "end_book", "screensaver_cover", "dict_quick_lookup",
+    "stable_page_statistics", "opening_banner", "book_status", "end_book", "screensaver_cover",
+    "dict_quick_lookup",
 }
 
 -- ReaderUI-only; applied when KOReader first requires ReaderUI.
@@ -67,7 +69,6 @@ local READER_FEATURES = {
     -- Route KOReader's File browser gesture through the same transition as ZenOS.
     "library_navigation",
     "page_browser", -- self-disables when feature is off
-    "opening_banner", -- replaces the "Opening file..." popup with a bottom banner
     "status_on_open",
     "reader_footer", -- two-filler L/C/R layout support
     "reader_footer_time_format",

@@ -9,7 +9,7 @@ local function apply_status_bar()
     local HorizontalGroup = require("ui/widget/horizontalgroup")
     local HorizontalSpan = require("ui/widget/horizontalspan")
     local LeftContainer = require("ui/widget/container/leftcontainer")
-    local NetworkMgr = require("ui/network/manager")
+    local WifiState = require("common/wifi_state")
     local OverlapGroup = require("ui/widget/overlapgroup")
     local RightContainer = require("ui/widget/container/rightcontainer")
     local TextWidget = require("ui/widget/textwidget")
@@ -162,7 +162,13 @@ local function apply_status_bar()
     end
 
     local config = loadConfig()
-    Bluetooth.getState()
+    -- Prime Bluetooth state (LIPC/shell on Kindle) only when the item is shown.
+    for _i, order in ipairs({ config.left_order, config.center_order, config.right_order }) do
+        if type(order) == "table" and require("util").arrayContains(order, "bluetooth") then
+            Bluetooth.getState()
+            break
+        end
+    end
 
     local function getSeparator()
         if config.separator_key == "custom" then
@@ -289,12 +295,11 @@ local function apply_status_bar()
     end
 
     local function getWifiInfo()
-        if NetworkMgr.isWifiChanging and NetworkMgr:isWifiChanging()
-                or not NetworkMgr:isConnected()
-                    and (NetworkMgr:isWifiOn() or NetworkMgr.pending_connection or NetworkMgr.pending_connectivity_check) then
+        local state = WifiState.get()
+        if state == "searching" then
             return "\u{ECA8}", nil, colors.wifi_searching, nil, true
         end
-        if NetworkMgr:isWifiOn() then
+        if state == "on" then
             return "\u{ECA8}", nil, colors.wifi_on
         elseif not config.wifi_hide_when_off then
             return "\u{ECA9}", nil, colors.wifi_off
@@ -1326,23 +1331,28 @@ local function apply_status_bar()
         return false
     end
 
+    -- Event-driven refreshes repaint only changed items; explicit _updateStatusBar() calls stay full.
+    -- Returns true once a visible bar was handled.
     local function refreshVisibleStatusBar(fm, clock_tick, item_keys)
         if FileManager.instance ~= fm then return end
         local top_widget = topmost_non_toast_widget()
 
         if suppresses_status_bar(top_widget) then return end
         if top_widget == fm or top_widget == fm.show_parent then
-            fm:_updateStatusBar(false, clock_tick or item_keys ~= nil)
+            fm:_updateStatusBar(false, true)
         elseif top_widget and top_widget._zen_status_refresh then
-            if clock_tick and top_widget._zen_status_clock_bound then return end
-            top_widget._zen_status_refresh(top_widget, false, item_keys)
+            if clock_tick and top_widget._zen_status_clock_bound then return true end
+            top_widget._zen_status_refresh(top_widget, false, item_keys, true)
         elseif top_widget and top_widget._zen_home_refresh_clock_widgets then
             -- Featured embedded status bar: no _zen_status_refresh, refreshes via
             -- its clock-widget refreshers instead. Skip clock ticks it handles
             -- through its own heartbeat binding to avoid a double refresh.
-            if clock_tick and top_widget._zen_status_clock_bound then return end
+            if clock_tick and top_widget._zen_status_clock_bound then return true end
             top_widget:_zen_home_refresh_clock_widgets(false, item_keys)
+        else
+            return
         end
+        return true
     end
 
     local show_refresh_pending = false
@@ -1524,12 +1534,10 @@ local function apply_status_bar()
         hookCharging("onNotCharging")
     end
 
-    -- Suspend: pause the shared heartbeat so it does not fire during sleep.
-    -- Resume: do a visible refresh and restart it on the next minute boundary.
+    -- ZenUI pauses/resumes the shared heartbeat for both FM and reader.
     local orig_onSuspend = FileManager.onSuspend
     FileManager.onSuspend = function(self)
         if orig_onSuspend then orig_onSuspend(self) end
-        clock_timer.pause()
         -- Cancel any pending charging debounce so it doesn't paint into the screensaver.
         if _charging_refresh_timer then
             UIManager:unschedule(_charging_refresh_timer)
@@ -1552,37 +1560,22 @@ local function apply_status_bar()
         end
     end
 
-    -- onResume: defer long enough for the screensaver to finish its full-screen
-    -- repaint and for the titlebar layout to be fully established.  nextTick
-    -- (one loop pass) is too fast — it races against the screensaver's flashui
-    -- flush and can fire before paintTo has set correct layout geometry, which
-    -- causes child widgets to render at offset (0,0) i.e. top-left.
-    -- scheduleIn(0) ticks once more after all current events and repaints settle.
-    -- The topmost-widget guard (same as autoRefresh) prevents painting during
-    -- any modal that might still be on top.
+    -- onResume: defer past the screensaver's flash and titlebar layout; nextTick
+    -- races paintTo geometry and paints children at (0,0). The topmost-widget
+    -- guard prevents painting under any modal still on top.
     local orig_onResume = FileManager.onResume
     FileManager.onResume = function(self)
         if orig_onResume then orig_onResume(self) end
         local fm = self
         if is_enabled() then
-            -- Refresh whichever bar is currently visible.  Two attempts because
-            -- the screensaver may still be the topmost widget immediately after
-            -- resume and block the guard on the first try.
-            local function doResumeRefresh()
-                refreshVisibleStatusBar(fm, false)
-            end
-            UIManager:scheduleIn(0.5, doResumeRefresh)
-            UIManager:scheduleIn(1.5, doResumeRefresh)
+            -- Retry once if the screensaver is still topmost on the first try.
+            UIManager:scheduleIn(0.5, function()
+                if not refreshVisibleStatusBar(fm, false) then
+                    UIManager:scheduleIn(1, function() refreshVisibleStatusBar(fm, false) end)
+                end
+            end)
+            if FileManager.instance == fm and _fm_autoRefresh then syncMinuteRefresh(fm) end
         end
-        -- Always unpause the shared heartbeat after the display settles; other
-        -- subscribers (Settings, Home, OPDS clocks) stop ticking otherwise.
-        UIManager:scheduleIn(2, function()
-            clock_timer.resume()
-            if is_enabled() and FileManager.instance == fm and _fm_autoRefresh then
-                syncMinuteRefresh(fm)
-                clock_timer.restart()
-            end
-        end)
     end
 
     local orig_onCloseWidget = FileManager.onCloseWidget

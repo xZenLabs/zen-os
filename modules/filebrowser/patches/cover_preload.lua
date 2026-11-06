@@ -41,8 +41,14 @@ local function apply_cover_preload()
     local HYDRATE_CHUNK = 4
     local HYDRATE_BUDGET_S = 0.04
     local COVER_POLL_S = 0.4
+    local COVER_POLL_SLOW_S = 1 -- stock CoverMenu cadence once the first covers have landed
+    local COVER_POLL_FAST_COUNT = 3
     local COVER_POLL_SETTLE_LIMIT = 5
     local EXTRACTION_DEBOUNCE_S = 0.15
+
+    local function cover_poll_delay(polls)
+        return polls < COVER_POLL_FAST_COUNT and COVER_POLL_S or COVER_POLL_SLOW_S
+    end
 
     local function get_upvalue(fn, name)
         if type(fn) ~= "function" then return nil end
@@ -241,7 +247,7 @@ local function apply_cover_preload()
         if type(BookInfoManager.subprocesses_collect_interval) == "number" then
             BookInfoManager.subprocesses_collect_interval = math.min(
                 BookInfoManager.subprocesses_collect_interval,
-                COVER_POLL_S
+                COVER_POLL_SLOW_S
             )
         end
 
@@ -262,10 +268,12 @@ local function apply_cover_preload()
         local function watch_queue()
             if BookInfoManager._zen_cover_extract_watch then return end
             local watch
+            local polls = 0
             watch = function()
                 if BookInfoManager._zen_cover_extract_watch ~= watch then return end
                 if is_extracting() then
-                    UIManager:scheduleIn(COVER_POLL_S, watch)
+                    polls = polls + 1
+                    UIManager:scheduleIn(cover_poll_delay(polls), watch)
                     return
                 end
                 reconcile_completed_extraction()
@@ -1194,6 +1202,7 @@ local function apply_cover_preload()
 
         UIManager:unschedule(original)
         local settle_polls = 0
+        local polls = 0
         local poll
         poll = function()
             if menu._zen_cover_poll_action ~= poll
@@ -1288,7 +1297,8 @@ local function apply_cover_preload()
                     menu, generation, region, before - remaining, 0)
             end
             if keep_polling then
-                UIManager:scheduleIn(COVER_POLL_S, poll)
+                polls = polls + 1
+                UIManager:scheduleIn(cover_poll_delay(polls), poll)
             else
                 if remaining > 0 and settle_polls >= COVER_POLL_SETTLE_LIMIT then
                     logger.measure("Cover extraction poll stopped", 0,
@@ -1897,7 +1907,9 @@ local function apply_cover_preload()
                 or menu._do_cover_images == false then
             return
         end
-        local direction = menu._zen_cover_preload_direction or 1
+        -- Only an actual page turn predicts the next page; plain opens/refreshes don't preload.
+        local direction = menu._zen_cover_preload_direction
+        if not direction then return end
         menu._zen_cover_preload_direction = nil
         local jobs, target_pages, status_jobs = collect_jobs(menu, direction)
         if #jobs == 0 and #status_jobs == 0 then return end

@@ -1,3 +1,5 @@
+require("ffi/loadlib")
+require("luasettings") -- loaded by KOReader before plugins
 local lfs = require("libs/libkoreader-lfs")
 
 describe("incompatible plugin and patch check", function()
@@ -382,5 +384,28 @@ describe("incompatible plugin and patch check", function()
         assert.is_true(require("modules/filebrowser/patches/incompatible_plugins_check")())
         assert.is_true(settings.disabled.autowarmth)
         assert.are.equal(1, settings.flushes)
+    end)
+
+    it("reads the persisted config before the plugin instance exists", function()
+        package.loaded["suntime"] = { loaded = true }
+        local zen_dir = data_dir .. "/ZenOS"
+        local config_path = zen_dir .. "/config.lua"
+        assert.is_true(lfs.mkdir(zen_dir))
+        local file = assert(io.open(config_path, "w"))
+        file:write("return { features = { warmth_schedule = true } }\n")
+        file:close()
+        ZenSpec.replace("datastorage", {
+            getDataDir = function() return data_dir end,
+            getSettingsDir = function() return data_dir end,
+        })
+        ZenSpec.replace("userpatch", { execution_status = {} })
+
+        local ok, err = pcall(function()
+            assert.is_true(require("modules/filebrowser/patches/incompatible_plugins_check")())
+            assert.is_true(settings.disabled.autowarmth)
+        end)
+        os.remove(config_path)
+        lfs.rmdir(zen_dir)
+        assert(ok, err)
     end)
 end)

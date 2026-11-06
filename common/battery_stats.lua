@@ -11,6 +11,7 @@ local sleeping = false
 local timer
 local charge_timer
 local pending_gap = false
+local unflushed = false
 local history
 local history_tail
 local HISTORY_TOTALS = {
@@ -234,7 +235,8 @@ local function charge_ended(previous, event)
     return previous and not event.charging and (previous.charging or event.level > previous.level)
 end
 
-local function sample(gap, charging_event)
+-- defer_flush keeps the sample in memory; the next suspend/tick/close persists it.
+local function sample(gap, charging_event, defer_flush)
     if not settings then return end
     local event = capture()
     if not event then pending_gap = true; return end
@@ -271,10 +273,12 @@ local function sample(gap, charging_event)
         for key in pairs(HISTORY_TOTALS) do baseline[key] = stats[key] end
         settings:saveSetting("usage_baseline", baseline)
     end
-    if #events > MAX_EVENTS and archive(events) then
+    local archived = #events > MAX_EVENTS and archive(events)
+    if archived then
         settings:saveSetting("events", { event }) -- Keep the next window's starting sample.
     end
-    settings:flush()
+    unflushed = defer_flush and not archived
+    if not unflushed then settings:flush() end
 end
 
 local function schedule()
@@ -339,7 +343,7 @@ function M.resume()
     if not settings then return end
     if sleeping then
         sleeping = false
-        sample()
+        sample(nil, nil, true) -- Keep the wake path off flash.
     end
     schedule()
 end
@@ -357,7 +361,10 @@ function M.flush()
     if not settings or sleeping then return end
     local events = settings:readSetting("events")
     local previous = events and events[#events]
-    if previous and os.time() - previous.time < FLUSH_MIN_SECONDS then return end
+    if previous and os.time() - previous.time < FLUSH_MIN_SECONDS then
+        if unflushed then unflushed = false; settings:flush() end
+        return
+    end
     sample()
 end
 
@@ -369,6 +376,7 @@ function M.stop()
     settings = nil
     sleeping = false
     pending_gap = false
+    unflushed = false
 end
 
 function M.reset()

@@ -36,10 +36,41 @@ local function apply_cover_decode_cache()
         end
     end
 
+    local db_bookinfo
+    -- Runs an upstream get_stmt reader with a blob-less statement: SQLite
+    -- otherwise reads every cover BLOB page even for metadata-only lookups.
+    local function without_blob(self, fn, ...)
+        if db_bookinfo == nil then
+            local ok, module = pcall(require, "common/db_bookinfo")
+            db_bookinfo = ok and type(module.getMetadataStatement) == "function" and module or false
+        end
+        local stmt = db_bookinfo and db_bookinfo.getMetadataStatement(self)
+        local saved = stmt and self.get_stmt
+        if not saved then return fn(self, ...) end
+        self.get_stmt = stmt
+        local ok, result = pcall(fn, self, ...)
+        if self.get_stmt == stmt then self.get_stmt = saved end
+        if not ok then
+            pcall(stmt.clearbind, stmt)
+            pcall(stmt.reset, stmt)
+            error(result, 0)
+        end
+        return result
+    end
+
+    local function read_metadata(self, filepath)
+        return without_blob(self, orig_getBookInfo, filepath, false)
+    end
+
     function BookInfoManager:getBookInfo(filepath, get_cover)
         if not get_cover or not cache:has(filepath) then
             local started_at = get_cover and now()
-            local info = orig_getBookInfo(self, filepath, get_cover)
+            local info
+            if get_cover then
+                info = orig_getBookInfo(self, filepath, get_cover)
+            else
+                info = read_metadata(self, filepath)
+            end
             remember_metadata(filepath, info)
             if get_cover then
                 cache:recordMiss()
@@ -60,10 +91,8 @@ local function apply_cover_decode_cache()
         cache:recordLookup((now() - lookup_started_at) * 1000)
         if info then return info end
 
-        -- Metadata-only reads stop before the compressed BLOB, making cache
-        -- validation cheap while preserving CoverBrowser's return shape.
         local validation_started_at = now()
-        info = orig_getBookInfo(self, filepath, false)
+        info = read_metadata(self, filepath)
         remember_metadata(filepath, info)
         cache:recordValidation((now() - validation_started_at) * 1000)
         if not info or not info.has_cover or info.ignore_cover then
@@ -92,6 +121,14 @@ local function apply_cover_decode_cache()
             cache:put(filepath, signature(info), info.cover_bb, info, now())
         end
         return info
+    end
+
+    -- Upstream getDocProps reads only metadata columns from the same statement.
+    local orig_getDocProps = BookInfoManager.getDocProps
+    if type(orig_getDocProps) == "function" then
+        function BookInfoManager:getDocProps(filepath, ...)
+            return without_blob(self, orig_getDocProps, filepath, ...)
+        end
     end
 
     local function wrap_filepath_mutation(name)

@@ -75,6 +75,29 @@ describe("icon menu item fonts", function()
         }))
     end)
 
+    it("builds settings rows single-line before rebuilding them", function()
+        local seen = {}
+        local MenuItem = { init = function(self) seen[#seen + 1] = self.single_line end }
+        package.loaded["ui/widget/menu"].updateItems = function() return MenuItem end
+        package.loaded["ui/widget/touchmenu"]._zen_icon_item_patched = true
+        require("common/ui/icon_menu_item").installMenuPatch()
+        MenuItem.init({ entry = { _zen_settings_row = true } })
+        MenuItem.init({ entry = {} })
+        assert.are.same({ true }, { seen[1] })
+        assert.is_nil(seen[2])
+    end)
+
+    it("finds MenuItem through an earlier updateItems wrapper", function()
+        local seen = {}
+        local MenuItem = { init = function(self) seen[#seen + 1] = self.single_line end }
+        local orig_updateItems = function() return MenuItem end
+        package.loaded["ui/widget/menu"].updateItems = function(...) return orig_updateItems(...) end
+        package.loaded["ui/widget/touchmenu"]._zen_icon_item_patched = true
+        require("common/ui/icon_menu_item").installMenuPatch()
+        MenuItem.init({ entry = { _zen_settings_row = true } })
+        assert.are.same({ true }, seen)
+    end)
+
     it("uses shared rounded feedback for settings taps and holds while preserving stock rows", function()
         local saved_settings = G_reader_settings
         finally(function() _G.G_reader_settings = saved_settings end)

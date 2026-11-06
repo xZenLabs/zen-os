@@ -20,6 +20,10 @@ local function apply_nonblocking_wifi()
     local connection_check
     local queued = {}
     local start_next
+    -- Poll fast while most jobs finish, then back off to spare CPU wakeups.
+    local function poll_delay(waited)
+        return waited < 2 and 0.25 or waited < 4 and 0.5 or 1
+    end
     local reported_changing = false
     local pocketbook_keepalive
     local pocketbook_turn_on
@@ -155,6 +159,7 @@ local function apply_nonblocking_wifi()
         UIManager:preventStandby()
         notify_state()
         local polls = 0
+        job.waited = 0
         local last_poll = job.started
         local function poll()
             polls = polls + 1
@@ -164,12 +169,14 @@ local function apply_nonblocking_wifi()
             if gap_ms > 1000 then logger.dbg("Wi-Fi worker poll delayed", "pid=", pid, "gap_ms=", gap_ms) end
             if not ffiutil.isSubProcessDone(pid) then
                 -- ponytail: connection work caps at 120 s; split deadlines if many saved networks exceed it.
-                if polls == (job.timeout or 120) * 4 then
+                if not job.timed_out and job.waited >= (job.timeout or 120) then
                     job.timed_out = true
                     ffi.C.kill(-pid, 9)
                     ffi.C.kill(pid, 9)
                 end
-                UIManager:scheduleIn(0.25, poll)
+                local delay = poll_delay(job.waited)
+                job.waited = job.waited + delay
+                UIManager:scheduleIn(delay, poll)
                 return
             end
             local result
@@ -228,6 +235,7 @@ local function apply_nonblocking_wifi()
             start_next()
             notify_state()
         end
+        job.waited = 0.25
         UIManager:scheduleIn(0.25, poll)
     end
 
@@ -378,7 +386,7 @@ local function apply_nonblocking_wifi()
     NetworkMgr.connectivityCheck = function(self, iter, ...)
         -- Resume starts this timer while the worker is still authenticating.
         if active and active.enabling and not active.cancelled then
-            UIManager:scheduleIn(0.25, self.connectivityCheck, self, iter, ...)
+            UIManager:scheduleIn(poll_delay(active.waited or 0), self.connectivityCheck, self, iter, ...)
             return
         end
         if iter >= 180 and connection_failure and self:isWifiOn() then

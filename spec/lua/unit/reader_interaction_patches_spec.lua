@@ -4,6 +4,20 @@ describe("reader interaction patches", function()
         require(name)()
     end
 
+    -- status_on_open defers index and sidecar work to the next tick.
+    local function apply_status_on_open()
+        local ticks = {}
+        ZenSpec.replace("ui/uimanager", { nextTick = function(_, fn, ...)
+            local args = { n = select("#", ...), ... }
+            ticks[#ticks + 1] = function() fn(unpack(args, 1, args.n)) end
+        end })
+        apply_patch("modules/reader/patches/status_on_open")
+        return function()
+            for _i, tick in ipairs(ticks) do tick() end
+            ticks = {}
+        end
+    end
+
     local function install_bookmark_button_stub()
         ZenSpec.replace("common/utils", {
             resolveLocalIcon = function(_dir, name) return "/icons/" .. name .. ".svg" end,
@@ -111,16 +125,26 @@ describe("reader interaction patches", function()
                 return settings.changed
             end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        local run_ticks = apply_status_on_open()
 
         local ui = {
+            document = {},
             doc_settings = {
                 changed = true,
                 flush = function() order[#order + 1] = "flush" end,
             },
         }
         ReaderUI.onReaderReady(ui)
+        assert.same({ "stock" }, order)
+        run_ticks()
         assert.same({ "stock", "acknowledge", "flush" }, order)
+
+        -- A reader closed before the tick already flushed on close.
+        order = {}
+        ReaderUI.onReaderReady(ui)
+        ui.document = nil
+        run_ticks()
+        assert.same({ "stock" }, order)
     end)
 
     it("does not flush status when acknowledgement makes no change", function()
@@ -130,9 +154,10 @@ describe("reader interaction patches", function()
         ZenSpec.replace("common/book_status", {
             acknowledgeNewVersion = function() return false end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        local run_ticks = apply_status_on_open()
 
-        ReaderUI.onReaderReady({ doc_settings = { flush = function() flushes = flushes + 1 end } })
+        ReaderUI.onReaderReady({ document = {}, doc_settings = { flush = function() flushes = flushes + 1 end } })
+        run_ticks()
         assert.are.equal(0, flushes)
     end)
 
@@ -159,7 +184,7 @@ describe("reader interaction patches", function()
                 return true
             end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        apply_status_on_open()
 
         ReaderUI.onReaderReady(ui)
 
@@ -186,7 +211,7 @@ describe("reader interaction patches", function()
         ZenSpec.replace("common/reader_defaults", {
             applyDeferredToReader = function() return true end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        apply_status_on_open()
 
         ReaderUI.onReaderReady({ doc_settings = {} })
 
@@ -206,7 +231,7 @@ describe("reader interaction patches", function()
         local ReaderUI = { onReaderReady = function() end }
         ZenSpec.replace("apps/reader/readerui", ReaderUI)
         ZenSpec.replace("common/book_status", { acknowledgeNewVersion = function() return false end })
-        apply_patch("modules/reader/patches/status_on_open")
+        apply_status_on_open()
 
         local calls, saves = {}, 0
         local ui = {
@@ -276,17 +301,21 @@ describe("reader interaction patches", function()
                 cached[#cached + 1] = { file, key, value }
             end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        local run_ticks = apply_status_on_open()
 
         local summary = { status = "complete" }
         local flushes = 0
         ReaderUI.onReaderReady({
+            document = {},
             doc_settings = {
                 data = { doc_path = "/books/tbr.epub" },
                 readSetting = function(_, key) return key == "summary" and summary or nil end,
                 flush = function() flushes = flushes + 1 end,
             },
         })
+        assert.are.equal(0, removed)
+        assert.are.equal(0, flushes)
+        run_ticks()
 
         assert.are.equal(1, removed)
         assert.same({ "reading" }, saved)
@@ -316,7 +345,7 @@ describe("reader interaction patches", function()
                 cached[#cached + 1] = { file, key, value }
             end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        apply_status_on_open()
 
         local summary = { status = "abandoned" }
         ReaderUI.onReaderReady({

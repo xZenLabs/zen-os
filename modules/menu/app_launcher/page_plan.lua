@@ -1,6 +1,17 @@
-local BookSwitcherPage = require("modules/menu/app_launcher/book_switcher_page")
-
 local M = {}
+
+-- Cheap switcher helpers live here so boot-time config code skips the page module.
+M.BOOK_COUNT = 4
+
+function M.normalizeCount(value)
+    return math.min(8, math.max(1, math.floor(tonumber(value) or M.BOOK_COUNT)))
+end
+
+function M.isEnabled(config, library_context)
+    local cfg = type(config) == "table" and config or {}
+    return cfg.show_book_switcher == true
+        and not (library_context == true and cfg.book_switcher_reader_only == true)
+end
 
 M.DEFAULT_ORDER = { "book_switcher", "buttons" }
 
@@ -26,7 +37,7 @@ function M.build(button_page_count, config, library_context)
     button_page_count = math.max(0, math.floor(tonumber(button_page_count) or 0))
     config = type(config) == "table" and config or {}
     local enabled = {
-        book_switcher = BookSwitcherPage.isEnabled(config, library_context),
+        book_switcher = M.isEnabled(config, library_context),
     }
     local pages = {}
     for _i, kind in ipairs(M.normalizeOrder(config.page_order)) do

@@ -196,16 +196,21 @@ function M.build(ctx, source_key)
     local module_cfg = type(ctx.module_cfg) == "table" and ctx.module_cfg or {}
     local interactive = module_cfg.interactive ~= false
     local source = source_key or HomePresets.featuredSourceKey(module_cfg.default_source)
-    local book = ctx.data:getFeaturedBook(source, "default")
+    local col_top_pad = math.max(1, Screen:scaleBySize(4))
+    local col_bottom_pad = math.max(3, math.floor(height * 0.02))
+    local gap = math.max(4, math.floor(width * 0.025))
+    -- The assigned height is an upper bound; normal details stop at cover height.
+    local col_h = math.max(1, height - col_top_pad - col_bottom_pad)
+    -- Reserve at least 60% of the usable row width for book details.
+    local cover_max_w = math.max(1, math.floor(math.max(1, width - gap) * COVER_WIDTH_SHARE))
+    -- Target size lets the provider skip decoding a cover RenderCache already holds.
+    local target_w, target_h = cover_common.target_dims(nil, cover_max_w, col_h)
+    local book = ctx.data:getFeaturedBook(source, "default", nil, { w = target_w, h = target_h })
     local show_description = module_cfg.show_description ~= false
     local format_description_html = module_cfg.format_description_html == true
     local justify_description_text = module_cfg.justify_description_text == true
     local show_status_bar = module_cfg.show_status_bar == true and type(ctx.buildStatusRow) == "function"
     local cover_widget, cover_w, cover_actual_h
-
-    local col_top_pad = math.max(1, Screen:scaleBySize(4))
-    local col_bottom_pad = math.max(3, math.floor(height * 0.02))
-    local gap = math.max(4, math.floor(width * 0.025))
 
     if not book then
         local empty_cover = cover_common.make_empty_cover_widget(
@@ -257,12 +262,6 @@ function M.build(ctx, source_key)
         }
     end
 
-    -- The assigned height is an upper bound; normal details stop at cover height.
-    local col_h = math.max(1, height - col_top_pad - col_bottom_pad)
-
-    -- Reserve at least 60% of the usable row width for book details.
-    local columns_w = math.max(1, width - gap)
-    local cover_max_w = math.max(1, math.floor(columns_w * COVER_WIDTH_SHARE))
     cover_widget, cover_w, cover_actual_h = cover_common.make_cover_widget(
         book, cover_max_w, col_h,
         { border = cover_common.BORDER_SIZE, background = Blitbuffer.COLOR_LIGHT_GRAY }

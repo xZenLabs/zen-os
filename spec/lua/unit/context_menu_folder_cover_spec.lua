@@ -2,6 +2,7 @@ describe("folder cover context-menu integration", function()
     local missing = {}
     local saved_modules
     local original_plugin
+    local color_screen
 
     local function replace(name, value)
         if saved_modules[name] == nil then
@@ -40,6 +41,7 @@ describe("folder cover context-menu integration", function()
             scaleBySize = function(_self, value) return value end,
             getWidth = function() return 600 end,
             getHeight = function() return 800 end,
+            isColorScreen = function() return color_screen end,
         }
         local bidi = {
             auto = function(value) return value end,
@@ -171,6 +173,7 @@ describe("folder cover context-menu integration", function()
 
     before_each(function()
         saved_modules = {}
+        color_screen = true
         original_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
         _G.__ZEN_UI_PLUGIN = nil
     end)
@@ -813,6 +816,14 @@ describe("folder cover context-menu integration", function()
         assert.are.equal(3, #flashes)
         chooser:showSortOrderDialog({ title = "Sort order" })
         assert.are.equal(4, #scheduled)
+
+        color_screen = false
+        apply_patch()
+        FileManager.setupLayout(fm)
+        local shown = opening_calls
+        chooser:showFileDialog(items[1])
+        assert.are.equal(shown + 1, opening_calls)
+        assert.are.equal(4, #scheduled) -- mono panels skip the cover flash
     end)
 
     it("shows a Home manga context menu with chapter metadata and fullscreen series artwork", function()

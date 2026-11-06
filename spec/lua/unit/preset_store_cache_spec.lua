@@ -1,3 +1,4 @@
+require("ffi/loadlib")
 describe("preset store parse cache", function()
     local lfs = require("libs/libkoreader-lfs")
     local originals, root, opens, PresetStore
@@ -13,7 +14,10 @@ describe("preset store parse cache", function()
         assert.is_true(lfs.mkdir(root))
         opens = 0
         ZenSpec.replace("datastorage", { getSettingsDir = function() return root end })
-        ZenSpec.replace("common/brand_migration", { prepareSettings = function() return { root = root } end })
+        ZenSpec.replace("common/brand_migration", {
+            preparedSettings = function() end,
+            prepareSettings = function() return { root = root } end,
+        })
         ZenSpec.replace("luasettings", setmetatable({
             open = function(_self, path)
                 opens = opens + 1
@@ -56,5 +60,25 @@ describe("preset store parse cache", function()
 
         assert.are.equal(1, PresetStore.getSettings("reader").a)
         assert.is_nil(PresetStore.find("reader", "Draft"))
+        local settings = PresetStore.getSettings("reader")
+        settings.a = 3
+        assert.are.equal(1, PresetStore.getSettings("reader").a)
+    end)
+
+    it("seeds the read cache from ensureStore and builds defaults only for new stores", function()
+        local built = 0
+        local function initial()
+            built = built + 1
+            return { a = 1 }
+        end
+        assert.is_true(PresetStore.ensureStore("home", initial))
+        assert.are.equal(1, built)
+
+        opens = 0
+        assert.is_false(PresetStore.ensureStore("home", initial))
+        assert.are.equal(1, PresetStore.getSettings("home").a)
+        assert.is_false(PresetStore.ensureStore("home", initial))
+        assert.are.equal(1, built)
+        assert.are.equal(1, opens)
     end)
 end)

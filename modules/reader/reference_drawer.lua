@@ -657,9 +657,23 @@ function Drawer:onTapClose(_arg, ges)
         return self:changePage(ges.pos.x < dimen.x + dimen.w / 2 and -1 or 1)
     end
     if self.content.dimen:contains(ges.pos) then
-        if self.footnote then return self:onExpand() end
+        if self.footnote then return self:followLink(ges) or self:onExpand() end
         if not self.htmlwidget then self:showImage() end
     end
+    return true
+end
+
+-- Links inside a footnote act as on the page; a footnote target replaces this sheet.
+function Drawer:followLink(ges)
+    if G_reader_settings:isFalse("tap_to_follow_links") then return end
+    local html = self.htmlwidget.htmlbox_widget
+    local pos = html:getPosFromAbsPos(ges.pos)
+    local uri = pos and (html:getLinkByPosition(pos) or {}).uri
+    if not uri or uri == "" then return end
+    -- Footnote start stands in for the untracked source anchor.
+    self.ui.link:onGotoLink({ xpointer = uri, a_xpointer = self.link.xpointer }, false,
+        G_reader_settings:isTrue("footnote_link_in_popup"))
+    if not self.closed then self:onClose() end
     return true
 end
 

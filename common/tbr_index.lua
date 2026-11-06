@@ -280,13 +280,23 @@ local function scan_scope(scope)
     return finish_scope_scan(scan)
 end
 
+local DIRS_CHECK_TTL_S = 2
+local dirs_checked_inventory
+local dirs_checked_at
+
+-- One Home build queries the index several times; stat the library at most every DIRS_CHECK_TTL_S.
 local function dirs_changed(cached, scope)
     if not cached or cached.scope_key ~= scope.key then return true end
     if cached.complete ~= true then return true end
+    local checked_at = now()
+    if dirs_checked_inventory == cached and checked_at - dirs_checked_at < DIRS_CHECK_TTL_S then
+        return false
+    end
     for directory, old_mtime in pairs(cached.dirs) do
         local current_mtime = lfs.attributes(directory, "modification")
         if current_mtime == nil or current_mtime ~= old_mtime then return true end
     end
+    dirs_checked_inventory, dirs_checked_at = cached, checked_at
     return false
 end
 
@@ -1072,6 +1082,11 @@ end
 
 function M.getRevision()
     explicit_paths()
+    return revision
+end
+
+-- Revision without the collection resync; cheap enough for per-item cache keys.
+function M.peekRevision()
     return revision
 end
 

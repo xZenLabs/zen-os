@@ -53,69 +53,60 @@ local function apply_menu_font()
     end
 
     -- ---- Re-patch already-loaded local classes ----
-    -- TouchMenuItem / MenuItem are local to their modules and were loaded
-    -- before this patch — their class-level faces are stale.  We wrap
-    -- updateItems() (which fires on every menu interaction, including the
-    -- first one after our patch) to grab the class from the first instance
-    -- via getmetatable(), re-set its face, then rebuild.
+    -- TouchMenuItem / MenuItem are module locals loaded before this patch, so
+    -- their class faces are stale. Patch them once via updateItems' upvalues
+    -- (followed through earlier wrappers).
+    local find_class = require("common/utils").findUpvalueTable
 
-    do
-        local ok_tm, TouchMenu = pcall(require, "ui/widget/touchmenu")
-        if ok_tm and TouchMenu and not TouchMenu.__zen_patched then
-            TouchMenu.__zen_patched = true
-            local orig_updateItems = TouchMenu.updateItems
-            logger.dbg("installing TouchMenu.updateItems wrapper")
-            TouchMenu.updateItems = function(self, ...)
-                orig_updateItems(self, ...)
-                if not self.__zen_items_patched then
-                    for _i = 1, #self.item_group do
-                        local widget = self.item_group[_i]
-                        if type(widget) == "table" and widget.item and widget.face then
-                            local cls = getmetatable(widget)
-                            if cls and cls.face then
-                                local orig_size = cls.face.orig_size or 18
-                                cls.face = Font:getFace("smallinfofont", orig_size)
-                                logger.dbg("TouchMenuItem face patched, size =", orig_size)
-                                self.__zen_items_patched = true
-                                self.__zen_items_patched = nil
-                                orig_updateItems(self, ...)
-                                self.__zen_items_patched = true
-                                return
-                            end
-                        end
-                    end
+    local function patch_touch_item(cls)
+        cls.face = Font:getFace("smallinfofont", cls.face.orig_size or 18)
+    end
+    local function patch_menu_item(cls)
+        cls.font = font_name
+        cls.infont = font_name
+    end
+
+    -- Fallback when the class isn't reachable: grab it from the first built
+    -- instance, patch once, rebuild that menu.
+    local function wrap_once(Widget, accept, patch)
+        local orig_updateItems = Widget.updateItems
+        local done = false
+        Widget.updateItems = function(self, ...)
+            orig_updateItems(self, ...)
+            if done then return end
+            for _i = 1, #self.item_group do
+                local widget = self.item_group[_i]
+                local cls = type(widget) == "table" and accept(widget) and getmetatable(widget)
+                if cls then
+                    done = true
+                    patch(cls)
+                    return orig_updateItems(self, ...)
                 end
             end
         end
     end
 
-    do
-        local ok_m, Menu = pcall(require, "ui/widget/menu")
-        if ok_m and Menu and not Menu.__zen_patched then
-            Menu.__zen_patched = true
-            local orig_updateItems = Menu.updateItems
-            logger.dbg("installing Menu.updateItems wrapper")
-            Menu.updateItems = function(self, ...)
-                orig_updateItems(self, ...)
-                if not self.__zen_items_patched then
-                    for _i = 1, #self.item_group do
-                        local widget = self.item_group[_i]
-                        if type(widget) == "table" and widget.face then
-                            local cls = getmetatable(widget)
-                            if cls then
-                                cls.font = font_name
-                                cls.infont = font_name
-                                logger.dbg("MenuItem font/infont patched via updateItems")
-                                self.__zen_items_patched = true
-                                self.__zen_items_patched = nil
-                                orig_updateItems(self, ...)
-                                self.__zen_items_patched = true
-                                return
-                            end
-                        end
-                    end
-                end
-            end
+    local ok_tm, TouchMenu = pcall(require, "ui/widget/touchmenu")
+    if ok_tm and TouchMenu and not TouchMenu.__zen_patched then
+        TouchMenu.__zen_patched = true
+        local TouchMenuItem = find_class(TouchMenu.updateItems, "TouchMenuItem")
+        if TouchMenuItem and TouchMenuItem.face then
+            patch_touch_item(TouchMenuItem)
+        else
+            logger.dbg("TouchMenuItem not found; using updateItems fallback")
+            wrap_once(TouchMenu, function(w) return w.item and w.face end, patch_touch_item)
+        end
+    end
+
+    local ok_m, Menu = pcall(require, "ui/widget/menu")
+    if ok_m and Menu and not Menu.__zen_patched then
+        Menu.__zen_patched = true
+        local MenuItem = find_class(Menu.updateItems, "MenuItem")
+        if MenuItem and MenuItem.font then
+            patch_menu_item(MenuItem)
+        else
+            logger.dbg("MenuItem not found; using updateItems fallback")
+            wrap_once(Menu, function(w) return w.face end, patch_menu_item)
         end
     end
 
@@ -129,7 +120,6 @@ local function apply_menu_font()
         Button.text_font_face = font_name
     end
 
-    local ok_tm, TouchMenu = pcall(require, "ui/widget/touchmenu")
     if ok_tm and TouchMenu and TouchMenu.fface then
         local orig_size = TouchMenu.fface.orig_size or 24
         TouchMenu.fface = Font:getFace(font_name, orig_size)

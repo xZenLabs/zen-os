@@ -204,200 +204,19 @@ return {
     build = function(ctx)
         local width = ctx.width
         local height = ctx.height
-        local quote, quotes, quote_text, attribution = quote_content(ctx)
-        local layout_started_at = os.clock()
-        local layout_probes = 0
+        local quote, quotes, first_text, first_attribution = quote_content(ctx)
         local automatic_font_size = quotes.automatic_font_size == true
         local Screen = Device.screen
-        local quote_font_size = configured_quote_font_size(quotes)
-
-        local function measure_height(values)
-            layout_probes = layout_probes + 1
-            local probe = TextBoxWidget:new(values)
-            local measured_h = probe:getSize().h or 0
-            WidgetResources.free(probe)
-            return measured_h
-        end
-
         local padding = Screen:scaleBySize(8)
         local vertical_padding = automatic_font_size and 0 or Screen:scaleBySize(4)
         local content_w = math.max(30, width - padding * 2)
         local inner_h = math.max(20, height - vertical_padding * 2)
-        local quote_line_height = QUOTE_LINE_HEIGHT
-        local layout_key = table.concat({
-            quote_text, attribution, tostring(content_w), tostring(inner_h),
-            tostring(automatic_font_size), tostring(quote_font_size),
-            tostring(quotes.max_font_size),
-        }, "\30")
-        local cached_layout = get_cached_layout(layout_key)
-        local layout_cache_hit = cached_layout ~= nil
-        if cached_layout then
-            quote_font_size = cached_layout.quote_font_size
-            quote_line_height = cached_layout.quote_line_height
-        elseif automatic_font_size then
-            local max_font_size = max_quote_font_size(quotes)
-            local font_measurements = {}
-            local function font_fits(candidate)
-                local measured = font_measurements[candidate]
-                if measured then return measured.fits end
-                local candidate_face = Font:getFace(
-                    "smallinfofont", Screen:scaleBySize(candidate)
-                )
-                local author_h = 0
-                if attribution ~= "" then
-                    author_h = measure_height{
-                        text = "\226\128\148 " .. attribution,
-                        width = content_w,
-                        face = author_face(candidate),
-                        alignment = "center",
-                    }
-                end
-                local quote_h = measure_height{
-                    text = quote_text,
-                    width = content_w,
-                    face = candidate_face,
-                    alignment = "center",
-                    line_height = AUTOMATIC_MIN_LINE_HEIGHT,
-                }
-                measured = {
-                    author_h = author_h,
-                    face = candidate_face,
-                    fits = quote_h + author_h <= inner_h,
-                    quote_h = quote_h,
-                }
-                font_measurements[candidate] = measured
-                return measured.fits
-            end
-
-            quote_font_size = largest_fitting(4, max_font_size, font_fits)
-            local chosen = font_measurements[quote_font_size]
-            local min_line_height_step = AUTOMATIC_MIN_LINE_HEIGHT * 20
-            local function line_height_fits(step)
-                if step == min_line_height_step then return chosen.fits end
-                return measure_height{
-                    text = quote_text,
-                    width = content_w,
-                    face = chosen.face,
-                    alignment = "center",
-                    line_height = step / 20,
-                } + chosen.author_h <= inner_h
-            end
-            quote_line_height = largest_fitting(
-                min_line_height_step, 11, line_height_fits) / 20
-        end
-
-        local quote_face = Font:getFace("smallinfofont", Screen:scaleBySize(quote_font_size))
-        local attribution_face = author_face(quote_font_size)
-        local two_quote_lines_h
-        local three_quote_lines_h
-        local quote_line_h
-        local natural_quote_h
-        local author_h
-        if cached_layout then
-            two_quote_lines_h = cached_layout.two_quote_lines_h
-            three_quote_lines_h = cached_layout.three_quote_lines_h
-            quote_line_h = cached_layout.quote_line_h
-            natural_quote_h = cached_layout.natural_quote_h
-            author_h = cached_layout.author_h
-        else
-            two_quote_lines_h = measure_height{
-                text = "A\nA",
-                width = content_w,
-                face = quote_face,
-                line_height = quote_line_height,
-            }
-            three_quote_lines_h = measure_height{
-                text = "A\nA\nA",
-                width = content_w,
-                face = quote_face,
-                line_height = quote_line_height,
-            }
-            quote_line_h = measure_height{
-                text = "A",
-                width = content_w,
-                face = quote_face,
-                line_height = quote_line_height,
-            }
-            natural_quote_h = measure_height{
-                text = quote_text,
-                width = content_w,
-                face = quote_face,
-                line_height = quote_line_height,
-            }
-            author_h = 0
-            if attribution ~= "" then
-                author_h = measure_height{
-                    text = "\226\128\148 " .. attribution,
-                    width = content_w,
-                    face = attribution_face,
-                    alignment = "center",
-                }
-            end
-            cache_layout(layout_key, {
-                quote_font_size = quote_font_size,
-                quote_line_height = quote_line_height,
-                two_quote_lines_h = two_quote_lines_h,
-                three_quote_lines_h = three_quote_lines_h,
-                quote_line_h = quote_line_h,
-                natural_quote_h = natural_quote_h,
-                author_h = author_h,
-            })
-        end
-        local author_gap = 0
-        local max_quote_h = math.max(10, inner_h - author_h - author_gap)
-        local quote_h
-        if automatic_font_size then
-            quote_h = math.min(natural_quote_h, max_quote_h)
-        else
-            quote_h = math.min(natural_quote_h, three_quote_lines_h, max_quote_h)
-        end
-        local line_height_target = 2
-        if natural_quote_h > two_quote_lines_h and quote_h < three_quote_lines_h
-                and quote_h >= quote_face.size * 3 then
-            line_height_target = 3
-        end
-        if not automatic_font_size and natural_quote_h > quote_line_h
-                and quote_h < (line_height_target == 3
-                and three_quote_lines_h or two_quote_lines_h) then
-            quote_line_height = math.max(0, math.min(
-                quote_line_height,
-                math.floor(quote_h / line_height_target) / math.max(1, quote_face.size or 1) - 1
-            ))
-        end
-        local quote_widget = TextBoxWidget:new{
-            text = quote_text,
-            width = content_w,
-            height = quote_h,
-            face = quote_face,
-            alignment = "center",
-            line_height = quote_line_height,
-            height_overflow_show_ellipsis = true,
-        }
-        local quote_size = quote_widget:getSize()
-        local author_widget
-
-        if attribution ~= "" then
-            author_widget = TextBoxWidget:new{
-                text = "\226\128\148 " .. attribution,
-                width = content_w,
-                face = attribution_face,
-                alignment = "center",
-                fgcolor = Blitbuffer.COLOR_BLACK,
-                height_overflow_show_ellipsis = true,
-            }
-        end
-        local author_size = author_widget and author_widget:getSize() or nil
-        local quote_height = quote_size.h or 0
-        local content_h = quote_height
-        if author_widget then
-            content_h = content_h + author_gap + (author_size.h or 0)
-        end
-        local available_h = math.max(0, height - content_h)
-        local content_top = math.floor(available_h / 2)
+        -- Slot bounds ignore the quote text, so swapped quotes keep the row's alignment.
         local visual_shift = 0
+        local slot_probes = 0
         if type(ctx.setContentBounds) == "function" then
-            local slot, slot_probes = slot_bounds(quotes, content_w, height, inner_h)
-            layout_probes = layout_probes + slot_probes
+            local slot
+            slot, slot_probes = slot_bounds(quotes, content_w, height, inner_h)
             ctx.setContentBounds{
                 top = slot.top,
                 bottom = slot.bottom,
@@ -406,24 +225,219 @@ return {
                 set_shift = function(shift) visual_shift = shift end,
             }
         end
-        local content = WidgetResources.managedPaintWidget{
-            dimen = Geom:new{ w = width, h = height },
-            resources = { quote_widget, author_widget },
-            paintTo = function(_self, bb, x, y)
-                local quote_x = x + math.floor((width - content_w) / 2)
-                local quote_y = y + content_top + visual_shift
-                quote_widget:paintTo(bb, quote_x, quote_y)
-                if author_widget then
-                    local author_x = x + math.floor((width - content_w) / 2)
-                    local author_y = quote_y + quote_height + author_gap
-                    author_widget:paintTo(bb, author_x, author_y)
+
+        local function layout_content(quote_text, attribution)
+            local layout_started_at = os.clock()
+            local layout_probes = slot_probes
+            slot_probes = 0
+            local quote_font_size = configured_quote_font_size(quotes)
+
+            local function measure_height(values)
+                layout_probes = layout_probes + 1
+                local probe = TextBoxWidget:new(values)
+                local measured_h = probe:getSize().h or 0
+                WidgetResources.free(probe)
+                return measured_h
+            end
+
+            local quote_line_height = QUOTE_LINE_HEIGHT
+            local layout_key = table.concat({
+                quote_text, attribution, tostring(content_w), tostring(inner_h),
+                tostring(automatic_font_size), tostring(quote_font_size),
+                tostring(quotes.max_font_size),
+            }, "\30")
+            local cached_layout = get_cached_layout(layout_key)
+            local layout_cache_hit = cached_layout ~= nil
+            if cached_layout then
+                quote_font_size = cached_layout.quote_font_size
+                quote_line_height = cached_layout.quote_line_height
+            elseif automatic_font_size then
+                local max_font_size = max_quote_font_size(quotes)
+                local font_measurements = {}
+                local function font_fits(candidate)
+                    local measured = font_measurements[candidate]
+                    if measured then return measured.fits end
+                    local candidate_face = Font:getFace(
+                        "smallinfofont", Screen:scaleBySize(candidate)
+                    )
+                    local author_h = 0
+                    if attribution ~= "" then
+                        author_h = measure_height{
+                            text = "\226\128\148 " .. attribution,
+                            width = content_w,
+                            face = author_face(candidate),
+                            alignment = "center",
+                        }
+                    end
+                    local quote_h = measure_height{
+                        text = quote_text,
+                        width = content_w,
+                        face = candidate_face,
+                        alignment = "center",
+                        line_height = AUTOMATIC_MIN_LINE_HEIGHT,
+                    }
+                    measured = {
+                        author_h = author_h,
+                        face = candidate_face,
+                        fits = quote_h + author_h <= inner_h,
+                        quote_h = quote_h,
+                    }
+                    font_measurements[candidate] = measured
+                    return measured.fits
                 end
-            end,
-            free = function()
-                quote_widget = nil
-                author_widget = nil
-            end,
-        }
+
+                quote_font_size = largest_fitting(4, max_font_size, font_fits)
+                local chosen = font_measurements[quote_font_size]
+                local min_line_height_step = AUTOMATIC_MIN_LINE_HEIGHT * 20
+                local function line_height_fits(step)
+                    if step == min_line_height_step then return chosen.fits end
+                    return measure_height{
+                        text = quote_text,
+                        width = content_w,
+                        face = chosen.face,
+                        alignment = "center",
+                        line_height = step / 20,
+                    } + chosen.author_h <= inner_h
+                end
+                quote_line_height = largest_fitting(
+                    min_line_height_step, 11, line_height_fits) / 20
+            end
+
+            local quote_face = Font:getFace("smallinfofont", Screen:scaleBySize(quote_font_size))
+            local attribution_face = author_face(quote_font_size)
+            local two_quote_lines_h
+            local three_quote_lines_h
+            local quote_line_h
+            local natural_quote_h
+            local author_h
+            if cached_layout then
+                two_quote_lines_h = cached_layout.two_quote_lines_h
+                three_quote_lines_h = cached_layout.three_quote_lines_h
+                quote_line_h = cached_layout.quote_line_h
+                natural_quote_h = cached_layout.natural_quote_h
+                author_h = cached_layout.author_h
+            else
+                two_quote_lines_h = measure_height{
+                    text = "A\nA",
+                    width = content_w,
+                    face = quote_face,
+                    line_height = quote_line_height,
+                }
+                three_quote_lines_h = measure_height{
+                    text = "A\nA\nA",
+                    width = content_w,
+                    face = quote_face,
+                    line_height = quote_line_height,
+                }
+                quote_line_h = measure_height{
+                    text = "A",
+                    width = content_w,
+                    face = quote_face,
+                    line_height = quote_line_height,
+                }
+                natural_quote_h = measure_height{
+                    text = quote_text,
+                    width = content_w,
+                    face = quote_face,
+                    line_height = quote_line_height,
+                }
+                author_h = 0
+                if attribution ~= "" then
+                    author_h = measure_height{
+                        text = "\226\128\148 " .. attribution,
+                        width = content_w,
+                        face = attribution_face,
+                        alignment = "center",
+                    }
+                end
+                cache_layout(layout_key, {
+                    quote_font_size = quote_font_size,
+                    quote_line_height = quote_line_height,
+                    two_quote_lines_h = two_quote_lines_h,
+                    three_quote_lines_h = three_quote_lines_h,
+                    quote_line_h = quote_line_h,
+                    natural_quote_h = natural_quote_h,
+                    author_h = author_h,
+                })
+            end
+            local author_gap = 0
+            local max_quote_h = math.max(10, inner_h - author_h - author_gap)
+            local quote_h
+            if automatic_font_size then
+                quote_h = math.min(natural_quote_h, max_quote_h)
+            else
+                quote_h = math.min(natural_quote_h, three_quote_lines_h, max_quote_h)
+            end
+            local line_height_target = 2
+            if natural_quote_h > two_quote_lines_h and quote_h < three_quote_lines_h
+                    and quote_h >= quote_face.size * 3 then
+                line_height_target = 3
+            end
+            if not automatic_font_size and natural_quote_h > quote_line_h
+                    and quote_h < (line_height_target == 3
+                    and three_quote_lines_h or two_quote_lines_h) then
+                quote_line_height = math.max(0, math.min(
+                    quote_line_height,
+                    math.floor(quote_h / line_height_target) / math.max(1, quote_face.size or 1) - 1
+                ))
+            end
+            local quote_widget = TextBoxWidget:new{
+                text = quote_text,
+                width = content_w,
+                height = quote_h,
+                face = quote_face,
+                alignment = "center",
+                line_height = quote_line_height,
+                height_overflow_show_ellipsis = true,
+            }
+            local quote_size = quote_widget:getSize()
+            local author_widget
+
+            if attribution ~= "" then
+                author_widget = TextBoxWidget:new{
+                    text = "\226\128\148 " .. attribution,
+                    width = content_w,
+                    face = attribution_face,
+                    alignment = "center",
+                    fgcolor = Blitbuffer.COLOR_BLACK,
+                    height_overflow_show_ellipsis = true,
+                }
+            end
+            local author_size = author_widget and author_widget:getSize() or nil
+            local quote_height = quote_size.h or 0
+            local content_h = quote_height
+            if author_widget then
+                content_h = content_h + author_gap + (author_size.h or 0)
+            end
+            local available_h = math.max(0, height - content_h)
+            local content_top = math.floor(available_h / 2)
+            local content = WidgetResources.managedPaintWidget{
+                dimen = Geom:new{ w = width, h = height },
+                resources = { quote_widget, author_widget },
+                paintTo = function(_self, bb, x, y)
+                    local quote_x = x + math.floor((width - content_w) / 2)
+                    local quote_y = y + content_top + visual_shift
+                    quote_widget:paintTo(bb, quote_x, quote_y)
+                    if author_widget then
+                        local author_x = x + math.floor((width - content_w) / 2)
+                        local author_y = quote_y + quote_height + author_gap
+                        author_widget:paintTo(bb, author_x, author_y)
+                    end
+                end,
+                free = function()
+                    quote_widget = nil
+                    author_widget = nil
+                end,
+            }
+            if ctx.data and type(ctx.data.recordQuoteLayout) == "function" then
+                ctx.data:recordQuoteLayout(
+                    (os.clock() - layout_started_at) * 1000,
+                    layout_cache_hit,
+                    layout_probes
+                )
+            end
+            return content
+        end
 
         local body = FrameContainer:new{
             width = width,
@@ -431,8 +445,32 @@ return {
             padding = 0,
             bordersize = 0,
             background = Background.tile_bg(Blitbuffer.COLOR_WHITE),
-            content,
+            layout_content(first_text, first_attribution),
         }
+
+        -- Swap only this row's content; Home rebuilds everything when it can't repaint one row.
+        local function step_quote(method)
+            local data = ctx.data
+            if not (data and data[method]) then return end
+            local refresh
+            if type(ctx.refreshRow) == "function" then
+                refresh = function()
+                    local next_quote, _quotes, text, attribution = quote_content(ctx)
+                    quote = next_quote
+                    local old = body[1]
+                    body[1] = layout_content(text, attribution)
+                    WidgetResources.free(old)
+                    local dimen = body.dimen
+                    ctx.refreshRow(dimen and Geom:new{
+                        x = dimen.x,
+                        y = dimen.y + math.min(0, visual_shift),
+                        w = dimen.w,
+                        h = dimen.h + math.abs(visual_shift),
+                    })
+                end
+            end
+            data[method](data, refresh)
+        end
 
         local tap = InputContainer:new{
             dimen = Geom:new{ w = width, h = height },
@@ -477,10 +515,10 @@ return {
                 return false
             end
             if ges.direction == "west" then
-                if ctx.data.nextQuote then ctx.data:nextQuote() end
+                step_quote("nextQuote")
                 return true
             elseif ges.direction == "east" then
-                if ctx.data.prevQuote then ctx.data:prevQuote() end
+                step_quote("prevQuote")
                 return true
             end
             return false
@@ -495,13 +533,6 @@ return {
             return false
         end
         tap[1] = body
-        if ctx.data and type(ctx.data.recordQuoteLayout) == "function" then
-            ctx.data:recordQuoteLayout(
-                (os.clock() - layout_started_at) * 1000,
-                layout_cache_hit,
-                layout_probes
-            )
-        end
         return tap
     end,
 }

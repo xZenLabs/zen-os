@@ -3,7 +3,8 @@ local lfs = require("libs/libkoreader-lfs")
 local BrandMigration = require("common/brand_migration")
 
 local settings_parent = DataStorage:getSettingsDir()
-local settings_migration = BrandMigration.prepareSettings(settings_parent, { lfs = lfs })
+local settings_migration = BrandMigration.preparedSettings(settings_parent)
+    or BrandMigration.prepareSettings(settings_parent, { lfs = lfs })
 local ROOT_DIR = settings_migration.root
 
 -- Resolve and, when needed, rename the complete settings tree before opening
@@ -26,8 +27,9 @@ local function ensure_dir(path)
     return lfs.mkdir(path) == true or lfs.attributes(path, "mode") == "directory"
 end
 
+local root_ready = false
 local function ensure_root_dir()
-    ensure_dir(ROOT_DIR)
+    root_ready = root_ready or ensure_dir(ROOT_DIR)
     return ROOT_DIR
 end
 
@@ -54,6 +56,11 @@ local function empty_store()
     }
 end
 
+local function is_valid_store(data)
+    return type(data) == "table" and type(data.settings) == "table"
+        and type(data.presets) == "table" and type(data.version) == "number"
+end
+
 local function normalize_store(data)
     if type(data) ~= "table" then data = {} end
     if type(data.settings) ~= "table" then data.settings = {} end
@@ -78,11 +85,15 @@ local function read_store(kind)
     local attr = lfs.attributes(path)
     local cached = _store_cache[kind]
     if cached and attr and cached.mtime == attr.modification and cached.size == attr.size then
-        return cached.data
+        return cached.data, cached.valid
     end
-    local data = normalize_store(LuaSettings:open(path).data)
-    _store_cache[kind] = attr and { mtime = attr.modification, size = attr.size, data = data } or nil
-    return data
+    local raw = LuaSettings:open(path).data
+    local valid = is_valid_store(raw)
+    local data = normalize_store(raw)
+    _store_cache[kind] = attr and {
+        mtime = attr.modification, size = attr.size, data = data, valid = valid,
+    } or nil
+    return data, valid
 end
 
 function M.rootDir()
@@ -108,32 +119,31 @@ function M.saveStore(kind, data)
     return true
 end
 
+-- Private copy of the settings only; presets stay in the shared parse.
 function M.getSettings(kind)
-    return M.loadStore(kind).settings
+    local data = read_store(kind)
+    return data and util.tableDeepCopy(data.settings) or {}
 end
 
+-- initial_settings may be a table or a function building it on demand.
 function M.ensureStore(kind, initial_settings)
     local path = kind_path(kind)
     if not path then return false end
 
     local exists = file_exists(path)
-    local settings = LuaSettings:open(path)
-    local raw_store = settings.data
-    local changed = not exists or type(raw_store) ~= "table"
-        or type(raw_store.settings) ~= "table"
-        or type(raw_store.presets) ~= "table"
-        or type(raw_store.version) ~= "number"
-    local store = normalize_store(raw_store)
+    -- Steady state: validate via the shared parse (seeds the read cache).
+    if exists and select(2, read_store(kind)) then return false end
 
-    if not exists and type(initial_settings) == "table" then
-        store.settings = initial_settings
+    local settings = LuaSettings:open(path)
+    local store = normalize_store(settings.data)
+    if not exists then
+        if type(initial_settings) == "function" then initial_settings = initial_settings() end
+        if type(initial_settings) == "table" then store.settings = initial_settings end
     end
-    if changed then
-        settings.data = store
-        settings:flush()
-        _store_cache[kind] = nil
-    end
-    return changed
+    settings.data = store
+    settings:flush()
+    _store_cache[kind] = nil
+    return true
 end
 
 function M.migrateStores(initial_settings)
@@ -221,6 +231,7 @@ function M.delete(kind, name)
 end
 
 function M.removeAll()
+    root_ready = false
     return BrandMigration.removeSettings({ settings_dir = settings_parent, lfs = lfs })
 end
 

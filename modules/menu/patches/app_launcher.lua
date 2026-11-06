@@ -16,7 +16,6 @@
     local Model = require("modules/menu/app_launcher/model")
     local NativeMenu = require("modules/menu/app_launcher/native_menu")
     local PluginScan = require("modules/menu/app_launcher/plugin_scan")
-    local BookSwitcherPage = require("modules/menu/app_launcher/book_switcher_page")
     local PagePlan = require("modules/menu/app_launcher/page_plan")
     local ButtonLabelWidth = require("common/ui/button_label_width")
     local ZenActionButton = require("common/ui/zen_action_button")
@@ -326,7 +325,7 @@
         local page_rows = page_spec.kind == "buttons" and button_pages[button_page] or {}
 
         if is_switcher_page then
-            local panel, switcher_refs = BookSwitcherPage.build{
+            local panel, switcher_refs = require("modules/menu/app_launcher/book_switcher_page").build{
                 width = panel_width,
                 height = panel_height,
                 config = zen_plugin.config,

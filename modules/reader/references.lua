@@ -98,14 +98,25 @@ function M.pinnedPage(ui)
     return pin and pin.page
 end
 
-function M.isPinned(ui, page)
-    local pins = M.pins(ui)
-    if #pins == 0 then return false end -- common case on every header paint
-    local location = page and ui.rolling and ui.document:getPageXPointer(page)
-    for _i, pin in ipairs(pins) do
-        if pin.page == page or location and pin.location == location then return true end
+-- Pinned pages and xpointers, rebuilt after pin edits or CRE rerendering; queried on every header paint.
+local function pinnedSet(ui)
+    local hash, count = ui.rolling and ui.rolling.rendering_hash or 0, ui.document:getPageCount()
+    local set = ui._zen_pinned_set
+    if set and set.hash == hash and set.count == count then return set end
+    set = { hash = hash, count = count, pages = {}, locations = {} }
+    for _i, pin in ipairs(M.pins(ui)) do
+        set.pages[pin.page] = true
+        if ui.rolling and type(pin.location) == "string" then set.locations[pin.location] = true end
     end
-    return false
+    ui._zen_pinned_set = set
+    return set
+end
+
+function M.isPinned(ui, page)
+    local set = pinnedSet(ui)
+    if set.pages[page] then return true end
+    if not (page and ui.rolling and next(set.locations)) then return false end
+    return set.locations[ui.document:getPageXPointer(page)] == true
 end
 
 function M.setPin(ui, page, remove, image)
@@ -135,6 +146,7 @@ function M.setPin(ui, page, remove, image)
         table.insert(locations, 1, location)
         ui.doc_settings:saveSetting("zen_last_pinned_page", ui.rolling and location or page)
     else return end
+    ui._zen_pinned_set = nil
     ui.doc_settings:saveSetting("zen_pinned_pages", locations)
     local images = ui.doc_settings:readSetting("zen_pinned_images")
     if image or images then
@@ -347,7 +359,7 @@ function M.clear(ui)
     if ui and ui._zen_return_button then ui._zen_return_button:hide() end
     local state = ui and ui._zen_references
     if state and state.drawer then state.drawer:onClose() end
-    if ui then ui._zen_references = nil end
+    if ui then ui._zen_references, ui._zen_pinned_set = nil, nil end
 end
 
 return M

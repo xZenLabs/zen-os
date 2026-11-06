@@ -4,6 +4,9 @@ local function apply_browser_list_item_layout()
     local Cover = require("common/cover_utils")
     local FileManager = require("apps/filemanager/filemanager")
     local RenderCache = require("common/cover_render_cache")
+    local DecodeCache = require("common/cover_decode_cache")
+    local now = require("common/zen_logger").now
+    local METADATA_TTL_S = 30
 
     local BD = require("ui/bidi")
     local Blitbuffer = require("ffi/blitbuffer")
@@ -90,13 +93,10 @@ local function apply_browser_list_item_layout()
                             wleft:free(true)
                             wleft.face = library_font.getFace(fs)
                             wleft.fgcolor = Blitbuffer.COLOR_BLACK
-                            wleft:init() -- init once to compute font metrics
-
-                            local lh = wleft:getLineHeight()
+                            -- TextBoxWidget:init's line height, without an extra layout pass.
+                            local lh = math.floor((1 + (wleft.line_height or 0.3)) * wleft.face.size + 0.5)
                             wleft.height_adjust = false -- CRITICAL: prevent it from expanding
                             wleft.height = lh * 2
-
-                            wleft:free(true)
                             wleft:init() -- re-measure limited to max 2 lines
                         end
                     end)
@@ -146,15 +146,25 @@ local function apply_browser_list_item_layout()
                         },
                     }
                     if not is_go_up and self.do_cover_image then
+                        -- Cached-only first paint; the shared hydration queue decodes later.
+                        local hydrating = self._zen_folder_hydrating == true
+                        local wants_preview = not covers_suppressed(self.menu)
+                        local deferred = wants_preview and not hydrating
+                            and type(self.menu._zen_request_cover_hydration) == "function"
                         local folder_result = FolderCover.build(
                             self.menu, self.entry, self.text, cover_w, max_img, {
-                                load_covers = not covers_suppressed(self.menu),
+                                load_covers = wants_preview,
+                                cached_only = deferred,
+                                allow_expensive = hydrating,
                                 cover_specs = {
                                     max_cover_w = cover_w,
                                     max_cover_h = max_img,
                                     uniform = true,
                                 },
                             })
+                        if deferred and folder_result.needs_hydration then
+                            FolderCover.queueHydration(self, "folder")
+                        end
                         cover_frame = folder_result.frame
                         self._zen_folder_count = folder_result.count > 0 and folder_result.count or nil
                         self._foldercover_processed = true
@@ -304,7 +314,8 @@ local function apply_browser_list_item_layout()
             end
 
             -- Attempt to get bookinfo (without cover) first to check availability.
-            local bookinfo = BookInfoManager:getBookInfo(filepath, false)
+            local bookinfo = DecodeCache:getFreshMetadata(filepath, now(), METADATA_TTL_S)
+                or BookInfoManager:getBookInfo(filepath, false)
 
             -- If not yet indexed fall back to the original renderer so the
             -- loading hint ("…") is shown and the item queues for extraction.
@@ -330,98 +341,81 @@ local function apply_browser_list_item_layout()
                 return update_original(self)
             end
 
-            -- Re-fetch with cover only when in cover-image mode and cover exists.
-            if self.do_cover_image and bookinfo.has_cover and not bookinfo.ignore_cover
-               and not covers_suppressed(self.menu) then
-                bookinfo = BookInfoManager:getBookInfo(filepath, true) or bookinfo
-            end
+            local want_cover = self.do_cover_image and not covers_suppressed(self.menu)
+            local real_cover = want_cover and bookinfo.has_cover and not bookinfo.ignore_cover
 
             -- Mirror stock: if the cached thumbnail is too small for our specs
             -- (e.g. first extracted in mosaic mode at a smaller size), fall through
             -- so KOReader queues a re-extraction at the correct cover_specs.
-            if self.do_cover_image and bookinfo.has_cover and not bookinfo.ignore_cover
-               and not covers_suppressed(self.menu)
-               and bookinfo.cover_bb
-               and BookInfoManager.isCachedCoverInvalid(bookinfo, cover_specs) then
-                bookinfo.cover_bb:free()
-                return update_original(self)
+            -- Providers may only fill cover dimensions on a full read, so confirm there.
+            local full
+            if real_cover and BookInfoManager.isCachedCoverInvalid(bookinfo, cover_specs) then
+                full = BookInfoManager:getBookInfo(filepath, true)
+                if full and full.cover_bb
+                        and BookInfoManager.isCachedCoverInvalid(full, cover_specs) then
+                    full.cover_bb:free()
+                    RenderCache:drop(filepath)
+                    return update_original(self)
+                end
             end
 
             local file_deleted = self.entry.dim and not is_selected(self.entry)
             local fgcolor = file_deleted and Blitbuffer.COLOR_DARK_GRAY or Blitbuffer.COLOR_BLACK
 
             -- ── Cover image (left zone) ──────────────────────────────────────
-            local cover_bb_used = false
             local wleft
 
             if self.do_cover_image then
-                if bookinfo.has_cover and not bookinfo.ignore_cover
-                   and bookinfo.cover_bb and not covers_suppressed(self.menu)
-                then
-                    cover_bb_used = true
-                    -- Uniform fill: scale from the actual cached-bb dimensions so
-                    -- the image covers the entire 2:3 frame, then centre-crop to
-                    -- exactly cover_w × max_img.
-                    local fill_bb = RenderCache:render(filepath, bookinfo.cover_bb, cover_w, max_img)
-                    bookinfo.cover_bb = nil
-                    local wimage = ImageWidget:new{
-                        image        = fill_bb,
-                        scale_factor = 1,
-                        _free_image  = true,
-                    }
-                    wimage:_render()
-                    local cover_frame = FrameContainer:new{
-                        width = cover_w + 2 * border_size,
-                        height = max_img + 2 * border_size,
-                        margin = 0, padding = 0, bordersize = border_size,
-                        dim = file_deleted,
-                        CenterContainer:new{
-                            dimen = { w = cover_w, h = max_img },
-                            wimage,
-                        },
-                    }
-                    CoverWidget.decorate_cover_frame(cover_frame)
-                    wleft = CenterContainer:new{
-                        dimen = { w = cover_zone_w, h = dimen_h },
-                        cover_frame,
-                    }
-                    self._cover_frame = cover_frame
-                    self.menu._has_cover_images = true
-                    self._has_cover_image = true
-                else
-                    -- No cover or not yet fetched - use unified placeholder generator
-                    local final_bb = Cover.genCover(filepath, cover_w, max_img)
-                    local wimage = ImageWidget:new{
-                        image = final_bb,
-                        width = cover_w,
-                        height = max_img,
-                        _free_image = true,
-                    }
-                    wimage:_render()
-                    local cover_frame = FrameContainer:new{
-                        width = cover_w + 2 * border_size,
-                        height = max_img + 2 * border_size,
-                        margin = 0, padding = 0, bordersize = border_size,
-                        dim = file_deleted,
-                        CenterContainer:new{
-                            dimen = { w = cover_w, h = max_img },
-                            wimage,
-                        },
-                    }
-                    CoverWidget.decorate_cover_frame(cover_frame)
-                    wleft = CenterContainer:new{
-                        dimen = { w = cover_zone_w, h = dimen_h },
-                        cover_frame,
-                    }
-                    self._cover_frame = cover_frame
-                    self.menu._has_cover_images = true
-                    self._has_cover_image = true
+                -- Same final-render cache as mosaic: lease the exact bitmap, and
+                -- read the cover BLOB only when no reusable render exists.
+                local cover_bb, cache_owned, cache_key
+                if real_cover and not full then
+                    cover_bb = RenderCache:getShared(filepath, cover_w, max_img)
+                    cache_owned = cover_bb ~= nil
+                    if not cover_bb and RenderCache:hasReusable(filepath, cover_w, max_img) then
+                        cover_bb = RenderCache:get(filepath, cover_w, max_img)
+                    end
+                    if not cover_bb then full = BookInfoManager:getBookInfo(filepath, true) end
                 end
-            end
-
-            -- Free unused cover blitbuffer
-            if bookinfo.cover_bb and not cover_bb_used then
-                bookinfo.cover_bb:free()
+                if real_cover and not cover_bb and full and full.cover_bb then
+                    cover_bb, cache_owned = RenderCache:renderShared(
+                        filepath, full.cover_bb, cover_w, max_img)
+                    full.cover_bb = nil
+                end
+                cache_key = cache_owned and filepath or nil
+                if not cover_bb then
+                    -- No cover or not yet fetched - use unified placeholder generator
+                    local generated = { Cover.genCoverShared(
+                        filepath, cover_w, max_img, nil, bookinfo) }
+                    cover_bb, cache_owned, cache_key = generated[1], generated[4], generated[5]
+                end
+                local wimage = ImageWidget:new{
+                    image = cover_bb,
+                    image_disposable = not cache_owned,
+                    width = cover_w,
+                    height = max_img,
+                    scale_factor = 1,
+                }
+                if cache_owned then RenderCache:releaseOnFree(wimage, cache_key, cover_bb) end
+                wimage:_render()
+                local cover_frame = FrameContainer:new{
+                    width = cover_w + 2 * border_size,
+                    height = max_img + 2 * border_size,
+                    margin = 0, padding = 0, bordersize = border_size,
+                    dim = file_deleted,
+                    CenterContainer:new{
+                        dimen = { w = cover_w, h = max_img },
+                        wimage,
+                    },
+                }
+                CoverWidget.decorate_cover_frame(cover_frame)
+                wleft = CenterContainer:new{
+                    dimen = { w = cover_zone_w, h = dimen_h },
+                    cover_frame,
+                }
+                self._cover_frame = cover_frame
+                self.menu._has_cover_images = true
+                self._has_cover_image = true
             end
 
             -- ── Metadata ─────────────────────────────────────────────────────

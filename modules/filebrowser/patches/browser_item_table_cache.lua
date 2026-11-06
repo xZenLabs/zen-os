@@ -22,16 +22,15 @@ local function apply_browser_item_table_cache()
     local PERSISTED_TREE_DEPTH = 2
     local PERSISTED_TREE_DIR_MAX = 256
     local PERSISTED_TREE_ENTRY_MAX = 4096
-    local PERSIST_DEBOUNCE_S = 2
     local shared_cache = { values = {}, order = {} }
+    -- Disk snapshot, loaded on demand and released after each flush event.
     local persisted_cache
     local persisted_store
-    local persist_scheduled = false
-    local persist_callback
-    local persist_ui
-    local persist_revision = 0
+    local persisted_keys -- path -> key on disk while released
+    -- Writes are batched until FlushSettings/SaveSettings (suspend, FM close) to spare flash.
+    local pending = { values = {}, order = {} } -- false value = drop
     local persist_owner = {}
-    local build_tree_signature
+    local build_tree_signature, directory_signature
     FileChooser._zen_item_table_cache_persist_owner = persist_owner
 
     local function stable_table_key(value)
@@ -119,19 +118,72 @@ local function apply_browser_item_table_cache()
         return persisted_cache
     end
 
-    local function flush_persisted_cache(expected_revision)
-        if FileChooser._zen_item_table_cache_persist_owner ~= persist_owner
-                or (expected_revision and expected_revision ~= persist_revision) then return end
-        persist_scheduled = false
-        persist_callback = nil
-        if not (persisted_store and persisted_cache
-                and type(persisted_store.flush) == "function") then return end
+    local function release_persisted_cache()
+        if not persisted_cache then return end
+        persisted_keys = {}
+        for path, value in pairs(persisted_cache.values) do persisted_keys[path] = value.key end
+        persisted_cache, persisted_store = nil, nil
+    end
+
+    local function remove_path(order, path)
+        for index = #order, 1, -1 do
+            if order[index] == path then table.remove(order, index) end
+        end
+    end
+
+    local function set_pending(path, entry)
+        if pending.values[path] == nil then pending.order[#pending.order + 1] = path end
+        pending.values[path] = entry
+        local count = 0
+        for index = #pending.order, 1, -1 do
+            local queued = pending.order[index]
+            if pending.values[queued] then
+                count = count + 1
+                if count > PERSISTED_CACHE_MAX then
+                    pending.values[queued] = nil
+                    table.remove(pending.order, index)
+                end
+            end
+        end
+    end
+
+    local function flush_persisted_cache()
+        if FileChooser._zen_item_table_cache_persist_owner ~= persist_owner then return end
+        if not pending.clear and #pending.order == 0 then
+            release_persisted_cache()
+            return
+        end
+        local cache = load_persisted_cache()
+        if pending.clear then cache.values, cache.order = {}, {} end
+        for _i, path in ipairs(pending.order) do
+            local entry = pending.values[path]
+            if entry then
+                if not cache.values[path] then cache.order[#cache.order + 1] = path end
+                cache.values[path] = entry
+            elseif cache.values[path] then
+                cache.values[path] = nil
+                remove_path(cache.order, path)
+            end
+        end
+        pending = { values = {}, order = {} }
+        while #cache.order > PERSISTED_CACHE_MAX do
+            cache.values[table.remove(cache.order, 1)] = nil
+        end
+        if not (persisted_store and type(persisted_store.flush) == "function") then
+            release_persisted_cache()
+            return
+        end
         local started_at = now()
         local invalid_paths = {}
         local signature_fallbacks = 0
-        for _i, path in ipairs(persisted_cache.order) do
-            local value = persisted_cache.values[path]
-            if value and value.needs_tree_signature then
+        for _i, path in ipairs(cache.order) do
+            local value = cache.values[path]
+            -- Writes are deferred: reject listings whose root changed since the scan.
+            if value and value.needs_tree_signature
+                    and value.key ~= tostring(value.stable_key) .. "|" .. directory_signature(path) then
+                logger.warn("Library snapshot rejected", "path=", path, "reason=", "root_changed")
+                invalid_paths[#invalid_paths + 1] = path
+            elseif value and value.needs_tree_signature then
                 local ok_signature, signature, signature_mode, signature_reason =
                     pcall(build_tree_signature, path, value.requires_full_tree)
                 if not ok_signature then
@@ -161,51 +213,22 @@ local function apply_browser_item_table_cache()
             end
         end
         for _i, path in ipairs(invalid_paths) do
-            persisted_cache.values[path] = nil
-            for index = #persisted_cache.order, 1, -1 do
-                if persisted_cache.order[index] == path then
-                    table.remove(persisted_cache.order, index)
-                end
-            end
+            cache.values[path] = nil
+            remove_path(cache.order, path)
         end
-        persisted_store.data = persisted_cache
+        persisted_store.data = cache
         local ok_flush, err = pcall(persisted_store.flush, persisted_store)
         logger.measure("Library snapshot saved", (now() - started_at) * 1000,
             ok_flush and "cache=written" or "cache=write_failed",
-            "entries=", #persisted_cache.order,
+            "entries=", #cache.order,
             "signature_fallbacks=", signature_fallbacks)
         if not ok_flush then logger.warn("Library snapshot write failed", tostring(err)) end
-    end
-
-    local function schedule_persist()
-        if not persisted_store then return end
-        persist_revision = persist_revision + 1
-        local revision = persist_revision
-        if persist_scheduled and persist_ui and persist_callback
-                and type(persist_ui.unschedule) == "function" then
-            pcall(persist_ui.unschedule, persist_ui, persist_callback)
-        end
-        persist_scheduled = true
-        local ok_ui, UIManager = pcall(require, "ui/uimanager")
-        if ok_ui and UIManager and type(UIManager.scheduleIn) == "function" then
-            persist_ui = UIManager
-            persist_callback = function() flush_persisted_cache(revision) end
-            local ok_schedule = pcall(
-                UIManager.scheduleIn, UIManager, PERSIST_DEBOUNCE_S, persist_callback)
-            if not ok_schedule then flush_persisted_cache(revision) end
-        else
-            flush_persisted_cache(revision)
-        end
+        release_persisted_cache()
     end
 
     local function cancel_persist()
-        persist_revision = persist_revision + 1
-        if persist_scheduled and persist_ui and persist_callback
-                and type(persist_ui.unschedule) == "function" then
-            pcall(persist_ui.unschedule, persist_ui, persist_callback)
-        end
-        persist_scheduled = false
-        persist_callback = nil
+        pending = { values = {}, order = {} }
+        release_persisted_cache()
     end
 
     local function copy_serializable(value, seen, skipped_key)
@@ -239,10 +262,10 @@ local function apply_browser_item_table_cache()
 
     local function snapshot_item_table(item_table)
         if type(item_table) ~= "table" or #item_table > PERSISTED_ITEM_MAX then return nil end
-        local snapshot = {}
+        local snapshot, seen = {}, {}
         for index, item in ipairs(item_table) do
             if type(item) ~= "table" or type(item.path) ~= "string" then return nil end
-            local copied, ok = copy_serializable(item, {}, "bidi_wrap_func")
+            local copied, ok = copy_serializable(item, seen, "bidi_wrap_func")
             if not ok then return nil end
             snapshot[index] = copied
         end
@@ -252,9 +275,9 @@ local function apply_browser_item_table_cache()
     local function restore_item_table(snapshot)
         if type(snapshot) ~= "table" or #snapshot > PERSISTED_ITEM_MAX then return nil end
         local ok_bidi, BD = pcall(require, "ui/bidi")
-        local restored = {}
+        local restored, seen = {}, {}
         for index, item in ipairs(snapshot) do
-            local copied, ok = copy_serializable(item, {})
+            local copied, ok = copy_serializable(item, seen)
             if not ok or type(copied.path) ~= "string" then return nil end
             if ok_bidi and type(copied.attr) == "table" then
                 if copied.attr.mode == "file" then
@@ -287,13 +310,10 @@ local function apply_browser_item_table_cache()
     local function folder_sort_override(path)
         local api = rawget(_G, "__ZEN_FOLDER_SORT")
         if not (api and type(api.get) == "function") then return nil end
-        local real_path = ffiUtil.realpath(path) or path
-        return (real_path and api.get(real_path))
-            or (path ~= real_path and api.get(path))
+        return api.get(path)
     end
 
-    local function folder_sort_key(path)
-        local override = folder_sort_override(path)
+    local function folder_sort_key(override)
         if type(override) ~= "table" then return "" end
         return tostring(override.collate or "") .. ":" .. tostring(override.reverse == true)
     end
@@ -448,7 +468,11 @@ local function apply_browser_item_table_cache()
             for _i, item in ipairs(directories) do result[#result + 1] = item end
             for _i, item in ipairs(files) do result[#result + 1] = item end
         end
-        return result
+        -- Keep the table identity when the order holds so downstream memos (series grouping) hit.
+        for index = 1, #result do
+            if result[index] ~= item_table[index] then return result end
+        end
+        return #result == #item_table and item_table or result
     end
 
     local original_getListItem = FileChooser.getListItem
@@ -499,7 +523,7 @@ local function apply_browser_item_table_cache()
         return status_filter(self) ~= nil
     end
 
-    local function stable_key(self, path)
+    local function stable_key(self, path, override)
         local flat_config = plugin and plugin.config and plugin.config.browser_flat_view
         local show_hidden = self.show_hidden
         if show_hidden == nil then show_hidden = FileChooser.show_hidden end
@@ -512,7 +536,7 @@ local function apply_browser_item_table_cache()
             tostring(G_reader_settings:readSetting("collate", "strcoll")),
             tostring(G_reader_settings:isTrue("collate_mixed")),
             tostring(G_reader_settings:isTrue("reverse_collate")),
-            tostring(show_hidden), stable_table_key(status_filter(self)), folder_sort_key(path),
+            tostring(show_hidden), stable_table_key(status_filter(self)), folder_sort_key(override),
             tostring(automatic_series_enabled()), tostring(hide_grouped_series_enabled()),
             tostring(dim_finished_enabled()),
             up_folder_visibility_key(), tostring(show_flat_view),
@@ -533,7 +557,7 @@ local function apply_browser_item_table_cache()
         }, ":")
     end
 
-    local function directory_signature(path)
+    directory_signature = function(path)
         local attr = lfs.attributes(path)
         if type(attr) == "table" then return attr_signature(attr) end
         return tostring(lfs.attributes(path, "modification") or 0)
@@ -675,10 +699,6 @@ local function apply_browser_item_table_cache()
         return count > 0
     end
 
-    local function cache_key(self, path)
-        return stable_key(self, path) .. "|" .. directory_signature(path)
-    end
-
     local function get_cached(path, key)
         local value = shared_cache.values[path]
         return value and value.key == key and validate_children(value) and value or nil
@@ -699,6 +719,10 @@ local function apply_browser_item_table_cache()
 
     local function get_persisted(self, path, key)
         if status_filter_active(self) then return nil, "disk_filtered" end
+        if pending.clear or pending.values[path] ~= nil then return nil, "disk_pending" end
+        if not persisted_cache and persisted_keys and persisted_keys[path] ~= key then
+            return nil, persisted_keys[path] and "disk_stale" or "disk_miss"
+        end
         local cache = load_persisted_cache()
         local value = cache.values[path]
         if not value then return nil, "disk_miss" end
@@ -721,12 +745,13 @@ local function apply_browser_item_table_cache()
     end
 
     local function put_persisted(self, path, value)
-        if status_filter_active(self) then return false end
+        if status_filter_active(self)
+                or FileChooser._zen_item_table_cache_persist_owner ~= persist_owner then
+            return false
+        end
         local snapshot = snapshot_item_table(value.table)
         if not snapshot then return false end
-        local cache = load_persisted_cache()
-        if not cache.values[path] then cache.order[#cache.order + 1] = path end
-        cache.values[path] = {
+        set_pending(path, {
             key = value.key,
             stable_key = value.stable_key,
             table = snapshot,
@@ -737,29 +762,22 @@ local function apply_browser_item_table_cache()
             needs_tree_signature = not value.recursive,
             requires_full_tree = value.recursive or self.show_flat_view == true
                 or (self.show_flat_view == nil and FileChooser.show_flat_view == true),
-        }
-        while #cache.order > PERSISTED_CACHE_MAX do
-            cache.values[table.remove(cache.order, 1)] = nil
-        end
-        schedule_persist()
+        })
         return true
     end
 
     local function clear_persisted_cache()
-        local cache = load_persisted_cache()
-        cache.values = {}
-        cache.order = {}
-        schedule_persist()
+        pending = { values = {}, order = {}, clear = true }
     end
 
     local function drop_persisted_path(path)
-        local cache = load_persisted_cache()
-        if not cache.values[path] then return false end
-        cache.values[path] = nil
-        for index = #cache.order, 1, -1 do
-            if cache.order[index] == path then table.remove(cache.order, index) end
-        end
-        schedule_persist()
+        if pending.clear then return false end
+        if not (persisted_cache or persisted_keys) then load_persisted_cache() end
+        local exists = pending.values[path]
+            or (persisted_cache and persisted_cache.values[path])
+            or (persisted_keys and persisted_keys[path])
+        if not exists then return false end
+        set_pending(path, false)
         return true
     end
 
@@ -816,6 +834,18 @@ local function apply_browser_item_table_cache()
         return true
     end
 
+    function FileChooser:_zen_flush_item_table_cache_persist()
+        flush_persisted_cache()
+    end
+
+    for _i, event in ipairs({ "onFlushSettings", "onSaveSettings" }) do
+        local original = FileChooser[event]
+        FileChooser[event] = function(self, ...)
+            flush_persisted_cache()
+            if original then return original(self, ...) end
+        end
+    end
+
     function FileChooser:_zen_cancel_item_table_cache_persist()
         cancel_persist()
         if FileChooser._zen_item_table_cache_persist_owner == persist_owner then
@@ -846,7 +876,8 @@ local function apply_browser_item_table_cache()
         local collate = (self.collates and self.collates[collate_mode]) or self:getCollate()
         local reverse = type(override) == "table"
             and override.reverse or G_reader_settings:isTrue("reverse_collate")
-        local key, stable = cache_key(self, path), stable_key(self, path)
+        local stable = stable_key(self, path, override)
+        local key = stable .. "|" .. directory_signature(path)
         local prepared = self._zen_prepared_item_table
         if prepared then
             self._zen_prepared_item_table = nil
@@ -908,8 +939,8 @@ local function apply_browser_item_table_cache()
             _G.__ZEN_UI_LAST_READ_FILE = nil
             stale.table = apply_history_order(self, stale.table, collate, reverse)
             stale.key = key
+            -- Not persisted: this runs on every reader return; disk hits re-apply history order.
             put_cached(path, stale)
-            put_persisted(self, path, stale)
             self._zen_last_item_table_cache_result = {
                 cache = "history_reorder", elapsed_ms = (now() - started_at) * 1000,
                 items = #stale.table,
