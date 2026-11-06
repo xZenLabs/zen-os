@@ -13,6 +13,11 @@ jobs:
     with:
       suite: full
 
+  benchmark:
+    name: Benchmark
+    needs: luacheck
+    uses: ./.github/workflows/benchmark.yml
+
   luacheck:
     name: LuaCheck
     runs-on: ubuntu-latest

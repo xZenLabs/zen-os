@@ -452,21 +452,21 @@ def _delta(current: float | None, previous: float | None) -> str:
     return f"{(current - previous) / previous * 100:+.1f}%"
 
 
-def _ratio(zen: float | None, stock: float | None) -> str:
-    return "—" if zen is None or not stock else f"{zen / stock:.2f}×"
+def _diff(zen: float | None, stock: float | None) -> str:
+    return "—" if zen is None or stock is None else f"{zen - stock:+.1f}"
 
 
 def _stock_section(results: dict, stock: dict) -> list[str]:
-    lines = ["## ZenOS vs stock KOReader (median; ZenOS / stock, ratio)", ""]
+    lines = ["## ZenOS vs stock KOReader (median; ZenOS / stock, Δ = ZenOS − stock, + is slower/larger)", ""]
     zen_startup, stock_startup = results.get("startup") or {}, stock.get("startup") or {}
     if zen_startup and stock_startup:
-        lines += ["| Startup | ZenOS | Stock | Ratio |", "|---|---:|---:|---:|"]
+        lines += ["| Startup | ZenOS | Stock | Δ |", "|---|---:|---:|---:|"]
         for label, key in (("Restart → first screen", "spawn_to_ui_ready_ms"),
                            ("Restart → library", "spawn_to_library_ready_ms"),
                            ("Heap after library render (MiB)", "post_library_render_heap_mib")):
             zen = (zen_startup["restart"].get(key) or {}).get("median")
             base = (stock_startup["restart"].get(key) or {}).get("median")
-            lines.append(f"| {label} | {_fmt(zen)} | {_fmt(base)} | {_ratio(zen, base)} |")
+            lines.append(f"| {label} | {_fmt(zen)} | {_fmt(base)} | {_diff(zen, base)} |")
         lines.append("")
     names = [name for name in results.get("corpora", {}) if name in stock.get("corpora", {})]
     if names:
@@ -477,7 +477,7 @@ def _stock_section(results: dict, stock: dict) -> list[str]:
                 zen = _median(results["corpora"][corpus]["scenarios"].get(scenario))
                 base = _median(stock["corpora"][corpus]["scenarios"].get(scenario))
                 cells.append("—" if zen is None and base is None
-                             else f"{_fmt(zen)} / {_fmt(base)} ({_ratio(zen, base)})")
+                             else f"{_fmt(zen)} / {_fmt(base)} ({_diff(zen, base)})")
             lines.append(f"| {scenario} | " + " | ".join(cells) + " |")
         lines.append("")
         lines += ["| Heap post_stress_idle (MiB) | " + " | ".join(names) + " |", "|---|" + "---:|" * len(names)]
@@ -485,7 +485,7 @@ def _stock_section(results: dict, stock: dict) -> list[str]:
         for corpus in names:
             zen, base = (run["memory"].get("post_stress_idle", {}).get("forced_gc_live_heap_mib")
                          for run in (results["corpora"][corpus], stock["corpora"][corpus]))
-            cells.append(f"{_fmt(zen)} / {_fmt(base)} ({_ratio(zen, base)})")
+            cells.append(f"{_fmt(zen)} / {_fmt(base)} ({_diff(zen, base)})")
         lines += ["| ZenOS / stock | " + " | ".join(cells) + " |", ""]
     return lines
 

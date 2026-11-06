@@ -24,6 +24,13 @@ jobs:
       suite: full
       ref: ${{ needs.luacheck.outputs.commit }}
 
+  benchmark:
+    name: Benchmark
+    needs: luacheck
+    uses: ./.github/workflows/benchmark.yml
+    with:
+      ref: ${{ needs.luacheck.outputs.commit }}
+
   luacheck:
     name: LuaCheck
     runs-on: ubuntu-latest
