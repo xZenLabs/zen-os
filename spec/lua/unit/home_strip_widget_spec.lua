@@ -478,6 +478,47 @@ describe("home strip widget", function()
         end
     end)
 
+    it("refits the series badge when the badge size changes with an explicit font size", function()
+        local config = {
+            browser_cover_badges = { badge_font_size = 10 },
+            browser_series_badge = { show_series_badge = true },
+        }
+        rawset(_G, "__ZEN_UI_PLUGIN", { config = config })
+        require("modules/filebrowser/patches/home/widgets/strip").build{
+            width = 600, height = 300, component_id = "strip",
+            module_cfg = { count = 3, interactive = false, show_badges = true },
+            data = { getBooksForStrip = function()
+                return {{ path = "/book.epub", status = "reading", percent = 0.45,
+                    pages = 120, series_index = 123 }}
+            end },
+        }
+        local cover
+        for _i, widget in ipairs(created) do
+            if widget.kind == "cover" then cover = widget; break end
+        end
+        assert.is_table(cover)
+        local function painted_series_size()
+            for _i, widget in ipairs(created) do
+                if widget.kind == "ui/widget/textwidget" and not widget.free_calls
+                        and (widget.text == "123" or widget.text == "#123") then
+                    return widget.face.size
+                end
+            end
+        end
+        local bb = { paintRect = function() end, paintRectRGB32 = function() end }
+
+        -- The larger circle holds "123" without the "#" at the requested size.
+        config.browser_cover_badges.badge_size = "extra_large"
+        cover:paintTo(bb, 0, 0)
+        assert.are.equal(10, painted_series_size())
+
+        -- Shrinking the badge keeps the requested size, so only the fit width can
+        -- tell the cached label that it no longer fits this circle.
+        config.browser_cover_badges.badge_size = "compact"
+        cover:paintTo(bb, 0, 0)
+        assert.are.equal(7, painted_series_size())
+    end)
+
     it("reduces the page size when the strip is too narrow for readable covers", function()
         local requested = {}
         local Strip = require("modules/filebrowser/patches/home/widgets/strip")

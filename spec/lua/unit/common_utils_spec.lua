@@ -59,6 +59,43 @@ describe("common utils badge font sizing", function()
         assert.are.equal(19, utils.getBadgeFontSize(nil, 80, 0.24, 7))
         assert.are.equal(8, utils.getBadgeFontSize(nil, 18, 0.45, 6))
     end)
+
+    describe("with an explicit badge font size", function()
+        local saved_device
+
+        before_each(function() saved_device = package.loaded["device"] end)
+        after_each(function() package.loaded["device"] = saved_device end)
+
+        local function stub_device(scale)
+            ZenSpec.replace("device", { screen = {
+                scaleBySize = function(_, value) return value * scale end,
+            } })
+        end
+
+        it("honours an explicit badge font size", function()
+            stub_device(1)
+            local config = { browser_cover_badges = { badge_font_size = 14 } }
+            assert.are.equal(14, utils.getBadgeFontSize(config, 40, 0.24, 7))
+        end)
+
+        it("caps an explicit badge font size at the badge box", function()
+            stub_device(1)
+            local config = { browser_cover_badges = { badge_font_size = 30 } }
+            assert.are.equal(12, utils.getBadgeFontSize(config, 20, 0.24, 7))
+        end)
+
+        it("caps with the same pixel budget on a scaled screen", function()
+            stub_device(2)
+            local config = { browser_cover_badges = { badge_font_size = 30 } }
+            assert.are.equal(12, utils.getBadgeFontSize(config, 40, 0.24, 7))
+        end)
+
+        it("lets an explicit badge font size go below the derived minimum", function()
+            stub_device(1)
+            local config = { browser_cover_badges = { badge_font_size = 5 } }
+            assert.are.equal(5, utils.getBadgeFontSize(config, 40, 0.24, 7))
+        end)
+    end)
 end)
 
 describe("Controls menu tab placement", function()
