@@ -491,6 +491,12 @@ function M.onDispatcherRegisterActions()
         title = _("ZenOS") .. ": " .. _("Page browser"),
         reader = true,
     })
+    Dispatcher:registerAction("zen_ui_show_reader_controls", {
+        category = "none",
+        event = "ShowReaderControls", -- handled by the patched ReaderMenu
+        title = _("ZenOS") .. ": " .. _("Reader controls"),
+        reader = true,
+    })
     Dispatcher:registerAction("zen_ui_show_annotation_viewer", {
         category = "none",
         event = "ShowZenUIAnnotationViewer",

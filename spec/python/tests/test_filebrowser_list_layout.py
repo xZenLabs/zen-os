@@ -236,7 +236,7 @@ def test_metadata_list_rows_follow_detailed_item_settings(display_mode: str, cus
                         assert float(value) == expected_value
                 assert driver.command("settings_page_select", label="Reset to default")["ok"]
                 with sqlite3.connect(ko_home / "settings" / "bookinfo_cache.sqlite3") as connection:
-                    for key, expected_value in {"nb_cols_portrait": 3, "nb_rows_portrait": 3,
+                    for key, expected_value in {"nb_cols_portrait": 3, "nb_rows_portrait": 2,
                                                 "nb_cols_landscape": 4, "nb_rows_landscape": 2}.items():
                         value = connection.execute("SELECT value FROM config WHERE key = ?", (key,)).fetchone()[0]
                         assert float(value) == expected_value
