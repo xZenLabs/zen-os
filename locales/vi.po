@@ -3214,7 +3214,7 @@ msgstr "Trái"
 #. Context: Tên mục cài đặt trong phần cài đặt giao diện, phần cài đặt cách hiển thị và hoạt động của màn hình đọc và phần cài đặt thanh trạng thái của thư viện.
 #: interface_settings.lua:138 reader_settings.lua:496 status_bar_settings.lua:320
 msgid "Left items"
-msgstr "Các mục còn lại"
+msgstr "Các mục bên trái"
 
 #. Type: title
 #. Context: Tiêu đề trong menu thao tác cho cử chỉ và phím tắt. Nhãn hoặc chú thích hiển thị trong các thẻ điều hướng và nút Cài đặt nhanh và thanh điều hướng của thư viện. Chuỗi này cũng được dùng ở những nơi khác trong ZenOS.
