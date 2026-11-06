@@ -6,69 +6,36 @@ settingsPath: ''
 order: 95
 ---
 
-<!-- Documentation current through ZenOS v3.3.0. -->
+<!-- Documentation current through ZenOS v4.3.0. -->
 
-ZenOS is translated through gettext `.po` files in the `locales/` folder. No programming knowledge is needed — you only edit text.
+Translations live in `.po` files in `locales/`. No coding needed, you're just editing text.
 
-> **Open translation pull requests against the `dev` branch.** Changes are reviewed on `dev` before release.
+> **Open translation PRs against `dev`.**
 
-The `en.po` file is the source catalog. All other locales are translated from it. Entries include a role-specific type label, context for translators, and `filename.lua:line` references. Any string left as `msgstr ""` falls back to English at runtime — KOReader handles this automatically.
+`en.po` is the source. Anything left as `msgstr ""` shows in English.
 
-Sync preserves existing human-readable `#. Context:` descriptions while refreshing source references. If a locale has no readable context, it reuses the description from `en.po`. Otherwise it uses a `-- Translators: ...` note immediately above the Lua translation call, or a nearby code excerpt when no note exists. Legacy code excerpts are refreshed on each sync.
+## Languages
 
-Each locale's context descriptions use that locale's language to explain the UI purpose and intended meaning. These are guidance for translators, so natural explanations are more useful than literal translations of the English context. Product names and format placeholders stay intact.
+English, Italian, Spanish, French, Dutch, German, Bulgarian, Czech, Hungarian, Indonesian, Polish, Brazilian Portuguese, European Portuguese, Romanian, Russian, Ukrainian, Greek, Japanese, Vietnamese, and Chinese (Simplified, Traditional, Hong Kong, Macau).
 
-## Supported languages
+## Add a language
 
-| Locale | Language |
-| --- | --- |
-| `en` | English |
-| `it` | Italian |
-| `es` | Spanish |
-| `fr` | French |
-| `nl` | Dutch |
-| `de` | German |
-| `bg` | Bulgarian |
-| `cs` | Czech |
-| `hu` | Hungarian |
-| `id` | Indonesian |
-| `pl` | Polish |
-| `pt_BR` | Brazilian Portuguese |
-| `pt_PT` | European Portuguese |
-| `ro` | Romanian |
-| `ru` | Russian |
-| `uk` | Ukrainian |
-| `el` | Greek |
-| `ja` | Japanese |
-| `vi` | Vietnamese |
-| `zh_CN` | Simplified Chinese |
-| `zh_TW` | Traditional Chinese |
-| `zh_HK` | Traditional Chinese (Hong Kong) |
-| `zh_MO` | Traditional Chinese (Macau) |
-
-## Adding a new language
-
-1. Copy `locales/en.po` to `locales/<lang>.po` using the standard locale code, e.g. `de.po`, `ja.po`, `ko.po`.
-2. Open the file in any text editor or a PO editor such as [Poedit](https://poedit.net/).
-3. Update the language header field:
-   ```
-   "Language: de\n"
-   ```
-4. For each entry, fill in the `msgstr` with your translation:
+1. Copy `locales/en.po` to `locales/<lang>.po` (e.g. `ko.po`).
+2. Open it in a text editor or [Poedit](https://poedit.net/).
+3. Set the header: `"Language: ko\n"`
+4. Fill in each `msgstr`:
    ```
    msgid "Quick settings"
    msgstr "Schnelleinstellungen"
    ```
-5. Open a Pull Request against the `dev` branch.
+5. Open a PR to `dev`.
 
-## Improving an existing translation
+To fix an existing language, edit its `.po` and open a PR.
 
-Open the `.po` file for your language, correct or complete the `msgstr` values, and open a Pull Request against `dev`.
+## Tips
 
-## Guidelines
-
-- Never modify the `msgid` — put translated text in `msgstr`.
-- Keep generated type labels and source references intact. You can improve `#. Context:` descriptions in the locale's language; sync preserves them.
-- Keep placeholders intact: `%d`, `%s`, `%%`, and `\n` must appear in `msgstr` exactly as they do in `msgid`.
-- Leave `msgstr ""` empty for any string you are unsure about — the English original is shown as a fallback.
-- If your language has different plural forms, set `Plural-Forms` in the header accordingly.
+- Don't touch `msgid`. Only edit `msgstr`.
+- Keep placeholders exactly as they are: `%d`, `%s`, `%%`, `\n`.
+- Not sure about a string? Leave it empty and it'll show in English.
+- Each entry has a `#. Context:` note explaining where it shows up. Feel free to improve those in your language.
+- Set `Plural-Forms` in the header if your language needs it.
