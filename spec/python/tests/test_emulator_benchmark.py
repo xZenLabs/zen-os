@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -28,6 +29,8 @@ def _bucket(results: dict, variant: str) -> dict:
 @pytest.fixture(scope="module")
 def session():
     runtime = Path(os.environ["KOREADER_DIR"])
+    for stale in ("raw", "logs"):
+        shutil.rmtree(zen_bench.ARTIFACTS / stale, ignore_errors=True)
     results = {"environment": zen_bench.environment(runtime), "corpora": {}}
     yield runtime, results
     baseline = os.environ.get("ZEN_UI_BENCH_BASELINE")
@@ -35,14 +38,15 @@ def session():
     print(f"\nBenchmark report: {report}")
 
 
-def _run(runtime: Path, home: Path, library: Path, profile: str, label: str) -> dict:
+def _run(runtime: Path, home: Path, library: Path, variant: str, profile: str, name: str) -> dict:
+    """Artifacts land in {raw,logs}/<variant>/<profile>/<name>."""
     targets = home / "targets.json"
     if not targets.exists():
         zen_bench.write_targets(library, targets)
-    raw = zen_bench.ARTIFACTS / "raw" / f"{label}.json"
+    raw = zen_bench.ARTIFACTS / "raw" / variant / profile / f"{name}.json"
     raw.parent.mkdir(parents=True, exist_ok=True)
     data = zen_bench.run_process(runtime, home, library, targets, profile,
-                                 raw, zen_bench.ARTIFACTS / "logs" / f"{label}.log")
+                                 raw, zen_bench.ARTIFACTS / "logs" / variant / profile / f"{name}.log")
     return zen_bench.analyze_run(data)
 
 
@@ -53,7 +57,7 @@ def test_warm_scenarios(session, corpus: str, variant: str) -> None:
     library = zen_bench.build_corpus(corpus)
     with tempfile.TemporaryDirectory(prefix="zen-bench-home-") as home:
         zen_bench.prepare_home(Path(home), library, variant)
-        run = _run(runtime, Path(home), library, "warm", f"{variant}_warm_{corpus}")
+        run = _run(runtime, Path(home), library, variant, "warm", corpus)
     assert run["variant"] == variant
     _bucket(results, variant)["corpora"][corpus] = run
     problems = zen_bench.failures({"corpora": {corpus: run}})
@@ -69,8 +73,8 @@ def test_restart(session, variant: str) -> None:
     library = zen_bench.build_corpus(STARTUP_CORPUS)
     with tempfile.TemporaryDirectory(prefix="zen-bench-home-") as home:
         zen_bench.prepare_home(Path(home), library, variant)
-        first = _run(runtime, Path(home), library, "startup", f"{variant}_startup_first_run")
-        restarts = [_run(runtime, Path(home), library, "startup", f"{variant}_startup_restart_{index}")
+        first = _run(runtime, Path(home), library, variant, "startup", "first_run")
+        restarts = [_run(runtime, Path(home), library, variant, "startup", f"restart_{index}")
                     for index in range(1, RESTARTS + 1)]
     _bucket(results, variant)["startup"] = {"corpus": STARTUP_CORPUS, **zen_bench.summarize_startup(first, restarts)}
     for run in (first, *restarts):

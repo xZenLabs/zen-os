@@ -37,11 +37,14 @@ shape but stay emulator-relative.
 | `ZEN_UI_BENCH_WARMUP` / `ZEN_UI_BENCH_MEASURE` | `2` / `10` |
 | `ZEN_UI_BENCH_BASELINE` | previous `results.json`; adds Δ columns |
 | `ZEN_UI_BENCH_VARIANTS` | `zenos,stock` (stock disables ZenOS; adds a ZenOS vs stock section) |
-| `ZEN_UI_BENCH_JITP` | scenario name or `startup`; writes `raw/*.json.folded` sampled stacks |
+| `ZEN_UI_BENCH_JITP` | scenario name or `startup`; writes `raw/<variant>/<profile>/*.json.folded` sampled stacks |
 
 Profiled runs are for attribution, not timing: the 1 ms sampling signal can disturb
 CoverBrowser's forked extractor. `python spec/python/zen_bench.py <file>.folded` prints
 inclusive/self time per frame; the folded files also feed standard flame graph tools.
+
+Per-process results and logs land in `raw/<variant>/<profile>/` and
+`logs/<variant>/<profile>/` (e.g. `logs/stock/startup/restart_1.log`); each run clears both.
 
 Keep a baseline by copying `spec/.artifacts/benchmark/results.json` before a change.
 `python spec/python/zen_bench.py results.json --baseline old.json` re-renders a report.

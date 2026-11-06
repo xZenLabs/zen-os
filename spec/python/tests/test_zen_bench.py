@@ -85,8 +85,8 @@ def test_report_renders_with_baseline(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
     baseline.write_text(json.dumps(results))
     report = zen_bench.write_report(results, tmp_path / "out", baseline).read_text()
-    assert "| library_first_render | 20.0 (20.0–20.0) +0.0% |" in report
-    assert "20.0 / 200" in report
+    assert "| library_first_render | 20.0 ms (20.0–20.0 ms) +0.0% |" in report
+    assert "20.0 MiB / 200 MiB" in report
 
 
 def test_regressions_respect_tolerances() -> None:

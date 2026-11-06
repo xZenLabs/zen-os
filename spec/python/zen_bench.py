@@ -437,8 +437,24 @@ def regressions(results: dict, baseline: dict, wall_pct: float = 0.25, heap_pct:
 
 # Report ------------------------------------------------------------------------
 
-def _fmt(value: float | None, digits: int = 1) -> str:
-    return "—" if value is None else f"{value:.{digits}f}"
+MS, MIB, KIB, PCT, SCREENS = " ms", " MiB", " KiB", "%", "×"
+
+
+def _fmt(value: float | None, unit: str = "", digits: int = 1, sign: bool = False) -> str:
+    if value is None:
+        return "—"
+    if unit == MS and abs(value) >= 1000:
+        value, unit, digits = value / 1000, " s", 2
+    return f"{value:{'+' if sign else ''}.{digits}f}{unit}"
+
+
+def _range(low: float | None, high: float | None, unit: str = MS, digits: int = 1) -> str:
+    """`7.2–8.6 ms`; the unit repeats only when the ends differ (ms vs s)."""
+    if low is None or high is None:
+        return "—"
+    start, end = _fmt(low, unit, digits), _fmt(high, unit, digits)
+    number, _sep, suffix = start.rpartition(" ")
+    return f"{number}–{end}" if number and end.endswith(f" {suffix}") else f"{start}–{end}"
 
 
 def _median(scenario: dict | None, metric: str = "wall_time_ms") -> float | None:
@@ -452,8 +468,8 @@ def _delta(current: float | None, previous: float | None) -> str:
     return f"{(current - previous) / previous * 100:+.1f}%"
 
 
-def _diff(zen: float | None, stock: float | None) -> str:
-    return "—" if zen is None or stock is None else f"{zen - stock:+.1f}"
+def _diff(zen: float | None, stock: float | None, unit: str = MS) -> str:
+    return "—" if zen is None or stock is None else _fmt(zen - stock, unit, sign=True)
 
 
 def _stock_section(results: dict, stock: dict) -> list[str]:
@@ -461,12 +477,12 @@ def _stock_section(results: dict, stock: dict) -> list[str]:
     zen_startup, stock_startup = results.get("startup") or {}, stock.get("startup") or {}
     if zen_startup and stock_startup:
         lines += ["| Startup | ZenOS | Stock | Δ |", "|---|---:|---:|---:|"]
-        for label, key in (("Restart → first screen", "spawn_to_ui_ready_ms"),
-                           ("Restart → library", "spawn_to_library_ready_ms"),
-                           ("Heap after library render (MiB)", "post_library_render_heap_mib")):
+        for label, key, unit in (("Restart → first screen", "spawn_to_ui_ready_ms", MS),
+                                 ("Restart → library", "spawn_to_library_ready_ms", MS),
+                                 ("Heap after library render", "post_library_render_heap_mib", MIB)):
             zen = (zen_startup["restart"].get(key) or {}).get("median")
             base = (stock_startup["restart"].get(key) or {}).get("median")
-            lines.append(f"| {label} | {_fmt(zen)} | {_fmt(base)} | {_diff(zen, base)} |")
+            lines.append(f"| {label} | {_fmt(zen, unit)} | {_fmt(base, unit)} | {_diff(zen, base, unit)} |")
         lines.append("")
     names = [name for name in results.get("corpora", {}) if name in stock.get("corpora", {})]
     if names:
@@ -477,15 +493,15 @@ def _stock_section(results: dict, stock: dict) -> list[str]:
                 zen = _median(results["corpora"][corpus]["scenarios"].get(scenario))
                 base = _median(stock["corpora"][corpus]["scenarios"].get(scenario))
                 cells.append("—" if zen is None and base is None
-                             else f"{_fmt(zen)} / {_fmt(base)} ({_diff(zen, base)})")
+                             else f"{_fmt(zen, MS)} / {_fmt(base, MS)} ({_diff(zen, base)})")
             lines.append(f"| {scenario} | " + " | ".join(cells) + " |")
         lines.append("")
-        lines += ["| Heap post_stress_idle (MiB) | " + " | ".join(names) + " |", "|---|" + "---:|" * len(names)]
+        lines += ["| Heap post_stress_idle | " + " | ".join(names) + " |", "|---|" + "---:|" * len(names)]
         cells = []
         for corpus in names:
             zen, base = (run["memory"].get("post_stress_idle", {}).get("forced_gc_live_heap_mib")
                          for run in (results["corpora"][corpus], stock["corpora"][corpus]))
-            cells.append(f"{_fmt(zen)} / {_fmt(base)} ({_diff(zen, base)})")
+            cells.append(f"{_fmt(zen, MIB)} / {_fmt(base, MIB)} ({_diff(zen, base, MIB)})")
         lines += ["| ZenOS / stock | " + " | ".join(cells) + " |", ""]
     return lines
 
@@ -505,19 +521,19 @@ def render_report(results: dict, baseline: dict | None = None) -> str:
     startup = results.get("startup")
     if startup:
         base = (baseline or {}).get("startup") or {}
-        rows = (("Spawn → first screen (UI ready)", "spawn_to_ui_ready_ms", 0),
-                ("Spawn → library ready (restart + navigation)", "spawn_to_library_ready_ms", 0),
-                ("Live Lua heap after library render (MiB)", "post_library_render_heap_mib", 1))
+        rows = (("Spawn → first screen (UI ready)", "spawn_to_ui_ready_ms", MS),
+                ("Spawn → library ready (restart + navigation)", "spawn_to_library_ready_ms", MS),
+                ("Live Lua heap after library render", "post_library_render_heap_mib", MIB))
         lines += [f"## Startup ({startup['corpus']}, {startup['runs']} restarts)", "",
                   "| Metric | First run (cold) | Restart median | Restart min–max |"
                   + (" Δ vs baseline |" if baseline else ""),
                   "|---|---:|---:|---:|" + ("---:|" if baseline else "")]
-        for label, key, digits in rows:
+        for label, key, unit in rows:
             restart = startup["restart"].get(key) or {}
             prior = ((base.get("restart") or {}).get(key) or {}).get("median")
-            lines.append(f"| {label} | {_fmt(startup['first_run'].get(key), digits)} | "
-                         f"{_fmt(restart.get('median'), digits)} | "
-                         f"{_fmt(restart.get('min'), digits)}–{_fmt(restart.get('max'), digits)} |"
+            lines.append(f"| {label} | {_fmt(startup['first_run'].get(key), unit)} | "
+                         f"{_fmt(restart.get('median'), unit)} | "
+                         f"{_range(restart.get('min'), restart.get('max'), unit)} |"
                          + (f" {_delta(restart.get('median'), prior)} |" if baseline else ""))
         lines.append("")
 
@@ -526,7 +542,7 @@ def render_report(results: dict, baseline: dict | None = None) -> str:
         lines += _stock_section(results, stock)
     if corpora:
         names = list(corpora)
-        lines += ["## Scenario wall time (median ms, p10–p90)", "",
+        lines += ["## Scenario wall time (median, p10–p90)", "",
                   "| Scenario | " + " | ".join(names) + " |", "|---|" + "---:|" * len(names)]
         for scenario in SCENARIOS:
             cells = []
@@ -538,17 +554,17 @@ def render_report(results: dict, baseline: dict | None = None) -> str:
                     cells.append(entry["status"])
                 else:
                     wall = entry["wall_time_ms"]
-                    cell = f"{wall['median']:.1f} ({wall['p10']:.1f}–{wall['p90']:.1f})"
+                    cell = f"{_fmt(wall['median'], MS)} ({_range(wall['p10'], wall['p90'])})"
                     prior = (baseline or {}).get("corpora", {}).get(corpus, {}).get("scenarios", {})
                     if baseline:
                         cell += f" {_delta(wall['median'], _median(prior.get(scenario)))}"
                     cells.append(cell)
             lines.append(f"| {scenario} | " + " | ".join(cells) + " |")
-        lines += ["", "## Memory checkpoints (forced-GC live Lua heap MiB / RSS peak MiB)", "",
+        lines += ["", "## Memory checkpoints (forced-GC live Lua heap / RSS peak)", "",
                   "| Corpus | post_init_idle | post_library_render_idle | post_stress_idle |",
                   "|---|---:|---:|---:|"]
         for corpus, run in corpora.items():
-            cells = [f"{_fmt(snap['forced_gc_live_heap_mib'])} / {_fmt(snap['rss_peak_mib'], 0)}"
+            cells = [f"{_fmt(snap['forced_gc_live_heap_mib'], MIB)} / {_fmt(snap['rss_peak_mib'], MIB, 0)}"
                      if (snap := run["memory"].get(name)) else "—"
                      for name in ("post_init_idle", "post_library_render_idle", "post_stress_idle")]
             lines.append(f"| {corpus} | " + " | ".join(cells) + " |")
@@ -557,11 +573,11 @@ def render_report(results: dict, baseline: dict | None = None) -> str:
             lines += [f"## {corpus}", "",
                       f"Run {run['run_status']}; screen {run['screen']['w']}×{run['screen']['h']}; "
                       f"{run['iterations']['warmup']} warm-ups + {run['iterations']['measured']} measured; "
-                      f"spawn → UI ready {_fmt(run['process'].get('spawn_to_ui_ready_ms'), 0)} ms"
+                      f"spawn → UI ready {_fmt(run['process'].get('spawn_to_ui_ready_ms'), MS, 0)}"
                       + (f"; paging root `{Path(run['paging_root']).name}`" if run.get("paging_root") else ""),
                       "",
                       "| Scenario | Status | n | Wall median | min | p90 | First paint | Action CPU | "
-                      "Refreshes | Unique dirty % | Screen eq. | Actual unique % | Heap Δ KiB |",
+                      "Refreshes | Unique dirty | Screen eq. | Actual unique | Heap Δ |",
                       "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
             ordered = sorted(run["scenarios"].items(),
                              key=lambda item: SCENARIOS.index(item[0]) if item[0] in SCENARIOS else len(SCENARIOS))
@@ -569,12 +585,14 @@ def render_report(results: dict, baseline: dict | None = None) -> str:
                 wall = entry.get("wall_time_ms") or {}
                 lines.append(" | ".join([
                     f"| {name}", entry["status"], f"{entry['valid_count']}/{entry['count']}",
-                    _fmt(wall.get("median")), _fmt(wall.get("min")), _fmt(wall.get("p90")),
-                    _fmt(_median(entry, "first_content_paint_ms")), _fmt(_median(entry, "action_cpu_ms")),
-                    _fmt(_median(entry, "refresh_count"), 0), _fmt(_median(entry, "unique_dirty_pct")),
-                    _fmt(_median(entry, "cumulative_dirty_screen_equivalents"), 2),
-                    _fmt(_median(entry, "actual_unique_dirty_pct")),
-                    _fmt(_median(entry, "lua_heap_delta_kb"), 0),
+                    _fmt(wall.get("median"), MS), _fmt(wall.get("min"), MS), _fmt(wall.get("p90"), MS),
+                    _fmt(_median(entry, "first_content_paint_ms"), MS),
+                    _fmt(_median(entry, "action_cpu_ms"), MS),
+                    _fmt(_median(entry, "refresh_count"), digits=0),
+                    _fmt(_median(entry, "unique_dirty_pct"), PCT),
+                    _fmt(_median(entry, "cumulative_dirty_screen_equivalents"), SCREENS, 2),
+                    _fmt(_median(entry, "actual_unique_dirty_pct"), PCT),
+                    _fmt(_median(entry, "lua_heap_delta_kb"), KIB, 0),
                 ]) + " |")
             lines.append("")
     notes = [f"- {corpus}/{name}: {entry['status']} — {entry.get('reason')}"
