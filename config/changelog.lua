@@ -431,7 +431,8 @@ return {
         "Update highlight submenu (Reader > Lookup / Highlight)",
         "Background OPDS downloads with queueing and Read now",
         "Library and OPDS context menu icons follow custom icon packs",
-        "Fix startup crash loop on books whose cover extraction keeps crashing"
+        "Fix startup crash loop on books whose cover extraction keeps crashing",
+        "Bug fixes & performance improvements"
     },
 
 }
