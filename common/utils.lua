@@ -7,8 +7,11 @@ local OPTICAL_ICON_SCALES = {
     zen_ui = 1.25,
 }
 
-function M.iconOpticalScale(name)
+-- Logo scaling only: pack replacements render at normal size.
+function M.iconOpticalScale(name, path)
     if type(name) ~= "string" then return 1 end
+    if path and package.loaded["common/icon_packs"]
+            and package.loaded["common/icon_packs"].isPackIcon(path) then return 1 end
     local filename = name:match("([^/]+)$") or name
     local stem = filename:gsub("%.[^.]+$", "")
     return OPTICAL_ICON_SCALES[stem] or 1

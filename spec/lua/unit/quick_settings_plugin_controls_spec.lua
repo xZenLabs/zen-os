@@ -718,7 +718,7 @@ describe("quick settings plugin controls", function()
         end
         assert.is_table(zenpm_item)
         assert.are.equal("ZenPM", zenpm_item.label)
-        assert.are.equal("/tmp/zen-ui/icons/zenpm.svg", zenpm_item.icon)
+        assert.are.equal("zenpm", zenpm_item.icon)
         assert.is_false(config.quick_settings.show_buttons.zenpm)
 
         local closes = 0
@@ -751,7 +751,7 @@ describe("quick settings plugin controls", function()
         end
 
         assert.is_table(zenfm_item)
-        assert.are.equal("/tmp/zen-ui/icons/zenfm.svg", zenfm_item.icon)
+        assert.are.equal("zenfm", zenfm_item.icon)
         assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isActive("zenfm"))
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("zenfm", touch_menu))
         assert.are.equal(0, closes)

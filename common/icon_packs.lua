@@ -647,6 +647,10 @@ function M.getPickerDirectories(plugin_root_path)
     return dirs
 end
 
+function M.isPackIcon(path)
+    return custom_icon_paths[path] == true
+end
+
 function M.getActivePackDirectory()
     return active_pack_dir
 end

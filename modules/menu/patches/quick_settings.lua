@@ -952,7 +952,7 @@ local function apply_quick_settings()
             end,
         },
         zenfm = {
-            icon = utils.resolveLocalIcon(_icons_dir, "zenfm"),
+            icon = "zenfm",
             label = _("ZenFM"),
             visible_func = function() return getCandidatePlugin(zenfm_plugin) ~= nil end,
             active_func = isZenFMRunning,
@@ -970,7 +970,7 @@ local function apply_quick_settings()
             end,
         },
         zenpm = {
-            icon = utils.resolveLocalIcon(_icons_dir, "zenpm"),
+            icon = "zenpm",
             label = _("ZenPM"),
             visible_func = function() return hasPlugin("zenpm") end,
             callback = function(touch_menu)
@@ -1523,7 +1523,7 @@ local function apply_quick_settings()
             local icon_path = type(icon_name) == "string" and icon_name:sub(1, 1) == "/"
                 and icon_name or (_icons_dir and utils.resolveIcon(_icons_dir, icon_name))
             local rendered_icon_size = math.floor(
-                icon_size * utils.iconOpticalScale(icon_name) + 0.5)
+                icon_size * utils.iconOpticalScale(icon_name, icon_path) + 0.5)
             local icon = IconWidget:new{
                 file   = icon_path or nil,
                 icon   = icon_path and nil or icon_name,

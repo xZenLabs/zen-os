@@ -37,6 +37,16 @@ describe("common utils icon sizing", function()
         assert.are.equal(1, utils.iconOpticalScale("quick_wifi"))
         assert.are.equal(1, utils.iconOpticalScale(nil))
     end)
+
+    it("keeps icon-pack replacements of logo icons at their requested size", function()
+        local saved = package.loaded["common/icon_packs"]
+        package.loaded["common/icon_packs"] = {
+            isPackIcon = function(path) return path == "/icons/zen/pack/zenfm.svg" end,
+        }
+        assert.are.equal(1, utils.iconOpticalScale("zenfm", "/icons/zen/pack/zenfm.svg"))
+        assert.are.equal(1.25, utils.iconOpticalScale("zenfm", "/plugins/zenos/icons/zenfm.svg"))
+        package.loaded["common/icon_packs"] = saved
+    end)
 end)
 
 describe("common utils badge font sizing", function()
