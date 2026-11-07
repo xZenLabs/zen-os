@@ -233,17 +233,17 @@ function M.recommendations(file, book, author_groups, series_groups, get_status)
                 if value == "reading" and not reading then reading = item.file end
                 if value == "complete" then last_finished = index end
             end
-            local next_book = reading
-            if not next_book and last_finished then
+            local group_next = reading
+            if not group_next and last_finished then
                 for index = last_finished + 1, #group.items do
                     local path = group.items[index].file
                     if status(path) ~= "complete" and status(path) ~= "abandoned" then
-                        next_book = path
+                        group_next = path
                         break
                     end
                 end
             end
-            if next_book and not is_current(next_book) then
+            if group_next and not is_current(group_next) then
                 local files = {}
                 for _j, item in ipairs(group.items) do files[#files + 1] = item.file end
                 result.other_series[#result.other_series + 1] = { series = group.series, files = files }
