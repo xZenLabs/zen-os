@@ -42,7 +42,7 @@ function EndBook:init()
         self.plugin.config.end_book, function() self:rebuild() end, function() self:onClose() end, self.preview)
     if Device:hasKeys() then
         self.key_events.Back = { { Device.input.group.Back } }
-        self.key_events.Library = { { Device.input.group.PgFwd } }
+        self.key_events.PageForward = { { Device.input.group.PgFwd } }
         self.key_events.PreviousQuote = { { Device.input.group.PgBack } }
         self.key_events.Menu = { { "Menu" } }
     end
@@ -84,6 +84,15 @@ end
 function EndBook:onLibrary()
     self:leave({ target_tab = "books" })
     return true
+end
+
+function EndBook:onPageForward()
+    local path = self.data:getNextInSeries()
+    if path then
+        self:openBook(path)
+        return true
+    end
+    return self:onLibrary()
 end
 
 function EndBook:openBook(path)

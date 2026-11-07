@@ -212,11 +212,18 @@ function M.recommendations(file, book, author_groups, series_groups, get_status)
         if statuses[path] == nil then statuses[path] = get_status(path) or "new" end
         return statuses[path]
     end
+    local next_book
     for _i, group in ipairs(series_groups) do
         if group.series == book.series then
+            local after_current = false
             for _j, item in ipairs(group.items) do
-                if not is_current(item.file) and status(item.file) ~= "complete" then
+                if is_current(item.file) then
+                    after_current = true
+                elseif status(item.file) ~= "complete" then
                     result.next_series[#result.next_series + 1] = item.file
+                    if after_current and not next_book and status(item.file) ~= "abandoned" then
+                        next_book = item.file
+                    end
                 end
             end
         else
@@ -243,7 +250,8 @@ function M.recommendations(file, book, author_groups, series_groups, get_status)
             end
         end
     end
-    return result
+    -- Second value: first unfinished book after the current one in series order.
+    return result, next_book
 end
 
 function M.new(ui, plugin, config, refresh, close, preview)
@@ -315,22 +323,29 @@ function M.new(ui, plugin, config, refresh, close, preview)
         end
         return paths
     end
-    local recommendations
+    local recommendations, next_in_series
     function data:invalidateRecommendations()
-        recommendations = nil
+        recommendations, next_in_series = nil, nil
     end
     function data:getRecommendations()
         if not recommendations then
-            local db = require("common/db_bookinfo")
-            recommendations = file and M.recommendations(file, book, db.getGroupedByAuthor(),
-                db.getGroupedBySeries(), require("common/book_status").getEffectiveStatusFromFile)
-                or { author = {}, next_series = {}, other_series = {} }
+            if file then
+                local db = require("common/db_bookinfo")
+                recommendations, next_in_series = M.recommendations(file, book, db.getGroupedByAuthor(),
+                    db.getGroupedBySeries(), require("common/book_status").getEffectiveStatusFromFile)
+            else
+                recommendations = { author = {}, next_series = {}, other_series = {} }
+            end
         end
         local controls = plugin.config.end_book and plugin.config.end_book.modules.strip.controls
         if controls and controls.show_buttons.continue and recommendations.continue == nil then
             recommendations.continue = self:getContinuePaths()
         end
         return recommendations
+    end
+    function data:getNextInSeries()
+        self:getRecommendations()
+        return next_in_series
     end
     function data:free()
         if book.cover_bb then book.cover_bb:free(); book.cover_bb = nil end

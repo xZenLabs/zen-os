@@ -26,11 +26,12 @@ end
 local calendar_icon_path = utils.resolveIcon(_icons_dir, "calendar")
 local stat_icon_paths = {
     book_days = calendar_icon_path,
-    book_duration = utils.resolveLocalIcon(_icons_dir, "tab_to_be_read"),
-    book_page_minutes = utils.resolveIcon(_icons_dir, "book_open"),
+    book_duration = utils.resolveIcon(_icons_dir, "tab_to_be_read"),
+    book_page_minutes = utils.resolveIcon(_icons_dir, "book.opened"),
     book_daily_minutes = calendar_icon_path,
     streak = utils.resolveIcon(_icons_dir, "flame"),
 }
+local ICON_GAP = Device.screen:scaleBySize(5)
 local MIN_FONT_SIZE = 8
 local MAX_FONT_SIZE = 64
 local DEFAULT_FONT_SIZE = 16
@@ -124,7 +125,7 @@ local function font_size_fits(candidate, fields, stats, inner_w, inner_h, show_i
         local value_w = value_size.w or 0
         local value_h = value_size.h or 1
         if show_icons and stat_icon_paths[field.id] then
-            value_w = value_w + math.max(8, math.floor(value_h * 0.62)) + 3
+            value_w = value_w + math.max(8, math.floor(value_h * 0.62)) + ICON_GAP
         end
         local content_h = value_h - math.floor(value_h * 0.18)
             + 1 + (label_size.h or 1)
@@ -247,7 +248,7 @@ return {
                         height = icon_size,
                         alpha = true,
                     },
-                    HorizontalSpan:new{ width = 3 },
+                    HorizontalSpan:new{ width = ICON_GAP },
                     value_widget,
                 }
             end

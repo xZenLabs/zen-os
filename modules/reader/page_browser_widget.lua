@@ -792,6 +792,10 @@ return function(ctx)
 
     PageBrowserWidget._zenSelectTab = function(self, tab)
         if self._zen_active_tab == tab then return end
+        -- Highlight swatches ghost under "ui" waveform; flash when leaving them.
+        local prev = self._zen_active_tab
+        local refresh_mode = (prev == "highlights" or prev == "annotations")
+            and require("common/ui/refresh")() or "ui"
         self._zen_active_tab = tab
         set_settings_preview(self.ui.thumbnail, self.ui.paging and tab == "aa" or nil)
         local layout = get_page_browser_layout()
@@ -809,7 +813,7 @@ return function(ctx)
         end
         self:_zenBuildHeaderTabs()
         self:updateLayout()
-        UIManager:setDirty(self, "ui")
+        UIManager:setDirty(self, refresh_mode)
     end
 
     PageBrowserWidget._zenRefreshPreview = function(self)

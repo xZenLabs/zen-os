@@ -347,15 +347,15 @@ describe("home basic widgets", function()
                 icons[#icons + 1] = child[1].file
                 values[#values + 1] = child[3].text
                 assert.are.equal(16, child[3].face.size)
-                assert.are.equal(3, child[2].width)
+                assert.are.equal(5, child[2].width)
                 assert.is_true(child[1].width + child[2].width + child[3]:getSize().w <= 94)
             end
         end
         assert.are.same({ "3", "12345h 45m", "1.5" }, values)
         assert.are.same({
-            utils.resolveLocalIcon(ZenSpec.root .. "/icons/", "calendar"),
-            utils.resolveLocalIcon(ZenSpec.root .. "/icons/", "tab_to_be_read"),
-            utils.resolveLocalIcon(ZenSpec.root .. "/icons/", "book_open"),
+            utils.resolveIcon(ZenSpec.root .. "/icons/", "calendar"),
+            utils.resolveIcon(ZenSpec.root .. "/icons/", "tab_to_be_read"),
+            utils.resolveIcon(ZenSpec.root .. "/icons/", "book.opened"),
         }, icons)
 
         created = {}
@@ -369,7 +369,7 @@ describe("home basic widgets", function()
         assert.are.equal(18, value_size)
     end)
 
-    it("uses pack icons for calendar, reading, and streak metrics", function()
+    it("uses pack icons for all metrics", function()
         require("common/utils").resolveIcon = function(_dir, name)
             return "/icons/zen/selected/" .. name .. ".svg"
         end
@@ -384,7 +384,7 @@ describe("home basic widgets", function()
             if child.kind == "ui/widget/iconwidget" then paths[#paths + 1] = child.file end
         end
         assert.are.same({
-            "/icons/zen/selected/calendar.svg", "/icons/zen/selected/book_open.svg",
+            "/icons/zen/selected/calendar.svg", "/icons/zen/selected/book.opened.svg",
             "/icons/zen/selected/flame.svg",
         }, paths)
     end)

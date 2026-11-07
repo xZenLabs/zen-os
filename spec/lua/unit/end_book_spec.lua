@@ -291,6 +291,24 @@ describe("end of book", function()
         assert.equals(10, page.featured_navigation_labels[1].face.orig_size)
     end)
 
+    it("opens the next book in the series from the page-forward key, else the library", function()
+        local EndBook = load_end_book()
+        local next_book, opened, library
+        local page = setmetatable({
+            data = { getNextInSeries = function() return next_book end },
+            openBook = function(_self, path) opened = path end,
+            onLibrary = function() library = true; return true end,
+        }, { __index = EndBook })
+        next_book = "/library/sequel.epub"
+        assert.is_true(page:onPageForward())
+        assert.equals("/library/sequel.epub", opened)
+        assert.is_nil(library)
+        next_book, opened = nil, nil
+        assert.is_true(page:onPageForward())
+        assert.is_nil(opened)
+        assert.is_true(library)
+    end)
+
     it("restores the library location from the Library button and page-forward key when enabled", function()
         local EndBook = load_end_book()
         local Navigation = require("common/library_navigation")
@@ -823,6 +841,9 @@ describe("end of book", function()
                 { series = "Series", items = items },
             }, function(file) return states[file] end)
             assert.same({ "prequel", "a-last", "unread" }, recommendations.next_series)
+            assert.equals("unread", select(2, Data.recommendations("current", book, {}, {
+                { series = "Series", items = items },
+            }, function(file) return states[file] end)))
         end
         local recommendations = Data.recommendations("current", { series = "Series" }, {}, {
             { series = "Series", items = items },

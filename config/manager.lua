@@ -1182,6 +1182,13 @@ local function migrate_changed_defaults(cfg)
         changed = true
     end
 
+    if cfg._meta.end_book_stats_font_migrated ~= true and end_modules then
+        local stats = end_modules.stats_triplet
+        if type(stats) == "table" and stats.max_font_size == 24 then stats.max_font_size = 20 end
+        cfg._meta.end_book_stats_font_migrated = true
+        changed = true
+    end
+
     local end_rows = end_book and type(end_book.rows) == "table" and end_book.rows
     if end_rows and type(end_rows.order) == "table" then
         local has_rating = false
