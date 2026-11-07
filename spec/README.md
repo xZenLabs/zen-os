@@ -24,7 +24,8 @@ requests, requested and submitted dirty area, and a framebuffer hash.
 
 The harness (`zen_ui_test_driver.koplugin/zen_bench.lua`) runs in-process with no
 socket polling; `zen_bench.py` generates deterministic synthetic corpora (cached in
-`spec/.cache/bench-corpus`), orchestrates processes and aggregates. A scenario that
+`spec/.cache/bench-corpus`; `flat_N` keeps ≥ 3/4 of books in the root plus 12/30/60-book
+side folders, `hierarchical_N` nests genre and series folders), orchestrates processes and aggregates. A scenario that
 fails its semantic postcondition fails the test; timings never do. The emulator is
 pinned to the upstream 1236×1648 @ 300 DPI framebuffer, so numbers are comparable in
 shape but stay emulator-relative.

@@ -29,7 +29,7 @@ from zen_driver import launch, stop
 SPEC_DIR = Path(__file__).parents[1]
 CORPUS_CACHE = SPEC_DIR / ".cache" / "bench-corpus"
 ARTIFACTS = SPEC_DIR / ".artifacts" / "benchmark"
-CORPUS_VERSION = 1
+CORPUS_VERSION = 2
 SEED = 42
 FIXTURE_TIME = 1_704_067_200
 PAGING_MIN_ROOT_BOOKS = 403  # 30 transitions at the coarsest 14-per-page layout
@@ -46,6 +46,8 @@ ADJECTIVES = ["Ancient", "Silent", "Infinite", "Neural", "Digital", "Forgotten",
               "Parallel", "Abstract", "Luminous", "Dark", "Deep"]
 NOUNS = ["Star", "Galaxy", "Protocol", "Algorithm", "Empire", "Void", "Matrix", "Cipher",
          "Horizon", "Vector", "Engine", "Network", "Memory", "Shadow", "Circuit"]
+# Flat libraries still keep a few side folders; filled in order while the root keeps >= 3/4.
+FLAT_FOLDERS = (("Favorites", 12), ("To Read", 30), ("Downloads", 60))
 
 SCENARIOS = (
     "start_to_home", "home_to_library", "library_first_render",
@@ -137,6 +139,11 @@ def build_corpus(corpus: str, cache: Path = CORPUS_CACHE) -> Path:
     if stamp.exists():
         return root
     rng = random.Random(SEED + int(count))
+    side: list[str] = []
+    for name, size in FLAT_FOLDERS if shape == "flat" else ():
+        if len(side) + size > int(count) // 4:
+            break
+        side += [name] * size
     series_index = dict.fromkeys(SERIES, 1)
     for number in range(1, int(count) + 1):
         author, title = rng.choice(AUTHORS), f"{rng.choice(ADJECTIVES)} {rng.choice(NOUNS)} {number:04d}"
@@ -144,7 +151,10 @@ def build_corpus(corpus: str, cache: Path = CORPUS_CACHE) -> Path:
         index = series_index[series] if series else None
         if series:
             series_index[series] += 1
-        folder = "" if shape == "flat" else (f"Series/{series}" if series else rng.choice(GENRES))
+        if shape == "flat":
+            folder = side[number - 1] if number <= len(side) else ""
+        else:
+            folder = f"Series/{series}" if series else rng.choice(GENRES)
         _epub(root / folder / f"{author} - {title}.epub", title, author, series, index)
     stamp.touch()
     return root
@@ -168,7 +178,7 @@ def write_targets(library: Path, output: Path, limit: int = 10) -> dict:
         "root_book_count": leaves.get(library, 0),
         "library_book_count": len(books),
     }
-    candidates = {path: n for path, n in leaves.items() if path != library}
+    candidates = {path: n for path, n in leaves.items() if path != library and n > targets["root_book_count"]}
     if targets["root_book_count"] < PAGING_MIN_ROOT_BOOKS and candidates:
         leaf = max(candidates, key=lambda path: (candidates[path], rank(path)))
         targets.update(paging_root=str(leaf), paging_root_book_count=candidates[leaf])

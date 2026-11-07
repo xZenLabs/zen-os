@@ -73,6 +73,14 @@ def test_corpus_is_deterministic_and_cached(tmp_path: Path) -> None:
         zen_bench.build_corpus("nested_5", tmp_path)
 
 
+def test_flat_corpus_keeps_root_with_side_folders(tmp_path: Path) -> None:
+    library = zen_bench.build_corpus("flat_200", tmp_path)
+    targets = zen_bench.write_targets(library, tmp_path / "targets.json")
+    assert targets["root_book_count"] == 158
+    assert sorted(Path(path).name for path in targets["folders"]) == ["Favorites", "To Read"]
+    assert "paging_root" not in targets
+
+
 def test_report_renders_with_baseline(tmp_path: Path) -> None:
     run = {
         "run_status": "PASS", "screen": {"w": 100, "h": 100}, "process": {"spawn_to_ui_ready_ms": 300.0},
