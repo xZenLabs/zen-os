@@ -10,110 +10,16 @@ local function apply_zen_mode()
         return type(features) == "table" and features.zen_mode == true
     end
 
-    local blocked_exact = {
-        ["filebrowser"] = true,
-        ["file browser"] = true,
-        ["settings"] = true,
-        ["setting"] = true,
-        ["tools"] = true,
-        ["search"] = true,
-        ["menu"] = true,
-        ["navi"] = true,
-        ["reader"] = true, -- KOReader nightly file browser "open last doc" tab
+    -- Zen mode keeps only Zen's own tabs; KOReader and plugin tabs (e.g. Ink Away) are hidden.
+    local keep_ids = {
+        quicksettings = true,
+        zen_ui = true,
+        zen_library_home = true,
+        app_launcher = true,
     }
-
-    local blocked_contains = {
-        "filebrowser",
-        "setting",
-        "tools",
-        "search",
-        "menu",
-        "typeset",
-        "display",
-        "book",
-        "status",
-        "frontlight",
-        "network",
-        "screen",
-        "navigation",
-    }
-
-    local allow_exact = {
-        ["quicksettings"] = true,
-        ["quick settings"] = true,
-        ["zen_ui"] = true,
-        ["zen_library_home"] = true,
-    }
-
-    local function normalize(value)
-        if type(value) ~= "string" then
-            return nil
-        end
-        local s = value:lower():gsub("%s+", " ")
-        s = s:gsub("^%s+", ""):gsub("%s+$", "")
-        return s
-    end
-
-    local function tab_values(tab)
-        if type(tab) ~= "table" then
-            return {}
-        end
-
-        local values = {}
-
-        local function push(v)
-            if type(v) == "string" then
-                local n = normalize(v)
-                if n and n ~= "" then
-                    table.insert(values, n)
-                end
-            end
-        end
-
-        push(tab.text)
-
-        if type(tab.text_func) == "function" then
-            local ok, text = pcall(tab.text_func)
-            if ok and type(text) == "string" then
-                push(text)
-            end
-        end
-
-        push(tab.name)
-        push(tab.id)
-        push(tab.icon)
-
-        return values
-    end
 
     local function should_keep_tab(tab)
-        if not is_enabled() then
-            return true
-        end
-
-        local values = tab_values(tab)
-        if #values == 0 then
-            return true
-        end
-
-        for _i, value in ipairs(values) do
-            if allow_exact[value] then
-                return true
-            end
-        end
-
-        for _i, value in ipairs(values) do
-            if blocked_exact[value] then
-                return false
-            end
-            for _j, token in ipairs(blocked_contains) do
-                if value:find(token, 1, true) then
-                    return false
-                end
-            end
-        end
-
-        return true
+        return not is_enabled() or type(tab) ~= "table" or keep_ids[tab.id] == true
     end
 
     local menu_instances = setmetatable({}, { __mode = "k" })

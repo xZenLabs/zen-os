@@ -26,6 +26,7 @@ describe("Zen mode menu patch", function()
                     { id = "search" },
                     { id = "reader" },
                     { id = "history" },
+                    { icon = "inkaway.tab" },
                     { id = "filemanager", icon = "appbar.filebrowser" },
                     { id = "zen_ui", icon = "_zen_settings_tab" },
                     { id = "zen_library_home", icon = "library" },
@@ -39,7 +40,7 @@ describe("Zen mode menu patch", function()
 
     local function tab_ids(menu)
         local ids = {}
-        for _i, tab in ipairs(menu.tab_item_table) do ids[#ids + 1] = tab.id end
+        for _i, tab in ipairs(menu.tab_item_table) do ids[#ids + 1] = tab.id or tab.icon end
         return ids
     end
 
@@ -88,18 +89,19 @@ describe("Zen mode menu patch", function()
         local menu = setmetatable({}, { __index = FileManagerMenu })
         menu:onShowMenu()
         assert.are.same({
-            "quicksettings", "settings", "search", "reader", "history", "filemanager",
+            "quicksettings", "settings", "search", "reader", "history", "inkaway.tab", "filemanager",
             "zen_ui", "zen_library_home",
         }, tab_ids(menu))
 
         plugin.config.features.zen_mode = true
         refresh_menus()
-        assert.are.same({ "quicksettings", "history", "zen_ui", "zen_library_home" }, tab_ids(menu))
+        assert.are.same({ "quicksettings", "zen_ui", "zen_library_home" }, tab_ids(menu))
 
         plugin.config.features.zen_mode = false
         refresh_menus()
         assert.are.same({
-            "quicksettings", "settings", "search", "reader", "history", "zen_ui", "zen_library_home",
+            "quicksettings", "settings", "search", "reader", "history", "inkaway.tab",
+            "zen_ui", "zen_library_home",
         }, tab_ids(menu))
     end)
 
@@ -109,7 +111,7 @@ describe("Zen mode menu patch", function()
 
         menu:setUpdateItemTable()
 
-        assert.are.same({ "quicksettings", "history", "zen_ui", "zen_library_home" }, tab_ids(menu))
+        assert.are.same({ "quicksettings", "zen_ui", "zen_library_home" }, tab_ids(menu))
     end)
 
     it("refreshes a menu that was built before the patch loaded", function()
@@ -117,7 +119,7 @@ describe("Zen mode menu patch", function()
 
         refresh_menus()
 
-        assert.are.same({ "quicksettings", "history", "zen_ui", "zen_library_home" },
+        assert.are.same({ "quicksettings", "zen_ui", "zen_library_home" },
             tab_ids(active_menu))
     end)
 
