@@ -269,7 +269,7 @@ function EndBook:buildNavigationRow(width, height, max_height)
     self.featured_navigation_row = nil
     if #entries == 0 then return end
     local configured_size = config.navigation_icon_size or 0
-    local requested_size = configured_size > 0 and configured_size or math.floor(G_defaults:readSetting("DGENERIC_ICON_SIZE") * 1.25 + 0.5)
+    local requested_size = configured_size > 0 and configured_size or G_defaults:readSetting("DGENERIC_ICON_SIZE")
     local padding = math.min(Screen:scaleBySize(5), math.max(0, math.floor(height * 0.02)))
     local max_cell_width = math.max(1, math.floor(width / #entries))
     local labels, label_height = {}, 0

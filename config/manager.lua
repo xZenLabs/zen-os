@@ -1184,8 +1184,22 @@ local function migrate_changed_defaults(cfg)
 
     if cfg._meta.end_book_stats_font_migrated ~= true and end_modules then
         local stats = end_modules.stats_triplet
-        if type(stats) == "table" and stats.max_font_size == 24 then stats.max_font_size = 20 end
+        if type(stats) == "table" and stats.max_font_size == 24 then stats.max_font_size = 22 end
         cfg._meta.end_book_stats_font_migrated = true
+        changed = true
+    end
+
+    if cfg._meta.end_book_defaults_v2_migrated ~= true and end_book then
+        -- Apply new 4.3.0 defaults where untouched; keep custom values.
+        local featured_styles = end_modules and type(end_modules.featured) == "table" and end_modules.featured.text_styles
+        if type(featured_styles) == "table" then
+            for key, sizes in pairs({ title = { 14, 15 }, author = { 12, 13 }, progress = { 9, 11 }, status = { 9, 11 } }) do
+                local style = featured_styles[key]
+                if type(style) == "table" and style.font_size == sizes[1] then style.font_size = sizes[2] end
+            end
+        end
+        if type(end_book.quotes) == "table" and end_book.quotes.show_title == true then end_book.quotes.show_title = false end
+        cfg._meta.end_book_defaults_v2_migrated = true
         changed = true
     end
 

@@ -282,6 +282,20 @@ function M.build(ctx)
                 require("modules/reader/end_book").show(require("apps/reader/readerui").instance, ctx.plugin, true)
             end,
         },
+        {
+            text = _("Reset to defaults"), keep_menu_open = true,
+            callback = function(touch_menu)
+                UIManager:show(require("ui/widget/confirmbox"):new{
+                    text = _("Reset End of book settings to defaults?"),
+                    ok_text = _("Reset"),
+                    ok_callback = function()
+                        ctx.plugin.config.end_book = require("common/utils").deepcopy(require("config/defaults").end_book)
+                        save_config(ctx.plugin)
+                        if touch_menu and touch_menu.updateItems then touch_menu:updateItems() end
+                    end,
+                })
+            end,
+        },
     }
     local action = require("modules/menu/app_launcher/native_menu").settingsItems("active", "document_end_action")[1]
     if action then table.insert(items, 1, action) end

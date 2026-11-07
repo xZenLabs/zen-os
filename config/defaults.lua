@@ -52,9 +52,9 @@ local defaults = {
             enabled = { stats_triplet = true, featured = true, rating = false, quotes = true, strip = true },
         },
         middle_stats_triplet = { "book_days", "book_duration", "book_daily_minutes" },
-        quotes = { show_author = false, show_title = true, automatic_font_size = true, max_font_size = 18 },
+        quotes = { show_author = false, show_title = false, automatic_font_size = true, max_font_size = 18 },
         modules = {
-            stats_triplet = { automatic_font_size = true, max_font_size = 20, stat_style = "divider", show_icons = true,
+            stats_triplet = { automatic_font_size = true, max_font_size = 22, label_scale = 0.7, stat_style = "divider", show_icons = true,
                 show_label = false, label = "",
                 text_styles = { label = { font_face = "default", font_size = 14, bold = false } } },
             featured = { show_status_bar = false, show_description = false, navigation_icon_size = 0,

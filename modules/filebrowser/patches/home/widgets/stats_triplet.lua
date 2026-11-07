@@ -36,6 +36,7 @@ local MIN_FONT_SIZE = 8
 local MAX_FONT_SIZE = 64
 local DEFAULT_FONT_SIZE = 16
 local DEFAULT_MAX_FONT_SIZE = 18
+local DEFAULT_LABEL_SCALE = 0.6
 
 local function time_unit(unit)
     if type(_) == "table" and type(_.pgettext) == "function" then
@@ -108,11 +109,15 @@ local function configured_max_font_size(ctx)
         tonumber(module_cfg.max_font_size) or DEFAULT_MAX_FONT_SIZE))
 end
 
-local function font_size_fits(candidate, fields, stats, inner_w, inner_h, show_icons)
+local function label_font_size(module_cfg, font_size)
+    return math.max(module_cfg.automatic_font_size ~= false and 1 or 6,
+        math.floor(font_size * (tonumber(module_cfg.label_scale) or DEFAULT_LABEL_SCALE)))
+end
+
+local function font_size_fits(candidate, fields, stats, inner_w, inner_h, show_icons, module_cfg)
     local Screen = Device.screen
     local value_face = Font:getFace("smallinfofont", Screen:scaleBySize(candidate))
-    local label_face = Font:getFace("smallinfofont", Screen:scaleBySize(
-        math.max(1, math.floor(candidate * 0.6))))
+    local label_face = Font:getFace("smallinfofont", Screen:scaleBySize(label_font_size(module_cfg, candidate)))
     for _i, field in ipairs(fields) do
         local value_probe = TextWidget:new{
             text = field.get(stats),
@@ -138,12 +143,12 @@ local function font_size_fits(candidate, fields, stats, inner_w, inner_h, show_i
     return true
 end
 
-local function fitting_font_size(fields, stats, inner_w, inner_h, max_font_size, show_icons)
+local function fitting_font_size(fields, stats, inner_w, inner_h, max_font_size, show_icons, module_cfg)
     local low, high = 1, max_font_size
     local best = 1
     while low <= high do
         local candidate = math.floor((low + high) / 2)
-        if font_size_fits(candidate, fields, stats, inner_w, inner_h, show_icons) then
+        if font_size_fits(candidate, fields, stats, inner_w, inner_h, show_icons, module_cfg) then
             best = candidate
             low = candidate + 1
         else
@@ -166,8 +171,7 @@ local function preferred_height(ctx)
     }
     local label_probe = TextWidget:new{
         text = "A",
-        face = Font:getFace("smallinfofont", Screen:scaleBySize(
-            math.max(module_cfg.automatic_font_size ~= false and 1 or 6, math.floor(font_size * 0.6)))),
+        face = Font:getFace("smallinfofont", Screen:scaleBySize(label_font_size(module_cfg, font_size))),
     }
     local value_h = value_probe:getSize().h or 1
     local label_h = label_probe:getSize().h or 1
@@ -219,11 +223,10 @@ return {
         local shift_state = { value = 0 }
         local font_size = module_cfg.automatic_font_size ~= false
             and fitting_font_size(fields, stats, inner_w, inner_h,
-                configured_max_font_size(ctx), show_icons)
+                configured_max_font_size(ctx), show_icons, module_cfg)
             or configured_font_size(ctx)
         local value_face = Font:getFace("smallinfofont", Screen:scaleBySize(font_size))
-        local label_face = Font:getFace("smallinfofont", Screen:scaleBySize(
-            math.max(module_cfg.automatic_font_size ~= false and 1 or 6, math.floor(font_size * 0.6))))
+        local label_face = Font:getFace("smallinfofont", Screen:scaleBySize(label_font_size(module_cfg, font_size)))
         local row = HorizontalGroup:new{ align = "center" }
         local visual_top
         local visual_bottom

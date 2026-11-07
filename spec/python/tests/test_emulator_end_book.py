@@ -182,8 +182,8 @@ def _assert_fits(layout):
     assert not layout["has_scroll"], layout
     assert layout["featured_finished_icon"], layout["visible_texts"]
     assert "Finished" in layout["visible_texts"]
-    assert re.fullmatch(r"\d+\s+pages\n\d+% read", layout["featured_progress_text"])
-    assert layout["featured_progress_lines"] == 2
+    assert re.fullmatch(r"\d+\s+pages", layout["featured_progress_text"])
+    assert layout["featured_progress_lines"] == 1
     assert not layout["featured_progress_truncated"]
     assert layout["body_size"]["w"] <= layout["body_bounds"]["w"], layout
     assert layout["body_size"]["h"] <= layout["body_bounds"]["h"], layout
@@ -326,6 +326,7 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert state["rows"] == ["stats_triplet", "featured", "strip"]
                 assert state["strip_two_rows"] is False
                 assert min(state["featured_status_size"], state["featured_progress_size"]) > 0
+                assert state["featured_title_size"] > state["featured_status_size"]
                 assert [label["label"] for label in state["strip_labels"]] == [
                     "Next in series", "More by Zen Author", "Continue",
                 ]

@@ -3,11 +3,11 @@ local M = {}
 M.MAX_ACTIONS = 5
 M.WIDGET_UNITS = { featured = 3.75, rating = 1 }
 M.FEATURED_TEXT_STYLES = {
-    title = { font_face = "default", font_size = 14, bold = true },
-    author = { font_face = "default", font_size = 12, bold = false },
+    title = { font_face = "default", font_size = 15, bold = true },
+    author = { font_face = "default", font_size = 13, bold = false },
     series = { font_face = "default", font_size = 9, bold = false },
-    progress = { font_face = "default", font_size = 9, bold = false },
-    status = { font_face = "default", font_size = 9, bold = true },
+    progress = { font_face = "default", font_size = 11, bold = false },
+    status = { font_face = "default", font_size = 11, bold = true },
     navigation = { font_face = "default", font_size = 15, bold = false },
 }
 
