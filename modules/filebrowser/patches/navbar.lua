@@ -1,3 +1,5 @@
+local KINDLE_PROVIDER = "modules/filebrowser/patches/kindle_virtual_library"
+
 local function apply_navbar()
     -- Bottom nav bar for the KOReader File Manager.
 
@@ -26,7 +28,7 @@ local function apply_navbar()
     local MemoryPolicy = require("common/memory_policy")
     local SharedState = require("common/shared_state")
     local ButtonModel = require("common/nav_button_model")
-    local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
+    local OptionalProvider = require("common/optional_provider")
     local StandalonePage = require("modules/filebrowser/patches/standalone_page")
     local NativeMenu = require("modules/menu/app_launcher/native_menu")
     local PluginScan = require("modules/menu/app_launcher/plugin_scan")
@@ -68,7 +70,7 @@ local function apply_navbar()
 
     local function rakuyomi_return_to_chapter_list_on_exit_enabled()
         local rakuyomi = zen_plugin.config and zen_plugin.config.rakuyomi
-        if type(rakuyomi) ~= "table" then return true end
+        if type(rakuyomi) ~= "table" or rakuyomi.open_on_manga_exit ~= true then return false end
         if rakuyomi.return_to_chapter_list_on_exit ~= nil then
             return rakuyomi.return_to_chapter_list_on_exit ~= false
         end
@@ -82,8 +84,6 @@ local function apply_navbar()
 
     local navbar_icon_size = Screen:scaleBySize(34)
     local navbar_v_padding = Screen:scaleBySize(4)
-    local navbar_icon_size_default = 34
-    local navbar_label_size_default = 20
     local navbar_icon_size_min, navbar_icon_size_max = 24, 48
     local navbar_label_size_min, navbar_label_size_max = 10, 28
     -- Dead zone at left/right edges to avoid stealing corner gesture taps
@@ -126,8 +126,8 @@ local function apply_navbar()
         tab_order = { "books", "manga", "news", "continue", "home" },
         show_icons = true,
         show_labels = true,
-        icon_size = navbar_icon_size_default,
-        label_size = navbar_label_size_default,
+        icon_size = 34,
+        label_size = 20,
         books_label = "",  -- empty = auto-translated "Library"
         home_label = "",   -- empty = auto-translated "Home"
         default_tab = "books",
@@ -201,12 +201,12 @@ local function apply_navbar()
             config.icon_size,
             navbar_icon_size_min,
             navbar_icon_size_max,
-            navbar_icon_size_default)
+            config_default.icon_size)
         config.label_size = clampNavbarSize(
             config.label_size,
             navbar_label_size_min,
             navbar_label_size_max,
-            navbar_label_size_default)
+            config_default.label_size)
         -- migrate old hard-coded English default
         if config.books_label == "Library" then config.books_label = "" end
         if config.home_label == "Home" then config.home_label = "" end
@@ -1023,12 +1023,19 @@ local function apply_navbar()
                 fc._zen_lib_mtime_subdirs = subdirs
                 fc._zen_lib_mtime_snapshot_at = now()
             end
+            local flat_config = zen_plugin.config and zen_plugin.config.browser_flat_view
+            local warmed_items, warmed_detail
+            if flat_config and flat_config.enabled and fc._zen_warm_item_table then
+                warmed_items, warmed_detail = fc:_zen_warm_item_table(home_dir)
+                listing_changed = listing_changed
+                    or (warmed_items ~= nil and warmed_detail and warmed_detail.cache == "miss")
+            end
             local refresh_needed = not options.already_refreshed
                 and (sort_changed or tree_changed or listing_changed)
 
             if refresh_needed then
                 refreshLibraryStatusBar(fm)
-                _refresh_library_path(fc, home_dir, listing_changed)
+                _refresh_library_path(fc, home_dir, listing_changed and not warmed_items)
             end
             fc._zen_home_retained_library = nil
 
@@ -1088,7 +1095,7 @@ local function apply_navbar()
                          or require("apps/filemanager/filemanagerutil").getDefaultDir()
         if not (fm and fm.file_chooser) then return false end
         local fc = fm.file_chooser
-        local fm_stack_widget = select(2, retainHomeBelowFileManager(fm))
+        local from_home, fm_stack_widget = retainHomeBelowFileManager(fm)
         -- A reinit under Home replaces FileChooser but preserves FileManager.invisible.
         local reveal_hidden_filemanager = revealFileManager(fm, fc)
         utils.closeWidgetsAbove(fm_stack_widget or fm)
@@ -1147,6 +1154,9 @@ local function apply_navbar()
                 fc.path_items[home_dir] = 1
                 if retained then
                     _refresh_library_path(fc, home_dir)
+                elseif not from_home and not reveal_hidden_filemanager then
+                    fc._zen_needs_cover_refresh = nil
+                    _refresh_library_path(fc, home_dir, true)
                 elseif not refreshSuppressedCoversNow(fm)
                         and type(fc.onGotoPage) == "function" then
                     fc:onGotoPage(1)
@@ -1252,7 +1262,7 @@ local function apply_navbar()
     end
 
     local function onTabKindle()
-        return Kindle.open()
+        return OptionalProvider.call(KINDLE_PROVIDER, "open") or false
     end
 
     local function onTabManga()
@@ -1269,9 +1279,7 @@ local function apply_navbar()
         end
 
         local Rakuyomi = getRakuyomi()
-        if type(Rakuyomi.openLibraryView) == "function" then
-            Rakuyomi.openLibraryView({ hideTopClose = true, forceLibraryView = true })
-        end
+        OptionalProvider.call(Rakuyomi, "openLibraryView", { hideTopClose = true, forceLibraryView = true })
     end
 
     local function onTabFolder()
@@ -1571,7 +1579,7 @@ local function apply_navbar()
     local function onTabMenu()
         local stack = UIManager._window_stack
         local top = type(stack) == "table" and stack[#stack]
-        if Kindle.showContextMenu(top and top.widget) then return end
+        if OptionalProvider.call(KINDLE_PROVIDER, "showContextMenu", top and top.widget) then return end
         local fm = FileManager.instance
         if not fm or not fm.file_chooser then return end
         local fc = fm.file_chooser
@@ -1664,7 +1672,7 @@ local function apply_navbar()
     local function is_tab_enabled(tab_id)
         return config.show_tabs[tab_id] == true
             and (tab_id ~= "archive" or paths.getArchiveDir() ~= nil)
-            and (tab_id ~= "kindle" or Kindle.isAvailable())
+            and (tab_id ~= "kindle" or OptionalProvider.call(KINDLE_PROVIDER, "isAvailable") == true)
     end
 
     local function first_enabled_default_tab()
@@ -1701,15 +1709,10 @@ local function apply_navbar()
         return first_enabled_default_tab()
     end
 
-    local navbar_refresh_pending = false
+    -- One full-screen refresh merged with the page's own in this tick. "partial" lets
+    -- KOReader flash every full_refresh_count switches, as stock does.
     local function refreshAfterNavbarPageSwitch()
-        if navbar_refresh_pending then return end
-        navbar_refresh_pending = true
-        UIManager:nextTick(function()
-            navbar_refresh_pending = false
-            UIManager:setDirty(nil, getFullRefreshMode())
-            UIManager:forceRePaint()
-        end)
+        UIManager:setDirty(nil, G_reader_settings:isTrue("avoid_flashing_ui") and "ui" or "partial")
     end
 
     local function runTabCallback(tab_id, source_tab_id)
@@ -1721,6 +1724,7 @@ local function apply_navbar()
         local source = source_tab_id or (top_widget and top_widget._zen_navbar_tab_id)
         local same_page = source == tab_id
         if tab_id ~= "home" and same_page then
+            if tab_id == "books" then cb() end
             return
         end
         if shouldTrackActiveTab(tab_id) then
@@ -1876,10 +1880,12 @@ local function apply_navbar()
         local use_color = styled and not outlined and config.active_tab_underline and Screen:isColorScreen()
         local active_color
         local fill_color
+        local fill_solid -- accent fill already carries its own opacity
         if filled then
             local c = config.filled_outline_color
             active_color = Blitbuffer.ColorRGB32(c[1], c[2], c[3], 0xFF)
-            c = Accent.navbarColor(zen_plugin.config, "filled_background_color", config_default.filled_background_color)
+            c, fill_solid = Accent.navbarColor(zen_plugin.config, "filled_background_color",
+                config_default.filled_background_color)
             fill_color = Blitbuffer.ColorRGB32(c[1], c[2], c[3], 0xFF)
         elseif outlined then
             local c = Accent.navbarColor(zen_plugin.config, "outlined_color", config_default.outlined_color)
@@ -1923,6 +1929,7 @@ local function apply_navbar()
         local label_face = library_font.getFace(label_size)
         local label
         local label_color = active_color or outlined and not show_icon and fill_color
+        if not filled and label_color and label_color == Blitbuffer.COLOR_BLACK then label_color = nil end
         if label_color then
             label = ColorTextWidget:new{
                 text = tab.label,
@@ -1953,7 +1960,8 @@ local function apply_navbar()
                 dimen = Geom:new{ w = underline_w, h = underline_thickness },
             }
             function color_line:paintTo(bb, x, y)
-                local color = Screen.night_mode and underline_color:invert() or underline_color
+                local color = Screen.night_mode and underline_color ~= Blitbuffer.COLOR_BLACK
+                    and underline_color:invert() or underline_color
                 bb:paintRectRGB32(x, y, self.dimen.w, self.dimen.h, color)
             end
             underline = color_line
@@ -1996,10 +2004,7 @@ local function apply_navbar()
             }
             local opacity = math.max(0, math.min(100,
                 tonumber(config.filled_background_opacity) or 60))
-            if filled and config.active_tab_use_accent ~= false
-                    and zen_plugin.config.accent_enabled ~= false and Accent.isSupported() then
-                opacity = 100 -- navbarColor already applies the accent opacity.
-            end
+            if fill_solid then opacity = 100 end
             if filled or outlined then
                 local paint = icon_label_group.paintTo
                 local color = fill_color
@@ -2008,21 +2013,38 @@ local function apply_navbar()
                     color.alpha = math.floor(opacity * 255 / 100 + 0.5)
                 end
                 function icon_label_group:paintTo(bb, x, y)
-                    local background = Screen.night_mode and color:invert() or color
+                    local background = Screen.night_mode and (filled or color ~= Blitbuffer.COLOR_BLACK)
+                        and color:invert() or color
                     if outlined then
                         local size = self:getSize()
                         bb:paintBorderRGB32(x, y, size.w, size.h, Screen:scaleBySize(2), background, self.radius)
                     elseif opacity > 0 and opacity < 100 then
                         local size = self:getSize()
-                        local fill = Blitbuffer.new(size.w, size.h, Blitbuffer.TYPE_BBRGB32)
-                        fill:paintRectRGB32(0, 0, size.w, size.h, Blitbuffer.ColorRGB32(0, 0, 0, 0))
-                        fill:paintRoundedRectRGB32(0, 0, size.w, size.h, background, self.radius)
+                        -- Cached per size/night mode; color is fixed per widget.
+                        local fill = self._zen_fill
+                        if not fill or fill:getWidth() ~= size.w or fill:getHeight() ~= size.h
+                                or self._zen_fill_night ~= Screen.night_mode then
+                            if fill then fill:free() end
+                            fill = Blitbuffer.new(size.w, size.h, Blitbuffer.TYPE_BBRGB32)
+                            fill:paintRectRGB32(0, 0, size.w, size.h, Blitbuffer.ColorRGB32(0, 0, 0, 0))
+                            fill:paintRoundedRectRGB32(0, 0, size.w, size.h, background, self.radius)
+                            self._zen_fill, self._zen_fill_night = fill, Screen.night_mode
+                        end
                         bb:alphablitFrom(fill, x, y, 0, 0, size.w, size.h)
-                        fill:free()
                     end
                     self.background = filled and opacity == 100 and background or nil
                     paint(self, bb, x, y)
                     self.background = filled and fill_color or nil
+                end
+                if filled and opacity > 0 and opacity < 100 then
+                    local free = icon_label_group.free
+                    function icon_label_group:free(...)
+                        if self._zen_fill then
+                            self._zen_fill:free()
+                            self._zen_fill = nil
+                        end
+                        return free(self, ...)
+                    end
                 end
             end
         end
@@ -2054,20 +2076,22 @@ local function apply_navbar()
 
     local navbar_h_padding = Screen:scaleBySize(10)
 
-    local navbar_max_tabs = 7
-
     local function getVisibleTabs()
         local visible = {}
         for _i, id in ipairs(config.tab_order) do
             if is_tab_enabled(id) and tabs_by_id[id] then
                 table.insert(visible, tabs_by_id[id])
-                if #visible >= navbar_max_tabs then break end
+                if #visible >= 7 then break end -- max tabs
             end
         end
         return visible
     end
 
-    local function createNavBar()
+    -- Bounded memo of shared label sizes + last measured navbar height.
+    local navbar_layout_cache = { font_sizes = {}, font_count = 0 }
+
+    -- Syncs config/tabs and computes the shared layout inputs (no widgets).
+    local function prepareNavBar()
         if not is_navbar_enabled() then
             return nil
         end
@@ -2205,7 +2229,32 @@ local function apply_navbar()
         for _i, tab in ipairs(visible_tabs) do
             table.insert(tab_labels, tab.label)
         end
-        local shared_font_size = getSharedFontSize(tab_labels, label_max_w)
+        local cache = navbar_layout_cache
+        local font_key = table.concat(tab_labels, "\0") .. "\0" .. label_max_w .. "\0"
+            .. table.concat(navbar_font_size_steps, ",") .. "\0" .. library_font.getFontName()
+        local shared_font_size = cache.font_sizes[font_key]
+        if not shared_font_size then
+            if cache.font_count >= 16 then cache.font_sizes, cache.font_count = {}, 0 end
+            shared_font_size = getSharedFontSize(tab_labels, label_max_w)
+            cache.font_sizes[font_key] = shared_font_size
+            cache.font_count = cache.font_count + 1
+        end
+        return {
+            visible_tabs = visible_tabs,
+            screen_w = screen_w,
+            inner_w = inner_w,
+            num_tabs = num_tabs,
+            label_max_w = label_max_w,
+            shared_font_size = shared_font_size,
+        }
+    end
+
+    local function createNavBar(layout)
+        layout = layout or prepareNavBar()
+        if not layout then return nil end
+        local visible_tabs, screen_w, inner_w = layout.visible_tabs, layout.screen_w, layout.inner_w
+        local num_tabs, label_max_w = layout.num_tabs, layout.label_max_w
+        local shared_font_size = layout.shared_font_size
 
         -- Build tab content widgets and measure their natural widths
         local tab_widgets = {}
@@ -2327,6 +2376,19 @@ local function apply_navbar()
         end
 
         navbar[1] = visual
+        if zen_plugin.config.accent_night_enabled == true then
+            local night_mode = Screen.night_mode
+            local paint = navbar.paintTo
+            function navbar:paintTo(bb, x, y)
+                if night_mode ~= Screen.night_mode then
+                    local rebuilt = createNavBar()
+                    self[1]:free()
+                    self[1] = rebuilt[1]
+                    night_mode = Screen.night_mode
+                end
+                return paint(self, bb, x, y)
+            end
+        end
         _G.__ZEN_UI_NAVBAR_HEIGHT = navbar:getSize().h
         return navbar
     end
@@ -2335,18 +2397,25 @@ local function apply_navbar()
 
     local Menu = require("ui/widget/menu")
 
+    -- Height only depends on these inputs; build a throwaway navbar only when they change.
     getNavbarHeight = function()
-        if not is_navbar_enabled() then
-            _G.__ZEN_UI_NAVBAR_HEIGHT = 0
-            return 0
+        local layout = prepareNavBar()
+        local h = 0
+        if layout then
+            local cache = navbar_layout_cache
+            local sig = table.concat({
+                layout.screen_w, navbar_icon_size, navbar_v_padding, layout.shared_font_size,
+                library_font.getFontName(), tostring(config.show_icons), tostring(config.show_labels),
+                tostring(config.active_tab_filled), tostring(config.active_tab_outlined),
+                tostring(config.show_top_border), tostring(Screen:isColorScreen()),
+            }, "|")
+            if sig ~= cache.height_sig then
+                local nb = createNavBar(layout)
+                cache.height_sig, cache.height = sig, nb:getSize().h
+                nb:free()
+            end
+            h = cache.height
         end
-        local nb = createNavBar()
-        if not nb then
-            _G.__ZEN_UI_NAVBAR_HEIGHT = 0
-            return 0
-        end
-        local h = nb:getSize().h
-        nb:free()
         _G.__ZEN_UI_NAVBAR_HEIGHT = h
         return h
     end
@@ -2371,14 +2440,13 @@ local function apply_navbar()
 
     local function isRakuyomiView(menu)
         local Rakuyomi = getRakuyomi()
-        return type(Rakuyomi.isLibraryView) == "function" and Rakuyomi.isLibraryView(menu)
+        return OptionalProvider.call(Rakuyomi, "isLibraryView", menu) == true
     end
 
     local function closeStandaloneView(menu)
         if not menu then return end
         local Rakuyomi = getRakuyomi()
-        local closed = type(Rakuyomi.closeLibraryView) == "function"
-            and Rakuyomi.closeLibraryView(menu)
+        local closed = OptionalProvider.call(Rakuyomi, "closeLibraryView", menu)
         if not closed then
             if menu.close_callback then
                 menu.close_callback()
@@ -2401,41 +2469,35 @@ local function apply_navbar()
             return true
         end
         return standalone_view_names[widget.name] == true
-            or Kindle.isLibraryView(widget)
+            or OptionalProvider.call(KINDLE_PROVIDER, "isLibraryView", widget) == true
             or isRakuyomiView(widget)
             or widget._zen_standalone_navbar_injected == true
     end
 
     local function getStandaloneNextTickTabId(menu)
-        if Kindle.isLibraryView(menu) then return "kindle" end
+        if OptionalProvider.call(KINDLE_PROVIDER, "isLibraryView", menu) then return "kindle" end
         local Rakuyomi = getRakuyomi()
-        if type(Rakuyomi.getStandaloneTabId) == "function" then
-            return Rakuyomi.getStandaloneTabId(menu)
-        end
+        return OptionalProvider.call(Rakuyomi, "getStandaloneTabId", menu)
     end
 
     local function shouldCloseStandaloneBeforeAction(menu, tab_id)
         local Rakuyomi = getRakuyomi()
-        return type(Rakuyomi.shouldCloseBeforeActionTab) == "function"
-            and Rakuyomi.shouldCloseBeforeActionTab(menu, tab_id)
+        return OptionalProvider.call(Rakuyomi, "shouldCloseBeforeActionTab", menu, tab_id) == true
     end
 
     local function onStandaloneNavbarInjected(menu)
         local Rakuyomi = getRakuyomi()
-        if type(Rakuyomi.onStandaloneNavbarInjected) == "function" then
-            Rakuyomi.onStandaloneNavbarInjected(menu, isStandaloneExitTarget)
-        end
+        OptionalProvider.call(Rakuyomi, "onStandaloneNavbarInjected", menu, isStandaloneExitTarget)
     end
 
     local function refreshStandaloneAfterResize(menu)
         local Rakuyomi = getRakuyomi()
-        return type(Rakuyomi.refreshAfterResize) == "function"
-            and Rakuyomi.refreshAfterResize(menu)
+        return OptionalProvider.call(Rakuyomi, "refreshAfterResize", menu) or false
     end
 
     local function isStandaloneNavbarView(menu)
         if standalone_view_names[menu.name] then return true end
-        if Kindle.isLibraryView(menu) then return true end
+        if OptionalProvider.call(KINDLE_PROVIDER, "isLibraryView", menu) then return true end
         if isRakuyomiView(menu) then return true end
         -- Collections list has no name but has these flags. PathChooser also
         -- has them, so exclude its explicit selection contract.
@@ -2470,9 +2532,10 @@ local function apply_navbar()
     local orig_menu_init = Menu.init
 
     function Menu:init()
+        local standalone = not _skip_standalone_navbar and isStandaloneNavbarView(self)
         if self.name == "filemanager" and not self.height then
             self.height = Screen:getHeight() - getNavbarHeight()
-        elseif not _skip_standalone_navbar and isStandaloneNavbarView(self) then
+        elseif standalone then
             -- Override height even if already set (e.g. Rakuyomi sets height = screen_h)
             local reserve = getNavbarHeight()
             self.height = Screen:getHeight() - reserve
@@ -2482,7 +2545,7 @@ local function apply_navbar()
             end
         end
         orig_menu_init(self)
-        if not _skip_standalone_navbar and isStandaloneNavbarView(self) then
+        if standalone then
             preventStandaloneSwipeClose(self)
         end
         -- Plugin views can need delayed injection when they can't be hooked via show functions.
@@ -3494,7 +3557,7 @@ local function apply_navbar()
         end
         local home = get_shared("home")
         if gv and gv.closeAll then gv.closeAll() end
-        if home and home.closeAll then home.closeAll() end
+        if home and not (home.park and home.park()) and home.closeAll then home.closeAll() end
         local fm = FileManager.instance
         if fm then
             if fm.history and fm.history.booklist_menu then
@@ -3679,6 +3742,11 @@ local function apply_navbar()
         local keep_book_location_requested = rawget(_G, "__ZEN_UI_KEEP_BOOK_LOCATION") == true
         local restore_enabled = is_restore_enabled()
         local state_before_show = rawget(_G, "__ZEN_UI_LIBRARY_STATE")
+        local open_rakuyomi_on_exit = (zen_plugin.config.rakuyomi or {}).open_on_manga_exit == true
+        if state_before_show and state_before_show.tab == "manga" and not open_rakuyomi_on_exit then
+            _G.__ZEN_UI_LIBRARY_STATE = nil
+            state_before_show = nil
+        end
         local force_source_restore = state_before_show and state_before_show.force_restore == true
         local hide_rakuyomi_filemanager = force_source_restore
             and state_before_show.tab == "manga"
@@ -3895,8 +3963,9 @@ local function apply_navbar()
                 state.rakuyomi_return_file = nil
             end
             if state.tab == "manga" and not return_enabled then
-                local opened_library = type(Rakuyomi.openLibraryView) == "function"
-                    and Rakuyomi.openLibraryView({ hideTopClose = true })
+                local MangaReader = package.loaded.MangaReader
+                if MangaReader and MangaReader._zen_rakuyomi_return_pending then return end
+                local opened_library = OptionalProvider.call(Rakuyomi, "openLibraryView", { hideTopClose = true })
                 logger.dbg(
                     "Rakuyomi return: restore library:",
                     "opened_library=", tostring(opened_library),
@@ -3913,7 +3982,7 @@ local function apply_navbar()
             local has_file_opener = return_enabled
                 and type(Rakuyomi.openChapterListingFromFile) == "function"
             local opened_chapters = return_file and has_file_opener
-                and Rakuyomi.openChapterListingFromFile(return_file, true)
+                and OptionalProvider.call(Rakuyomi, "openChapterListingFromFile", return_file, true)
             if opened_chapters then
                 _G.__ZEN_UI_RAKUYOMI_CHAPTER_LIST_RESTORED = true
             end
@@ -4170,7 +4239,8 @@ local function apply_navbar()
         UIManager:forceRePaint()
     end
 
-    _G.__ZEN_UI_REINJECT_NAVBARS = function()
+    -- skip_fm: FM was just reinit (setupLayout already re-injected its navbar).
+    _G.__ZEN_UI_REINJECT_NAVBARS = function(skip_fm)
         local stack = UIManager._window_stack
         local top = stack and stack[#stack]
         local top_widget = top and top.widget
@@ -4187,11 +4257,11 @@ local function apply_navbar()
             if standalone_result == "reopened" then
                 return
             end
-            local fm = FileManager.instance
+            local fm = not skip_fm and FileManager.instance
             if fm then
                 injectNavbar(fm)
             end
-        else
+        elseif not skip_fm then
             _G.__ZEN_UI_REINJECT_FM_NAVBAR()
         end
     end

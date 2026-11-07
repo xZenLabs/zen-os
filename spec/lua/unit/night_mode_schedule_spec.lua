@@ -153,4 +153,31 @@ describe("night mode schedule", function()
         assert.is_true(G_reader_settings:isTrue("night_mode"))
         assert.are.equal(2, ReaderThemes.applied)
     end)
+
+    it("skips the wake flash and frontlight rewrite when the hardware flag still matches", function()
+        local dirty = 0
+        ui_manager.setDirty = function() dirty = dirty + 1 end
+        screen.getHWNightmode = function(self) return self.hw_night_mode == true end
+        require("modules/global/patches/night_mode_schedule")()
+        local writes = 0
+        screen.setHWNightmode = function(self, enabled)
+            writes = writes + 1
+            self.hw_night_mode = enabled
+        end
+        dirty = 0
+
+        _G.__ZEN_UI_NIGHT_SCHEDULE.force_reschedule()
+
+        assert.are.equal(0, dirty)
+        assert.are.equal(0, writes)
+        assert.are.equal(1, _G.brightness_mode_reapplies)
+
+        screen.hw_night_mode = false
+        _G.__ZEN_UI_NIGHT_SCHEDULE.force_reschedule()
+
+        assert.are.equal(1, dirty)
+        assert.are.equal(1, writes)
+        assert.is_true(screen.hw_night_mode)
+        assert.are.equal(1, ReaderThemes.applied)
+    end)
 end)

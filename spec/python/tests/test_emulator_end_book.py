@@ -2,9 +2,7 @@ import json
 import os
 import re
 import shutil
-import signal
 import sqlite3
-import subprocess
 import sys
 import tempfile
 import zipfile
@@ -15,11 +13,55 @@ import pytest
 from fixtures import build_library, _write_zip
 from test_emulator_home import _seed_bookinfo, _seed_history_books
 from test_emulator_reader_tools import _wait_command
-from zen_driver import ZenDriver, launch, wait_for_socket
+from zen_driver import ZenDriver, launch, stop, wait_for_socket
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("ZEN_UI_RUN_EMULATOR") != "1", reason="requires KOReader emulator",
 )
+
+
+def test_end_book_delete_requires_confirmation_and_returns_to_library():
+    runtime = Path(os.environ["KOREADER_DIR"])
+    with tempfile.TemporaryDirectory(prefix="zen-end-book-delete-") as temporary:
+        root = Path(temporary)
+        home, library, socket = root / "home", root / "books", root / "driver.sock"
+        home.mkdir()
+        book = build_library(library)["epub"]
+        process = launch(runtime, home, socket, library)
+        try:
+            wait_for_socket(socket)
+            driver = ZenDriver(socket)
+            _wait_command(driver, "open_book", lambda result: result.get("ok"), path=str(book))
+            preview = driver.command("end_book", preview=True)
+            assert preview["navigation_enabled"] == [True] * 4
+            preview = driver.command("end_book", navigation_actions=["library", "series", "to_be_read", "home", "delete"])
+            assert preview["navigation_enabled"] == [True, True, True, True, False]
+            driver.command("end_book", tap=5)
+            assert driver.command("end_book")["active"]
+            assert book.exists()
+            driver.command("end_book", close=True)
+
+            driver.command("end_book", collate="date", show=True)
+            assert driver.command("end_book")["navigation_enabled"] == [True] * 5
+            driver.command("end_book", tap=5)
+            assert book.exists()
+            assert driver.command("native_settings_confirm", accept=False)["ok"]
+            assert driver.command("end_book")["active"]
+            assert driver.command("reader_state")["reader"]["open"]
+            assert book.exists()
+            assert book.with_suffix(".sdr").is_dir()
+
+            driver.command("end_book", tap=5)
+            assert driver.command("native_settings_confirm")["ok"]
+            _wait_command(driver, "reader_state", lambda result: not result["reader"].get("open"))
+            assert not driver.command("end_book")["active"]
+            assert not book.exists()
+            assert not book.with_suffix(".sdr").exists()
+            state = driver.command("file_chooser_items")["file_chooser"]
+            assert state["active_tab_label"] == "Library"
+            assert str(book) not in {item["path"] for item in state["items"]}
+        finally:
+            stop(process)
 
 
 @pytest.mark.parametrize("width,height", [(600, 800), (800, 600)])
@@ -93,12 +135,7 @@ def test_end_book_rating_is_optional_saved_and_read_only_in_preview(width, heigh
                 assert driver.command("arrange_page_back")["ok"]
                 _wait_command(driver, "end_book", lambda result: "rating" not in result.get("rows", []))
             finally:
-                process.send_signal(signal.SIGTERM)
-                try:
-                    process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
+                stop(process)
 
 
 def test_end_book_preview_shows_cbz_strip_cover_from_reader_and_library():
@@ -138,20 +175,15 @@ def test_end_book_preview_shows_cbz_strip_cover_from_reader_and_library():
                 assert driver.command("end_book", dismiss_cover=True)["active"]
                 driver.command("end_book", close=True)
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            stop(process)
 
 
 def _assert_fits(layout):
     assert not layout["has_scroll"], layout
     assert layout["featured_finished_icon"], layout["visible_texts"]
     assert "Finished" in layout["visible_texts"]
-    assert re.fullmatch(r"\d+\s+pages\n\d+% read", layout["featured_progress_text"])
-    assert layout["featured_progress_lines"] == 2
+    assert re.fullmatch(r"\d+\s+pages", layout["featured_progress_text"])
+    assert layout["featured_progress_lines"] == 1
     assert not layout["featured_progress_truncated"]
     assert layout["body_size"]["w"] <= layout["body_bounds"]["w"], layout
     assert layout["body_size"]["h"] <= layout["body_bounds"]["h"], layout
@@ -179,7 +211,6 @@ def _assert_fits(layout):
 @pytest.mark.parametrize("width,height,dpi", [(600, 800, 160), (800, 600, 160), (1404, 1872, 227)])
 def test_end_book_renders_and_preserves_changed_default_after_restart(width, height, dpi):
     runtime = Path(os.environ["KOREADER_DIR"])
-    window_scale = 2 if sys.platform == "darwin" else 1  # ponytail: assumes Retina; query SDL scale for other Mac displays.
     with tempfile.TemporaryDirectory(prefix="zen-end-book-") as temporary:
         root = Path(temporary)
         home, library, socket = root / "home", root / "books", root / "driver.sock"
@@ -249,8 +280,9 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                     )
         for first_run in (True, False):
             process = launch(runtime, home, socket, library, initialize_settings=first_run,
-                             env_overrides={"EMULATE_READER_W": str(width // window_scale), "EMULATE_READER_H": str(height // window_scale),
-                                            "EMULATE_READER_DPI": str(dpi)})
+                             # Offscreen: real windows are clamped to the host display (1404x1872 won't fit most Macs).
+                             env_overrides={"EMULATE_READER_W": str(width), "EMULATE_READER_H": str(height),
+                                            "EMULATE_READER_DPI": str(dpi), "SDL_VIDEO_DRIVER": "offscreen"})
             try:
                 wait_for_socket(socket)
                 driver = ZenDriver(socket)
@@ -294,6 +326,7 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert state["rows"] == ["stats_triplet", "featured", "strip"]
                 assert state["strip_two_rows"] is False
                 assert min(state["featured_status_size"], state["featured_progress_size"]) > 0
+                assert state["featured_title_size"] > state["featured_status_size"]
                 assert [label["label"] for label in state["strip_labels"]] == [
                     "Next in series", "More by Zen Author", "Continue",
                 ]
@@ -417,7 +450,8 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert driver.command("arrange_page_select", index=index)["ok"]
                 buttons = driver.command("arrange_page_state")["arrange"]
                 assert buttons["title"] == "Buttons"
-                assert buttons["labels"] == ["Library", "Series", "To Be Read", "Home", "Archive", "Next file", "Restart Book"]
+                assert buttons["labels"] == ["Library", "Series", "To Be Read", "Home", "Archive", "Next file", "Restart Book", "Delete"]
+                assert not buttons["checked"][-1]
                 for label in ("Series", "Archive", "Next file"):
                     assert driver.command("arrange_page_select", index=buttons["labels"].index(label) + 1, toggle=True)["ok"]
                 assert driver.command("arrange_page_back")["ok"]
@@ -691,9 +725,4 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 driver.command("end_book", action="nothing")
                 assert driver.command("end_book", show=True)["active"] is False
             finally:
-                process.send_signal(signal.SIGTERM)
-                try:
-                    process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
+                stop(process)

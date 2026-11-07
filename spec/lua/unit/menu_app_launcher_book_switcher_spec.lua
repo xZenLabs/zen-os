@@ -77,6 +77,64 @@ describe("app launcher book switcher page", function()
         assert.is_nil(Page.pagePosition(cfg, false, 2))
     end)
 
+    it("drops the removed book details page from launcher plans a book details launcher page", function()
+        local Plan = require("modules/menu/app_launcher/page_plan")
+        local cfg = {
+            show_book_switcher = true,
+            show_book_details = true,
+            page_order = { "book_details", "buttons", "book_switcher" },
+        }
+        local plan = Plan.build(2, cfg, false)
+        assert.are.same({ "buttons", "buttons", "book_switcher" }, {
+            plan[1].kind, plan[2].kind, plan[3].kind,
+        })
+        assert.is_nil(plan[4])
+        assert.are.equal(1, plan[1].index)
+        assert.are.equal(2, plan[2].index)
+    end)
+
+    it("shares reader panels, exclusions, removal, and deferred book opening", function()
+        local Page = require("modules/menu/app_launcher/book_switcher_page")
+        local cfg = { show_book_switcher = false, book_switcher_hidden = {} }
+        local calls, options, queued = {}, nil, nil
+        local ui = { document = { file = "/library/current.epub" } }
+        local plugin = { config = {} }
+        replace("modules/menu/app_launcher/model", {
+            ensure = function() return cfg end,
+            save = function(value) assert.are.equal(cfg, value); calls[#calls + 1] = "save" end,
+        })
+        replace("ui/uimanager", { nextTick = function(_self, callback) queued = callback end })
+        replace("common/settings_transition", { close = function() calls[#calls + 1] = "settings" end })
+        replace("apps/filemanager/filemanagerutil", { openFile = function(reader, path)
+            assert.are.equal(ui, reader)
+            assert.are.equal("/library/other.epub", path)
+            calls[#calls + 1] = "open"
+        end })
+        local refs = { layout_rows = { { "book cell" } }, buttons = {} }
+        Page.build = function(opts) options = opts; return {}, refs end
+        local panel, built_refs = Page.buildReader{
+            ui = ui, plugin = plugin, width = 600, height = 400,
+            close = function() calls[#calls + 1] = "close" end,
+            refresh = function() calls[#calls + 1] = "refresh" end,
+        }
+        assert.are.equal(refs, built_refs)
+        assert.are.equal(refs.layout_rows, panel.layout)
+        assert.are.equal(plugin.config, options.config)
+        assert.are.equal(cfg, options.launcher_config)
+        assert.are.equal(ui.document.file, options.exclude_path)
+        assert.are.equal(600, options.width)
+        assert.are.equal(400, options.height)
+        assert.is_nil(options.fill)
+        options.remove_book("/library/hidden.epub")
+        assert.is_true(cfg.book_switcher_hidden["/library/hidden.epub"])
+        assert.are.same({ "save", "refresh" }, calls)
+        options.open_book("/library/other.epub", {}, function() calls[#calls + 1] = "release" end)
+        assert.are.same({ "save", "refresh", "release", "close", "settings" }, calls)
+        queued()
+        assert.are.equal("open", calls[#calls])
+        assert.is_false(cfg.show_book_switcher)
+    end)
+
     it("maps the library cover renderer settings onto the page", function()
         local Page = require("modules/menu/app_launcher/book_switcher_page")
         assert.are.same({ uniform = true, show_title = true, show_author = false },
@@ -109,19 +167,12 @@ describe("app launcher book switcher page", function()
         assert.are.equal(4, cfg.book_switcher_count)
         assert.is_true(cfg.book_switcher_hide_finished)
         assert.are.same({}, cfg.book_switcher_hidden)
-        assert.is_false(cfg.show_book_details)
-        assert.are.same({ "book_details", "book_switcher", "buttons" }, cfg.page_order)
-        assert.are.same({
-            "read_time", "time_remaining", "pages_today", "time_today", "pages", "progress",
-        }, cfg.book_details_order)
-        assert.are.same({
-            read_time = true,
-            time_remaining = true,
-            pages_today = false,
-            time_today = false,
-            pages = true,
-            progress = true,
-        }, cfg.book_details_enabled)
+        assert.is_nil(cfg.show_book_details)
+        assert.is_nil(cfg.hide_reader_actions_in_library)
+        assert.are.equal(0, cfg.columns)
+        assert.are.same({ "book_switcher", "buttons" }, cfg.page_order)
+        assert.is_nil(cfg.book_details_order)
+        assert.is_nil(cfg.book_details_enabled)
 
         cfg.show_book_switcher = true
         cfg.book_switcher_first = true
@@ -132,13 +183,6 @@ describe("app launcher book switcher page", function()
         cfg.show_book_details = true
         cfg.book_details_first = true
         cfg.page_order = { "buttons", "unknown", "buttons" }
-        cfg.book_details_order = { "pages", "unknown", "pages", "read_time" }
-        cfg.book_details_enabled = {
-            read_time = false,
-            time_remaining = "invalid",
-            pages = false,
-            unknown = false,
-        }
         Store.save(cfg)
         assert.is_true(settings_file.flushed)
         assert.is_true(settings_file.data.show_book_switcher)
@@ -146,23 +190,10 @@ describe("app launcher book switcher page", function()
         assert.are.equal(8, settings_file.data.book_switcher_count)
         assert.is_false(settings_file.data.book_switcher_hide_finished)
         assert.is_true(settings_file.data.book_switcher_hidden["/books/hidden.epub"])
-        assert.is_true(settings_file.data.show_book_details)
+        assert.is_nil(settings_file.data.show_book_details)
         assert.is_nil(settings_file.data.book_switcher_first)
         assert.is_nil(settings_file.data.book_details_first)
-        assert.are.same({ "buttons", "book_details", "book_switcher" },
-            settings_file.data.page_order)
-        assert.are.same({
-            "pages", "read_time", "time_remaining", "pages_today", "time_today", "progress",
-        }, settings_file.data.book_details_order)
-        assert.are.same({
-            read_time = false,
-            time_remaining = true,
-            pages_today = false,
-            time_today = false,
-            pages = false,
-            progress = true,
-        }, settings_file.data.book_details_enabled)
-        assert.is_nil(settings_file.data.book_details_enabled.unknown)
+        assert.are.same({ "buttons", "book_switcher" }, settings_file.data.page_order)
         for _i, value in ipairs({ -1, 0, 1, 3.8, 8, 9, "invalid" }) do
             cfg.book_switcher_count = value
             Store.save(cfg)
@@ -188,7 +219,7 @@ describe("app launcher book switcher page", function()
         replace("config/preset_store", { rootDir = function() return "/settings" end })
 
         local cfg = require("modules/menu/app_launcher/store").load()
-        assert.are.same({ "book_switcher", "buttons", "book_details" }, cfg.page_order)
+        assert.are.same({ "book_switcher", "buttons" }, cfg.page_order)
         assert.is_nil(cfg.book_switcher_first)
         assert.are.equal(4, cfg.book_switcher_count)
         assert.is_true(cfg.book_switcher_hide_finished)
@@ -412,7 +443,7 @@ describe("app launcher book switcher page", function()
         assert.is_nil(dialog.title)
         assert.are.equal(1, #dialog.buttons)
         assert.are.equal(1, #dialog.buttons[1])
-        assert.are.equal("\u{F0156}  Remove", dialog.buttons[1][1].text)
+        assert.are.equal("\u{E855}  Remove", dialog.buttons[1][1].text)
         assert.are.equal("left", dialog.buttons[1][1].align)
         assert.is_nil(removed)
         dialog.buttons[1][1].callback()

@@ -38,6 +38,7 @@ function M.build(ctx)
     local items = {}
 
     table.insert(items, {
+        icon_glyph = icons.details,
         text_func = function()
             return _("ZenOS") .. ": " .. utils.get_plugin_version(plugin)
         end,
@@ -45,6 +46,7 @@ function M.build(ctx)
     })
 
     table.insert(items, {
+        icon_glyph = icons.settings_device,
         text = _("Device"),
         sub_item_table = {
             {
@@ -129,6 +131,7 @@ function M.build(ctx)
     })
 
     table.insert(items, {
+        icon_glyph = icons.settings_setup,
         text = _("Setup Guide"),
         callback = function()
             local ok_qs, QuickstartScreen = pcall(require, "common/quickstart/quickstart_screen")
@@ -165,17 +168,13 @@ function M.build(ctx)
     })
 
     table.insert(items, {
+        icon_glyph = icons.settings_bug,
         text      = _("Report a Bug"),
         callback  = function()
             bugreporter.show_dialog(ctx)
         end,
         keep_menu_open = true,
     })
-
-    IconItem.decorate(items[1], icons.details)
-    IconItem.decorate(items[2], icons.settings_device)
-    IconItem.decorate(items[3], icons.settings_setup)
-    IconItem.decorate(items[4], icons.settings_bug)
 
     return items
 end

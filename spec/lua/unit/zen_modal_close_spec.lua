@@ -10,7 +10,7 @@ describe("Zen modal close button", function()
         })
         ZenSpec.replace("common/plugin_root", "/zen-ui")
         ZenSpec.replace("common/utils", {
-            resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end,
+            resolveIcon = function(dir, name) return dir .. name .. ".svg" end,
         })
         ZenSpec.replace("common/ui/zen_icon_button", {
             new = function(_, spec) return spec end,
@@ -72,6 +72,13 @@ describe("Zen modal close button", function()
 
         close_button.callback()
         assert.is_true(closed)
+    end)
+
+    it("resolves the active custom close icon when each title bar is installed", function()
+        local ZenModalClose = require("common/ui/zen_modal_close")
+        require("common/utils").resolveIcon = function(_dir, name) return "/custom/" .. name .. ".svg" end
+        local button = ZenModalClose.installTitleBar(new_title_bar(), {}, function() end)
+        assert.are.equal("/custom/close.svg", button.file)
     end)
 
     it("restores the right close button when an input dialog reinitializes", function()

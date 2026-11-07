@@ -36,8 +36,9 @@ end
 
 local function open_zen_file()
     if not _zen_settings_file then
-        local LuaSettings = require("luasettings")
-        _zen_settings_file = LuaSettings:open(get_settings_path())
+        local path = get_settings_path()
+        _zen_settings_file = BrandMigration.takeConfigSettings(path)
+            or require("luasettings"):open(path)
     end
     return _zen_settings_file
 end
@@ -155,6 +156,12 @@ local function normalize_renamed_keys(cfg)
     end
     if type(cfg.navbar) == "table" and cfg.navbar.active_tab_styling ~= nil then
         cfg.navbar.active_tab_styling = nil
+        changed = true
+    end
+    -- Reader actions are now always hidden in the library.
+    if type(cfg.quick_settings) == "table"
+            and cfg.quick_settings.hide_reader_actions_in_library ~= nil then
+        cfg.quick_settings.hide_reader_actions_in_library = nil
         changed = true
     end
 
@@ -814,16 +821,14 @@ local function capture_reader_footer_settings()
     }
 end
 
-local function load_reader_theme_settings(cfg)
+local function load_reader_theme_settings(cfg, reader_store)
     if type(cfg) ~= "table" then return end
-    local reader_store = PresetStore.loadStore("reader")
     if type(reader_store.reader_themes) == "table" then
         cfg.reader_themes = reader_store.reader_themes
     end
 end
 
-local function migrate_reader_preset_zen_settings()
-    local store = PresetStore.loadStore("reader")
+local function migrate_reader_preset_zen_settings(store)
     local changed = false
 
     local function migrate(preset)
@@ -880,14 +885,13 @@ local function migrate_reader_footer_backup(cfg)
     return true
 end
 
-local function migrate_page_browser_layout(cfg)
+local function migrate_page_browser_layout(cfg, store)
     if type(cfg) ~= "table" then return false end
 
     local function valid_layout(layout)
         return layout == "single" or layout == "carousel" or layout == "grid"
     end
 
-    local store = PresetStore.loadStore("reader")
     if type(store) ~= "table" then return false end
     if type(store.settings) ~= "table" then store.settings = {} end
 
@@ -925,8 +929,24 @@ local function migrate_page_browser_layout(cfg)
     return changed
 end
 
-local function migrate_home_quote_font_size()
-    local store = PresetStore.loadStore("home")
+-- Book info card fields moved from the launcher store to reader_controls.book_info.
+local function migrate_launcher_book_info(cfg)
+    local ok, Store = pcall(require, "modules/menu/app_launcher/store")
+    if not ok then return false end
+    local launcher = Store.load()
+    if launcher.book_details_order == nil and launcher.book_details_enabled == nil then return false end
+    cfg.reader_controls = type(cfg.reader_controls) == "table" and cfg.reader_controls or {}
+    if cfg.reader_controls.book_info == nil then
+        cfg.reader_controls.book_info = require("modules/menu/reader_controls/book_info").normalize{
+            order = launcher.book_details_order, enabled = launcher.book_details_enabled,
+        }
+    end
+    launcher.book_details_order, launcher.book_details_enabled = nil, nil
+    Store.save(launcher)
+    return true
+end
+
+local function migrate_home_quote_font_size(store)
     local changed = false
 
     local function migrate(page)
@@ -989,12 +1009,11 @@ local function migrate_home_quote_font_size()
         local page = type(preset) == "table" and (preset.home_page or preset)
         migrate(page)
     end
-    return changed and PresetStore.saveStore("home", store)
+    return changed
 end
 
-local function migrate_home_strip_config()
+local function migrate_home_strip_config(store)
     if type(HomePresets.normalizeStripConfig) ~= "function" then return false end
-    local store = PresetStore.loadStore("home")
     local changed = HomePresets.normalizeStripConfig(store.settings)
     local active_preset = type(store.settings) == "table"
         and store.settings.active_preset or nil
@@ -1016,36 +1035,35 @@ local function migrate_home_strip_config()
         local page = type(preset) == "table" and (preset.home_page or preset)
         if HomePresets.normalizeStripConfig(page) then changed = true end
     end
-    return changed and PresetStore.saveStore("home", store)
+    return changed
 end
 
-local function migrate_home_featured_config()
+local function migrate_home_featured_config(store)
     if type(HomePresets.normalizeFeaturedConfig) ~= "function" then return false end
-    local store = PresetStore.loadStore("home")
     local changed = HomePresets.normalizeFeaturedConfig(store.settings)
     for _name, preset in pairs(store.presets) do
         local page = type(preset) == "table" and (preset.home_page or preset)
         if HomePresets.normalizeFeaturedConfig(page) then changed = true end
     end
-    return changed and PresetStore.saveStore("home", store)
+    return changed
 end
 
-local function migrate_home_layout_grid()
+local function migrate_home_layout_grid(store)
     if type(HomePresets.normalizeLayoutGrid) ~= "function" then return false end
-    local store = PresetStore.loadStore("home")
     local changed = HomePresets.normalizeLayoutGrid(store.settings)
     for _name, preset in pairs(store.presets) do
         local page = type(preset) == "table" and (preset.home_page or preset)
         if HomePresets.normalizeLayoutGrid(page) then changed = true end
     end
-    return changed and PresetStore.saveStore("home", store)
+    return changed
 end
 
 local function migrate_settings_files()
+    -- Initial settings are built only for stores that do not exist yet.
     local changed = PresetStore.migrateStores({
-        home = HomePresets.defaultHomePage(),
-        reader = capture_reader_footer_settings(),
-        screensaver = capture_screensaver_settings(),
+        home = HomePresets.defaultHomePage,
+        reader = capture_reader_footer_settings,
+        screensaver = capture_screensaver_settings,
     })
     if HomeQuotes.ensureFile() then
         changed = true
@@ -1056,16 +1074,13 @@ local function migrate_settings_files()
     if GoogleBooksKey.ensureFile() then
         changed = true
     end
-    if migrate_home_quote_font_size() then
-        changed = true
-    end
-    if migrate_home_featured_config() then
-        changed = true
-    end
-    if migrate_home_strip_config() then
-        changed = true
-    end
-    if migrate_home_layout_grid() then
+    -- Home migrations share one private copy and save once.
+    local home = PresetStore.loadStore("home")
+    local home_changed = migrate_home_quote_font_size(home)
+    home_changed = migrate_home_featured_config(home) or home_changed
+    home_changed = migrate_home_strip_config(home) or home_changed
+    home_changed = migrate_home_layout_grid(home) or home_changed
+    if home_changed and PresetStore.saveStore("home", home) then
         changed = true
     end
     return changed
@@ -1079,6 +1094,49 @@ local function migrate_changed_defaults(cfg)
     local changed = false
     if type(cfg._meta) ~= "table" then
         cfg._meta = {}
+        changed = true
+    end
+
+    local top_bar = type(cfg.reader_top_status_bar) == "table" and cfg.reader_top_status_bar
+    if cfg._meta.reader_pin_header_migrated ~= true and top_bar then
+        local has_pin = false
+        for _i, slot in ipairs({ "left_order", "center_order", "right_order" }) do
+            if type(top_bar[slot]) ~= "table" then top_bar[slot] = {} end
+            for _j, key in ipairs(top_bar[slot]) do
+                if key == "pin" then has_pin = true end
+            end
+        end
+        if not has_pin then table.insert(top_bar.right_order, "pin") end
+        cfg._meta.reader_pin_header_migrated = true
+        changed = true
+    end
+
+    if cfg._meta.reader_vertical_margins_migrated ~= true then
+        local ReaderDefaults = require("common/reader_defaults")
+        if ReaderDefaults.isZenPreset(PresetStore.getActivePreset("reader")) then
+            local g = rawget(_G, "G_reader_settings")
+            if g then
+                g:saveSetting("copt_t_page_margin", ReaderDefaults.DEFAULT_VERTICAL_MARGIN)
+                g:saveSetting("copt_b_page_margin", ReaderDefaults.DEFAULT_VERTICAL_MARGIN)
+            end
+        end
+        cfg._meta.reader_vertical_margins_migrated = true
+        changed = true
+    end
+
+    if cfg._meta.reader_status_bar_space_migrated ~= true then
+        local g = rawget(_G, "G_reader_settings")
+        local footer = g and g:readSetting("footer")
+        if type(footer) == "table" then
+            footer.reclaim_height = false
+            g:saveSetting("footer", footer)
+        end
+        local store = PresetStore.loadStore("reader")
+        if type(store.settings.footer) == "table" then
+            store.settings.footer.reclaim_height = false
+            PresetStore.saveStore("reader", store)
+        end
+        cfg._meta.reader_status_bar_space_migrated = true
         changed = true
     end
 
@@ -1115,20 +1173,46 @@ local function migrate_changed_defaults(cfg)
         changed = true
     end
 
-    if cfg._meta.end_book_appearance_default_migrated ~= true then
-        cfg.end_book.modules.featured.show_description = false
-        cfg.end_book.modules.strip.center_books = false
+    local end_book = type(cfg.end_book) == "table" and cfg.end_book or nil
+    local end_modules = end_book and type(end_book.modules) == "table" and end_book.modules
+    if cfg._meta.end_book_appearance_default_migrated ~= true and end_modules then
+        if type(end_modules.featured) == "table" then end_modules.featured.show_description = false end
+        if type(end_modules.strip) == "table" then end_modules.strip.center_books = false end
         cfg._meta.end_book_appearance_default_migrated = true
         changed = true
     end
 
-    local has_rating = false
-    for _i, id in ipairs(cfg.end_book.rows.order) do
-        if id == "rating" then has_rating = true; break end
-    end
-    if not has_rating then
-        table.insert(cfg.end_book.rows.order, "rating")
+    if cfg._meta.end_book_stats_font_migrated ~= true and end_modules then
+        local stats = end_modules.stats_triplet
+        if type(stats) == "table" and stats.max_font_size == 24 then stats.max_font_size = 22 end
+        cfg._meta.end_book_stats_font_migrated = true
         changed = true
+    end
+
+    if cfg._meta.end_book_defaults_v2_migrated ~= true and end_book then
+        -- Apply new 4.3.0 defaults where untouched; keep custom values.
+        local featured_styles = end_modules and type(end_modules.featured) == "table" and end_modules.featured.text_styles
+        if type(featured_styles) == "table" then
+            for key, sizes in pairs({ title = { 14, 15 }, author = { 12, 13 }, progress = { 9, 11 }, status = { 9, 11 } }) do
+                local style = featured_styles[key]
+                if type(style) == "table" and style.font_size == sizes[1] then style.font_size = sizes[2] end
+            end
+        end
+        if type(end_book.quotes) == "table" and end_book.quotes.show_title == true then end_book.quotes.show_title = false end
+        cfg._meta.end_book_defaults_v2_migrated = true
+        changed = true
+    end
+
+    local end_rows = end_book and type(end_book.rows) == "table" and end_book.rows
+    if end_rows and type(end_rows.order) == "table" then
+        local has_rating = false
+        for _i, id in ipairs(end_rows.order) do
+            if id == "rating" then has_rating = true; break end
+        end
+        if not has_rating then
+            table.insert(end_rows.order, "rating")
+            changed = true
+        end
     end
 
     if cfg._meta.library_font_hyperreadable_default_migrated ~= true then
@@ -1154,6 +1238,20 @@ local function migrate_changed_defaults(cfg)
             and not FontLanguage.supportsBundledFonts()
             and cfg.library_font.font_face == HYPERREADABLE_LIBRARY_FONT then
         cfg.library_font.font_face = "default"
+        changed = true
+    end
+
+    -- Monochrome active tab renders gray from partial fill opacity or custom colors; force solid black once.
+    if cfg._meta.navbar_bw_fill_solid_migrated ~= true then
+        local Device = require("device")
+        if Device.screen and not require("common/ui/accent").isSupported()
+                and type(cfg.navbar) == "table" then
+            cfg.navbar.active_tab_color = { 0, 0, 0 }
+            cfg.navbar.outlined_color = { 0, 0, 0 }
+            cfg.navbar.filled_background_color = { 0, 0, 0 }
+            cfg.navbar.filled_background_opacity = 100
+        end
+        cfg._meta.navbar_bw_fill_solid_migrated = true
         changed = true
     end
 
@@ -1237,6 +1335,7 @@ function M.load()
     local migrated_group, migrated_owned
     stored, migrated_group = migrate_legacy_group_view_keys(stored)
     stored, migrated_owned = migrate_legacy_owned_keys(stored)
+    local migrated_page_browser_tabs = require("modules/reader/page_browser_tabs").migrate(stored)
     local cfg = merged_with_defaults(stored)
     local installed_plugins = PluginScan.installed()
     local installed_plugins_changed = installed_plugins ~= nil
@@ -1244,6 +1343,7 @@ function M.load()
     if installed_plugins then cfg._meta.installed_plugins = installed_plugins end
     local migrated_renamed
     cfg, migrated_renamed = normalize_renamed_keys(cfg)
+    migrated_renamed = migrated_renamed or migrated_page_browser_tabs
     local migrated_substring, migrated_updater, migrated_folder_paths, migrated_fbc, migrated_bim
     cfg, migrated_substring = migrate_legacy_substring_search(cfg)
     cfg, migrated_updater = migrate_legacy_updater_keys(cfg)
@@ -1252,9 +1352,11 @@ function M.load()
     cfg, migrated_bim     = migrate_bim_folder_cover_keys(cfg)
     local migrated_reader_backup = migrate_reader_footer_backup(cfg)
     local migrated_settings_files = migrate_settings_files()
-    local migrated_page_browser = migrate_page_browser_layout(cfg)
-    load_reader_theme_settings(cfg)
-    local migrated_reader_presets = migrate_reader_preset_zen_settings()
+    local reader_store = PresetStore.loadStore("reader")
+    local migrated_page_browser = migrate_page_browser_layout(cfg, reader_store)
+    local migrated_book_info = migrate_launcher_book_info(cfg)
+    load_reader_theme_settings(cfg, reader_store)
+    local migrated_reader_presets = migrate_reader_preset_zen_settings(reader_store)
     local migrated_changed_defaults
     cfg, migrated_changed_defaults = migrate_changed_defaults(cfg)
     local initialized_brand_marker = fresh_config
@@ -1266,7 +1368,7 @@ function M.load()
             or migrated_reader_backup or migrated_qs or migrated_qs_completion or migrated_file_config
             or migrated_settings_files or migrated_reader_presets
             or migrated_changed_defaults or migrated_home_lock
-            or migrated_folder_paths or migrated_rakuyomi or migrated_page_browser
+            or migrated_folder_paths or migrated_rakuyomi or migrated_page_browser or migrated_book_info
             or migrated_brand_paths or migrated_owned or initialized_brand_marker
             or recovered_fresh_config or installed_plugins_changed or has_legacy_config then
         local saved = M.save(cfg, has_legacy_config)

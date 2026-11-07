@@ -331,6 +331,57 @@ describe("book details", function()
         assert.are.equal(24, widget._description_widget.face.size)
     end)
 
+    it("embeds the body without a title bar and keeps touch targets at the painted offset", function()
+        local cover_taps = 0
+        local widget = BookInfoWidget:new{
+            width = 500, height = 650, show_title = false,
+            cover = {}, cover_width = 100, cover_height = 150,
+            cover_tap_callback = function() cover_taps = cover_taps + 1 end,
+            description = "Description",
+        }
+        assert.are.equal(500, widget.dimen.w)
+        assert.are.equal(650, widget.dimen.h)
+        assert.are.equal(widget._L.pad, widget._L.body_y)
+        assert.is_nil(widget._title_widget)
+        assert.are.equal(0, #icon_specs)
+        widget:paintTo({ paintRect = function() end, paintBorder = function() end }, 20, 90)
+        assert.are.equal(90, widget.dimen.y)
+        assert.is_true(widget:_onTap{ pos = { x = 20 + widget._L.cover_x, y = 90 + widget._L.cover_y } })
+        assert.are.equal(1, cover_taps)
+        assert.is_true(widget:_onSwipe{
+            direction = "south", pos = { x = 40, y = 90 + widget._L.description_y },
+        })
+        assert.are.equal(1, description_swipes)
+        assert.are.equal(0, top_taps + top_swipes + close_calls)
+        widget:free()
+        assert.are.equal(0, close_calls)
+    end)
+
+    it("keeps embedded gestures out of the parent header and focuses only body controls", function()
+        require("device").hasDPad = function() return true end
+        local parent = {}
+        local widget = BookInfoWidget:new{
+            height = 650, show_title = false, show_parent = parent,
+            description = "Description",
+            details = { { style = "tag_buttons", tags = { "Fiction" } } },
+        }
+        assert.are.equal(parent, widget._description_widget.dialog)
+        assert.are.equal(parent, widget._tag_scroll.show_parent)
+        assert.is_false(widget._zen_focus_enabled)
+        widget:onFocus()
+        assert.are.equal("tags", widget._zen_focus_area)
+        assert.are.equal(1, widget._zen_tag_focus)
+        widget:onKeyPress{ match = function(_self, sequence) return sequence[1] == "Down" end }
+        assert.are.equal("description", widget._zen_focus_area)
+        widget:onUnfocus()
+        assert.is_false(widget._zen_focus_enabled)
+        assert.is_nil(widget._zen_focus_area)
+        require("ui/widget/container/inputcontainer").handleEvent = function() return true end
+        widget.dimen.contains = function(_self, pos) return pos.y >= 90 and pos.y < 740 end
+        assert.is_nil(widget:handleEvent{ handler = "onGesture", args = { { pos = { x = 40, y = 20 } } } })
+        assert.is_true(widget:handleEvent{ handler = "onGesture", args = { { pos = { x = 40, y = 200 } } } })
+    end)
+
     it("uses the full metadata row before truncating with ellipses", function()
         local widget = BookInfoWidget:new{
             cover = {},
@@ -727,6 +778,20 @@ describe("book details", function()
                 assert.are.same({ x = 0, y = 0, w = 600, h = 800 }, refreshed)
             end
         end
+    end)
+
+    it("omits the leading icon, focus, and touch target when Back is hidden", function()
+        local device = require("device")
+        device.hasDPad = function() return true end
+        local widget = BookInfoWidget:new{ show_back = false, description = "Description" }
+        assert.is_false(widget._back_icon)
+        assert.are.equal("close", widget._zen_focus_area)
+        widget:_setFocusArea("back")
+        assert.are.equal("close", widget._zen_focus_area)
+        widget:_onTap{ pos = { x = 20, y = 10 } }
+        assert.are.equal(0, close_calls)
+        widget:_activateHeader("back")
+        assert.are.equal(0, close_calls)
     end)
 
     it("focuses Back, scrolls the description, and handles hardware page turns", function()

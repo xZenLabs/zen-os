@@ -6,7 +6,7 @@ settingsPath: Zen Settings > Home
 order: 10
 ---
 
-<!-- Documentation current through ZenOS v3.3.0. -->
+<!-- Documentation current through ZenOS v4.3.0. -->
 
 ![ZenOS bookshelf home](/images/zen_os/home_bookshelf.webp)
 
@@ -14,85 +14,53 @@ order: 10
 
 ![ZenOS home page](/images/zen_os/home_simple.webp)
 
-## Overview
+Home is your start page. Pick the widgets you want, stack them how you like, and save the layout as a preset.
 
-Home settings let you arrange the start page's widgets and choose the books, statistics, goals, and quotes they show. You can also manage layout presets, text styles, and the Home status bar.
+## Widgets
 
-## Options
+Six built-in widgets: **Date and time**, **Featured book**, **Reading stats**, **Reading goals**, **Book strip**, and **Quotes**. Each one takes up a bit of the screen, so you can only enable what fits. At least one stays on.
 
-- Show and arrange any combination of the six built-in widgets that fits the screen's capacity. At least one widget remains enabled.
-- Use Edit mode to open widget settings directly from Home.
-- Apply, save, rename, and delete home page presets.
-- Show or hide the home page top status bar.
-- Configure automatic or manual font sizing for date/time, stats, and quotes.
-- Set Featured content to Recently read, To Be Read, or one custom book.
-- Set Strip content to a library source, including Kindle Library when its plugin is installed, a specific tag, folder, or up to 40 custom books.
-- Add up to seven Strip control tabs for library sources and book statuses, tags, folders, actions, Controls, plugin menus, or KOReader menus.
-- Configure text styles, progress labels, interactivity, filters, and widget-specific display options.
-- Track daily, weekly, monthly, and yearly reading goals using pages, time, or supported book-count targets.
-- Use stable page labels in featured-widget progress when a book provides a page map.
+With **Edit mode** on (default), tap a widget on Home to jump straight to its settings.
 
-## Setting reference
+**Where:** Zen Settings > Home > Widgets
 
-| Setting | Description |
-| --- | --- |
-| Widgets | Opens the widget arranger. Widgets show their relative size and must fit the responsive Home capacity. |
-| Widgets > Built-in widgets | Includes Date and time, Featured book, Reading stats, Reading goals, Book strip, and Quotes. |
-| Edit mode | Enabled by default; lets supported widgets open their own settings directly from Home. |
-| Presets > Built-in presets | Applies bundled home page layouts. Editing a built-in preset creates an editable user copy. |
-| Presets > Save current home page as preset | Saves the current home page configuration as a user preset. |
-| Presets > User presets | Applies, renames, or deletes saved home page presets. |
-| Show top status bar | Shows or hides the top status bar on the home page. |
-| Widgets > Date and time > Automatic font size | Fits the time and date to the available widget height, up to the configured maximum. |
-| Widgets > Date and time > Time / Date | Sets the font face and manual fallback size for each line. |
-| Widgets > Featured book > Content | Selects Recently read, To Be Read, or Custom. Custom lets you choose one book. |
-| Widgets > Featured book > Show description | Shows featured-book description text. |
-| Widgets > Featured book > Wrap description text | Lets description overflow continue below the cover and uses a full-width progress bar. Disabled by default. |
-| Widgets > Featured book > Interactive | Allows the featured book to respond to selection. |
-| Widgets > Featured book > Top status bar | Shows the featured widget status bar and configures its bottom border and bold text. |
-| Widgets > Featured book > Text styles | Sets title, author, series, and description font face, size, and bold style. |
-| Widgets > Featured book > Progress labels | Selects left and right progress labels: off, percent, time to book end, current/total pages, or total pages. Current/total and total pages use stable page labels when the book provides a page map. |
-| Widgets > Book strip > Content | Selects Recent, Favorites, To Be Read, Authors, Series, Languages, Tags, Collections, Kindle Library when available, a specific tag, a folder, or custom books when Strip controls are hidden. |
-| Widgets > Book strip > Controls | Adds source and action tabs above the strip, including Unread, Reading, On hold, and Finished status sources. The first visible source tab becomes the active content source. |
-| Widgets > Book strip > Controls > Tabs | Shows and arranges up to seven tabs. Add a built-in or book-status source, specific tag, folder, dispatcher action, Control, plugin menu, or KOReader menu. |
-| Widgets > Book strip > Controls > Font | Sets the strip-control label font, size, and weight. |
-| Widgets > Book strip > Show book titles | Shows titles below strip covers. |
-| Widgets > Book strip > Show badges | Shows cover badges in the strip. |
-| Widgets > Book strip > Interactive | Allows strip books and controls to respond to selection. |
-| Widgets > Book strip > Max books shown | Sets 3–5 books for one row or 2–10 books for two rows; narrower layouts may show fewer. |
-| Widgets > Book strip > Two rows | Expands the strip to two rows when enough Home capacity is available. |
-| Widgets > Book strip > Center books | Centers short rows. |
-| Widgets > Book strip > Recent filters | Hides unread, On hold, or finished books when Recent is the active source. |
-| Widgets > Book strip > Custom books | Adds or removes selected books, up to 40. |
-| Widgets > Reading goals > Daily / Weekly | Shows a pages or time goal for the selected period. |
-| Widgets > Reading goals > Monthly / Yearly | Shows a pages, time, or books goal for the selected period. |
-| Widgets > Reading goals > Font size | Sets the reading-goals text size. |
-| Widgets > Reading stats > Stat separators | Selects dividing lines, outlined boxes, or no stat separators. |
-| Widgets > Reading stats > Automatic font size | Fits the three stat slots to the available height, up to the configured maximum. Disable it to set a fixed font size. |
-| Widgets > Reading stats > Stat slot 1–3 | Selects pages today, time today, day streak, pages this week, or time this week for each slot. |
-| Widgets > Quotes > Quote sources | Selects any combination of default quotes, custom quote files, and annotations. |
-| Widgets > Quotes > Quote sources > Custom quotes | Turns individual quote files on or off. Select multiple files to combine them. |
-| Widgets > Quotes > New quote | Changes the quote daily or whenever Home refreshes. |
-| Widgets > Quotes > Automatic font size | Fits quote text to the available area up to the configured maximum. Disable it to use a fixed size. |
-| Widgets > Quotes > Show author | Shows the quote author when available. |
-| Widgets > Quotes > Show title | Shows the book title when available. |
+## Presets
 
-Opening a book from Featured or Book strip uses the same non-blocking opening banner as the Library.
+Apply one of the built-in layouts or save your own. Editing a built-in preset makes you a copy, so the original is never lost.
 
-## Stable Page Labels
+**Where:** Zen Settings > Home > Presets
 
-Home featured widgets use KOReader page-map data when it is available. That means progress labels can show the same stable page labels used in the reader, page browser, and table of contents instead of only calculated file pages.
+## Featured book
 
-## Custom quotes
+Shows one big book with cover, details, and progress. Choose **Recently read**, **To Be Read**, or pick a specific book. You can show the description, wrap it under the cover, style the text, and pick what the left and right progress labels show (percent, time left, pages).
 
-Add personal quotes to `koreader/settings/ZenOS/quotes.lua`. Put additional `.lua` quote
-files in `koreader/settings/ZenOS/quotes/`; ZenOS creates this folder automatically and
-does not scan other settings files. Under **Zen Settings > Home > Widgets >
-Quotes > Quote sources > Custom quotes**, turn on each file you want to use.
-Selected files are combined and can still be mixed with the default list and
-annotations. Turning off the last file disables custom quotes. Each entry can
-be a `{ text, author, title }` table, the older `{ text, author }` form, or a
-plain string without attribution.
+**Where:** Zen Settings > Home > Widgets > Featured book
+
+## Book strip
+
+A row (or two) of covers. Sources include Recent, Favorites, To Be Read, Authors, Series, Languages, Tags, Collections, a folder, Kindle Library (with [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin)), or up to 40 hand-picked books.
+
+Turn on **Controls** to add up to seven tabs above the strip. Tabs can switch the source (including Unread, Reading, On hold, Finished) or run an action, Control, plugin menu, or KOReader menu.
+
+**Where:** Zen Settings > Home > Widgets > Book strip
+
+## Reading stats and goals
+
+**Reading stats** shows three numbers of your choice: pages today, time today, day streak, pages this week, or time this week.
+
+**Reading goals** tracks daily and weekly pages or time, plus monthly and yearly pages, time, or books.
+
+**Where:** Zen Settings > Home > Widgets > Reading stats / Reading goals
+
+## Quotes
+
+Mix built-in quotes, your own quote files, and your highlights. Swipe sideways to flip through them. Tap a highlight to jump to it in the book. Every quote shows once before the deck reshuffles.
+
+**Where:** Zen Settings > Home > Widgets > Quotes > Quote sources
+
+### Adding your own quotes
+
+Put quotes in `koreader/settings/ZenOS/quotes.lua`, or drop extra `.lua` files in `koreader/settings/ZenOS/quotes/`. Turn each file on under **Quote sources > Custom quotes**.
 
 ```text
 koreader/settings/ZenOS/
@@ -102,23 +70,16 @@ koreader/settings/ZenOS/
     └── favorites.lua
 ```
 
-`quotes.lua` remains the primary file for existing installations. Additional
-files can use any other `.lua` filename and must be placed directly in the
-`quotes/` folder. Every file uses the same format:
-
 ```lua
 return {
-    -- Existing formats remain supported:
-    -- { text = "Quote text", author = "Author" },
-    -- "Plain quote without author",
-
-    -- The title field is optional:
-    -- { text = "Quote text", author = "Author", title = "Book title" },
+    { text = "Quote text", author = "Author", title = "Book title" },
+    { text = "Quote text", author = "Author" },
+    "Plain quote without author",
 }
 ```
 
-Annotation quotes are collected from books in KOReader's reading history and
-book-information cache. Tap an annotation quote to open its book at the saved
-location. Swipe horizontally on the widget to move between quotes. Quotes use a
-persistent shuffled deck, so every enabled quote is shown before the list is
-reshuffled.
+## Other bits
+
+- **Show top status bar** toggles the status bar on Home.
+- Date/time, stats, and quotes can auto-size their text to fit, or use a fixed size.
+- Books with a page map show the same stable page numbers here as in the reader.

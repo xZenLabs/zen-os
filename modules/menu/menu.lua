@@ -10,6 +10,7 @@ local FEATURES = {
 local PATCH_MODULES = {
     quick_settings = "modules/menu/patches/quick_settings",
     app_launcher = "modules/menu/patches/app_launcher",
+    reader_controls = "modules/menu/patches/reader_controls",
     zen_mode = "modules/menu/patches/zen_mode",
     disable_top_menu_swipe_zones = "modules/menu/patches/disable_top_menu_swipe_zones",
     touch_menu_footer = "modules/menu/patches/touch_menu_footer",
@@ -71,23 +72,17 @@ function M.init(logger, plugin)
         end
     end
 
-    -- Always apply: disable swipe zones so quick settings tab is always shown first
-    local swipe_fn = load_patch("disable_top_menu_swipe_zones")
-    if swipe_fn then
-        local ok = run_feature(logger, plugin, "disable_top_menu_swipe_zones", swipe_fn)
-        if ok then
-            runtime_patches["disable_top_menu_swipe_zones"] = true
+    local function apply_always(feature)
+        local fn = load_patch(feature)
+        if fn and run_feature(logger, plugin, feature, fn) then
+            runtime_patches[feature] = true
         end
     end
-
-    -- Always apply: move pagination to left footer; center button goes up/closes
-    local footer_fn = load_patch("touch_menu_footer")
-    if footer_fn then
-        local ok = run_feature(logger, plugin, "touch_menu_footer", footer_fn)
-        if ok then
-            runtime_patches["touch_menu_footer"] = true
-        end
-    end
+    -- Always apply: swipe zones keep quick settings first; footer moves pagination left
+    apply_always("disable_top_menu_swipe_zones")
+    apply_always("touch_menu_footer")
+    -- ReaderMenu-only; waits for ReaderUI.
+    require("common/on_require").whenLoaded("apps/reader/readerui", function() apply_always("reader_controls") end)
 
     initialized = true
     return true

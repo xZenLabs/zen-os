@@ -109,7 +109,7 @@ describe("Interface settings", function()
         }, {})
         local toggle = section.sub_item_table[#section.sub_item_table]
         assert.are.equal("Zen mode", toggle.text)
-        assert.are.equal(require("common/plugin_root") .. "/icons/quick_zen.svg", toggle.icon_file)
+        assert.are.equal("quick_zen", toggle.icon_name)
         assert.is_true(toggle.enabled_func())
         assert.is_true(toggle.checked_func())
         toggle.callback()
@@ -199,8 +199,10 @@ describe("Interface settings", function()
         for _i, item in ipairs(accent.sub_item_table) do
             assert.is_false(item.enabled_func())
             item.callback()
+            if item.checkmark_callback then item.checkmark_callback() end
         end
         assert.are.equal("#336699", config.accent_color)
+        assert.is_nil(config.accent_night_enabled)
     end)
 
     it("toggles the accent on its root row while preserving color settings", function()
@@ -216,7 +218,7 @@ describe("Interface settings", function()
         local accent = section.sub_item_table[5]
         local menu = { updateItems = function() updates = updates + 1 end }
         assert.is_true(accent.checked_func())
-        assert.are.equal(2, #accent.sub_item_table)
+        assert.are.equal(3, #accent.sub_item_table)
         accent.checkmark_callback(menu)
         assert.is_false(accent.checked_func())
         assert.is_false(config.accent_enabled)
@@ -227,6 +229,55 @@ describe("Interface settings", function()
         assert.is_true(accent.checked_func())
         assert.are.equal(2, saves)
         assert.are.equal(2, updates)
+    end)
+
+    it("edits and toggles the night accent independently of the regular accent", function()
+        local screen = package.loaded["device"].screen
+        screen.isColorScreen = function() return true end
+        screen.night_mode = true
+        local picker, deferred
+        local saves, updates = 0, 0
+        package.loaded["ui/uimanager"].show = function(_self, widget) picker = widget end
+        package.loaded["modules/settings/zen_settings_apply"].defer_until_settings_close =
+            function(key) deferred = key end
+        ZenSpec.replace("common/ui/color_wheel_widget", { new = function(_self, options) return options end })
+        local config = { features = {}, accent_color = "#204080", accent_opacity = 80,
+            accent_night_color = "#CC8844", accent_night_opacity = 40 }
+        local section = require("modules/settings/sections/interface_settings").build({
+            config = config, plugin = { saveConfig = function() saves = saves + 1 end },
+        }, {})
+        local accent = section.sub_item_table[5]
+        local night = accent.sub_item_table[3]
+        local menu = { updateItems = function() updates = updates + 1 end }
+        assert.are.equal("Night mode accent: #CC8844", night.text_func())
+        assert.is_false(night.checked_func())
+        night.callback(menu)
+        assert.are.equal("Night mode accent", picker.title_text)
+        assert.are.equal("#CC8844", picker.hex)
+        assert.are.equal(40, picker.opacity)
+        picker.callback("#AA6633", 25)
+        assert.is_true(night.checked_func())
+        assert.are.equal("#AA6633", config.accent_night_color)
+        assert.are.equal(25, config.accent_night_opacity)
+        assert.are.equal("#204080", config.accent_color)
+        assert.are.equal(80, config.accent_opacity)
+        assert.are.equal("background_surfaces", deferred)
+        accent.sub_item_table[1].callback(menu)
+        assert.are.equal("#204080", picker.hex)
+        assert.are.equal(80, picker.opacity)
+        night.checkmark_callback(menu)
+        assert.is_false(night.checked_func())
+        night.callback(menu)
+        assert.are.equal("#AA6633", picker.hex)
+        assert.are.equal(25, picker.opacity)
+        night.checkmark_callback(menu)
+        assert.is_true(night.checked_func())
+        assert.are.equal(3, saves)
+        assert.are.equal(3, updates)
+        accent.sub_item_table[2].callback(menu)
+        assert.are.equal("#000000", config.accent_color)
+        assert.are.equal("#AA6633", config.accent_night_color)
+        assert.are.equal(25, config.accent_night_opacity)
     end)
 
     it("resets the Library font to bundled Hyperreadable", function()

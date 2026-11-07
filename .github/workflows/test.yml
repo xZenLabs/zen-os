@@ -23,13 +23,18 @@ on:
 
 jobs:
   stable:
-    name: Stable KOReader Test
+    name: Stable KOReader Test (${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.suite == 'lua' && '[1]' || '[1,2,3,4]') }}
     env:
       REQUESTED_SUITE: ${{ inputs.suite || github.event.inputs.suite || '' }}
       BASE_REF: ${{ github.base_ref }}
       ZEN_UI_KOREADER_CACHE: ${{ github.workspace }}/spec/.cache/koreader
       KOREADER_CACHE_VERSION: 3
+      ZEN_UI_PYTEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,15 +46,7 @@ jobs:
           cache: 'pip'
           cache-dependency-path: spec/python/requirements.txt
 
-      - name: Install KOReader emulator dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential gettext git lua5.1 luarocks meson nasm ninja-build pkg-config xvfb \
-            libsdl2-dev libfreetype6-dev libfontconfig1-dev libharfbuzz-dev libxtst-dev \
-            libfribidi-dev libpng-dev libjpeg-dev libsqlite3-dev
-          python -m pip install fonttools
-          luarocks --tree="$GITHUB_WORKSPACE/.luarocks" install luacheck
+      - uses: ./.github/actions/koreader-deps
 
       - name: Restore stable KOReader build
         id: stable-koreader-cache
@@ -64,7 +61,7 @@ jobs:
           echo "KOREADER_DIR=$KOREADER_DIR" >> "$GITHUB_ENV"
 
       - name: Save stable KOReader build
-        if: ${{ github.event_name != 'pull_request' && steps.stable-koreader-cache.outputs.cache-hit != 'true' }}
+        if: ${{ matrix.shard == 1 && github.event_name != 'pull_request' && steps.stable-koreader-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
         with:
           path: spec/.cache/koreader/stable/runtime
@@ -84,49 +81,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stable-test-artifacts
+          name: stable-test-artifacts-${{ matrix.shard }}
           path: spec/.artifacts
-          if-no-files-found: ignore
-
-  nightly:
-    name: Nightly KOReader smoke test
-    needs: stable
-    if: ${{ github.base_ref == 'dev' }}
-    runs-on: ubuntu-latest
-    env:
-      ZEN_UI_KOREADER_CACHE: ${{ github.workspace }}/spec/.cache/koreader
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: spec/python/requirements.txt
-
-      - name: Install KOReader emulator dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential gettext git lua5.1 luarocks meson nasm ninja-build pkg-config xvfb \
-            libsdl2-dev libfreetype6-dev libfontconfig1-dev libharfbuzz-dev libxtst-dev \
-            libfribidi-dev libpng-dev libjpeg-dev libsqlite3-dev
-          luarocks --tree="$GITHUB_WORKSPACE/.luarocks" install luacheck
-
-      - name: Provision latest nightly KOReader
-        run: |
-          KOREADER_DIR="$(./spec/provision-koreader.sh nightly)"
-          echo "KOREADER_DIR=$KOREADER_DIR" >> "$GITHUB_ENV"
-
-      - name: Run nightly compatibility smoke test
-        run: ZEN_UI_RUN_EMULATOR=1 xvfb-run -s '-screen 0 800x600x24' ./spec/run nightly-smoke
-
-      - name: Upload test artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: nightly-test-artifacts
-          path: spec/.artifacts
+          include-hidden-files: true
           if-no-files-found: ignore

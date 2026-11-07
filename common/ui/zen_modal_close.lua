@@ -5,7 +5,6 @@ local utils = require("common/utils")
 local M = {}
 
 local root = require("common/plugin_root")
-local close_icon_path = root and utils.resolveLocalIcon(root .. "/icons/", "close")
 
 local function supports_focus()
     local is_non_touch = type(Device.isTouchDevice) == "function" and not Device:isTouchDevice()
@@ -14,7 +13,7 @@ local function supports_focus()
     return is_non_touch or has_dpad or has_keyboard
 end
 
-local function replace_right_button(title_bar, parent)
+local function replace_right_button(title_bar, parent, close_icon_path)
     local old_button = title_bar.right_button
     if not (old_button and close_icon_path) then return nil end
 
@@ -46,6 +45,7 @@ local function replace_right_button(title_bar, parent)
 end
 
 function M.installTitleBar(title_bar, parent, callback)
+    local close_icon_path = root and utils.resolveIcon(root .. "/icons/", "close")
     if not (title_bar and close_icon_path) then return nil end
     title_bar.not_focusable = true
     title_bar.right_icon = close_icon_path
@@ -53,7 +53,7 @@ function M.installTitleBar(title_bar, parent, callback)
     title_bar.right_icon_allow_flash = true
     title_bar:clear()
     title_bar:init()
-    return replace_right_button(title_bar, parent)
+    return replace_right_button(title_bar, parent, close_icon_path)
 end
 
 function M.addToFocusLayout(dialog, close_button)

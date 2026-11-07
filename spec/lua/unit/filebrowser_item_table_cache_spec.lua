@@ -21,6 +21,8 @@ describe("file browser item-table cache", function()
     local fake_now
     local attributes_calls
     local directory_reads
+    local flat_directories
+    local source_readable
 
     local module_names = {
         "common/cover_utils",
@@ -61,9 +63,19 @@ describe("file browser item-table cache", function()
                     dim = self.ui and self.ui.selected_files[fullpath],
                 }
             end,
-            genItemTableFromPath = function(_self, path)
+            genItemTableFromPath = function(self, path)
                 generated[path] = (generated[path] or 0) + 1
-                return source_items[path] or { { path = path } }
+                if flat_directories then
+                    self._zen_flat_view_directories = {}
+                    for _i, dir in ipairs(flat_directories) do
+                        self._zen_flat_view_directories[dir] = {
+                            modification = directory_mtimes[dir] or directory_mtime,
+                            change = directory_mtimes[dir] or directory_mtime,
+                            size = 1, ino = 1,
+                        }
+                    end
+                end
+                return source_items[path] or { { path = path } }, source_readable[path]
             end,
         }
     end
@@ -76,12 +88,9 @@ describe("file browser item-table cache", function()
         return setmetatable({ name = "filemanager" }, { __index = FileChooser })
     end
 
+    -- Snapshot writes happen on FlushSettings (suspend) / SaveSettings (FM close).
     local function run_scheduled()
-        while #scheduled > 0 do
-            local pending = scheduled
-            scheduled = {}
-            for _i, callback in ipairs(pending) do callback() end
-        end
+        FileChooser:onFlushSettings()
     end
 
     before_each(function()
@@ -106,6 +115,8 @@ describe("file browser item-table cache", function()
         fake_now = 0
         attributes_calls = 0
         directory_reads = 0
+        flat_directories = nil
+        source_readable = {}
         saved_modules = {}
         for _i, name in ipairs(module_names) do
             saved_modules[name] = package.loaded[name]
@@ -255,6 +266,22 @@ describe("file browser item-table cache", function()
         assert.is_true(second.dim)
     end)
 
+    it("propagates KOReader folder readability and skips caching unreadable folders", function()
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        source_readable["/locked"] = false
+
+        local _items, readable = chooser:genItemTableFromPath("/locked")
+        assert.is_false(readable)
+        _items, readable = chooser:genItemTableFromPath("/locked")
+        assert.is_false(readable)
+        assert.are.equal(2, generated["/locked"])
+
+        _items, readable = chooser:genItemTableFromPath("/library")
+        assert.is_true(readable)
+        _items, readable = chooser:genItemTableFromPath("/library")
+        assert.is_true(readable)
+        assert.are.equal(1, generated["/library"])
+    end)
     it("keeps the library root cached while a child folder is open", function()
         local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
 
@@ -312,6 +339,64 @@ describe("file browser item-table cache", function()
         local materialized = chooser:genItemTableFromPath("/library")
         assert.are.equal(1, #materialized)
         assert.are.equal(1, generated["/library"])
+    end)
+
+    it("refreshes flat listings immediately after nested additions and deletions", function()
+        flat_directories = { "/library", "/library/Author", "/library/Author/Title" }
+        directory_mtimes["/library/Author/Title"] = 1
+        source_items["/library"] = {}
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        assert.are.same({}, chooser:genItemTableFromPath("/library"))
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(1, generated["/library"])
+
+        directory_mtimes["/library/Author/Title"] = 2
+        source_items["/library"] = {
+            { path = "/library/Author/Title/Book.epub", is_file = true },
+        }
+        assert.are.equal(1, #chooser:genItemTableFromPath("/library"))
+        directory_mtimes["/library/Author/Title"] = 3
+        source_items["/library"] = {}
+        assert.are.same({}, chooser:genItemTableFromPath("/library"))
+        assert.are.equal(3, generated["/library"])
+    end)
+
+    it("rescans flat listings built in a directory's timestamp second", function()
+        local scan_time = os.time()
+        stub(os, "time", function() return scan_time end)
+        directory_mtime = scan_time
+        flat_directories = { "/library", "/library/Nested" }
+        local book = { path = "/library/Nested/Book.epub", is_file = true }
+        source_items["/library"] = { book }
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        source_items["/library"] = {}
+        assert.are.same({}, chooser:genItemTableFromPath("/library"))
+        run_scheduled()
+        source_items["/library"] = { book }
+        scan_time = scan_time + 1
+
+        chooser = apply_new_filechooser()
+        assert.are.same({ book }, chooser:genItemTableFromPath("/library"))
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal(3, generated["/library"])
+    end)
+
+    it("validates all scanned flat directories after restoring a snapshot", function()
+        flat_directories = { "/library", "/library/Author", "/library/Author/Series/Title" }
+        directory_mtimes["/library/Author/Series/Title"] = 1
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        run_scheduled()
+
+        chooser = apply_new_filechooser()
+        chooser:genItemTableFromPath("/library")
+        assert.are.equal("disk_hit", chooser._zen_last_item_table_cache_result.cache)
+
+        directory_mtimes["/library/Author/Series/Title"] = 2
+        source_items["/library"] = {}
+        assert.are.same({}, chooser:genItemTableFromPath("/library"))
+        assert.are.equal(2, generated["/library"])
     end)
 
     it("refreshes cached folders when up-folder visibility changes", function()
@@ -738,19 +823,85 @@ describe("file browser item-table cache", function()
         assert.are.equal(1, generated["/library/series"])
     end)
 
-    it("debounces snapshot writes and cancels them before cleanup", function()
+    it("defers snapshot writes to a flush event and cancels them before cleanup", function()
         local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
         chooser:genItemTableFromPath("/library")
         chooser:_zen_clear_item_table_cache()
         chooser:_zen_clear_item_table_cache()
 
-        assert.are.equal(1, #scheduled)
+        assert.are.equal(0, #scheduled)
         assert.is_nil(persisted_store.flushed)
         chooser:_zen_cancel_item_table_cache_persist()
         persisted_store.data = { removed = true }
         run_scheduled()
+        chooser:onSaveSettings()
 
         assert.is_nil(persisted_store.flushed)
         assert.are.same({ removed = true }, persisted_store.data)
+    end)
+
+    it("batches several listings into one write and skips idle flushes", function()
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        chooser:genItemTableFromPath("/library/series")
+        chooser:onSaveSettings()
+        chooser:onFlushSettings()
+
+        assert.are.equal(1, persisted_store.flushed)
+        assert.are.same({ "/library", "/library/series" }, persisted_store.data.order)
+    end)
+
+    it("does not rewrite the snapshot when a reader return only reorders history", function()
+        collate_mode = "access"
+        source_items["/library"] = {
+            { text = "A.epub", path = "/library/A.epub", is_file = true,
+                attr = { mode = "file", modification = 1 } },
+        }
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        run_scheduled()
+        assert.are.equal(1, persisted_store.flushed)
+
+        directory_mtime = 2
+        _G.__ZEN_UI_LAST_READ_FILE = "/library/A.epub"
+        chooser:genItemTableFromPath("/library")
+        run_scheduled()
+
+        assert.are.equal("history_reorder", chooser._zen_last_item_table_cache_result.cache)
+        assert.are.equal(1, persisted_store.flushed)
+    end)
+
+    it("drops a deferred snapshot whose folder changed before the flush", function()
+        source_items["/library"] = {
+            { text = "Book.epub", path = "/library/Book.epub", is_file = true },
+        }
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        directory_mtime = 2
+        run_scheduled()
+
+        assert.is_nil(persisted_store.data.values["/library"])
+    end)
+
+    it("releases the loaded snapshot after a flush and reloads only for a matching key", function()
+        source_items["/library"] = {
+            { text = "Book.epub", path = "/library/Book.epub", is_file = true },
+        }
+        local opens = 0
+        package.loaded["luasettings"].open = function()
+            opens = opens + 1
+            return persisted_store
+        end
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        run_scheduled()
+        assert.are.equal(1, opens)
+
+        chooser:genItemTableFromPath("/library/other")
+        assert.are.equal(1, opens)
+
+        chooser:_zen_invalidate_item_table_path("/library")
+        chooser:_zen_invalidate_item_table_path("/library/other")
+        assert.are.equal(1, opens)
     end)
 end)

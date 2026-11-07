@@ -1,6 +1,6 @@
 local M = {}
-local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
-local Rakuyomi = require("modules/filebrowser/patches/rakuyomi")
+local OptionalProvider = require("common/optional_provider")
+local KINDLE_PROVIDER = "modules/filebrowser/patches/kindle_virtual_library"
 local initialized = false
 
 local FEATURES = {
@@ -98,14 +98,12 @@ function M.init(logger, plugin)
         return true
     end
 
-    local ok_kindle_metadata, kindle_metadata_err = pcall(Kindle.installMetadataIntegration)
-    if not ok_kindle_metadata and logger then
-        logger.warn("Kindle metadata integration failed", kindle_metadata_err)
-    end
-
-    local ok_metadata, metadata_err = pcall(Rakuyomi.installMetadataIntegration)
-    if not ok_metadata and logger then
-        logger.warn("Rakuyomi metadata integration failed", metadata_err)
+    OptionalProvider.call(KINDLE_PROVIDER, "installMetadataIntegration")
+    -- Skip the BookInfo/BookInfoManager wrappers when Rakuyomi isn't installed (nil = scan failed).
+    local ok_scan, PluginScan = pcall(require, "modules/menu/app_launcher/plugin_scan")
+    local installed = ok_scan and type(PluginScan) == "table" and PluginScan.installed() or nil
+    if not installed or installed.rakuyomi then
+        OptionalProvider.call(PATCH_MODULES.rakuyomi, "installMetadataIntegration")
     end
 
     local add_sort_title_natural_fn = load_patch("add_sort_title_natural")
@@ -154,7 +152,7 @@ function M.init(logger, plugin)
         run_feature(logger, plugin, "browser_item_table_cache", browser_item_table_cache_fn)
     end
 
-    run_feature(logger, plugin, "kindle", function() Kindle.apply(plugin) end)
+    run_feature(logger, plugin, "kindle", function() OptionalProvider.call(KINDLE_PROVIDER, "apply", plugin) end)
 
     local metadata_editor_fn = load_patch("metadata_editor")
     if metadata_editor_fn then
@@ -223,7 +221,7 @@ function M.init(logger, plugin)
         _G.__ZEN_UI_RUNTIME_PATCHES = runtime_patches
     end
 
-    local rakuyomi_fn = Rakuyomi.is_available() and load_patch("rakuyomi") or nil
+    local rakuyomi_fn = OptionalProvider.call(PATCH_MODULES.rakuyomi, "is_available") and load_patch("rakuyomi") or nil
     if rakuyomi_fn then
         local ok = run_feature(logger, plugin, "rakuyomi", rakuyomi_fn)
         if ok then

@@ -8,9 +8,40 @@ local logger = require("common/zen_logger").new("button_feedback")
 
 local M = {}
 local submitted_marker, submitted_buffer
+local pending_regions = {} -- color feedback rects whose next "ui" refresh uses the full waveform
+
+function M.getRadius()
+    return Screen:scaleBySize(8)
+end
 
 function M.getRefreshMode()
-    return (Accent.isEnabled() or not Screen.night_mode) and "ui" or "fast"
+    return Screen:isColorScreen() and (Accent.isEnabled() or not Screen.night_mode) and "ui" or "fast"
+end
+
+-- Color screens: AUTO can flash the rectangle around color feedback, so only these refreshes get GC16.
+function M.markRegion(region)
+    if not region or not Screen:isColorScreen() then return end
+    if #pending_regions >= 8 then table.remove(pending_regions, 1) end
+    pending_regions[#pending_regions + 1] = { x = region.x, y = region.y, w = region.w, h = region.h }
+end
+
+-- True (and consumed) when a refresh rect overlaps a marked feedback region.
+function M.consumeRegion(x, y, w, h)
+    if #pending_regions == 0 or not (x and y and w and h) then return false end
+    local hit = false
+    for i = #pending_regions, 1, -1 do
+        local r = pending_regions[i]
+        if r.x < x + w and x < r.x + r.w and r.y < y + h and y < r.y + r.h then
+            table.remove(pending_regions, i)
+            hit = true
+        end
+    end
+    return hit
+end
+
+function M.setDirty(widget, mode, region)
+    M.markRegion(region)
+    UIManager:setDirty(widget, mode, region)
 end
 
 function M.paddedRegion(dimen)
@@ -45,7 +76,7 @@ end
 
 local function each_span(region, radius, paint)
     local x, y, w, h = region.x, region.y, region.w, region.h
-    radius = math.min(radius or Screen:scaleBySize(8), math.floor(math.min(w, h) / 2))
+    radius = math.min(radius or M.getRadius(), math.floor(math.min(w, h) / 2))
     paint(x, y + radius, w, h - 2 * radius)
     for row = 0, radius - 1 do
         local dy = radius - row - 0.5
@@ -101,16 +132,18 @@ function M.flash(region, radius)
         x = region.x, y = region.y, w = region.w, h = region.h,
     }
     local saved = M.highlight(region, radius)
-    UIManager:setDirty(nil, M.getRefreshMode(), region)
+    M.setDirty(nil, M.getRefreshMode(), region)
     UIManager:forceRePaint()
     UIManager:yieldToEPDC()
     M.restore(region, saved, radius)
     -- Restore gray pixels with the same waveform as stock menu rows.
-    UIManager:setDirty(nil, "ui", region)
+    M.setDirty(nil, "ui", region)
 end
 
 function M.flashButton(dimen)
     if dimen and dimen.x and dimen.y then M.flash(dimen) end
 end
+
+M.eachSpan = each_span
 
 return M

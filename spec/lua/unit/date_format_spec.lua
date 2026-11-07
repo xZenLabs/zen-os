@@ -13,16 +13,19 @@ describe("date format", function()
         date_stub.on_call_with("%A").returns(weekday or "Saturday")
     end
 
-    local function load_formatter(language, template, translated_month)
+    local function load_formatter(language, template, translated_month, year_template, date_month)
         _G.G_reader_settings = ZenSpec.memorySettings({ language = language })
-        ZenSpec.replace("gettext", function(text)
+        ZenSpec.replace("gettext", setmetatable({ pgettext = function(_context, text)
+            return date_month or text
+        end }, { __call = function(_self, text)
             if text == "%1, %2 %3" then return template or text end
+            if text == "%1 %2 %3" then return year_template or text end
             return text
-        end)
+        end }))
         ZenSpec.replace("datetime", {
             weekDays = { [7] = "Sat" },
             shortDayOfWeekToLongTranslation = { Sat = "Saturday" },
-            longMonthTranslation = { August = translated_month or "August" },
+            longMonthTranslation = { August = translated_month or "August", October = translated_month or "October" },
         })
         ZenSpec.unload("common/date_format")
         return require("common/date_format")
@@ -84,5 +87,32 @@ describe("date format", function()
         local formatter = load_formatter("ja", "%2%3日（%1）", "8月")
 
         assert.are.equal("8月8日", formatter.format("long"))
+    end)
+
+    it("formats annotation dates with a year and no time or ordinal", function()
+        local formatter = load_formatter("en")
+        assert.are.equal("October 18 2026", formatter.formatISODate("2026-10-18 23:59:00"))
+    end)
+
+    it("uses Spanish grammar and lowercase month names for annotation dates", function()
+        local formatter = load_formatter("es", nil, "Octubre", "%2 de %1 %3")
+        assert.are.equal("18 de octubre 2026", formatter.formatISODate("2026-10-18 00:00:00"))
+    end)
+
+    it("puts the year first in Chinese annotation dates", function()
+        local formatter = load_formatter("zh_CN", nil, "十月", "%3年%1%2日")
+        assert.are.equal("2026年十月18日", formatter.formatISODate("2026-10-18 12:00:00"))
+    end)
+
+    it("uses inflected month translations where date grammar needs them", function()
+        local formatter = load_formatter("ru", nil, "Октябрь", "%2 %1 %3", "октября")
+        assert.are.equal("18 октября 2026", formatter.formatISODate("2026-10-18 12:00:00"))
+    end)
+
+    it("preserves missing or unrecognized dates", function()
+        local formatter = load_formatter("en")
+        for _i, value in ipairs({ "", "unknown", "2026-13-18", "2026-10-00" }) do
+            assert.are.equal(value, formatter.formatISODate(value))
+        end
     end)
 end)

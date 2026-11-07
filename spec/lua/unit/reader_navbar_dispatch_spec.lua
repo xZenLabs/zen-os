@@ -95,4 +95,63 @@ describe("reader navbar dispatch", function()
         assert.are.equal(plugin, opened_plugin)
         package.loaded["modules/settings/battery_stats_menu"] = original
     end)
+
+    it("registers a global annotation viewer and reader destinations", function()
+        local actions = {}
+        ZenSpec.replace("dispatcher", {
+            registerAction = function(_self, name, spec) actions[name] = spec end,
+            _addItem = function() end,
+        })
+        Dispatch.onDispatcherRegisterActions()
+        assert.is_true(actions.zen_ui_show_annotation_viewer.general)
+        assert.are.equal("ShowZenUIAnnotationViewer", actions.zen_ui_show_annotation_viewer.event)
+        local plugin = {}
+        Dispatch.install(plugin)
+        for _i, entry in ipairs({ { "page_browser", "PageBrowser" },
+                { "annotations", "Annotations" }, { "bookmarks", "Bookmarks" },
+                { "highlights", "Highlights" }, { "pinned_pages", "PinnedPages" },
+                { "book_switcher", "BookSwitcher" } }) do
+            local action = actions["zen_ui_show_" .. entry[1]]
+            assert.is_true(action.reader)
+            assert.is_nil(action.general)
+            assert.are.equal("ShowZenUI" .. entry[2], action.event)
+            assert.is_function(plugin["on" .. action.event])
+        end
+        assert.is_function(plugin.onShowZenUIAnnotationViewer)
+        assert.are.equal("ZenOS: Book switcher", actions.zen_ui_show_book_switcher.title)
+    end)
+
+    it("opens the requested book tab or pinned preview and ignores reader actions in the library", function()
+        local tabs, pinned = {}, nil
+        reader.thumbnail = { onShowPageBrowser = function(_self, kind) tabs[#tabs + 1] = kind or false; return true end }
+        local original = package.loaded["modules/reader/references"]
+        ZenSpec.replace("modules/reader/references", { openPinned = function(ui) pinned = ui; return true end })
+        finally(function() package.loaded["modules/reader/references"] = original end)
+        assert.is_true(Dispatch.onShowZenUIPageBrowser())
+        assert.is_true(Dispatch.onShowZenUIAnnotations())
+        assert.is_true(Dispatch.onShowZenUIBookmarks())
+        assert.is_true(Dispatch.onShowZenUIHighlights())
+        assert.is_true(Dispatch.onShowZenUIBookSwitcher())
+        assert.are.same({ false, "annotations", "bookmarks", "highlights", "book_switcher" }, tabs)
+        assert.is_true(Dispatch.onShowZenUIPinnedPages())
+        assert.are.equal(reader, pinned)
+        require("apps/reader/readerui").instance = nil
+        assert.is_false(Dispatch.onShowZenUIAnnotations())
+        assert.is_false(Dispatch.onShowZenUIBookSwitcher())
+        assert.is_false(Dispatch.onShowZenUIPinnedPages())
+    end)
+
+    it("opens current-book annotations in the reader and all books in the library", function()
+        local opened
+        local original = package.loaded["modules/reader/annotation_viewer"]
+        ZenSpec.replace("modules/reader/annotation_viewer", { show = function(plugin, ui) opened = { plugin, ui } end })
+        finally(function() package.loaded["modules/reader/annotation_viewer"] = original end)
+        local plugin = { config = {} }
+        assert.is_true(Dispatch.onShowZenUIAnnotationViewer(plugin))
+        assert.are.equal(plugin, opened[1])
+        assert.are.equal(reader, opened[2])
+        require("apps/reader/readerui").instance = nil
+        assert.is_true(Dispatch.onShowZenUIAnnotationViewer(plugin))
+        assert.is_nil(opened[2])
+    end)
 end)

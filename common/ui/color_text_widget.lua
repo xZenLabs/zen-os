@@ -11,7 +11,7 @@ function ColorTextWidget:paintTo(bb, x, y)
 
     local color = self.fgcolor
     -- Cancel night-mode inversion for configured RGB colors.
-    if color and not Blitbuffer.isColor8(color) and Screen.night_mode then
+    if color and not Blitbuffer.isColor8(color) and Screen.night_mode and self.invert_night_mode ~= false then
         color = color:invert()
     end
     if not color or Blitbuffer.isColor8(color) or not Screen:isColorScreen() or not self.use_xtext then

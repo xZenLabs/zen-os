@@ -1,3 +1,4 @@
+local icons = require("common/inline_icon_map")
 -- Zen-owned book, folder, and virtual-group tiles for library mosaic views.
 local function apply_zen_renderer()
     local MosaicMenu = require("mosaicmenu")
@@ -111,18 +112,7 @@ local function apply_zen_renderer()
             or not BookInfoManager.isCachedCoverInvalid(info, specs)
     end
 
-    local function queue_cover_hydration(item, kind)
-        if item._zen_cover_hydration_queued then return end
-        local menu = item.menu
-        if not menu then return end
-        menu._zen_cover_hydration_items = menu._zen_cover_hydration_items or {}
-        item._zen_cover_hydration_queued = true
-        item._zen_cover_hydration_kind = kind or "book"
-        menu._zen_cover_hydration_items[#menu._zen_cover_hydration_items + 1] = item
-        if type(menu._zen_request_cover_hydration) == "function" then
-            menu:_zen_request_cover_hydration()
-        end
-    end
+    local queue_cover_hydration = FolderCover.queueHydration
 
     local function is_file_manager_select_mode(path)
         local ok, FileManager = pcall(require, "apps/filemanager/filemanager")
@@ -680,12 +670,17 @@ local function apply_zen_renderer()
         local size = badge_size(frame, config)
         local radius = math.floor(size / 2)
         local color, foreground = badge_colors(config)
-        local font_size = utils.getBadgeFontSize(config, size, 0.26, 7)
+        local max_size = utils.getBadgeFontSize(config, size, 0.26, 7)
+        -- Reuse the fitted size; restarting from the max reshapes a widget per step every paint.
+        local fit = item._zen_series_fit
+        local font_size = fit and fit.text == text and fit.radius == radius and fit.max == max_size
+            and fit.size or max_size
         local widget = badge_text(item, "_zen_series_badge", text, font_size, foreground)
         while font_size > 7 and widget:getSize().w > math.floor(radius * 1.3) do
             font_size = font_size - 1
             widget = badge_text(item, "_zen_series_badge", text, font_size, foreground)
         end
+        item._zen_series_fit = { text = text, radius = radius, max = max_size, size = font_size }
         local widget_size = widget:getSize()
         local inset = utils.getBadgeInset(radius)
         local x = frame.dimen.x + frame.dimen.w - radius - inset
@@ -731,8 +726,8 @@ local function apply_zen_renderer()
             return
         end
 
-        local text = do_tbr and "\u{F0150}"
-            or (do_pause and "\u{F03E4}"
+        local text = do_tbr and icons.tbr
+            or (do_pause and icons.on_hold
                 or (math.floor(100 * item.percent_finished + 0.5) .. "%"))
         local font_size = utils.getBadgeFontSize(config, size, (do_tbr or do_pause) and 0.40 or 0.24, 7)
         local widget = badge_text(item, "_zen_progress_badge", text, font_size, foreground)
@@ -755,7 +750,7 @@ local function apply_zen_renderer()
         local y = frame.dimen.y + radius + inset
         paint_circle(bb, x, y, radius + 2, foreground)
         paint_circle(bb, x, y, radius, color)
-        local widget = badge_text(item, "_zen_favorite_badge", "\u{2606}",
+        local widget = badge_text(item, "_zen_favorite_badge", icons.favorite,
             utils.getBadgeFontSize(config, radius * 2, 0.45, 6), foreground)
         local widget_size = widget:getSize()
         widget:paintTo(bb, x - math.ceil(widget_size.w / 2), y - math.ceil(widget_size.h / 2))
@@ -838,6 +833,19 @@ local function apply_zen_renderer()
         if width > 0 and height > 0 then
             bb:lightenRect(frame.dimen.x + border, frame.dimen.y + border, width, height, 0.4)
         end
+    end
+
+    -- Cached badge text widgets live outside the widget tree; free them with the item.
+    local BADGE_KEYS = {
+        "_zen_pages_badge", "_zen_series_badge", "_zen_progress_badge",
+        "_zen_favorite_badge", "_zen_folder_count_badge",
+    }
+    function ZenMosaicItem:free()
+        for _i, key in ipairs(BADGE_KEYS) do
+            local cached = self[key]
+            if cached then cached.widget:free(); self[key] = nil end
+        end
+        return InputContainer.free(self)
     end
 
     function ZenMosaicItem:paintTo(bb, x, y)

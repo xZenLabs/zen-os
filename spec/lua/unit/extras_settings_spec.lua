@@ -44,7 +44,7 @@ describe("Extras settings", function()
             local opds = items[2]
             local rakuyomi = items[3]
             assert.are.equal("Rakuyomi", rakuyomi.text)
-            assert.are.equal("tab_manga.svg", rakuyomi.icon_file:match("([^/]+)$"))
+            assert.are.equal("tab_manga", rakuyomi.icon_name)
             assert.is_nil(rakuyomi.icon_glyph)
             assert.are.equal("Zen OPDS", opds.text)
             assert.are.equal("opds-icon", opds.icon_glyph)
@@ -135,6 +135,25 @@ describe("Extras settings", function()
             assert.is_true(config.custom_icons.invert_with_dark_mode)
             packs[6].callback(menu)
             assert.is_true(config.custom_icons.invert_with_dark_mode)
+
+            local open_on_exit = rakuyomi.sub_item_table[2]
+            local chapter_list = rakuyomi.sub_item_table[3]
+            assert.are.equal("Open Rakuyomi on manga exit", open_on_exit.text)
+            assert.is_false(open_on_exit.checked_func())
+            assert.is_false(chapter_list.enabled_func())
+            local chapter_preference = chapter_list.checked_func()
+            local saved_before, updates_before = saved, updates
+            open_on_exit.callback(menu)
+            assert.is_true(config.rakuyomi.open_on_manga_exit)
+            assert.is_true(open_on_exit.checked_func())
+            assert.is_true(chapter_list.enabled_func())
+            open_on_exit.callback(menu)
+            assert.is_false(config.rakuyomi.open_on_manga_exit)
+            assert.is_false(open_on_exit.checked_func())
+            assert.is_false(chapter_list.enabled_func())
+            assert.are.equal(chapter_preference, chapter_list.checked_func())
+            assert.are.equal(saved_before + 2, saved)
+            assert.are.equal(updates_before + 2, updates)
         end)
         for name, original in pairs(originals) do package.loaded[name] = original.value end
         assert.is_true(ok, err)

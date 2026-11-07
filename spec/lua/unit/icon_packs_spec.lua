@@ -399,6 +399,83 @@ describe("ZenOS icon packs", function()
         assert.are.equal(plugin_icons .. "plus.svg", IconPacks.resolve("plus", plugin_icons))
     end)
 
+    it("defers pack validation at boot unless ZIPs or interrupted installs are pending", function()
+        local selected = make_pack("selected", "home", "selected")
+        write_file(selected .. "/home.png", "png loses to svg")
+        make_pack("other")
+        local config = { features = { custom_icons_enabled = true }, custom_icons = { active_pack = "selected" } }
+        local original_dir = lfs.dir
+        local listed = {}
+        lfs.dir = function(path)
+            listed[#listed + 1] = path
+            return original_dir(path)
+        end
+        local ok, err = pcall(function()
+            IconPacks.initialize(config)
+            assert.are.same({ packs_root, selected }, listed)
+            assert.are.equal(selected .. "/home.svg", IconPacks._getResolvedPathForTests("home"))
+            assert.are.equal(selected, IconPacks.getActivePackDirectory())
+            assert.are.equal(2, #IconPacks.getLastScan().packs)
+
+            IconPacks._resetForTests()
+            IconPacks._setIconsRootForTests(icons_root)
+            make_dir(packs_root .. "/.zen-stage-other")
+            IconPacks.initialize(config)
+            assert.is_nil(lfs.attributes(packs_root .. "/.zen-stage-other", "mode"))
+        end)
+        lfs.dir = original_dir
+        assert(ok, err)
+    end)
+
+    it("rejects an active pack with unsafe icon names at boot", function()
+        local selected = make_pack("selected")
+        write_file(selected .. "/bad name.svg", "unsafe")
+        IconPacks.initialize({ features = { custom_icons_enabled = true }, custom_icons = { active_pack = "selected" } })
+        assert.is_nil(IconPacks.getActivePackDirectory())
+        assert.is_nil(IconPacks._getResolvedPathForTests("home"))
+    end)
+
+    it("memoizes resolve lookups until the icon map is rebuilt", function()
+        local plugin_icons = icons_root .. "/plugin/"
+        make_dir(plugin_icons)
+        IconPacks.initialize({ features = { custom_icons_enabled = false } })
+        assert.is_nil(IconPacks.resolve("late_icon", plugin_icons))
+        write_file(plugin_icons .. "late_icon.svg", "late")
+        assert.is_nil(IconPacks.resolve("late_icon", plugin_icons))
+        IconPacks.initialize({ features = { custom_icons_enabled = false } })
+        assert.are.equal(plugin_icons .. "late_icon.svg", IconPacks.resolve("late_icon", plugin_icons))
+        os.remove(plugin_icons .. "late_icon.svg")
+        assert.are.equal(plugin_icons .. "late_icon.svg", IconPacks.resolve("late_icon", plugin_icons))
+    end)
+
+    it("themes control icons with SVG and PNG fallbacks", function()
+        local plugin_icons = ZenSpec.root .. "/icons/"
+        local names = {
+            "airplane", "annotations", "app_menu", "book_open", "bookmark_outline", "brightness", "calendar", "flame",
+            "library_shelves", "lookup_ai", "lookup_extend", "moon_outline", "network", "quick_battery", "quick_nightmode",
+            "view_carousel_outline", "warmth", "zen_ui_update",
+        }
+        local selected = make_pack("selected")
+        for _i, name in ipairs(names) do
+            write_file(selected .. "/" .. name .. ".png", "custom PNG")
+            write_file(icons_root .. "/" .. name .. ".svg", "loose SVG")
+        end
+        local utils = require("common/utils")
+        for _i, entry in ipairs({
+            { enabled = true, pack = "selected", dir = selected .. "/", ext = ".png" },
+            { enabled = true, pack = "", dir = icons_root .. "/", ext = ".svg" },
+            { enabled = false, pack = "selected", dir = plugin_icons, ext = ".svg" },
+        }) do
+            IconPacks.initialize({
+                features = { custom_icons_enabled = entry.enabled },
+                custom_icons = { active_pack = entry.pack },
+            })
+            for _j, name in ipairs(names) do
+                assert.are.equal(entry.dir .. name .. entry.ext, utils.resolveIcon(plugin_icons, name))
+            end
+        end
+    end)
+
     it("falls back to KOReader icons when neither the pack nor Zen supplies them", function()
         local plugin_icons = ZenSpec.root .. "/icons/"
         local stock_icons = lfs.currentdir() .. "/resources/icons/"
@@ -459,7 +536,8 @@ describe("ZenOS icon packs", function()
                 features = config.features, custom_icons = { active_pack = pack_id },
             })
             local custom_path = pack_id == "selected" and selected .. "/home.svg" or icons_root .. "/home.svg"
-            for _j, entry in ipairs({ { icon = "home" }, { file = custom_path, alpha = false },
+            for _j, entry in ipairs({ { icon = "home" }, { icon = ZenSpec.root .. "/icons/home.svg" },
+                    { file = custom_path, alpha = false },
                     { file = ZenSpec.root .. "/icons/home.svg", fallback = true } }) do
                 local loaded = IconWidget:new{
                     icon = entry.icon, file = entry.file, width = 3, height = 1,
@@ -467,6 +545,7 @@ describe("ZenOS icon packs", function()
                 }
                 finally(function() loaded:free() end)
                 loaded:getSize()
+                if entry.icon then assert.are.equal(custom_path, loaded.file) end
                 assert.are.equal(entry.fallback and 255 or 0,
                     loaded._bb:getPixel(2, 0):getColorRGB32().alpha)
                 local icon = IconWidget:new{

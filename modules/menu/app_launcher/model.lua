@@ -334,6 +334,9 @@ function M.display_label(entry)
             and entry.label or _("Row break")
         return "\u{2014} " .. label .. " \u{2014}"
     end
+    if entry.type == "reader_control" and entry.control == "contrast" then
+        return (entry.label or _("Contrast")) .. " (PDF/CBZ)"
+    end
     return entry.label or _("App")
 end
 

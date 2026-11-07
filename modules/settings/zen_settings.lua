@@ -90,6 +90,7 @@ function M.build(plugin)
                 local items = require("modules/menu/app_launcher/native_menu").settingsItems("active")
                 table.insert(items, IconItem.decorate({
                     text = _("Quit KOReader"),
+                    icon_name = "close",
                     keep_menu_open = true,
                     callback = function()
                         UIManager:show(require("ui/widget/confirmbox"):new{

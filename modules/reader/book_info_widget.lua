@@ -56,11 +56,11 @@ local function resolve_stock_icon(name)
 end
 
 function BookInfoWidget:init()
-    local sw = Device.screen:getWidth()
-    local sh = Device.screen:getHeight()
+    local sw = self.width or Device.screen:getWidth()
+    local sh = self.height or Device.screen:getHeight()
     local pad = Device.screen:scaleBySize(16)
-    local title_h = TitleStyle.HEADER_CONTENT_HEIGHT
-    local title_divider_h = TitleStyle.DIVIDER_HEIGHT
+    local title_h = self.show_title ~= false and TitleStyle.HEADER_CONTENT_HEIGHT or 0
+    local title_divider_h = self.show_title ~= false and TitleStyle.DIVIDER_HEIGHT or 0
     local gap = Device.screen:scaleBySize(14)
     local metadata_gap = Device.screen:scaleBySize(32)
     local body_y = title_h + title_divider_h + pad
@@ -111,7 +111,7 @@ function BookInfoWidget:init()
         details_x = pad + cover_w + (cover_w > 0 and 2 * border + metadata_gap or 0),
     }
 
-    if self.edit_callback then
+    if self.show_title ~= false and self.edit_callback then
         self._edit_widget = TextWidget:new{
             text = icons.edit .. "  " .. _("Edit"),
             face = Font:getFace("cfont", 22),
@@ -131,15 +131,15 @@ function BookInfoWidget:init()
 
     local title_right = self._L.edit_x or self._L.close_all_x
     local details_w = math.max(Device.screen:scaleBySize(60), sw - self._L.details_x - pad)
-    self._title_widget = TextWidget:new{
+    self._title_widget = self.show_title ~= false and TextWidget:new{
         text = self.title or _("Book details"),
         face = TitleStyle.getTitleFace(),
         bold = true,
         max_width = math.max(1, title_right - TitleStyle.getTitleX(0)),
         padding = 0,
-    }
+    } or nil
     self._L.title_x = TitleStyle.getTitleX(0)
-    self._L.title_w = self._title_widget:getSize().w
+    self._L.title_w = self._title_widget and self._title_widget:getSize().w or 0
     self._detail_widgets = {}
     for _i, detail in ipairs(self.details or {}) do
         local gap_before = Device.screen:scaleBySize(detail.gap_before or 0)
@@ -218,7 +218,7 @@ function BookInfoWidget:init()
                 },
                 scroll_bar_width = scrollbar_w,
                 swipe_full_view = false,
-                show_parent = self,
+                show_parent = self.show_parent or self,
                 content,
             }
             scroll:initState()
@@ -297,12 +297,12 @@ function BookInfoWidget:init()
     self._L.description_x = pad
     self._L.description_w = sw - pad * 2
 
-    self._back_icon = IconWidget:new{
+    self._back_icon = self.show_title ~= false and self.show_back ~= false and IconWidget:new{
         file = resolve_stock_icon("chevron.left"),
         width = TitleStyle.ICON_SIZE,
         height = TitleStyle.ICON_SIZE,
     }
-    self._close_icon = IconWidget:new{
+    self._close_icon = self.show_title ~= false and IconWidget:new{
         file = resolve_stock_icon("close"),
         width = TitleStyle.ICON_SIZE,
         height = TitleStyle.ICON_SIZE,
@@ -323,14 +323,14 @@ function BookInfoWidget:init()
             fgcolor = Blitbuffer.COLOR_BLACK,
             width = self._L.description_w,
             height = self._L.description_h,
-            dialog = self,
+            dialog = self.show_parent or self,
             alignment = "left",
             justified = false,
             scroll_by_pan = true,
         }
     end
-    self._zen_focus_enabled = supports_hardware_focus()
-    if self._zen_focus_enabled then self._zen_focus_area = "back" end
+    self._zen_focus_enabled = self.show_title ~= false and supports_hardware_focus()
+    if self._zen_focus_enabled then self:_setFocusArea("back") end
 
     self:registerTouchZones({
         {
@@ -375,17 +375,41 @@ function BookInfoWidget:init()
     end
 end
 
+function BookInfoWidget:handleEvent(event)
+    if self.show_title == false and event.handler == "onGesture"
+            and event.args[1].pos and not self.dimen:contains(event.args[1].pos) then return end
+    return InputContainer.handleEvent(self, event)
+end
+
+function BookInfoWidget:onFocus()
+    self._zen_focus_enabled = supports_hardware_focus()
+    self:_setFocusArea("back")
+    return true
+end
+
+function BookInfoWidget:onUnfocus()
+    self._zen_focus_enabled = false
+    self._zen_focus_area = nil
+    UIManager:setDirty(self.show_parent or self, "fast")
+    return true
+end
+
 function BookInfoWidget:_setFocusArea(area)
+    if self.show_title == false and (area == "back" or area == "edit" or area == "close") then
+        area = self._tag_buttons and "tags" or "description"
+        self._zen_tag_focus = self._zen_tag_focus or 1
+    end
+    if area == "back" and self.show_back == false then area = self._edit_widget and "edit" or "close" end
     if not self._zen_focus_enabled or self._zen_focus_area == area then return end
     self._zen_focus_area = area
-    UIManager:setDirty(self, "fast")
+    UIManager:setDirty(self.show_parent or self, "fast")
 end
 
 function BookInfoWidget:_focusTag(index)
     if not self._zen_focus_enabled or not self._tag_buttons then return false end
     self._zen_tag_focus = math.max(1, math.min(#self._tag_buttons, index))
     self._zen_focus_area = "tags"
-    UIManager:setDirty(self, "fast")
+    UIManager:setDirty(self.show_parent or self, "fast")
     return true
 end
 
@@ -503,9 +527,10 @@ end
 
 function BookInfoWidget:_inDescription(pos)
     local L = self._L
+    local x, y = pos.x - self.dimen.x, pos.y - self.dimen.y
     return self._description_widget
-        and pos.x >= L.description_x and pos.x < L.description_x + L.description_w
-        and pos.y >= L.description_y and pos.y < L.description_y + L.description_h
+        and x >= L.description_x and x < L.description_x + L.description_w
+        and y >= L.description_y and y < L.description_y + L.description_h
 end
 
 function BookInfoWidget:_inTagButtons(pos)
@@ -524,14 +549,14 @@ end
 
 function BookInfoWidget:_inCover(pos)
     local L = self._L
+    local x, y = pos.x - self.dimen.x, pos.y - self.dimen.y
     return self._cover_widget
-        and pos.x >= L.cover_x and pos.x < L.cover_x + L.cover_w
-        and pos.y >= L.cover_y and pos.y < L.cover_y + L.cover_h
+        and x >= L.cover_x and x < L.cover_x + L.cover_w
+        and y >= L.cover_y and y < L.cover_y + L.cover_h
 end
 
-function BookInfoWidget:paintTo(bb, x, y)
+function BookInfoWidget:_paintHeader(bb, x, y)
     local L = self._L
-    bb:paintRect(x, y, L.sw, L.sh, Blitbuffer.COLOR_WHITE)
     bb:paintRect(x, y + L.title_h, L.sw, L.title_divider_h,
         TitleStyle.DIVIDER_COLOR)
 
@@ -540,24 +565,26 @@ function BookInfoWidget:paintTo(bb, x, y)
         TitleStyle.getTitleX(x),
         y + TitleStyle.VERTICAL_PADDING
             + math.floor((TitleStyle.ROW_HEIGHT - title_size.h) / 2))
-    local back_size = self._back_icon:getSize()
-    local back_focused = self._zen_focus_enabled and self._zen_focus_area == "back"
-    self._back_icon.invert = back_focused
-    if back_focused then
-        local focus_pad = Device.screen:scaleBySize(4)
-        bb:paintRect(
-            TitleStyle.getLeadingIconX(x) - focus_pad,
+    if self._back_icon then
+        local back_size = self._back_icon:getSize()
+        local back_focused = self._zen_focus_enabled and self._zen_focus_area == "back"
+        self._back_icon.invert = back_focused
+        if back_focused then
+            local focus_pad = Device.screen:scaleBySize(4)
+            bb:paintRect(
+                TitleStyle.getLeadingIconX(x) - focus_pad,
+                y + TitleStyle.VERTICAL_PADDING
+                    + math.floor((TitleStyle.ROW_HEIGHT - back_size.h) / 2) - focus_pad,
+                back_size.w + 2 * focus_pad,
+                back_size.h + 2 * focus_pad,
+                Blitbuffer.COLOR_BLACK
+            )
+        end
+        self._back_icon:paintTo(bb,
+            TitleStyle.getLeadingIconX(x),
             y + TitleStyle.VERTICAL_PADDING
-                + math.floor((TitleStyle.ROW_HEIGHT - back_size.h) / 2) - focus_pad,
-            back_size.w + 2 * focus_pad,
-            back_size.h + 2 * focus_pad,
-            Blitbuffer.COLOR_BLACK
-        )
+                + math.floor((TitleStyle.ROW_HEIGHT - back_size.h) / 2))
     end
-    self._back_icon:paintTo(bb,
-        TitleStyle.getLeadingIconX(x),
-        y + TitleStyle.VERTICAL_PADDING
-            + math.floor((TitleStyle.ROW_HEIGHT - back_size.h) / 2))
 
     if self._edit_widget then
         local edit_y = y + TitleStyle.VERTICAL_PADDING
@@ -592,6 +619,13 @@ function BookInfoWidget:paintTo(bb, x, y)
         )
     end
     self._close_icon:paintTo(bb, close_x, close_y)
+end
+
+function BookInfoWidget:paintTo(bb, x, y)
+    local L = self._L
+    self.dimen.x, self.dimen.y = x, y
+    bb:paintRect(x, y, L.sw, L.sh, Blitbuffer.COLOR_WHITE)
+    if self.show_title ~= false then self:_paintHeader(bb, x, y) end
 
     if self._cover_widget then
         self._cover_widget:paintTo(bb, x + L.cover_x, y + L.cover_y)
@@ -671,6 +705,8 @@ function BookInfoWidget:paintTo(bb, x, y)
 end
 
 function BookInfoWidget:_activateHeader(area)
+    if self.show_title == false then return true end
+    if area == "back" and self.show_back == false then return true end
     local L = self._L
     local region
     if area == "back" then
@@ -707,7 +743,7 @@ end
 function BookInfoWidget:_onTap(ges)
     local pos = ges.pos
     local in_header = pos.y >= 0 and pos.y < self._L.title_h
-    if in_header and pos.x >= 0 and pos.x < self._L.title_x then
+    if self.show_back ~= false and in_header and pos.x >= 0 and pos.x < self._L.title_x then
         return self:_activateHeader("back")
     end
     if self._edit_widget and pos.x >= self._L.edit_x
@@ -720,7 +756,7 @@ function BookInfoWidget:_onTap(ges)
             and in_header then
         return self:_activateHeader("close")
     end
-    if in_header and pos.x >= self._L.title_x
+    if self.show_back ~= false and in_header and pos.x >= self._L.title_x
             and pos.x < self._L.title_x + self._L.title_w then
         return self:_activateHeader("back")
     end
@@ -741,8 +777,10 @@ function BookInfoWidget:_onTap(ges)
             return true
         end
     end
-    local handled = TopMenu.handleTap(nil, ges)
-    if handled then return handled end
+    if self.show_title ~= false then
+        local handled = TopMenu.handleTap(nil, ges)
+        if handled then return handled end
+    end
     if self:_inCover(pos) then
         if self.cover_tap_callback then self.cover_tap_callback() end
         return true
@@ -754,7 +792,8 @@ function BookInfoWidget:_onTap(ges)
 end
 
 function BookInfoWidget:_onSwipe(ges)
-    if ges.direction == "south" and ges.pos.y < Device.screen:getHeight() * 0.14 then
+    if self.show_title ~= false and ges.direction == "south"
+            and ges.pos.y < Device.screen:getHeight() * 0.14 then
         return TopMenu.handleSwipe(ges)
     end
     if self:_inTagButtons(ges.pos)
@@ -789,12 +828,16 @@ function BookInfoWidget:_onPanRelease(ges)
 end
 
 function BookInfoWidget:onShow()
-    UIManager:setDirty(self, function() return "partial", self.dimen end)
+    UIManager:setDirty(self.show_parent or self, function() return "partial", self.dimen end)
 end
 
-function BookInfoWidget:onClose()
+-- Idempotent: runs from onClose and onCloseWidget (closeAll, parent close).
+function BookInfoWidget:free()
+    if self._freed then return end
+    self._freed = true
     if self._description_widget then self._description_widget:free() end
-    if self._cover_widget then self._cover_widget:free() end
+    if self._cover_widget then self._cover_widget:free()
+    elseif self.cover and self.cover.free then self.cover:free() end -- owned but never wrapped
     if self._back_icon then self._back_icon:free() end
     if self._close_icon then self._close_icon:free() end
     if self._edit_widget then self._edit_widget:free() end
@@ -806,8 +849,16 @@ function BookInfoWidget:onClose()
         if entry.widget then entry.widget:free() end
     end
     if self._progress_widget then self._progress_widget:free() end
+end
+
+function BookInfoWidget:onClose()
+    self:free()
     UIManager:close(self, "ui", self.dimen)
     return true
+end
+
+function BookInfoWidget:onCloseWidget()
+    self:free()
 end
 
 function BookInfoWidget:onEdit()

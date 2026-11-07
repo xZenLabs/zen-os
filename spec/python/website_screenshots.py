@@ -10,7 +10,6 @@ import os
 import posixpath
 import re
 import shutil
-import signal
 import sqlite3
 import subprocess
 import sys
@@ -25,7 +24,7 @@ from zipfile import BadZipFile, ZipFile
 
 from PIL import Image
 
-from zen_driver import ZenDriver, launch, wait_for_socket
+from zen_driver import ZenDriver, launch, stop, wait_for_socket
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -2053,12 +2052,7 @@ class CaptureWorkflow:
             for scenario in scenarios:
                 self._capture_one(driver, scenario, books)
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=5)
+            stop(process)
 
     def run(self) -> dict[str, object]:
         self.run_dir.mkdir(parents=True, exist_ok=False)

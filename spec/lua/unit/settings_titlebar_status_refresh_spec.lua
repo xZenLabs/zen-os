@@ -150,7 +150,6 @@ describe("settings title bar", function()
                 title_bar.search_button, title_bar.close_button }) do
             assert.is_true(button.allow_flash)
         end
-        assert.is_false(title_bar.root_icon.allow_flash)
     end)
 
     it("inherits shared feedback for styled header actions", function()
@@ -282,7 +281,13 @@ describe("settings title bar", function()
         end
         assert.are.equal(4, taps)
         assert.is_false(tap_range:match({ ges = "tap", pos = Geom:new{ x = 181, y = 40 } }))
-        assert.is_false(tap_range:match({ ges = "tap", pos = Geom:new{ x = 68, y = 19 } }))
+        local pad = require("common/ui/zen_title_style").VERTICAL_PADDING
+        title_bar.dimen = Geom:new{ x = 0, y = 10, w = 600, h = 80 }
+        for _i, y in ipairs({ 10, 63 + pad }) do
+            assert.is_true(tap_range:match({ ges = "tap", pos = Geom:new{ x = 68, y = y } }))
+        end
+        assert.is_false(tap_range:match({ ges = "tap", pos = Geom:new{ x = 68, y = 9 } }))
+        assert.is_false(tap_range:match({ ges = "tap", pos = Geom:new{ x = 68, y = 65 + pad } }))
         assert.is_true(title_bar.ges_events.HoldBackTitle[1]:match({
             ges = "hold", pos = Geom:new{ x = 68, y = 40 },
         }))

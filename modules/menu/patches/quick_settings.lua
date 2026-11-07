@@ -32,8 +32,6 @@ local function apply_quick_settings()
     local ButtonFeedback = require("common/ui/button_feedback")
     local Accent = require("common/ui/accent")
     local Bluetooth = require("modules/menu/bluetooth/bluetooth")
-    local build_brightness_slider = require("modules/menu/patches/brightness_slider")
-    local build_warmth_slider = require("modules/menu/patches/warmth_slider")
     local _ = require("gettext")
     local Screen = Device.screen
     local Dispatcher = require("dispatcher")
@@ -141,7 +139,6 @@ local function apply_quick_settings()
             screenshot = false,
         },
         show_labels = true,
-        hide_reader_actions_in_library = false,
         reader_actions = {},
         show_frontlight = true,
         show_warmth = true,
@@ -517,21 +514,32 @@ local function apply_quick_settings()
         if network and type(network.ssid) == "string" and network.ssid ~= "" then return network.ssid end
     end
 
-    local function refreshWifiQuickSettings(touch_menu, retries)
-        if not (touch_menu and touch_menu._zen_panel_refs and touch_menu.item_table and touch_menu.item_table.panel) then return end
-        local ssid = getWifiName()
-        local remaining = retries or 45
-        if NetworkMgr:isWifiOn()
-            and not ssid
-            and remaining > 0
-        then
-            if not retries then refreshQuickSettings(touch_menu) end
-            UIManager:scheduleIn(1, function()
-                refreshWifiQuickSettings(touch_menu, remaining - 1)
-            end)
-            return
+    -- One SSID poll chain per menu; Network* events refresh the panel in between.
+    local WIFI_POLL_DELAY, WIFI_POLL_TRIES = 2, 23
+    local function refreshWifiQuickSettings(touch_menu)
+        local function panel_open()
+            return touch_menu._zen_panel_refs and touch_menu.item_table and touch_menu.item_table.panel
         end
+        if not (touch_menu and panel_open()) then return end
+        if touch_menu._zen_wifi_poll then UIManager:unschedule(touch_menu._zen_wifi_poll) end
+        touch_menu._zen_wifi_poll = nil
         refreshQuickSettings(touch_menu)
+        local remaining = WIFI_POLL_TRIES
+        local function poll()
+            touch_menu._zen_wifi_poll = nil
+            if not panel_open() then return end
+            remaining = remaining - 1
+            if remaining > 0 and NetworkMgr:isWifiOn() and not getWifiName() then
+                touch_menu._zen_wifi_poll = poll
+                UIManager:scheduleIn(WIFI_POLL_DELAY, poll)
+                return
+            end
+            refreshQuickSettings(touch_menu)
+        end
+        if NetworkMgr:isWifiOn() and not getWifiName() then
+            touch_menu._zen_wifi_poll = poll
+            UIManager:scheduleIn(WIFI_POLL_DELAY, poll)
+        end
     end
 
     local function isWifiDimmed()
@@ -546,14 +554,20 @@ local function apply_quick_settings()
 
     local open_quick_setting_settings
 
+    -- Picker-list hits are memoized: the fallback lists four icon dirs on every panel build.
+    local picker_icon_cache = {}
     local function resolveConfiguredIcon(name, fallback)
         if type(name) == "string" and name:sub(1, 1) == "/" then return name end
         local path = utils.resolveIcon(_icons_dir, name)
         if path then return path end
-        for _i, item in ipairs(utils.getIconPickerList(_plugin_root)) do
-            if item.name == name then return item.file end
+        if type(name) == "string" and picker_icon_cache[name] == nil then
+            picker_icon_cache[name] = false
+            for _i, item in ipairs(utils.getIconPickerList(_plugin_root)) do
+                if item.name == name then picker_icon_cache[name] = item.file; break end
+            end
         end
-        return utils.resolveLocalIcon(_icons_dir, fallback)
+        return type(name) == "string" and picker_icon_cache[name]
+            or utils.resolveLocalIcon(_icons_dir, fallback)
     end
 
     local button_defs = {
@@ -561,7 +575,12 @@ local function apply_quick_settings()
             icon = "quick_bluetooth",
             label = _("Bluetooth"),
             visible_func = Bluetooth.isAvailable,
-            active_func = Bluetooth.isEnabled,
+            -- Cached state is refreshed on menu open and BluetoothStateChanged.
+            active_func = function()
+                local state = Bluetooth.getCachedState()
+                if state == nil then return Bluetooth.isEnabled() end
+                return state
+            end,
             dim_func = Bluetooth.isChanging,
             callback = function(touch_menu)
                 Bluetooth.toggle(function(success, reason)
@@ -607,10 +626,7 @@ local function apply_quick_settings()
             label = _("Night"),
             active_func = function() return G_reader_settings:isTrue("night_mode") end,
             callback = function(touch_menu)
-                local night_mode = G_reader_settings:isTrue("night_mode")
-                Screen:toggleNightMode()
-                UIManager:ToggleNightMode(not night_mode)
-                G_reader_settings:saveSetting("night_mode", not night_mode)
+                UIManager:broadcastEvent(Event:new("ToggleNightMode"))
                 touch_menu:updateItems(1)
                 UIManager:setDirty("all", getFullRefreshMode())
             end,
@@ -789,7 +805,10 @@ local function apply_quick_settings()
                     UIManager:broadcastEvent(Event:new("StartWirelessConnection"))
                 end
                 UIManager:scheduleIn(1, function()
-                    touch_menu:updateItems(1)
+                    -- Skip if the menu closed meanwhile; rebuilding re-binds the clock to a dead menu.
+                    if UIManager:isWidgetShown(touch_menu.show_parent or touch_menu) then
+                        touch_menu:updateItems(1)
+                    end
                 end)
             end,
         },
@@ -824,7 +843,7 @@ local function apply_quick_settings()
             end,
         },
         airplanemode = {
-            icon = utils.resolveLocalIcon(_icons_dir, "airplane"),
+            icon = utils.resolveIcon(_icons_dir, "airplane"),
             label = _("Airplane mode"),
             visible_func = function() return hasPlugin("airplanemode") end,
             active_func = function()
@@ -899,7 +918,7 @@ local function apply_quick_settings()
             end,
         },
         tailscale = {
-            icon = utils.resolveLocalIcon(_icons_dir, "network"),
+            icon = utils.resolveIcon(_icons_dir, "network"),
             label = _("Tailscale"),
             visible_func = function() return getTailscalePlugin() ~= nil end,
             active_func = function()
@@ -933,7 +952,7 @@ local function apply_quick_settings()
             end,
         },
         zenfm = {
-            icon = utils.resolveLocalIcon(_icons_dir, "zenfm"),
+            icon = "zenfm",
             label = _("ZenFM"),
             visible_func = function() return getCandidatePlugin(zenfm_plugin) ~= nil end,
             active_func = isZenFMRunning,
@@ -951,7 +970,7 @@ local function apply_quick_settings()
             end,
         },
         zenpm = {
-            icon = utils.resolveLocalIcon(_icons_dir, "zenpm"),
+            icon = "zenpm",
             label = _("ZenPM"),
             visible_func = function() return hasPlugin("zenpm") end,
             callback = function(touch_menu)
@@ -1074,7 +1093,7 @@ local function apply_quick_settings()
             end,
         },
         battery_stats = {
-            icon = utils.resolveLocalIcon(_icons_dir, "quick_battery"),
+            icon = utils.resolveIcon(_icons_dir, "quick_battery"),
             label = _("Battery"),
             callback = function(touch_menu)
                 touch_menu:closeMenu()
@@ -1152,7 +1171,35 @@ local function apply_quick_settings()
 
     }
 
+    -- Rebuilds only when inputs change (icons, Dispatcher labels and filters are costly).
+    local function append_signature(value, out)
+        if type(value) ~= "table" then
+            out[#out + 1] = type(value) .. ":" .. tostring(value)
+            return
+        end
+        local keys = {}
+        for key in pairs(value) do keys[#keys + 1] = key end
+        table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+        out[#out + 1] = "{"
+        for _i, key in ipairs(keys) do
+            out[#out + 1] = tostring(key) .. "="
+            append_signature(value[key], out)
+        end
+        out[#out + 1] = "}"
+    end
+
+    local custom_defs_signature
     local function install_custom_button_defs()
+        local parts = { LibraryNavigation.defaultTabIcon(zen_plugin) }
+        for _i, key in ipairs({ "gyro_icon", "gyro_label", "zen_settings_icon", "zen_settings_label",
+                "launcher_icon", "launcher_label" }) do
+            append_signature(config[key], parts)
+        end
+        append_signature(config.custom_buttons, parts)
+        local signature = table.concat(parts, "\0")
+        if signature == custom_defs_signature then return end
+        custom_defs_signature = signature
+
         button_defs.library_home.icon = resolveConfiguredIcon(
             LibraryNavigation.defaultTabIcon(zen_plugin), "library")
         for id, default_label in pairs({
@@ -1439,12 +1486,17 @@ local function apply_quick_settings()
 
         -- ----- Top row: action buttons -----
 
-        -- Custom definitions are rebuilt on every render so edits are immediate.
         install_custom_button_defs()
 
+        -- Sync Bluetooth once per menu; rebuilds then use the cached state.
+        if not touch_menu._zen_bt_synced then
+            touch_menu._zen_bt_synced = true
+            if config.show_buttons.bluetooth and not Bluetooth.isChanging() then Bluetooth.getState() end
+        end
+
         local visible_buttons = {}
-        local hide_reader_actions = config.hide_reader_actions_in_library == true
-            and touch_menu.item_table and touch_menu.item_table._zen_quick_settings_library == true
+        local hide_reader_actions = touch_menu.item_table
+            and touch_menu.item_table._zen_quick_settings_library == true
         for _i, id in ipairs(config.button_order) do
             if config.show_buttons[id] and button_defs[id] then
                 local def = button_defs[id]
@@ -1471,7 +1523,7 @@ local function apply_quick_settings()
             local icon_path = type(icon_name) == "string" and icon_name:sub(1, 1) == "/"
                 and icon_name or (_icons_dir and utils.resolveIcon(_icons_dir, icon_name))
             local rendered_icon_size = math.floor(
-                icon_size * utils.iconOpticalScale(icon_name) + 0.5)
+                icon_size * utils.iconOpticalScale(icon_name, icon_path) + 0.5)
             local icon = IconWidget:new{
                 file   = icon_path or nil,
                 icon   = icon_path and nil or icon_name,
@@ -1479,10 +1531,8 @@ local function apply_quick_settings()
                 height = rendered_icon_size,
                 alpha  = true,
             }
-            Accent.styleIcon(icon, active)
             local border = normal_border
-            local bg = active and Accent.color()
-                or disabled and Blitbuffer.COLOR_LIGHT_GRAY
+            local bg = disabled and Blitbuffer.COLOR_LIGHT_GRAY
                 or dimmed and Blitbuffer.COLOR_GRAY
                 or Blitbuffer.COLOR_WHITE
             local circle = FrameContainer:new{
@@ -1500,6 +1550,7 @@ local function apply_quick_settings()
                     icon,
                 },
             }
+            Accent.styleButton(circle, icon, active)
             circle.onFocus = function(self)
                 self.invert = true
                 if self.dimen then
@@ -1581,6 +1632,14 @@ local function apply_quick_settings()
         local has_warmth = Device:hasNaturalLight()
         local use_unified = has_frontlight and has_warmth
             and config.unified_light_slider ~= false
+        local status_bar = zen_plugin.config.status_bar
+        local status_frontlight = false
+        for _i, side in ipairs({ "left_order", "center_order", "right_order" }) do
+            for _j, key in ipairs(type(status_bar) == "table" and type(status_bar[side]) == "table"
+                    and status_bar[side] or {}) do
+                if key == "frontlight" then status_frontlight = true end
+            end
+        end
         local slider_opts = {
             inner_width     = inner_width,
             slider_width    = slider_width,
@@ -1593,15 +1652,17 @@ local function apply_quick_settings()
             show_frontlight = has_frontlight and (use_unified or config.show_frontlight),
             show_warmth     = has_warmth and (use_unified or config.show_warmth),
             unified         = use_unified,
+            status_frontlight = status_frontlight,
         }
 
+        -- Slider builders load on first panel build, not at boot.
         local light_group
         if slider_opts.show_frontlight then
-            light_group = build_brightness_slider(touch_menu, slider_opts)
+            light_group = require("modules/menu/patches/brightness_slider")(touch_menu, slider_opts)
         end
         local warmth_group
         if slider_opts.show_warmth and (not slider_opts.show_frontlight or not use_unified) then
-            warmth_group = build_warmth_slider(touch_menu, slider_opts)
+            warmth_group = require("modules/menu/patches/warmth_slider")(touch_menu, slider_opts)
         end
 
         -- ----- Status bar row (reuses status_bar component when that feature is active) -----
@@ -1663,15 +1724,20 @@ local function apply_quick_settings()
         "onNetworkConnected", "onNetworkDisconnected", "onNetworkStateChanged", "onBluetoothStateChanged",
     }) do
         local original = TouchMenu[event_name]
+        local bluetooth_event = event_name == "onBluetoothStateChanged"
         TouchMenu[event_name] = function(self, ...)
             if original then original(self, ...) end
+            if bluetooth_event and self.item_table and self.item_table.panel
+                    and not Bluetooth.isChanging() then
+                Bluetooth.getState()
+            end
             refreshQuickSettings(self)
         end
     end
 
-    -- Open launcher first when requested; otherwise Controls remains the default.
     local orig_init = TouchMenu.init
     function TouchMenu:init()
+        custom_defs_signature = nil -- Pick up Dispatcher actions registered since the last menu.
         if launcher_opens_first() then
             self.last_index = getLauncherTabIndex(self) or getQuickSettingsTabIndex(self)
         elseif is_enabled() then
@@ -1712,7 +1778,6 @@ local function apply_quick_settings()
     -- ============================================================
 
     local FileManagerMenu = require("apps/filemanager/filemanagermenu")
-    local ReaderMenu = require("apps/reader/modules/readermenu")
 
     local orig_fm_setUpdateItemTable = FileManagerMenu.setUpdateItemTable
 
@@ -1723,14 +1788,17 @@ local function apply_quick_settings()
         end
     end
 
-    local orig_reader_setUpdateItemTable = ReaderMenu.setUpdateItemTable
+    require("common/on_require").whenLoaded("apps/reader/readerui", function()
+        local ReaderMenu = require("apps/reader/modules/readermenu")
+        local orig_reader_setUpdateItemTable = ReaderMenu.setUpdateItemTable
 
-    function ReaderMenu:setUpdateItemTable()
-        orig_reader_setUpdateItemTable(self)
-        if is_enabled() and self.tab_item_table then
-            table.insert(self.tab_item_table, 1, make_quick_settings_tab(false))
+        function ReaderMenu:setUpdateItemTable()
+            orig_reader_setUpdateItemTable(self)
+            if is_enabled() and self.tab_item_table then
+                table.insert(self.tab_item_table, 1, make_quick_settings_tab(false))
+            end
         end
-    end
+    end)
 end
 
 return apply_quick_settings

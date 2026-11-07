@@ -2,7 +2,7 @@
 
 local Blitbuffer      = require("ffi/blitbuffer")
 local Accent          = require("common/ui/accent")
-local Button          = require("ui/widget/button")
+local StepButton      = require("common/ui/slider_step_button")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local Device          = require("device")
 local FrameContainer  = require("ui/widget/container/framecontainer")
@@ -17,7 +17,6 @@ local UIManager       = require("ui/uimanager")
 local VerticalGroup   = require("ui/widget/verticalgroup")
 local VerticalSpan    = require("ui/widget/verticalspan")
 local ZenSlider       = require("common/ui/zen_slider")
-local library_font    = require("modules/filebrowser/patches/library_font")
 local utils           = require("common/utils")
 local WidgetResources = require("common/widget_resources")
 local _               = require("gettext")
@@ -76,6 +75,38 @@ local function build_brightness_slider(touch_menu, opts)
         fl.prev_non_min = fl.cur > fl.min and fl.cur or math.min(fl.max, fl.min + 1)
     end
 
+    -- Status rows only show brightness; drags refresh them once on release.
+    local status_pending = false
+    local function refresh_status()
+        status_pending = false
+        if opts.status_frontlight and mode == "brightness" and touch_menu._zen_status_timer then
+            touch_menu:_zen_status_timer()
+        end
+    end
+
+    -- Paint slider and value straight to the screen; refresh only that area.
+    local function paint_value(value)
+        progress:paintTo(Screen.bb, progress.dimen.x, progress.dimen.y)
+        local number_x, label_y = number_box.dimen.x, number_box.dimen.y
+        Screen.bb:paintRect(number_x, label_y, number_width, label_h, Blitbuffer.COLOR_WHITE)
+        number:setText(tostring(value))
+        number:paintTo(Screen.bb, number_x, label_y)
+        local dragging = progress._dragging
+        local slider_dimen = dragging and progress:dirtyDimen() or progress.dimen
+        local dirty_x = math.min(slider_dimen.x, number_x)
+        local region = Geom:new{
+            x = dirty_x,
+            y = label_y,
+            w = math.max(slider_dimen.x + slider_dimen.w, number_x + number_width) - dirty_x,
+            h = progress.dimen.y + progress.dimen.h - label_y,
+        }
+        if dragging then
+            ZenSlider.refreshDrag(region, Accent.isEnabled())
+        else
+            UIManager:setDirty(nil, "ui", region)
+        end
+    end
+
     local function setSelected(value)
         if mode == "brightness" then
             if value ~= fl.min and value == fl.cur then return end
@@ -102,8 +133,8 @@ local function build_brightness_slider(touch_menu, opts)
         selected.cur = value
         if mode == "brightness" and value > fl.min then fl.prev_non_min = value end
         progress:setValue(value)
-        number:setText(tostring(value))
-        UIManager:setDirty(show_parent, "ui", touch_menu.dimen)
+        paint_value(value)
+        refresh_status()
     end
 
     progress.on_drag_start = function()
@@ -117,50 +148,36 @@ local function build_brightness_slider(touch_menu, opts)
             fl.dragging = false
             if fl.cur > fl.min then fl.prev_non_min = fl.cur end
         end
+        powerd:stateChanged() -- Broadcast once; drag updates were silent.
+        if status_pending then refresh_status() end
     end
 
     progress.on_change = function(value)
+        local function set()
+            if mode == "brightness" then
+                powerd:setIntensity(value)
+            else
+                powerd:setWarmth(powerd:fromNativeWarmth(value))
+            end
+        end
+        if progress._dragging then utils.withoutFrontlightBroadcast(powerd, set) else set() end
         if mode == "brightness" then
-            powerd:setIntensity(value)
             fl.cur = value
             if value > fl.min and not fl.dragging then fl.prev_non_min = value end
         else
-            powerd:setWarmth(powerd:fromNativeWarmth(value))
             nl.cur = value
         end
-        if progress._dragging then
-            progress:paintTo(Screen.bb, progress.dimen.x, progress.dimen.y)
-            local number_x, label_y = number_box.dimen.x, number_box.dimen.y
-            Screen.bb:paintRect(number_x, label_y, number_width, label_h, Blitbuffer.COLOR_WHITE)
-            number:setText(tostring(value))
-            number:paintTo(Screen.bb, number_x, label_y)
-            local slider_dimen = progress:dirtyDimen()
-            local dirty_x = math.min(slider_dimen.x, number_x)
-            local colored = Accent.isEnabled()
-            -- DU cannot reproduce accent shades or cleanly erase a colored knob.
-            UIManager:setDirty(nil, colored and "ui" or "fast", Geom:new{
-                x = dirty_x,
-                y = label_y,
-                w = math.max(slider_dimen.x + slider_dimen.w, number_x + number_width) - dirty_x,
-                h = progress.dimen.y + progress.dimen.h - label_y,
-            }, colored)
-        else
-            number:setText(tostring(value))
-            UIManager:setDirty(show_parent, "ui", touch_menu.dimen)
-        end
+        paint_value(value)
+        if progress._dragging then status_pending = true else refresh_status() end
     end
 
     local function adjust_button(text, callback, hold_callback)
-        return Button:new{
+        return StepButton:new{
             text = text,
-            text_font_face = library_font.getFontName(),
             text_font_size = opts.small_btn_size,
-            text_font_bold = false,
             width = opts.small_btn_width,
             height = progress:getSize().h,
-            bordersize = 0,
             show_parent = show_parent,
-            allow_flash = false,
             callback = callback,
             hold_callback = hold_callback,
         }
@@ -207,9 +224,9 @@ local function build_brightness_slider(touch_menu, opts)
             local colored = Accent.isEnabled()
             button.background = active and colored and Accent.color() or Blitbuffer.COLOR_WHITE
             button.invert = active and not colored
+            local icon = button[1]
+            icon:free()
             if colored then
-                local icon = button[1]
-                icon:free()
                 Accent.styleIcon(icon, active)
             end
         end
@@ -224,13 +241,22 @@ local function build_brightness_slider(touch_menu, opts)
                 background = Blitbuffer.COLOR_WHITE,
                 invert = active,
                 IconWidget:new{
-                    file = utils.resolveLocalIcon(_icons_dir, icon_name),
+                    file = utils.resolveIcon(_icons_dir, icon_name),
                     width = icon_size,
                     height = icon_size,
                     alpha = true,
                 },
             }
             style_mode_button(button, active)
+            local night_mode = Screen.night_mode
+            local paint = button.paintTo
+            function button:paintTo(bb, x, y)
+                if night_mode ~= Screen.night_mode then
+                    style_mode_button(self, mode == icon_name)
+                    night_mode = Screen.night_mode
+                end
+                return paint(self, bb, x, y)
+            end
             return button
         end
 

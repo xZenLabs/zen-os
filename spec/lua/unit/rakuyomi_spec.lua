@@ -1,3 +1,4 @@
+require("ffi/loadlib")
 describe("Rakuyomi availability", function()
     local original_filemanager
     local original_bookinfomanager
@@ -457,7 +458,7 @@ describe("Rakuyomi recent Home series", function()
         "apps/filemanager/filemanagerbookinfo", "gettext+" }
     local saved, Rakuyomi, config, listing, opened_callback, starts, resumes, initialized, errors, resumed_manga
     local saved_settings, saved_time, queued, invalidated, native_opens, opened_listing
-    local saved_cancel_banner, banner_cancels
+    local saved_cancel_banner, banner_cancels, saved_shared_preload
     local file = "/data/rakuyomi/tmpfs/chapter.cbz"
     local manga = { id = "series", source = { id = "source" }, title = "Series title",
         manga_cover = "file:///posters/series%20cover.jpg", viewer = "Rtl", state_viewer = true }
@@ -469,6 +470,7 @@ describe("Rakuyomi recent Home series", function()
         saved_settings = G_reader_settings
         saved_time = os.time
         saved_cancel_banner = _G.__ZEN_UI_CANCEL_OPENING_BANNER
+        saved_shared_preload = package.preload.RakuyomiShared
         banner_cancels = 0
         _G.__ZEN_UI_CANCEL_OPENING_BANNER = function() banner_cancels = banner_cancels + 1 end
         _G.G_reader_settings = ZenSpec.memorySettings({ file_ask_to_open = true })
@@ -548,6 +550,7 @@ describe("Rakuyomi recent Home series", function()
     after_each(function()
         _G.G_reader_settings = saved_settings
         _G.__ZEN_UI_CANCEL_OPENING_BANNER = saved_cancel_banner
+        package.preload.RakuyomiShared = saved_shared_preload
         rawset(os, "time", saved_time)
         for _i, name in ipairs(names) do package.loaded[name] = saved[name] end
     end)
@@ -659,6 +662,8 @@ describe("Rakuyomi recent Home series", function()
         assert.equals("Manga author", fallback.authors)
         assert.equals("Manga description", fallback.description)
         assert.is_nil(fallback.cover_bb)
+        Rakuyomi.getRecentBook = function() error("manga provider failed to load") end
+        assert.is_table(BookInfoManager:getBookInfo(file, false))
     end)
 
     it("captures the new file after a deferred chapter switch and invalidates Home", function()
@@ -849,6 +854,30 @@ describe("Rakuyomi recent Home series", function()
         series = Rakuyomi.getRecentSeries({ { file = file, time = 250 } })
         assert.equals("Existing series", series[1].manga.title)
         assert.equals(250, series[1].time)
+        assert.equals(0, starts)
+    end)
+
+    it("keeps saved series when Rakuyomi's origin helper is unavailable", function()
+        listing:openChapterOnReader(chapter)
+        opened_callback()
+        Rakuyomi.isChapterFile = function() return true end
+        Rakuyomi.getMetadata = function(path)
+            assert.equals(file, path)
+            return {}
+        end
+        ZenSpec.unload("RakuyomiShared")
+        package.preload.RakuyomiShared = function() error("module 'RakuyomiShared' not found") end
+        local history = { { file = "/library/book.epub", time = 300 },
+            { file = file, time = os.time() + 1 }, { file = "/data/other.cbz", time = 100 } }
+
+        for _i, helper in ipairs({ false, {} }) do
+            package.loaded.RakuyomiShared = helper
+            local series = Rakuyomi.getRecentSeries(history)
+            assert.equals(1, #series)
+            assert.equals(file, series[1].file)
+            assert.equals(history[2].time, series[1].time)
+            assert.equals("Series title", Rakuyomi.getRecentBook(series[1], true).title)
+        end
         assert.equals(0, starts)
     end)
 

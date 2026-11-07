@@ -34,7 +34,7 @@ describe("clock timer", function()
         ClockTimer.subscribe("library", function() end)
         ClockTimer.subscribe("status", function() end)
         assert.are.equal(1, #scheduled)
-        assert.are.equal(18, scheduled[1].delay)
+        assert.are.equal(19, scheduled[1].delay)
     end)
 
     it("runs all callbacks, removes invalid subscribers, and schedules the next tick", function()

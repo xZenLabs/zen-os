@@ -7,8 +7,11 @@ local OPTICAL_ICON_SCALES = {
     zen_ui = 1.25,
 }
 
-function M.iconOpticalScale(name)
+-- Logo scaling only: pack replacements render at normal size.
+function M.iconOpticalScale(name, path)
     if type(name) ~= "string" then return 1 end
+    if path and package.loaded["common/icon_packs"]
+            and package.loaded["common/icon_packs"].isPackIcon(path) then return 1 end
     local filename = name:match("([^/]+)$") or name
     local stem = filename:gsub("%.[^.]+$", "")
     return OPTICAL_ICON_SCALES[stem] or 1
@@ -36,6 +39,22 @@ end
 
 --- Truncate by UTF-8 codepoint count without splitting a multibyte character.
 --- max_chars includes the ellipsis length.
+-- Finds a table upvalue by name, following up to 3 levels of wrapper functions.
+function M.findUpvalueTable(fn, name, depth, seen)
+    depth, seen = depth or 0, seen or {}
+    if type(fn) ~= "function" or seen[fn] then return nil end
+    seen[fn] = true
+    for i = 1, 64 do
+        local upname, value = debug.getupvalue(fn, i)
+        if not upname then break end
+        if upname == name and type(value) == "table" then return value end
+        if depth < 3 and type(value) == "function" then
+            local found = M.findUpvalueTable(value, name, depth + 1, seen)
+            if found then return found end
+        end
+    end
+end
+
 function M.truncateUtf8(text, max_chars, ellipsis)
     if type(text) ~= "string" then return text end
     max_chars = math.floor(tonumber(max_chars) or 0)
@@ -214,7 +233,7 @@ function M.isCustomIconsEnabled()
     _custom_icons_enabled = false
     pcall(function()
         local ConfigManager = require("config/manager")
-        local cfg = ConfigManager.load()
+        local cfg = ConfigManager.get() or ConfigManager.load()
         if cfg and cfg.features and cfg.features.custom_icons_enabled == true then
             _custom_icons_enabled = true
         end
@@ -242,6 +261,17 @@ function M.resolveIcon(plugin_icons_dir, name)
     return M.resolveLocalIcon(plugin_icons_dir, name)
 end
 
+-- Plugin version + icon list hash; changes after install/update or icon list edits.
+local function plugin_icons_stamp(icons_dir, icons)
+    local ok, meta = pcall(dofile, icons_dir .. "../_meta.lua")
+    local entries = {}
+    for name, filename in pairs(icons) do entries[#entries + 1] = name .. "=" .. filename end
+    table.sort(entries)
+    local text, hash = table.concat(entries, ","), 5381
+    for i = 1, #text do hash = (hash * 33 + text:byte(i)) % 4294967296 end
+    return (ok and type(meta) == "table" and tostring(meta.version) or "?") .. ":" .. hash, entries[1]
+end
+
 --- Register plugin icons so short names resolve via IconWidget at runtime.
 --- Optionally copies files to the user icons dir for cold-start resolution.
 ---
@@ -253,8 +283,19 @@ function M.registerPluginIcons(icons_dir, icons, copy_to_user_dir)
     pcall(function()
         local lfs = require("libs/libkoreader-lfs")
         local user_icons_dir = M.isCustomIconsEnabled() and M.getUserIconsDir() or nil
+        local settings = rawget(_G, "G_reader_settings")
+        -- Skip the per-icon copy and stat pass when this version already ran and a sentinel copy exists.
+        local stamp, sentinel, current
+        if copy_to_user_dir and settings then
+            stamp, sentinel = plugin_icons_stamp(icons_dir, icons)
+            local name, filename = (sentinel or ""):match("^(.-)=(.*)$")
+            local dst = name and M.getUserIconsDir()
+                and M.getUserIconsDir() .. name .. (filename:match("%.[^%.]+$") or ".svg")
+            current = settings:readSetting("zen_ui_plugin_icons_stamp") == stamp
+                and dst and lfs.attributes(dst, "mode") == "file"
+        end
 
-        if copy_to_user_dir then
+        if copy_to_user_dir and not current then
             pcall(function()
                 local DataStorage = require("datastorage")
                 local ffiutil = require("ffi/util")
@@ -273,6 +314,7 @@ function M.registerPluginIcons(icons_dir, icons, copy_to_user_dir)
                         end
                     end
                 end
+                if stamp then settings:saveSetting("zen_ui_plugin_icons_stamp", stamp) end
             end)
         end
 
@@ -311,7 +353,7 @@ function M.registerPluginIcons(icons_dir, icons, copy_to_user_dir)
                     icons_path[name] = user_p
                 else
                     local p = icons_dir .. filename
-                    if lfs.attributes(p, "mode") == "file" then
+                    if current or lfs.attributes(p, "mode") == "file" then
                         icons_path[name] = p
                     end
                 end
@@ -347,14 +389,14 @@ function M.overrideIcons(overrides, prefer_user_icon)
     end
 end
 
-local __ = require("gettext")
+local _ = require("gettext")
 
 --- Localised page-count label (abbreviated or full word form).
 --- @param pages number
 --- @param long  boolean|nil  true for full form ("pages"), false for short ("p.")
 --- @return string
 function M.formatPageCount(pages, long)
-    local label = long and __("pages") or __("p.")
+    local label = long and _("pages") or _("p.")
     return tostring(pages) .. "\u{00A0}" .. label
 end
 
@@ -435,9 +477,9 @@ function M.paintBadgeCircle(bb, cx, cy, radius, color)
     end
 end
 
-function M.paintBadgeCheck(bb, x, y, width, height, color)
+local function badge_line_painter(bb, width, height, color)
     local thickness = math.max(2, math.floor(math.min(width, height) / 8))
-    local function line(x0, y0, x1, y1)
+    return function(x0, y0, x1, y1)
         local steps = math.max(math.abs(x1 - x0), math.abs(y1 - y0))
         if steps == 0 then steps = 1 end
         for step = 0, steps do
@@ -446,10 +488,26 @@ function M.paintBadgeCheck(bb, x, y, width, height, color)
                 math.floor(y0 + t * (y1 - y0)), thickness, thickness, color)
         end
     end
+end
+
+function M.paintBadgeCheck(bb, x, y, width, height, color)
+    local line = badge_line_painter(bb, width, height, color)
     local lx0, ly0 = x + math.floor(width * 0.08), y + math.floor(height * 0.62)
     local lx1, ly1 = x + math.floor(width * 0.30), y + math.floor(height * 0.82)
     line(lx0, ly0, lx1, ly1)
     line(lx1, ly1, x + math.floor(width * 0.82), y + math.floor(height * 0.18))
+end
+
+-- Down arrow over a tray line.
+function M.paintBadgeDownload(bb, x, y, width, height, color)
+    local line = badge_line_painter(bb, width, height, color)
+    local cx = x + math.floor(width * 0.45)
+    local tip = y + math.floor(height * 0.66)
+    line(cx, y + math.floor(height * 0.04), cx, tip)
+    line(x + math.floor(width * 0.18), y + math.floor(height * 0.40), cx, tip)
+    line(x + math.floor(width * 0.72), y + math.floor(height * 0.40), cx, tip)
+    local base = y + math.floor(height * 0.86)
+    line(x + math.floor(width * 0.08), base, x + math.floor(width * 0.82), base)
 end
 
 --- @param config table|nil  the plugin config table (p.config)
@@ -476,6 +534,13 @@ local function get_badge_rgb(config)
         local r = math.max(0, math.min(255, tonumber(c[1] or c.r) or 0))
         local g = math.max(0, math.min(255, tonumber(c[2] or c.g) or 0))
         local b = math.max(0, math.min(255, tonumber(c[3] or c.b) or 0))
+        local opacity = math.max(0, math.min(100, tonumber(config.browser_cover_badges.badge_opacity) or 100))
+        if opacity < 100 then
+            local Blitbuffer = require("ffi/blitbuffer")
+            local color = Blitbuffer.COLOR_WHITE:getColorRGB32()
+            color:blend(Blitbuffer.ColorRGB32(r, g, b, 255), math.floor(opacity * 255 / 100 + 0.5))
+            return color:getR(), color:getG(), color:getB()
+        end
         return r, g, b
     end
 end
@@ -629,6 +694,42 @@ function M.closeWidgetsAbove(anchor_widget)
         table.insert(to_close, entry.widget)
     end
     for _i, w in ipairs(to_close) do UIManager:close(w) end
+end
+
+-- Free space on the library mount (df -h "Avail"); cached 5 min, failures too, to limit shell spawns.
+local disk_free_text, disk_free_at
+function M.getDiskFreeText()
+    local now = os.time()
+    if disk_free_at and now - disk_free_at < 300 then return disk_free_text end
+    disk_free_at, disk_free_text = now, nil
+    local lfs = require("libs/libkoreader-lfs")
+    local util = require("util")
+    local dirs = { require("common/paths").getHomeDir(), "/mnt/us", "/mnt/onboard", "/sdcard", "/" }
+    for i = 1, 5 do
+        local dir = dirs[i]
+        if type(dir) == "string" and dir ~= "" and lfs.attributes(dir, "mode") == "directory" then
+            local pipe = io.popen("df -h " .. util.shell_escape({ dir }) .. " 2>/dev/null")
+            if pipe then
+                for line in pipe:lines() do
+                    local avail = line:match("%S+%s+%S+%s+%S+%s+(%S+)")
+                    if avail and avail:match("^%d") then disk_free_text = avail; break end
+                end
+                pipe:close()
+                if disk_free_text then return disk_free_text end
+            end
+        end
+    end
+    return nil
+end
+
+--- Run fn without powerd's FrontlightStateChanged broadcast. Mid-drag it makes ReaderFooter
+--- repaint the dithered ReaderUI, which dithers (and flashes) every other refresh that frame.
+function M.withoutFrontlightBroadcast(powerd, fn)
+    local state_changed = rawget(powerd, "stateChanged")
+    powerd.stateChanged = function() end
+    local ok, err = pcall(fn)
+    powerd.stateChanged = state_changed
+    if not ok then error(err, 0) end
 end
 
 return M

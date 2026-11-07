@@ -10,10 +10,12 @@ return function()
     Button._zen_feedback_patched = true
 
     local Screen = Device.screen
-    local orig_refresh_ui = Screen.refreshUIImp
-    function Screen:refreshUIImp(x, y, w, h, dither)
-        if self.mech_refresh and self.waveform_full and not self.night_mode then
-            -- AUTO can flash the rectangular refresh region around rounded feedback.
+    local orig_refresh_ui = Screen.refreshUI
+    function Screen:refreshUI(x, y, w, h, dither)
+        -- Full waveform only for color feedback regions; AUTO flashes their refresh rectangle.
+        if self.mech_refresh and self.waveform_full and self:isColorScreen() and not self.night_mode
+                and Feedback.consumeRegion(x, y, w, h) then
+            x, y, w, h = self:calculateRealCoordinates(x, y, w, h)
             if Device.isSunxi and Device:isSunxi() then
                 return self:mech_refresh(false, false, self.waveform_full, x, y, w, h, false)
             end
@@ -32,7 +34,7 @@ return function()
         }
             or Feedback.paddedRegion(dimen)
         self._zen_feedback_pixels = Feedback.highlight(self._zen_feedback_region)
-        UIManager:setDirty(nil, Feedback.getRefreshMode(), self._zen_feedback_region)
+        Feedback.setDirty(nil, Feedback.getRefreshMode(), self._zen_feedback_region)
     end
 
     function Button:_undoFeedbackHighlight(is_translucent)
@@ -47,8 +49,7 @@ return function()
         else
             Feedback.restore(region, saved)
         end
-        UIManager:setDirty(is_translucent and self.show_parent or nil,
-            "ui", region)
+        Feedback.setDirty(is_translucent and self.show_parent or nil, "ui", region)
     end
 
     local orig_paint_to = Button.paintTo

@@ -477,7 +477,7 @@ function M.buildSpec(ui, opts)
         local ImageViewer = require("ui/widget/imageviewer")
         local viewer = ImageViewer:new{
             image = bookinfo.cover_bb,
-            image_disposable = false,
+            image_disposable = true, -- getBookInfo(file, true) returns a fresh decode
             fullscreen = true,
             with_title_bar = false,
         }
@@ -518,6 +518,7 @@ function M.buildSpec(ui, opts)
         text_faces = text_faces,
         edit_callback = opts.edit_callback,
         close_all_callback = opts.close_all_callback,
+        show_back = opts.show_back == true or (opts.show_back == nil and ui.link == nil),
     }
 end
 

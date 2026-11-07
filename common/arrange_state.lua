@@ -87,7 +87,10 @@ function M.moveTableItem(items, from, target)
             or type(items[from]) ~= "table" then
         return false
     end
-    if items[from].arrange_pinned_last then return false end
+    if items[from].arrange_pinned_first or items[from].arrange_pinned_last then return false end
+    while target < #items and items[target] and items[target].arrange_pinned_first do
+        target = target + 1
+    end
     while target > 1 and items[target] and items[target].arrange_pinned_last do
         target = target - 1
     end

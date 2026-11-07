@@ -21,7 +21,7 @@ describe("file browser navbar navigation", function()
     local native_launches
     local dispatcher_executions
     local real_paths
-    local full_repaints
+    local page_refreshes
     local device_has_keys
     local screen_rotation_mode
     local screen_is_color
@@ -29,6 +29,8 @@ describe("file browser navbar navigation", function()
     local original_color_text_widget
     local original_feedback
     local original_rakuyomi
+    local original_manga_reader
+    local original_kindle
 
     local function class(methods)
         methods = methods or {}
@@ -60,6 +62,8 @@ describe("file browser navbar navigation", function()
 
     before_each(function()
         original_rakuyomi = rawget(_G, "__ZEN_UI_RAKUYOMI")
+        original_manga_reader = package.loaded.MangaReader
+        original_kindle = package.loaded["modules/filebrowser/patches/kindle_virtual_library"]
         original_feedback = package.loaded["common/ui/button_feedback"]
         ZenSpec.replace("common/ui/button_feedback", {
             flashButton = function() error("navbar buttons must not flash") end,
@@ -81,7 +85,7 @@ describe("file browser navbar navigation", function()
         native_launches = {}
         dispatcher_executions = {}
         real_paths = {}
-        full_repaints = 0
+        page_refreshes = 0
         device_has_keys = false
         screen_rotation_mode = 0
         screen_is_color = false
@@ -219,8 +223,11 @@ describe("file browser navbar navigation", function()
         })
         UIManager = {
             _window_stack = {},
-            setDirty = function() end,
-            forceRePaint = function() full_repaints = full_repaints + 1 end,
+            -- A page switch is one full-screen "partial" refresh (flash cadence is KOReader's).
+            setDirty = function(_self, widget, mode)
+                if widget == nil and mode == "partial" then page_refreshes = page_refreshes + 1 end
+            end,
+            forceRePaint = function() page_refreshes = page_refreshes + 1 end,
             nextTick = function(_, callback)
                 initial_reinject_callback = initial_reinject_callback or callback
                 callback()
@@ -283,6 +290,7 @@ describe("file browser navbar navigation", function()
                 library_font_sizes[#library_font_sizes + 1] = size
                 return { size = size }
             end,
+            getFontName = function() return "font" end,
             scaleValue = function() error("navbar used library font size") end,
         })
         ZenSpec.replace("libs/libkoreader-lfs", {
@@ -352,6 +360,8 @@ describe("file browser navbar navigation", function()
 
     after_each(function()
         _G.__ZEN_UI_RAKUYOMI = original_rakuyomi
+        package.loaded.MangaReader = original_manga_reader
+        package.loaded["modules/filebrowser/patches/kindle_virtual_library"] = original_kindle
         for _i, name in ipairs({
             "__ZEN_UI_PLUGIN", "__ZEN_UI_NAVBAR_OPEN_DEFAULT_TAB", "__ZEN_UI_NAVBAR_OPEN_TAB",
             "__ZEN_UI_NAVBAR_OPEN_FOLDER", "__ZEN_UI_NAVBAR_OPEN_TAG",
@@ -365,6 +375,7 @@ describe("file browser navbar navigation", function()
             "__ZEN_UI_KEEP_BOOK_LOCATION",
             "__ZEN_UI_HIDDEN_HOME_BOOTSTRAP", "__ZEN_UI_DEFER_FILEMANAGER_LISTING",
             "__ZEN_UI_ARCHIVE_LISTING_DIRTY",
+            "__ZEN_UI_RAKUYOMI_CHAPTER_LIST_RESTORED",
         }) do
             _G[name] = nil
         end
@@ -535,6 +546,7 @@ describe("file browser navbar navigation", function()
     end)
 
     it("skips chapter-list restoration during a RAM chapter handoff", function()
+        _G.__ZEN_UI_PLUGIN.config.rakuyomi = { open_on_manga_exit = true }
         local restored = 0
         _G.__ZEN_UI_RAKUYOMI = {
             _chapter_handoff_pending = true,
@@ -554,6 +566,82 @@ describe("file browser navbar navigation", function()
         assert.same({ "base:/library:nil" }, calls)
         assert.is_nil(fm.invisible)
         assert.equals(state, _G.__ZEN_UI_LIBRARY_STATE)
+    end)
+
+    it("follows Zen's exit setting when reopening Rakuyomi is disabled during reading", function()
+        local opened_library, opened_chapters = 0, 0
+        _G.__ZEN_UI_RAKUYOMI = {
+            openLibraryView = function() opened_library = opened_library + 1; return true end,
+            openChapterListingFromFile = function() opened_chapters = opened_chapters + 1; return true end,
+        }
+        _G.__ZEN_UI_PLUGIN.config.rakuyomi = {
+            open_on_manga_exit = false, return_to_chapter_list_on_exit = true,
+        }
+        for _i, restore in ipairs({ false, true }) do
+            _G.__ZEN_UI_PLUGIN.config.features.restore_library_view = restore
+            _G.__ZEN_UI_FORCE_DEFAULT_LIBRARY_TAB = not restore or nil
+            _G.__ZEN_UI_LIBRARY_STATE = {
+                tab = "manga", force_restore = true, rakuyomi_return_file = "/library/chapter.cbz",
+            }
+            local fm = make_instance()
+            FileManager._test_next_instance = fm
+            calls = {}
+
+            FileManager.showFiles(FileManager, "/library", "/library/chapter.cbz")
+
+            assert.equals(0, opened_chapters)
+            assert.equals(0, opened_library)
+            assert.is_nil(_G.__ZEN_UI_LIBRARY_STATE)
+            if not restore then assert.equals("home", calls[#calls]) end
+        end
+    end)
+
+    it("defers Rakuyomi Home to the pending reader return callback", function()
+        local opened_library = 0
+        ZenSpec.replace("MangaReader", { _zen_rakuyomi_return_pending = true })
+        _G.__ZEN_UI_RAKUYOMI = {
+            openLibraryView = function() opened_library = opened_library + 1; return true end,
+        }
+        _G.__ZEN_UI_PLUGIN.config.rakuyomi = {
+            open_on_manga_exit = true, return_to_chapter_list_on_exit = false,
+        }
+        _G.__ZEN_UI_LIBRARY_STATE = { tab = "manga", force_restore = true }
+        local fm = make_instance()
+        FileManager._test_next_instance = fm
+
+        FileManager.showFiles(FileManager, "/library", "/library/chapter.cbz")
+
+        assert.equals(0, opened_library)
+        assert.is_nil(fm.invisible)
+    end)
+
+    it("keeps the Rakuyomi library and chapter-list return options when reopening is enabled", function()
+        local opened_library, opened_chapters = 0, 0
+        UIManager._dirty = {}
+        _G.__ZEN_UI_RAKUYOMI = {
+            openLibraryView = function() opened_library = opened_library + 1; return true end,
+            openChapterListingFromFile = function(file)
+                assert.equals("/library/chapter.cbz", file)
+                opened_chapters = opened_chapters + 1
+                return true
+            end,
+        }
+        for _i, chapter_list in ipairs({ false, true }) do
+            _G.__ZEN_UI_PLUGIN.config.rakuyomi = {
+                open_on_manga_exit = true, return_to_chapter_list_on_exit = chapter_list,
+            }
+            _G.__ZEN_UI_LIBRARY_STATE = {
+                tab = "manga", force_restore = true, rakuyomi_return_file = "/library/chapter.cbz",
+            }
+            local fm = make_instance()
+            FileManager._test_next_instance = fm
+
+            FileManager.showFiles(FileManager, "/library", "/library/chapter.cbz")
+
+            assert.equals(1, opened_library)
+            assert.equals(chapter_list and 1 or 0, opened_chapters)
+            assert.is_nil(fm.invisible)
+        end
     end)
 
     it("lets a forced default Home override saved Series state", function()
@@ -1125,17 +1213,15 @@ describe("file browser navbar navigation", function()
         end
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
-        assert.are.equal(1, #next_ticks)
-        table.remove(next_ticks, 1)()
+        assert.are.equal(0, #next_ticks)
         calls = {}
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
         assert.are.same({}, calls)
         assert.are.equal(3, fm.file_chooser.page)
         assert.are.equal(1, cover_resume_calls)
-        assert.are.equal(2, #next_ticks)
+        assert.are.equal(1, #next_ticks)
 
-        table.remove(next_ticks, 1)()
         table.remove(next_ticks, 1)()
         assert.are.same({}, calls)
         assert.is_nil(fm.file_chooser._zen_home_retained_library)
@@ -1206,7 +1292,6 @@ describe("file browser navbar navigation", function()
             next_ticks[#next_ticks + 1] = callback
         end
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
-        table.remove(next_ticks, 1)()
         dir_mtimes["/library/sub"] = 21
         calls = {}
 
@@ -1240,7 +1325,6 @@ describe("file browser navbar navigation", function()
             next_ticks[#next_ticks + 1] = callback
         end
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
-        table.remove(next_ticks, 1)()
         dir_mtimes["/library/sub"] = 21
         calls = {}
 
@@ -1252,6 +1336,44 @@ describe("file browser navbar navigation", function()
             measurement_detail(measurements[2], "recursive_validation="))
         assert.are.equal("true", measurement_detail(measurements[2], "listing_changed="))
         assert.are.equal("true", measurement_detail(measurements[2], "refreshed="))
+    end)
+
+    it("checks the flat listing cache when revealing a retained Library", function()
+        local fm = make_instance()
+        local fc = fm.file_chooser
+        fc.path = "/library"
+        fc.page = 2
+        fc._zen_lib_mtime_snapshot = { ["/library"] = 10 }
+        fc._zen_lib_mtime_snapshot_at = os.clock()
+        dir_mtimes["/library"] = 10
+        _G.__ZEN_UI_PLUGIN.config.browser_flat_view = { enabled = true }
+        local next_ticks = {}
+        UIManager.nextTick = function(_self, callback)
+            next_ticks[#next_ticks + 1] = callback
+        end
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
+        local cache_state = "memory_hit"
+        fc._zen_warm_item_table = function(_self, path)
+            calls[#calls + 1] = "warm:" .. path
+            return { { path = "/library/Author/Series/Title/New.epub" } }, { cache = cache_state }
+        end
+        calls = {}
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
+        assert.are.same({}, calls)
+        table.remove(next_ticks, 1)()
+        assert.are.same({ "warm:/library" }, calls)
+        assert.are.equal("false", measurement_detail(measurements[2], "refreshed="))
+        while #next_ticks > 0 do table.remove(next_ticks, 1)() end
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
+        while #next_ticks > 0 do table.remove(next_ticks, 1)() end
+        cache_state = "miss"
+        calls = {}
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
+        while #next_ticks > 0 do table.remove(next_ticks, 1)() end
+        assert.are.same({ "warm:/library", "books:/library" }, calls)
+        assert.are.equal("true", measurement_detail(measurements[#measurements], "refreshed="))
     end)
 
     it("ignores sidecar directories during recursive Library validation", function()
@@ -1268,7 +1390,6 @@ describe("file browser navbar navigation", function()
             next_ticks[#next_ticks + 1] = callback
         end
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
-        table.remove(next_ticks, 1)()
         dir_mtimes["/library/Book.sdr"] = 21
         calls = {}
 
@@ -1416,7 +1537,8 @@ describe("file browser navbar navigation", function()
             { widget = fm },
             { widget = home_widget },
         }
-        UIManager.setDirty = function(_self, widget)
+        UIManager.setDirty = function(_self, widget, mode)
+            if widget == nil and mode == "partial" then page_refreshes = page_refreshes + 1 end
             if widget == fm and widget.invisible ~= true then
                 rendered_paths[#rendered_paths + 1] = fc.path
             end
@@ -1432,7 +1554,7 @@ describe("file browser navbar navigation", function()
         assert.is_nil(fc._zen_needs_full_listing)
         assert.are.equal("Folder", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
         assert.are.same({ "/library" }, rendered_paths)
-        assert.are.equal(1, full_repaints)
+        assert.are.equal(1, page_refreshes)
     end)
 
     it("keeps Folder active when FileChooser canonicalizes its configured path", function()
@@ -1569,7 +1691,7 @@ describe("file browser navbar navigation", function()
         assert.is_nil(fc._zen_hidden_home_startup)
         assert.is_nil(fc._zen_needs_full_listing)
         assert.are.equal("Manga", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
-        assert.are.equal(1, full_repaints)
+        assert.are.equal(1, page_refreshes)
     end)
 
     it("handles a cold Folder tap from the live Home navbar", function()
@@ -1606,7 +1728,8 @@ describe("file browser navbar navigation", function()
         dir_mtimes["/library/Fiction"] = 10
         local navbar_config = _G.__ZEN_UI_PLUGIN.config.navbar
         navbar_config.tab_order = { "home", "folder" }
-        UIManager.setDirty = function(_self, widget)
+        UIManager.setDirty = function(_self, widget, mode)
+            if widget == nil and mode == "partial" then page_refreshes = page_refreshes + 1 end
             if (widget == fm or widget == wrapper) and widget.invisible ~= true then
                 rendered_paths[#rendered_paths + 1] = fc.path
             end
@@ -1648,7 +1771,7 @@ describe("file browser navbar navigation", function()
         assert.is_nil(wrapper._zen_hidden_home_startup)
         assert.are.equal("Folder", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
         assert.are.same({ "/library/Fiction" }, rendered_paths)
-        assert.are.equal(2, full_repaints)
+        assert.are.equal(2, page_refreshes)
 
         local filemanager_navbar = fm[1][1][2]
         calls = {}
@@ -1676,7 +1799,7 @@ describe("file browser navbar navigation", function()
         assert.is_nil(fc._zen_hidden_home_startup)
         assert.is_nil(fc._zen_needs_full_listing)
         assert.are.equal("Library", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
-        assert.are.equal(1, full_repaints)
+        assert.are.equal(1, page_refreshes)
     end)
 
     it("does not reopen the navbar page already on top", function()
@@ -1687,10 +1810,26 @@ describe("file browser navbar navigation", function()
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("authors"))
         assert.are.same({}, calls)
-        assert.are.equal(0, full_repaints)
+        assert.are.equal(0, page_refreshes)
     end)
 
-    it("fully refreshes every navbar page switch, including Authors to Library and Home", function()
+    it("invalidates and refreshes the active Library when its icon is tapped", function()
+        local fm = make_instance()
+        local fc = fm.file_chooser
+        fc.path = "/library"
+        fc._zen_invalidate_item_table_path = function(_self, path)
+            calls[#calls + 1] = "invalidate:" .. path
+        end
+        fc.refreshPath = function() calls[#calls + 1] = "refresh" end
+        UIManager._window_stack = { { widget = fm } }
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
+
+        assert.are.same({ "invalidate:/library", "refresh" }, calls)
+        assert.are.equal(1, page_refreshes)
+    end)
+
+    it("refreshes every navbar page switch, including Authors to Library and Home", function()
         local fm = make_instance()
         UIManager._window_stack = { { widget = fm } }
         home_widget._zen_navbar_tab_id = "home"
@@ -1713,7 +1852,7 @@ describe("file browser navbar navigation", function()
         end
         local refreshes = 0
         UIManager.setDirty = function(_self, widget, mode, region)
-            if mode == "full" then
+            if mode == "partial" then
                 assert.is_nil(widget)
                 assert.is_nil(region)
                 refreshes = refreshes + 1
@@ -1737,7 +1876,7 @@ describe("file browser navbar navigation", function()
         assert.are.equal(#tabs + 1, refreshes)
     end)
 
-    it("fully refreshes Authors to retained Home through touch and keyboard navigation", function()
+    it("refreshes Authors to retained Home through touch and keyboard navigation", function()
         device_has_keys = true
         _G.__ZEN_UI_PLUGIN.config.navbar.tab_order = { "home", "authors" }
         local fm = make_instance()
@@ -1766,7 +1905,7 @@ describe("file browser navbar navigation", function()
         end
         local refreshes = 0
         UIManager.setDirty = function(_self, widget, mode)
-            if mode == "full" then
+            if mode == "partial" then
                 assert.is_nil(widget)
                 refreshes = refreshes + 1
             end
@@ -1785,11 +1924,10 @@ describe("file browser navbar navigation", function()
         }
         for _i, activate in ipairs(activations) do
             assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("authors"))
-            refreshes, full_repaints = 0, 0
+            refreshes, page_refreshes = 0, 0
             activate()
             assert.are.equal(home_widget, UIManager._window_stack[#UIManager._window_stack].widget)
             assert.are.equal(1, refreshes)
-            assert.are.equal(1, full_repaints)
             assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
             assert.are.equal(1, refreshes)
         end
@@ -1843,13 +1981,13 @@ describe("file browser navbar navigation", function()
             inject(status_menu, tab_id)
         end
         _G.__ZEN_UI_REINJECT_FM_NAVBAR()
-        full_repaints = 0
+        page_refreshes = 0
         calls = {}
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("ct_finished"))
         assert.same({ "status:complete:Finished:ct_finished" }, calls)
         assert.are.equal("Finished", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
-        assert.are.equal(1, full_repaints)
+        assert.are.equal(1, page_refreshes)
 
         local status_navbar = status_menu[1][1][2]
         status_navbar.getTappedTabId = function() return "ct_finished" end
@@ -1857,9 +1995,9 @@ describe("file browser navbar navigation", function()
         assert.is_true(status_navbar:onTapNavBar(nil, { pos = { x = 400, y = 1 } }))
         assert.are.equal(1, status_menu.page)
         assert.are.same({ "status_reset" }, calls)
-        assert.are.equal(2, full_repaints)
+        assert.are.equal(2, page_refreshes)
         assert.is_true(status_navbar:onTapNavBar(nil, { pos = { x = 400, y = 1 } }))
-        assert.are.equal(2, full_repaints)
+        assert.are.equal(2, page_refreshes)
     end)
 
     it("launches available native menu tabs and retains unavailable ones", function()
@@ -2012,7 +2150,7 @@ describe("file browser navbar navigation", function()
             reveal.details)
     end)
 
-    it("uses one full refresh between Library and Home", function()
+    it("uses one page refresh between Library and Home", function()
         local fm = make_instance()
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
         fm.file_chooser.path = "/library"
@@ -2023,10 +2161,10 @@ describe("file browser navbar navigation", function()
             { widget = home_widget },
         }
         local flash_count = 0
-        local full_count = 0
+        local page_count = 0
         UIManager.setDirty = function(_self, _widget, mode)
             if mode == "flashui" then flash_count = flash_count + 1 end
-            if mode == "full" then full_count = full_count + 1 end
+            if mode == "partial" then page_count = page_count + 1 end
         end
         shared.home.resumeActive = function(refresh_type)
             home_refresh_type = refresh_type
@@ -2037,10 +2175,10 @@ describe("file browser navbar navigation", function()
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
         assert.is_nil(home_refresh_type)
         assert.are.equal(0, flash_count)
-        assert.are.equal(1, full_count)
+        assert.are.equal(1, page_count)
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
         assert.are.equal(0, flash_count)
-        assert.are.equal(2, full_count)
+        assert.are.equal(2, page_count)
     end)
 
     it("reveals a reinitialized hidden FileManager before handling Library taps", function()
@@ -2084,7 +2222,7 @@ describe("file browser navbar navigation", function()
         assert.is_nil(fm.invisible)
         assert.is_nil(fm._zen_hidden_home_startup)
         assert.are.same({
-            mode = "full",
+            mode = "partial",
             top = fm,
         }, reveal)
         local top = UIManager._window_stack[#UIManager._window_stack].widget
@@ -2121,7 +2259,7 @@ describe("file browser navbar navigation", function()
         assert.are.equal(wrapper, UIManager._window_stack[2].widget)
     end)
 
-    it("records a real navbar tap to retained Home with one full refresh", function()
+    it("records a real navbar tap to retained Home with one page refresh", function()
         local fm = make_instance()
         fm.file_chooser.path = "/library"
         fm.file_chooser.page = 1
@@ -2158,8 +2296,8 @@ describe("file browser navbar navigation", function()
         assert.is_true(navbar:onTapNavBar(nil, { pos = { x = 50, y = 1 } }))
 
         assert.are.same({ "resume_home" }, calls)
-        assert.are.equal(1, force_repaints)
-        assert.are.same({ mode = "full" }, dirty[#dirty])
+        assert.are.equal(0, force_repaints)
+        assert.are.same({ mode = "partial" }, dirty[#dirty])
         local reveal
         for _i, measurement in ipairs(measurements) do
             if measurement.message == "Library to Home first reveal" then
@@ -2408,13 +2546,29 @@ describe("file browser navbar navigation", function()
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("stats"))
         assert.are.equal(_G.__ZEN_UI_PLUGIN, stats_plugin)
-        assert.are.equal(1, full_repaints)
+        assert.are.equal(1, page_refreshes)
         local navbar = stats_page[1][1][2]
         calls = {}
 
         assert.is_true(navbar:onTapNavBar(nil, { pos = { x = 620, y = 1 } }))
         assert.are.same({ "to_be_read" }, calls)
-        assert.are.equal(2, full_repaints)
+        assert.are.equal(2, page_refreshes)
+    end)
+
+    it("keeps navigation working when optional library providers fail", function()
+        _G.__ZEN_UI_RAKUYOMI = { openLibraryView = function() error("manga plugin did not load") end }
+        ZenSpec.replace("modules/filebrowser/patches/kindle_virtual_library", { isAvailable = function()
+            error("kindle plugin did not load")
+        end })
+        local navbar_config = _G.__ZEN_UI_PLUGIN.config.navbar
+        navbar_config.show_tabs.kindle = true
+        navbar_config.show_tabs.manga = true
+        navbar_config.tab_order = { "kindle", "manga", "books" }
+        make_instance()
+
+        _G.__ZEN_UI_NAVBAR_OPEN_TAB("kindle")
+        _G.__ZEN_UI_NAVBAR_OPEN_TAB("manga")
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
     end)
 
     it("opens Kindle as a standalone tab and resets it to page one", function()
@@ -2592,12 +2746,10 @@ describe("file browser navbar navigation", function()
         assert.are.equal(2, detail.page)
     end)
 
-    it("fully refreshes when revealing the current Library page", function()
+    it("refreshes when revealing the current Library page", function()
         local fm = make_instance()
         fm.file_chooser.path = "/library"
-        fm.file_chooser.onGotoPage = function(_, page)
-            calls[#calls + 1] = "goto:" .. tostring(page)
-        end
+        fm.file_chooser.refreshPath = function() calls[#calls + 1] = "refresh" end
         local next_ticks = {}
         local dirty = {}
         local force_repaints = 0
@@ -2609,12 +2761,11 @@ describe("file browser navbar navigation", function()
         calls = {}
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
-        assert.are.same({ "goto:1" }, calls)
-        assert.are.equal(2, #next_ticks)
+        assert.are.same({ "refresh" }, calls)
+        assert.are.equal(1, #next_ticks)
         table.remove(next_ticks, 1)()
-        table.remove(next_ticks, 1)()
-        assert.are.same({ mode = "full" }, dirty[#dirty])
-        assert.are.equal(1, force_repaints)
+        assert.are.same({ mode = "partial" }, dirty[#dirty])
+        assert.are.equal(0, force_repaints)
     end)
 
     it("rejects unknown tab ids without changing the active tab", function()
@@ -2635,8 +2786,29 @@ describe("file browser navbar navigation", function()
         assert.is_true(used_configured_size)
     end)
 
+    it("fills the active tab black on monochrome screens unless a color was picked", function()
+        local navbar = _G.__ZEN_UI_PLUGIN.config.navbar
+        navbar.show_icons = true
+        navbar.active_tab_filled = true
+        navbar.filled_background_opacity = 100
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+        for _i, case in ipairs({ { nil, { 0, 0, 0, 255 } }, { { 12, 34, 56 }, { 12, 34, 56, 255 } } }) do
+            navbar.filled_background_color = case[1]
+            built_widgets = {}
+            _G.__ZEN_UI_REINJECT_FM_NAVBAR()
+            local frame
+            for _j, entry in ipairs(built_widgets) do
+                if entry.widget.radius and entry.widget.background then frame = entry.widget end
+            end
+            assert.are.same(case[2], frame.background)
+        end
+    end)
+
     it("centers the active white icon and label in one blue frame", function()
         local navbar = _G.__ZEN_UI_PLUGIN.config.navbar
+        screen_is_color = true
+        navbar.active_tab_use_accent = false
         navbar.show_icons = true
         navbar.active_tab_filled = true
         navbar.filled_background_opacity = 100
@@ -2806,6 +2978,7 @@ describe("file browser navbar navigation", function()
         local Blitbuffer = require("ffi/blitbuffer")
         ZenSpec.replace("ffi/blitbuffer", mock)
         mock.ColorRGB32, mock.new = Blitbuffer.ColorRGB32, Blitbuffer.new
+        mock.COLOR_BLACK = Blitbuffer.COLOR_BLACK
         mock.TYPE_BBRGB32 = Blitbuffer.TYPE_BBRGB32
         local FrameContainer = package.loaded["ui/widget/container/framecontainer"]
         FrameContainer.paintTo = function(frame, bb, x, y)
@@ -2816,6 +2989,8 @@ describe("file browser navbar navigation", function()
             bb:paintRectRGB32(x + 8, y + 8, 4, 4, frame[1][1]._tint_color or Blitbuffer.COLOR_BLACK)
         end
         local navbar = _G.__ZEN_UI_PLUGIN.config.navbar
+        screen_is_color = true
+        navbar.active_tab_use_accent = false
         navbar.show_icons = true
         navbar.outlined_color = { 12, 34, 56 }
         local fm = make_instance()
@@ -2888,7 +3063,37 @@ describe("file browser navbar navigation", function()
                     bb:free()
                 end
             end
+            if not outlined and opacity > 0 and opacity < 100 then
+                -- Translucent fill buffer is reused across paints and freed with the widget.
+                local fill = frame._zen_fill
+                assert.is_not_nil(fill)
+                local bb = Blitbuffer.new(30, 30, Blitbuffer.TYPE_BBRGB32)
+                frame:paintTo(bb, 4, 6)
+                bb:free()
+                assert.are.equal(fill, frame._zen_fill)
+                frame:free()
+                assert.is_nil(frame._zen_fill)
+            end
         end
+    end)
+
+    it("measures the navbar height once per layout signature", function()
+        local Menu = require("ui/widget/menu")
+        local function navbars_built()
+            local count = 0
+            for _i, entry in ipairs(built_widgets) do
+                local events = entry.widget.ges_events
+                if events and events.TapNavBar then count = count + 1 end
+            end
+            return count
+        end
+        Menu.init({ name = "filemanager" })
+        built_widgets = {}
+        Menu.init({ name = "filemanager" })
+        assert.are.equal(0, navbars_built())
+        _G.__ZEN_UI_PLUGIN.config.navbar.icon_size = 40
+        Menu.init({ name = "filemanager" })
+        assert.are.equal(1, navbars_built())
     end)
 
     it("uses accent fill opacity without applying the saved custom opacity again", function()
@@ -2938,12 +3143,68 @@ describe("file browser navbar navigation", function()
         end
     end)
 
+    it("updates retained navbar colors when the night accent becomes active", function()
+        local mock = package.loaded["ffi/blitbuffer"]
+        ZenSpec.unload("ffi/blitbuffer")
+        local Blitbuffer = require("ffi/blitbuffer")
+        ZenSpec.replace("ffi/blitbuffer", mock)
+        mock.ColorRGB32 = Blitbuffer.ColorRGB32
+        mock.COLOR_BLACK = Blitbuffer.COLOR_BLACK
+        mock.COLOR_WHITE = Blitbuffer.COLOR_WHITE
+        local paints = 0
+        package.loaded["ui/widget/container/inputcontainer"].paintTo = function() paints = paints + 1 end
+        screen_is_color = true
+        local screen = package.loaded["device"].screen
+        screen.night_mode = false
+        local config = _G.__ZEN_UI_PLUGIN.config
+        config.accent_color = "#204080"
+        config.accent_night_enabled = true
+        config.accent_night_color = "#CC8844"
+        config.navbar.active_tab_filled = true
+        config.navbar.active_tab_use_accent = true
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+        built_widgets = {}
+        _G.__ZEN_UI_REINJECT_FM_NAVBAR()
+        local navbar
+        for _i, entry in ipairs(built_widgets) do
+            if entry.widget.getTappedTabId then navbar = entry.widget end
+        end
+        assert.is_not_nil(navbar)
+        local freed = 0
+        navbar[1].free = function() freed = freed + 1 end
+        built_widgets = {}
+        navbar:paintTo({}, 0, 0)
+        assert.are.equal(0, #built_widgets)
+        assert.are.equal(0, freed)
+        screen.night_mode = true
+        navbar:paintTo({}, 0, 0)
+        assert.are.equal(1, freed)
+        local night_frame
+        for _i, entry in ipairs(built_widgets) do
+            if entry.widget.background then night_frame = entry.widget end
+        end
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(204, 136, 68, 255)), tostring(night_frame.background))
+        navbar[1].free = function() freed = freed + 1 end
+        built_widgets = {}
+        screen.night_mode = false
+        navbar:paintTo({}, 0, 0)
+        assert.are.equal(2, freed)
+        local day_frame
+        for _i, entry in ipairs(built_widgets) do
+            if entry.widget.background then day_frame = entry.widget end
+        end
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(32, 64, 128, 255)), tostring(day_frame.background))
+        assert.are.equal(3, paints)
+    end)
+
     it("preserves icon and underline colors when dark mode changes without rebuilding", function()
         local mock = package.loaded["ffi/blitbuffer"]
         ZenSpec.unload("ffi/blitbuffer")
         local Blitbuffer = require("ffi/blitbuffer")
         ZenSpec.replace("ffi/blitbuffer", mock)
         mock.ColorRGB32 = Blitbuffer.ColorRGB32
+        mock.COLOR_BLACK = Blitbuffer.COLOR_BLACK
         local screen = package.loaded["device"].screen
         screen_is_color = true
         local navbar = _G.__ZEN_UI_PLUGIN.config.navbar
@@ -2994,6 +3255,65 @@ describe("file browser navbar navigation", function()
         end
         assert.are.same({ 0x33, 0x99, 0xFF }, navbar.active_tab_color)
         assert.is_false(navbar.colored)
+    end)
+
+    it("inverts black active labels and decorations when night mode toggles", function()
+        local mock = package.loaded["ffi/blitbuffer"]
+        ZenSpec.unload("ffi/blitbuffer")
+        local Blitbuffer = require("ffi/blitbuffer")
+        ZenSpec.replace("ffi/blitbuffer", mock)
+        mock.ColorRGB32, mock.isColor8 = Blitbuffer.ColorRGB32, Blitbuffer.isColor8
+        mock.COLOR_BLACK = Blitbuffer.COLOR_BLACK
+        local TextWidget = package.loaded["ui/widget/textwidget"]
+        TextWidget.paintTo = function(widget, bb, x, y)
+            bb:paintRectRGB32(x, y, 1, 1, widget.fgcolor)
+        end
+        local FrameContainer = package.loaded["ui/widget/container/framecontainer"]
+        FrameContainer.paintTo = function() end
+        local screen = package.loaded["device"].screen
+        screen_is_color = true
+        local navbar = _G.__ZEN_UI_PLUGIN.config.navbar
+        navbar.active_tab_color, navbar.outlined_color = { 0, 0, 0 }, { 0, 0, 0 }
+        assert.is_false(navbar.active_tab_use_accent)
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+        for _i, outlined in ipairs({ false, true }) do
+            navbar.active_tab_underline, navbar.active_tab_outlined = not outlined, outlined
+            for _j, show_icons in ipairs({ false, true }) do
+                navbar.show_icons = show_icons
+                built_widgets = {}
+                _G.__ZEN_UI_REINJECT_FM_NAVBAR()
+                local label, decoration
+                for _k, entry in ipairs(built_widgets) do
+                    local widget = entry.widget
+                    if widget.text == "Home" and widget.fgcolor then label = widget end
+                    if widget.paintTo and (outlined and widget.radius and widget.paintTo ~= FrameContainer.paintTo
+                            or not outlined and widget.dimen.h == 2) then
+                        decoration = widget
+                    end
+                end
+                assert.is_not_nil(label)
+                assert.is_not_nil(decoration)
+                label.updateSize = function() end
+                for _k, night_mode in ipairs({ false, true, false }) do
+                    screen.night_mode = night_mode
+                    for _l, inverse in ipairs({ 0, 1 }) do
+                        local bb = Blitbuffer.new(30, 30, Blitbuffer.TYPE_BBRGB32)
+                        bb:setInverse(inverse)
+                        bb:fill(Blitbuffer.COLOR_WHITE)
+                        label:paintTo(bb, 0, 0)
+                        decoration:paintTo(bb, 4, 6)
+                        bb:setInverse(0)
+                        for _m, position in ipairs({ { 0, 0 }, outlined and { 4, 16 } or { 10, 6 } }) do
+                            local pixel = bb:getPixel(position[1], position[2])
+                            if night_mode ~= (inverse == 1) then pixel = pixel:invert() end
+                            assert.are.equal(night_mode and 255 or 0, pixel:getR())
+                        end
+                        bb:free()
+                    end
+                end
+            end
+        end
     end)
 
     it("uses the selected style's color for active labels when icons are hidden", function()
@@ -3057,6 +3377,7 @@ describe("file browser navbar navigation", function()
         local Blitbuffer = require("ffi/blitbuffer")
         ZenSpec.replace("ffi/blitbuffer", mock)
         mock.ColorRGB32 = Blitbuffer.ColorRGB32
+        mock.COLOR_BLACK = Blitbuffer.COLOR_BLACK
         local FrameContainer = package.loaded["ui/widget/container/framecontainer"]
         FrameContainer.paintTo = function() end
         screen_is_color = true

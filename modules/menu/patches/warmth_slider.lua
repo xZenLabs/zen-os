@@ -23,6 +23,7 @@ local VerticalGroup   = require("ui/widget/verticalgroup")
 local VerticalSpan    = require("ui/widget/verticalspan")
 local ZenSlider       = require("common/ui/zen_slider")
 local library_font    = require("modules/filebrowser/patches/library_font")
+local utils           = require("common/utils")
 local _               = require("gettext")
 local Screen          = Device.screen
 
@@ -47,12 +48,10 @@ local function build_warmth_slider(touch_menu, opts)
     -- never shifts when the number changes width (e.g. 9 → 10).
     local nl_prefix_text = _("Warmth") .. ": "
     local nl_drag_prefix = TextWidget:new{ text = nl_prefix_text, face = medium_font }
-    local nl_drag_prefix_w = nl_drag_prefix:getSize().w
     local nl_drag_num = TextWidget:new{ text = tostring(nl.cur), face = medium_font }
     local nl_max_num_sample = TextWidget:new{ text = tostring(nl.max), face = medium_font }
     local nl_drag_max_num_w = nl_max_num_sample:getSize().w
     nl_max_num_sample:free()
-    local nl_drag_ref_w = nl_drag_prefix_w + nl_drag_max_num_w
     local nl_label_h = nl_drag_prefix:getSize().h
     local nl_num_box = LeftContainer:new{
         dimen = Geom:new{ w = nl_drag_max_num_w, h = nl_label_h },
@@ -72,8 +71,30 @@ local function build_warmth_slider(touch_menu, opts)
     }
     local nl_button_height = nl_progress:getSize().h
 
-    local nl_label_fn = nil
-    local nl_row  -- forward-declare for on_change closure
+    -- Paint slider and number straight to the screen (prefix is static); refresh only that area.
+    -- Status rows show no warmth item, so they are never rebuilt from here.
+    local function paint_value()
+        nl_progress:paintTo(Screen.bb, nl_progress.dimen.x, nl_progress.dimen.y)
+        local num_x, label_y = nl_num_box.dimen.x, nl_num_box.dimen.y
+        Screen.bb:paintRect(num_x, label_y, nl_drag_max_num_w, nl_label_h, Blitbuffer.COLOR_WHITE)
+        nl_drag_num:setText(tostring(nl.cur))
+        nl_drag_num:paintTo(Screen.bb, num_x, label_y)
+        local dragging = nl_progress._dragging
+        local slider_dimen = dragging and nl_progress:dirtyDimen() or nl_progress.dimen
+        local dirty_x = math.min(slider_dimen.x, num_x)
+        -- One refresh for label and slider avoids competing Kobo updates.
+        local region = Geom:new{
+            x = dirty_x,
+            y = label_y,
+            w = math.max(slider_dimen.x + slider_dimen.w, num_x + nl_drag_max_num_w) - dirty_x,
+            h = nl_progress.dimen.y + nl_progress.dimen.h - label_y,
+        }
+        if dragging then
+            ZenSlider.refreshDrag(region, Accent.isEnabled())
+        else
+            UIManager:setDirty(nil, "ui", region)
+        end
+    end
 
     local function setWarmth(warmth)
         if warmth == nl.cur then return end
@@ -81,48 +102,19 @@ local function build_warmth_slider(touch_menu, opts)
         powerd:setWarmth(powerd:fromNativeWarmth(warmth))
         nl.cur = warmth
         if nl.cur > nl.min then nl.prev_non_min = nl.cur end
-        if nl_label_fn then UIManager:unschedule(nl_label_fn) ; nl_label_fn = nil end
         nl_progress:setValue(nl.cur)
-        nl_drag_num:setText(tostring(nl.cur))
-        UIManager:setDirty(show_parent, "ui", touch_menu.dimen)
+        paint_value()
     end
 
     nl.prev_non_min = nl.cur > nl.min and nl.cur or math.min(nl.max, nl.min + 1)
 
-    -- Paint label and slider directly during drag; redraw the menu on release.
+    nl_progress.on_drag_end = function() powerd:stateChanged() end -- Drag updates were silent.
     nl_progress.on_change = function(v)
-        powerd:setWarmth(powerd:fromNativeWarmth(v))
+        local function set() powerd:setWarmth(powerd:fromNativeWarmth(v)) end
+        if nl_progress._dragging then utils.withoutFrontlightBroadcast(powerd, set) else set() end
         nl.cur = v
         if nl.cur > nl.min then nl.prev_non_min = nl.cur end
-        if nl_progress._dragging then
-            nl_progress:paintTo(Screen.bb, nl_progress.dimen.x, nl_progress.dimen.y)
-            -- Only repaint the number — prefix is static in the framebuffer.
-            local row_gap_h = Screen:scaleBySize(10)
-            local lh = nl_drag_prefix:getSize().h
-            local row_h = nl_row and nl_row:getSize().h or nl_progress.dimen.h
-            local row_top = nl_progress.dimen.y - math.floor((row_h - nl_progress.dimen.h) / 2)
-            local label_y = row_top - row_gap_h - lh
-            local sx = nl_progress.dimen.x
-            local sw = nl_progress.dimen.w
-            local num_x = sx + math.floor((sw - nl_drag_ref_w) / 2) + nl_drag_prefix_w
-            Screen.bb:paintRect(num_x, label_y, nl_drag_max_num_w, lh, Blitbuffer.COLOR_WHITE)
-            nl_drag_num:setText(tostring(nl.cur))
-            nl_drag_num:paintTo(Screen.bb, num_x, label_y)
-            local slider_dimen = nl_progress:dirtyDimen()
-            local dirty_x = math.min(slider_dimen.x, num_x)
-            local colored = Accent.isEnabled()
-            -- One refresh for label and slider avoids competing Kobo updates.
-            UIManager:setDirty(nil, colored and "ui" or "fast", Geom:new{
-                x = dirty_x,
-                y = label_y,
-                w = math.max(slider_dimen.x + slider_dimen.w, num_x + nl_drag_max_num_w) - dirty_x,
-                h = nl_progress.dimen.y + nl_progress.dimen.h - label_y,
-            }, colored)
-        else
-            if nl_label_fn then UIManager:unschedule(nl_label_fn) ; nl_label_fn = nil end
-            nl_drag_num:setText(tostring(nl.cur))
-            UIManager:setDirty(show_parent, "ui", touch_menu.dimen)
-        end
+        paint_value()
     end
 
     local nl_minus = Button:new{
@@ -157,7 +149,7 @@ local function build_warmth_slider(touch_menu, opts)
         dimen = Geom:new{ w = inner_width, h = nl_label_h },
         nl_label_group,
     }
-    nl_row = HorizontalGroup:new{
+    local nl_row = HorizontalGroup:new{
         align = "center",
         nl_minus,
         HorizontalSpan:new{ width = slider_gap },

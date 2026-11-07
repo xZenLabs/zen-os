@@ -21,6 +21,24 @@ function M.isSupported(Device)
     return Device.isPocketBook and Device:isPocketBook()
 end
 
+function M.readState()
+    local pipe = io.popen("netagent bt status 2>/dev/null", "r")
+    if not pipe then return nil end
+    local output = pipe:read("*a") or ""
+    pipe:close()
+    if output:find("BT_STATE_OFF", 1, true) then return 0 end
+    if output:find("BT_STATE_", 1, true) then return 1 end
+end
+
+-- request: { done, verify } from bluetooth.setEnabled.
+function M.setPower(enabled, request)
+    if M.readState() == nil then request.done(false, "Bluetooth is unavailable."); return false end
+    local ok, _r, code = os.execute("netagent bt " .. (enabled and "on" or "off") .. " >/dev/null 2>&1 &")
+    if ok ~= true and ok ~= 0 and code ~= 0 then return false end
+    request.verify()
+    return true
+end
+
 function M.new()
     local adapter = { id = "pocketbook" }
 

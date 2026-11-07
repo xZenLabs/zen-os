@@ -167,4 +167,30 @@ describe("library font", function()
         assert.are.equal("cfont", face.orig_font)
         assert.are.equal("default", cfg.font_face)
     end)
+
+    it("resolves legacy absolute plugin paths in widget style fonts", function()
+        local library_font = require("modules/filebrowser/patches/library_font")
+        local legacy = "/mnt/us/koreader/plugins/zen_ui.koplugin/" .. default_font
+
+        assert.are.equal(resolved_default_font, library_font.resolveStyleFont(legacy))
+        assert.are.equal("Custom-Regular.ttf", library_font.resolveStyleFont("default"))
+        assert.are.equal("smallinfofont", library_font.resolveStyleFont("default", "smallinfofont"))
+        assert.are.equal(resolved_default_font, library_font.getStyleFace(legacy, 12).orig_font)
+    end)
+
+    it("falls back when a widget style font cannot load", function()
+        local library_font = require("modules/filebrowser/patches/library_font")
+        local missing = plugin_root .. "/fonts/Missing-Regular.ttf"
+
+        assert.are.equal("smallinfofont", library_font.getStyleFace(missing, 12, "smallinfofont").orig_font)
+        assert.are.equal("Custom-Regular.ttf", library_font.getStyleFace(missing, 14).orig_font)
+        assert.are.equal("Custom-Regular.ttf",
+            library_font.getStyleFace(plugin_root .. "/fonts/Broken-Regular.ttf", 14).orig_font)
+        local missing_probes = 0
+        for _i, call in ipairs(calls) do
+            if call[1] == missing then missing_probes = missing_probes + 1 end
+        end
+        assert.are.equal(1, missing_probes)
+        assert.are.equal("cfont", library_font.getStyleFace(missing, 14, missing).orig_font)
+    end)
 end)

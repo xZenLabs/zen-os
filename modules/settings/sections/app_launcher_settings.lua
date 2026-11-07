@@ -11,6 +11,7 @@ local ActionFilter = require("modules/menu/app_launcher/action_filter")
 local NativeMenu = require("modules/menu/app_launcher/native_menu")
 local PagePlan = require("modules/menu/app_launcher/page_plan")
 local BookSwitcherPage = require("modules/menu/app_launcher/book_switcher_page")
+local ReaderButtons = require("modules/menu/reader_controls/buttons")
 local PluginScan = require("modules/menu/app_launcher/plugin_scan")
 local DispatcherMenu = require("common/dispatcher_menu")
 local Destination = require("common/library_destination")
@@ -29,15 +30,60 @@ local function trim(text)
     return (text or ""):gsub("^%s+", ""):gsub("%s+$", "")
 end
 
+-- Shared with reader controls and page browser tabs; save defaults to launcher store
+local function default_save(cfg)
+    return function() Model.save(cfg) end
+end
+
+function M.bookSwitcherItems(save)
+    local cfg = Model.ensure()
+    save = save or default_save(cfg)
+    return {
+        {
+            text_func = function()
+                return _("Max books shown") .. ": "
+                    .. tostring(BookSwitcherPage.normalizeCount(cfg.book_switcher_count))
+            end,
+            keep_menu_open = true,
+            callback = function(touch_menu)
+                local SpinWidget = require("ui/widget/spinwidget")
+                UIManager:show(SpinWidget:new{
+                    title_text = _("Max books shown"),
+                    value = BookSwitcherPage.normalizeCount(cfg.book_switcher_count),
+                    value_min = 1,
+                    value_max = 8,
+                    default_value = BookSwitcherPage.BOOK_COUNT,
+                    callback = function(spin)
+                        cfg.book_switcher_count = spin.value
+                        save()
+                        if touch_menu and touch_menu.updateItems then touch_menu:updateItems() end
+                    end,
+                })
+            end,
+        },
+        {
+            text = _("Hide finished books"),
+            checked_func = function()
+                return cfg.book_switcher_hide_finished ~= false
+            end,
+            callback = function()
+                cfg.book_switcher_hide_finished = cfg.book_switcher_hide_finished == false
+                save()
+            end,
+        },
+    }
+end
+
 function M.build(ctx)
     local config = ctx.config
     local save_and_apply = ctx.save_and_apply
-    local cfg = Model.ensure(config)
+    local cfg = ctx.button_config or Model.ensure(config)
     local build_entry_items
     local show_entries_arrange
     local sync_action_label
 
     local function save_app_launcher()
+        if ctx.save_buttons then return ctx.save_buttons(cfg) end
         Model.save(cfg)
         if ctx.apply_feature then
             ctx.apply_feature("app_launcher")
@@ -49,7 +95,6 @@ function M.build(ctx)
     local function show_page_order()
         local sort_items = {}
         local labels = {
-            book_details = _("Book information"),
             book_switcher = _("Book switcher"),
             buttons = _("Buttons"),
         }
@@ -73,45 +118,6 @@ function M.build(ctx)
         }
     end
 
-    local function show_book_details_arrange()
-        local labels = {
-            read_time = _("Read time"),
-            time_remaining = _("Time remaining"),
-            pages_today = _("Pages today"),
-            time_today = _("Time today"),
-            pages = _("Pages"),
-            progress = _("Progress bar"),
-        }
-        local sort_items = {}
-        for _i, id in ipairs(cfg.book_details_order) do
-            local item_id = id
-            sort_items[#sort_items + 1] = {
-                text = labels[item_id],
-                orig_item = item_id,
-                checked_func = function()
-                    return cfg.book_details_enabled[item_id] ~= false
-                end,
-                callback = function()
-                    cfg.book_details_enabled[item_id]
-                        = cfg.book_details_enabled[item_id] == false
-                    save_app_launcher()
-                end,
-            }
-        end
-        require("common/ui/zen_arrange_list").show{
-            title = _("Book details"),
-            item_table = sort_items,
-            callback = function()
-                local order = {}
-                for _i, item in ipairs(sort_items) do
-                    order[#order + 1] = item.orig_item
-                end
-                cfg.book_details_order = order
-                save_app_launcher()
-            end,
-        }
-    end
-
     local function is_draft_entry(entry)
         return type(entry) == "table" and type(entry._zen_draft_commit) == "function"
     end
@@ -119,6 +125,12 @@ function M.build(ctx)
     local function open_entry_settings(touch_menu, entry, parent)
         if not (touch_menu and type(touch_menu.updateItems) == "function" and entry) then
             return
+        end
+        if ctx.button_single then
+            return touch_menu:_openSubmenu({
+                text = touch_menu._pending_navigation_title,
+                sub_title = _("Bottom swipe gesture"),
+            }, build_entry_items(entry, parent))
         end
         table.insert(touch_menu.item_table_stack, touch_menu.item_table)
         touch_menu.parent_id = nil
@@ -144,8 +156,8 @@ function M.build(ctx)
     end
 
     local function show_icon_picker(entry, touch_menu)
-        require("common/ui/zen_icon_picker")(get_icons(), entry.icon, function(name)
-            entry.icon = name
+        require("common/ui/zen_icon_picker")(get_icons(), ReaderButtons.icon(entry), function(name)
+            ReaderButtons.setIcon(entry, name)
             if not is_draft_entry(entry) then
                 save_app_launcher()
             end
@@ -225,7 +237,10 @@ function M.build(ctx)
     end
 
     local function insert_entry(entry, folder)
-        if folder then
+        if ctx.button_can_enable and not ctx.button_can_enable(entry) then entry.enabled = false end
+        if ctx.button_single then
+            cfg.entries = { entry }
+        elseif folder then
             folder.children = folder.children or {}
             folder.children[#folder.children + 1] = entry
         else
@@ -410,7 +425,7 @@ function M.build(ctx)
     end
 
     local function show_koreader_menu_picker(on_select, touch_menu)
-        local found = NativeMenu.scan("active")
+        local found = NativeMenu.scan(ctx.button_scope or "active")
         if #found == 0 then
             local InfoMessage = require("ui/widget/infomessage")
             UIManager:show(InfoMessage:new{ text = _("No KOReader submenus found") })
@@ -454,6 +469,11 @@ function M.build(ctx)
 
     local function open_new_action_picker(folder, touch_menu)
         if not ok_disp then return end
+        local current = ctx.button_single and cfg.entries and cfg.entries[1]
+        if current and current.type == "action" then
+            open_entry_settings(touch_menu, current, folder)
+            return
+        end
         local entry = new_action_entry(nil, true)
         local committed = false
         local function commit()
@@ -589,6 +609,10 @@ function M.build(ctx)
                 end,
             },
         }
+        if ctx.button_config then
+            for _i, item in ipairs(ctx.button_add_items and ctx.button_add_items() or {}) do items[#items + 1] = item end
+            return items
+        end
         if not folder then
             items[#items + 1] = IconItem.decorate({
                 text = _("Folder"),
@@ -711,10 +735,11 @@ function M.build(ctx)
     build_entry_items = function(entry, parent)
         local items = {}
         local function add_icon_item()
+            if ctx.button_single then return end
             items[#items + 1] = IconItem.decorate({
                 text_func = function()
                     return T(_("Icon: %1"),
-                        icon_utils.getIconDisplayName(entry.icon or DEFAULT_ENTRY_ICON))
+                        icon_utils.getIconDisplayName(ReaderButtons.icon(entry) or DEFAULT_ENTRY_ICON))
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
@@ -723,17 +748,28 @@ function M.build(ctx)
             }, icons.icon)
         end
         local function add_label_item()
+            if ctx.button_single then return end
             items[#items + 1] = IconItem.decorate({
                 text_func = function()
                     return _("Label") .. ": " .. entry.label
                 end,
                 keep_menu_open = true,
                 callback = function(touch_menu)
-                    prompt_label(entry, _("Launcher label"), touch_menu)
+                    prompt_label(entry, ctx.button_config and _("Label") or _("Launcher label"), touch_menu)
                 end,
             }, icons.label)
         end
-        if entry.type == "action" then
+        if entry.type == "reader_control" then
+            add_label_item()
+            add_icon_item()
+            local extra = entry.control == "book_switcher" and M.bookSwitcherItems()
+                or entry.control == "book_info" and {
+                    require("modules/menu/reader_controls/book_info").settingsItem(config, function()
+                        save_and_apply("reader_controls")
+                    end),
+                }
+            for _i, item in ipairs(extra or {}) do items[#items + 1] = item end
+        elseif entry.type == "action" then
             local picker = build_action_picker(entry)
             if picker then items[#items + 1] = picker end
             add_icon_item()
@@ -857,9 +893,10 @@ function M.build(ctx)
             add_label_item()
             add_icon_item()
         end
-        if entry.type ~= "break" then
+        if entry.type ~= "break" and not ctx.button_config then
             items[#items + 1] = IconItem.decorate({
                 text = _("Reader action"),
+                help_text = _("When enabled, this action is hidden in the library."),
                 checked_func = function()
                     return ActionFilter.is_reader_entry(Dispatcher, entry)
                 end,
@@ -876,6 +913,7 @@ function M.build(ctx)
                 items[#items + 1] = item
             end
         end
+        if entry.type == "reader_control" then return items end
         items[#items + 1] = IconItem.decorate({
             text = _("Delete"),
             separator = true,
@@ -907,8 +945,13 @@ function M.build(ctx)
         local list = current_list(parent)
         local ZenArrangeList = require("common/ui/zen_arrange_list")
         local sort_items
+        local add_choices = {}
         local function build_sort_items()
             local items = {}
+            if ctx.button_add_items then
+                for i = #add_choices, 1, -1 do add_choices[i] = nil end
+                for _i, item in ipairs(arrange_add_items(parent)) do add_choices[#add_choices + 1] = item end
+            end
             list = current_list(parent)
             for _i, entry in ipairs(list) do
                 items[#items + 1] = {
@@ -925,6 +968,7 @@ function M.build(ctx)
                         return entry.enabled ~= false
                     end,
                     callback = function()
+                        if entry.enabled == false and ctx.button_can_enable and not ctx.button_can_enable(entry) then return end
                         entry.enabled = entry.enabled == false and true or false
                         save_app_launcher()
                     end,
@@ -938,7 +982,7 @@ function M.build(ctx)
             title = parent and parent.label or _("Buttons"),
             item_table = sort_items,
             add_title = _("Add"),
-            add_item_table = arrange_add_items(parent),
+            add_item_table = ctx.button_add_items and add_choices or arrange_add_items(parent),
             open_add_on_show = #sort_items == 0,
             callback = function()
                 list = current_list(parent)
@@ -966,8 +1010,44 @@ function M.build(ctx)
         }
     end
 
+    if ctx.button_single then
+        return { text = _("Bottom swipe gesture"), sub_item_table = arrange_add_items(nil) }
+    end
+    if ctx.button_config then
+        return { text = _("Buttons"), callback = function() show_entries_arrange(nil) end }
+    end
+
+    local switcher_items = M.bookSwitcherItems(save_app_launcher)
+    table.insert(switcher_items, 1, {
+        text = _("Only show while reading"),
+        enabled_func = function()
+            return cfg.show_book_switcher == true
+        end,
+        checked_func = function()
+            return cfg.book_switcher_reader_only == true
+        end,
+        callback = function()
+            cfg.book_switcher_reader_only = cfg.book_switcher_reader_only ~= true
+            save_app_launcher()
+        end,
+    })
+
+    local columns_items = {}
+    for _i, count in ipairs({ 0, 2, 3, 4, 5, 6, 7, 8 }) do
+        columns_items[#columns_items + 1] = {
+            text = count == 0 and _("Auto") or tostring(count),
+            radio = true,
+            checked_func = function() return (cfg.columns or 0) == count end,
+            callback = function()
+                cfg.columns = count
+                save_app_launcher()
+            end,
+        }
+    end
+
     local root_items = {
         {
+            icon_glyph = icons.enable,
             text = _("Enable"),
             checked_func = function()
                 return config.features.app_launcher == true
@@ -978,6 +1058,7 @@ function M.build(ctx)
             end,
         },
         {
+            icon_glyph = icons.action,
             text = _("Buttons") .. " \u{25B8}",
             separator = true,
             keep_menu_open = true,
@@ -987,6 +1068,7 @@ function M.build(ctx)
             end,
         },
         {
+            icon_glyph = icons.book_switcher,
             text = _("Book switcher"),
             checked_func = function()
                 return cfg.show_book_switcher == true
@@ -995,72 +1077,10 @@ function M.build(ctx)
                 cfg.show_book_switcher = cfg.show_book_switcher ~= true
                 save_app_launcher()
             end,
-            sub_item_table = {
-                {
-                    text = _("Only show while reading"),
-                    enabled_func = function()
-                        return cfg.show_book_switcher == true
-                    end,
-                    checked_func = function()
-                        return cfg.book_switcher_reader_only == true
-                    end,
-                    callback = function()
-                        cfg.book_switcher_reader_only = cfg.book_switcher_reader_only ~= true
-                        save_app_launcher()
-                    end,
-                },
-                {
-                    text_func = function()
-                        return _("Max books shown") .. ": "
-                            .. tostring(BookSwitcherPage.normalizeCount(cfg.book_switcher_count))
-                    end,
-                    keep_menu_open = true,
-                    callback = function(touch_menu)
-                        local SpinWidget = require("ui/widget/spinwidget")
-                        UIManager:show(SpinWidget:new{
-                            title_text = _("Max books shown"),
-                            value = BookSwitcherPage.normalizeCount(cfg.book_switcher_count),
-                            value_min = 1,
-                            value_max = 8,
-                            default_value = BookSwitcherPage.BOOK_COUNT,
-                            callback = function(spin)
-                                cfg.book_switcher_count = spin.value
-                                save_app_launcher()
-                                if touch_menu and touch_menu.updateItems then touch_menu:updateItems() end
-                            end,
-                        })
-                    end,
-                },
-                {
-                    text = _("Hide finished books"),
-                    checked_func = function()
-                        return cfg.book_switcher_hide_finished ~= false
-                    end,
-                    callback = function()
-                        cfg.book_switcher_hide_finished = cfg.book_switcher_hide_finished == false
-                        save_app_launcher()
-                    end,
-                },
-            },
+            sub_item_table = switcher_items,
         },
         {
-            text = _("Book details"),
-            checked_func = function()
-                return cfg.show_book_details == true
-            end,
-            checkmark_callback = function()
-                cfg.show_book_details = cfg.show_book_details ~= true
-                save_app_launcher()
-            end,
-            sub_item_table = {
-                {
-                    text = _("Items") .. " \u{25B8}",
-                    keep_menu_open = true,
-                    callback = show_book_details_arrange,
-                },
-            },
-        },
-        {
+            icon_glyph = icons.keywords,
             text = _("Show labels"),
             checked_func = function()
                 return cfg.show_labels ~= false
@@ -1074,11 +1094,21 @@ function M.build(ctx)
             end,
         },
         {
+            icon_glyph = icons.view_mosaic,
+            text_func = function()
+                return _("Items per row") .. ": "
+                    .. ((cfg.columns or 0) >= 2 and tostring(cfg.columns) or _("Auto"))
+            end,
+            sub_item_table = columns_items,
+        },
+        {
+            icon_glyph = icons.sort,
             text = _("Order") .. " \u{25B8}",
             keep_menu_open = true,
             callback = show_page_order,
         },
         {
+            icon_glyph = icons.open_menu,
             text = _("Open menu to Launcher"),
             checked_func = function()
                 return cfg.open_first == true
@@ -1091,28 +1121,7 @@ function M.build(ctx)
                 end
             end,
         },
-        {
-            text = _("Hide reader actions in library"),
-            checked_func = function()
-                return cfg.hide_reader_actions_in_library == true
-            end,
-            callback = function(touch_menu)
-                cfg.hide_reader_actions_in_library = cfg.hide_reader_actions_in_library ~= true
-                save_app_launcher()
-                if touch_menu and touch_menu.updateItems then
-                    touch_menu:updateItems(1)
-                end
-            end,
-        },
     }
-    IconItem.decorate(root_items[1], icons.enable)
-    IconItem.decorate(root_items[2], icons.action)
-    IconItem.decorate(root_items[3], icons.book_switcher)
-    IconItem.decorate(root_items[4], icons.details)
-    IconItem.decorate(root_items[5], icons.keywords)
-    IconItem.decorate(root_items[6], icons.sort)
-    IconItem.decorate(root_items[7], icons.open_menu)
-    IconItem.decorate(root_items[8], icons.hide_reader_actions)
 
     local function open_entry_settings_from_search(entry, parent)
         local items = build_entry_items(entry, parent)

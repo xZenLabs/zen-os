@@ -14,7 +14,6 @@ local InputContainer = require("ui/widget/container/inputcontainer")
 local TopContainer = require("ui/widget/container/topcontainer")
 local GestureRange = require("ui/gesturerange")
 local Device = require("device")
-local Font = require("ui/font")
 local util = require("util")
 local zen_utils = require("common/utils")
 local WidgetResources = require("common/widget_resources")
@@ -90,8 +89,7 @@ local function text_style(module_cfg, key)
 end
 
 local function get_text_face(style, size, default_font_name)
-    local font_name = style.font_face == "default" and (default_font_name or library_font.getFontName()) or style.font_face
-    return Font:getFace(font_name, size)
+    return library_font.getStyleFace(style.font_face, size, default_font_name)
 end
 
 local function set_opening_banner_cover(cover)
@@ -198,16 +196,21 @@ function M.build(ctx, source_key)
     local module_cfg = type(ctx.module_cfg) == "table" and ctx.module_cfg or {}
     local interactive = module_cfg.interactive ~= false
     local source = source_key or HomePresets.featuredSourceKey(module_cfg.default_source)
-    local book = ctx.data:getFeaturedBook(source, "default")
+    local col_top_pad = math.max(1, Screen:scaleBySize(4))
+    local col_bottom_pad = math.max(3, math.floor(height * 0.02))
+    local gap = math.max(4, math.floor(width * 0.025))
+    -- The assigned height is an upper bound; normal details stop at cover height.
+    local col_h = math.max(1, height - col_top_pad - col_bottom_pad)
+    -- Reserve at least 60% of the usable row width for book details.
+    local cover_max_w = math.max(1, math.floor(math.max(1, width - gap) * COVER_WIDTH_SHARE))
+    -- Target size lets the provider skip decoding a cover RenderCache already holds.
+    local target_w, target_h = cover_common.target_dims(nil, cover_max_w, col_h)
+    local book = ctx.data:getFeaturedBook(source, "default", nil, { w = target_w, h = target_h })
     local show_description = module_cfg.show_description ~= false
     local format_description_html = module_cfg.format_description_html == true
     local justify_description_text = module_cfg.justify_description_text == true
     local show_status_bar = module_cfg.show_status_bar == true and type(ctx.buildStatusRow) == "function"
     local cover_widget, cover_w, cover_actual_h
-
-    local col_top_pad = math.max(1, Screen:scaleBySize(4))
-    local col_bottom_pad = math.max(3, math.floor(height * 0.02))
-    local gap = math.max(4, math.floor(width * 0.025))
 
     if not book then
         local empty_cover = cover_common.make_empty_cover_widget(
@@ -259,12 +262,6 @@ function M.build(ctx, source_key)
         }
     end
 
-    -- The assigned height is an upper bound; normal details stop at cover height.
-    local col_h = math.max(1, height - col_top_pad - col_bottom_pad)
-
-    -- Reserve at least 60% of the usable row width for book details.
-    local columns_w = math.max(1, width - gap)
-    local cover_max_w = math.max(1, math.floor(columns_w * COVER_WIDTH_SHARE))
     cover_widget, cover_w, cover_actual_h = cover_common.make_cover_widget(
         book, cover_max_w, col_h,
         { border = cover_common.BORDER_SIZE, background = Blitbuffer.COLOR_LIGHT_GRAY }
@@ -283,55 +280,48 @@ function M.build(ctx, source_key)
     local progress_style = text_style(module_cfg, "progress")
     local status_style = text_style(module_cfg, "status")
     local total_pages = tonumber(book.stable_pages) or tonumber(book.pages)
-    local fitting_lines = ctx.showBookStatus and not show_description and 5 or 7
-    if ctx.showBookStatus then
-        if module_cfg.show_progress ~= false and book.status ~= "new" and book.status ~= "tbr" then
-            fitting_lines = fitting_lines + (total_pages and 2 or 1)
-        end
-        local title_probe = TextWidget:new{
-            text = book.title or "", bold = title_style.bold,
-            face = get_text_face(title_style, Screen:scaleBySize(math.floor(title_style.font_size * detail_scale + 0.5))),
-        }
-        if title_probe:getSize().w <= text_w then fitting_lines = fitting_lines - 1 end
-        WidgetResources.free(title_probe)
-    end
     local function line_height(style, face)
         local probe = TextBoxWidget:new{ text = "Ag", width = text_w, face = face, bold = style.bold }
         local line_h = probe:getSize().h
         WidgetResources.free(probe)
         return line_h
     end
-    local navigation_budget
-    if ctx.showBookStatus and ctx.buildNavigationRow then
-        local text_budget = 0
+    local status_bar_h = show_status_bar and Screen:scaleBySize(14) or 0
+    local navigation_budget, natural_h, end_text_h, avail_h
+    if ctx.showBookStatus then
+        local area_h = math.min(col_h, cover_actual_h or col_h)
+        -- Reserve status/progress gaps and divider.
+        avail_h = area_h * 0.88 - Screen:scaleBySize(8) - status_bar_h - math.floor(area_h * 0.06) - 3
+        natural_h = 0
         for _i, entry in ipairs({
-            { title_style, detail_scale, 1.3, true },
-            { author_style, detail_scale, 0.9, module_cfg.show_author ~= false and (book.authors or "") ~= "" },
-            { series_style, scale, 0.8, module_cfg.show_series ~= false and format_series(book) ~= "" },
-            { status_style, scale, 1, true, "smallinfofont" },
-            { progress_style, scale, 1, module_cfg.show_progress ~= false and book.status ~= "new" and book.status ~= "tbr", "smallinfofont" },
+            { title_style, true, nil, true },
+            { author_style, module_cfg.show_author ~= false and (book.authors or "") ~= "", nil, true },
+            { series_style, module_cfg.show_series ~= false and format_series(book) ~= "", nil, true },
+            { status_style, true, "smallinfofont" },
+            { progress_style, total_pages and module_cfg.show_progress ~= false and book.status ~= "new" and book.status ~= "tbr", "smallinfofont" },
         }) do
-            if entry[4] then
-                local face = get_text_face(entry[1], Screen:scaleBySize(math.floor(entry[1].font_size * entry[2] + 0.5)), entry[5])
-                text_budget = math.max(text_budget, math.ceil(line_height(entry[1], face) / entry[3]))
+            if entry[2] then
+                local face = get_text_face(entry[1], Screen:scaleBySize(math.floor(entry[1].font_size * detail_scale + 0.5)), entry[3])
+                -- Title/author/series layout uses size * 1.05 per line.
+                natural_h = natural_h + (entry[4] and math.floor(face.size * 1.05 + 0.5) or line_height(entry[1], face))
             end
         end
-        navigation_budget = math.max(0, math.min(col_h, cover_actual_h or col_h) * 0.88
-            - text_budget * fitting_lines - Screen:scaleBySize(8))
+        -- Text keeps up to 65% of the column regardless of icon size; navigation gets the rest.
+        end_text_h = math.min(natural_h, ctx.buildNavigationRow and avail_h * 0.65 or avail_h)
+        navigation_budget = ctx.buildNavigationRow and math.max(0, avail_h - end_text_h)
     end
     local navigation_row = ctx.buildNavigationRow and ctx.buildNavigationRow(text_w, cover_actual_h or col_h, navigation_budget)
     local navigation_h = navigation_row and navigation_row:getSize().h or 0
+    -- End screen shrinks all lines by one factor so title > author > status holds.
+    local end_fit = natural_h and math.min(1, math.max(0.01,
+        math.min(end_text_h, avail_h - navigation_h) / math.max(1, natural_h)))
     local function fitting_face(style, size, default_font)
+        if ctx.fitToBounds and end_fit then
+            return get_text_face(style, math.max(1, math.floor(size * end_fit)), default_font)
+        end
         local face = get_text_face(style, size, default_font)
         if ctx.fitToBounds then
-            local text_h = ctx.showBookStatus and math.min(col_h, cover_actual_h or col_h) * 0.88 - navigation_h or col_h
-            local budget = math.max(1, math.floor((text_h - Screen:scaleBySize(8)
-                - (show_status_bar and Screen:scaleBySize(14) or 0)) / fitting_lines))
-            if ctx.showBookStatus then
-                if style == title_style then budget = budget * 1.3 end
-                if style == author_style then budget = budget * 0.9 end
-                if style == series_style then budget = budget * 0.8 end
-            end
+            local budget = math.max(1, math.floor((col_h - Screen:scaleBySize(8) - status_bar_h) / 7))
             local line_h = line_height(style, face)
             if line_h > budget then face = get_text_face(style, math.max(1, math.floor(size * budget / line_h)), default_font) end
         end
@@ -339,11 +329,11 @@ function M.build(ctx, source_key)
     end
     local title_face = fitting_face(title_style, Screen:scaleBySize(math.floor(title_style.font_size * detail_scale + 0.5)))
     local meta_face = fitting_face(author_style, Screen:scaleBySize(math.floor(author_style.font_size * detail_scale + 0.5)))
-    local series_face = fitting_face(series_style, Screen:scaleBySize(math.floor(series_style.font_size * scale + 0.5)))
+    local series_face = fitting_face(series_style, Screen:scaleBySize(math.floor(series_style.font_size * detail_scale + 0.5)))
     local stats_face = fitting_face(progress_style,
-        Screen:scaleBySize(math.floor(progress_style.font_size * scale + 0.5)), "smallinfofont")
+        Screen:scaleBySize(math.floor(progress_style.font_size * detail_scale + 0.5)), "smallinfofont")
     local status_face = ctx.showBookStatus and fitting_face(status_style,
-        Screen:scaleBySize(math.floor(status_style.font_size * scale + 0.5)), "smallinfofont")
+        Screen:scaleBySize(math.floor(status_style.font_size * detail_scale + 0.5)), "smallinfofont")
     local desc_face = fitting_face(description_style, description_style.font_size)
     if ctx.fitToBounds then description_style.font_size = desc_face.orig_size or description_style.font_size end
     local raw_description = type(book.description) == "string" and book.description or ""
@@ -386,9 +376,8 @@ function M.build(ctx, source_key)
             build_progress_text(book, pct, module_cfg.progress_meta)
     end
     local end_progress_text
-    if ctx.showBookStatus then
-        end_progress_text = string.format(_("%d%% read"), pct)
-        if total_pages then end_progress_text = zen_utils.formatPageCount(total_pages, true) .. "\n" .. end_progress_text end
+    if ctx.showBookStatus and total_pages then
+        end_progress_text = zen_utils.formatPageCount(total_pages, true)
     end
     local has_progress_text = end_progress_text ~= nil or left_progress_text ~= "" or right_progress_text ~= ""
     local cover_h = math.max(1, cover_actual_h or col_h)
@@ -402,7 +391,7 @@ function M.build(ctx, source_key)
     local bar_h = math.max(progress_h, stats_text_h)
     local has_progress = show_progress and bar_h > 0
         and book.status ~= "new" and not is_tbr
-    local bottom_h = navigation_h + (not end_progress_text and has_progress and bar_h or 0)
+    local bottom_h = navigation_h + (not ctx.showBookStatus and has_progress and bar_h or 0)
 
     local function build_progress_row(progress_w)
         if not has_progress then return nil end
@@ -427,13 +416,16 @@ function M.build(ctx, source_key)
         return BookProgress.bar(progress_percent, progress_w, progress_h)
     end
 
-    -- Title: up to 2 lines before truncating
+    -- Title: up to 2 lines (1 on end screen) before truncating
     local title_line_h = math.max(1, math.floor((tonumber(title_face.size) or 12) * 1.05 + 0.5))
     local author_line_h = math.max(1, math.floor((tonumber(meta_face.size) or 10) * 1.05 + 0.5))
     local series_line_h = math.max(1, math.floor((tonumber(series_face.size) or 8) * 1.05 + 0.5))
-    local probe = TextWidget:new{ text = book.title or "", face = title_face, bold = title_style.bold == true }
-    local title_needs_2_lines = probe:getSize().w > text_w
-    WidgetResources.free(probe)
+    local title_needs_2_lines = false
+    if not ctx.showBookStatus then
+        local probe = TextWidget:new{ text = book.title or "", face = title_face, bold = title_style.bold == true }
+        title_needs_2_lines = probe:getSize().w > text_w
+        WidgetResources.free(probe)
+    end
     local title_h = title_line_h * (title_needs_2_lines and 2 or 1)
 
     local author_text = (book.authors or ""):gsub("%s*\n%s*", ", "):gsub("%s+", " ")
@@ -648,7 +640,7 @@ function M.build(ctx, source_key)
         end
     end
     local progress_w = flow_description and width or text_w
-    local progress_row = not end_progress_text and build_progress_row(progress_w) or nil
+    local progress_row = not ctx.showBookStatus and build_progress_row(progress_w) or nil
     local actual_bottom_h = progress_row and progress_row:getSize().h or 0
     local detail_bottom_h = navigation_h + (flow_description and 0 or actual_bottom_h)
     local spacer_h = math.max(0, cover_h - actual_top_h - detail_bottom_h)
@@ -667,8 +659,7 @@ function M.build(ctx, source_key)
                 }
                 local align = justify_description_text and "justify" or "left"
                 local bold = description_style.bold == true and "font-weight: bold;" or ""
-                local font_file = description_style.font_face == "default"
-                    and library_font.getFontName() or description_style.font_face
+                local font_file = library_font.resolveStyleFont(description_style.font_face)
                 local page_css = "@page { margin: 0; }"
                 if font_file:find("/", 1, true) then
                     font_file = font_file:gsub("'", "\\'")

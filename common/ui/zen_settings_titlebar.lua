@@ -63,6 +63,16 @@ local function title_back_range(title_bar)
     }:combine(back_dimen)
 end
 
+-- Tap target spans header top to divider so near-misses don't fall through to the top menu.
+local function title_back_hitbox(title_bar)
+    local range = title_back_range(title_bar)
+    if not range then return end
+    local pad = TitleStyle.VERTICAL_PADDING
+    local header = title_bar.dimen
+    local top = header and header.y and math.min(header.y, range.y - pad) or range.y - pad
+    return Geom:new{ x = range.x, y = top, w = range.w, h = range.y + range.h + pad - top }
+end
+
 local function default_status_factory(plugin)
     local settings_page = rawget(_G, "__ZEN_UI_SETTINGS_PAGE")
     plugin = plugin or rawget(_G, "__ZEN_UI_PLUGIN") or (settings_page and settings_page.plugin)
@@ -352,7 +362,6 @@ function ZenSettingsTitleBar:init()
         padding_right = root_icon_inset_end,
         padding_bottom = root_icon_inset_end,
         padding_left = root_icon_inset_start,
-        allow_flash = false,
         show_parent = self.show_parent,
     }
     self.root_icon.skip_paint = self.back_visible == true
@@ -374,13 +383,13 @@ function ZenSettingsTitleBar:init()
     self.ges_events.TapBackTitle = {
         GestureRange:new{
             ges = "tap",
-            range = function() return title_back_range(self) end,
+            range = function() return title_back_hitbox(self) end,
         },
     }
     self.ges_events.HoldBackTitle = {
         GestureRange:new{
             ges = "hold",
-            range = function() return title_back_range(self) end,
+            range = function() return title_back_hitbox(self) end,
         },
     }
 

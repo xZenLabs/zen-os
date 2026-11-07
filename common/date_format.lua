@@ -91,4 +91,17 @@ function M.formatLongWithWeekday(timestamp)
     return BaseUtil.template(_("%1, %2 %3"), weekday, month, tostring(date.day))
 end
 
+function M.formatISODate(value)
+    local year, month, day = value:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)")
+    year, month, day = tonumber(year), tonumber(month), tonumber(day)
+    if not year or month < 1 or month > 12 or day < 1 or day > 31 then return value end
+    local timestamp = os.time{ year = year, month = month, day = day, hour = 12 }
+    local date, translated_month = select(2, translated_parts(timestamp))
+    local month_name = date_value("%B", timestamp)
+    local date_month = _.pgettext("Date month", month_name)
+    if date_month ~= month_name then translated_month = date_month end
+    -- Translators: month name, day, year; reorder and add local date separators.
+    return BaseUtil.template(_("%1 %2 %3"), translated_month, tostring(date.day), tostring(date.year))
+end
+
 return M

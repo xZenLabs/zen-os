@@ -51,6 +51,7 @@ local USERPATCH_PATTERNS = {
 local BRAND_MIGRATION_MARKER = "zenos_brand_migration_v1"
 local PRESERVED_LEGACY_MARKER = ".zenos-preserved-legacy"
 local ROOT_GUARD_KEY = "__ZENOS_PLUGIN_ROOT_GUARD"
+local _prepared -- startup's prepareSettings result
 
 local READER_BRAND_VALUES = {
     ["(Zen UI) Chapter Time + %"] = "(ZenOS) Chapter Time + %",
@@ -514,6 +515,15 @@ function M.prepareSettings(settings_parent, options)
     }
 end
 
+-- One-shot reuse of startup's prepareSettings result by the preset store.
+function M.preparedSettings(settings_parent)
+    local prepared = _prepared
+    _prepared = nil
+    if prepared and prepared.parent == trim_trailing_slashes(settings_parent) then
+        return prepared.settings
+    end
+end
+
 function M.removeSettings(options)
     options = options or {}
     local lfs = get_lfs(options)
@@ -739,6 +749,17 @@ function M.deletePluginSettings(options)
                 end
             end
         end
+    end
+
+    -- Rebuildable caches kept outside the ZenOS settings tree.
+    if lfs then
+        local settings_parent = settings_parent_path(options)
+        if settings_parent then
+            for _i, suffix in ipairs({ "", "-wal", "-shm", "-journal" }) do
+                remove_tree(join(settings_parent, "docprops_cache.sqlite" .. suffix), lfs)
+            end
+        end
+        if data_dir then remove_tree(join(data_dir, "cache/zen-opds-covers"), lfs) end
     end
     return true
 end
@@ -1047,18 +1068,58 @@ local function rewrite_global_backup(g_settings, old_root, new_root,
         migrate_builtin_custom_text, true)
 end
 
+-- config.lua is parsed once per boot and handed to ConfigManager's first open.
+local _boot_config -- { path, stamp, class, settings }
+
+local function file_stamp(lfs, path)
+    if not lfs or type(lfs.attributes) ~= "function" then return nil end
+    local ok, attr = pcall(lfs.attributes, path)
+    if ok and type(attr) == "table" and attr.mode == "file" then
+        return attr.size .. ":" .. tostring(attr.modification)
+    end
+end
+
+local function open_boot_config(path, LuaSettings, lfs)
+    local stamp = file_stamp(lfs, path)
+    if not stamp then return nil end
+    local cached = _boot_config
+    if cached and cached.path == path and cached.stamp == stamp
+            and cached.class == LuaSettings then
+        return cached.settings
+    end
+    local ok, settings = pcall(LuaSettings.open, LuaSettings, path)
+    if not ok or type(settings) ~= "table" then return nil end
+    _boot_config = { path = path, stamp = stamp, class = LuaSettings, settings = settings }
+    return settings
+end
+
 local function config_store(settings_root, options)
-    local lfs = get_lfs(options)
-    local path = join(settings_root, "config.lua")
-    if get_mode(lfs, path) ~= "file" then return nil end
     local LuaSettings = options and options.lua_settings
     if not LuaSettings then
         local ok, loaded = pcall(require, "luasettings")
         if ok then LuaSettings = loaded end
     end
     if not LuaSettings or type(LuaSettings.open) ~= "function" then return nil end
-    local ok, settings = pcall(LuaSettings.open, LuaSettings, path)
-    return ok and settings or nil
+    return open_boot_config(join(settings_root, "config.lua"), LuaSettings, get_lfs(options))
+end
+
+-- Read-only view of config.lua's data, shared with the boot-time parse.
+function M.readConfigData(path)
+    local ok, LuaSettings = pcall(require, "luasettings")
+    if not ok or type(LuaSettings) ~= "table" then return nil end
+    local settings = open_boot_config(path, LuaSettings, get_lfs())
+    return settings and type(settings.data) == "table" and settings.data or nil
+end
+
+-- One-shot handoff of the boot-time parse to its long-lived (mutating) owner.
+function M.takeConfigSettings(path)
+    local cached = _boot_config
+    _boot_config = nil
+    if cached and cached.path == path
+            and cached.class == package.loaded["luasettings"]
+            and cached.stamp == file_stamp(get_lfs(), path) then
+        return cached.settings
+    end
 end
 
 local function migration_marked(settings_root, options)
@@ -1084,6 +1145,7 @@ function M.rewritePersistedPaths(settings_root, old_root, new_root, options)
     if not options.force and migration_marked(settings_root, options) then
         return false, 0, true
     end
+    _boot_config = nil -- config.lua is rewritten through separate handles below
     local g_settings = options.g_settings
     if g_settings == nil then g_settings = rawget(_G, "G_reader_settings") end
     local files_changed, reader_builtin_active,
@@ -1095,6 +1157,7 @@ function M.rewritePersistedPaths(settings_root, old_root, new_root, options)
         g_settings, old_root, new_root, reader_backup_builtin_active, options)
     local saved = files_saved and global_saved and global_backup_saved
     if saved then saved = mark_migration_complete(settings_root, options) end
+    _boot_config = nil
     return global_changed or global_backup_changed, files_changed, saved
 end
 
@@ -1206,36 +1269,14 @@ local function fallback_lookup_paths(plugin_root, options, lfs)
     return paths
 end
 
+-- Probes PluginLoader's lookup paths for both brand dirs; cheaper than _discover().
 local function discovered_root_conflict(plugin_root, options, lfs)
     local roots = {}
     add_brand_root(roots, plugin_root, lfs)
-
-    local plugin_loader = options.plugin_loader
-    if plugin_loader == nil then plugin_loader = package.loaded["pluginloader"] end
-    local discovered_ok = false
-    if type(plugin_loader) == "table"
-            and type(plugin_loader._discover) == "function" then
-        local ok, discovered = pcall(plugin_loader._discover, plugin_loader)
-        if ok and type(discovered) == "table" then
-            for _i, plugin in ipairs(discovered) do
-                if type(plugin) == "table" then
-                    if add_brand_root(roots, plugin.path, lfs) then
-                        discovered_ok = true
-                    end
-                end
-            end
-        end
-    end
-
-    if not discovered_ok then
-        for _i, lookup_path in ipairs(
-                fallback_lookup_paths(plugin_root, options, lfs)) do
-            for _j, plugin_dir in ipairs({ M.LEGACY_PLUGIN_DIR, M.PLUGIN_DIR }) do
-                local root = join(lookup_path, plugin_dir)
-                if get_mode(lfs, root) == "directory" then
-                    add_brand_root(roots, root, lfs)
-                end
-            end
+    for _i, lookup_path in ipairs(
+            fallback_lookup_paths(plugin_root, options, lfs)) do
+        for _j, plugin_dir in ipairs({ M.LEGACY_PLUGIN_DIR, M.PLUGIN_DIR }) do
+            add_brand_root(roots, join(lookup_path, plugin_dir), lfs)
         end
     end
 
@@ -1390,6 +1431,7 @@ function M.startup(main_source, options)
 
     local settings = M.prepareSettings(settings_parent, options)
     result.settings = settings
+    _prepared = settings.ok and { parent = settings_parent, settings = settings } or nil
     if not settings.ok then
         result.proceed = false
         result.inert = true

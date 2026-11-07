@@ -8,7 +8,7 @@ function M.closeStandaloneViews(plugin)
     for _i, key in ipairs({ "group_view", "home", "stats" }) do
         local view = SharedState.get(plugin, key)
         if view and type(view.closeAll) == "function" then
-            local ok, err = pcall(view.closeAll)
+            local ok, err = pcall(view.closeAll, true)
             if not ok then
                 logger.warn("failed to close standalone view before shutdown", key, err)
             end

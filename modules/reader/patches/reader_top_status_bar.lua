@@ -4,13 +4,13 @@ local function apply_reader_top_status_bar()
         Left / center / right slots each hold an ordered list of item keys.
         Items: time, battery, battery_icon, battery_percent, wifi, bluetooth, frontlight, ram,
                disk, incognito, custom_text, book_title, author, chapter,
-               progress_percent, current_page, total_pages, page_progress
+               progress_percent, current_page, total_pages, page_progress, pin
         Wraps ReaderView.paintTo. Config via config.reader_top_status_bar.
     --]]
 
     local Blitbuffer    = require("ffi/blitbuffer")
-    local TextWidget    = require("ui/widget/textwidget")
     local ColorTextWidget = require("common/ui/color_text_widget")
+    local ColorIconWidget = require("common/ui/color_icon_widget")
     local CenterContainer = require("ui/widget/container/centercontainer")
     local LeftContainer   = require("ui/widget/container/leftcontainer")
     local RightContainer  = require("ui/widget/container/rightcontainer")
@@ -24,12 +24,13 @@ local function apply_reader_top_status_bar()
     local Size     = require("ui/size")
     local Geom     = require("ui/geometry")
     local Device   = require("device")
-    local Font     = require("ui/font")
     local T        = require("ffi/util").template
     local datetime = require("datetime")
     local UIManager = require("ui/uimanager")
     local zen_utils = require("common/utils")
+    local pin_icon = zen_utils.resolveLocalIcon(require("common/plugin_root") .. "/icons/", "pin")
     local inline_icons = require("common/inline_icon_map")
+    local WifiState = require("common/wifi_state")
     local _ = require("gettext")
     local ReaderThemes = require("common/reader_themes")
     local Bluetooth = require("modules/menu/bluetooth/bluetooth")
@@ -40,6 +41,8 @@ local function apply_reader_top_status_bar()
     local ReaderView = require("apps/reader/modules/readerview")
     local ReaderUI = require("apps/reader/readerui")
     local ReaderStatusBar = require("common/reader_status_bar")
+    local References = require("modules/reader/references")
+    local HighlightViewport = require("modules/reader/highlight_viewport")
     local _ReaderView_paintTo_orig = ReaderView.paintTo
     local zen_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
 
@@ -54,13 +57,24 @@ local function apply_reader_top_status_bar()
         return type(features) == "table" and features.reader_top_status_bar == true
     end
 
+    -- Bottom bar toggled off (tap/gesture) while it has something to show.
+    local function footer_toggled_off(view)
+        local footer = view.footer
+        if not (footer and footer.mode_list) or footer.mode ~= footer.mode_list.off then return false end
+        if footer.has_no_mode and footer.settings.disable_progress_bar then return false end
+        if ReaderStatusBar.getTapHide(zen_plugin) == "bottom" then return false end
+        local fcfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_footer
+        return not (type(fcfg) == "table" and fcfg.status_bar_enabled == false)
+    end
+
     local function should_show(view)
-        if not is_enabled() or not view then return false end
+        if not is_enabled() or not view or footer_toggled_off(view)
+                or ReaderStatusBar.isTopBarTapHidden(zen_plugin, view.footer) then return false end
         if view.render_mode ~= nil then
             local cfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
             return type(cfg) == "table" and not cfg.hide_in_cbz
         end
-        return view.view_mode == "page"
+        return view.view_mode == "page" or HighlightViewport.isScrolling(view)
     end
 
     local function header_text_color()
@@ -74,6 +88,8 @@ local function apply_reader_top_status_bar()
         if top_widget == view.ui or top_widget == view.ui.show_parent then
             return true
         end
+        local highlight = view.ui.highlight
+        if highlight and top_widget == highlight.highlight_dialog then return true end
         local parent = top_widget.show_parent
         return parent ~= nil and (parent == view.ui or parent == view.ui.show_parent)
     end
@@ -81,16 +97,16 @@ local function apply_reader_top_status_bar()
     -- Stable reference so suspend/resume can cancel/restart the timer.
     local _autoRefresh
     local _charging_refresh_timer
-    local _resume_refresh_timer_1
-    local _resume_refresh_timer_2
+    local _resume_refresh_timer
+    local repaintHeaderSlots, repaintActiveHeaderSlots
+    -- Items whose painted values are tracked so timers refresh only changed slots.
     local RESUME_REFRESH_ITEMS = {
         "time", "wifi", "bluetooth", "battery", "battery_icon", "battery_percent",
         "frontlight", "ram", "disk", "incognito",
     }
     local MINUTE_REFRESH_ITEMS = { "time", "battery", "battery_icon", "battery_percent" }
-    local MINUTE_REFRESH_SET = {
-        time = true, battery = true, battery_icon = true, battery_percent = true,
-    }
+    local TRACKED_SET = {}
+    for _i, key in ipairs(RESUME_REFRESH_ITEMS) do TRACKED_SET[key] = true end
 
     -- === Separator value map (bar-specific spacing; labels live in common/constants.lua) ===
 
@@ -106,7 +122,6 @@ local function apply_reader_top_status_bar()
 
     -- === Caches for slow item fetchers ===
 
-    local cached_disk_text, cached_disk_time = nil, 0
     local cached_ram_text,  cached_ram_time  = nil, 0
 
     local colors = {
@@ -123,19 +138,17 @@ local function apply_reader_top_status_bar()
     -- === Item fetchers: return (primary_text, suffix_or_nil) ===
 
     local function getWifiItem()
-        local ok, NetworkMgr = pcall(require, "ui/network/manager")
-        if not ok then return nil end
-        if NetworkMgr.isWifiChanging and NetworkMgr:isWifiChanging()
-                or not NetworkMgr:isConnected()
-                    and (NetworkMgr:isWifiOn() or NetworkMgr.pending_connection or NetworkMgr.pending_connectivity_check) then
-            return "\u{ECA8}", nil, colors.wifi_searching, true
+        local state = WifiState.get()
+        if not state then return nil end
+        if state == "searching" then
+            return inline_icons.wifi_on, nil, colors.wifi_searching, true
         end
-        if NetworkMgr:isWifiOn() then
-            return "\u{ECA8}", nil, colors.wifi_on
+        if state == "on" then
+            return inline_icons.wifi_on, nil, colors.wifi_on
         end
         local cfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
         if type(cfg) == "table" and cfg.wifi_hide_when_off == true then return nil end
-        return "\u{ECA9}", nil, colors.wifi_off
+        return inline_icons.wifi_off, nil, colors.wifi_off
     end
 
     local function getBluetoothItem()
@@ -151,7 +164,7 @@ local function apply_reader_top_status_bar()
     local function getRamItem()
         local now = os.time()
         if cached_ram_text and (now - cached_ram_time) < 30 then
-            return "\u{EA5A}", " " .. cached_ram_text, colors.resource
+            return inline_icons.settings_ram, " " .. cached_ram_text, colors.resource
         end
         local statm = io.open("/proc/self/statm", "r")
         if statm then
@@ -160,40 +173,27 @@ local function apply_reader_top_status_bar()
             if rss_pages then
                 cached_ram_text = string.format("%dM", math.floor(rss_pages / 256))
                 cached_ram_time = now
-                return "\u{EA5A}", " " .. cached_ram_text, colors.resource
+                return inline_icons.settings_ram, " " .. cached_ram_text, colors.resource
             end
         end
-        return "\u{EA5A}", " ?M", colors.resource
+        return inline_icons.settings_ram, " ?M", colors.resource
     end
 
+    -- df runs once on first paint, then after a page-turn refresh when stale (getDiskFreeText caches 5 min).
+    local disk_text, disk_at, _disk_refresh
     local function getDiskItem()
         local now = os.time()
-        if cached_disk_text and (now - cached_disk_time) < 300 then
-            return "\u{F0A0}", " " .. cached_disk_text, colors.resource
-        end
-        local paths = require("common/paths")
-        local home_dir = paths.getHomeDir()
-        local dirs = {}
-        if home_dir and home_dir ~= "" then table.insert(dirs, home_dir) end
-        for _i, p in ipairs({ "/mnt/us", "/mnt/onboard", "/sdcard", "/" }) do
-            table.insert(dirs, p)
-        end
-        for _i, dir in ipairs(dirs) do
-            local pipe = io.popen("df -h " .. dir .. " 2>/dev/null")
-            if pipe then
-                for line in pipe:lines() do
-                    local avail = line:match("%S+%s+%S+%s+%S+%s+(%S+)")
-                    if avail and avail:match("^%d") then
-                        pipe:close()
-                        cached_disk_text = avail
-                        cached_disk_time = now
-                        return "\u{F0A0}", " " .. avail, colors.resource
-                    end
-                end
-                pipe:close()
+        if not disk_text then
+            disk_text, disk_at = zen_utils.getDiskFreeText() or "?", now
+        elseif not _disk_refresh and now - disk_at >= 300 then
+            _disk_refresh = function()
+                _disk_refresh = nil
+                disk_text, disk_at = zen_utils.getDiskFreeText() or "?", os.time()
+                repaintActiveHeaderSlots({ "disk" })
             end
+            UIManager:nextTick(_disk_refresh)
         end
-        return "\u{F0A0}", " ?", colors.resource
+        return inline_icons.settings_storage, " " .. disk_text, colors.resource
     end
 
     local function getFrontlightItem()
@@ -387,7 +387,15 @@ local function apply_reader_top_status_bar()
         return ("%." .. digits .. "f%%"):format(percent * 100), nil
     end
 
+    local function getPinItem(doc_ctx)
+        local ui = doc_ctx and doc_ctx.ui
+        if References.enabled(ui) and References.isPinned(ui, ui:getCurrentPage()) then
+            return pin_icon
+        end
+    end
+
     local item_fetchers = {
+        pin         = getPinItem,
         wifi        = getWifiItem,
         bluetooth   = getBluetoothItem,
         incognito   = getIncognitoItem,
@@ -420,110 +428,105 @@ local function apply_reader_top_status_bar()
                 local icon, label, color, force_color = fn(doc_ctx)
                 if icon ~= nil then
                     local text = label and (icon .. label) or icon
-                    table.insert(texts, {
+                    local entry = {
                         key = key,
                         text = text,
                         icon = icon,
                         label = label,
                         color = color and (use_color or force_color) and color or nil,
-                    })
+                    }
+                    if key == "pin" then
+                        entry.file, entry.text = icon, ""
+                        entry.size = Screen:scaleBySize((cfg and cfg.font_size or 14) + 2)
+                    end
+                    table.insert(texts, entry)
                 end
             end
         end
         return texts
     end
 
-    local function measureTextsWidth(texts, face, sep)
-        if type(texts) ~= "table" or #texts == 0 then return 0 end
-        local total = 0
-        for i = 1, #texts do
-            if i > 1 and sep ~= "" then
-                local sep_w = TextWidget:new{
-                    text = sep,
-                    face = face,
-                    padding = 0,
-                }
-                total = total + sep_w:getSize().w
-                sep_w:free()
-            end
-            local tw = TextWidget:new{
-                text = texts[i].text,
-                face = face,
-                fgcolor = header_text_color(),
-                padding = 0,
-            }
-            total = total + tw:getSize().w
-            tw:free()
+    local function freeWidgets(widgets)
+        for _i, widget in ipairs(widgets or {}) do
+            if widget.free then widget:free() end
         end
-        return total
     end
 
-    -- Builds a HorizontalGroup from pre-collected texts.
-    -- If max_width is set and content overflows, rebuilds as a single ellipsis-truncated TextWidget.
-    -- Returns (group_or_nil, widgets_list, natural_width).
-    local function buildGroupFromTexts(texts, face, sep, max_width)
-        if type(texts) ~= "table" or #texts == 0 then return nil, {}, 0 end
-        if max_width and max_width <= 0 then return nil, {}, measureTextsWidth(texts, face, sep) end
-        local group = HorizontalGroup:new{}
-        local widgets = {}
-        local natural_w = measureTextsWidth(texts, face, sep)
+    local function textWidget(text, face, fgcolor, max_width)
+        return ColorTextWidget:new{
+            text = text, face = face, fgcolor = fgcolor, invert_night_mode = false, padding = 0,
+            max_width = max_width,
+        }
+    end
+
+    local function iconWidget(file, size, fgcolor)
+        return ColorIconWidget:new{ icon = file, width = size, height = size, alpha = true, fgcolor = fgcolor }
+    end
+
+    -- Builds a slot's widgets at natural size; returns (widgets, natural_width).
+    local function buildSlotWidgets(texts, face, sep, fgcolor)
+        local widgets, width = {}, 0
         for i = 1, #texts do
-            if i > 1 and sep ~= "" then
-                local sep_w = TextWidget:new{
-                    text = sep,
-                    face = face,
-                    fgcolor = header_text_color(),
-                    padding = 0,
-                }
-                table.insert(group, sep_w)
-                table.insert(widgets, sep_w)
-            end
+            if i > 1 and sep ~= "" then widgets[#widgets + 1] = textWidget(sep, face, fgcolor) end
             local entry = texts[i]
-            if entry.color and entry.icon ~= "" then
-                local icon_w = ColorTextWidget:new{
-                    text = entry.icon,
-                    face = face,
-                    fgcolor = entry.color,
-                    padding = 0,
+            if entry.file then
+                widgets[#widgets + 1] = iconWidget(entry.file, entry.size, fgcolor)
+            elseif entry.color and entry.icon ~= "" then
+                widgets[#widgets + 1] = ColorTextWidget:new{
+                    text = entry.icon, face = face, fgcolor = entry.color, padding = 0,
                 }
-                table.insert(group, icon_w)
-                table.insert(widgets, icon_w)
                 if entry.label and entry.label ~= "" then
-                    local label_w = TextWidget:new{
-                        text = entry.label,
-                        face = face,
-                        fgcolor = header_text_color(),
-                        padding = 0,
-                    }
-                    table.insert(group, label_w)
-                    table.insert(widgets, label_w)
+                    widgets[#widgets + 1] = textWidget(entry.label, face, fgcolor)
                 end
             else
-                local tw = TextWidget:new{
-                    text = entry.text,
-                    face = face,
-                    fgcolor = header_text_color(),
-                    padding = 0,
-                }
-                table.insert(group, tw)
-                table.insert(widgets, tw)
+                widgets[#widgets + 1] = textWidget(entry.text, face, fgcolor)
             end
         end
+        for i = 1, #widgets do width = width + widgets[i]:getSize().w end
+        return widgets, width
+    end
 
-        if max_width and natural_w > max_width then
-            for _i, w in ipairs(widgets) do if w.free then w:free() end end
-            local joined = texts[1] and texts[1].text or ""
-            for i = 2, #texts do joined = joined .. sep .. texts[i].text end
-            local tw = TextWidget:new{
-                text      = joined,
-                face      = face,
-                fgcolor   = header_text_color(),
-                padding   = 0,
-                max_width = max_width,
-            }
-            return HorizontalGroup:new{ tw }, { tw }, natural_w
+    -- Fits slot widgets in max_width: truncates text while preserving SVG icons.
+    -- Returns (group_or_nil, widgets).
+    local function fitSlotWidgets(texts, widgets, natural_w, face, sep, fgcolor, max_width)
+        if #widgets == 0 then return nil, widgets end
+        if max_width and max_width <= 0 then
+            freeWidgets(widgets)
+            return nil, {}
         end
-        return group, widgets, natural_w
+        if max_width and natural_w > max_width then
+            local image_width, text_width = 0, 0
+            for i, widget in ipairs(widgets) do
+                if widget.setMaxWidth then
+                    text_width = text_width + widget:getSize().w
+                else
+                    if widget.width > max_width then
+                        widget:free()
+                        widget = iconWidget(widget.icon, max_width, fgcolor)
+                        widgets[i] = widget
+                    end
+                    image_width = image_width + widget:getSize().w
+                end
+            end
+            if image_width > 0 then
+                local ratio = math.max(0, max_width - image_width) / math.max(1, text_width)
+                for _i, widget in ipairs(widgets) do
+                    if widget.setMaxWidth then
+                        local cap = math.floor(widget:getSize().w * ratio)
+                        widget:setMaxWidth(math.max(1, cap))
+                        if widget:getSize().w > cap then widget:setText("") end
+                    end
+                end
+            else
+                freeWidgets(widgets)
+                local joined = texts[1].text
+                for i = 2, #texts do joined = joined .. sep .. texts[i].text end
+                widgets = { textWidget(joined, face, fgcolor, max_width) }
+            end
+        end
+        local group = HorizontalGroup:new{}
+        for i = 1, #widgets do group[i] = widgets[i] end
+        return group, widgets
     end
 
     local function getChapterTicks(doc_ctx)
@@ -542,13 +545,20 @@ local function apply_reader_top_status_bar()
             local current = select(3, getPageInfo(doc_ctx))
             if not current then return nil end
             local flow = document:getPageFlow(current)
-            local flow_ticks = {}
-            for _i, pageno in ipairs(ticks) do
-                if document:getPageFlow(pageno) == flow then
-                    table.insert(flow_ticks, document:getPageNumberInFlow(pageno))
+            -- ReaderToc replaces its ticks table on rerender/reset, which also invalidates this.
+            local cache = ui._zen_top_bar_flow_ticks
+            if not (cache and cache.ticks == ticks and cache.flow == flow) then
+                local flow_ticks = {}
+                for _i, pageno in ipairs(ticks) do
+                    if document:getPageFlow(pageno) == flow then
+                        flow_ticks[#flow_ticks + 1] = document:getPageNumberInFlow(pageno)
+                    end
                 end
+                cache = { ticks = ticks, flow = flow, flow_ticks = flow_ticks,
+                    last = document:getTotalPagesInFlow(flow) }
+                ui._zen_top_bar_flow_ticks = cache
             end
-            return flow_ticks, document:getTotalPagesInFlow(flow)
+            return cache.flow_ticks, cache.last
         end
         return ticks, last
     end
@@ -609,27 +619,23 @@ local function apply_reader_top_status_bar()
         return orders
     end
 
-    local function getHeaderFace(cfg)
-        local footer_settings = G_reader_settings:readSetting("footer")
-        local face_cfg = type(cfg) == "table" and cfg.font_face or "default"
-        local font_name = face_cfg == "default"
-            and ((footer_settings and footer_settings.text_font_face) or "NotoSans-Regular.ttf")
-            or face_cfg
-        local font_size = type(cfg) == "table" and cfg.font_size or 14
-        return Font:getFace(font_name, font_size) or Font:getFace("cfont", font_size)
+    local SLOTS = { "left", "center", "right" }
+
+    local function hasItem(orders, key)
+        for _i, slot in ipairs(SLOTS) do
+            for _j, item in ipairs(orders[slot]) do
+                if item == key then return true end
+            end
+        end
+        return false
     end
 
-    local function getReservedHeaderHeight(view)
-        if not is_enabled() or view.footer.reclaim_height then return 0 end
+    local function getReservedHeaderHeight()
+        if not is_enabled() then return 0 end
         local cfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
         local orders = getSlotOrders(cfg)
         if #orders.left == 0 and #orders.center == 0 and #orders.right == 0 then return 0 end
-
-        local height = view.footer:getHeight()
-        if type(cfg) == "table" and cfg.show_bottom_border == true then
-            height = height + Size.line.medium
-        end
-        return height
+        return ReaderStatusBar.getHeaderHeight(cfg, hasItem(orders, "pin"))
     end
 
     local function slotsContaining(cfg, item_keys)
@@ -637,7 +643,7 @@ local function apply_reader_top_status_bar()
         for _i, key in ipairs(item_keys or {}) do wanted[key] = true end
         local orders = getSlotOrders(cfg)
         local slots = {}
-        for _i, slot in ipairs({ "left", "center", "right" }) do
+        for _i, slot in ipairs(SLOTS) do
             for _j, key in ipairs(orders[slot]) do
                 if wanted[key] then
                     table.insert(slots, slot)
@@ -648,24 +654,55 @@ local function apply_reader_top_status_bar()
         return slots
     end
 
-    local function minuteItemValues(cfg, view)
+    local function entryValue(entry)
+        return entry and (entry.text .. "\0" .. tostring(entry.color)) or false
+    end
+
+    -- Current values of the given items that are configured in a slot.
+    local function itemValues(view, keys)
+        local orders = getSlotOrders(zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar)
         local values = {}
-        for _i, key in ipairs(MINUTE_REFRESH_ITEMS) do
-            if #slotsContaining(cfg, { key }) > 0 then
-                local entry = collectItemTexts({ key }, view)[1]
-                values[key] = entry and (entry.text .. "\0" .. tostring(entry.color)) or false
-            end
+        for _i, key in ipairs(keys) do
+            if hasItem(orders, key) then values[key] = entryValue(collectItemTexts({ key }, view)[1]) end
         end
         return values
     end
 
-    -- Builds the header widget from current config.
+    -- Items whose value differs from the painted header.
+    local function changedItems(view, keys)
+        local previous = view._zen_header_values
+        local changed = {}
+        for key, value in pairs(itemValues(view, keys)) do
+            if not previous or previous[key] ~= value then changed[#changed + 1] = key end
+        end
+        return changed
+    end
+
+    -- Comparable key for theme colors, which are fresh cdata on each lookup.
+    local function colorKey(color)
+        if type(color) ~= "cdata" then return tostring(color) end
+        local rgb = color:getColorRGB32()
+        return rgb.r * 65536 + rgb.g * 256 + rgb.b
+    end
+
+    local function freeHeaderCache(view)
+        local cache = view and view._zen_header_cache
+        if cache then
+            freeWidgets(cache.widgets)
+            view._zen_header_cache = nil
+        end
+    end
+
+    -- Builds the header widget from current config, reusing the view's cached widgets
+    -- while item texts, colors and layout inputs are unchanged.
     -- doc_ctx: ReaderView (or nil); needed for book_title, author, chapter items.
-    -- Returns header, widgets, height, width, and per-slot regions; or nil if empty.
+    -- Returns header, widgets, height, width, per-slot regions and tracked item values; or nil if empty.
+    -- Widgets stay owned by the view's cache (freed on rebuild or close).
     local function buildHeader(doc_ctx)
         local screen_width = Screen:getWidth()
         local cfg = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
-        local face = getHeaderFace(cfg)
+        local face = ReaderStatusBar.getHeaderFace(cfg)
+        local fgcolor = header_text_color()
 
         local top_pad = Size.padding.small
         local h_pad   = Size.span.horizontal_default
@@ -702,8 +739,6 @@ local function apply_reader_top_status_bar()
             return SEP_VALUES["small-space"]
         end
 
-        local all_widgets = {}
-
         local left_sep = slot_sep("left")
         local center_sep = slot_sep("center")
         local right_sep = slot_sep("right")
@@ -711,27 +746,36 @@ local function apply_reader_top_status_bar()
         local left_texts = collectItemTexts(left_order, doc_ctx)
         local center_texts = collectItemTexts(center_order, doc_ctx)
         local right_texts = collectItemTexts(right_order, doc_ctx)
-        local minute_values = {}
-        for _i, order in ipairs({ left_order, center_order, right_order }) do
-            for _j, key in ipairs(order) do
-                if MINUTE_REFRESH_SET[key] then minute_values[key] = false end
+        local values = {}
+        local sig = { screen_width, left_pad, right_pad, top_pad, tostring(align_margins), tostring(face),
+            colorKey(fgcolor), tostring(Screen.night_mode), left_sep, center_sep, right_sep }
+        for _i, slot in ipairs(SLOTS) do
+            for _j, key in ipairs(orders[slot]) do
+                if TRACKED_SET[key] then values[key] = false end
             end
         end
         for _i, texts in ipairs({ left_texts, center_texts, right_texts }) do
+            sig[#sig + 1] = "|"
             for _j, entry in ipairs(texts) do
-                if MINUTE_REFRESH_SET[entry.key] then
-                    minute_values[entry.key] = entry.text .. "\0" .. tostring(entry.color)
-                end
+                if TRACKED_SET[entry.key] then values[entry.key] = entryValue(entry) end
+                sig[#sig + 1] = entry.file or entry.text
+                sig[#sig + 1] = entry.file and entry.size or tostring(entry.color)
             end
         end
+        sig = table.concat(sig, "\1")
+        local cache = doc_ctx and doc_ctx._zen_header_cache
+        if cache and cache.sig == sig then
+            return cache.header, cache.widgets, cache.height, screen_width, cache.slots, values
+        end
+        freeHeaderCache(doc_ctx)
+
+        local left_ws, left_nat = buildSlotWidgets(left_texts, face, left_sep, fgcolor)
+        local center_ws, center_nat = buildSlotWidgets(center_texts, face, center_sep, fgcolor)
+        local right_ws, right_nat = buildSlotWidgets(right_texts, face, right_sep, fgcolor)
 
         local left_has = #left_texts > 0
         local center_has = #center_texts > 0
         local right_has = #right_texts > 0
-
-        local left_nat = measureTextsWidth(left_texts, face, left_sep)
-        local center_nat = measureTextsWidth(center_texts, face, center_sep)
-        local right_nat = measureTextsWidth(right_texts, face, right_sep)
 
         local left_cap = 0
         local center_cap = 0
@@ -777,17 +821,20 @@ local function apply_reader_top_status_bar()
             end
         end
 
-        local left_grp, left_ws = buildGroupFromTexts(left_texts, face, left_sep, left_cap)
-        local center_grp, center_ws = buildGroupFromTexts(center_texts, face, center_sep, center_cap)
-        local right_grp, right_ws = buildGroupFromTexts(right_texts, face, right_sep, right_cap)
+        local left_grp, center_grp, right_grp
+        left_grp, left_ws = fitSlotWidgets(left_texts, left_ws, left_nat, face, left_sep, fgcolor, left_cap)
+        center_grp, center_ws = fitSlotWidgets(center_texts, center_ws, center_nat, face, center_sep, fgcolor, center_cap)
+        right_grp, right_ws = fitSlotWidgets(right_texts, right_ws, right_nat, face, right_sep, fgcolor, right_cap)
 
-        for _i, w in ipairs(left_ws)   do table.insert(all_widgets, w) end
-        for _i, w in ipairs(center_ws) do table.insert(all_widgets, w) end
-        for _i, w in ipairs(right_ws)  do table.insert(all_widgets, w) end
+        local all_widgets = {}
+        for _i, ws in ipairs({ left_ws, center_ws, right_ws }) do
+            for _j, w in ipairs(ws) do all_widgets[#all_widgets + 1] = w end
+        end
 
         if not left_grp and not center_grp and not right_grp then
             DBG("buildHeader: all groups nil, doc_ctx=", doc_ctx and "present" or "nil",
                 "left_order=", #left_order, "center_order=", #(center_order or {}), "right_order=", #right_order)
+            freeWidgets(all_widgets)
             return nil, {}, 0, screen_width
         end
 
@@ -885,7 +932,12 @@ local function apply_reader_top_status_bar()
             }
         end
 
-        return header, all_widgets, header_h, screen_width, slot_regions, minute_values
+        if doc_ctx then
+            doc_ctx._zen_header_cache = {
+                sig = sig, header = header, widgets = all_widgets, height = header_h, slots = slot_regions,
+            }
+        end
+        return header, all_widgets, header_h, screen_width, slot_regions, values
     end
 
     local function offsetSlotRegions(slot_regions, x, y)
@@ -920,15 +972,9 @@ local function apply_reader_top_status_bar()
         end
     end
 
-    local function freeWidgets(widgets)
-        for _i, widget in ipairs(widgets or {}) do
-            if widget.free then widget:free() end
-        end
-    end
-
     -- Rebuilds the header, but clears and flushes only slots containing the
-    -- items affected by the timer or event.
-    local function repaintHeaderSlots(view, item_keys)
+    -- given items or any other tracked item whose value changed since the last paint.
+    function repaintHeaderSlots(view, item_keys)
         if not should_show(view) then return end
         local top_widget = UIManager:getTopmostVisibleWidget()
         if not (top_widget == view.ui or top_widget == (view.ui and view.ui.show_parent)) then return end
@@ -941,13 +987,19 @@ local function apply_reader_top_status_bar()
             return
         end
         local cfg2 = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
-        local target_slots = slotsContaining(cfg2, item_keys)
-        if #target_slots == 0 then return end
-        local header, all_widgets, header_h, screen_width, relative_slots, minute_values = buildHeader(view)
+        local header, _widgets, header_h, screen_width, relative_slots, values = buildHeader(view)
         if not header then
             DBG("repaintHeaderSlots SKIP: buildHeader returned nil")
             return
         end
+        values = values or itemValues(view, RESUME_REFRESH_ITEMS)
+        local previous = view._zen_header_values or {}
+        local keys = { unpack(item_keys) }
+        for key, value in pairs(values) do
+            if previous[key] ~= value then keys[#keys + 1] = key end
+        end
+        local target_slots = slotsContaining(cfg2, keys)
+        if #target_slots == 0 then return end
         local show_border = type(cfg2) == "table" and cfg2.show_bottom_border
         local total_h = header_h + (show_border and Size.line.medium or 0)
 
@@ -961,12 +1013,9 @@ local function apply_reader_top_status_bar()
             local region = unionRegions(previous_slots[slot], current_slots[slot])
             if region then table.insert(refresh_regions, region) end
         end
-        if #refresh_regions == 0 then
-            view._zen_header_slots = current_slots
-            view._zen_header_minute_values = minute_values or minuteItemValues(cfg2, view)
-            freeWidgets(all_widgets)
-            return
-        end
+        view._zen_header_slots = current_slots
+        view._zen_header_values = values
+        if #refresh_regions == 0 then return end
 
         local refresh_dither = top_widget and top_widget.dithered or nil
         local bb = Screen.bb
@@ -985,16 +1034,18 @@ local function apply_reader_top_status_bar()
                 end
             end
         end
-        UIManager:widgetRepaint(header, dimen.x, dimen.y)
+        -- Clip unchanged slots to avoid darkening antialiased text on repeated paints.
+        for _i, region in ipairs(refresh_regions) do
+            local viewport = Screen.bb:viewport(region.x, region.y, region.w, region.h)
+            header:paintTo(viewport, dimen.x - region.x, dimen.y - region.y)
+            viewport:free()
+        end
         if view.dogear_visible and view.dogear and type(view.dogear.paintTo) == "function" then
             view.dogear:paintTo(Screen.bb, dimen.x, dimen.y)
         end
         for _i, region in ipairs(refresh_regions) do
             UIManager:setDirty(nil, "ui", region, refresh_dither)
         end
-        view._zen_header_slots = current_slots
-        view._zen_header_minute_values = minute_values or minuteItemValues(cfg2, view)
-        freeWidgets(all_widgets)
     end
 
     local function activeReaderView(rui)
@@ -1002,17 +1053,19 @@ local function apply_reader_top_status_bar()
         return reader and reader.view
     end
 
-    local function repaintActiveHeaderSlots(item_keys, rui, repaint_reader)
+    -- Repaints only when one of item_keys changed since the last paint.
+    function repaintActiveHeaderSlots(item_keys, rui, repaint_reader)
         local view = activeReaderView(rui)
-        if not (view and view.ui and view.ui.document) or not should_show(view) then return end
-        if is_view_active_top(view) then
-            if repaint_reader then
-                -- Match page turns: repaint the page and transparent header together.
-                DBG("resume reader repaint", "mode=ui")
-                UIManager:setDirty(view.ui.show_parent or view.ui, "ui")
-            else
-                repaintHeaderSlots(view, item_keys)
-            end
+        if not (view and view.ui and view.ui.document) or not should_show(view)
+                or not is_view_active_top(view) then return end
+        local changed = changedItems(view, item_keys)
+        if #changed == 0 then return end
+        if repaint_reader then
+            -- Match page turns: repaint the page and transparent header together.
+            DBG("resume reader repaint", "mode=ui")
+            UIManager:setDirty(view.ui.show_parent or view.ui, "ui")
+        else
+            repaintHeaderSlots(view, changed)
         end
     end
 
@@ -1024,31 +1077,15 @@ local function apply_reader_top_status_bar()
             _autoRefresh = nil
             return
         end
-        if is_view_active_top(view) then
-            local current = minuteItemValues(cfg2, view)
-            local previous = view._zen_header_minute_values
-            local changed = {}
-            for key, value in pairs(current) do
-                if not previous or previous[key] ~= value then changed[#changed + 1] = key end
-            end
-            if #changed > 0 then
-                repaintHeaderSlots(view, changed)
-            end
-        end
+        repaintActiveHeaderSlots(MINUTE_REFRESH_ITEMS)
         local t = os.date("*t")
         UIManager:scheduleIn(61 - t.sec, autoRefresh)
     end
 
     local function armAutoRefresh()
+        if _autoRefresh then return end -- autoRefresh disarms itself once no minute item is configured
         local cfg2 = zen_plugin and zen_plugin.config and zen_plugin.config.reader_top_status_bar
-        if #slotsContaining(cfg2, MINUTE_REFRESH_ITEMS) == 0 then
-            if _autoRefresh then
-                UIManager:unschedule(_autoRefresh)
-                _autoRefresh = nil
-            end
-            return
-        end
-        if _autoRefresh then return end
+        if #slotsContaining(cfg2, MINUTE_REFRESH_ITEMS) == 0 then return end
         _autoRefresh = autoRefresh
         local t = os.date("*t")
         UIManager:scheduleIn(61 - t.sec, _autoRefresh)
@@ -1059,18 +1096,10 @@ local function apply_reader_top_status_bar()
             UIManager:unschedule(_autoRefresh)
             if clear_auto_refresh then _autoRefresh = nil end
         end
-        if _charging_refresh_timer then
-            UIManager:unschedule(_charging_refresh_timer)
-            _charging_refresh_timer = nil
-        end
-        if _resume_refresh_timer_1 then
-            UIManager:unschedule(_resume_refresh_timer_1)
-            _resume_refresh_timer_1 = nil
-        end
-        if _resume_refresh_timer_2 then
-            UIManager:unschedule(_resume_refresh_timer_2)
-            _resume_refresh_timer_2 = nil
-        end
+        if _charging_refresh_timer then UIManager:unschedule(_charging_refresh_timer) end
+        if _resume_refresh_timer then UIManager:unschedule(_resume_refresh_timer) end
+        if _disk_refresh then UIManager:unschedule(_disk_refresh) end
+        _charging_refresh_timer, _resume_refresh_timer, _disk_refresh = nil, nil, nil
     end
 
     local function scheduleChargingRefresh(rui)
@@ -1104,24 +1133,15 @@ local function apply_reader_top_status_bar()
                 "view._zen_header_dimen=", view._zen_header_dimen and "present" or "nil",
                 "view.ui=", view.ui and "present" or "nil")
             UIManager:unschedule(_autoRefresh)
-            if _resume_refresh_timer_1 then UIManager:unschedule(_resume_refresh_timer_1) end
-            if _resume_refresh_timer_2 then UIManager:unschedule(_resume_refresh_timer_2) end
+            if _resume_refresh_timer then UIManager:unschedule(_resume_refresh_timer) end
             local repaint_reader = view.render_mode == nil and Device:isKindle()
                 and Device:hasColorScreen() and ReaderThemes.getBackgroundColor(zen_plugin)
-            if not repaint_reader then
-                _resume_refresh_timer_1 = function()
-                    _resume_refresh_timer_1 = nil
-                    repaintActiveHeaderSlots(RESUME_REFRESH_ITEMS)
-                end
-                UIManager:scheduleIn(0.6, _resume_refresh_timer_1)
-            else
-                _resume_refresh_timer_1 = nil
-            end
-            _resume_refresh_timer_2 = function()
-                _resume_refresh_timer_2 = nil
+            -- One settled pass for values that changed while asleep.
+            _resume_refresh_timer = function()
+                _resume_refresh_timer = nil
                 repaintActiveHeaderSlots(RESUME_REFRESH_ITEMS, nil, repaint_reader)
             end
-            UIManager:scheduleIn(1.8, _resume_refresh_timer_2)
+            UIManager:scheduleIn(1.8, _resume_refresh_timer)
             local now_t = os.date("*t")
             UIManager:scheduleIn(61 - now_t.sec, _autoRefresh)
         end
@@ -1165,6 +1185,7 @@ local function apply_reader_top_status_bar()
         local orig_onClose = ReaderUI.onClose
         ReaderUI.onClose = function(rui, ...)
             cancelRefreshTimers(true)
+            freeHeaderCache(rui and rui.view)
             if orig_onClose then return orig_onClose(rui, ...) end
         end
     end
@@ -1187,10 +1208,31 @@ local function apply_reader_top_status_bar()
             local document = self.ui and self.ui.document
             if document then
                 document._zen_top_status_bar_margin_reserve = self.view
-                    and self.view.view_mode == "page" and getReservedHeaderHeight(self.view) or 0
+                    and self.view.view_mode == "page" and getReservedHeaderHeight() or 0
             end
             local result = orig_onSetPageMargins(self, margins, ...)
             if document then document._zen_top_status_bar_margin_reserve = nil end
+            return result
+        end
+    end
+
+    local ReaderFooter = require("apps/reader/modules/readerfooter")
+    if not ReaderFooter._zen_top_status_bar_toggle_patched then
+        ReaderFooter._zen_top_status_bar_toggle_patched = true
+        local orig_applyFooterMode = ReaderFooter.applyFooterMode
+        ReaderFooter.applyFooterMode = function(self, ...)
+            local result = orig_applyFooterMode(self, ...)
+            -- Callers set self.mode before calling, so compare with the last applied state.
+            local view = self.view
+            local was_off = self._zen_top_bar_footer_off
+            self._zen_top_bar_footer_off = view and footer_toggled_off(view)
+            -- Callers only refresh the footer rect; refresh the header with it.
+            if was_off ~= nil and is_enabled() and self._zen_top_bar_footer_off ~= was_off then
+                local h = getReservedHeaderHeight()
+                if h > 0 then
+                    UIManager:setDirty(view.dialog, "ui", Geom:new{ x = 0, y = 0, w = Screen:getWidth(), h = h })
+                end
+            end
             return result
         end
     end
@@ -1230,7 +1272,7 @@ local function apply_reader_top_status_bar()
             return
         end
 
-        local header, all_widgets, header_h, screen_width, slot_regions, minute_values = buildHeader(self)
+        local header, _widgets, header_h, screen_width, slot_regions, values = buildHeader(self)
         if not header then
             DBG("paintTo: buildHeader returned nil, skipping header paint")
             return
@@ -1246,12 +1288,7 @@ local function apply_reader_top_status_bar()
         -- Store geometry for slot-scoped autonomous refreshes.
         self._zen_header_dimen = Geom:new{ x = x, y = y, w = screen_width, h = header_h }
         self._zen_header_slots = offsetSlotRegions(slot_regions, x, y)
-        self._zen_header_minute_values = minute_values or minuteItemValues(cfg2, self)
-
-        -- Free FFI-backed TextWidget memory immediately after paint.
-        for _i, w in ipairs(all_widgets) do
-            if w.free then w:free() end
-        end
+        self._zen_header_values = values or itemValues(self, RESUME_REFRESH_ITEMS)
 
         -- Periodic refresh aligned with KOReader's footer minute tick.
         armAutoRefresh()

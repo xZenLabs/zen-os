@@ -51,11 +51,13 @@ def test_launch_controls_emulator_focus(tmp_path: Path, monkeypatch, foreground,
     assert env["SDL_WINDOW_ACTIVATE_WHEN_SHOWN"] == foreground
     assert env["SDL_WINDOW_ACTIVATE_WHEN_RAISED"] == foreground
     assert env["EMULATE_READER_W"] == "400"
+    assert popen.return_value._zen_socket_path == tmp_path / "driver.sock"
 
 
 @pytest.mark.parametrize("times_out", [False, True])
 def test_stop_reaps_emulator_after_graceful_exit_or_timeout(times_out: bool) -> None:
-    process = MagicMock()
+    process = MagicMock(spec=subprocess.Popen)
+    process.poll.return_value = None
     if times_out:
         process.wait.side_effect = [subprocess.TimeoutExpired("reader.lua", 15), 0]
 
@@ -70,6 +72,38 @@ def test_stop_reaps_emulator_after_graceful_exit_or_timeout(times_out: bool) -> 
     else:
         process.kill.assert_not_called()
         process.wait.assert_called_once_with(timeout=15)
+
+
+@pytest.mark.parametrize("response", [{"ok": True}, {"ok": False}, OSError(), ValueError()])
+def test_stop_requests_shutdown_and_falls_back_when_unavailable(monkeypatch, response) -> None:
+    process = MagicMock(spec=subprocess.Popen)
+    process.poll.return_value = None
+    process._zen_socket_path = MagicMock(spec=Path)
+    process._zen_socket_path.is_socket.return_value = True
+    driver = MagicMock()
+    monkeypatch.setattr("zen_driver.ZenDriver", driver)
+    if isinstance(response, Exception):
+        driver.return_value.command.side_effect = response
+    else:
+        driver.return_value.command.return_value = response
+
+    stop(process)
+
+    driver.assert_called_once_with(process._zen_socket_path)
+    driver.return_value.command.assert_called_once_with("shutdown")
+    assert process.terminate.call_count == (response != {"ok": True})
+    process.wait.assert_called_once_with(timeout=15)
+    process.kill.assert_not_called()
+
+
+def test_stop_does_nothing_when_emulator_has_exited() -> None:
+    process = MagicMock(spec=subprocess.Popen)
+    process.poll.return_value = 0
+
+    stop(process)
+
+    process.terminate.assert_not_called()
+    process.wait.assert_not_called()
 
 
 def test_command_waits_for_socket_handoff_without_resending(monkeypatch) -> None:

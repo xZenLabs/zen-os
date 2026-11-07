@@ -83,7 +83,7 @@ local function get_release()
     local function request(url, depth)
         if depth > 5 or not is_release_url(url) then return nil, "Invalid release URL." end
         local body = {}
-        local _, code, headers = https.request{
+        local _body, code, headers = https.request{
             url = url,
             headers = { ["User-Agent"] = "zenos.koplugin" },
             redirect = false,
@@ -155,7 +155,7 @@ local function download(asset, destination)
     local url = asset.url
     for _i = 1, 5 do
         if not M.is_valid_asset_url(url, asset.name) then return false, "Untrusted download URL." end
-        local _, code, headers = https.request{
+        local _body, code, headers = https.request{
             url = url,
             method = "HEAD",
             headers = { ["User-Agent"] = "zenos.koplugin" },
@@ -171,7 +171,7 @@ local function download(asset, destination)
 
     local f, err = io.open(destination, "wb")
     if not f then return false, err end
-    local _, code = https.request{
+    local _body, code = https.request{
         url = url,
         headers = { ["User-Agent"] = "zenos.koplugin" },
         sink = ltn12.sink.file(f),

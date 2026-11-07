@@ -84,7 +84,7 @@ describe("home strip widget", function()
             "ui/widget/textwidget", "ui/widget/textboxwidget",
             "ui/widget/linewidget",
             "ui/widget/container/inputcontainer", "ui/widget/verticalgroup",
-            "ui/widget/verticalspan",
+            "ui/widget/verticalspan", "ui/widget/iconwidget",
         }) do
             ZenSpec.replace(name, widget_class(name))
         end
@@ -111,10 +111,15 @@ describe("home strip widget", function()
             getBadgeInset = function() return 1 end,
             formatPageCount = function(pages) return tostring(pages) end,
         }, { __index = dofile(ZenSpec.root .. "/common/utils.lua") }))
+        local function library_face(size)
+            library_font_sizes[#library_font_sizes + 1] = size
+            return { name = "LibraryFont", size = size }
+        end
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
-            getFace = function(size)
-                library_font_sizes[#library_font_sizes + 1] = size
-                return { name = "LibraryFont", size = size }
+            getFace = library_face,
+            getStyleFace = function(face, size)
+                if face == "default" then return library_face(size) end
+                return require("ui/font"):getFace(face, size)
             end,
             scaleValue = function() error("home strip used library font size") end,
         })
@@ -991,17 +996,23 @@ describe("home strip widget", function()
             },
         }
         local sizes = {}
+        local search_icon
         for _i, widget in ipairs(created) do
             if widget.kind == "ui/widget/textwidget" and not widget.free_calls then
                 sizes[widget.text] = widget.face.size
+            elseif widget.kind == "ui/widget/iconwidget" then
+                search_icon = widget
             end
         end
         local icons = require("common/inline_icon_map")
         assert.equals(10, sizes.Recent)
         assert.equals(10, sizes.Group)
-        for _i, icon in ipairs({ icons.arrow_left, icons.search, icons.arrow_right }) do
+        for _i, icon in ipairs({ icons.arrow_left, icons.arrow_right }) do
             assert.equals(14, sizes[icon])
         end
+        assert.is_nil(sizes[icons.search])
+        assert.matches("icons/quick_search.svg$", search_icon.file)
+        assert.same({ 14, 14 }, { search_icon.width, search_icon.height })
     end)
 
     it("sizes dynamic tabs evenly between compact page controls", function()
@@ -1047,9 +1058,11 @@ describe("home strip widget", function()
                 dividers[#dividers + 1] = widget
             elseif widget.kind == "ui/widget/container/centercontainer"
                     and widget[1] and (widget[1].text == icon_map.arrow_left
-                        or widget[1].text == icon_map.search
                         or widget[1].text == icon_map.arrow_right) then
                 icon_cells[widget[1].text] = widget
+            elseif widget.kind == "ui/widget/container/centercontainer"
+                    and widget[1] and widget[1].kind == "ui/widget/iconwidget" then
+                icon_cells.search = widget
             end
         end
         assert.are.equal(1, #outer_frames)
@@ -1064,15 +1077,14 @@ describe("home strip widget", function()
             tab_frames[1].bordersize,
             tab_frames[2].bordersize,
         })
-        assert.are.equal("\u{F0141}", icon_map.arrow_left)
-        assert.are.equal("\u{F0142}", icon_map.arrow_right)
+        assert.are.equal("\u{E840}", icon_map.arrow_left)
+        assert.are.equal("\u{E841}", icon_map.arrow_right)
         assert.are.equal(50, icon_cells[icon_map.arrow_left].dimen.w)
-        assert.are.equal(159, icon_cells[icon_map.search].dimen.w)
+        assert.are.equal(159, icon_cells.search.dimen.w)
+        assert.are.equal(26, icon_cells.search.dimen.h)
         assert.are.equal(50, icon_cells[icon_map.arrow_right].dimen.w)
         assert.is_true(math.abs(tab_frames[1].width - tab_frames[2].width) <= 1)
-        for _i, icon in ipairs({
-            icon_map.arrow_left, icon_map.search, icon_map.arrow_right,
-        }) do
+        for _i, icon in ipairs({ icon_map.arrow_left, icon_map.arrow_right }) do
             assert.are.equal(26, icon_cells[icon].dimen.h)
             assert.are.equal(0, icon_cells[icon][1].padding)
         end
@@ -1084,7 +1096,7 @@ describe("home strip widget", function()
         assert.is_true(has_text("Recent"))
         assert.is_true(has_text("To Be Read"))
         assert.is_true(has_text(icon_map.arrow_left))
-        assert.is_true(has_text(icon_map.search))
+        assert.is_false(has_text(icon_map.search))
         assert.is_true(has_text(icon_map.arrow_right))
 
         local first_wide_widget = #created + 1
@@ -1100,7 +1112,7 @@ describe("home strip widget", function()
         for i = first_wide_widget, #created do
             local widget = created[i]
             if widget.kind == "ui/widget/container/centercontainer"
-                    and widget[1] and widget[1].text == icon_map.search then
+                    and widget[1] and widget[1].kind == "ui/widget/iconwidget" then
                 wide_search_width = widget.dimen.w
             elseif widget.kind == "ui/widget/container/framecontainer"
                     and widget.height == 26 then
@@ -1239,9 +1251,12 @@ describe("home strip widget", function()
         })
 
         local text_widgets = {}
+        local search_icon
         for _i, widget in ipairs(created) do
             if widget.kind == "ui/widget/textwidget" and widget.text then
                 text_widgets[widget.text] = widget
+            elseif widget.kind == "ui/widget/iconwidget" then
+                search_icon = widget
             end
         end
         assert.are.equal(10, text_widgets.Recent.face.size)
@@ -1250,8 +1265,8 @@ describe("home strip widget", function()
             text_widgets["A very long tag name that needs truncation"].face.size)
         assert.is_true(
             text_widgets["A very long tag name that needs truncation"].truncate_with_ellipsis)
-        assert.are.equal(14,
-            text_widgets[require("common/inline_icon_map").search].face.size)
+        assert.is_nil(text_widgets[require("common/inline_icon_map").search])
+        assert.are.equal(14, search_icon.width)
     end)
 
     it("applies the configured control font style", function()
@@ -2549,29 +2564,30 @@ describe("home strip widget", function()
         })
 
         widget:paintTo({}, 0, 0)
-        assert.are.same({ 0.35 }, scheduled_delays)
-        run_scheduled()
-        assert.are.equal(2, page_requests)
-        assert.are.equal(1, #cover_books)
+        assert.are.same({}, scheduled_delays)
+        assert.are.equal(1, page_requests)
 
         assert.is_true(widget:onSwipeStrip(nil, {
             pos = { x = 10, y = 10 }, direction = "west",
         }))
         assert.are.equal(2, page_requests)
         assert.are.equal(2, #cover_books)
+        assert.are.same({ 0.35 }, scheduled_delays)
+        run_scheduled()
+        assert.are.equal(3, page_requests)
 
         assert.is_true(widget:onSwipeStrip(nil, {
             pos = { x = 10, y = 10 }, direction = "east",
         }))
-        assert.are.equal(2, page_requests)
+        assert.are.equal(3, page_requests)
         assert.are.equal(2, #cover_books)
 
         run_scheduled()
-        assert.are.same({ 0, 1, -1 }, requested_deltas)
+        assert.are.same({ 0, 0, 1, -1 }, requested_deltas)
 
         widget:free()
         while #scheduled > 0 do run_scheduled() end
-        assert.are.equal(3, page_requests)
+        assert.are.equal(4, page_requests)
         assert.are.equal(2, #cover_books)
     end)
 
@@ -2604,9 +2620,15 @@ describe("home strip widget", function()
                 end,
                 isStripCoverWorkBusy = function() return false end,
             },
+            shiftStrip = function(_source, _count, _order, _direction, _component_id, _two_rows, refresh)
+                refresh()
+                return true
+            end,
         })
 
         widget:paintTo({}, 0, 0)
+        assert.are.equal(0, #scheduled)
+        assert.is_true(widget:onSwipeStrip(nil, { pos = { x = 10, y = 10 }, direction = "west" }))
         run_scheduled()
         assert.are.equal(4, warmed)
         assert.are.same({ 0.05 }, scheduled_delays)
@@ -2632,11 +2654,16 @@ describe("home strip widget", function()
                 end,
                 isStripCoverWorkBusy = function() return true end,
             },
+            shiftStrip = function(_source, _count, _order, _direction, _component_id, _two_rows, refresh)
+                refresh()
+                return true
+            end,
         })
 
         widget:paintTo({}, 0, 0)
+        assert.is_true(widget:onSwipeStrip(nil, { pos = { x = 10, y = 10 }, direction = "west" }))
         run_scheduled()
-        assert.are.equal(1, page_requests)
+        assert.are.equal(2, page_requests)
         assert.are.equal(0, #scheduled)
     end)
 
@@ -2656,11 +2683,16 @@ describe("home strip widget", function()
                     return { { path = "/library/current.epub", title = "Current" } }, true
                 end,
             },
+            shiftStrip = function(_source, _count, _order, _direction, _component_id, _two_rows, refresh)
+                refresh()
+                return true
+            end,
         })
 
         widget:paintTo({}, 0, 0)
+        assert.is_true(widget:onSwipeStrip(nil, { pos = { x = 10, y = 10 }, direction = "west" }))
         run_scheduled()
-        assert.are.equal(1, page_requests)
+        assert.are.equal(2, page_requests)
         assert.are.equal(0, #scheduled)
     end)
 
@@ -2693,9 +2725,6 @@ describe("home strip widget", function()
         widget:paintTo({}, 0, 0)
         run_scheduled()
         assert.are.equal(1, warm_requests)
-        assert.are.same({ 0.35, 0.4 }, scheduled_delays)
-
-        run_scheduled()
         assert.are.same({ 0.4 }, scheduled_delays)
         widget:free()
         assert.are.equal(0, #scheduled)

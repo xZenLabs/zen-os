@@ -24,6 +24,7 @@ describe("OPDS header", function()
         "common/reader_themes", "apps/reader/readerui",
         "ui/widget/buttondialog", "ui/widget/confirmbox", "ui/widget/container/leftcontainer",
         "ui/widget/notification", "opdspse", "ui/widget/textviewer", "socket.url", "util",
+        "ui/widget/iconwidget", "common/ui/glyph_icons",
     }
 
     local function get_upvalue(fn, target)
@@ -123,6 +124,7 @@ describe("OPDS header", function()
         end })
 
         Browser = {
+            _recalculateDimen = function() end,
             getPageNumber = function() return 1 end,
             mergeTitleBarIntoLayout = function() end,
             updatePageInfo = function() end,
@@ -182,9 +184,11 @@ describe("OPDS header", function()
             "ui/widget/horizontalgroup", "ui/widget/horizontalspan", "ui/widget/imagewidget",
             "ui/widget/linewidget", "ui/widget/textboxwidget", "ui/widget/textwidget",
             "ui/widget/container/topcontainer", "ui/widget/verticalgroup", "ui/widget/verticalspan",
+            "ui/widget/iconwidget",
         }) do
             ZenSpec.replace(name, Base)
         end
+        ZenSpec.unload("common/ui/glyph_icons")
         ZenSpec.replace("ui/font", { getFace = function() return {} end })
         ZenSpec.replace("ui/geometry", Base)
         ZenSpec.replace("ui/gesturerange", Base)
@@ -288,18 +292,47 @@ describe("OPDS header", function()
             attributes = function(path) return existing_files[path] end,
         })
         ZenSpec.unload("modules/global/patches/opds")
+        ZenSpec.unload("modules/global/patches/opds_browser")
         _G.G_reader_settings = ZenSpec.memorySettings()
         _G.__ZEN_UI_PLUGIN = {
             config = { opds = {} },
             saveConfig = function() saved = saved + 1 end,
         }
-        require("modules/global/patches/opds")()
+        require("modules/global/patches/opds_browser")()
     end)
 
     after_each(function()
         ZenSpec.unload("modules/global/patches/opds")
+        ZenSpec.unload("modules/global/patches/opds_browser")
         _G.__ZEN_UI_PLUGIN = nil
         for _i, name in ipairs(replaced) do package.loaded[name] = originals[name] end
+    end)
+
+    it("defers the patch body until the first browser init", function()
+        local Deferred = { init = function(self) self.stock_init = true end }
+        ZenSpec.replace("opdsbrowser", Deferred)
+        ZenSpec.unload("modules/global/patches/opds_browser")
+        local loaded = 0
+        package.preload["modules/global/patches/opds_browser"] = function()
+            loaded = loaded + 1
+            local Browser_ = require("opdsbrowser")
+            return function()
+                local orig = Browser_.init
+                Browser_.init = function(self) orig(self); self.zen = true end
+            end
+        end
+        local ok, err = pcall(function()
+            require("modules/global/patches/opds")()
+            assert.are.equal(0, loaded)
+            local first, second = {}, {}
+            Deferred.init(first)
+            Deferred.init(second)
+            assert.are.equal(1, loaded)
+            assert.is_true(first.stock_init and first.zen)
+            assert.is_true(second.stock_init and second.zen)
+        end)
+        package.preload["modules/global/patches/opds_browser"] = nil
+        assert(ok, err)
     end)
 
     it("keeps back, refresh, search, and close together in a focusable header row", function()
@@ -368,6 +401,42 @@ describe("OPDS header", function()
         assert.are.equal(4, #browser._zen_opds_header_buttons)
         assert.are.equal("refresh", browser.layout[1][2]._zen_opds_focus_id)
         assert.are.equal("/zen-ui/icons/quick_sync.svg", browser.layout[1][2].file)
+    end)
+
+    it("adds the status row above the title bar and refreshes it in place", function()
+        local rows = {}
+        local plugin = _G.__ZEN_UI_PLUGIN
+        plugin.config.features = { status_bar = true }
+        plugin.config.status_bar = { right_order = { "battery" } }
+        require("common/shared_state").register(plugin, { buildStatusRow = function(width)
+            local row = {}
+            function row:getSize() return { w = width, h = 18 } end
+            function row:paintTo(_bb, x, y) self.painted = { x = x, y = y } end
+            function row:free() self.freed = true end
+            rows[#rows + 1] = row
+            return row
+        end })
+        local browser = setmetatable({ paths = {}, servers = {}, item = {} }, { __index = Browser })
+        browser:init()
+        local title_bar = browser.title_bar
+        title_bar.getHeight = function() return 40 end
+        title_bar.getSize = function() return { w = 320, h = 40 } end
+        title_bar.paintTo = function(_self, _bb, _x, y) title_bar.painted_y = y end
+
+        browser:_recalculateDimen()
+        browser:_recalculateDimen()
+        assert.are.equal(1, #rows)
+        assert.are.equal(64, title_bar:getHeight())
+        assert.are.equal(64, title_bar:getSize().h)
+        title_bar:paintTo(nil, 0, 10)
+        assert.are.same({ x = 0, y = 16 }, rows[1].painted)
+        assert.are.equal(34, title_bar.painted_y)
+
+        require("device").screen.bb = { paintRect = function() end }
+        require("ui/uimanager")._window_stack = { { widget = browser } }
+        browser:_zen_status_refresh()
+        assert.is_true(rows[1].freed)
+        assert.are.same({ x = 0, y = 16 }, rows[2].painted)
     end)
 
     it("fetches fresh catalogs without conditional validators and supports OPDS 2", function()
@@ -693,78 +762,169 @@ describe("OPDS header", function()
         assert.are.equal(1, saved)
     end)
 
-    it("defers catalog repaints after download confirmations and preserves the next popup", function()
+    it("downloads in the background one at a time and offers Read now afterwards", function()
         local Base = package.loaded["ui/widget/container/framecontainer"]
         for _i, name in ipairs({
-            "ui/widget/buttondialog", "ui/widget/container/leftcontainer",
+            "ui/widget/buttondialog", "ui/widget/container/leftcontainer", "ui/widget/confirmbox",
             "ui/widget/notification", "opdspse", "ui/widget/textviewer", "util",
         }) do
             ZenSpec.replace(name, Base)
         end
         ZenSpec.replace("socket.url", { unescape = function(value) return value end })
-        local close_events, refreshes, shown, ticks = 0, {}, nil, {}
-        local ConfirmBox = Base:extend{}
-        function ConfirmBox:onCloseWidget() close_events = close_events + 1 end
-        ZenSpec.replace("ui/widget/confirmbox", ConfirmBox)
         local UIManager = package.loaded["ui/uimanager"]
-        UIManager.show = function(_self, widget) shown = widget end
-        UIManager.close = function(_self, widget)
-            if widget.onCloseWidget then widget:onCloseWidget() end
+        local shown = {}
+        UIManager.show = function(_self, widget)
+            if widget.text then shown[#shown + 1] = widget end -- Popups, not the book dialog.
         end
-        UIManager.nextTick = function(_self, callback) ticks[#ticks + 1] = callback end
-        UIManager.setDirty = function(_self, widget, mode, region)
-            refreshes[#refreshes + 1] = { widget, mode, region }
+        local FFIUtil = package.loaded["ffi/util"]
+        local children = {}
+        FFIUtil.runInSubProcess = function(child, with_pipe)
+            assert.is_true(with_pipe)
+            children[#children + 1] = child
+            return #children, 10
         end
-        local browser = setmetatable({
-            checkDownloadFile = function(_self, path, _url, _user, _password, callback)
-                callback(path)
-            end,
-        }, { __index = Browser })
+        process_done, pipe_size, pipe_bytes = false, 0, "ok"
 
-        for _i, avoid_flash in ipairs({ false, true }) do
-            G_reader_settings:saveSetting("avoid_flashing_ui", avoid_flash)
-            for book = 1, 2 do
-                local item = {
-                    title = "Book " .. book,
-                    acquisitions = {{ filetype = "epub", href = "/book" .. book }},
-                }
-                browser:showDownloads(item)
-                browser.download_dialog.buttons[1][1].callback()
-                assert.is_true(item._zen_opds_downloaded)
-                assert.is_true(_G.__ZEN_UI_PLUGIN.config.opds.downloaded[item.title])
-                assert.are.equal(1, #ticks)
-                table.remove(ticks, 1)()
-                local confirmation = shown
-                assert.are.equal("Downloaded\n" .. item.title, confirmation.text)
+        local browser = setmetatable({}, { __index = Browser })
+        browser:init()
+        browser.catalog_items = {
+            { title = "Book 1", acquisitions = {{ filetype = "epub", href = "/book1" }} },
+            { title = "Book 2", acquisitions = {{ filetype = "epub", href = "/book2" }} },
+        }
+        local items = browser:genItemTableFromCatalog({}, "/feed")
+        local updates = 0
+        browser.item_table = items
+        browser.layout = {{
+            { entry = items[1], update = function() updates = updates + 1 end },
+            { entry = items[2], update = function() updates = updates + 1 end },
+        }}
 
-                refreshes = {}
-                if book == 1 then
-                    confirmation.ok_callback()
-                    UIManager:close(confirmation)
-                else
-                    assert.is_true(confirmation:onClose())
-                end
-                assert.are.same({}, refreshes)
-                assert.are.equal(1, #ticks)
-                browser:showDownloads({ title = "Next book", acquisitions = {} })
-                local next_popup = shown
-                table.remove(ticks, 1)()
-                assert.are.same({ { browser, avoid_flash and "ui" or "full" } }, refreshes)
-                assert.are.equal(next_popup, shown)
-                assert.are.equal((_i - 1) * 2 + book, close_events)
+        for _i, item in ipairs(items) do
+            browser:showDownloads(item)
+            browser.download_dialog.buttons[1][1].callback()
+        end
+        assert.are.same({}, shown)
+        assert.is_true(items[1]._zen_opds_downloading)
+        assert.is_true(items[2]._zen_opds_downloading)
+        assert.are.equal(2, updates)
+        assert.are.equal(1, #children)
+        assert.are.equal(1, standby)
+        browser:showDownloads(items[2])
+        assert.is_false(browser.download_dialog.buttons[1][1].enabled)
+
+        scheduled[#scheduled].callback()
+        assert.are.equal(1, #children) -- Still running.
+        process_done = true
+        scheduled[#scheduled].callback()
+        assert.is_nil(items[1]._zen_opds_downloading)
+        assert.is_true(items[1]._zen_opds_downloaded)
+        assert.are.equal("/downloads/Book 1.epub", _G.__ZEN_UI_PLUGIN.config.opds.downloaded["Book 1"])
+        assert.are.equal(2, #children)
+
+        pipe_bytes = "err:Could not save file"
+        scheduled[#scheduled].callback()
+        assert.are.equal("Could not save file", shown[1].text)
+        assert.is_nil(items[2]._zen_opds_downloading)
+        assert.is_falsy(items[2]._zen_opds_downloaded)
+        assert.are.equal(0, standby)
+        assert.are.equal(4, updates)
+
+        existing_files["/downloads/Book 1.epub"] = { mode = "file", size = 1 }
+        local opened, closed_by_callback
+        browser._manager = { ui = { openFile = function(_self, file) opened = file end } }
+        browser.close_callback = function() closed_by_callback = true end
+        browser:showDownloads(items[1])
+        local read_now = browser.download_dialog.buttons[1][1]
+        assert.are.equal(require("common/inline_icon_map").reading .. "  Read now", read_now.text)
+        read_now.callback()
+        assert.is_true(closed_by_callback)
+        assert.are.equal("/downloads/Book 1.epub", opened)
+        browser:showDownloads(items[2])
+        assert.is_truthy(browser.download_dialog.buttons[1][1].text:find("Download", 1, true))
+
+        local written
+        FFIUtil.writeToFD = function(_fd, data) written = data end
+        browser.downloadFile = function(_self, path, url)
+            assert.are.equal("/downloads/Book 2.epub", path)
+            assert.are.equal("/book2", url)
+            UIManager:show({ text = "network unreachable" })
+            return false
+        end
+        children[2](2, 11)
+        assert.are.equal("err:network unreachable", written)
+    end)
+
+    it("retries the default catalog quietly while the network cannot resolve hosts", function()
+        _G.__ZEN_UI_PLUGIN.config.opds.default_url = "/default"
+        local UIManager = package.loaded["ui/uimanager"]
+        local shown, online, loads = {}, false, 0
+        UIManager.show = function(_self, widget) shown[#shown + 1] = widget end
+        NetworkMgr.isOnline = function() return online end
+        local update_now = get_upvalue(Browser.updateCatalog, "update_catalog_now")
+        for index = 1, 60 do
+            if debug.getupvalue(update_now, index) == "orig_updateCatalog" then
+                debug.setupvalue(update_now, index, function(self, url)
+                    loads = loads + 1
+                    if self.succeed then
+                        table.insert(self.paths, { url = url })
+                    else
+                        UIManager:show({ text = "Cannot get catalog" })
+                    end
+                end)
+                break
             end
         end
+        local function retry()
+            local last = scheduled[#scheduled]
+            assert.are.equal(2, last.delay)
+            last.callback()
+        end
 
-        browser:showDownloads({ title = "Last book", acquisitions = {
-            { filetype = "epub", href = "/last" },
-        } })
-        browser.download_dialog.buttons[1][1].callback()
-        table.remove(ticks, 1)()
-        shown:onClose()
-        refreshes = {}
-        browser._zen_opds_closed = true
-        table.remove(ticks, 1)()
-        assert.are.same({}, refreshes)
+        local browser = setmetatable({}, { __index = Browser })
+        browser:init()
+        retry()
+        assert.are.same({}, shown)
+        retry()
+        assert.are.equal(3, loads)
+        assert.are.equal("Cannot get catalog", shown[1].text)
+
+        shown, loads = {}, 0
+        browser = setmetatable({}, { __index = Browser })
+        browser:init()
+        browser.succeed = true
+        retry()
+        assert.are.equal(2, loads)
+        assert.are.equal(1, #browser.paths)
+        assert.are.same({}, shown)
+
+        shown, loads = {}, 0
+        browser = setmetatable({}, { __index = Browser })
+        browser:init()
+        local pending = scheduled[#scheduled].callback
+        browser:onCloseWidget()
+        assert.is_true(unscheduled[pending])
+
+        shown, loads, online = {}, 0, true
+        browser = setmetatable({}, { __index = Browser })
+        browser:init()
+        assert.are.equal(1, loads)
+        assert.are.equal("Cannot get catalog", shown[1].text)
+    end)
+
+    it("ignores item taps for half a second after a catalog loads", function()
+        local browser = setmetatable({ item_table = {} }, { __index = Browser })
+        browser:init()
+        browser:updateCatalog("/catalog")
+        local book = { acquisitions = {{ href = "/book" }} }
+        assert.is_true(browser:onMenuSelect(book))
+        assert.is_nil(browser.stock_selected)
+        local unlock = scheduled[#scheduled]
+        assert.are.equal(0.5, unlock.delay)
+        browser:updateCatalog("/again")
+        assert.is_true(unscheduled[unlock.callback])
+        scheduled[#scheduled].callback()
+        browser:onMenuSelect(book)
+        assert.are.equal(book, browser.stock_selected)
     end)
 
     it("respects rounded cover corners in the book popup for images and placeholders", function()
@@ -850,6 +1010,16 @@ describe("OPDS header", function()
                 assert.are.equal(4, pixels[58 * 1000 + 136]) -- White outline.
                 assert.are.equal(0, pixels[69 * 1000 + 127]) -- Black circle.
                 assert.are.equal(4, pixels[69 * 1000 + 136]) -- White checkmark.
+                assert.are.equal(0, pixels[66 * 1000 + 134])
+
+                local glyph = {}
+                item.entry = { _zen_opds_downloading = true }
+                item:paintTo({
+                    paintRect = function() end,
+                    lightenRect = function() error("downloading covers stay undimmed") end,
+                    paintRectRGB32 = function(_self, x, y, _w, _h, color) glyph[y * 1000 + x] = color end,
+                }, 30, 40)
+                assert.are.equal(4, glyph[66 * 1000 + 134]) -- White download arrow.
             end
         end
     end)

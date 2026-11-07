@@ -66,6 +66,23 @@ describe("Zen pager positioning", function()
         assert.are.equal(920, width)
     end)
 
+    it("uses compact dots for one caller without changing the default strip", function()
+        local dots = {}
+        Pager.paintPill = function(_bb, x, y, w, h, color)
+            dots[#dots + 1] = { x = x, y = y, w = w, h = h, color = color }
+        end
+        Pager.paint({}, 10, 20, 100, 20, 2, 3, "dots", nil, 8)
+        assert.are.same({
+            { x = 40, y = 26, w = 8, h = 8, color = "dark_gray" },
+            { x = 56, y = 26, w = 8, h = 8, color = "black" },
+            { x = 72, y = 26, w = 8, h = 8, color = "dark_gray" },
+        }, dots)
+        dots = {}
+        Pager.paint({}, 10, 20, 100, 20, 2, 3, "dots")
+        assert.are.same({ x = 33, y = 25, w = 10, h = 10, color = "dark_gray" }, dots[1])
+        assert.are.equal(22, dots[2].x - dots[1].x)
+    end)
+
     it("widens chevron targets and extends only their bottoms by a bounded amount", function()
         assert.are.equal("left", Pager.getPageNumberZone(180, 250, 100, 200, 400, 40, 500))
         assert.are.equal("right", Pager.getPageNumberZone(420, 250, 100, 200, 400, 40, 500))

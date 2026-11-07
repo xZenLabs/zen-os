@@ -42,7 +42,7 @@ function EndBook:init()
         self.plugin.config.end_book, function() self:rebuild() end, function() self:onClose() end, self.preview)
     if Device:hasKeys() then
         self.key_events.Back = { { Device.input.group.Back } }
-        self.key_events.Library = { { Device.input.group.PgFwd } }
+        self.key_events.PageForward = { { Device.input.group.PgFwd } }
         self.key_events.PreviousQuote = { { Device.input.group.PgBack } }
         self.key_events.Menu = { { "Menu" } }
     end
@@ -86,6 +86,15 @@ function EndBook:onLibrary()
     return true
 end
 
+function EndBook:onPageForward()
+    local path = self.data:getNextInSeries()
+    if path then
+        self:openBook(path)
+        return true
+    end
+    return self:onLibrary()
+end
+
 function EndBook:openBook(path)
     if self.preview or path == self.data.file then return self:showCover(path) end
     local ui = self.ui
@@ -120,8 +129,9 @@ end
 function EndBook:refreshBookMenu(path)
     if self.closed then return end
     local home = SharedState.get(self.plugin, "home")
-    home.invalidateBookCache(path or self._book_menu_path)
-    home.invalidateLibraryCache()
+    -- Per-book invalidation also refreshes TBR for this path; no full library rescan.
+    path = path or self._book_menu_path
+    if path then home.invalidateBookCache(path) else home.invalidateLibraryCache() end
     self.data:invalidateRecommendations()
     self:rebuild()
 end
@@ -214,7 +224,7 @@ function EndBook:isActionAvailable(action)
     if action.id == "archive" then
         return require("common/archive_actions").canArchive(self.data.file)
     end
-    if action.id == "restart" then return true end
+    if action.id == "restart" or action.id == "delete" then return true end
     local collate = G_reader_settings:readSetting("collate")
     return collate ~= "access" and collate ~= "date"
 end
@@ -225,6 +235,19 @@ function EndBook:onFeaturedAction(action)
         self:leave(action.destination)
     elseif action.id == "archive" then
         require("common/archive_actions").markCompleteAndArchive(self.ui.status, self)
+    elseif action.id == "delete" then
+        local FileManager = require("apps/filemanager/filemanager")
+        self.ui.doc_settings:flush()
+        local owner = setmetatable({
+            deleteFile = function(_self, file, is_file)
+                self:onClose()
+                require("common/library_navigation").showFromReader(self.ui, self.plugin, {
+                    target_tab = "books",
+                    after_close = function() FileManager:deleteFile(file, is_file) end,
+                })
+            end,
+        }, { __index = FileManager })
+        owner:showDeleteFileDialog(self.data.file)
     elseif action.id == "next_file" then
         local ui = self.ui
         ui.doc_settings:flush()
@@ -246,18 +269,18 @@ function EndBook:buildNavigationRow(width, height, max_height)
     self.featured_navigation_row = nil
     if #entries == 0 then return end
     local configured_size = config.navigation_icon_size or 0
-    local requested_size = configured_size > 0 and configured_size or math.floor(G_defaults:readSetting("DGENERIC_ICON_SIZE") * 1.25 + 0.5)
+    local requested_size = configured_size > 0 and configured_size or G_defaults:readSetting("DGENERIC_ICON_SIZE")
     local padding = math.min(Screen:scaleBySize(5), math.max(0, math.floor(height * 0.02)))
     local max_cell_width = math.max(1, math.floor(width / #entries))
     local labels, label_height = {}, 0
     local style = config.text_styles.navigation
     if config.show_navigation_labels ~= false then
         local size = math.max(1, math.min(math.floor(style.font_size * 1.2 + 0.5), math.floor(height * 0.1)))
-        local font = style.font_face == "default" and require("modules/filebrowser/patches/library_font").getFontName() or style.font_face
+        local face = require("modules/filebrowser/patches/library_font").getStyleFace(style.font_face, size)
         for index, entry in ipairs(entries) do
             labels[index] = TextWidget:new{
                 text = entry.label, padding = 0, max_width = max_cell_width,
-                face = require("ui/font"):getFace(font, size), bold = style.bold == true,
+                face = face, bold = style.bold == true,
             }
             label_height = math.max(label_height, labels[index]:getSize().h)
         end
@@ -425,11 +448,10 @@ function EndBook:rebuild()
             elseif id == "stats_triplet" and config.modules[id].show_label ~= false then
                 local label = config.modules[id].label
                 local style = config.modules[id].text_styles.label
-                local font = style.font_face == "default"
-                    and require("modules/filebrowser/patches/library_font").getFontName() or style.font_face
                 stats_label = TextWidget:new{
                     text = (label or "") ~= "" and label or _("Statistics"),
-                    face = require("ui/font"):getFace(font, Screen:scaleBySize(style.font_size)),
+                    face = require("modules/filebrowser/patches/library_font").getStyleFace(
+                        style.font_face, Screen:scaleBySize(style.font_size)),
                     bold = style.bold == true, padding = 0, max_width = content_w,
                 }
                 stats_label_h = stats_label:getSize().h + Screen:scaleBySize(4)

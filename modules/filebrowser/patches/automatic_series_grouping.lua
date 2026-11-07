@@ -1,3 +1,4 @@
+local icons = require("common/inline_icon_map")
 -- Groups books in the file browser into virtual folders by metadata series name.
 local function apply_automatic_series_grouping()
     local BD = require("ui/bidi")
@@ -99,23 +100,20 @@ local function apply_automatic_series_grouping()
         item.doc_props = props
     end
 
+    -- Shin chilling BOOKINFO_DB_VERSION >= 20201210
+    local DIR_SQL = "SELECT " .. table.concat({
+        "directory", "filename", "filesize", "filemtime", "in_progress",
+        "unsupported", "cover_fetched", "has_meta", "has_cover",
+        "cover_sizetag", "ignore_meta", "ignore_cover", "pages",
+        "title", "authors", "series", "series_index", "language",
+        "keywords", "description",
+    }, ",") .. " FROM bookinfo WHERE directory=? AND in_progress=0;"
+
     local function prefetch_directory_metadata(dir_path)
         BookInfoManager:openDbConnection()
 
-        if not BookInfoManager._zen_dir_stmt then
-            -- Shin chilling BOOKINFO_DB_VERSION >= 20201210
-            local cols = {
-                "directory", "filename", "filesize", "filemtime", "in_progress",
-                "unsupported", "cover_fetched", "has_meta", "has_cover",
-                "cover_sizetag", "ignore_meta", "ignore_cover", "pages",
-                "title", "authors", "series", "series_index", "language",
-                "keywords", "description"
-            }
-            local sql = "SELECT " .. table.concat(cols, ",") .. " FROM bookinfo WHERE directory=? AND in_progress=0;"
-            BookInfoManager._zen_dir_stmt = BookInfoManager.db_conn:prepare(sql)
-        end
-
-        local stmt = BookInfoManager._zen_dir_stmt
+        -- Prepared per call: closeDbConnection() (before every extraction) closes cached statements.
+        local stmt = BookInfoManager.db_conn:prepare(DIR_SQL)
         stmt:bind(dir_path)
 
         local metadata_map = {}
@@ -138,22 +136,30 @@ local function apply_automatic_series_grouping()
                 }
             end
         end
-        stmt:clearbind():reset()
+        stmt:close()
         return metadata_map
     end
 
-    local function get_doc_props(item, cache)
+    -- dir_maps: per-call { [dir] = metadata_map | false }; a fetched map is authoritative, so
+    -- unindexed books cost no per-item SQL. Second return is true when metadata was found.
+    local function get_doc_props(item, dir_maps)
         if type(item.doc_props) == "table" then
-            return item.doc_props
+            return item.doc_props, true
         end
         local path = item.path or item.file
-        if not path then return nil end
+        if not path then return nil, false end
 
-        local _, filename = util.splitFilePathName(path)
-
-        if cache and cache[filename] then
-            item.doc_props = cache[filename]
-            return cache[filename]
+        local dir, filename = util.splitFilePathName(path)
+        local map = dir_maps[dir]
+        if map == nil then
+            local ok, fetched = pcall(prefetch_directory_metadata, dir)
+            map = ok and fetched or false
+            dir_maps[dir] = map
+        end
+        if map then
+            local props = map[filename]
+            if props then item.doc_props = props end
+            return props, props ~= nil
         end
 
         local bookinfo
@@ -164,9 +170,9 @@ local function apply_automatic_series_grouping()
         end
         if type(bookinfo) == "table" then
             item.doc_props = bookinfo
-            return bookinfo
+            return bookinfo, true
         end
-        return nil
+        return nil, false
     end
 
     local function is_hide_up_folder_enabled(file_chooser)
@@ -250,7 +256,13 @@ local function apply_automatic_series_grouping()
         return status_api.getEffectiveStatus(item.status, item.percent_finished)
     end
 
+    -- Idempotent: memoized groups are re-evaluated on each switch.
     local function set_series_status(group)
+        if group._zen_effective_status == "complete" then
+            group.status, group._zen_effective_status = nil, nil
+            group.percent_finished = group._zen_base_percent_finished
+            group.sort_percent = group._zen_base_sort_percent
+        end
         if not is_dim_finished_enabled() then return end
         if type(group) ~= "table" or type(group.series_items) ~= "table"
                 or #group.series_items == 0 then
@@ -334,22 +346,8 @@ local function apply_automatic_series_grouping()
             end
         end
 
-        local current_dir_cache = {}
-        local first_file_path
-        for _i, item in ipairs(item_table) do
-            if item.is_file and item.path and type(item.doc_props) ~= "table" then
-                first_file_path = item.path
-                break
-            end
-        end
-
-        if first_file_path then
-            local directory, _ = util.splitFilePathName(first_file_path)
-            local ok, cached_map = pcall(prefetch_directory_metadata, directory)
-            if ok and cached_map then
-                current_dir_cache = cached_map
-            end
-        end
+        local dir_maps = {}
+        local complete = true
 
         local collate, collate_id = file_chooser:getCollate()
         local reverse = G_reader_settings:isTrue("reverse_collate")
@@ -383,7 +381,8 @@ local function apply_automatic_series_grouping()
                 local series_handled = false
                 if item.is_file and item.path then
                     book_count = book_count + 1
-                    local doc_props = get_doc_props(item, current_dir_cache)
+                    local doc_props, found = get_doc_props(item, dir_maps)
+                    if not found then complete = false end
                     local series_name = doc_props and doc_props.series
                     if type(series_name) == "string" and series_name ~= "" and series_name ~= NO_SERIES then
                         ---@diagnostic disable-next-line: need-check-nil
@@ -410,6 +409,8 @@ local function apply_automatic_series_grouping()
                                 mode = "directory",
                                 sort_percent = item.sort_percent,
                                 percent_finished = item.percent_finished,
+                                _zen_base_sort_percent = item.sort_percent,
+                                _zen_base_percent_finished = item.percent_finished,
                                 opened = item.opened,
                                 doc_props = {
                                     series = series_name,
@@ -449,16 +450,18 @@ local function apply_automatic_series_grouping()
         end
 
         if not hide_grouped_series and series_count == 1 and non_series_book_count == 0 and book_count > 0 then
-            return
+            return complete
         end
 
+        local has_group = false
         for _series_name, group in pairs(series_map) do
             if #group.series_items == 1 then
                 if group._list_index and processed_list[group._list_index] == group then
                     processed_list[group._list_index] = group.series_items[1]
                 end
             else
-                group.mandatory = tostring(#group.series_items) .. " \u{F016}"
+                has_group = not hide_grouped_series
+                group.mandatory = tostring(#group.series_items) .. " " .. icons.file_count
                 set_series_status(group)
                 self:sortSeriesItems(group.series_items, group, file_chooser)
             end
@@ -477,7 +480,8 @@ local function apply_automatic_series_grouping()
 
         local final_table = {}
         if mixed then
-            if is_name_sort and sort_func then
+            -- Without a visible group the incoming listing order already holds.
+            if is_name_sort and sort_func and has_group then
                 local up_item
                 local to_sort = {}
                 for _i, item in ipairs(processed_list) do
@@ -530,6 +534,43 @@ local function apply_automatic_series_grouping()
 
         for key in pairs(item_table) do item_table[key] = nil end
         for _i, item in ipairs(final_table) do item_table[_i] = item end
+        return complete
+    end
+
+    -- Weak-keyed by source table: a processed listing lives as long as the cached listing.
+    local series_memo = setmetatable({}, { __mode = "k" })
+
+    local function memo_key(file_chooser)
+        -- Status filters depend on live book status; never reuse those results.
+        if file_chooser.show_current_dir_for_hold
+                or (FileChooser.show_filter and FileChooser.show_filter.status) then
+            return nil
+        end
+        return table.concat({
+            tostring(select(2, file_chooser:getCollate())),
+            tostring(G_reader_settings:isTrue("reverse_collate")),
+            tostring(G_reader_settings:isTrue("collate_mixed")),
+            tostring(is_hide_grouped_series_enabled()),
+        }, "|")
+    end
+
+    function AutomaticSeries:groupItemTable(source, file_chooser)
+        local key = memo_key(file_chooser)
+        local memo = key and series_memo[source]
+        if memo and memo.key == key then
+            for _i, item in ipairs(memo.items) do
+                if item.is_series_group then set_series_status(item) end
+            end
+            return clone_item_table(memo.items)
+        end
+        local items = clone_item_table(source)
+        -- Memoize only when every book had metadata, so later indexing still regroups.
+        if self:processItemTable(items, file_chooser) and key then
+            series_memo[source] = { key = key, items = items }
+            return clone_item_table(items)
+        end
+        series_memo[source] = nil
+        return items
     end
 
     local function update_status_bar()
@@ -679,8 +720,7 @@ local function apply_automatic_series_grouping()
             or (new_item_table and new_item_table.is_in_series_view)
         local restore_index
         if can_group_items(file_chooser) and new_item_table and not new_item_table.is_in_series_view then
-            new_item_table = clone_item_table(new_item_table)
-            AutomaticSeries:processItemTable(new_item_table, file_chooser)
+            new_item_table = AutomaticSeries:groupItemTable(new_item_table, file_chooser)
         end
         if restore_state then
             restore_index = restore_state.parent_item_index

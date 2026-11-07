@@ -87,20 +87,21 @@ describe("statistics database", function()
         local StatsDB = require("common/db_stats")
         local fields = { "today_pages", "week_pages", "month_pages", "year_pages" }
         StatsDB.queryHomeStats(fields)
-        for i, date in ipairs({ { 2025, 12, 31 }, { 2025, 12, 28 }, { 2025, 12, 1 }, { 2025, 1, 1 } }) do
+        assert.are.equal(1, #sqls)
+        for _i, date in ipairs({ { 2025, 12, 31 }, { 2025, 12, 28 }, { 2025, 12, 1 }, { 2025, 1, 1 } }) do
             local expected = original_time({
                 year = date[1], month = date[2], day = date[3], hour = 4, min = 30, sec = 0,
             })
-            assert.is_truthy(sqls[i]:find("start_time >= " .. expected, 1, true))
+            assert.is_truthy(sqls[1]:find("start_time >= " .. expected, 1, true))
         end
         now = now + 1
         sqls = {}
         StatsDB.queryHomeStats(fields)
-        for i, date in ipairs({ { 2026, 1, 1 }, { 2025, 12, 28 }, { 2026, 1, 1 }, { 2026, 1, 1 } }) do
+        for _i, date in ipairs({ { 2026, 1, 1 }, { 2025, 12, 28 }, { 2026, 1, 1 }, { 2026, 1, 1 } }) do
             local expected = original_time({
                 year = date[1], month = date[2], day = date[3], hour = 4, min = 30, sec = 0,
             })
-            assert.is_truthy(sqls[i]:find("start_time >= " .. expected, 1, true))
+            assert.is_truthy(sqls[1]:find("start_time >= " .. expected, 1, true))
         end
     end)
 

@@ -62,7 +62,10 @@ function M.openDefault(ui, plugin, close_menu)
             })
         else
             local is_default_active = rawget(_G, "__ZEN_UI_NAVBAR_IS_DEFAULT_TAB_ACTIVE")
-            if type(is_default_active) == "function" and is_default_active() then return end
+            if type(is_default_active) == "function" and is_default_active() then
+                local resolve = rawget(_G, "__ZEN_UI_NAVBAR_RESOLVE_DEFAULT_TAB")
+                if type(resolve) ~= "function" or resolve() ~= "books" then return end
+            end
             local fm = require("apps/filemanager/filemanager").instance
             if fm then require("common/utils").closeWidgetsAbove(fm) end
             local open_default = rawget(_G, "__ZEN_UI_NAVBAR_OPEN_DEFAULT_TAB")
@@ -79,17 +82,21 @@ function M.openDefault(ui, plugin, close_menu)
     end)
 end
 
-function M.returnToRakuyomiReader()
+function M.returnToRakuyomiReader(plugin)
+    local rakuyomi = plugin and plugin.config and plugin.config.rakuyomi
+    if not rakuyomi or rakuyomi.open_on_manga_exit ~= true then return false end
     local ok, MangaReader = pcall(require, "MangaReader")
     if not ok or type(MangaReader) ~= "table"
             or MangaReader.is_showing ~= true
             or not MangaReader.chapter
-            or MangaReader.chapter._zen_rakuyomi_source_tab ~= "manga"
             or type(MangaReader.onReturn) ~= "function" then
         return false
     end
-    MangaReader:onReturn()
-    return true
+    local returned, err = pcall(MangaReader.onReturn, MangaReader)
+    if not returned then
+        require("common/zen_logger").new("library_navigation").warn("Rakuyomi return failed", err)
+    end
+    return returned
 end
 
 function M.showFromReader(ui, plugin, opts)
@@ -109,7 +116,7 @@ function M.showFromReader(ui, plugin, opts)
 
     closeConfigMenuForTransition(ui)
     closeReaderOverlays(ui)
-    if not opts.after_close and M.returnToRakuyomiReader() then
+    if not opts.after_close and M.returnToRakuyomiReader(plugin) then
         return true
     end
 
@@ -135,6 +142,14 @@ function M.showFromReader(ui, plugin, opts)
     end
 
     ui:onClose()
+    -- onClose flushed doc_settings; prime status caches so Home skips re-parsing the sidecar.
+    if file and ui.doc_settings then
+        pcall(function()
+            if require("common/book_status").prime(file, ui.doc_settings) then
+                require("common/tbr_index").refreshPath(file, ui.doc_settings)
+            end
+        end)
+    end
     if opts.after_close then opts.after_close() end
     if can_show_file_manager then
         ui:showFileManager(file)

@@ -358,12 +358,13 @@ function M.apply_status_row(menu, params)
         set_title_row(build_row())
     end
 
-    menu._zen_status_refresh = function(_self, suppress_repaint, item_keys)
+    -- diff_only: event-driven refresh; repaint only changed items.
+    menu._zen_status_refresh = function(_self, suppress_repaint, item_keys, diff_only)
         if tb.title_group and #tb.title_group >= 2 then
             local previous = tb.title_group[2]
             local current = build_row()
             local regions
-            if type(item_keys) == "table" and type(statusRowRefreshRegions) == "function"
+            if (diff_only or type(item_keys) == "table") and type(statusRowRefreshRegions) == "function"
                     and previous and previous.dimen and current then
                 local old_size, new_size = previous:getSize(), current:getSize()
                 if old_size.w == new_size.w and old_size.h == new_size.h then
@@ -386,6 +387,14 @@ function M.apply_status_row(menu, params)
 
     menu._zen_status_clock_bound = true
     ClockTimer.bind(menu, refresh_bound_status_row)
+    if not menu._zen_status_unbind_on_close then
+        menu._zen_status_unbind_on_close = true
+        local orig_onCloseWidget = menu.onCloseWidget
+        menu.onCloseWidget = function(self, ...)
+            ClockTimer.unbind(self)
+            if orig_onCloseWidget then return orig_onCloseWidget(self, ...) end
+        end
+    end
 end
 
 function M.mount_body(menu, body_widget)

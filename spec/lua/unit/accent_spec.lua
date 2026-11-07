@@ -5,7 +5,8 @@ describe("interface accent", function()
     local originals, plugin, screen, Accent
     local modules = {
         "device", "ui/uimanager", "config/manager", "common/utils", "common/ui/accent",
-        "common/ui/zen_slider", "common/ui/zen_toggle",
+        "common/ui/zen_slider", "common/ui/zen_toggle", "common/ui/zen_button",
+        "ui/font", "ui/widget/textwidget",
     }
 
     before_each(function()
@@ -24,6 +25,7 @@ describe("interface accent", function()
         ZenSpec.unload("common/utils")
         ZenSpec.unload("common/ui/zen_slider")
         ZenSpec.unload("common/ui/zen_toggle")
+        ZenSpec.unload("common/ui/zen_button")
         Accent = require("common/ui/accent")
     end)
 
@@ -113,6 +115,61 @@ describe("interface accent", function()
         assert.are.equal(Blitbuffer.COLOR_BLACK, Accent.color())
     end)
 
+    it("switches to the optional night accent and restores the regular accent live", function()
+        local config = _G.__ZEN_UI_PLUGIN.config
+        config.accent_night_color = "#cc8844"
+        config.accent_night_opacity = 50
+        local day = tostring(Accent.color())
+        screen.night_mode = true
+        assert.are.equal("#204080", Accent.hex())
+        assert.are.equal(100, Accent.opacity())
+        config.accent_night_enabled = true
+        assert.are.equal("#CC8844", Accent.hex())
+        assert.are.equal(50, Accent.opacity())
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(153, 187, 221, 255)), tostring(Accent.color()))
+        assert.are.equal(Blitbuffer.COLOR_BLACK, Accent.foreground())
+        assert.are.same({ 102, 68, 34 }, Accent.navbarColor(config, "active_tab_color", { 0, 0, 0 }))
+        assert.are.equal("#204080", Accent.hex(config, false))
+        assert.are.equal(100, Accent.opacity(config, false))
+        screen.night_mode = false
+        assert.are.equal(day, tostring(Accent.color()))
+        assert.are.equal("#CC8844", Accent.hex(config, true))
+        assert.are.equal(50, Accent.opacity(config, true))
+        screen.night_mode = true
+        config.accent_night_enabled = false
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(223, 191, 127, 255)), tostring(Accent.color()))
+        assert.are.equal("#cc8844", config.accent_night_color)
+        assert.are.equal(50, config.accent_night_opacity)
+    end)
+
+    it("validates the night accent and respects the global switch and screen support", function()
+        local config = _G.__ZEN_UI_PLUGIN.config
+        config.accent_night_enabled = true
+        screen.night_mode = true
+        for _i, value in ipairs({ false, {}, "#123", "CC8844", "#GG0000" }) do
+            config.accent_night_color = value
+            config.accent_night_opacity = "invalid"
+            assert.are.equal("#000000", Accent.hex())
+            assert.are.equal(100, Accent.opacity())
+            assert.is_false(Accent.isEnabled())
+            assert.are.equal(Blitbuffer.COLOR_BLACK, Accent.color())
+        end
+        config.accent_color = "#000000"
+        config.accent_night_color = "#CC8844"
+        config.accent_night_opacity = -10
+        assert.are.equal(0, Accent.opacity())
+        assert.is_true(Accent.isEnabled())
+        config.accent_night_opacity = 150
+        assert.are.equal(100, Accent.opacity())
+        config.accent_enabled = false
+        assert.is_false(Accent.isEnabled())
+        assert.are.equal(Blitbuffer.COLOR_BLACK, Accent.color())
+        config.accent_enabled = true
+        screen.isColorScreen = function() return false end
+        assert.is_false(Accent.isEnabled())
+        assert.are.equal(Blitbuffer.COLOR_BLACK, Accent.color())
+    end)
+
     it("clamps saved opacity and falls back to full opacity for invalid values", function()
         for _i, entry in ipairs({
             { false, 100 }, { {}, 100 }, { "invalid", 100 },
@@ -160,6 +217,19 @@ describe("interface accent", function()
         config.accent_enabled = true
         screen.isColorScreen = function() return false end
         assert.are.same(defaults.active_tab_color, Accent.navbarColor(config, "active_tab_color", defaults.active_tab_color))
+        assert.are.same({ 0, 0, 0 }, Accent.navbarColor(config, "outlined_color", defaults.outlined_color))
+        assert.are.same({ 0, 0, 0 },
+            Accent.navbarColor(config, "filled_background_color", defaults.filled_background_color))
+        -- Monochrome fill keeps the saved fill opacity.
+        local _c, solid = Accent.navbarColor(config, "filled_background_color", defaults.filled_background_color)
+        assert.is_nil(solid)
+        config.navbar.outlined_color = { 12, 34, 56 }
+        assert.are.same({ 12, 34, 56 }, Accent.navbarColor(config, "outlined_color", defaults.outlined_color))
+        config.navbar.outlined_color = defaults.outlined_color
+        screen.isColorScreen = function() return true end
+        screen.isColorEnabled = function() return false end
+        assert.are.same({ 0, 0, 0 }, Accent.navbarColor(config, "outlined_color", defaults.outlined_color))
+        screen.isColorEnabled = nil
         for key, default in pairs(defaults) do
             assert.are.same(default, config.navbar[key])
             assert.is_true(config.navbar[key .. "_custom"])
@@ -225,6 +295,107 @@ describe("interface accent", function()
         assert.are.equal(tostring(Accent.color(config)), tostring(utils.getBadgeColor(config)))
     end)
 
+    it("blends custom badge opacity and keeps it independent of the accent", function()
+        local utils = require("common/utils")
+        local config = {
+            accent_color = "#204080", accent_opacity = 60,
+            browser_cover_badges = { badge_color = { 0, 0, 0 }, badge_opacity = 50 },
+        }
+        local gray = tostring(Blitbuffer.ColorRGB32(127, 127, 127, 255))
+        assert.are.equal(gray, tostring(utils.getBadgeColor(config)))
+        assert.are.equal(Blitbuffer.COLOR_BLACK, utils.getBadgeTextColor(config))
+        config.accent_color, config.accent_opacity = "#FF0000", 100
+        assert.are.equal(gray, tostring(utils.getBadgeColor(config)))
+        for _i, entry in ipairs({
+            { 0, 255 }, { -20, 255 }, { 100, 0 }, { 120, 0 }, { "invalid", 0 },
+        }) do
+            config.browser_cover_badges.badge_opacity = entry[1]
+            local value = entry[2]
+            assert.are.equal(tostring(Blitbuffer.ColorRGB32(value, value, value, 255)),
+                tostring(utils.getBadgeColor(config)))
+            assert.are.equal(value == 0, utils.isBadgeDark(config))
+        end
+        config.browser_cover_badges.badge_color = nil
+        assert.are.equal(tostring(Accent.color(config)), tostring(utils.getBadgeColor(config)))
+        config.accent_color, config.accent_opacity = "#00FF00", 35
+        assert.are.equal(tostring(Accent.color(config)), tostring(utils.getBadgeColor(config)))
+    end)
+
+    it("uses live accent borders and black labels for outlined Zen buttons", function()
+        local label_color
+        ZenSpec.replace("ui/font", { getFace = function() return {} end })
+        ZenSpec.replace("ui/widget/textwidget", {
+            new = function(_self, options)
+                label_color = options.fgcolor
+                return {
+                    getSize = function() return { w = 0, h = 0 } end,
+                    paintTo = function() end,
+                    free = function() end,
+                }
+            end,
+        })
+        local buttons = require("common/ui/zen_button")
+        local config = _G.__ZEN_UI_PLUGIN.config
+        local bb = Blitbuffer.new(100, 50, Blitbuffer.TYPE_BBRGB32)
+        for _i, state in ipairs({
+            { "#204080", 100, false, true, true },
+            { "#CC2244", 100, false, true, true },
+            { "#CC2244", 50, false, true, true },
+            { "#CC2244", 50, true, true, true },
+            { "#CC2244", 50, false, false, true },
+            { "#CC2244", 50, false, true, false },
+        }) do
+            config.accent_color, config.accent_opacity, screen.night_mode, config.accent_enabled =
+                state[1], state[2], state[3], state[4]
+            screen.isColorScreen = function() return state[5] end
+            bb:fill(Blitbuffer.COLOR_WHITE)
+            assert.are.same({ x = 10, y = 5, w = 80, h = 40 },
+                buttons.paintOutlined(bb, 10, 5, 80, 40, "Accent color", 22, 10, 2))
+            local color = tostring(Accent.color():getColorRGB32())
+            assert.are.equal(Blitbuffer.COLOR_BLACK, label_color)
+            for _j, pos in ipairs({
+                { 50, 5 }, { 50, 44 }, { 10, 25 }, { 89, 25 },
+                { 13, 9 }, { 86, 9 }, { 13, 40 }, { 86, 40 },
+            }) do
+                assert.are.equal(color, tostring(bb:getPixel(pos[1], pos[2])))
+            end
+            for _j, pos in ipairs({ { 10, 5 }, { 50, 25 } }) do
+                assert.are.equal(255, bb:getPixel(pos[1], pos[2]):getColor8().a)
+            end
+        end
+        bb:free()
+    end)
+
+    it("updates retained button fills and icon contrast only when night mode changes", function()
+        screen.night_mode = false
+        local config = _G.__ZEN_UI_PLUGIN.config
+        config.accent_night_enabled = true
+        config.accent_night_color = "#CC8844"
+        local paints, frees, styles = 0, 0, {}
+        local style_icon = Accent.styleIcon
+        Accent.styleIcon = function(icon, active)
+            styles[#styles + 1] = Accent.foreground()
+            style_icon(icon, active)
+        end
+        local paint = function() paints = paints + 1 end
+        local button = { paintTo = paint }
+        local icon = { _render = function() end, free = function() frees = frees + 1 end }
+        Accent.styleButton(button, icon, true)
+        for _i, night_mode in ipairs({ false, true, true, false }) do
+            screen.night_mode = night_mode
+            button:paintTo({}, 0, 0)
+            assert.are.equal(tostring(Accent.color()), tostring(button.background))
+            assert.are.equal(Accent.foreground(), styles[#styles])
+        end
+        assert.are.equal(4, paints)
+        assert.are.equal(3, #styles)
+        assert.are.equal(2, frees)
+        local inactive = { background = Blitbuffer.COLOR_GRAY, paintTo = paint }
+        Accent.styleButton(inactive, icon, false)
+        assert.are.equal(Blitbuffer.COLOR_GRAY, inactive.background)
+        assert.are.equal(paint, inactive.paintTo)
+    end)
+
     it("colors the slider rail and fill while keeping toggle outlines black", function()
         local bb = Blitbuffer.new(160, 60, Blitbuffer.TYPE_BBRGB32)
         bb:fill(Blitbuffer.COLOR_WHITE)
@@ -258,6 +429,30 @@ describe("interface accent", function()
         assert.are.equal(Blitbuffer.COLOR_GRAY, slider.fill_color)
         assert.are.equal(Blitbuffer.COLOR_LIGHT_GRAY, slider.track_color)
         assert.are.equal(Blitbuffer.COLOR_BLACK, slider.knob_color)
+    end)
+
+    it("updates retained slider accents when night mode changes and preserves explicit colors", function()
+        local config = _G.__ZEN_UI_PLUGIN.config
+        config.accent_night_enabled = true
+        config.accent_night_color = "#CC8844"
+        local Slider = require("common/ui/zen_slider")
+        local slider = Slider:new{ width = 120, value_min = 0, value_max = 100, value = 50, knob_radius = 8 }
+        local custom = Slider:new{ width = 120, value_min = 0, value_max = 100,
+            fill_color = Blitbuffer.COLOR_GRAY, knob_color = Blitbuffer.COLOR_BLACK }
+        local bb = Blitbuffer.new(160, 60, Blitbuffer.TYPE_BBRGB32)
+        for _i, night_mode in ipairs({ false, true, false }) do
+            screen.night_mode = night_mode
+            slider:paintTo(bb, 0, 0)
+            for _j, x in ipairs({ 20, 60, 100 }) do
+                assert.are.equal(tostring(Accent.color()), tostring(bb:getPixel(x, 11)))
+            end
+            assert.are.equal(tostring(Accent.color()), tostring(slider.knob_color))
+            custom:paintTo(bb, 0, 30)
+            assert.are.equal(Blitbuffer.COLOR_GRAY, custom.fill_color)
+            assert.are.equal(Blitbuffer.COLOR_GRAY, custom.track_color)
+            assert.are.equal(Blitbuffer.COLOR_BLACK, custom.knob_color)
+        end
+        bb:free()
     end)
 
     it("keeps the rail color unchanged when the fill grows over it and retreats", function()
@@ -309,6 +504,18 @@ describe("interface accent", function()
             end
         end
         bb:free()
+    end)
+
+    it("never dithers live drag refreshes so Kaleido avoids flashing color waveforms", function()
+        local UIManager = require("ui/uimanager")
+        local calls = {}
+        UIManager.setDirty = function(_self, widget, mode, region, dither)
+            calls[#calls + 1] = { widget = widget, mode = mode, region = region, dither = dither }
+        end
+        local Slider, region = require("common/ui/zen_slider"), { x = 1, y = 2, w = 3, h = 4 }
+        Slider.refreshDrag(region, true)
+        Slider.refreshDrag(region, false)
+        assert.are.same({ { mode = "ui", region = region }, { mode = "fast", region = region } }, calls)
     end)
 
     it("refreshes the whole slider on first contact and skips repeated drag values", function()
@@ -381,5 +588,26 @@ describe("interface accent", function()
         source:free()
         _G.__ZEN_UI_PLUGIN.config.accent_color = "#FFFF80"
         Accent.styleIcon({ _render = function() error("light accents keep dark icons") end }, true)
+    end)
+
+    it("shares one cached inverted bitmap per icon file and size", function()
+        local source = Blitbuffer.new(2, 2, Blitbuffer.TYPE_BBRGB32)
+        source:setPixel(0, 0, Blitbuffer.ColorRGB32(0, 0, 0, 255))
+        local function icon(file)
+            return { file = file, _is_straight_alpha = true,
+                _render = function(self) self._bb, self._bb_disposable = source, false end }
+        end
+        local first, second = icon("/icons/a.svg"), icon("/icons/a.svg")
+        Accent.styleIcon(first, true)
+        Accent.styleIcon(second, true)
+        assert.are.equal(first._bb, second._bb)
+        assert.is_false(first._bb_disposable)
+        assert.are_not.equal(source, first._bb)
+        assert.are.equal(0, source:getPixel(0, 0).r)
+        assert.are.equal(255, first._bb:getPixel(0, 0).r)
+        local other = icon("/icons/b.svg")
+        Accent.styleIcon(other, true)
+        assert.are_not.equal(first._bb, other._bb)
+        source:free()
     end)
 end)

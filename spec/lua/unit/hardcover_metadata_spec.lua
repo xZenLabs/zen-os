@@ -460,7 +460,10 @@ describe("Hardcover metadata client", function()
 end)
 
 describe("Hardcover metadata HTTPS transport", function()
+    local ffi = require("ffi")
+    local ffi_os = ffi.os
     local originals
+    local original_popen
     local captured
     local timeout_calls
     local certificate_name
@@ -468,6 +471,8 @@ describe("Hardcover metadata HTTPS transport", function()
     local response_chunk
 
     before_each(function()
+        rawset(ffi, "os", "Linux")
+        original_popen = io.popen
         originals = {}
         for _i, name in ipairs({
             "ui/network/manager", "ssl.https", "socket.http", "ltn12",
@@ -554,6 +559,8 @@ describe("Hardcover metadata HTTPS transport", function()
     end)
 
     after_each(function()
+        rawset(ffi, "os", ffi_os)
+        rawset(io, "popen", original_popen)
         for name, original in pairs(originals) do package.loaded[name] = original end
         ZenSpec.unload("modules/filebrowser/metadata/hardcover")
     end)
@@ -643,5 +650,123 @@ describe("Hardcover metadata HTTPS transport", function()
         assert.are.equal("\255\216fixture", file:read("*a"))
         file:close()
         os.remove(destination)
+    end)
+
+    local function mock_curl(body, response_headers, success)
+        local command, config, paths
+        ZenSpec.replace("ltn12", {
+            source = { string = function(value) return function() return value end end },
+        })
+        rawset(io, "popen", function(cmd, mode)
+            command = cmd
+            assert.are.equal("w", mode)
+            paths = {
+                assert(command:match("'%-%-output' '([^']+)'")),
+                assert(command:match("'%-%-dump%-header' '([^']+)'")),
+            }
+            return {
+                write = function(_self, value)
+                    config = value
+                    return true
+                end,
+                close = function()
+                    local output = assert(io.open(paths[1], "wb"))
+                    assert(output:write(body))
+                    output:close()
+                    local headers = assert(io.open(paths[2], "wb"))
+                    assert(headers:write(response_headers or "HTTP/2 200\r\n\r\n"))
+                    assert(headers:write("\nZEN_CURL_EXIT=" .. (success == false and "1" or "0") .. "\n"))
+                    headers:close()
+                    return true
+                end,
+            }
+        end)
+        rawset(ffi, "os", "OSX")
+        return function()
+            for _i, path in ipairs(paths) do
+                assert.is_nil(io.open(path, "rb"))
+            end
+            return command, config
+        end
+    end
+
+    it("uses a fresh curl process on macOS with credentials only on stdin", function()
+        local check = mock_curl(JSON.encode({ data = { search = { ids = {} } } }))
+        local Hardcover = require("modules/filebrowser/metadata/hardcover")
+        local works, err = Hardcover.search("secret-token", { title = 'Dune "test"\nnext' })
+
+        assert.is_nil(works)
+        assert.are.equal("no_match", err.kind)
+        assert.is_nil(captured)
+        local command, config = check()
+        assert.matches("'/usr/bin/curl' '-q'", command, 1, true)
+        assert.matches("'--proto' '=https'", command, 1, true)
+        assert.matches("'--max-filesize' '2097152'", command, 1, true)
+        assert.matches("'--cacert'", command, 1, true)
+        assert.is_nil(command:find("secret-token", 1, true))
+        assert.is_nil(command:find("--insecure", 1, true))
+        assert.is_nil(command:find("--location", 1, true))
+        assert.matches('header = "Authorization: Bearer secret-token"', config, 1, true)
+        assert.matches('request = "POST"', config, 1, true)
+        local encoded = assert(config:match('data%-raw = "(.-)"\n'))
+        encoded = encoded:gsub('\\([\\"rn])', {
+            ['\\'] = '\\', ['"'] = '"', r = '\r', n = '\n',
+        })
+        assert.are.equal('Dune "test"\nnext', JSON.decode(encoded).variables.query)
+    end)
+
+    it("preserves macOS rate-limit status and retry headers", function()
+        local check = mock_curl("{}", "HTTP/2 429\r\nRetry-After: 30\r\n\r\n")
+        local works, err = require("modules/filebrowser/metadata/hardcover")
+            .search("secret-token", { title = "Dune" })
+        assert.is_nil(works)
+        assert.are.equal("rate_limited", err.kind)
+        assert.are.equal(429, err.status)
+        assert.are.equal(30, err.retry_after)
+        check()
+    end)
+
+    it("handles macOS HEAD requests without waiting for a response body", function()
+        local check = mock_curl("", "HTTP/2 302\r\nLocation: https://archive.org/download/cover.jpg\r\n\r\n")
+        local head_response = assert(require("modules/filebrowser/metadata/http").request{
+            url = "https://covers.openlibrary.org/b/id/123-L.jpg",
+            host = "covers.openlibrary.org",
+            method = "HEAD",
+        })
+        assert.are.equal(302, head_response.status)
+        assert.are.equal("https://archive.org/download/cover.jpg", head_response.headers.location)
+        local config = select(2, check())
+        assert.matches('request = "HEAD"\nhead\n', config, 1, true)
+    end)
+
+    it("downloads macOS covers through curl and cleans up failed transfers", function()
+        local check = mock_curl("\255\216fixture")
+        local Hardcover = require("modules/filebrowser/metadata/hardcover")
+        local destination = os.tmpname() .. ".img"
+        assert.are.equal(destination, Hardcover.downloadCover(
+            "https://assets.hardcover.app/edition/9/cover.jpeg", destination))
+        local file = assert(io.open(destination, "rb"))
+        assert.are.equal("\255\216fixture", file:read("*a"))
+        file:close()
+        os.remove(destination)
+        local command = check()
+        assert.matches("'--max-filesize' '12582912'", command, 1, true)
+
+        check = mock_curl("partial", nil, false)
+        local path, err = Hardcover.downloadCover(
+            "https://assets.hardcover.app/edition/9/cover.jpeg", destination)
+        assert.is_nil(path)
+        assert.are.equal("network", err.kind)
+        assert.is_nil(io.open(destination, "rb"))
+        check()
+    end)
+
+    it("rejects oversized macOS responses even if curl exits successfully", function()
+        local check = mock_curl(string.rep("x", 2 * 1024 * 1024 + 1))
+        local works, err = require("modules/filebrowser/metadata/hardcover")
+            .search("secret-token", { title = "Dune" })
+        assert.is_nil(works)
+        assert.are.equal("malformed", err.kind)
+        check()
     end)
 end)

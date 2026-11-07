@@ -180,17 +180,7 @@ function M.set_dimmed_border(frame, dimmed)
 end
 
 local function release_shared_on_free(widget, cache_key, cover_bb)
-    if not widget or not cache_key or type(RenderCache.releaseShared) ~= "function" then return end
-    local original_free = widget.free
-    local released = false
-    widget.free = function(self, ...)
-        local result = original_free(self, ...)
-        if not released then
-            released = true
-            RenderCache:releaseShared(cache_key, cover_bb)
-        end
-        return result
-    end
+    RenderCache:releaseOnFree(widget, cache_key, cover_bb)
 end
 
 local function free_bitmap(bb)
@@ -212,10 +202,9 @@ local function image_dims(bb, target_w, target_h)
     return target_w, target_h
 end
 
-function M.make_cover_widget(book, max_w, max_h, opts)
+-- Final cover size make_cover_widget renders for these bounds (the RenderCache key).
+function M.target_dims(book, max_w, max_h, opts)
     opts = opts or {}
-    local border = tonumber(opts.border) or M.BORDER_SIZE
-    local bg = opts.background or Blitbuffer.COLOR_LIGHT_GRAY
     local target_w, target_h
     local source_w, source_h
     if opts.uniform == false and book then
@@ -240,6 +229,14 @@ function M.make_cover_widget(book, max_w, max_h, opts)
         if target_w < 18 then target_w = 18 end
         if target_h < 28 then target_h = 28 end
     end
+    return target_w, target_h
+end
+
+function M.make_cover_widget(book, max_w, max_h, opts)
+    opts = opts or {}
+    local border = tonumber(opts.border) or M.BORDER_SIZE
+    local bg = opts.background or Blitbuffer.COLOR_LIGHT_GRAY
+    local target_w, target_h = M.target_dims(book, max_w, max_h, opts)
 
     local child
     local cover_bb

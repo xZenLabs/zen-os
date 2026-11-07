@@ -28,6 +28,7 @@ local BookOpenTap = require("common/book_open_tap")
 local ButtonModel = require("common/nav_button_model")
 local _ = require("gettext")
 local logger = require("common/zen_logger").new("home_strip")
+local icons = require("common/inline_icon_map")
 
 local M = {}
 M.CONTROLS_HEIGHT = 30
@@ -310,7 +311,7 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
         end
         WidgetResources.free(_cached_fav_mark)
         _cached_fav_mark = TextWidget:new{
-            text    = "\u{2606}",
+            text    = icons.favorite,
             face    = Font:getFace("cfont", utils.getBadgeFontSize(config, size, 0.45, 6)),
             fgcolor = is_dark and Blitbuffer.COLOR_WHITE or Blitbuffer.COLOR_BLACK,
             padding = 0,
@@ -416,7 +417,7 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
                                icon_y + math.floor((icon_h-sq)/2), sq, sq, badge_fg)
             elseif do_tbr or do_pause then
                 local fs = utils.getBadgeFontSize(config, base_sz, 0.40, 7)
-                local icon = do_tbr and "\u{F0150}" or "\u{F03E4}"
+                local icon = do_tbr and icons.tbr or icons.on_hold
                 if not _cached_pause_tw or _cached_pause_icon ~= icon
                         or _cached_pause_fs ~= fs or _cached_pause_dark ~= is_dark then
                     WidgetResources.free(_cached_pause_tw)
@@ -1339,6 +1340,7 @@ function M.build_strip(ctx, source_key)
     local visible_hydrate_fn
     local prewarm_fn
     local prewarm_direction = 1
+    local has_paged = false -- prewarm only once the user has paged at least once
     local swap_sequence = 0
 
     local function repaint_strip()
@@ -1526,7 +1528,7 @@ function M.build_strip(ctx, source_key)
     end
 
     schedule_prewarm = function(delay)
-        if closed or prewarm_fn or not has_adjacent_pages
+        if closed or prewarm_fn or not has_paged or not has_adjacent_pages
                 or (type(ctx.data.getStripItemsForPage) ~= "function"
                     and type(ctx.data.getBooksForStripPage) ~= "function") then
             return
@@ -1699,6 +1701,7 @@ function M.build_strip(ctx, source_key)
             "cache_hit=", cache_hit and 1 or 0)
         repaint_strip()
         prewarm_direction = direction == "next" and 1 or -1
+        has_paged = true
         schedule_visible_hydration(HYDRATE_DELAY_S)
         schedule_prewarm(PRELOAD_DELAY_S)
     end
@@ -1785,7 +1788,6 @@ function M.build_strip(ctx, source_key)
             if first_paint then
                 first_paint = false
                 schedule_visible_hydration(HYDRATE_DELAY_S)
-                schedule_prewarm(PRELOAD_DELAY_S)
             end
         end
     end

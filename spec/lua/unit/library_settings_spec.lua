@@ -67,7 +67,6 @@ describe("library settings", function()
         })
         ZenSpec.replace("modules/settings/zen_settings_apply", {})
         ZenSpec.replace("modules/settings/zen_settings_utils", {
-            buildColorSubMenu = function() return {} end,
             newImagePathChooser = function(options)
                 options._image_layout = true
                 return options
@@ -116,15 +115,31 @@ describe("library settings", function()
         assert.is_nil(find_item(items, "Font"))
         assert.is_nil(find_item(items, "Wallpaper"))
         assert.is_nil(find_item(items, "Status bar"))
-        local badge_sizes = find_item(items, "Badge size").sub_item_table
+        local badge_size = find_item(items, "Badge size")
+        local badge_sizes = badge_size.sub_item_table
+        assert.are.equal("Badge size: Normal", badge_size.text_func())
         assert.is_true(find_item(badge_sizes, "Normal").checked_func())
         assert.is_false(find_item(badge_sizes, "Compact").checked_func())
     end)
 
-    it("uses the color wheel for custom badge colors while preserving presets and reset", function()
-        ZenSpec.replace("device", {})
-        ZenSpec.unload("modules/settings/zen_settings_utils")
-        require("modules/settings/zen_settings_utils")
+    it("shows the selected badge size on the outer menu", function()
+        local saves = 0
+        package.loaded["ui/uimanager"].setDirty = function() end
+        local config = { features = {}, browser_hide_up_folder = {} }
+        local items = require("modules/settings/sections/library_settings").build({
+            config = config, plugin = { saveConfig = function() saves = saves + 1 end },
+            save_and_apply = function() end,
+        })
+        local size = find_item(items, "Badge size")
+        for _i, option in ipairs(size.sub_item_table) do
+            option.callback()
+            assert.is_true(option.checked_func())
+            assert.are.equal("Badge size: " .. option.text, size.text_func())
+        end
+        assert.are.equal(4, saves)
+    end)
+
+    it("opens badge color directly with opacity and a live accent reset", function()
         local picker, saves, redraws, updates = nil, 0, 0, 0
         ZenSpec.replace("common/ui/color_wheel_widget", {
             new = function(_self, options) return options end,
@@ -133,6 +148,7 @@ describe("library settings", function()
         package.loaded["ui/uimanager"].setDirty = function() redraws = redraws + 1 end
         local config = {
             features = {}, browser_hide_up_folder = {},
+            accent_color = "#204080", accent_opacity = 60,
             browser_cover_badges = { badge_color = { 12, 34, 56 } },
         }
         local items = require("modules/settings/sections/library_settings").build({
@@ -140,31 +156,66 @@ describe("library settings", function()
             save_and_apply = function() end,
         })
         local colors = find_item(items, "Badges").sub_item_table[2]
-        local custom = colors.sub_item_table[#colors.sub_item_table]
         local menu = { updateItems = function() updates = updates + 1 end }
-        assert.are.equal("Custom (12,34,56)", custom.text_func())
-        custom.callback(menu)
-        assert.are.equal("Color", picker.title_text)
+        assert.is_nil(colors.sub_item_table)
+        assert.is_true(colors.keep_menu_open)
+        assert.are.equal("Badge color: 12,34,56", colors.text_func())
+        colors.callback(menu)
+        assert.are.equal("Badge color", picker.title_text)
+        assert.is_true(picker.back_button)
         assert.are.equal("#0C2238", picker.hex)
-        assert.is_nil(picker.opacity)
+        assert.are.equal(100, picker.opacity)
+        assert.are.equal("Accent color", picker.reset_text)
         assert.are.equal(0, saves)
-        picker.callback("#A1b2C3")
+        picker.callback("#A1b2C3", 35)
         assert.are.same({ 161, 178, 195 }, config.browser_cover_badges.badge_color)
+        assert.are.equal(35, config.browser_cover_badges.badge_opacity)
         assert.are.same({ 1, 1, 1 }, { saves, redraws, updates })
-        custom.callback(menu)
+        colors.callback(menu)
         assert.are.equal("#A1B2C3", picker.hex)
+        assert.are.equal(35, picker.opacity)
 
-        colors.sub_item_table[1].callback()
+        picker.reset_callback()
         assert.is_nil(config.browser_cover_badges.badge_color)
-        assert.is_true(colors.sub_item_table[1].checked_func())
-        custom.callback(menu)
+        assert.is_nil(config.browser_cover_badges.badge_opacity)
+        assert.are.equal("Badge color: Accent color", colors.text_func())
+        colors.callback(menu)
+        assert.are.equal("#204080", picker.hex)
+        assert.are.equal(60, picker.opacity)
+        config.accent_color, config.accent_opacity = "#3399FF", 80
+        colors.callback(menu)
+        assert.are.equal("#3399FF", picker.hex)
+        assert.are.equal(80, picker.opacity)
+        assert.are.same({ 2, 2, 2 }, { saves, redraws, updates })
+        picker.callback("#000000", 0)
+        colors.callback(menu)
         assert.are.equal("#000000", picker.hex)
-        assert.are.equal("Custom", custom.text_func())
-        assert.are.equal(2, saves)
-        colors.sub_item_table[2].callback()
-        assert.are.same({ 0, 0, 0 }, config.browser_cover_badges.badge_color)
-        assert.is_true(colors.sub_item_table[2].checked_func())
-        assert.are.equal(3, saves)
+        assert.are.equal(0, picker.opacity)
+        assert.are.equal("Badge color: 0,0,0", colors.text_func())
+    end)
+
+    it("uses the accent when badge settings have never been saved", function()
+        local picker, saves = nil, 0
+        ZenSpec.replace("common/ui/color_wheel_widget", {
+            new = function(_self, options) return options end,
+        })
+        package.loaded["ui/uimanager"].show = function(_self, widget) picker = widget end
+        package.loaded["ui/uimanager"].setDirty = function() end
+        local config = { features = {}, browser_hide_up_folder = {}, accent_color = "#204080" }
+        local items = require("modules/settings/sections/library_settings").build({
+            config = config, plugin = { saveConfig = function() saves = saves + 1 end },
+            save_and_apply = function() end,
+        })
+        local colors = find_item(items, "Badges").sub_item_table[2]
+        assert.are.equal("Badge color: Accent color", colors.text_func())
+        colors.callback()
+        assert.are.equal("#204080", picker.hex)
+        assert.are.equal(100, picker.opacity)
+        assert.is_nil(config.browser_cover_badges)
+        assert.are.equal(0, saves)
+        picker.callback("#FFFFFF", 25)
+        assert.are.same({ badge_color = { 255, 255, 255 }, badge_opacity = 25 }, config.browser_cover_badges)
+        assert.are.equal(1, saves)
     end)
 
     it("toggles uniform covers from the outer row and keeps only ratios in its submenu", function()
@@ -212,7 +263,7 @@ describe("library settings", function()
             plugin = {}, save_and_apply = function() end,
         })
         find_item(items, "Portrait").callback()
-        assert.are.same({ 3, 3 }, { shown.columns, shown.rows })
+        assert.are.same({ 3, 2 }, { shown.columns, shown.rows })
         shown.callback(2, 8)
         find_item(items, "Landscape").callback()
         assert.are.same({ 4, 2 }, { shown.columns, shown.rows })
@@ -223,7 +274,7 @@ describe("library settings", function()
             nb_cols_landscape = 8, nb_rows_landscape = 2, files_per_page = 6 }, saved)
         assert.are.same(saved, fc_class)
         find_item(items, "Reset to default").callback()
-        assert.are.same({ nb_cols_portrait = 3, nb_rows_portrait = 3,
+        assert.are.same({ nb_cols_portrait = 3, nb_rows_portrait = 2,
             nb_cols_landscape = 4, nb_rows_landscape = 2, files_per_page = 6 }, saved)
         assert.are.same(saved, fc_class)
     end)

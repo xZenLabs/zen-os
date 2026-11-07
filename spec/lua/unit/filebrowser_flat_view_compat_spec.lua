@@ -55,6 +55,10 @@ describe("filebrowser flat view compatibility patch", function()
                 walked.include_hidden = options.include_hidden
                 walked.koreader_result = options.on_dir("koreader")
                 walked.books_result = options.on_dir("Books")
+                if options.on_scan_dir then
+                    options.on_scan_dir(path, { mode = "directory", modification = 1 })
+                    options.on_scan_dir("/library/Empty", { mode = "directory", modification = 2 })
+                end
                 options.on_file("Alpha.epub", "/library/Series/Alpha.epub",
                     { mode = "file", size = 10 }, 1, "/library/Series")
                 options.on_file("notes.txt", "/library/Notes/notes.txt",
@@ -111,6 +115,7 @@ describe("filebrowser flat view compatibility patch", function()
 
     it("recursively returns supported files from subfolders without directories", function()
         local chooser = {
+            name = "filemanager",
             show_hidden = true,
             show_dir = function(_, name) return name == "Books" end,
             show_file = function(_, name) return name:match("%.epub$") ~= nil end,
@@ -142,10 +147,15 @@ describe("filebrowser flat view compatibility patch", function()
             collate = "natural",
         }, files[1])
         assert.are.equal(0, original_calls)
+        assert.are.same({
+            ["/library"] = { mode = "directory", modification = 1 },
+            ["/library/Empty"] = { mode = "directory", modification = 2 },
+        }, chooser._zen_flat_view_directories)
     end)
 
     it("uses boolean placeholders when no collation is requested", function()
         local chooser = {
+            name = "filemanager",
             show_dir = function() return true end,
             show_file = function(_, name) return name:match("%.epub$") ~= nil end,
             getListItem = function() error("getListItem should not be called") end,
@@ -160,7 +170,7 @@ describe("filebrowser flat view compatibility patch", function()
     end)
 
     it("delegates outside home and when Zen flat view is disabled", function()
-        local chooser = {}
+        local chooser = { name = "filemanager" }
         local dirs, files = {}, {}
 
         assert.are.equal("original",
@@ -172,5 +182,15 @@ describe("filebrowser flat view compatibility patch", function()
         assert.are.equal(2, original_calls)
         assert.are.same({ "original-dir", "original-dir" }, dirs)
         assert.are.same({ "original-file", "original-file" }, files)
+    end)
+
+    it("delegates for non-library choosers such as PathChooser", function()
+        local dirs, files = {}, {}
+
+        assert.are.equal("original",
+            FileChooser.getPathList({ select_directory = false }, "/library", nil, dirs, files))
+
+        assert.are.equal(1, original_calls)
+        assert.is_nil(walked.path)
     end)
 end)

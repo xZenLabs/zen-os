@@ -83,6 +83,16 @@ describe("navigation button model", function()
         assert.are.equal("continue", opened)
     end)
 
+    it("keeps local navigation available when Kindle availability fails", function()
+        require("modules/filebrowser/patches/kindle_virtual_library").isAvailable = function()
+            error("kindle plugin did not load")
+        end
+        local Model = require("common/nav_button_model")
+        assert.is_false(Model.isAvailable("kindle"))
+        assert.is_true(Model.isAvailable("home"))
+        assert.is_true(Model.isAvailable("books"))
+    end)
+
     it("exposes Kindle as a strip source and navbar action only when available", function()
         local Model = require("common/nav_button_model")
         local kindle = Model.find(nil, "kindle")

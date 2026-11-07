@@ -14,14 +14,91 @@ M.BUILTIN_THEMES = {
         background = "#252525",
     },
     light_sepia = {
-        text = "#3f3524",
+        text = "#000000",
         background = "#f3ead2",
     },
     light_tan = {
         text = "#473b2d",
         background = "#e8dcc5",
     },
+    sepia = {
+        text = "#000000",
+        background = "#f5e6c8",
+    },
+    darker_sepia = {
+        text = "#2e2014",
+        background = "#e6cea9",
+    },
+    old_book = {
+        text = "#2e1800",
+        background = "#edd9b0",
+    },
+    sage = {
+        text = "#1a2e1a",
+        background = "#eaf0e8",
+    },
+    fern = {
+        text = "#0f2a14",
+        background = "#dff0e0",
+    },
+    arctic = {
+        text = "#0d1b2a",
+        background = "#e8f0f8",
+    },
+    midnight = {
+        text = "#e2e8f0",
+        background = "#121c33",
+    },
+    nord = {
+        text = "#d8dee9",
+        background = "#2e3440",
+    },
+    amber_night = {
+        text = "#fad08a",
+        background = "#14100a",
+    },
+    sepia_night = {
+        text = "#c8a070",
+        background = "#1a0e00",
+    },
+    dark_moss = {
+        text = "#90c090",
+        background = "#0a1a0a",
+    },
+    dark_sky = {
+        text = "#7aaad4",
+        background = "#0a1428",
+    },
+    velvet = {
+        text = "#f9d592",
+        background = "#532653",
+    },
 }
+
+-- Ordered builtin themes with display names; built lazily so gettext is installed.
+function M.builtinList()
+    local _ = require("gettext")
+    return {
+        { key = "default", text = _("Default") },
+        { key = "dark_warm_gray", text = _("Dark warm gray") },
+        { key = "dark_graphite", text = _("Dark graphite") },
+        { key = "light_sepia", text = _("Light sepia") },
+        { key = "light_tan", text = _("Light tan") },
+        { key = "sepia", text = _("Sepia") },
+        { key = "darker_sepia", text = _("Darker Sepia") },
+        { key = "old_book", text = _("Old Book") },
+        { key = "sage", text = _("Sage") },
+        { key = "fern", text = _("Fern") },
+        { key = "arctic", text = _("Arctic") },
+        { key = "midnight", text = _("Midnight") },
+        { key = "nord", text = _("Nord") },
+        { key = "amber_night", text = _("Amber Night") },
+        { key = "sepia_night", text = _("Sepia Night") },
+        { key = "dark_moss", text = _("Dark Moss") },
+        { key = "dark_sky", text = _("Dark Sky") },
+        { key = "velvet", text = _("Velvet") },
+    }
+end
 
 local CSS_START = "/* zen_ui_reader_themes:start */"
 local CSS_END = "/* zen_ui_reader_themes:end */"
@@ -93,6 +170,15 @@ local function blitbuffer_color(value)
     return require("ffi/blitbuffer").ColorRGB32(r, g, b, 0xFF)
 end
 
+local function preview_blitbuffer_color(value)
+    local color = normalize_color(value)
+    if not color then return nil end
+    local r = tonumber(color:sub(2, 3), 16)
+    local g = tonumber(color:sub(4, 5), 16)
+    local b = tonumber(color:sub(6, 7), 16)
+    return require("ffi/blitbuffer").ColorRGB32(r, g, b, 0xFF)
+end
+
 local function theme_for(plugin, dark_mode)
     if not is_enabled(plugin) then return nil end
     local config = plugin and plugin.config
@@ -156,14 +242,87 @@ function M.getBackgroundColor(plugin)
     return theme and blitbuffer_color(theme.background) or nil
 end
 
+function M.getPreviewColors(plugin, key, theme_override)
+    local theme = theme_override
+    if not theme and key == "default" then
+        -- Default reader styling is document-dependent; show a neutral black-on-white sample.
+        theme = { text = "#000000", background = "#ffffff" }
+    elseif not theme then
+        theme = M.BUILTIN_THEMES[key]
+        if not theme then
+            local themes = plugin and plugin.config and plugin.config.reader_themes
+            local custom = type(themes) == "table" and themes.custom
+            theme = type(custom) == "table" and custom[key]
+        end
+    end
+    if not (type(theme) == "table" and valid_color(theme.text) and valid_color(theme.background)) then
+        return nil, nil
+    end
+    return preview_blitbuffer_color(theme.text), preview_blitbuffer_color(theme.background)
+end
+
 function M.applyFont(reader, plugin)
     local document = reader and reader.document
     if not (document and type(document.setFontFace) == "function") then return false end
     local theme = theme_for(plugin)
     local face = theme and theme.font_face
     if type(face) ~= "string" or face == "default" then return false end
-    document:setFontFace(face)
+    if reader.font and type(reader.handleEvent) == "function" then
+        reader:handleEvent(require("ui/event"):new("SetFont", face))
+    else
+        document:setFontFace(face)
+    end
     return true
+end
+
+function M.capture(plugin)
+    local util = require("util")
+    local source = { config = { features = { reader_themes = true },
+        reader_themes = plugin and plugin.config and plugin.config.reader_themes } }
+    return {
+        enabled = is_enabled(plugin),
+        light_mode = util.tableDeepCopy(theme_for(source, false) or {}),
+        dark_mode = util.tableDeepCopy(theme_for(source, true) or {}),
+    }
+end
+
+function M.saveConfig(plugin)
+    local PresetStore = require("config/preset_store")
+    local store = PresetStore.loadStore("reader")
+    store.reader_themes = plugin.config.reader_themes
+    PresetStore.saveStore("reader", store)
+    plugin:saveConfig()
+end
+
+function M.restore(plugin, snapshot)
+    local util = require("util")
+    local themes = plugin.config.reader_themes
+    themes.custom = themes.custom or {}
+    plugin.config.features.reader_themes = snapshot.enabled == true
+    for _i, mode in ipairs({ "light_mode", "dark_mode" }) do
+        local theme = snapshot[mode]
+        if type(theme) == "table" then
+            local selected = "default"
+            if valid_color(theme.text) and valid_color(theme.background) then
+                selected = nil
+                for _j, choices in ipairs({ M.BUILTIN_THEMES, themes.custom }) do
+                    for key, candidate in pairs(choices) do
+                        if util.tableEquals(theme, candidate) then selected = key; break end
+                    end
+                    if selected then break end
+                end
+                if not selected then
+                    local number = 1
+                    while themes.custom["custom_" .. number] do number = number + 1 end
+                    selected = "custom_" .. number
+                    themes.custom[selected] = util.tableDeepCopy(theme)
+                end
+            end
+            themes[mode] = selected
+        end
+    end
+    M.saveConfig(plugin)
+    return M.applyCurrent(plugin)
 end
 
 function M.applyFooterColors(footer, plugin)

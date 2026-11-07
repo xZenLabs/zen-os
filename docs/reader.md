@@ -1,16 +1,22 @@
 ---
 title: Reader
 category: Reader
-summary: Configure reader status bars, bottom status bar presets, font access, lookup tools, and page navigation.
+summary: Configure reader appearance, controls, lookup tools, and page navigation.
 settingsPath: Zen Settings > Reader
 order: 50
 ---
 
-<!-- Documentation current through ZenOS v3.3.0. -->
+<!-- Documentation current through ZenOS v4.3.0. -->
+
+![Reader](/images/zen_os/reader.webp)
+
+Everything for the reading screen: status bars, themes, the page browser, reader controls, lookup, pins, and the end-of-book screen.
+
+## Page browser
+
+![Page browser](/images/zen_os/page_browser.webp)
 
 ![Page browser grid](/images/zen_os/page_browser_grid.webp)
-
-![Page browser menu](/images/zen_os/page_browser_menu.webp)
 
 ![Page browser table of contents](/images/zen_os/page_browser_toc.webp)
 
@@ -18,115 +24,93 @@ order: 50
 
 ![Page browser search](/images/zen_os/page_browser_search.webp)
 
-![Reader](/images/zen_os/reader.webp)
+Swipe up while reading. You get page previews, a scrubber, search, table of contents, bookmarks, and font settings (**Aa**) all in one place. Switch between single page, carousel, and grid views.
 
-![Dictionary lookup menu](/images/zen_os/reader_dict.webp)
+- Hold a page preview to bookmark or pin it.
+- Books with a page map show their real page numbers everywhere.
+- Turn on the **Book details** tab if you want it (off by default).
+- In **Aa**, open the three-dot menu and enable **Show full page** to see changes at actual size.
 
-![Highlight menu](/images/zen_os/reader_highlight.webp)
+**Where:** Zen Settings > Reader > Page browser
+
+## Swipe up gesture
+
+Choose what swiping up from the bottom does: Zen page browser, Reader controls, KOReader's reader menu, nothing, or any action/Control/plugin/menu you pick.
+
+**Where:** Zen Settings > Reader > Bottom swipe gesture
+
+## Reader controls
 
 ![Reader menu](/images/zen_os/reader_menu.webp)
 
-![Book details](/images/zen_os/reader_book_details.webp)
+A bottom panel with tabs for Font, Contrast, Page, Document, Book info, Profiles, and Themes, plus buttons for TOC, Bookmarks, Search, and Vocabulary builder. Settings show three rows at a time; swipe or use the arrows to page.
 
-## Overview
+- Sliders snap to KOReader's steps. A notch marks your default.
+- Use the three-dot menu on a setting to **Set as default** or **Reset**.
+- **Profiles** saves and applies sets of reader settings (uses KOReader's Profiles plugin).
+- **Themes** switches reader themes for light/dark mode.
+- PDF/CBZ get a **Contrast** tab instead of Font.
 
-Reader settings control the reading screen. They cover status bars, themes, font access, lookup and highlighting, page navigation, and what happens when you leave a book.
+Reorder, hide, rename, or add buttons (actions, Controls, plugin menus, KOReader menus) under **Buttons**. Optional buttons include **Page Browser** and **KOReader reader menu**.
 
-![Page browser](/images/zen_os/page_browser.webp)
-
-## Options
-
-- Configure one reader top status bar with shared left, center, and right item slots across document formats.
-- Reserve the top bar's space in paged reflowable documents, or paint it over CBZ/PDF files.
-- Use the top bar's border as reading progress with optional chapter marks.
-- Apply built-in or custom themes for light and dark reader modes.
-- Apply prebuilt bottom status bars or save your current setup as a preset.
-- Open KOReader's reader font controls from ZenOS.
-- Configure Zen quick lookup, Zen highlight menu, Wikipedia, and detected X-Ray, KOAssistant, or AI Assistant integrations.
-- Enable bottom swipe and the Zen page browser.
-- Use stable page labels in the page browser and table of contents when a book provides a page map.
-- Restore the previous library location when leaving the reader.
-- Enable or disable the bottom status bar and configure its Zen Presets, font, and CBZ/PDF hiding.
-
-## Setting reference
-
-| Setting | Description |
-| --- | --- |
-| Top status bar > Enable top status bar | Shows ZenOS's top reader status bar. |
-| Top status bar > Left items | Selects and arranges time, combined or separate battery information, Incognito, Wi-Fi, brightness, RAM usage, disk space, custom text, book title, author, chapter, progress percentage, separate current/total pages, or combined current/total pages for the left slot. |
-| Top status bar > Center items | Selects and arranges top-bar items for the center slot. |
-| Top status bar > Right items | Selects and arranges top-bar items for the right slot. |
-| Top status bar > Left/center/right items > Show separator | Shows separators inside the selected slot. |
-| Top status bar > Left/center/right items > Custom text | Enables custom text in that slot and opens its value editor. Empty text falls back to the device model. |
-| Top status bar > Font size | Sets the top-bar font size from 8 to 36. |
-| Top status bar > Font | Sets the top-bar font face or restores the default font. |
-| Top status bar > Separator | Selects a preset separator for top-bar items. |
-| Top status bar > Show bottom border | Draws a separator below the reader top status bar. |
-| Top status bar > Use border as progress bar | Fills the bottom border to show reading progress. Enabling it also enables the border. |
-| Top status bar > Chapter marks | Draws table-of-contents marks on the progress border. Enabling it also enables the progress border. |
-| Top status bar > Colored status icons | Uses the library status-bar colors for Wi-Fi, storage, memory, brightness, and battery icons on supported color screens. |
-| Top status bar > Hide in CBZ/PDF files | Hides the top bar for CBZ and PDF documents. |
-| Reader themes > Enable reader themes | Enables ZenOS reader themes. |
-| Reader themes > Dark mode | Selects the theme used while KOReader night mode is active. |
-| Reader themes > Light mode | Selects the theme used while KOReader night mode is inactive. |
-| Reader themes > Custom themes | Creates, edits, and deletes custom themes. A custom theme can set its name, background color, text color, and font. |
-| Font > Reader font menu | Opens KOReader's reader font submenu when a reader instance is active. |
-| Highlight / Lookup > Zen quick lookup | Enables ZenOS quick lookup behavior. |
-| Highlight / Lookup > Zen highlight menu | Enables ZenOS's highlight menu. |
-| Highlight / Lookup > Show Wikipedia | Shows Wikipedia in lookup options. |
-| Highlight / Lookup > Show X-Ray | Shows X-Ray in lookup and highlight menus when the plugin is installed. |
-| Highlight / Lookup > Show KOAssistant | Shows KOAssistant in lookup and highlight menus when the plugin is installed. |
-| Highlight / Lookup > Show AI assistant | Shows an Assistant plugin button in lookup and highlight menus when the plugin is installed. |
-| Highlight / Lookup > Show other items | Shows non-Zen KOReader quick lookup options alongside Zen buttons. |
-| Reader > Time until chapter end | Selects `5 min left in chapter`, `5 min left`, abbreviated `5m`/`1h 5m`, or KOReader's default `hh:mm` format for compatible footer layouts. |
-| Reader > Enable bottom swipe | Enables bottom-swipe reader menu behavior. This is forced on while page browser is enabled. |
-| Reader > Enable page browser | Enables ZenOS page browser. It requires bottom swipe and supports stable page labels when the current book provides a page map. |
-| Reader > Restore library location on exit | Returns to the previous library location after leaving the reader. |
-| Bottom status bar > Enable bottom status bar | Shows or hides KOReader's bottom reader status bar. |
-| Bottom status bar > Zen Presets > Built-in presets | Applies a prebuilt bottom status bar layout. |
-| Bottom status bar > Zen Presets > Save current settings as preset | Saves the current bottom status bar setup as a user preset. |
-| Bottom status bar > Zen Presets > User presets | Applies or deletes saved bottom status bar presets. |
-| Bottom status bar > Left items | Selects and arranges bottom-bar items for the left slot, independent of the top bar. |
-| Bottom status bar > Center items | Selects and arranges bottom-bar items for the center slot. |
-| Bottom status bar > Right items | Selects and arranges bottom-bar items for the right slot. |
-| Bottom status bar > Font | Sets footer font face, size, and bold style. |
-| Bottom status bar > Hide in CBZ/PDF files | Hides the footer for CBZ and PDF documents. |
-| Bottom status bar > KOReader status bar options | Exposes KOReader's built-in footer/status bar settings. |
-| Reader > Align status bars with book margins | Aligns both status bars with the book's horizontal margins. On by default; disabling uses KOReader's standard horizontal padding. |
-| Reader > Flash on every CBZ page turn | Uses a full screen refresh when the page changes in a CBZ file. On by default; takes effect on the next page turn. |
-
-## Dictionary lookup menu
-
-![Dictionary lookup menu](/images/zen_os/reader_dict.webp)
-
-Tap and hold a word while reading to open the Zen quick lookup menu. It shows the dictionary definition for the selected word along with ZenOS action buttons. Enable it with **Zen Settings > Reader > Highlight / Lookup > Zen quick lookup**. Wikipedia and installed X-Ray, KOAssistant, and AI Assistant integrations can appear as dedicated buttons; use **Show other items** to retain KOReader's remaining lookup options.
-
-## Highlight menu
-
-![Highlight menu](/images/zen_os/reader_highlight.webp)
-
-Tap + hold and drag to highlight a selection of text and open the Zen highlight menu. It collects highlight, lookup, and annotation actions for the selected text in a single Zen-styled menu. When you reopen the menu for an existing highlight, its first action extends or adjusts the selected text. Enable the menu with **Zen Settings > Reader > Highlight / Lookup > Zen highlight menu**.
-
-## Stable Page Labels
-
-ZenOS uses KOReader page-map labels when a book provides them. The reader page browser shows stable labels on page tiles and during page scrubbing, and the Zen table of contents shows the same labels beside chapter entries. It also handles non-linear book content without breaking page navigation. The page browser's Info button opens Book details, and Home featured widgets use the same page data for current/total progress.
-
-After first-run setup, a one-time Reader tour demonstrates the swipe-up page browser, Reader menu, bookmarks, table of contents, and page-browser layouts. Run **Zen Settings > About > Setup Guide** to queue the tour again.
+**Where:** Zen Settings > Reader > Reader controls
 
 ## Status bars
 
-The reader has two independent status bars: a top bar and a bottom bar. Each bar has three slots — left, center, and right — that you customize separately. Drop items like time, battery, Incognito, Wi-Fi, brightness, RAM usage, disk space, custom text, book title, author, chapter, progress percentage, or current/total pages into any slot and arrange their order. The top and bottom bars are configured independently, so you can show different items in each.
+The reader has a top and bottom bar, each with left, center, and right slots. Fill them with time, battery, Wi-Fi, brightness, RAM, disk, custom text, title, author, chapter, progress, or pages.
 
-## Time until chapter end
+**Top bar** extras: font, separator, bottom border, use the border as a progress bar with chapter marks, colored icons, and hide in CBZ/PDF.
 
-Open **Zen Settings > Reader > Time until chapter end** to choose how the current chapter estimate appears: `5 min left in chapter`, `5 min left`, abbreviated `5m`/`1h 5m`, or KOReader's default `hh:mm` format. The abbreviated hour and minute units are localized.
+**Bottom bar** extras: Zen presets (built-in or save your own), font, hide in CBZ/PDF, and KOReader's own footer options. You can also pick how **time left in chapter** reads (`5 min left in chapter`, `5 min left`, `5m`, or `hh:mm`).
+
+**Align status bars with book margins** is on by default.
+
+**Where:** Zen Settings > Reader > Appearance > Top status bar / Bottom status bar
+
+## Reader themes
+
+Set one theme for light mode and one for dark mode. Make your own with a name, background color, text color, and font.
+
+**Where:** Zen Settings > Reader > Appearance > Reader themes
+
+## Lookup and highlight menus
+
+![Dictionary lookup menu](/images/zen_os/reader_dict.webp)
+
+![Highlight menu](/images/zen_os/reader_highlight.webp)
+
+Hold a word for **Zen quick lookup**: definition plus action buttons. Hold and drag to highlight for the **Zen highlight menu**: highlight, note, lookup, and more in one place.
+
+Wikipedia, X-Ray, KOAssistant, and AI Assistant show up as buttons when installed. Turn on **Show labels** to see names next to icons. **Show other items** keeps KOReader's remaining lookup options.
+
+**Where:** Zen Settings > Reader > Highlight / Lookup
+
+## Footnotes and pinned pages
+
+Footnotes open in a popup at the bottom (or side in landscape) using your book's font and theme. Tap to expand into the reader, swipe down or tap outside to close.
+
+**Pins** save a page you want to come back to. Tap **Pin** in the highlight or lookup menu, or hold a page in the page browser. Pinned pages show a pin counter in the bottom bar: tap to open them, hold to pin/unpin the current page.
+
+The pin popup shows a scrollable preview. Swipe sideways to switch pins, tap the content to jump there. Images can zoom and pan. Position, font, and size are in the popup's three-dot **Settings**.
+
+After any jump (footnote, pin, TOC, page browser) a **Return to page** tab shows in the bottom bar for 30 seconds.
+
+**Where:** Zen Settings > Reader > Footnotes and pinned pages
 
 ## End of book
 
-The Zen end-of-book screen reuses Home's featured book, statistics, quotes, and book strip widgets. Open **Zen Settings > Reader > End of book > Widgets** to reorder or hide widgets and customize their content independently of Home. **Preview** opens the screen for the current book without marking it finished.
+When you finish a book you get a summary screen with highlights, stats for that book, and what to read next (same author, next in series). Reorder or hide widgets and tap **Preview** to see it on the current book. An optional **Delete** button is under **Widgets > Featured book > Buttons**.
 
-Swipe a highlight left or right to browse this book's highlights and notes; each shows its page label. Tap it to return to that passage. The book strip offers books by the same author, the next unfinished volume in this series, and a next book from each other series already started. Recommendations use the library's indexed metadata.
+**Where:** Zen Settings > Reader > End of book
 
-Statistics cover only the current book: active reading days, recorded reading time, minutes per page, and minutes per reading day. Choose any three in the statistics widget's settings. The toggle on the **Label** row shows or hides the heading; its submenu caret opens the text, font, size, bold weight, and default-style controls. The text defaults to **Statistics**; an empty label restores it. Missing statistics appear as a dash.
+## Book details
 
-**Zen Settings > Reader > End of book > End of document action** uses KOReader's action setting. **Zen end of book** and **Always mark as finished** are the defaults for unset preferences; saved choices survive restarts. Turning off automatic marking keeps the current status in both Book Status and Zen's end-of-book screen. Book Status remains available from the action menu.
+![Book details](/images/zen_os/reader_book_details.webp)
+
+Full-screen cover, details, description, and progress. Open from the Launcher, page browser, or Reader controls.
+
+## Other settings
+
+- **Restore library location on exit** puts you back where you were in the Library.
+- **Flash on every CBZ page turn** does a full refresh for cleaner comics (on by default).
+- **Annotation viewer > Details > Date** shows or hides dates on bookmarks and highlights.

@@ -8,11 +8,20 @@ describe("reader lookup menus", function()
     before_each(function()
         shown = nil
         _G.__ZEN_UI_PLUGIN = nil
+        ZenSpec.replace("apps/reader/readerui", { handleEvent = function() return "reader" end })
+        ZenSpec.replace("apps/reader/modules/readerview", { paintTo = function() end })
+        ZenSpec.replace("apps/reader/modules/readerbookmark", {})
+        ZenSpec.replace("modules/reader/highlight_handles", {
+            attach = function() end,
+            suppressReaderTaps = function(highlight) highlight.suppressed = (highlight.suppressed or 0) + 1 end,
+        })
         ZenSpec.replace("common/zen_logger", { new = logger_stub })
         ZenSpec.replace("gettext", function(text) return text end)
+        ZenSpec.replace("device", { screen = { scaleBySize = function(_self, size) return size end } })
         ZenSpec.replace("ui/widget/iconwidget", {
-            init = function(self) self.file = "resources/icons/icon-not-found.svg" end,
+            init = function(self) self.file = self.file or "resources/icons/icon-not-found.svg" end,
         })
+        require("common/icon_packs").bootstrap()
         ZenSpec.replace("ui/event", {
             new = function(_, name, ...)
                 return { handler = "on" .. name, args = { ... }, name = name }
@@ -33,6 +42,62 @@ describe("reader lookup menus", function()
         _G.__ZEN_UI_PLUGIN = nil
         ZenSpec.unload("modules/reader/patches/highlight_menu")
         ZenSpec.unload("modules/reader/patches/dict_quick_lookup")
+    end)
+
+    describe("highlight tap grace period", function()
+        local ReaderUI, ReaderHighlight, highlight
+
+        before_each(function()
+            ReaderUI = require("apps/reader/readerui")
+            ZenSpec.replace("ui/widget/buttondialog", {})
+            ReaderHighlight = {
+                onHoldRelease = function() return "released" end,
+                clear = function(self) self.hold_pos, self.selected_text = nil, nil; return "cleared" end,
+            }
+            ZenSpec.replace("apps/reader/modules/readerhighlight", ReaderHighlight)
+            _G.__ZEN_UI_PLUGIN = { config = { features = { highlight_lookup = true } } }
+            require("modules/reader/patches/highlight_menu")()
+            highlight = setmetatable({}, { __index = ReaderHighlight })
+        end)
+
+        it("consumes reader taps and double taps until the deadline, then resumes", function()
+            local time = require("ui/time")
+            highlight._zen_highlight_tap_until = time.now() + time.ms(600)
+            local ui = { highlight = highlight }
+            local Event = require("ui/event")
+            for _i, kind in ipairs({ "tap", "double_tap" }) do
+                assert.is_true(ReaderUI.handleEvent(ui, Event:new("Gesture", { ges = kind })))
+            end
+            assert.are.equal("reader", ReaderUI.handleEvent(ui, Event:new("Gesture", { ges = "swipe" })))
+            assert.are.equal("reader", ReaderUI.handleEvent(ui, Event:new("GotoPage", 2)))
+            assert.are.equal("reader", ReaderUI.handleEvent({}, Event:new("Gesture", { ges = "tap" })))
+            highlight._zen_highlight_tap_until = time.now() - time.ms(1)
+            assert.are.equal("reader", ReaderUI.handleEvent(ui, Event:new("Gesture", { ges = "tap" })))
+            assert.is_nil(highlight._zen_highlight_tap_until)
+        end)
+
+        it("arms the guard on selection release and when clearing an active selection", function()
+            assert.are.equal("released", highlight:onHoldRelease())
+            assert.is_nil(highlight.suppressed)
+            highlight.selected_text, highlight.hold_pos = {}, {}
+            assert.are.equal("released", highlight:onHoldRelease())
+            assert.are.equal(1, highlight.suppressed)
+            assert.are.equal("cleared", highlight:clear())
+            assert.are.equal(2, highlight.suppressed)
+            highlight:clear()
+            assert.are.equal(2, highlight.suppressed)
+        end)
+
+        it("keeps stock input when highlight customization is disabled", function()
+            _G.__ZEN_UI_PLUGIN.config.features.highlight_lookup = false
+            highlight.selected_text, highlight.hold_pos = {}, {}
+            highlight:onHoldRelease()
+            highlight:clear()
+            assert.is_nil(highlight.suppressed)
+            highlight._zen_highlight_tap_until = require("ui/time").now() + require("ui/time").ms(600)
+            assert.are.equal("reader", ReaderUI.handleEvent({ highlight = highlight },
+                require("ui/event"):new("Gesture", { ges = "tap" })))
+        end)
     end)
 
     for _i, api in ipairs({ "new", "legacy" }) do
@@ -277,6 +342,107 @@ describe("reader lookup menus", function()
         assert.is_not_nil(shown.text)
     end)
 
+    describe("highlight note editor", function()
+        local bookmark, InputDialog, native_spec, saved, cancelled, original_new
+        local screen_height, keyboard_height
+
+        before_each(function()
+            saved, cancelled = false, false
+            screen_height, keyboard_height = 800, 300
+            ZenSpec.replace("apps/reader/modules/readerhighlight", {})
+            ZenSpec.replace("ui/widget/buttondialog", {})
+            ZenSpec.replace("device", { screen = {
+                getWidth = function() return 600 end, getHeight = function() return screen_height end,
+                scaleBySize = function(_self, size) return size end,
+            } })
+            ZenSpec.replace("common/date_format", { formatISODate = function(value)
+                assert.are.equal("2026-10-18 12:01:00", value)
+                return "October 18 2026"
+            end })
+            ZenSpec.replace("common/ui/zen_modal_close", { installDialog = function(dialog, callback)
+                dialog.close_callback = callback
+            end })
+            InputDialog = { new = function(_class, spec)
+                spec.dialog_frame = { getSize = function() return { h = spec.text_height + 100 } end }
+                spec._input_widget = {
+                    getKeyboardDimen = function() return { h = keyboard_height } end,
+                    getLineHeight = function() return 20 end,
+                }
+                spec.reinit = function(self)
+                    self.text_height = self.orig_text_height
+                    self.reinitialized = true
+                end
+                return spec
+            end }
+            original_new = InputDialog.new
+            ZenSpec.replace("ui/widget/inputdialog", InputDialog)
+            native_spec = {
+                input = "Existing note", allow_newline = true,
+                add_scroll_buttons = true, use_available_height = true,
+                buttons = {{
+                    { text = "Cancel", id = "close", callback = function() cancelled = true end },
+                    { text = "Paste", callback = function() end },
+                    { text = "Save", is_enter_default = true, callback = function() saved = true end },
+                }},
+            }
+            local ReaderBookmark = { setBookmarkNote = function(self)
+                self.editor = InputDialog:new(native_spec)
+                return "native"
+            end }
+            ZenSpec.replace("apps/reader/modules/readerbookmark", ReaderBookmark)
+            bookmark = setmetatable({ ui = { annotation = { annotations = {{
+                datetime = "2026-10-18 12:01:00", page = 7,
+            }} } }, getBookmarkPageString = function(_self, page) return tostring(page) end },
+                { __index = ReaderBookmark })
+            _G.__ZEN_UI_PLUGIN = { config = { features = { highlight_lookup = true } } }
+            require("modules/reader/patches/highlight_menu")()
+        end)
+
+        it("keeps Save and moves cancellation to the X and standard dismissal", function()
+            local save_button = native_spec.buttons[1][3]
+            assert.are.equal("native", bookmark:setBookmarkNote(1))
+            local editor = bookmark.editor
+            assert.same({{ save_button }}, editor.buttons)
+            assert.are.equal("Existing note", editor.input)
+            assert.is_false(editor.add_scroll_buttons)
+            assert.is_false(editor.use_available_height)
+            assert.are.equal(150, editor.text_height)
+            assert.is_nil(editor.reinitialized)
+            assert.are.equal("   October 18 2026 · Page 7", editor.description)
+            assert.are.equal("2026-10-18 12:01:00", bookmark.ui.annotation.annotations[1].datetime)
+            assert.are.equal(original_new, InputDialog.new)
+            editor.buttons[1][1].callback()
+            assert.is_true(saved)
+            editor.close_callback()
+            assert.is_true(cancelled)
+            cancelled = false
+            assert.is_true(editor:onCloseDialog())
+            assert.is_true(cancelled)
+        end)
+
+        it("leaves space around the editor when the keyboard opens on a short screen", function()
+            screen_height, keyboard_height = 320, 150
+            bookmark:setBookmarkNote(1)
+            assert.are.equal(30, bookmark.editor.text_height)
+            assert.is_true(bookmark.editor.reinitialized)
+        end)
+
+        it("keeps the stock editor when highlight customization is disabled", function()
+            _G.__ZEN_UI_PLUGIN.config.features.highlight_lookup = false
+            bookmark:setBookmarkNote(1)
+            assert.are.equal(3, #bookmark.editor.buttons[1])
+            assert.is_true(bookmark.editor.add_scroll_buttons)
+            assert.is_nil(bookmark.editor.close_callback)
+        end)
+
+        it("restores the input dialog factory after a constructor error", function()
+            local failing_new = function() error("constructor failed") end
+            InputDialog.new = failing_new
+            assert.has_error(function() bookmark:setBookmarkNote(1) end)
+            assert.are.equal(failing_new, InputDialog.new)
+        end)
+    end)
+
     it("renders the enabled highlight actions and dispatches their callbacks", function()
         local dialog_spec
         ZenSpec.replace("ui/widget/buttondialog", {
@@ -311,8 +477,9 @@ describe("reader lookup menus", function()
 
         assert.are.equal(dialog_spec, shown)
         assert.same({
-            "lookup.highlight", "lookup.wikipedia", "lookup.dictionary",
+            "lookup.wikipedia", "lookup.dictionary",
             "lookup.translate", "lookup.search",
+            require("libs/libkoreader-lfs").currentdir() .. "/resources/icons/mdlight/appbar.settings.svg",
         }, (function()
             local icons = {}
             for _i, button in ipairs(dialog_spec.buttons[1]) do
@@ -324,14 +491,22 @@ describe("reader lookup menus", function()
         dialog_spec.buttons[1][2].callback()
         dialog_spec.buttons[1][3].callback()
         dialog_spec.buttons[1][4].callback()
-        dialog_spec.buttons[1][5].callback()
-        assert.is_true(calls.saved)
+        assert.is_nil(calls.saved)
         assert.is_true(calls.wikipedia)
         assert.are.equal(7, calls.translated)
         assert.is_true(calls.searched)
-        assert.are.equal(2, calls.closed)
+        assert.are.equal(1, calls.closed)
         assert.are.equal("LookupWord", events[1].name)
         assert.same({ "deterministic", true }, events[1].args)
+        local opened
+        ZenSpec.replace("modules/settings/zen_settings_page", { show = function(plugin, options)
+            opened = { plugin = plugin, path = options.path }
+        end })
+        dialog_spec.buttons[1][5].callback()
+        assert.are.equal(_G.__ZEN_UI_PLUGIN, opened.plugin)
+        assert.same({ { key = "text", value = "Reader" }, { key = "text", value = "Highlight / Lookup" },
+            { key = "text", value = "Highlight" } }, opened.path)
+        assert.are.equal(2, calls.closed)
     end)
 
     it("delegates the highlight menu when disabled and ignores empty selections", function()
@@ -355,6 +530,9 @@ describe("reader lookup menus", function()
     end)
 
     it("saves a new highlight without offering Extend", function()
+        local saved_settings = G_reader_settings
+        finally(function() _G.G_reader_settings = saved_settings end)
+        _G.G_reader_settings = ZenSpec.memorySettings({ highlight_color = "blue" })
         ZenSpec.replace("ui/widget/buttondialog", { new = function(_, spec) return spec end })
         local ReaderHighlight = { onShowHighlightMenu = function() return "stock" end }
         ZenSpec.replace("apps/reader/modules/readerhighlight", ReaderHighlight)
@@ -368,7 +546,12 @@ describe("reader lookup menus", function()
         local highlight = {
             selected_text = { text = "start of a multipage highlight" },
             hold_pos = { x = 10, y = 20 },
-            saveHighlight = function() saved = true end,
+            view = { highlight = { saved_color = "red" } },
+            _fallback_color = "gray",
+            setSelectionColor = function(self) self.selection_color = self.view.highlight.saved_color end,
+            saveHighlight = function(self, extend)
+                saved = { color = self.view.highlight.saved_color, extend = extend }
+            end,
             onClose = function() end,
             _highlight_buttons = {
                 ["01_select"] = function(this, index)
@@ -387,11 +570,19 @@ describe("reader lookup menus", function()
         assert.are.equal(4, #shown.buttons[1])
         assert.are.equal(1, #shown.buttons)
         shown.buttons[1][1].callback()
-        assert.is_true(saved)
+        assert.same({ color = "blue", extend = true }, saved)
+        assert.are.equal("blue", highlight.selection_color)
         assert.is_false(selected)
+
+        G_reader_settings:delSetting("highlight_color")
+        highlight.view.highlight.saved_color = "red"
+        highlight.selected_text._zen_resized = true
+        shown.buttons[1][1].callback()
+        assert.same({ color = "gray", extend = false }, saved)
+        assert.are.equal("gray", highlight.selection_color)
     end)
 
-    it("shows KOReader's extend action for an existing highlight", function()
+    it("omits Extend and the save action for an existing highlight", function()
         local dialog_spec
         ZenSpec.replace("ui/widget/buttondialog", {
             new = function(_, spec)
@@ -427,18 +618,17 @@ describe("reader lookup menus", function()
         }
         ReaderHighlight.onShowHighlightMenu(highlight, 3)
 
-        assert.are.equal(ZenSpec.root .. "/icons/lookup_extend.svg", dialog_spec.buttons[1][1].icon)
-        local icon_widget = { icon = dialog_spec.buttons[1][1].icon }
-        require("ui/widget/iconwidget").init(icon_widget)
-        assert.are.equal(ZenSpec.root .. "/icons/lookup_extend.svg", icon_widget.file)
-        assert.is_true(dialog_spec.buttons[1][1].enabled)
+        assert.same({ "lookup.dictionary", "lookup.translate", "lookup.search" }, {
+            dialog_spec.buttons[1][1].icon, dialog_spec.buttons[1][2].icon, dialog_spec.buttons[1][3].icon,
+        })
+        assert.are.equal("zen_highlight_settings", dialog_spec.buttons[1][4].id)
+        assert.are.equal(4, #dialog_spec.buttons[1])
         assert.are.equal(1, #dialog_spec.buttons)
-        dialog_spec.buttons[1][1].callback()
-        assert.are.equal(3, extended_index)
+        assert.is_nil(extended_index)
 
         highlight_text_edited = true
         ReaderHighlight.onShowHighlightMenu(highlight, 3)
-        assert.is_false(dialog_spec.buttons[1][1].enabled)
+        assert.are.equal(4, #dialog_spec.buttons[1])
     end)
 
     it("anchors the highlight menu outside the selected text", function()

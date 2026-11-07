@@ -6,42 +6,46 @@ settingsPath: Zen Settings > General
 order: 70
 ---
 
-## Overview
+<!-- Documentation current through ZenOS v4.3.0. -->
 
-General contains device and system settings. Use it to manage wireless connections, lighting schedules, sleep, battery information, language and time, maintenance tools, and updates.
+Device and system stuff: wireless, lighting, sleep, battery, language, and updates.
+
+## Wi-Fi and Bluetooth
+
+Toggle them and open their settings. Bluetooth works on supported Kindle, Kobo, and PocketBook devices.
+
+**Where:** Zen Settings > General > Wi-Fi / Bluetooth
+
+## Schedules
+
+Automate brightness, warmth, and night mode. Brightness and warmth can follow a clock schedule or just switch with light/dark mode. Use whichever you want or none at all.
+
+ZenOS turns off KOReader's Auto warmth plugin while schedules are on so they don't fight.
+
+**Where:** Zen Settings > General > Schedules
+
+## Sleep
+
+Sleep screen, sleep presets, auto dim, and auto suspend.
+
+**Where:** Zen Settings > General > Sleep
 
 ## Battery
 
-Battery shows the current charge, device-reported battery health and capacities, drain per hour overall and during awake and asleep periods, screen on and off time, estimated time remaining, and charging history. Usage figures combine all retained history with the running log. The previous charge's rate and gain stay available during the next charge; the completion estimate uses the current charging session.
+Charge, health, drain per hour (overall, awake, asleep), screen on/off time, time remaining, and charging history.
 
-ZenOS records the battery percentage every 30 minutes while awake, and when the device sleeps, wakes, or changes charging state. When the log exceeds 512 samples, it saves a summary to `settings/ZenOS/battery_history`, then keeps the last sample to start the next window. If saving fails, it retains the samples and retries on the next sample. Drain rates divide the total percentage points lost by the elapsed hours between samples: for example, a 5-point drop in 2 hours is 2.5% per hour. Overall, awake, and asleep rates use the same calculation on their respective intervals. Charging intervals and gaps while KOReader was closed are excluded from both drain rates and usage times; rising battery readings are excluded from drain rates. Screen on and off time total the remaining awake and asleep intervals, so they are approximations rather than direct screen measurements.
+ZenOS logs your battery every 30 minutes and on sleep, wake, and charging changes. Time KOReader was closed or charging doesn't count toward drain. Some numbers show `-` until there's about an hour of data. Capacity and health only show if your device reports them.
 
-`battery_history` appends one JSON object per line for trend analysis. Each entry includes Unix start/end timestamps, sample and gap counts, charge percentages, drain totals in percentage points, drain rates in percentage points per hour, usage and measured discharge durations in seconds, the last charging measurements and known charging timestamps, and capacity/health readings when available. Entries describe individual windows; the battery page combines their drain totals and durations to calculate overall rates. History is loaded once at startup and retained in memory, so opening the page does not reread it or write to disk.
+History is saved to `koreader/settings/ZenOS/battery_history` (one JSON line per window) if you want to dig in. **Reset battery log** starts fresh without losing charging history or health.
 
-Reset battery log archives the current window before clearing it, keeping one starting sample so tracking continues without a gap. Charging history, known charge times, overall usage, and reported health remain available after resets and restarts. If archiving fails, the log is kept and an error is shown. Existing history also restores measurements if the running log is missing; older history entries cannot restore charging timestamps they did not record.
+**Where:** Zen Settings > General > Battery
 
-Used per hour and While awake show `-` until each has at least one hour of usable discharge intervals across the retained history and running log. Estimated time remaining divides the current percentage by the overall drain rate, so it is unavailable until that rate is available. Time since last charge starts when ZenOS observes charging stop. Charging that happens entirely while KOReader is closed cannot be measured, and an unknown unplug time remains unavailable.
+## Language and time
 
-Current, full, and design capacity in mAh appear only when the device reports charge values. ZenOS converts reported microamp-hours to mAh and subtracts the matching empty thresholds when available. Battery health is full capacity divided by design capacity, multiplied by 100; battery percentage alone cannot provide capacity or health. Full and design capacity and health fall back to the last archived device readings when current readings are unavailable. Current capacity always requires a current device reading.
+Change the KOReader and ZenOS language, and open KOReader's date and time settings.
 
-## Schedules and sleep
+**Where:** Zen Settings > General > Language / Time and date
 
-Schedules can change brightness, night mode, and warmth automatically. Brightness and warmth can follow either a clock schedule or KOReader's light and dark mode, with separate values for each state. Enabling one method turns off the other for that setting. Lighting automation disables KOReader's Auto warmth and night mode plugin to prevent conflicting changes. Warmth options appear only on supported devices.
+## Advanced and Updates
 
-Sleep provides KOReader sleep screen controls, sleep presets, automatic dimmer, and automatic suspend integrations when available.
-
-## Setting reference
-
-| Setting | Description |
-| --- | --- |
-| Wi-Fi | Turns wireless networking on or off and opens network controls. |
-| Bluetooth | Turns Bluetooth on or off and opens Bluetooth controls on supported devices. |
-| Schedules > Brightness | Sets automatic frontlight brightness by time or light and dark mode. |
-| Schedules > Night mode schedule | Sets times for automatic night mode changes. |
-| Schedules > Warmth | Sets automatic warmth by time or light and dark mode on supported devices. |
-| Sleep | Opens available sleep screen and suspend settings. |
-| Battery | Shows battery charge, capacity when reported, drain, usage time, and remaining-time estimates; offers a log reset. |
-| Language | Selects the KOReader and ZenOS interface language. |
-| Time and date | Opens KOReader's date and time settings. |
-| Advanced | Opens maintenance, logging, gesture, plugin, and patch tools. See [Advanced](/zen-os/docs/advanced). |
-| Updates | Checks for ZenOS and supported KOReader updates and controls update preferences. See [Updates](/zen-os/docs/updates). |
+See [Advanced](/zen-os/docs/advanced) and [Updates](/zen-os/docs/updates).

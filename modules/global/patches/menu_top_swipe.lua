@@ -191,17 +191,7 @@ function M.apply()
     end
 
     Menu.onTap = function(self, _arg, gesture)
-        if self._zen_opds_browser and self.title_bar and gesture and gesture.pos then
-            local left_button = self.title_bar.left_button
-            local right_button = self.title_bar.right_button
-            local left_dimen = left_button and left_button.dimen
-            local right_dimen = right_button and right_button.dimen
-            if (left_dimen and gesture.pos:intersectWith(left_dimen))
-                    or (right_dimen and gesture.pos:intersectWith(right_dimen)) then
-                return
-            end
-        end
-        return M.handleTap(nil, gesture)
+        return M.handleTap(self._zen_opds_browser and self.title_bar or nil, gesture)
     end
 end
 

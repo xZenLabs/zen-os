@@ -145,7 +145,7 @@ function M.open(on_connected, settings_subpage, plugin)
     local _ = require("gettext")
     local T = ffiutil.template
     local plugin_root = require("common/plugin_root")
-    local more_icon = utils.resolveLocalIcon(plugin_root and plugin_root .. "/icons/",
+    local more_icon = utils.resolveIcon(plugin_root and plugin_root .. "/icons/",
         "app_menu")
     local adapter = KindleNetworkAdapter.isSupported(Device)
         and KindleNetworkAdapter.new(NetworkMgr) or nil

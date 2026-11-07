@@ -825,6 +825,7 @@ function M.build(ctx)
         end
         return IconItem.decorate({
             text = _("Reader action"),
+            help_text = _("When enabled, this action is hidden in the library."),
             checked_func = isReaderAction,
             callback = function(touch_menu)
                 local reader_action = not isReaderAction()
@@ -1163,7 +1164,6 @@ function M.build(ctx)
         config.quick_settings.show_buttons = new_show
         config.quick_settings.button_order = new_order
         config.quick_settings.show_labels = def.show_labels
-        config.quick_settings.hide_reader_actions_in_library = def.hide_reader_actions_in_library
         config.quick_settings.reader_actions = icon_utils.deepcopy(def.reader_actions)
         config.quick_settings.show_frontlight = def.show_frontlight
         config.quick_settings.show_warmth = def.show_warmth
@@ -1324,17 +1324,6 @@ function M.build(ctx)
                     toggleQuickButton("zen_settings")
                 end,
             }, icons.settings),
-            IconItem.decorate({
-                text = _("Hide reader actions in library"),
-                checked_func = function()
-                    return config.quick_settings.hide_reader_actions_in_library == true
-                end,
-                callback = function()
-                    config.quick_settings.hide_reader_actions_in_library =
-                        config.quick_settings.hide_reader_actions_in_library ~= true
-                    save_and_apply_quick_settings()
-                end,
-            }, icons.hide_reader_actions),
             IconItem.decorate({
                 text = _("Reset to defaults"),
                 separator = true,

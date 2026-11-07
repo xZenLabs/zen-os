@@ -1,6 +1,14 @@
 local Registry = require("common/status_bar_registry")
 
 describe("status bar registry", function()
+    it("uses configured items to distinguish a disabled interface bar", function()
+        assert.is_false(Registry.hasItems(nil))
+        assert.is_false(Registry.hasItems({ left_order = {}, center_order = {}, right_order = {} }))
+        for _i, key in ipairs({ "left_order", "center_order", "right_order" }) do
+            assert.is_true(Registry.hasItems({ [key] = { "time" } }))
+        end
+    end)
+
     after_each(function()
         _G.__ZENOS_REGISTER_STATUS_ITEM = nil
         _G.__ZENOS_UNREGISTER_STATUS_ITEM = nil

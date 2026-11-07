@@ -4,10 +4,19 @@ local function apply_reader_flash_cbz()
     local UIManager = require("ui/uimanager")
     local plugin = rawget(_G, "__ZEN_UI_PLUGIN")
 
+    -- Cached per view; recomputed only when the document path changes.
+    local function is_cbz(view)
+        local file = view.document.file
+        if view._zen_cbz_file ~= file then
+            view._zen_cbz_file = file
+            view._zen_is_cbz = file:sub(-4):lower() == ".cbz"
+        end
+        return view._zen_is_cbz
+    end
+
     local function flash_cbz(view)
         local features = plugin and plugin.config and plugin.config.features
-        if features and features.reader_flash_cbz == true
-                and view.document.file:lower():sub(-4) == ".cbz" then
+        if features and features.reader_flash_cbz == true and is_cbz(view) then
             UIManager:setDirty(view.dialog, "full")
         end
     end

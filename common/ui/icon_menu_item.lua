@@ -6,6 +6,7 @@ local Device = require("device")
 local Font = require("ui/font")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
+local GlyphIcons = require("common/ui/glyph_icons")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local IconWidget = require("ui/widget/iconwidget")
@@ -21,8 +22,14 @@ local VerticalGroup = require("ui/widget/verticalgroup")
 local ZenToggle = require("common/ui/zen_toggle")
 
 local Screen = Device.screen
+local find_upvalue = require("common/utils").findUpvalueTable
 
 local M = {}
+
+local function settings_svg_path(item)
+    if item.icon_name then return GlyphIcons.iconPath(item.icon_name) end
+    return GlyphIcons.path(item.icon_glyph)
+end
 
 local DEFAULT_WIDTH = Screen:scaleBySize(30)
 M.SETTINGS_ROW_SCALE = 1.15
@@ -137,13 +144,19 @@ function M.enableFullRowFocus(frame, unfocused_invert)
     return frame
 end
 
+-- Memoized per item table: every row asks, which made a page rebuild O(rows x items).
 local function get_menu_icon_width(menu)
+    local items = menu and menu.item_table
+    if not items then return nil end
+    local cached = menu._zen_icon_width
+    if cached and cached.items == items and cached.count == #items then return cached.width end
     local width
-    for _i, item in ipairs(menu and menu.item_table or {}) do
+    for _i, item in ipairs(items) do
         if type(item) == "table" and item.icon_glyph then
             width = math.max(width or 0, M.getWidth(item))
         end
     end
+    menu._zen_icon_width = { items = items, count = #items, width = width }
     return width
 end
 
@@ -218,6 +231,7 @@ local function rebuild_touch_menu_item(row)
         line_width = row.item_frame:getSize().w,
         row.item_frame,
     }
+    if row[1] then row[1]:free() end
     row[1] = row._underline_container
 end
 
@@ -243,15 +257,16 @@ local function settings_control_widget(item, enabled)
 end
 
 local function settings_icon_widget(item, height, face)
-    if item.icon_glyph then
-        return M.makeState(item.icon_glyph, M.SETTINGS_ICON_WIDTH, height,
-            M.getSettingsIconFace(face))
-    elseif item.icon_file then
+    local file = settings_svg_path(item) or (not item.icon_glyph and item.icon_file)
+    if file then
         local size = M.getSettingsIconFace(face).size
         return CenterContainer:new{
             dimen = Geom:new{ w = M.SETTINGS_ICON_WIDTH, h = height },
-            IconWidget:new{ file = item.icon_file, width = size, height = size },
+            IconWidget:new{ file = file, width = size, height = size },
         }
+    elseif item.icon_glyph then
+        return M.makeState(item.icon_glyph, M.SETTINGS_ICON_WIDTH, height,
+            M.getSettingsIconFace(face))
     end
 end
 
@@ -419,6 +434,7 @@ local function rebuild_settings_menu_item(row)
             },
         },
     }
+    if row[1] then row[1]:free() end
     row[1] = row._underline_container
 end
 
@@ -454,18 +470,13 @@ function M.installMenuPatch()
     if not Menu._zen_icon_item_patched then
         Menu._zen_icon_item_patched = true
         local orig_updateItems = Menu.updateItems
-        local MenuItem
-        for i = 1, 64 do
-            local name, value = debug.getupvalue(orig_updateItems, i)
-            if name == nil then break end
-            if name == "MenuItem" then
-                MenuItem = value
-                break
-            end
-        end
+        -- Other patches may wrap updateItems first; follow the chain.
+        local MenuItem = find_upvalue(orig_updateItems, "MenuItem")
         if MenuItem and type(MenuItem.init) == "function" then
             local orig_menu_item_init = MenuItem.init
             MenuItem.init = function(self, ...)
+                -- Row is rebuilt below; skip stock multi-line xtext shaping.
+                if self.entry and self.entry._zen_settings_row then self.single_line = true end
                 local result = orig_menu_item_init(self, ...)
                 rebuild_settings_menu_item(self)
                 return result
@@ -504,15 +515,7 @@ function M.installMenuPatch()
 
     local ok_touch, TouchMenu = pcall(require, "ui/widget/touchmenu")
     if not ok_touch or TouchMenu._zen_icon_item_patched then return end
-    local TouchMenuItem
-    for i = 1, 64 do
-        local name, value = debug.getupvalue(TouchMenu.updateItems, i)
-        if name == nil then break end
-        if name == "TouchMenuItem" then
-            TouchMenuItem = value
-            break
-        end
-    end
+    local TouchMenuItem = find_upvalue(TouchMenu.updateItems, "TouchMenuItem")
     if not (TouchMenuItem and type(TouchMenuItem.init) == "function") then return end
     TouchMenu._zen_icon_item_patched = true
     local orig_touch_init = TouchMenuItem.init

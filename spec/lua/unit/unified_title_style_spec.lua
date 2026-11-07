@@ -58,6 +58,45 @@ describe("Unified Zen title style", function()
         assert.are.equal("settings_title", style.getTitleFace().name)
     end)
 
+    it("centers stock title text on icons, lowering icons when the text is taller", function()
+        ZenSpec.replace("ffi/blitbuffer", { COLOR_LIGHT_GRAY = "light_gray" })
+        ZenSpec.replace("device", { screen = { scaleBySize = function(_self, value) return value end } })
+        ZenSpec.replace("ui/size", { padding = { default = 8, large = 20 } })
+        ZenSpec.replace("common/ui/icon_menu_item", {
+            SETTINGS_ICON_WIDTH = 62,
+            getSettingsIconGap = function() return 8 end,
+            getSettingsLeftPadding = function() return 22 end,
+        })
+        ZenSpec.unload("common/ui/zen_title_style")
+        local style = require("common/ui/zen_title_style")
+        local function span(h) return { getSize = function() return { h = h } end } end
+        local function icon()
+            return { height = 40, button = { resetLayout = function() end }, update = function(self) self.updated = true end }
+        end
+        local function bar(text_h)
+            local title_bar = { button_padding = 10, right_button = icon(), inits = 0 }
+            function title_bar:clear() end
+            function title_bar:init()
+                local top = self.title_top_padding or 3
+                self.inits = self.inits + 1
+                self.title_group = { span(top), getSize = function() return { h = top + text_h } end }
+            end
+            title_bar:init()
+            return title_bar
+        end
+
+        local short = bar(30)
+        style.centerStockTitle(short)
+        assert.are.equal(15, short.title_top_padding)
+        assert.is_nil(short.right_button.updated)
+
+        local tall = bar(80)
+        style.centerStockTitle(tall)
+        assert.are.equal(0, tall.title_top_padding)
+        assert.are.equal(20, tall.right_button.padding_top)
+        assert.is_true(tall.right_button.updated)
+    end)
+
     it("styles full-width KOReader title bars but leaves modal bars alone", function()
         local TitleBar = {
             init = function(self)
@@ -91,5 +130,28 @@ describe("Unified Zen title style", function()
         assert.is_nil(modal.zen_styled)
         assert.are.equal("custom", modal.title_face)
         assert.is_nil(modal.title_widget.bold)
+    end)
+
+    it("restores tap feedback on stock close buttons", function()
+        local TitleBar = {
+            init = function(self)
+                if self.close_callback then self.right_icon_allow_flash = false end
+                self.right_button = { allow_flash = self.right_icon_allow_flash }
+            end,
+        }
+        ZenSpec.replace("device", {
+            screen = { getWidth = function() return 600 end },
+        })
+        ZenSpec.replace("ui/widget/titlebar", TitleBar)
+        ZenSpec.replace("common/ui/zen_title_style", { applyToStockTitleBar = function() end })
+        ZenSpec.unload("modules/global/patches/unified_title_style")
+        require("modules/global/patches/unified_title_style")()
+
+        for _i, width in ipairs({ 600, 500 }) do
+            local title_bar = { width = width, close_callback = function() end }
+            TitleBar.init(title_bar)
+            assert.is_true(title_bar.right_icon_allow_flash)
+            assert.is_true(title_bar.right_button.allow_flash)
+        end
     end)
 end)

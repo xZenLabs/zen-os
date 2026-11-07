@@ -655,6 +655,7 @@ local function file_chooser_items()
             center_item_count = type(status_bar.center_order) == "table"
                 and #status_bar.center_order or 0,
             custom_height = filemanager_status_height(),
+            custom_y = filemanager_status_y(),
             hide_browser_bar = status_bar.hide_browser_bar == true,
         },
         mosaic_title_strip = {
@@ -747,6 +748,8 @@ local function reader_state()
     local library_state = rawget(_G, "__ZEN_UI_LIBRARY_STATE")
     local footer = reader.view and reader.view.footer
     local footer_settings = footer and footer.settings
+    local margins = reader.typeset and reader.typeset.unscaled_margins
+    local screen = require("device").screen
     local PluginLoader = require("pluginloader")
     local plugin = PluginLoader:getPluginInstance("zenos")
         or PluginLoader:getPluginInstance("zen_ui")
@@ -765,6 +768,11 @@ local function reader_state()
         saved_page = type(library_state) == "table" and library_state.page or nil,
         active_tab_label = rawget(_G, "__ZEN_UI_ACTIVE_TAB_LABEL"),
         footer_text = footer and footer.footer_text and footer.footer_text.text or nil,
+        page_margins = reader.rolling and reader.document:getPageMargins(),
+        user_top_margin = margins and screen:scaleBySize(margins[2]),
+        user_bottom_margin = margins and screen:scaleBySize(margins[4]),
+        header_height = reader.view._zen_header_dimen and reader.view._zen_header_dimen.h,
+        footer_height = footer and footer:getHeight(),
         footer_time = footer_settings and footer_settings.time == true,
         footer_chapter_time = footer_settings
             and footer_settings.chapter_time_to_read == true,
@@ -822,8 +830,7 @@ local function ensure_reader_status_fonts(preset_key)
     local reader = ReaderUI.instance
     local footer = reader and reader.view and reader.view.footer
     if not footer then return false, "reader footer unavailable" end
-    local expected = require("common/plugin_root")
-        .. "/fonts/hyperreadable/Hyperreadable-SemiBold.ttf"
+    local expected = require("common/library_font_path").resolve("fonts/hyperreadable/Hyperreadable-SemiBold.ttf")
     local preset = require("util").tableDeepCopy(
         require("modules/reader/patches/reader_footer_presets")[preset_spec.index])
     if type(preset) ~= "table"
@@ -1851,6 +1858,11 @@ local Driver = WidgetContainer:extend{}
 function Driver:init()
     self.socket_path = os.getenv("ZEN_UI_TEST_SOCKET")
     self.testing = os.getenv("ZEN_UI_TESTING") == "1"
+    if os.getenv("ZEN_UI_BENCH") == "1" then
+        -- No socket polling: its 20 ms wakeups would add noise to measurements.
+        require("zen_bench").start()
+        return
+    end
     if self.testing and self.socket_path and #self.socket_path < SOCKET_PATH_MAX then
         -- Let FileManager/Reader finish opening and paint before serving commands.
         UIManager:tickAfterNext(function() self:startServer() end)
@@ -1883,6 +1895,7 @@ end
 function Driver:handleCommand(command)
     local kind = command and command.type
     local params = command and command.params or {}
+    if kind == "shutdown" then return { ok = true } end
     if kind == "configure_showcase" then
         local ok, err = configure_showcase(params)
         return { ok = ok == true, error = err }
@@ -2228,7 +2241,7 @@ function Driver:handleCommand(command)
             end)
             state.featured_status_size = status_text and status_text.face.orig_size
             local progress = find_descendant(page.body_widget[1][3], function(widget)
-                return type(widget.text) == "string" and widget.text:match("%d+%% read$") ~= nil
+                return type(widget.text) == "string" and widget.text:match("^%d+.*pages$") ~= nil
             end)
             state.featured_progress_text = progress and progress.text
             state.featured_progress_size = progress and progress.face.orig_size
@@ -2411,10 +2424,23 @@ function Driver:handleCommand(command)
         local ok, err = require("reader_tools").clear_page_bookmarks()
         return { ok = ok == true, error = err }
     end
+    if kind == "highlight_tools" then
+        return require("highlight_tools").command(params)
+    end
     if kind == "page_browser_state" then
         local state = require("reader_tools").page_browser_state()
         return state and { ok = true, page_browser = state }
             or { ok = false, error = "page browser unavailable" }
+    end
+    if kind == "reference_action" then
+        return require("reader_tools").reference_action(params)
+    end
+    if kind == "annotation_viewer_action" then
+        local ok, err = require("reader_tools").annotation_viewer_action(params)
+        return { ok = ok == true, error = err }
+    end
+    if kind == "annotation_viewer_state" then
+        return require("reader_tools").annotation_viewer_state()
     end
     if kind == "page_browser_key" and type(params.key) == "string" then
         local handled, err = require("reader_tools").page_browser_key(params.key)
@@ -2431,6 +2457,9 @@ function Driver:handleCommand(command)
     end
     if kind == "reader_overlay_state" then
         return { ok = true, overlays = require("reader_tools").overlay_state() }
+    end
+    if kind == "reader_controls" then
+        return require("reader_tools").reader_controls(params)
     end
     if kind == "reader_launcher_state" then
         return { ok = true, launcher = require("reader_tools").launcher_state() }
@@ -2735,7 +2764,8 @@ function Driver:handleCommand(command)
                 if row.entry == item then
                     row_bounds = dimen_bounds(row._underline_container and row._underline_container.dimen)
                     icon = find_descendant(row, function(widget)
-                        return widget.dimen and item.icon_file and widget.file == item.icon_file
+                        return widget.dimen and type(widget.file) == "string"
+                            and not widget.file:find("chevron", 1, true)
                     end)
                     break
                 end
@@ -2749,9 +2779,13 @@ function Driver:handleCommand(command)
             items[#items + 1] = {
                 label = label,
                 breadcrumb = item._zen_settings_breadcrumb,
+                submenu = item._zen_has_submenu == true,
                 radio = item.radio == true,
                 checked = checked,
-                icon_file = item.icon_file,
+                enabled = item.enabled ~= false and (not item.enabled_func or item.enabled_func() == true),
+                icon_glyph = item.icon_glyph,
+                icon_name = item.icon_name,
+                icon_file = icon and icon.file,
                 icon_bounds = dimen_bounds(icon and icon.dimen),
                 row_bounds = row_bounds,
             }
@@ -2922,10 +2956,11 @@ function Driver:handleCommand(command)
     end
     if kind == "native_settings_confirm" then
         local ConfirmBox = require("ui/widget/confirmbox")
+        local MultiConfirmBox = require("ui/widget/multiconfirmbox")
         for index = #UIManager._window_stack, 1, -1 do
             local widget = UIManager._window_stack[index].widget
-            if getmetatable(widget) == ConfirmBox then
-                if params.accept ~= false then widget.ok_callback() end
+            if getmetatable(widget) == ConfirmBox or getmetatable(widget) == MultiConfirmBox then
+                if params.accept ~= false then (widget.ok_callback or widget.choice1_callback)() end
                 UIManager:close(widget)
                 return { ok = true }
             end
@@ -3097,6 +3132,8 @@ function Driver:handleCommand(command)
                 has_more = title_bar.more_button ~= nil,
                 has_close = title_bar.close_button ~= nil,
                 has_action = title_bar.action_button ~= nil,
+                action_icon = title_bar.action_button and title_bar.action_button.image
+                    and title_bar.action_button.image.file,
                 status_visible = title_bar.status_widget ~= nil,
                 status_height = widget_height(title_bar.status_widget),
                 status_y = widget_y(title_bar.status_widget),
@@ -3768,7 +3805,13 @@ function Driver:pollServer()
                     error = "invalid JSON",
                 }
                 -- Finish deferred UI callbacks and repaint before the next command.
-                UIManager:tickAfterNext(function() self:reply(client, payload) end)
+                UIManager:tickAfterNext(function()
+                    self:reply(client, payload)
+                    if ok and command.type == "shutdown" then
+                        UIManager:broadcastEvent(Event:new("Close"))
+                        UIManager:nextTick(function() UIManager:quit() end)
+                    end
+                end)
             else
                 C.close(client)
             end

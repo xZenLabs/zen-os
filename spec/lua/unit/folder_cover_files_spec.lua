@@ -183,6 +183,35 @@ describe("managed folder cover files", function()
         assert.are.equal(2, scans)
     end)
 
+    it("keeps a stable name scan past the TTL and memoizes realpath lookups", function()
+        files["/library/folder"].modification = 1
+        add_file("/library/folder/cover.jpg")
+        local lfs = require("libs/libkoreader-lfs")
+        local dir = lfs.dir
+        local scans = 0
+        lfs.dir = function(folder)
+            scans = scans + 1
+            return dir(folder)
+        end
+        local realpath = require("ffi/util").realpath
+        local resolved = 0
+        require("ffi/util").realpath = function(path)
+            resolved = resolved + 1
+            return realpath(path)
+        end
+        local original_time = os.time
+        local clock = 1000
+        rawset(os, "time", function() return clock end)
+
+        FolderCoverFiles.find("/library/folder", "normal")
+        clock = clock + 60
+        FolderCoverFiles.find("/library/folder", "normal")
+        rawset(os, "time", original_time)
+
+        assert.are.equal(1, scans)
+        assert.are.equal(1, resolved)
+    end)
+
     it("reports folders without managed covers", function()
         add_file("/library/folder/poster.jpg")
         files["/library/folder/cover.jpg"] = { mode = "directory" }

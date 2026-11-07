@@ -1,6 +1,4 @@
 import os
-import signal
-import subprocess
 import tempfile
 import time
 from pathlib import Path
@@ -9,7 +7,7 @@ import pytest
 from PIL import Image
 
 from fixtures import stage_epub_library
-from zen_driver import ZenDriver, launch, wait_for_socket
+from zen_driver import ZenDriver, launch, stop, wait_for_socket
 
 
 pytestmark = pytest.mark.skipif(
@@ -159,9 +157,4 @@ def test_native_settings_context_layout_selectors_and_defaults(format):
             assert driver.command("close_settings_page")["ok"]
             driver.screenshot(root / "reader-after-settings.png")
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-            process.wait()
+            stop(process)

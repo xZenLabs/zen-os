@@ -27,7 +27,36 @@ _G.ZenSpec = {
         _G[name] = nil
     end,
     replace = function(name, module)
+        -- Partial icon-map stubs fall back to the real glyphs.
+        if name == "common/inline_icon_map" and type(module) == "table" and not getmetatable(module) then
+            setmetatable(module, { __index = dofile(root .. "/common/inline_icon_map.lua") })
+        end
         package.loaded[name] = module
+    end,
+    -- Real Wi-Fi probe without caching, for specs that flip NetworkMgr state without events.
+    uncachedWifiState = function()
+        package.loaded["common/wifi_state"] = nil
+        local WifiState = require("common/wifi_state")
+        return {
+            get = function()
+                WifiState.invalidate()
+                return WifiState.get()
+            end,
+            invalidate = function() end,
+        }
+    end,
+    -- Mirrors cover_render_cache:releaseOnFree for RenderCache mocks.
+    releaseOnFree = function(cache, widget, path, bb)
+        if not widget or not path then return end
+        local original_free = widget.free
+        widget.free = function(w, ...)
+            local result = original_free(w, ...)
+            if path then
+                cache:releaseShared(path, bb)
+                path = nil
+            end
+            return result
+        end
     end,
 }
 

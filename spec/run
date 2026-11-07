@@ -23,7 +23,7 @@ export SDL_WINDOW_ACTIVATE_WHEN_RAISED="$ZEN_UI_TEST_FOREGROUND"
 
 usage() {
   cat <<'EOF'
-Usage: ./spec/run [--fg] <lua|smoke|full|nightly-smoke|legacy-upgrade|update-goldens|package-check|website-screenshots>
+Usage: ./spec/run [--fg] <lua|smoke|full|nightly-smoke|legacy-upgrade|update-goldens|package-check|website-screenshots|bench>
 
 Set KOREADER_DIR to a KOReader emulator/runtime directory containing luajit,
 frontend, and the Busted rocks under spec/rocks. The runtime is never mutated.
@@ -39,8 +39,9 @@ find_runtime() {
   fi
   local parent
   parent="$(cd "$ROOT/.." && pwd)"
+  # Newest build first: stale builds for older macOS can crash natively (k2pdfopt).
   local candidate
-  for candidate in "$parent"/koreader/koreader-emulator-*/koreader; do
+  for candidate in $(ls -td "$parent"/koreader/koreader-emulator-*/koreader 2>/dev/null); do
     if [[ -x "$candidate/luajit" ]]; then
       printf '%s\n' "$candidate"
       return
@@ -202,6 +203,7 @@ run_python() {
   mkdir -p "$ARTIFACTS/python"
   PYTHONPATH="$ROOT/spec/python" KOREADER_DIR="$staged_runtime" \
     "$python" -m pytest "$pytest_target" -q \
+      --durations=20 \
       --junitxml="$ARTIFACTS/python/$report_name" || python_status=$?
   if [[ -n "$staged_runtime" ]]; then rm -rf "$staged_runtime"; fi
   return "$python_status"
@@ -273,6 +275,18 @@ run_legacy_upgrade() {
     "$ARTIFACTS/python/$report_name" || report_status=$?
   if [[ "$python_status" -ne 0 ]]; then return "$python_status"; fi
   if [[ "$report_status" -ne 0 ]]; then return "$report_status"; fi
+  return "$python_status"
+}
+
+run_bench() {
+  local python_status=0
+  ZEN_UI_RUN_EMULATOR=1 \
+    ZEN_UI_RUN_BENCHMARK=1 \
+    ZEN_UI_PYTEST_TARGET="$ROOT/spec/python/tests/test_emulator_benchmark.py" \
+    ZEN_UI_PYTHON_REPORT=junit-benchmark.xml \
+    run_python bench || python_status=$?
+  report_test_results "Benchmark/pytest" "$ARTIFACTS/python/junit-benchmark.xml"
+  echo "Report: $ARTIFACTS/benchmark/REPORT.md"
   return "$python_status"
 }
 
@@ -387,6 +401,7 @@ case "$COMMAND" in
   legacy-upgrade) run_legacy_upgrade ;;
   package-check) package_check ;;
   website-screenshots) run_website_screenshots "${ARGS[@]:1}" ;;
+  bench) run_bench ;;
   full) run_test_suite stable; package_check ;;
   update-goldens)
     ZEN_UI_RUN_EMULATOR=1 ZEN_UI_UPDATE_GOLDENS=1 run_lua

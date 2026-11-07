@@ -37,6 +37,16 @@ describe("common utils icon sizing", function()
         assert.are.equal(1, utils.iconOpticalScale("quick_wifi"))
         assert.are.equal(1, utils.iconOpticalScale(nil))
     end)
+
+    it("keeps icon-pack replacements of logo icons at their requested size", function()
+        local saved = package.loaded["common/icon_packs"]
+        package.loaded["common/icon_packs"] = {
+            isPackIcon = function(path) return path == "/icons/zen/pack/zenfm.svg" end,
+        }
+        assert.are.equal(1, utils.iconOpticalScale("zenfm", "/icons/zen/pack/zenfm.svg"))
+        assert.are.equal(1.25, utils.iconOpticalScale("zenfm", "/plugins/zenos/icons/zenfm.svg"))
+        package.loaded["common/icon_packs"] = saved
+    end)
 end)
 
 describe("common utils badge font sizing", function()
@@ -78,5 +88,25 @@ describe("Controls menu tab placement", function()
         config.features.quick_settings = false
         assert.is_false(utils.controlReplacesMenuTab(config, "launcher"))
         assert.is_false(utils.controlReplacesMenuTab(nil, "launcher"))
+    end)
+end)
+
+describe("common utils frontlight broadcast", function()
+    local utils = require("common/utils")
+
+    it("silences powerd broadcasts only while fn runs, even when it errors", function()
+        local Class = { broadcasts = 0 }
+        Class.__index = Class
+        function Class:stateChanged() self.broadcasts = self.broadcasts + 1 end
+        local powerd = setmetatable({}, Class)
+        utils.withoutFrontlightBroadcast(powerd, function() powerd:stateChanged() end)
+        assert.are.equal(0, powerd.broadcasts)
+        assert.is_nil(rawget(powerd, "stateChanged"))
+        assert.has_error(function()
+            utils.withoutFrontlightBroadcast(powerd, function() error("boom") end)
+        end)
+        assert.is_nil(rawget(powerd, "stateChanged"))
+        powerd:stateChanged()
+        assert.are.equal(1, powerd.broadcasts)
     end)
 end)

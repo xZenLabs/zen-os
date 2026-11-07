@@ -1,4 +1,5 @@
 local BookStatus = require("common/book_status")
+local BookWalker = require("common/book_walker")
 local ConfigManager = require("config/manager")
 local Cache = require("common/docprops_cache")
 local DocSettings = require("docsettings")
@@ -22,6 +23,9 @@ local COLLECTION_MARKER = "zenos_tbr"
 local CUSTOM_ORDER_SETTING = "zenos_tbr_order"
 local MANUAL_COLLATE = "manual"
 local STATUS_TABLE = "zen_doc_status_cache"
+local SCAN_MAX_DIRS = 20000 -- bounds scans of oversized homes (e.g. desktop $HOME)
+local SCAN_SLICE_S = 0.015
+local SCAN_YIELD_S = 0.01
 
 local status_rows
 local inventory
@@ -206,6 +210,8 @@ local function new_scope_scan(scope)
         dirs = {},
         readable_root = false,
         stack = {},
+        seen = {},
+        queued = #scope.roots,
     }
     for root_index = #scope.roots, 1, -1 do
         scan.stack[#scan.stack + 1] = scope.roots[root_index]
@@ -213,11 +219,19 @@ local function new_scope_scan(scope)
     return scan
 end
 
+-- Inode identity catches symlink loops while still following symlinked libraries.
+local function dir_identity(path, attr)
+    if attr.ino and attr.ino ~= 0 then return tostring(attr.dev) .. ":" .. tostring(attr.ino) end
+    return path
+end
+
 local function scan_scope_step(scan)
     local directory = table.remove(scan.stack)
     if directory then
         local dir_attr = lfs.attributes(directory)
-        if dir_attr and dir_attr.mode == "directory" then
+        local identity = dir_attr and dir_identity(directory, dir_attr)
+        if dir_attr and dir_attr.mode == "directory" and not scan.seen[identity] then
+            scan.seen[identity] = true
             scan.dirs[directory] = dir_attr.modification or 0
             local ok_dir, iter, dir_obj = pcall(lfs.dir, directory)
             if ok_dir and type(iter) == "function" then
@@ -228,8 +242,14 @@ local function scan_scope_step(scan)
                     if name ~= "." and name ~= ".." then
                         local path = directory .. "/" .. name
                         local attr = lfs.attributes(path)
-                        if attr and attr.mode == "directory" and is_visible_dir(name) then
-                            scan.stack[#scan.stack + 1] = path
+                        if attr and attr.mode == "directory" and is_visible_dir(name)
+                                and not BookWalker.shouldSkipDir(directory, name) then
+                            if scan.queued < SCAN_MAX_DIRS then
+                                scan.queued = scan.queued + 1
+                                scan.stack[#scan.stack + 1] = path
+                            else
+                                scan.truncated = true
+                            end
                         elseif attr and attr.mode == "file" and is_supported_file(name, path) then
                             scan.books[#scan.books + 1] = {
                                 path = path,
@@ -249,6 +269,7 @@ local function scan_scope_step(scan)
 end
 
 local function finish_scope_scan(scan)
+    if scan.truncated then logger.warn("TBR scan capped at", SCAN_MAX_DIRS, "directories") end
     table.sort(scan.books, function(a, b) return a.path < b.path end)
     return scan.books, scan.dirs, scan.readable_root or #scan.scope.roots == 0
 end
@@ -259,13 +280,23 @@ local function scan_scope(scope)
     return finish_scope_scan(scan)
 end
 
+local DIRS_CHECK_TTL_S = 2
+local dirs_checked_inventory
+local dirs_checked_at
+
+-- One Home build queries the index several times; stat the library at most every DIRS_CHECK_TTL_S.
 local function dirs_changed(cached, scope)
     if not cached or cached.scope_key ~= scope.key then return true end
     if cached.complete ~= true then return true end
+    local checked_at = now()
+    if dirs_checked_inventory == cached and checked_at - dirs_checked_at < DIRS_CHECK_TTL_S then
+        return false
+    end
     for directory, old_mtime in pairs(cached.dirs) do
         local current_mtime = lfs.attributes(directory, "modification")
         if current_mtime == nil or current_mtime ~= old_mtime then return true end
     end
+    dirs_checked_inventory, dirs_checked_at = cached, checked_at
     return false
 end
 
@@ -1054,6 +1085,11 @@ function M.getRevision()
     return revision
 end
 
+-- Revision without the collection resync; cheap enough for per-item cache keys.
+function M.peekRevision()
+    return revision
+end
+
 function M.isAuditRunning()
     return audit ~= nil
 end
@@ -1111,9 +1147,15 @@ function M.scheduleAudit(first, second, third)
     audit.step = function()
         local current = audit
         if not current then return end
-        if current.scan and not scan_scope_step(current.scan) then
-            UIManager:nextTick(current.step)
-            return
+        if current.scan then
+            -- Chained nextTick keeps UIManager's task queue dirty and starves input; yield with a real delay.
+            local deadline = now() + SCAN_SLICE_S
+            local done
+            repeat done = scan_scope_step(current.scan) until done or now() >= deadline
+            if not done then
+                UIManager:scheduleIn(SCAN_YIELD_S, current.step)
+                return
+            end
         end
         local before = revision
         if current.scan then

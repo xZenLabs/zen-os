@@ -1,5 +1,11 @@
 local M = {}
 
+function M.hasItems(config)
+    config = config or {}
+    return #(config.left_order or {}) > 0 or #(config.center_order or {}) > 0
+        or #(config.right_order or {}) > 0
+end
+
 local function get_registry()
     local registry = rawget(_G, "__ZEN_UI_STATUS_ITEMS")
     if type(registry) ~= "table" then

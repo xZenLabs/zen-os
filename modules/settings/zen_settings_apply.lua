@@ -13,6 +13,7 @@ local PATCH_MODULES = {
     navbar = "modules/filebrowser/patches/navbar",
     quick_settings = "modules/menu/patches/quick_settings",
     app_launcher = "modules/menu/patches/app_launcher",
+    reader_controls = "modules/menu/patches/reader_controls",
     zen_mode = "modules/menu/patches/zen_mode",
     status_bar = "modules/filebrowser/patches/status_bar",
     disable_top_menu_swipe_zones = "modules/menu/patches/disable_top_menu_swipe_zones",
@@ -31,6 +32,7 @@ local APPLY_MODE = {
     navbar = "filemanager_layout",
     quick_settings = "menu_refresh",
     app_launcher = "menu_refresh",
+    reader_controls = "menu_refresh",
     zen_mode = "zen_mode",
     status_bar = "filemanager_reinit",
     disable_top_menu_swipe_zones = "menu_refresh",
@@ -38,6 +40,7 @@ local APPLY_MODE = {
     automatic_series_grouping = "filemanager_refresh",
     reader_top_status_bar = "reader_refresh",
     reader_themes = "reader_themes",
+    reader_references = "reader_refresh",
 }
 
 local RUNTIME_PATCHES = rawget(_G, "__ZEN_UI_RUNTIME_PATCHES")
@@ -103,14 +106,19 @@ local function apply_filemanager_layout()
     end
 end
 
-local function apply_navbar_refresh()
+-- after_reinit: FM navbar was just rebuilt by reinit; only refresh standalone views.
+local function apply_navbar_refresh(after_reinit)
     local plugin = active_plugin or rawget(_G, "__ZEN_UI_PLUGIN")
     local home = get_shared(plugin, "home")
     if home and type(home.invalidateNavbar) == "function" then
         home.invalidateNavbar()
     end
-    local reinject = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
-        or rawget(_G, "__ZEN_UI_REINJECT_FM_NAVBAR")
+    local reinject_all = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
+    if after_reinit then
+        if type(reinject_all) == "function" then reinject_all(true) end
+        return
+    end
+    local reinject = reinject_all or rawget(_G, "__ZEN_UI_REINJECT_FM_NAVBAR")
     if type(reinject) == "function" then
         reinject()
     else
@@ -124,11 +132,6 @@ local function apply_filemanager_reinit()
     if fm and fm.reinit then
         fm:reinit()
         UIManager:setDirty(FileManager.instance or fm, getFullRefreshMode())
-        UIManager:scheduleIn(0, function()
-            local current = FileManager.instance or fm
-            UIManager:setDirty(current, getFullRefreshMode())
-            UIManager:forceRePaint()
-        end)
     end
 end
 
@@ -189,6 +192,11 @@ local DISRUPTIVE_MODES = {
     navbar_refresh      = true,
 }
 
+local function fm_loaded_instance()
+    local FileManager = package.loaded["apps/filemanager/filemanager"]
+    return FileManager and FileManager.instance
+end
+
 local deferred_applies = {}
 local deferred_callbacks = {}
 
@@ -243,7 +251,9 @@ local function flush_deferred_now()
     for mode, _mode in pairs(pending) do
         run_apply_mode_now(mode)
     end
-    if navbar_refresh then run_apply_mode_now("navbar_refresh") end
+    if navbar_refresh then
+        apply_navbar_refresh(pending.filemanager_reinit and fm_loaded_instance() ~= nil)
+    end
     for _key, callback in pairs(callbacks) do
         callback()
     end
@@ -279,6 +289,11 @@ end
 
 function M.apply_feature_toggle(plugin, feature, enabled)
     active_plugin = plugin or active_plugin
+    if feature == "reader_references" then
+        local references = require("modules/reader/references")
+        local reader = require("apps/reader/readerui").instance
+        if enabled then references.applyDefaults(reader) else references.clear(reader) end
+    end
     if feature == "reader_top_status_bar" and enabled then
         require("common/reader_status_bar").disableKoreaderAltStatusBar()
     end
@@ -331,6 +346,12 @@ function M.defer_until_settings_close(key, callback)
     if type(key) ~= "string" or type(callback) ~= "function" then return end
     deferred_callbacks[key] = callback
     if not is_filemanager_menu_open() then UIManager:nextTick(flush_deferred_now) end
+end
+
+-- True when the pending flush will issue its own full-screen refresh.
+function M.pending_full_refresh()
+    if deferred_applies.tbr_refresh then return true end
+    return deferred_applies.filemanager_reinit == true and fm_loaded_instance() ~= nil
 end
 
 -- ZenSettingsPage calls this after it has been closed. TouchMenu has its own

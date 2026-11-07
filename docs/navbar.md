@@ -6,98 +6,49 @@ settingsPath: Zen Settings > Interface > Navbar
 order: 48
 ---
 
-<!-- Documentation current through ZenOS v3.3.0. -->
+<!-- Documentation current through ZenOS v4.3.0. -->
 
 ![Navbar](/images/zen_os/navbar.webp)
 
-## Overview
+The bar at the bottom of the Library. Up to seven tabs.
 
-The Navbar adds a bottom navigation bar to the library. Tabs can open library views, folders, plugin integrations, page controls, menu actions, custom dispatcher actions, launchable plugin menus, or native KOReader submenus.
+## Tabs
 
-Navbar settings live under **Zen Settings > Interface > Navbar**.
+Built-in tabs include Library, Folder, Home, Continue, History, Favorites, Collections, Authors, Series, Languages, Tags, To Be Read, Search, Stats, Manga, News, Previous/Next page, and Menu.
 
-## Options
+Use **Add** for more:
 
-- Show and arrange up to 7 visible tabs.
-- Hide or show icons.
-- Add tabs for Unread, Reading, On hold, and Finished books.
-- Add custom tabs with dispatcher actions, controls, plugin menus, native KOReader submenus, icons, and labels.
-- Select the destination used at startup and by the physical Home button.
-- Configure Library, Folder, Home, Manga, and News tab labels or actions.
-- Control active-tab styling, top border, label size, and icon size.
+- **Tab**: any unused built-in, or a status tab (Unread, Reading, On hold, Finished).
+- **Folder** / **Specific tag**: as many as you want, each with its own label and icon.
+- **Control**, **Action**, **Plugin Menu**, **KOReader menu**: run or open anything.
 
-Under **Styling > Active tab**, choose **Underline**, **Filled**, or **Outlined** using the radio control. Open **Underline** to move the line above the icon and pick **Outline color**. The line and active label use the accent when **Use accent color** is enabled, or the saved custom color otherwise; the icon keeps its normal color. Open **Filled** to pick **Outline color** for the icon and label and **Fill color** for the rounded background around them; the defaults are white content on a muted blue (#4F6F8F) background. **Outlined** draws a hollow border around the selected icon and label, with its own **Outline color** picker. Filled and Outlined use equal frame dimensions across tabs, spanning most of each tab's space with centered content when labels are shown. With icons hidden, the frame surrounds the label; with labels hidden, it becomes a compact, near-square frame around the icon.
+**Default tab** sets where ZenOS opens at startup and what the physical Home button does.
 
-**Use accent color** is enabled by default. The underline, outlined border, and filled background use the interface accent color and opacity. Turn it off to use their saved custom colors and fill opacity. Filled icons and labels use their separate **Outline color**.
+**Where:** Zen Settings > Interface > Navbar > Tabs
 
-The **Fill color** picker also has an **Opacity** slider from 0% (transparent) to 100% (opaque), with a default of 60%, used when **Use accent color** is off. Opacity affects the rounded background; icons and labels stay opaque. Color and opacity changes repaint the navbar when settings close.
+## Grouped views
 
-## Manga And News Tabs
+**Authors**, **Series**, **Languages**, and **All tags** group your books by metadata instead of folders. Hold on the tab to change its display and sort. Each one remembers its own settings.
 
-The Manga and News tabs are flexible launchers. Each one can open a dedicated plugin or jump straight to a folder of your choice.
+## Manga and News
 
-- **Manga tab** opens [Rakuyomi](https://github.com/tachibana-shin/rakuyomi), another manga reader, or a folder. Set the destination with **Manga tab action**, and use **Manga folder presets** to pin it to the home folder, the last folder, or the current folder.
-- **News tab** opens QuickRSS, KOReader's built-in RSS Reader, or a folder. Set the destination with **News tab action**, and use **News folder presets** for the same home, last, or current folder shortcuts.
+Each can open a plugin or a folder:
 
-Folder mode makes either tab a one-tap shortcut to wherever you keep that content, even if you do not use the associated plugin.
+- **Manga**: [Rakuyomi](https://github.com/tachibana-shin/rakuyomi), another manga reader, or a folder.
+- **News**: QuickRSS, KOReader's RSS Reader, or a folder.
 
-## Folder And Tag Tabs
+Folder mode works even if you don't use the plugin.
 
-The built-in **Folder** tab opens a folder you choose. Its presets can point to the home folder, the last folder, or the current folder, and Folder can be selected as the default tab. Its label and icon can be changed without removing or re-adding the folder. Add as many separate **Folder** tabs as you need, each with its own path, label, and icon. Use **Specific tag** for a direct shortcut to one tag or **All tags** for the grouped tag browser. Each specific-tag tab can also have its own label and icon.
+**Where:** Zen Settings > Interface > Navbar > Tabs > Manga / News
 
-## Kindle Library And Status Tabs
+## Kindle Library
 
-On Kindle devices with [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) installed, the **Kindle Library** tab opens the device's native Kindle library with ZenOS covers, metadata, status bar, display modes, and book context menus. Its settings can hide the plugin's synthetic Kindle Library folder when the Navbar tab is enough.
+On Kindle with [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) installed, the **Kindle Library** tab opens your native Kindle books with ZenOS covers, display modes, and menus. You can hide the plugin's extra folder if the tab is enough.
 
-Unread, Reading, To Be Read, On hold, and Finished can each be used as a direct library tab. **To Be Read** is a built-in tab; add the other status tabs from the tab picker.
+## Styling
 
-## Grouped Views
+- Show or hide labels and icons, and set their size.
+- **Show top border** above the navbar.
+- **Active tab**: Underline, Filled, or Outlined. Uses your accent color by default, or set custom colors and fill opacity.
 
-The Authors, Series, Languages, and All tags tabs group your library by metadata instead of by folder. Each grouped view keeps its own display mode, sort field, and sort direction.
-
-- **Authors** groups books by author. It sorts by `First name` or `Last name`, with a separate ascending or descending order.
-- **Series** groups books by series, ordered by series position inside each group. Series names sort by title (ignoring leading articles) or natural title, with an independent direction.
-- **Languages** groups books by their localized language name, using the same title modes and direction.
-- **All tags** groups books by tag/keyword. Tag names use the same title modes and direction; book sorting remains configurable separately.
-
-Adjust a grouped view's display and sort from its context menu while that tab is open. Changes are saved per view.
-
-## Setting reference
-
-| Setting | Description |
-| --- | --- |
-| Tabs | Opens the tab arranger. At least 1 tab must remain visible and no more than 7 tabs can be visible. |
-| Tabs > Built-in tabs | Includes Library, Folder, Kindle Library when available, Manga, News, Continue, History, Favorites, Collections, Authors, Series, Languages, Home, Single tag, All tags, To Be Read, Search, Calibre Search, Stats, Exit, Previous page, Next page, and Menu. |
-| Tabs > Add > Tab | Adds an unused built-in destination or an Unread, Reading, On hold, or Finished status tab. |
-| Tabs > Add > Control | Adds a Navbar tab that runs a selected Controls control. |
-| Tabs > Add > Folder | Adds an independently configured folder tab. |
-| Tabs > Add > Specific tag | Adds a tab that opens one selected tag. |
-| Tabs > Add > Action | Adds a user-defined tab that runs a dispatcher action with a suggested icon. |
-| Tabs > Add > Plugin Menu | Scans for launchable plugin menus and adds the selected plugin menu as a tab with a suggested icon. |
-| Tabs > Add > KOReader menu | Adds a native submenu from the library-valid KOReader menu tree. |
-| Custom tabs > Show in navbar | Shows or hides a custom tab. |
-| Custom tabs > Action | Selects the dispatcher action run by an action tab. |
-| Custom tabs > Plugin | Selects the launchable plugin menu run by a plugin tab. |
-| Custom tabs > KOReader menu | Selects the native KOReader submenu opened by a menu tab. |
-| Custom tabs > Icon | Selects a bundled, KOReader, or user icon, including for added folder and specific-tag tabs. |
-| Custom tabs > Label | Sets a custom label; leaving it empty restores the folder name, tag name, action title, or plugin title. |
-| Custom tabs > Delete | Deletes the custom tab and removes it from the order list. |
-| Default tab | Selects the destination ZenOS opens at startup and when the device's physical Home button is pressed. |
-| Tabs > Home > Label | Sets the Home tab label. |
-| Tabs > Books > Label | Sets the Library tab label to Books, Home, Library, or custom text. |
-| Tabs > Folder | Selects a folder destination, changes its label or icon, or uses the home, last, or current folder preset. |
-| Tabs > Kindle Library > Hide Kindle Library folder | Hides kindle.koplugin's synthetic folder while keeping the Navbar and Book strip destinations available. |
-| Tabs > Manga | Opens Rakuyomi, another manga reader, or a selected folder. |
-| Tabs > Manga > Folder presets | Sets the Manga folder to the home folder, last folder, or current folder. |
-| Tabs > News | Opens QuickRSS, RSS Reader, or a selected folder. |
-| Tabs > News > Folder presets | Sets the News folder to the home folder, last folder, or current folder. |
-| Styling > Show top border | Draws a line above the navbar. |
-| Styling > Labels > Show labels | Shows tab labels. This cannot be disabled when icons are hidden. |
-| Styling > Labels > Label size | Sets navbar label text size from 10 to 28. |
-| Styling > Icons > Show icons | Shows tab icons. This cannot be disabled when labels are hidden. |
-| Styling > Icons > Icon size | Sets navbar icon size from 24 to 48. |
-| Styling > Active tab > Underline | Adds an underline to the active tab. |
-| Styling > Active tab > Use accent color | Enabled by default. Uses the interface accent color and opacity for the active underline, border, and fill; turn off to use each style's saved custom color and fill opacity. The filled icon and label keep their separate Outline color. |
-| Styling > Active tab > Underline > Underline above icon | Places the active underline above the icon. |
-| Styling > Active tab > Outlined | Draws a hollow border around the active icon and label, with its own Outline color picker. |
-| Styling > Active tab > Underline > Outline color | Sets the custom underline and active label color, defaulting to black; the icon keeps its normal color. |
+**Where:** Zen Settings > Interface > Navbar > Styling

@@ -81,6 +81,72 @@ local function parsePO(path)
 end
 
 -- ---------------------------------------------------------------------------
+-- Parsed-catalog cache: a Lua table file keyed by the .po's path/size/mtime.
+-- ---------------------------------------------------------------------------
+local CACHE_VERSION = 1
+
+local function poStamp(path)
+    local ok, lfs = pcall(require, "libs/libkoreader-lfs")
+    local attr = ok and lfs and lfs.attributes(path)
+    if type(attr) ~= "table" or attr.mode ~= "file" then return nil end
+    return CACHE_VERSION .. ":" .. path .. ":" .. attr.size .. ":" .. attr.modification
+end
+
+local function cachePath(name)
+    local ok, DataStorage = pcall(require, "datastorage")
+    if not ok or not DataStorage then return nil end
+    return DataStorage:getDataDir() .. "/cache/zen-i18n-" .. name .. ".lua"
+end
+
+local function readCache(path, stamp)
+    local fn = loadfile(path)
+    if not fn then return nil end
+    setfenv(fn, {})
+    local ok, data = pcall(fn)
+    if ok and type(data) == "table" and data.stamp == stamp
+            and type(data.t) == "table" and type(data.c) == "table" then
+        return data.t, data.c, data.n
+    end
+end
+
+local function serializeMap(out, map)
+    for k, v in pairs(map) do
+        out[#out + 1] = string.format("[%q]=%q,\n", k, v)
+    end
+end
+
+local function writeCache(path, stamp, translations, contexts, count)
+    local out = { string.format("return{stamp=%q,n=%d,t={\n", stamp, count) }
+    serializeMap(out, translations)
+    out[#out + 1] = "},c={\n"
+    for ctx, msgs in pairs(contexts) do
+        out[#out + 1] = string.format("[%q]={\n", ctx)
+        serializeMap(out, msgs)
+        out[#out + 1] = "},\n"
+    end
+    out[#out + 1] = "}}\n"
+    local tmp = path .. ".tmp"
+    local f = io.open(tmp, "w")
+    if not f then return end
+    local ok = f:write(table.concat(out))
+    f:close()
+    if not ok or not os.rename(tmp, path) then os.remove(tmp) end
+end
+
+local function loadCatalog(path, name)
+    local stamp = poStamp(path)
+    if not stamp then return nil end
+    local cache = cachePath(name)
+    if cache then
+        local t, c, n = readCache(cache, stamp)
+        if t then return t, c, n end
+    end
+    local t, c, n = parsePO(path)
+    if t and cache then pcall(writeCache, cache, stamp, t, c, n) end
+    return t, c, n
+end
+
+-- ---------------------------------------------------------------------------
 -- Language detection — mirrors KOReader's own priority order
 -- ---------------------------------------------------------------------------
 local function detectLang()
@@ -104,7 +170,7 @@ local function loadTranslationsForLang(lang)
 
     local function try(name)
         local path = _dir .. "../locales/" .. name .. ".po"
-        local t, c, n = parsePO(path)
+        local t, c, n = loadCatalog(path, name)
         if t and n and n > 0 then
             logger.info("loaded " .. path .. " — " .. n .. " entries")
             return t, c
@@ -130,8 +196,15 @@ end
 -- Inject ZenOS translations into the live GetText tables.
 -- Called at startup and again after every changeLang().
 -- ---------------------------------------------------------------------------
+local _parsed_lang, _parsed_t, _parsed_c
+local _injected = {}
 local function applyZenTranslations(GetText, lang)
-    local translations, contexts = loadTranslationsForLang(lang)
+    -- Parse each .po once per language; refresh() only re-injects.
+    if _parsed_lang ~= lang then
+        _parsed_t, _parsed_c = loadTranslationsForLang(lang)
+        _parsed_lang = lang
+    end
+    local translations, contexts = _parsed_t, _parsed_c
     _translations = translations or {}
     _contexts = contexts or {}
     if not translations then
@@ -140,6 +213,14 @@ local function applyZenTranslations(GetText, lang)
         end
         return
     end
+    -- Skip re-injection while the live tables are the ones already filled.
+    local sample_id, sample_str = next(translations)
+    if _injected[1] == translations and _injected[2] == GetText.translation
+            and _injected[3] == GetText.context
+            and (sample_id == nil or GetText.translation[sample_id] == sample_str) then
+        return
+    end
+    _injected = { translations, GetText.translation, GetText.context }
     for msgid, msgstr in pairs(translations) do
         GetText.translation[msgid] = msgstr
     end
@@ -296,6 +377,7 @@ local function uninstall()
     _wrapped_gettext  = nil
     _translations    = {}
     _contexts        = {}
+    _injected        = {}
     _installed       = false
     logger.info("uninstalled")
 end
