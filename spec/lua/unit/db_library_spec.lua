@@ -66,6 +66,8 @@ describe("library statistics", function()
         assert.are.equal(4, counts.finished)
         assert.are.equal(3, counts.finished_this_month)
         assert.are.equal(3, counts.finished_this_year)
+        assert.are.equal(4, #counts.finished_books)
+        assert.are.equal("/books/old.epub", counts.finished_books[4].file)
     end)
 
     it("excludes every CBZ and CBR from goal completion counts", function()

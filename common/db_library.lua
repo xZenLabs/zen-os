@@ -98,6 +98,7 @@ function LibraryDB.getBookCounts(exclude_cbz_cbr)
         total = 0,
         finished_this_month = 0,
         finished_this_year = 0,
+        finished_books = {},  -- { file, modified = "YYYY-MM-DD ..." }, newest first
     }
     local month = os.date("%Y-%m")
     local year = os.date("%Y")
@@ -145,6 +146,7 @@ function LibraryDB.getBookCounts(exclude_cbz_cbr)
                                 counts.finished = counts.finished + 1
                                 local modified = summary.modified
                                 if type(modified) == "string" then
+                                    counts.finished_books[#counts.finished_books + 1] = { file = file, modified = modified }
                                     if modified:sub(1, 7) == month then
                                         counts.finished_this_month = counts.finished_this_month + 1
                                     end
@@ -161,6 +163,7 @@ function LibraryDB.getBookCounts(exclude_cbz_cbr)
             end
         end
         prune_summaries()
+        table.sort(counts.finished_books, function(a, b) return a.modified > b.modified end)
     end)
 
     if not ok then

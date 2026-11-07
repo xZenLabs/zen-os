@@ -1,7 +1,7 @@
 -- common/reading_wrapped.lua
 -- Yearly Reading Wrapped recap: turns StatsDB.queryWrapped() into WrappedScreen slides,
--- one stat and one quip each. Auto-shows once after the release that added it and once
--- per December; always available from Zen Settings > About.
+-- one stat, covers where a book is involved, and a quip each. Auto-shows once after the
+-- release that added it and once per December; always available from Zen Settings > About.
 
 local _ = require("gettext")
 local T = require("ffi/util").template
@@ -9,6 +9,8 @@ local datetime = require("datetime")
 
 local M = {}
 M.MIN_DURATION = 600 -- seconds read this year below which auto-show is skipped
+M.MAX_GRID = 6       -- covers on the books-read grid
+M.MAX_FLOW = 3       -- covers in a coverflow
 
 local _plugin_root = require("common/plugin_root") or ""
 
@@ -25,9 +27,14 @@ local function month_name(ts, long)
     return (long and datetime.longMonthTranslation or datetime.shortMonthTranslation)[key] or key
 end
 
-local function date_ts(date)
+local function date_parts(date)
     local year, month, day = tostring(date or ""):match("^(%d+)%-(%d+)%-(%d+)$")
-    return year and os.time({ year = tonumber(year), month = tonumber(month), day = tonumber(day), hour = 12 })
+    return tonumber(year), tonumber(month), tonumber(day)
+end
+
+local function date_ts(date)
+    local year, month, day = date_parts(date)
+    return year and os.time({ year = year, month = month, day = day, hour = 12 })
 end
 
 -- nil for empty or KOReader's "N/A" placeholder.
@@ -35,6 +42,10 @@ local function clean(text)
     text = tostring(text or ""):match("^%s*(.-)%s*$")
     if text == "" or text == "N/A" then return nil end
     return text
+end
+
+local function series_name(text)
+    return clean((tostring(text or ""):gsub("%s+#%S+$", "")))
 end
 
 local function any(quips)
@@ -76,6 +87,7 @@ local BOOK_QUIPS = {
     { math.huge, { _("Triple digits. We checked twice."), _("You are no longer reading books. You are consuming them.") } },
 }
 
+local FINISHED_QUIPS = { _("The ink is barely dry on these."), _("Finished, shelved, savored.") }
 local TOP_BOOK_QUIPS = { _("Wow, you really couldn't put this one down."), _("This one owned your year.") }
 
 local AUTHOR_QUIPS = { -- share of the year's reading time
@@ -111,7 +123,11 @@ local STREAK_QUIPS = { -- days
 
 local BEST_DAY_QUIPS = { _("A whole day lost to a good book. No regrets."), _("Chores can wait. Chapters cannot.") }
 local MONTH_QUIPS = { _("Peak reading season."), _("%1 was a good month.") }
-local FINALE_QUIPS = { _("That's a wrap. See you next year."), _("The end. For now. Next chapter: next year.") }
+local FINALE_QUIPS = {
+    _("Thank you for reading with ZenOS. Here's to another year of good books."),
+    _("Stories end, readers don't. Charge up, pick the next one, and we'll see you here next year."),
+    _("Every page you turned this year was time well spent. Same time next year?"),
+}
 
 -- { first_hour, last_hour, label, icon, quips }; the band with the most time wins
 -- unless no band holds more than ALL_DAY_SHARE of it.
@@ -145,127 +161,228 @@ function M.rhythm(hours)
     }
 end
 
-function M.loadCover(book)
-    local ok, bb = pcall(function()
-        local path = require("common/db_bookinfo").findPathByTitleAuthors(book.title, book.authors)
+-- Covers come from the CoverBrowser cache; one blitbuffer per path, all freed on close.
+local function cover_loader()
+    local cache, owned = {}, {}
+    local loader = { owned = owned }
+    function loader.from_path(path)
         if not path then return nil end
-        local info = require("bookinfomanager"):getBookInfo(path, true)
-        if info and info.has_cover and info.cover_bb and info.cover_fetched and not info.ignore_cover then
-            return info.cover_bb
+        if cache[path] == nil then
+            local ok, cover = pcall(function()
+                local info = require("bookinfomanager"):getBookInfo(path, true)
+                if info and info.has_cover and info.cover_bb and info.cover_fetched and not info.ignore_cover then
+                    return { bb = info.cover_bb, w = info.cover_w, h = info.cover_h }
+                end
+            end)
+            cache[path] = ok and cover or false
+            if cache[path] then owned[#owned + 1] = cache[path].bb end
         end
-    end)
-    return ok and bb or nil
+        return cache[path] or nil
+    end
+    -- Statistics rows carry no path; match the cached title and authors.
+    function loader.for_book(book)
+        if book.path == nil then
+            local ok, path = pcall(function()
+                return require("common/db_bookinfo").findPathByTitleAuthors(book.title, book.authors)
+            end)
+            book.path = ok and path or false
+        end
+        return loader.from_path(book.path or nil)
+    end
+    function loader.covers(books, limit)
+        local covers = {}
+        for _i, book in ipairs(books) do
+            if #covers >= limit then break end
+            local cover = loader.for_book(book)
+            if cover then covers[#covers + 1] = cover end
+        end
+        return covers
+    end
+    return loader
 end
 
--- Slides for a year with data; a slide is skipped when its datum is empty.
-function M.buildPages(data, finished)
-    local pages = {}
-    local function add(page) pages[#pages + 1] = page end
-    local year = tostring(data.year)
+local function books_by(data, match)
+    local books = {}
+    for _i, book in ipairs(data.top_books) do
+        if match(book) then books[#books + 1] = book end
+    end
+    return books
+end
 
-    add{ icon = icon("zen_ui"), stat = year, stat_label = _("Your year in books"), description = _("Swipe to begin.") }
-    add{ icon = icon("timer"), stat = fmt_time(data.duration), stat_label = _("spent reading"),
-        description = pick(TIME_QUIPS, data.duration / 3600) }
-    add{ icon = icon("book_open"), stat = tostring(data.pages), stat_label = _("pages turned"),
-        description = pick(PAGE_QUIPS, data.pages) }
-    add{ icon = icon("bookshelf"), stat = tostring(data.books),
-        stat_label = finished and T(_("books read, %1 finished"), finished) or _("books read"),
-        description = pick(BOOK_QUIPS, data.books) }
+local function author_books(data, name)
+    return books_by(data, function(book)
+        for author in (book.authors or ""):gmatch("[^\n]+") do
+            if author:match("^%s*(.-)%s*$") == name then return true end
+        end
+    end)
+end
+
+-- Books with sessions on the best day, most time first.
+local function day_books(data, best)
+    local year, month, day = date_parts(best.date)
+    if not year then return {} end
+    local StatsDB = require("common/db_stats")
+    local start = os.time({ year = year, month = month, day = day, hour = 0 }) + StatsDB.dayShift()
+    local by_id = {}
+    for _i, book in ipairs(data.top_books) do by_id[book.id] = book end
+    local books = {}
+    for _i, row in ipairs(StatsDB.queryBooksForPeriod(start, start + 86400)) do
+        if by_id[row.book_id] then books[#books + 1] = by_id[row.book_id] end
+    end
+    return books
+end
+
+-- Returns pages and the cover blitbuffers they borrow (owned by the caller).
+function M.buildPages(data, counts)
+    local loader = cover_loader()
+    local pages = {}
+    local year = tostring(data.year)
+    local function add(page) pages[#pages + 1] = page end
+    local function with_covers(page, books, limit, layout)
+        local covers = loader.covers(books, limit)
+        if #covers > 0 then
+            page.covers = covers
+            page.layout = layout or (#covers >= M.MAX_FLOW and "flow" or "grid")
+        end
+        return page
+    end
+
+    add{ title = _("Reading Wrapped"), icon = icon("zen_ui"), stat = year,
+        stat_label = _("Your year in books"), description = _("Swipe to begin.") }
+
+    add(with_covers({ icon = icon("bookshelf"), stat = tostring(data.books), unit = _("books read"),
+        description = pick(BOOK_QUIPS, data.books) }, data.top_books, M.MAX_GRID, "grid"))
+
+    local finished = counts and tonumber(counts.finished_this_year) or 0
+    if finished > 0 then
+        local recent = {}
+        for _i, entry in ipairs(counts.finished_books or {}) do
+            if #recent >= M.MAX_FLOW then break end
+            if tostring(entry.modified):sub(1, 4) == year then recent[#recent + 1] = { path = entry.file } end
+        end
+        add(with_covers({ title = _("Recently finished"), icon = icon("settings_book_check"),
+            description = any(FINISHED_QUIPS) }, recent, M.MAX_FLOW))
+    end
+
+    add(with_covers({ icon = icon("timer"), stat = fmt_time(data.duration), unit = _("spent reading"),
+        description = pick(TIME_QUIPS, data.duration / 3600) }, data.top_books, M.MAX_FLOW))
+
+    local most_pages
+    for _i, book in ipairs(data.top_books) do
+        if book.pages > 0 and (not most_pages or book.pages > most_pages.pages) then most_pages = book end
+    end
+    add(with_covers({ icon = icon("book_open"), stat = tostring(data.pages), unit = _("pages turned"),
+        stat_label = most_pages and clean(most_pages.title)
+            and T(_("Most in %1 (%2 pages)"), clean(most_pages.title), most_pages.pages) or nil,
+        description = pick(PAGE_QUIPS, data.pages) }, { most_pages }, 1))
 
     local top = data.top_books[1]
     if top and clean(top.title) then
-        add{ icon = icon("settings_star"), image_bb = M.loadCover(top), stat = clean(top.title),
-            stat_label = T(_("%1 of reading time"), fmt_time(top.duration)), description = any(TOP_BOOK_QUIPS) }
+        add(with_covers({ title = _("Top book"), icon = icon("settings_star"), stat = clean(top.title), stat_text = true,
+            stat_label = T(_("%1 of reading time"), fmt_time(top.duration)), description = any(TOP_BOOK_QUIPS) }, { top }, 1))
     end
 
     local author = data.authors[1]
     if author then
         local share = data.duration > 0 and author.duration / data.duration or 0
-        add{ icon = icon("tab_authors"), stat = author.name,
+        add(with_covers({ title = _("Favorite author"), icon = icon("tab_authors"), stat = author.name, stat_text = true,
             stat_label = T(_("%1 of reading time"), fmt_time(author.duration)),
-            description = T(pick(AUTHOR_QUIPS, share), author.name) }
+            description = T(pick(AUTHOR_QUIPS, share), author.name) }, author_books(data, author.name), M.MAX_FLOW))
     end
     local prolific
     for _i, group in ipairs(data.authors) do
         if group.books >= 2 and (not prolific or group.books > prolific.books) then prolific = group end
     end
     if prolific and prolific ~= author then
-        add{ icon = icon("library_shelves"), stat = prolific.name,
+        add(with_covers({ title = _("Most books by one author"), icon = icon("library_shelves"), stat = prolific.name, stat_text = true,
             stat_label = T(_("%1 books this year"), prolific.books),
-            description = T(pick(PROLIFIC_QUIPS, prolific.books), prolific.name) }
+            description = T(pick(PROLIFIC_QUIPS, prolific.books), prolific.name) }, author_books(data, prolific.name), M.MAX_FLOW))
     end
 
     local series = data.series[1]
     if series then
-        add{ icon = icon("tab_series"), stat = series.name,
-            stat_label = T(_("%1 of reading time"), fmt_time(series.duration)),
-            description = pick(SERIES_QUIPS, series.books) }
+        add(with_covers({ title = _("Top series"), icon = icon("tab_series"), stat = series.name, stat_text = true,
+            stat_label = T(_("%1 of reading time"), fmt_time(series.duration)), description = pick(SERIES_QUIPS, series.books) },
+            books_by(data, function(book) return series_name(book.series) == series.name end), M.MAX_FLOW))
     end
 
     local noted = data.most_annotated
     if noted and clean(noted.title) then
-        add{ icon = icon("annotations"), stat = clean(noted.title),
+        add(with_covers({ title = _("Most highlighted"), icon = icon("annotations"), stat = clean(noted.title), stat_text = true,
             stat_label = noted.annotations == 1 and _("1 highlight or note")
                 or T(_("%1 highlights and notes"), noted.annotations),
-            description = any(ANNOTATION_QUIPS) }
+            description = any(ANNOTATION_QUIPS) }, { noted }, 1))
     end
 
     if data.longest_streak >= 2 then
-        add{ icon = icon("flame"), stat = tostring(data.longest_streak), stat_label = _("day streak"),
+        add{ icon = icon("flame"), stat = tostring(data.longest_streak), unit = _("day streak"),
             description = pick(STREAK_QUIPS, data.longest_streak) }
     end
 
     local best = data.best_day
     if best and best.duration > 0 then
         local ts = date_ts(best.date)
-        add{ icon = icon("lightning"), stat = fmt_time(best.duration),
+        add(with_covers({ title = _("Biggest day"), icon = icon("lightning"), stat = fmt_time(best.duration),
             stat_label = ts and T(_("%1 %2, %3 pages"), month_name(ts), os.date("*t", ts).day, best.pages)
                 or T(_("%1 pages"), best.pages),
-            description = any(BEST_DAY_QUIPS) }
+            description = any(BEST_DAY_QUIPS) }, day_books(data, best), M.MAX_FLOW))
     end
 
     local month = data.best_month
     if month and month.pages > 0 then
         local ts = date_ts(month.month .. "-15")
         local name = ts and month_name(ts, true) or month.month
-        add{ icon = icon("calendar"), stat = name, stat_label = T(_("%1 pages"), month.pages),
+        add{ title = _("Best month"), icon = icon("calendar"), stat = name,
+            stat_label = T(_("%1 pages, %2"), month.pages, fmt_time(month.duration)),
             description = T(any(MONTH_QUIPS), name) }
     end
 
     local band = M.rhythm(data.hours)
     if band then
-        add{ icon = icon(band.icon), stat = band.label, stat_label = band.range, description = any(band.quips) }
+        add{ title = _("Reading rhythm"), icon = icon(band.icon), stat = band.label, stat_text = true,
+            stat_label = band.range, description = any(band.quips) }
     end
 
-    add{ icon = icon("zen_ui"), stat = _("That's a wrap"), stat_label = year, description = any(FINALE_QUIPS) }
-    return pages
+    add{ title = _("That's a wrap"), icon = icon("zen_ui"), stat_label = T(_("See you in %1"), data.year + 1),
+        description = any(FINALE_QUIPS) }
+    return pages, loader.owned
 end
 
 function M.emptyPages(data)
     return { {
-        icon = icon("zen_ui"), stat = tostring(data.year), stat_label = _("Reading Wrapped"),
+        title = _("Reading Wrapped"), icon = icon("zen_ui"), stat = tostring(data.year), stat_label = _("Your year in books"),
         description = T(_("No reading data for %1 yet. Come back after a few good books."), data.year),
-    } }
+    } }, {}
 end
 
-local function present(pages, on_close)
+local function rounded_covers()
+    local config = require("config/manager").get()
+    return type(config) == "table" and type(config.features) == "table"
+        and config.features.browser_cover_rounded_corners == true
+end
+
+local function present(pages, owned, on_close)
     local WrappedScreen = require("common/ui/wrapped_screen")
-    require("ui/uimanager"):show(WrappedScreen:new{ pages = pages, on_close = on_close })
+    require("ui/uimanager"):show(WrappedScreen:new{
+        pages = pages, covers_owned = owned, rounded_covers = rounded_covers(), on_close = on_close,
+    })
 end
 
 function M.load()
     local data = require("common/db_stats").queryWrapped()
-    local finished
+    local counts
     if data.duration > 0 then
-        local ok, counts = pcall(function() return require("common/db_library").getBookCounts() end)
-        finished = ok and type(counts) == "table" and counts.finished_this_year or nil
+        local ok, result = pcall(function() return require("common/db_library").getBookCounts() end)
+        counts = ok and type(result) == "table" and result or nil
     end
-    return data, finished
+    return data, counts
 end
 
 function M.show(on_close)
-    local data, finished = M.load()
-    present(data.duration > 0 and M.buildPages(data, finished) or M.emptyPages(data), on_close)
+    local data, counts = M.load()
+    local pages, owned
+    if data.duration > 0 then pages, owned = M.buildPages(data, counts) else pages, owned = M.emptyPages(data) end
+    present(pages, owned, on_close)
     return true
 end
 
@@ -276,7 +393,7 @@ function M.maybeAutoShow(plugin)
     local shown = meta.wrapped_shown_for
     local intro = not shown
     if not intro and not (os.date("%m") == "12" and shown ~= year) then return false end
-    local data, finished = M.load()
+    local data, counts = M.load()
     if data.duration < M.MIN_DURATION then
         -- "" consumes the intro while leaving the December rule armed.
         meta.wrapped_shown_for = intro and "" or year
@@ -286,7 +403,7 @@ function M.maybeAutoShow(plugin)
     -- Persist before showing so a force-quit does not replay it.
     meta.wrapped_shown_for = year
     plugin:saveConfig()
-    present(M.buildPages(data, finished))
+    present(M.buildPages(data, counts))
     return true
 end
 

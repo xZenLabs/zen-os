@@ -1,30 +1,32 @@
 describe("Reading Wrapped", function()
     local Wrapped
-    local shown, saves_at_show, queries, month
+    local shown, saves_at_show, queries, month, cover_paths, period_queries
     local original_date, original_time
     local MONTHS = { "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December" }
     local names = {
         "gettext", "ffi/util", "datetime", "common/plugin_root", "common/utils", "common/db_stats",
         "common/db_library", "common/db_bookinfo", "common/ui/wrapped_screen", "ui/uimanager",
-        "common/reading_wrapped",
+        "bookinfomanager", "config/manager", "common/reading_wrapped",
     }
     local saved
-    local data
+    local data, counts
 
     local function rich_year()
         return {
             year = 2026, pages = 4200, duration = 12000, books = 4,
             top_books = {
-                { title = "Dune", authors = "Frank Herbert", series = "Dune #1", annotations = 5, duration = 6000, pages = 900 },
-                { title = "Emma", authors = "Jane Austen", series = "N/A", annotations = 0, duration = 3000, pages = 800 },
+                { id = 1, title = "Dune", authors = "Frank Herbert", series = "Dune #1", annotations = 5, duration = 6000, pages = 900 },
+                { id = 2, title = "Emma", authors = "Jane Austen", series = "N/A", annotations = 0, duration = 3000, pages = 1200 },
+                { id = 3, title = "Dune Messiah", authors = "Frank Herbert", series = "Dune #2", annotations = 0, duration = 1200, pages = 300 },
+                { id = 4, title = "Persuasion", authors = "Jane Austen", series = "N/A", annotations = 0, duration = 900, pages = 200 },
             },
             authors = {
                 { name = "Frank Herbert", duration = 7200, books = 2 },
-                { name = "Jane Austen", duration = 3000, books = 3 },
+                { name = "Jane Austen", duration = 3900, books = 3 },
             },
-            series = { { name = "Dune", duration = 6000, books = 2 } },
-            most_annotated = { title = "Dune", authors = "Frank Herbert", annotations = 5 },
+            series = { { name = "Dune", duration = 7200, books = 2 } },
+            most_annotated = { id = 1, title = "Dune", authors = "Frank Herbert", annotations = 5 },
             days = {}, longest_streak = 5, reading_days = 30,
             best_day = { date = "2026-03-14", duration = 7200, pages = 120 },
             best_pages_day = { date = "2026-03-14", duration = 7200, pages = 120 },
@@ -36,8 +38,14 @@ describe("Reading Wrapped", function()
     before_each(function()
         saved = {}
         for _i, name in ipairs(names) do saved[name] = package.loaded[name] or false end
-        shown, saves_at_show, queries, month = nil, nil, 0, "11"
+        shown, saves_at_show, queries, month, period_queries = nil, nil, 0, "11", {}
         data = rich_year()
+        counts = { finished_this_year = 2, finished_books = {
+            { file = "/books/emma.epub", modified = "2026-10-02 10:00:00" },
+            { file = "/books/old.epub", modified = "2025-12-30 10:00:00" },
+            { file = "/books/dune.epub", modified = "2026-04-01 10:00:00" },
+        } }
+        cover_paths = { Dune = "/books/dune.epub", Emma = "/books/emma.epub", ["Dune Messiah"] = "/books/messiah.epub" }
         -- Deterministic clock: os.time encodes month/day, os.date decodes it.
         original_date, original_time = os.date, os.time
         rawset(os, "time", function(t) return t and t.month * 100 + t.day or 0 end)
@@ -60,9 +68,21 @@ describe("Reading Wrapped", function()
         })
         ZenSpec.replace("common/plugin_root", "/plugin")
         ZenSpec.replace("common/utils", { resolveIcon = function(_dir, name) return "/icons/" .. name .. ".svg" end })
-        ZenSpec.replace("common/db_stats", { queryWrapped = function() queries = queries + 1; return data end })
-        ZenSpec.replace("common/db_library", { getBookCounts = function() return { finished_this_year = 3 } end })
-        ZenSpec.replace("common/db_bookinfo", { findPathByTitleAuthors = function() return nil end })
+        ZenSpec.replace("common/db_stats", {
+            queryWrapped = function() queries = queries + 1; return data end,
+            dayShift = function() return 0 end,
+            queryBooksForPeriod = function(from, to)
+                period_queries[#period_queries + 1] = { from, to }
+                return { { title = "Dune", book_id = 1 }, { title = "Emma", book_id = 2 }, { title = "Gone", book_id = 99 } }
+            end,
+        })
+        ZenSpec.replace("common/db_library", { getBookCounts = function() return counts end })
+        ZenSpec.replace("common/db_bookinfo", { findPathByTitleAuthors = function(title) return cover_paths[title] end })
+        ZenSpec.replace("bookinfomanager", { getBookInfo = function(_self, path)
+            return { has_cover = true, cover_fetched = true, cover_w = 200, cover_h = 300,
+                cover_bb = { path = path, free = function() end } }
+        end })
+        ZenSpec.replace("config/manager", { get = function() return { features = { browser_cover_rounded_corners = true } } end })
         ZenSpec.replace("common/ui/wrapped_screen", { new = function(_self, spec) return spec end })
         ZenSpec.unload("common/reading_wrapped")
         Wrapped = require("common/reading_wrapped")
@@ -82,25 +102,58 @@ describe("Reading Wrapped", function()
         return p
     end
 
-    local function stats(pages)
+    local function column(pages, key)
         local out = {}
-        for _i, page in ipairs(pages) do out[#out + 1] = page.stat end
+        for _i, page in ipairs(pages) do out[#out + 1] = page[key] or false end
         return out
     end
 
-    it("builds every slide for a rich year", function()
-        local pages = Wrapped.buildPages(data, 3)
+    local function cover_paths_of(page)
+        local out = {}
+        for _i, cover in ipairs(page.covers or {}) do out[#out + 1] = cover.bb.path end
+        return out
+    end
+
+    it("builds every slide for a rich year with covers", function()
+        local pages, owned = Wrapped.buildPages(data, counts)
         assert.are.same({
-            "2026", "200m", "4200", "4", "Dune", "Frank Herbert", "Jane Austen", "Dune", "Dune",
-            "5", "120m", "März", "Bedtime reader", "That's a wrap",
-        }, stats(pages))
-        assert.are.equal("books read, 3 finished", pages[4].stat_label)
-        assert.are.equal("3 books this year", pages[7].stat_label)
-        assert.are.equal("5 highlights and notes", pages[9].stat_label)
-        assert.are.equal("day streak", pages[10].stat_label)
-        assert.are.equal("Mar 14, 120 pages", pages[11].stat_label)
-        assert.are.equal("1500 pages", pages[12].stat_label)
-        assert.are.equal("21:00 – 23:59", pages[13].stat_label)
+            "Reading Wrapped", false, "Recently finished", false, false, "Top book",
+            "Favorite author", "Most books by one author", "Top series", "Most highlighted", false,
+            "Biggest day", "Best month", "Reading rhythm", "That's a wrap",
+        }, column(pages, "title"))
+        assert.are.same({
+            "2026", "4", false, "200m", "4200", "Dune", "Frank Herbert", "Jane Austen", "Dune", "Dune",
+            "5", "120m", "März", "Bedtime reader", false,
+        }, column(pages, "stat"))
+        assert.are.same({
+            false, "books read", false, "spent reading", "pages turned", false, false, false, false, false,
+            "day streak", false, false, false, false,
+        }, column(pages, "unit"))
+        -- Books-read grid, finished and time coverflows, single covers elsewhere.
+        assert.are.same({ "/books/dune.epub", "/books/emma.epub", "/books/messiah.epub" }, cover_paths_of(pages[2]))
+        assert.are.equal("grid", pages[2].layout)
+        assert.are.same({ "/books/emma.epub", "/books/dune.epub" }, cover_paths_of(pages[3]))
+        assert.are.equal("grid", pages[3].layout)
+        assert.are.equal("flow", pages[4].layout)
+        assert.are.same({ "/books/emma.epub" }, cover_paths_of(pages[5]))
+        assert.are.equal("Most in Emma (1200 pages)", pages[5].stat_label)
+        assert.are.same({ "/books/dune.epub" }, cover_paths_of(pages[6]))
+        assert.is_true(pages[6].stat_text)
+        assert.are.same({ "/books/dune.epub", "/books/messiah.epub" }, cover_paths_of(pages[7]))
+        assert.are.same({ "/books/emma.epub" }, cover_paths_of(pages[8]))
+        assert.are.equal("3 books this year", pages[8].stat_label)
+        assert.are.same({ "/books/dune.epub", "/books/messiah.epub" }, cover_paths_of(pages[9]))
+        assert.are.equal("5 highlights and notes", pages[10].stat_label)
+        assert.are.same({ "/books/dune.epub" }, cover_paths_of(pages[10]))
+        assert.is_nil(pages[11].stat_label)
+        assert.are.equal("Mar 14, 120 pages", pages[12].stat_label)
+        assert.are.same({ "/books/dune.epub", "/books/emma.epub" }, cover_paths_of(pages[12]))
+        assert.are.same({ { 314, 314 + 86400 } }, period_queries)
+        assert.are.equal("1500 pages, 666m", pages[13].stat_label)
+        assert.are.equal("21:00 – 23:59", pages[14].stat_label)
+        assert.are.equal("See you in 2027", pages[15].stat_label)
+        -- One blitbuffer per distinct path, shared across slides.
+        assert.are.equal(3, #owned)
         for _i, page in ipairs(pages) do
             assert.is_string(page.icon)
             assert.is_true(#page.description > 0)
@@ -108,12 +161,19 @@ describe("Reading Wrapped", function()
         end
     end)
 
-    it("skips empty slides and merges the author slides", function()
+    it("skips empty slides, merges the author slides and drops icons-only pages gracefully", function()
         data.authors = { { name = "Jane Austen", duration = 9000, books = 3 } }
         data.series, data.most_annotated, data.longest_streak, data.hours = {}, nil, 1, {}
-        local pages = Wrapped.buildPages(data, nil)
-        assert.are.same({ "2026", "200m", "4200", "4", "Dune", "Jane Austen", "120m", "März", "That's a wrap" }, stats(pages))
-        assert.are.equal("books read", pages[4].stat_label)
+        cover_paths = {}
+        local pages, owned = Wrapped.buildPages(data, nil)
+        assert.are.same({
+            "Reading Wrapped", false, false, false, "Top book",
+            "Favorite author", "Biggest day", "Best month", "That's a wrap",
+        }, column(pages, "title"))
+        assert.are.same({ false, "books read", "spent reading", "pages turned", false, false, false, false, false },
+            column(pages, "unit"))
+        assert.are.equal(0, #owned)
+        for _i, page in ipairs(pages) do assert.is_nil(page.covers) end
     end)
 
     it("names the reading rhythm and falls back to all-day", function()
@@ -128,6 +188,7 @@ describe("Reading Wrapped", function()
         Wrapped.show()
         assert.are.equal(1, #shown.pages)
         assert.are.equal("No reading data for 2026 yet. Come back after a few good books.", shown.pages[1].description)
+        assert.is_true(shown.rounded_covers)
     end)
 
     it("auto-shows once on the intro boot and saves before showing", function()
@@ -135,7 +196,8 @@ describe("Reading Wrapped", function()
         assert.is_true(Wrapped.maybeAutoShow(p))
         assert.are.equal("2026", p.config._meta.wrapped_shown_for)
         assert.are.equal(1, saves_at_show)
-        assert.are.equal(14, #shown.pages)
+        assert.are.equal(15, #shown.pages)
+        assert.are.equal(3, #shown.covers_owned)
         shown = nil
         assert.is_false(Wrapped.maybeAutoShow(p))
         assert.is_nil(shown)
