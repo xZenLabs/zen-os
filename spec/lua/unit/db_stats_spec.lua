@@ -222,4 +222,43 @@ describe("statistics database", function()
         assert.is_truthy(sqls[1]:find("'" .. cbz_hash .. "'", 1, true))
         assert.is_truthy(sqls[1]:find("'" .. cbr_hash .. "'", 1, true))
     end)
+    it("aggregates the calendar-year recap from one connection", function()
+        local StatsDB = require("common/db_stats")
+        row_values = { 1200, 36000 }
+        conn.exec = function(_self, sql)
+            sqls[#sqls + 1] = sql
+            if sql:find("JOIN book", 1, true) then
+                return {
+                    { 1, 2 }, { "Dune", "Emma" }, { "Frank Herbert\nBrian Herbert", "Jane Austen" },
+                    { "Dune #1", "N/A" }, { 12, 0 }, { 7200, 1800 }, { 300, 90 },
+                }
+            elseif sql:find("GROUP BY dates", 1, true) then
+                return {
+                    { "2026-01-03", "2026-01-04", "2026-01-06", "2026-02-01" },
+                    { 10, 20, 5, 40 }, { 600, 1200, 300, 2400 },
+                }
+            elseif sql:find("GROUP BY hour", 1, true) then
+                return { { "21", "22" }, { 3000, 4000 } }
+            end
+        end
+
+        local data = StatsDB.queryWrapped()
+
+        local jan1 = original_time({ year = 2026, month = 1, day = 1, hour = 0, min = 0, sec = 0 })
+        assert.are.equal(4, #sqls)
+        for i = 2, 4 do assert.is_truthy(sqls[i]:find("start_time >= " .. jan1, 1, true)) end
+        assert.are.equal(2026, data.year)
+        assert.are.same({ 1200, 36000, 2 }, { data.pages, data.duration, data.books })
+        assert.are.equal("Dune", data.top_books[1].title)
+        assert.are.equal(12, data.most_annotated.annotations)
+        assert.are.same({ "Brian Herbert", "Frank Herbert", "Jane Austen" },
+            { data.authors[1].name, data.authors[2].name, data.authors[3].name })
+        assert.are.same({ 7200, 1 }, { data.authors[1].duration, data.authors[1].books })
+        assert.are.same({ { name = "Dune", duration = 7200, books = 1 } }, data.series)
+        assert.are.same({ 4, 2 }, { data.reading_days, data.longest_streak })
+        assert.are.equal("2026-02-01", data.best_day.date)
+        assert.are.equal("2026-02-01", data.best_pages_day.date)
+        assert.are.same({ month = "2026-02", pages = 40, duration = 2400 }, data.best_month)
+        assert.are.same({ [21] = 3000, [22] = 4000 }, data.hours)
+    end)
 end)

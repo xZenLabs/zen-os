@@ -665,4 +665,150 @@ function StatsDB.queryBooksForPeriod(period_begin, period_end)
     return books
 end
 
+local SQL_WRAPPED_BOOKS = [[
+    SELECT b.id, b.title, b.authors, b.series,
+           COALESCE(b.highlights, 0) + COALESCE(b.notes, 0),
+           sum(p.duration) AS duration, count(DISTINCT p.page)
+    FROM page_stat AS p JOIN book AS b ON b.id = p.id_book
+    WHERE p.start_time >= %d
+    GROUP BY b.id
+    ORDER BY duration DESC, b.title;
+]]
+
+local SQL_WRAPPED_DAYS = [[
+    SELECT dates, count(*), sum(sum_duration)
+    FROM (
+        SELECT id_book, page,
+               strftime('%%Y-%%m-%%d', start_time - %d, 'unixepoch', 'localtime') AS dates,
+               sum(duration) AS sum_duration
+        FROM page_stat
+        WHERE start_time >= %d
+        GROUP BY id_book, page, dates
+    )
+    GROUP BY dates
+    ORDER BY dates;
+]]
+
+local SQL_WRAPPED_HOURS = [[
+    SELECT strftime('%%H', start_time, 'unixepoch', 'localtime') AS hour, sum(duration)
+    FROM page_stat_data
+    WHERE start_time >= %d
+    GROUP BY hour;
+]]
+
+local function trim(text)
+    return (tostring(text or ""):match("^%s*(.-)%s*$"))
+end
+
+-- { name, duration, books } groups sorted by time. book.authors is newline-separated;
+-- book.series is stored as "Name #index", both "N/A" when unknown.
+local function wrapped_groups(books)
+    local authors, series, by_author, by_series = {}, {}, {}, {}
+    local function add(list, map, name, book)
+        if name == "" or name == "N/A" then return end
+        local group = map[name]
+        if not group then
+            group = { name = name, duration = 0, books = 0 }
+            map[name], list[#list + 1] = group, group
+        end
+        group.duration, group.books = group.duration + book.duration, group.books + 1
+    end
+    for _i, book in ipairs(books) do
+        for author in (book.authors or ""):gmatch("[^\n]+") do add(authors, by_author, trim(author), book) end
+        add(series, by_series, trim((book.series or ""):gsub("%s+#%S+$", "")), book)
+    end
+    local function by_time(a, b)
+        if a.duration ~= b.duration then return a.duration > b.duration end
+        return a.name < b.name
+    end
+    table.sort(authors, by_time)
+    table.sort(series, by_time)
+    return authors, series
+end
+
+-- Fills days, best day/month, streak from the daily rows (ascending dates).
+local function wrapped_days(result, data)
+    if not (result and result[1]) then return end
+    local months, run, prev_ts = {}, 0, nil
+    for i = 1, #result[1] do
+        local date = tostring(result[1][i])
+        local row = { date = date, pages = tonumber(result[2][i]) or 0, duration = tonumber(result[3][i]) or 0 }
+        data.days[#data.days + 1] = row
+        if not data.best_day or row.duration > data.best_day.duration then data.best_day = row end
+        if not data.best_pages_day or row.pages > data.best_pages_day.pages then data.best_pages_day = row end
+        local key = date:sub(1, 7)
+        local month = months[key]
+        if not month then
+            month = { month = key, pages = 0, duration = 0 }
+            months[key] = month
+        end
+        month.pages, month.duration = month.pages + row.pages, month.duration + row.duration
+        local year, mon, day = date:match("^(%d+)%-(%d+)%-(%d+)$")
+        local ts = year and os.time({ year = tonumber(year), month = tonumber(mon), day = tonumber(day), hour = 12 })
+        run = (ts and prev_ts and math.floor((ts - prev_ts) / 86400 + 0.5) == 1) and run + 1 or 1
+        if run > data.longest_streak then data.longest_streak = run end
+        prev_ts = ts
+    end
+    data.reading_days = #data.days
+    for _k, month in pairs(months) do
+        local best = data.best_month
+        if not best or month.pages > best.pages or (month.pages == best.pages and month.month < best.month) then
+            data.best_month = month
+        end
+    end
+end
+
+-- Calendar-year recap for Reading Wrapped. Durations are seconds, lists are sorted by
+-- reading time, and records (best_day, best_month, most_annotated) stay nil without data.
+function StatsDB.queryWrapped()
+    flush_pending_stats()
+    local starts = period_starts()
+    local data = {
+        year = tonumber(os.date("%Y", os.time() - starts.shift)),
+        pages = 0, duration = 0, books = 0,
+        top_books = {}, authors = {}, series = {}, days = {}, hours = {},
+        longest_streak = 0, reading_days = 0,
+    }
+    local conn, err = DBConn.open(DBConn.getStatsDbPath())
+    if not conn then
+        logger.warn("cannot open DB:", err)
+        return data
+    end
+    local ok, query_err = pcall(function()
+        local totals = {}
+        query_period_stats(conn, starts, { year_pages = true, year_duration = true }, "", totals)
+        data.pages, data.duration = totals.year_pages or 0, totals.year_duration or 0
+
+        local books = conn:exec(string.format(SQL_WRAPPED_BOOKS, starts.start_year))
+        for i = 1, books and books[1] and #books[1] or 0 do
+            local book = {
+                id = tonumber(books[1][i]),
+                title = tostring(books[2][i] or ""),
+                authors = tostring(books[3][i] or ""),
+                series = tostring(books[4][i] or ""),
+                annotations = tonumber(books[5][i]) or 0,
+                duration = tonumber(books[6][i]) or 0,
+                pages = tonumber(books[7][i]) or 0,
+            }
+            data.top_books[#data.top_books + 1] = book
+            if book.annotations > 0 and (not data.most_annotated
+                    or book.annotations > data.most_annotated.annotations) then
+                data.most_annotated = book
+            end
+        end
+        data.books = #data.top_books
+        data.authors, data.series = wrapped_groups(data.top_books)
+        wrapped_days(conn:exec(string.format(SQL_WRAPPED_DAYS, starts.shift, starts.start_year)), data)
+        local hours = conn:exec(string.format(SQL_WRAPPED_HOURS, starts.start_year))
+        for i = 1, hours and hours[1] and #hours[1] or 0 do
+            data.hours[tonumber(hours[1][i]) or 0] = tonumber(hours[2][i]) or 0
+        end
+    end)
+    if not ok then
+        logger.warn("wrapped query failed:", query_err)
+    end
+    conn:close()
+    return data
+end
+
 return StatsDB

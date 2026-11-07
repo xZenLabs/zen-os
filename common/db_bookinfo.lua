@@ -702,4 +702,35 @@ function M.getTotalBookCount()
     return count
 end
 
+-- Finds a library file by the exact title and authors KOReader stored for it (the
+-- statistics database has no paths). Unknown authors are stored as "N/A" there.
+function M.findPathByTitleAuthors(title, authors)
+    if not bimOk or type(title) ~= "string" or title == "" then return nil end
+    BookInfoManager:openDbConnection()
+    local home_dir = paths.getHomeDir()
+    local known_authors = type(authors) == "string" and authors ~= "" and authors ~= "N/A"
+    local found, stmt
+    local ok, err = pcall(function()
+        stmt = BookInfoManager.db_conn:prepare(([[
+            SELECT directory, filename FROM bookinfo
+            WHERE in_progress = 0 AND title = ? AND %s
+            LIMIT 8
+        ]]):format(known_authors and "authors = ?" or "(authors IS NULL OR authors = '')"))
+        if not stmt then error("failed to prepare title lookup") end
+        if known_authors then stmt:bind(title, authors) else stmt:bind(title) end
+        while not found do
+            local row = stmt:step()
+            if not row then break end
+            found = get_valid_book_path(home_dir, row[1], row[2])
+        end
+    end)
+    if stmt then
+        pcall(stmt.clearbind, stmt)
+        pcall(stmt.reset, stmt)
+        if type(stmt.close) == "function" then pcall(stmt.close, stmt) end
+    end
+    if not ok then logger.warn("title lookup error:", err) end
+    return found
+end
+
 return M

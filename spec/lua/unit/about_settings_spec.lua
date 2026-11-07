@@ -119,8 +119,8 @@ describe("About settings", function()
         assert.are.equal("language", device_items[8].icon_glyph)
         assert.are.equal(time_item, device_items[9])
         assert.are.equal("tbr", device_items[9].icon_glyph)
-        assert.are.same({ "ZenOS: 1.0.0", "Device", "Setup Guide", "Report a Bug" }, {
-            items[1].text_func(), items[2].text, items[3].text, items[4].text,
+        assert.are.same({ "ZenOS: 1.0.0", "Device", "Setup Guide", "Reading Wrapped", "Report a Bug" }, {
+            items[1].text_func(), items[2].text, items[3].text, items[4].text, items[5].text,
         })
     end)
 

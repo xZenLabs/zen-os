@@ -168,6 +168,15 @@ function M.build(ctx)
     })
 
     table.insert(items, {
+        icon_glyph = icons.settings_stats,
+        text = _("Reading Wrapped"),
+        callback = function()
+            local ok, Wrapped = pcall(require, "common/reading_wrapped")
+            if ok then Wrapped.show() end
+        end,
+    })
+
+    table.insert(items, {
         icon_glyph = icons.settings_bug,
         text      = _("Report a Bug"),
         callback  = function()

@@ -30,6 +30,7 @@ local defaults = {
         reader_pin_header_migrated = false,
         tbr_collection_migrated = false,
         kindle_launcher_added = false,
+        wrapped_shown_for = false,
     },
     reader_pins = {
         side = "right",

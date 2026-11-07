@@ -119,6 +119,7 @@ local zen_update_icon = _plugin_root and require("common/utils").resolveIcon(
 -- Holds the single plugin instance so the FileManagerMenu patch can reach it.
 local _zen_plugin_ref = nil
 local _process_init_done = false
+local _wrapped_checked = false
 local _plugin_version
 -- Weak-keyed table of FileManagerMenu/ReaderMenu instances that have been patched,
 -- so the on_update_found callback can rebuild their tab_item_table dynamically.
@@ -424,6 +425,16 @@ function ZenUI:init()
 
         local pages_to_show
         local changelog_to_show
+        local function show_wrapped()
+            _wrapped_checked = true
+            local ok, Wrapped = pcall(require, "common/reading_wrapped")
+            if not ok then
+                logger.warn("failed to load reading_wrapped:", Wrapped)
+                return
+            end
+            local ok_show, err = pcall(Wrapped.maybeAutoShow, self)
+            if not ok_show then logger.warn("reading wrapped failed:", err) end
+        end
         local is_update = from_updater
             or (type(shown_ver) == "string" and shown_ver ~= current_ver)
 
@@ -549,7 +560,10 @@ function ZenUI:init()
                             logger.info("showing QuickstartScreen")
                             require("ui/uimanager"):show(QuickstartScreen:new{
                                 pages = pages_to_show,
+                                on_close = show_wrapped,
                             })
+                        else
+                            show_wrapped()
                         end
                     end,
                 })
@@ -559,6 +573,9 @@ function ZenUI:init()
         if shown_ver ~= false and not is_update
                 and self.config._meta.quickstart_menu_tour_pending == true then
             schedule_quickstart_menu_tour(0.8)
+        elseif shown_ver ~= false and not is_update and not _wrapped_checked then
+            -- Reading Wrapped checks its own _meta gate; once per process.
+            require("ui/uimanager"):scheduleIn(0.5, show_wrapped)
         end
     end
 

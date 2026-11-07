@@ -433,6 +433,7 @@ return {
         "Library and OPDS context menu icons follow custom icon packs",
         "Fix startup crash loop on books whose cover extraction keeps crashing",
         "End of book page forward key opens the next book in the series, or the library if none",
+        "Add Reading Wrapped: a yearly reading recap (Settings > About)",
         "Bug fixes & performance improvements"
     },
 

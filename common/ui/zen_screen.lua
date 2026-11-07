@@ -275,6 +275,108 @@ function ZenScreen:onZsFocusPrevious()
     return self:_moveButtonFocus()
 end
 
+-- Title bar. When the logo is hidden by a long changelog, render a small
+-- inline icon to the left of the title at text-height so it adds no height.
+function ZenScreen:_paintTitleBar(bb, x, y)
+    local L = self._L
+    if self.title and L.title_h > 0 then
+        local tw = TextWidget:new{
+            text    = self.title,
+            face    = Font:getFace("cfont", TITLE_FONT_SIZE),
+            bold    = true,
+            padding = 0,
+        }
+        local tsz = tw:getSize()
+        local show_inline_icon = self.title_icon == true or self._show_title_icon
+        local icon_gap = TitleStyle.TITLE_LEADING_PADDING
+        local icon_sz  = show_inline_icon and TitleStyle.ICON_SIZE or 0
+        local total_w  = tsz.w + (show_inline_icon and (icon_sz + icon_gap) or 0)
+        local base_x   = x + math.floor((L.sw - total_w) / 2)
+        local text_y   = y + TitleStyle.VERTICAL_PADDING
+            + math.floor((TitleStyle.ROW_HEIGHT - tsz.h) / 2)
+        local icon_y   = y + TitleStyle.VERTICAL_PADDING
+            + math.floor((TitleStyle.ROW_HEIGHT - icon_sz) / 2)
+
+        if show_inline_icon and ImageWidget and _plugin_root ~= "" then
+            pcall(function()
+                local iw = ImageWidget:new{
+                    file   = _plugin_root .. "/icons/zen_ui.svg",
+                    width  = icon_sz,
+                    height = icon_sz,
+                    alpha  = true,
+                }
+                iw:paintTo(bb, base_x, icon_y)
+                iw:free()
+                if Screen.night_mode then
+                    bb:invertRect(base_x, icon_y, icon_sz, icon_sz)
+                end
+            end)
+        end
+
+        tw:paintTo(bb, base_x + (show_inline_icon and (icon_sz + icon_gap) or 0), text_y)
+        tw:free()
+    end
+end
+
+-- Primary / later buttons plus the D-pad focus highlight; records the tap rects.
+function ZenScreen:_paintButtons(bb, x, y)
+    local L = self._L
+    self._btn_rect       = nil
+    self._later_btn_rect = nil
+    if (self.button ~= false or self.later_button) and L.btn_h > 0 then
+        local btn_h    = Screen:scaleBySize(54)
+        local corner_r = Screen:scaleBySize(10)
+        local btn_y    = y + L.btn_y + math.floor((L.btn_h - btn_h) / 2)
+
+        if self.button == false and self.later_button then
+            -- Later-only: single centered outlined button.
+            local bw        = Screen:scaleBySize(2)
+            local btn_w     = Screen:scaleBySize(240)
+            local btn_x     = x + math.floor((L.sw - btn_w) / 2)
+            local later_lbl = (type(self.later_button) == "string" and self.later_button ~= "")
+                and self.later_button or _("Later")
+            self._later_btn_rect = ZenButton.paintOutlined(
+                bb, btn_x, btn_y, btn_w, btn_h, later_lbl, 22, corner_r, bw)
+        elseif self.later_button then
+            -- Two buttons: outlined "Later" left, filled primary right.
+            local gap    = Screen:scaleBySize(16)
+            local btn_w  = Screen:scaleBySize(200)
+            local base_x = x + math.floor((L.sw - btn_w * 2 - gap) / 2)
+            local bw     = Screen:scaleBySize(2)  -- outline border thickness
+
+            -- Outlined Later button
+            local lbx       = base_x
+            local later_lbl = (type(self.later_button) == "string" and self.later_button ~= "")
+                and self.later_button or _("Later")
+            self._later_btn_rect = ZenButton.paintOutlined(
+                bb, lbx, btn_y, btn_w, btn_h, later_lbl, 22, corner_r, bw)
+
+            -- Filled primary button
+            local pbx      = base_x + btn_w + gap
+            local prim_lbl = (type(self.button) == "string" and self.button ~= "")
+                and self.button or _("Get Started")
+            self._btn_rect = ZenButton.paintFilled(
+                bb, pbx, btn_y, btn_w, btn_h, prim_lbl, 22, corner_r)
+        else
+            -- Single centered filled button.
+            local lbl   = (type(self.button) == "string" and self.button ~= "")
+                and self.button or _("Get Started")
+            local btn_w = Screen:scaleBySize(240)
+            local btn_x = x + math.floor((L.sw - btn_w) / 2)
+            self._btn_rect = ZenButton.paintFilled(
+                bb, btn_x, btn_y, btn_w, btn_h, lbl, 22, corner_r)
+        end
+    end
+    self:_normalizeButtonFocus()
+    if self._button_focus_visible then
+        local focus_rect = self._button_focus == "later"
+            and self._later_btn_rect or self._btn_rect
+        if focus_rect then
+            bb:invertRect(focus_rect.x, focus_rect.y, focus_rect.w, focus_rect.h)
+        end
+    end
+end
+
 function ZenScreen:paintTo(bb, x, y)
     local L = self._L
 
@@ -354,45 +456,7 @@ function ZenScreen:paintTo(bb, x, y)
 
     bb:paintRect(x, y, L.sw, L.sh, Blitbuffer.COLOR_WHITE)
 
-    -- Title bar. When the logo is hidden by a long changelog, render a small
-    -- inline icon to the left of the title at text-height so it adds no height.
-    if self.title and L.title_h > 0 then
-        local tw = TextWidget:new{
-            text    = self.title,
-            face    = Font:getFace("cfont", TITLE_FONT_SIZE),
-            bold    = true,
-            padding = 0,
-        }
-        local tsz = tw:getSize()
-        local show_inline_icon = self.title_icon == true or self._show_title_icon
-        local icon_gap = TitleStyle.TITLE_LEADING_PADDING
-        local icon_sz  = show_inline_icon and TitleStyle.ICON_SIZE or 0
-        local total_w  = tsz.w + (show_inline_icon and (icon_sz + icon_gap) or 0)
-        local base_x   = x + math.floor((L.sw - total_w) / 2)
-        local text_y   = y + TitleStyle.VERTICAL_PADDING
-            + math.floor((TitleStyle.ROW_HEIGHT - tsz.h) / 2)
-        local icon_y   = y + TitleStyle.VERTICAL_PADDING
-            + math.floor((TitleStyle.ROW_HEIGHT - icon_sz) / 2)
-
-        if show_inline_icon and ImageWidget and _plugin_root ~= "" then
-            pcall(function()
-                local iw = ImageWidget:new{
-                    file   = _plugin_root .. "/icons/zen_ui.svg",
-                    width  = icon_sz,
-                    height = icon_sz,
-                    alpha  = true,
-                }
-                iw:paintTo(bb, base_x, icon_y)
-                iw:free()
-                if Screen.night_mode then
-                    bb:invertRect(base_x, icon_y, icon_sz, icon_sz)
-                end
-            end)
-        end
-
-        tw:paintTo(bb, base_x + (show_inline_icon and (icon_sz + icon_gap) or 0), text_y)
-        tw:free()
-    end
+    self:_paintTitleBar(bb, x, y)
 
     -- Subtitle above icon (wraps to fit width so long strings don't run off-page).
     if self.subtitle and L.subtitle_h > 0 then
@@ -473,61 +537,7 @@ function ZenScreen:paintTo(bb, x, y)
         end
     end
 
-    -- Button(s)
-    self._btn_rect       = nil
-    self._later_btn_rect = nil
-    if (self.button ~= false or self.later_button) and L.btn_h > 0 then
-        local btn_h    = Screen:scaleBySize(54)
-        local corner_r = Screen:scaleBySize(10)
-        local btn_y    = y + L.btn_y + math.floor((L.btn_h - btn_h) / 2)
-
-        if self.button == false and self.later_button then
-            -- Later-only: single centered outlined button.
-            local bw        = Screen:scaleBySize(2)
-            local btn_w     = Screen:scaleBySize(240)
-            local btn_x     = x + math.floor((L.sw - btn_w) / 2)
-            local later_lbl = (type(self.later_button) == "string" and self.later_button ~= "")
-                and self.later_button or _("Later")
-            self._later_btn_rect = ZenButton.paintOutlined(
-                bb, btn_x, btn_y, btn_w, btn_h, later_lbl, 22, corner_r, bw)
-        elseif self.later_button then
-            -- Two buttons: outlined "Later" left, filled primary right.
-            local gap    = Screen:scaleBySize(16)
-            local btn_w  = Screen:scaleBySize(200)
-            local base_x = x + math.floor((L.sw - btn_w * 2 - gap) / 2)
-            local bw     = Screen:scaleBySize(2)  -- outline border thickness
-
-            -- Outlined Later button
-            local lbx       = base_x
-            local later_lbl = (type(self.later_button) == "string" and self.later_button ~= "")
-                and self.later_button or _("Later")
-            self._later_btn_rect = ZenButton.paintOutlined(
-                bb, lbx, btn_y, btn_w, btn_h, later_lbl, 22, corner_r, bw)
-
-            -- Filled primary button
-            local pbx      = base_x + btn_w + gap
-            local prim_lbl = (type(self.button) == "string" and self.button ~= "")
-                and self.button or _("Get Started")
-            self._btn_rect = ZenButton.paintFilled(
-                bb, pbx, btn_y, btn_w, btn_h, prim_lbl, 22, corner_r)
-        else
-            -- Single centered filled button.
-            local lbl   = (type(self.button) == "string" and self.button ~= "")
-                and self.button or _("Get Started")
-            local btn_w = Screen:scaleBySize(240)
-            local btn_x = x + math.floor((L.sw - btn_w) / 2)
-            self._btn_rect = ZenButton.paintFilled(
-                bb, btn_x, btn_y, btn_w, btn_h, lbl, 22, corner_r)
-        end
-    end
-    self:_normalizeButtonFocus()
-    if self._button_focus_visible then
-        local focus_rect = self._button_focus == "later"
-            and self._later_btn_rect or self._btn_rect
-        if focus_rect then
-            bb:invertRect(focus_rect.x, focus_rect.y, focus_rect.w, focus_rect.h)
-        end
-    end
+    self:_paintButtons(bb, x, y)
 end
 
 function ZenScreen:_onSwipe(ges)
