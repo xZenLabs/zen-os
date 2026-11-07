@@ -1,4 +1,4 @@
--- ZenOS: Icon-only DictQuickLookup buttons
+-- ZenOS: Compact DictQuickLookup buttons
 -- Replaces the dictionary popup's text button row with a compact icon row.
 -- Supports both old KOReader (DictButtonsReady event) and new KOReader
 -- (buildButtonLayout override). When "show other items" is enabled,
@@ -12,12 +12,21 @@ local function apply()
     local UIManager = require("ui/uimanager")
     local logger = require("common/zen_logger").new("dict_quick_lookup")
     local LookupPluginItems = require("modules/reader/lookup_plugin_items")
+    local References = require("modules/reader/references")
+    local Labels = require("common/ui/button_labels")
+    local function add_pin_button(widget, buttons)
+        local dictionary = widget.ui and widget.ui.dictionary
+        widget._zen_pin_page = widget._zen_pin_page or dictionary and dictionary._zen_reference_page
+        if not widget._zen_pin_page and widget.highlight and widget.highlight.selected_text then
+            widget._zen_pin_page = References.selectionPage(widget.highlight)
+        end
+        if widget._zen_pin_page then
+            References.addPinButton(buttons, widget.ui, widget._zen_pin_page, function() widget:onClose() end, "dict_quick_lookup")
+        end
+    end
     local utils = require("common/utils")
     local plugin_root = require("common/plugin_root")
-    local ai_icon = utils.resolveLocalIcon(plugin_root and plugin_root .. "/icons/", "lookup_ai")
-    if ai_icon then
-        utils.overrideIcons({ [ai_icon] = ai_icon }, false)
-    end
+    local ai_icon = utils.resolveIcon(plugin_root and plugin_root .. "/icons/", "lookup_ai")
     local _ = require("gettext")
 
     local _plugin_ref = rawget(_G, "__ZEN_UI_PLUGIN")
@@ -27,6 +36,127 @@ local function apply()
             and _plugin_ref.config
             and _plugin_ref.config.features
         return type(features) == "table" and features.dict_quick_lookup == true
+    end
+
+    local function show_labels()
+        local settings = _plugin_ref and _plugin_ref.config.dict_quick_lookup
+        return settings and settings.show_labels == true
+    end
+
+    local function prepare_labels(widget, buttons)
+        if not show_labels() then return buttons end
+        local Size = require("ui/size")
+        return Labels.prepare(buttons, widget.width - 2 * (Size.border.window + Size.padding.default))
+    end
+
+    -- Large windows keep their stock full-screen layout.
+    local function docks(widget)
+        local settings = _plugin_ref and _plugin_ref.config.dict_quick_lookup
+        local request = DictQuickLookup.temp_large_window_request
+        return type(settings) == "table" and settings.bottom_sheet ~= false
+            and not widget.is_wiki_fullpage and not G_reader_settings:isTrue("dict_largewindow")
+            and not (request and request.is_large_window)
+    end
+
+    -- Remaps stock black-on-white pixels to the reader theme: white -> background, black -> text.
+    local function tint(bb, x, y, w, h, radius)
+        local ReaderThemes = require("common/reader_themes")
+        local background, foreground = ReaderThemes.getBackgroundColor(_plugin_ref), ReaderThemes.getTextColor(_plugin_ref)
+        if not (background and foreground) then return end
+        -- Software night mode stores pixels inverted; work on raw pixels so the C blitter stays usable.
+        local inverse = bb.getInverse and bb:getInverse() == 1
+        if inverse then background, foreground = foreground:invert(), background:invert() end
+        local Blitbuffer = require("ffi/blitbuffer")
+        local light, dark = background:getColorRGB32(), foreground:getColorRGB32()
+        -- Dark-background themes skip the first inversion so white still lands on the background.
+        local swap = light.r + light.g + light.b < dark.r + dark.g + dark.b
+        if swap then light, dark = dark, light end
+        if not swap and light.r + light.g + light.b == 765 and dark.r + dark.g + dark.b == 0 then return end
+        local function ratio(l, d) return l > d and math.floor(255 * (l - d) / l + 0.5) or 0 end
+        local scale = Blitbuffer.ColorRGB32(ratio(light.r, dark.r), ratio(light.g, dark.g), ratio(light.b, dark.b), 0xFF)
+        -- light * (1 - (1 - c) * (light - dark) / light), all in C blit passes.
+        if inverse then bb:setInverse(0) end
+        local ok, err = pcall(require("common/ui/button_feedback").eachSpan,
+            { x = x, y = y, w = w, h = h }, radius or 0, function(sx, sy, sw, sh)
+                if not swap then bb:invertRect(sx, sy, sw, sh) end
+                bb:multiplyRectRGB(sx, sy, sw, sh, scale)
+                bb:invertRect(sx, sy, sw, sh)
+                bb:multiplyRectRGB(sx, sy, sw, sh, light)
+            end)
+        if inverse then bb:setInverse(1) end
+        if not ok then error(err, 0) end
+    end
+
+    local init = DictQuickLookup.init
+    DictQuickLookup.init = function(self, ...)
+        local BottomSheet = docks(self) and require("common/ui/bottom_sheet")
+        local w, h, margin, width
+        if BottomSheet then
+            local Screen = require("device").screen
+            w, h = Screen:getWidth(), Screen:getHeight()
+            margin, width = BottomSheet.dock(w, h)
+            self.width = self.width or width
+        end
+        local result = init(self, ...)
+        if is_enabled() and show_labels() and not self.is_wiki and not self.is_wiki_fullpage then
+            Labels.apply(self.button_table, self.button_table.buttons)
+        end
+        local docked = BottomSheet and self.dict_frame and self[1]
+        if docked then
+            -- Match the footnote drawer: docked to the bottom, rounded corners pushed off-screen.
+            local Size = require("ui/size")
+            local extension = Size.radius.window + Size.border.window
+            self.dict_frame.padding_bottom = extension
+            self.region = require("ui/geometry"):new{ x = w > h and w - self.width - margin or 0, y = 0,
+                w = w > h and self.width or w, h = h + extension }
+            self.align = "bottom"
+            self[1].dimen, self[1].align = self.region, "bottom"
+            self.alpha = BottomSheet.alpha
+            -- Stock refreshes only the frame; widen it to the shadow.
+            self.onShow = function(widget)
+                UIManager:setDirty(widget, function()
+                    local dimen = widget.dict_frame.dimen
+                    return "flashui", BottomSheet.refreshArea(dimen.x, dimen.y, dimen.w, dimen.h)
+                end)
+                return true
+            end
+            -- Down chevron instead of X, like a dismissable sheet.
+            local close = self.dict_title and self.dict_title.right_button
+            local chevron = close and utils.resolveLocalIcon(
+                require("libs/libkoreader-lfs").currentdir() .. "/resources/icons/mdlight/", "chevron.up")
+            if chevron then
+                close.icon_rotation_angle = 180
+                close:setIcon(chevron)
+            end
+        end
+        local dots = is_enabled() and self.definition_widget and self.results
+        if dots and self.displaynb_text then self.displaynb_text.paintTo = function() end end
+        local themed = self.ui and self.ui.document
+        if self.dict_frame and (dots or themed or docked) then
+            local paint = self.dict_frame.paintTo
+            self.dict_frame.paintTo = function(frame, bb, x, y)
+                local size = frame:getSize()
+                if docked then BottomSheet.paintShadow(bb, x, y, size.w, size.h, frame.radius + frame.bordersize) end
+                paint(frame, bb, x, y)
+                local definition = self.definition_widget and self.definition_widget.dimen
+                if dots and definition then
+                    -- Result dots replace "1 / N", centered in the padding above the buttons.
+                    require("common/ui/zen_pager").paint(bb, x, definition.y + definition.h, size.w,
+                        require("ui/size").padding.large, self.dict_index, #self.results, "dots", nil,
+                        require("device").screen:scaleBySize(6))
+                end
+                if themed then tint(bb, x, y, size.w, size.h, frame.radius) end
+            end
+        end
+        return result
+    end
+
+    local function update_vocab_icon(widget, in_vocab)
+        local button = widget.button_table and widget.button_table:getButtonById("vocabulary")
+        if not button then return end
+        local icon = in_vocab and "lookup.vocab_remove" or "lookup.vocab"
+        button:setIcon(icon, button.width)
+        if show_labels() then Labels.applyButton(button, { icon = icon }) end
     end
 
     local function show_wikipedia()
@@ -70,6 +200,8 @@ local function apply()
         prev_dict = "prev_dict",
         next_dict = "next_dict",
     }
+    local LABELS = { highlight = _("Highlight"), search = _("Search"), wikipedia = _("Wikipedia"),
+        translate = _("Translate"), vocabulary = _("Vocabulary") }
 
     local function is_vocabulary_button(button, dict_widget)
         if button.id == "vocabulary" then return true end
@@ -96,6 +228,7 @@ local function apply()
         return {
             id = "zen_ai_assistant",
             icon = ai_icon,
+            text = show_labels() and _("AI assistant") or nil,
             callback = function()
                 if not assistant:isConfigured() then return end
                 local NetworkMgr = require("ui/network/manager")
@@ -117,6 +250,7 @@ local function apply()
         return {
             id            = orig.id,
             icon          = icon,
+            text          = show_labels() and (LABELS[orig.id] or orig.text) or nil,
             enabled       = orig.enabled,
             enabled_func  = orig.enabled_func,
             callback      = orig.callback,
@@ -133,6 +267,7 @@ local function apply()
         return {
             id = "translate",
             icon = ICON_MAP.translate,
+            text = show_labels() and _("Translate") or nil,
             enabled = not dict_widget.isDocless or not dict_widget:isDocless(),
             callback = function()
                 Translator:showTranslation(dict_widget.lookupword or dict_widget.word, true)
@@ -251,27 +386,20 @@ local function apply()
 
                 local v = icon_btn(vocab_btn, "lookup.vocab")
                 v.id = "vocabulary"
+                v.text = show_labels() and _("Vocabulary") or nil
                 v.callback = function()
                     if not is_in_vocab then
                         self_dql.ui:handleEvent(
                             Event:new("WordLookedUp", vocab_word, get_book_title(), true)
                         )
                         is_in_vocab = true
-                        local btn_w = self_dql.button_table
-                            and self_dql.button_table:getButtonById("vocabulary")
-                        if btn_w then
-                            btn_w:setIcon("lookup.vocab_remove", btn_w.width)
-                        end
+                        update_vocab_icon(self_dql, true)
                     else
                         if DB and DB.remove then
                             DB:remove({ word = vocab_word })
                         end
                         is_in_vocab = false
-                        local btn_w = self_dql.button_table
-                            and self_dql.button_table:getButtonById("vocabulary")
-                        if btn_w then
-                            btn_w:setIcon("lookup.vocab", btn_w.width)
-                        end
+                        update_vocab_icon(self_dql, false)
                     end
                     UIManager:setDirty(self_dql, "ui")
                 end
@@ -325,8 +453,9 @@ local function apply()
             logger.dbg("new-api icon_row=",
                 #icon_row, "unknown=", #unknown)
             result = #result > 0 and result or buttons
+            add_pin_button(self_dql, result)
             LookupPluginItems.protectButtons(result)
-            return result
+            return prepare_labels(self_dql, result)
         end
 
         logger.dbg("installed new-API buildButtonLayout override")
@@ -417,6 +546,7 @@ local function apply()
         if ui and is_enabled()
             and not self_dql.is_wiki and not self_dql.is_wiki_fullpage then
             local orig_handle = ui.handleEvent
+            local own_handle = rawget(ui, "handleEvent")
             ui.handleEvent = function(ui_self, event, ...)
                 local result = orig_handle(ui_self, event, ...)
                 -- Post-process after all DictButtonsReady handlers have run.
@@ -454,21 +584,10 @@ local function apply()
                                 or _("Dictionary lookup")
                         end
 
-                        local function update_vocab_icon(in_vocab)
-                            local btn_w = self_dql.button_table
-                                and self_dql.button_table:getButtonById("vocabulary")
-                            if btn_w then
-                                btn_w:setIcon(
-                                    in_vocab and "lookup.vocab_remove" or "lookup.vocab",
-                                    btn_w.width
-                                )
-                            end
-                            UIManager:setDirty(self_dql, "ui")
-                        end
-
                         local v = {
                             id   = "vocabulary",
                             icon = "lookup.vocab",
+                            text = show_labels() and _("Vocabulary") or nil,
                             callback = function()
                                 if not is_in_vocab then
                                     -- Add: fire WordLookedUp so VocabBuilder handles insert.
@@ -476,15 +595,16 @@ local function apply()
                                         Event:new("WordLookedUp", vocab_word, get_book_title(), true)
                                     )
                                     is_in_vocab = true
-                                    update_vocab_icon(true)
+                                    update_vocab_icon(self_dql, true)
                                 else
                                     -- Remove directly (no confirmation, matching icon-toggle UX).
                                     if DB and DB.remove then
                                         DB:remove({ word = vocab_word })
                                     end
                                     is_in_vocab = false
-                                    update_vocab_icon(false)
+                                    update_vocab_icon(self_dql, false)
                                 end
+                                UIManager:setDirty(self_dql, "ui")
                             end,
                         }
                         table.insert(icon_row, 2, v)
@@ -511,12 +631,19 @@ local function apply()
                             end
                         end
                     end
+                    add_pin_button(self_dql, buttons)
                     LookupPluginItems.protectButtons(buttons)
+                    local labelled = prepare_labels(self_dql, buttons)
+                    if labelled ~= buttons then
+                        for i = #buttons, 1, -1 do buttons[i] = nil end
+                        for i, row in ipairs(labelled) do buttons[i] = row end
+                    end
                 end
                 return result
             end
             local ok, err = pcall(orig_init, self_dql, ...)
-            ui.handleEvent = orig_handle -- always restore
+            -- Always restore; drop the instance field if there was none so later class patches still apply.
+            rawset(ui, "handleEvent", own_handle)
             if not ok then error(err) end
         else
             return orig_init(self_dql, ...)

@@ -11,10 +11,10 @@ local icons = require("common/inline_icon_map")
 local IconItem = require("common/ui/icon_menu_item")
 local defaults = require("config/defaults")
 local LibraryFontPath = require("common/library_font_path")
+local Accent = require("common/ui/accent")
 
 local metadata_section    = require("modules/settings/sections/library_settings/metadata_settings")
 local settings_apply      = require("modules/settings/zen_settings_apply")
-local zen_settings_utils  = require("modules/settings/zen_settings_utils")
 
 local M = {}
 local BOOK_DETAIL_ORDER = defaults.book_details.order
@@ -34,6 +34,229 @@ local function schedule_home_rebuild_on_menu_close(plugin)
             home.rebuildActive()
         end
     end)
+end
+
+-- Library book details editor; shared with the page browser Book details tab
+local function book_details_editor(config, plugin)
+    local detail_labels = {
+        authors = _("Authors"),
+        series = _("Series"),
+        tags = _("Tags"),
+        language = _("Language"),
+        rating = _("Rating"),
+        annotations = _("Annotations"),
+        note = _("Note"),
+        navigate_to_tag = _("Navigate to tag"),
+        pages = _("Pages"),
+        progress = _("Progress"),
+        read_time = _("Read time"),
+        time_remaining = _("Time remaining"),
+        description = _("Description"),
+    }
+    local function normalize_detail_order(order)
+        local normalized, seen, valid = {}, {}, {}
+        for _i, id in ipairs(BOOK_DETAIL_ORDER) do valid[id] = true end
+        for _i, id in ipairs(type(order) == "table" and order or {}) do
+            if valid[id] and not seen[id] then
+                normalized[#normalized + 1], seen[id] = id, true
+            end
+        end
+        for _i, id in ipairs(BOOK_DETAIL_ORDER) do
+            if not seen[id] then normalized[#normalized + 1] = id end
+        end
+        return normalized
+    end
+    local function detail_toggle(id)
+        local default_enabled = defaults.book_details[id] == true
+        local function is_enabled()
+            local cfg = type(config.book_details) == "table"
+                and config.book_details or {}
+            if type(cfg[id]) == "boolean" then return cfg[id] end
+            return default_enabled
+        end
+        return {
+            text = detail_labels[id],
+            orig_item = id,
+            checked_func = is_enabled,
+            callback = function()
+                if type(config.book_details) ~= "table" then
+                    config.book_details = {}
+                end
+                config.book_details[id] = not is_enabled()
+                plugin:saveConfig()
+            end,
+        }
+    end
+
+    local function ensure_book_detail_description_style()
+        if type(config.book_details) ~= "table" then config.book_details = {} end
+        local cfg = config.book_details
+        if type(cfg.text_styles) ~= "table" then cfg.text_styles = {} end
+        local style = type(cfg.text_styles.description) == "table"
+            and cfg.text_styles.description or {}
+        cfg.text_styles.description = style
+        local style_defaults = BOOK_DETAIL_TEXT_STYLE_DEFAULTS.description
+        if type(style.font_face) ~= "string" or style.font_face == "" then
+            style.font_face = style_defaults.font_face
+        end
+        local size = tonumber(style.font_size)
+        style.font_size = size and math.max(6, math.min(40,
+            math.floor(size + 0.5))) or nil
+        return style
+    end
+
+    local function description_font_size(style)
+        return style.font_size or ensure_library_font_cfg(config).font_size
+    end
+
+    local function save_book_detail_description_style(touchmenu_instance)
+        plugin:saveConfig()
+        if touchmenu_instance and touchmenu_instance.updateItems then
+            touchmenu_instance:updateItems()
+        end
+    end
+
+    local function book_detail_default_font(FontChooser)
+        local face = resolved_library_font(ensure_library_font_cfg(config).font_face)
+        if type(FontChooser.isFontRegistered) ~= "function"
+                or FontChooser.isFontRegistered(face) then
+            return face
+        end
+        return find_registered_font_file(face) or select(2, picker_default(FontChooser))
+    end
+
+    local function build_book_detail_description_font_items()
+        return {
+            {
+                _zen_search_text = _("Font"),
+                text_func = function()
+                    local style = ensure_book_detail_description_style()
+                    local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
+                    local face_text = style.font_face == "default" and _("default")
+                        or (ok_fc and font_name_text(style, FontChooser) or style.font_face)
+                    return string.format("%s %s", _("Font") .. ":", face_text)
+                end,
+                keep_menu_open = true,
+                callback = function(touchmenu_instance)
+                    local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
+                    if not ok_fc then return end
+                    local style = ensure_book_detail_description_style()
+                    local default_font = book_detail_default_font(FontChooser)
+                    local display_face = style.font_face == "default"
+                        and default_font or resolved_library_font(style.font_face)
+                    if type(FontChooser.isFontRegistered) == "function"
+                            and not FontChooser.isFontRegistered(display_face) then
+                        display_face = find_registered_font_file(display_face)
+                            or default_font
+                    end
+                    if not display_face then return end
+                    UIManager:show(FontChooser:new{
+                        title = _("Description") .. " " .. _("font"),
+                        font_file = display_face,
+                        default_font_file = default_font,
+                        callback = function(file)
+                            local portable_file = LibraryFontPath.toConfig(file)
+                            if style.font_face ~= portable_file then
+                                style.font_face = portable_file
+                                save_book_detail_description_style(touchmenu_instance)
+                            end
+                        end,
+                    })
+                end,
+            },
+            {
+                text_func = function()
+                    local style = ensure_book_detail_description_style()
+                    return string.format("%s %s", _("Font size") .. ":",
+                        tostring(description_font_size(style)))
+                end,
+                keep_menu_open = true,
+                callback = function(touchmenu_instance)
+                    local SpinWidget = require("ui/widget/spinwidget")
+                    local style = ensure_book_detail_description_style()
+                    UIManager:show(SpinWidget:new{
+                        title_text = _("Description") .. " " .. _("font size"),
+                        value = description_font_size(style),
+                        value_min = 6,
+                        value_max = 40,
+                        default_value = ensure_library_font_cfg(config).font_size,
+                        callback = function(spin)
+                            style.font_size = math.max(6, math.min(40, spin.value))
+                            save_book_detail_description_style(touchmenu_instance)
+                        end,
+                    })
+                end,
+            },
+            {
+                text = _("Use default style"),
+                callback = function(touchmenu_instance)
+                    config.book_details.text_styles.description = {
+                        font_face = BOOK_DETAIL_TEXT_STYLE_DEFAULTS.description.font_face,
+                    }
+                    save_book_detail_description_style(touchmenu_instance)
+                end,
+            },
+        }
+    end
+
+    local function show_book_details()
+        if type(config.book_details) ~= "table" then config.book_details = {} end
+        local cfg = config.book_details
+        cfg.order = normalize_detail_order(cfg.order)
+        local sort_items = {}
+        for _i, id in ipairs(cfg.order) do
+            local item = detail_toggle(id)
+            if id == "tags" then
+                item.sub_title = detail_labels[id]
+                item.sub_item_table = { detail_toggle("navigate_to_tag") }
+            end
+            sort_items[#sort_items + 1] = item
+        end
+        local description_item = detail_toggle("description")
+        description_item.arrange_pinned_last = true
+        description_item.sub_title = detail_labels.description
+        description_item.checkmark_callback = description_item.callback
+        description_item.callback = nil
+        description_item.sub_item_table_func = build_book_detail_description_font_items
+        sort_items[#sort_items + 1] = description_item
+        require("common/ui/zen_arrange_list").show{
+            title = _("Book details"),
+            item_table = sort_items,
+            plugin = plugin,
+            callback = function()
+                local order = {}
+                for _i, item in ipairs(sort_items) do
+                    if item.orig_item ~= "description" then
+                        order[#order + 1] = item.orig_item
+                    end
+                end
+                cfg.order = normalize_detail_order(order)
+                plugin:saveConfig()
+            end,
+        }
+    end
+
+    local function detail_search_items()
+        local search_items = {}
+        local function add(id)
+            search_items[#search_items + 1] = {
+                text = detail_labels[id],
+                orig_item = id,
+                _zen_search_open = show_book_details,
+            }
+        end
+        for _i, id in ipairs(BOOK_DETAIL_ORDER) do add(id) end
+        for _i, id in ipairs({ "navigate_to_tag", "description" }) do
+            add(id)
+        end
+        return search_items
+    end
+    return show_book_details, detail_search_items
+end
+
+function M.showBookDetails(config, plugin)
+    local show = book_details_editor(config, plugin)
+    show()
 end
 
 function M.build(ctx)
@@ -246,7 +469,14 @@ function M.build(ctx)
         },
     }
 
+    local badge_sizes = {
+        { label = _("Compact"),     value = "compact"     },
+        { label = _("Normal"),      value = "normal"      },
+        { label = _("Large"),       value = "large"       },
+        { label = _("Extra large"), value = "extra_large" },
+    }
     table.insert(appearance_items, {
+        icon_glyph = icons.settings_covers,
         text = _("Covers"),
         sub_item_table = {
             {
@@ -254,15 +484,17 @@ function M.build(ctx)
                 sub_item_table = {
                     {
                         text = _("Badge size"),
+                        text_func = function()
+                            local size = type(config.browser_cover_badges) == "table"
+                                and config.browser_cover_badges.badge_size or "normal"
+                            for _i, option in ipairs(badge_sizes) do
+                                if option.value == size then return _("Badge size") .. ": " .. option.label end
+                            end
+                            return _("Badge size") .. ": " .. _("Normal")
+                        end,
                         sub_item_table = (function()
-                            local sizes = {
-                                { label = _("Compact"),     value = "compact"     },
-                                { label = _("Normal"),      value = "normal"      },
-                                { label = _("Large"),       value = "large"       },
-                                { label = _("Extra large"), value = "extra_large" },
-                            }
                             local badge_size_items = {}
-                            for _i, sz in ipairs(sizes) do
+                            for _i, sz in ipairs(badge_sizes) do
                                 local v = sz.value
                                 table.insert(badge_size_items, {
                                     text = sz.label,
@@ -285,40 +517,42 @@ function M.build(ctx)
                             return badge_size_items
                         end)(),
                     },
-                    zen_settings_utils.buildColorSubMenu({
-                        label        = _("Badge color: "),
-                        get          = function()
+                    {
+                        text_func = function()
                             local c = type(config.browser_cover_badges) == "table"
                                 and config.browser_cover_badges.badge_color
-                            return type(c) == "table" and c or nil
+                            return _("Badge color") .. ": " .. (type(c) == "table"
+                                and string.format("%d,%d,%d", c[1], c[2], c[3]) or _("Accent color"))
                         end,
-                        set          = function(r, g, b)
-                            if type(config.browser_cover_badges) ~= "table" then
-                                config.browser_cover_badges = {}
+                        keep_menu_open = true,
+                        callback = function(touchmenu_instance)
+                            local badges = type(config.browser_cover_badges) == "table"
+                                and config.browser_cover_badges or {}
+                            local c = badges.badge_color
+                            local function save_color(color, opacity)
+                                config.browser_cover_badges = badges
+                                badges.badge_color = color
+                                badges.badge_opacity = opacity
+                                plugin:saveConfig()
+                                UIManager:setDirty(nil, getFullRefreshMode())
+                                if touchmenu_instance then touchmenu_instance:updateItems() end
                             end
-                            config.browser_cover_badges.badge_color = { r, g, b }
-                            plugin:saveConfig()
-                            UIManager:setDirty(nil, getFullRefreshMode())
+                            UIManager:show(require("common/ui/color_wheel_widget"):new{
+                                title_text = _("Badge color"),
+                                back_button = true,
+                                hex = type(c) == "table" and string.format("#%02X%02X%02X", c[1], c[2], c[3])
+                                    or Accent.hex(config),
+                                opacity = type(c) == "table" and (badges.badge_opacity or 100)
+                                    or Accent.opacity(config),
+                                callback = function(hex, opacity)
+                                    save_color({ tonumber(hex:sub(2, 3), 16), tonumber(hex:sub(4, 5), 16),
+                                        tonumber(hex:sub(6, 7), 16) }, opacity)
+                                end,
+                                reset_text = _("Accent color"),
+                                reset_callback = function() save_color(nil, nil) end,
+                            }, getFullRefreshMode())
                         end,
-                        reset        = function()
-                            if type(config.browser_cover_badges) == "table" then
-                                config.browser_cover_badges.badge_color = nil
-                            end
-                            plugin:saveConfig()
-                            UIManager:setDirty(nil, getFullRefreshMode())
-                        end,
-                        default_text = _("Default"),
-                        reset_text   = _("Default"),
-                        presets = {
-                            { text = _("Black"), r = 0,    g = 0,    b = 0    },
-                            { text = _("White"), r = 255,  g = 255,  b = 255  },
-                            { text = _("Gray"),  r = 204,  g = 204,  b = 204  },
-                            { text = _("Blue"),  r = 0x99, g = 0xBB, b = 0xF0 },
-                            { text = _("Green"), r = 0x99, g = 0xCC, b = 0x99 },
-                            { text = _("Amber"), r = 0xF0, g = 0xD0, b = 0x80 },
-                            { text = _("Red"),   r = 0xDD, g = 0x99, b = 0x99 },
-                        },
-                    }),
+                    },
                     {
                         text = _("Show page count"),
                         checked_func = function()
@@ -561,7 +795,7 @@ function M.build(ctx)
     for _i, orientation in ipairs({ "portrait", "landscape" }) do
         local portrait = orientation == "portrait"
         local cols_key, rows_key = "nb_cols_" .. orientation, "nb_rows_" .. orientation
-        local default_cols, default_rows = portrait and 3 or 4, portrait and 3 or 2
+        local default_cols, default_rows = portrait and 3 or 4, 2
         mosaic_items[#mosaic_items + 1] = {
             text = portrait and _("Portrait") or _("Landscape"),
             text_func = function()
@@ -585,7 +819,7 @@ function M.build(ctx)
         text = _("Reset to default"),
         keep_menu_open = true,
         callback = function(touchmenu_instance)
-            save_layout({ nb_cols_portrait = 3, nb_rows_portrait = 3,
+            save_layout({ nb_cols_portrait = 3, nb_rows_portrait = 2,
                 nb_cols_landscape = 4, nb_rows_landscape = 2 }, touchmenu_instance)
         end,
     }
@@ -751,6 +985,7 @@ function M.build(ctx)
     }
 
     table.insert(appearance_items, {
+        icon_glyph = icons.settings_scroll,
         text = _("Scroll bar"),
         sub_item_table = scroll_bar_sub_items,
     })
@@ -799,6 +1034,7 @@ function M.build(ctx)
     })
 
     table.insert(appearance_items, 1, {
+        icon_glyph = icons.settings_layout,
         text = _("Layout"),
         sub_item_table = layout_items,
     })
@@ -954,219 +1190,7 @@ function M.build(ctx)
         end,
     }
 
-    local detail_labels = {
-        authors = _("Authors"),
-        series = _("Series"),
-        tags = _("Tags"),
-        language = _("Language"),
-        rating = _("Rating"),
-        annotations = _("Annotations"),
-        note = _("Note"),
-        navigate_to_tag = _("Navigate to tag"),
-        pages = _("Pages"),
-        progress = _("Progress"),
-        read_time = _("Read time"),
-        time_remaining = _("Time remaining"),
-        description = _("Description"),
-    }
-    local function normalize_detail_order(order)
-        local normalized, seen, valid = {}, {}, {}
-        for _i, id in ipairs(BOOK_DETAIL_ORDER) do valid[id] = true end
-        for _i, id in ipairs(type(order) == "table" and order or {}) do
-            if valid[id] and not seen[id] then
-                normalized[#normalized + 1], seen[id] = id, true
-            end
-        end
-        for _i, id in ipairs(BOOK_DETAIL_ORDER) do
-            if not seen[id] then normalized[#normalized + 1] = id end
-        end
-        return normalized
-    end
-    local function detail_toggle(id)
-        local default_enabled = defaults.book_details[id] == true
-        local function is_enabled()
-            local cfg = type(config.book_details) == "table"
-                and config.book_details or {}
-            if type(cfg[id]) == "boolean" then return cfg[id] end
-            return default_enabled
-        end
-        return {
-            text = detail_labels[id],
-            orig_item = id,
-            checked_func = is_enabled,
-            callback = function()
-                if type(config.book_details) ~= "table" then
-                    config.book_details = {}
-                end
-                config.book_details[id] = not is_enabled()
-                plugin:saveConfig()
-            end,
-        }
-    end
-
-    local function ensure_book_detail_description_style()
-        if type(config.book_details) ~= "table" then config.book_details = {} end
-        local cfg = config.book_details
-        if type(cfg.text_styles) ~= "table" then cfg.text_styles = {} end
-        local style = type(cfg.text_styles.description) == "table"
-            and cfg.text_styles.description or {}
-        cfg.text_styles.description = style
-        local style_defaults = BOOK_DETAIL_TEXT_STYLE_DEFAULTS.description
-        if type(style.font_face) ~= "string" or style.font_face == "" then
-            style.font_face = style_defaults.font_face
-        end
-        local size = tonumber(style.font_size)
-        style.font_size = size and math.max(6, math.min(40,
-            math.floor(size + 0.5))) or nil
-        return style
-    end
-
-    local function description_font_size(style)
-        return style.font_size or ensure_library_font_cfg(config).font_size
-    end
-
-    local function save_book_detail_description_style(touchmenu_instance)
-        plugin:saveConfig()
-        if touchmenu_instance and touchmenu_instance.updateItems then
-            touchmenu_instance:updateItems()
-        end
-    end
-
-    local function book_detail_default_font(FontChooser)
-        local face = resolved_library_font(ensure_library_font_cfg(config).font_face)
-        if type(FontChooser.isFontRegistered) ~= "function"
-                or FontChooser.isFontRegistered(face) then
-            return face
-        end
-        return find_registered_font_file(face) or select(2, picker_default(FontChooser))
-    end
-
-    local function build_book_detail_description_font_items()
-        return {
-            {
-                _zen_search_text = _("Font"),
-                text_func = function()
-                    local style = ensure_book_detail_description_style()
-                    local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
-                    local face_text = style.font_face == "default" and _("default")
-                        or (ok_fc and font_name_text(style, FontChooser) or style.font_face)
-                    return string.format("%s %s", _("Font") .. ":", face_text)
-                end,
-                keep_menu_open = true,
-                callback = function(touchmenu_instance)
-                    local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
-                    if not ok_fc then return end
-                    local style = ensure_book_detail_description_style()
-                    local default_font = book_detail_default_font(FontChooser)
-                    local display_face = style.font_face == "default"
-                        and default_font or resolved_library_font(style.font_face)
-                    if type(FontChooser.isFontRegistered) == "function"
-                            and not FontChooser.isFontRegistered(display_face) then
-                        display_face = find_registered_font_file(display_face)
-                            or default_font
-                    end
-                    if not display_face then return end
-                    UIManager:show(FontChooser:new{
-                        title = _("Description") .. " " .. _("font"),
-                        font_file = display_face,
-                        default_font_file = default_font,
-                        callback = function(file)
-                            local portable_file = LibraryFontPath.toConfig(file)
-                            if style.font_face ~= portable_file then
-                                style.font_face = portable_file
-                                save_book_detail_description_style(touchmenu_instance)
-                            end
-                        end,
-                    })
-                end,
-            },
-            {
-                text_func = function()
-                    local style = ensure_book_detail_description_style()
-                    return string.format("%s %s", _("Font size") .. ":",
-                        tostring(description_font_size(style)))
-                end,
-                keep_menu_open = true,
-                callback = function(touchmenu_instance)
-                    local SpinWidget = require("ui/widget/spinwidget")
-                    local style = ensure_book_detail_description_style()
-                    UIManager:show(SpinWidget:new{
-                        title_text = _("Description") .. " " .. _("font size"),
-                        value = description_font_size(style),
-                        value_min = 6,
-                        value_max = 40,
-                        default_value = ensure_library_font_cfg(config).font_size,
-                        callback = function(spin)
-                            style.font_size = math.max(6, math.min(40, spin.value))
-                            save_book_detail_description_style(touchmenu_instance)
-                        end,
-                    })
-                end,
-            },
-            {
-                text = _("Use default style"),
-                callback = function(touchmenu_instance)
-                    config.book_details.text_styles.description = {
-                        font_face = BOOK_DETAIL_TEXT_STYLE_DEFAULTS.description.font_face,
-                    }
-                    save_book_detail_description_style(touchmenu_instance)
-                end,
-            },
-        }
-    end
-
-    local function show_book_details()
-        if type(config.book_details) ~= "table" then config.book_details = {} end
-        local cfg = config.book_details
-        cfg.order = normalize_detail_order(cfg.order)
-        local sort_items = {}
-        for _i, id in ipairs(cfg.order) do
-            local item = detail_toggle(id)
-            if id == "tags" then
-                item.sub_title = detail_labels[id]
-                item.sub_item_table = { detail_toggle("navigate_to_tag") }
-            end
-            sort_items[#sort_items + 1] = item
-        end
-        local description_item = detail_toggle("description")
-        description_item.arrange_pinned_last = true
-        description_item.sub_title = detail_labels.description
-        description_item.checkmark_callback = description_item.callback
-        description_item.callback = nil
-        description_item.sub_item_table_func = build_book_detail_description_font_items
-        sort_items[#sort_items + 1] = description_item
-        require("common/ui/zen_arrange_list").show{
-            title = _("Book details"),
-            item_table = sort_items,
-            plugin = plugin,
-            callback = function()
-                local order = {}
-                for _i, item in ipairs(sort_items) do
-                    if item.orig_item ~= "description" then
-                        order[#order + 1] = item.orig_item
-                    end
-                end
-                cfg.order = normalize_detail_order(order)
-                plugin:saveConfig()
-            end,
-        }
-    end
-
-    local function detail_search_items()
-        local search_items = {}
-        local function add(id)
-            search_items[#search_items + 1] = {
-                text = detail_labels[id],
-                orig_item = id,
-                _zen_search_open = show_book_details,
-            }
-        end
-        for _i, id in ipairs(BOOK_DETAIL_ORDER) do add(id) end
-        for _i, id in ipairs({ "navigate_to_tag", "description" }) do
-            add(id)
-        end
-        return search_items
-    end
+    local show_book_details, detail_search_items = book_details_editor(config, plugin)
 
     table.insert(book_items, IconItem.decorate({
         text = _("Book details"),
@@ -1317,9 +1341,6 @@ function M.build(ctx)
             settings_apply.prompt_restart()
         end,
     }, icons.settings_subfolders))
-    IconItem.decorate(appearance_items[1], icons.settings_layout)
-    IconItem.decorate(appearance_items[2], icons.settings_covers)
-    IconItem.decorate(appearance_items[3], icons.settings_scroll)
     return {
         IconItem.decorate({ text = _("Appearance"), sub_item_table = appearance_items }, icons.navbar_styling),
         IconItem.decorate(folders_item, icons.settings_folders),

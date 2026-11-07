@@ -2,6 +2,7 @@ local group_paths_by_series = require("common/db_bookinfo").groupPathsBySeries
 
 describe("home data and book caches", function()
     local doc_open_count
+    local original_db_connection
     local history_reload_count
     local status_lookup_count
     local stable_contexts
@@ -57,6 +58,11 @@ describe("home data and book caches", function()
             end,
         })
         ZenSpec.replace("common/reading_goals", {})
+        -- Keep the stats-change signature off the real datastorage.
+        original_db_connection = package.loaded["common/db_connection"]
+        ZenSpec.replace("common/db_connection", {
+            getStatsDbPath = function() return "/data/statistics.sqlite3" end,
+        })
         ZenSpec.replace("common/db_stats", {
             queryHomeStats = function(_fields, exclude_cbz_cbr)
                 stats_query_count = stats_query_count + 1
@@ -89,6 +95,7 @@ describe("home data and book caches", function()
             hasExact = function() return false end,
             renderShared = function(_self, _path, source) return source, true end,
             releaseShared = function() return true end,
+            releaseOnFree = ZenSpec.releaseOnFree,
         })
 
         local doc = {
@@ -124,6 +131,10 @@ describe("home data and book caches", function()
         })
         ZenSpec.replace("modules/filebrowser/patches/rakuyomi", {
             getMetadata = function() end,
+        })
+        ZenSpec.replace("modules/filebrowser/patches/kindle_virtual_library", {
+            isBookPath = function() return false end,
+            getBookPaths = function() return {} end,
         })
         ZenSpec.replace("readhistory", {
             hist = history_items,
@@ -182,6 +193,7 @@ describe("home data and book caches", function()
     after_each(function()
         _G.__ZEN_UI_LAST_READ_FILE = nil
         _G.__ZEN_UI_RAKUYOMI = nil
+        package.loaded["common/db_connection"] = original_db_connection
     end)
 
     local function get_home_module(apply)
@@ -694,6 +706,25 @@ describe("home data and book caches", function()
         assert.are.equal(9, perf.quote_layout_probes)
     end)
 
+    it("refreshes only the quotes row when stepping quotes", function()
+        ZenSpec.replace("modules/filebrowser/patches/home/home_quotes", {
+            stepQuote = function(_cfg, delta) return { text = "Quote " .. delta } end,
+        })
+        ZenSpec.unload("modules/filebrowser/patches/home_page")
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local rebuilds, refreshes = 0, 0
+        set_home_menu(Home, { _home_rebuild = function() rebuilds = rebuilds + 1 end })
+        local provider = get_build_data_provider(Home)({}, { quotes = {} })
+
+        provider:nextQuote(function() refreshes = refreshes + 1 end)
+        assert.are.equal("Quote 1", provider:getCurrentQuote().text)
+        assert.are.same({ 1, 0 }, { refreshes, rebuilds })
+
+        provider:prevQuote()
+        assert.are.equal("Quote -1", provider:getCurrentQuote().text)
+        assert.are.same({ 1, 1 }, { refreshes, rebuilds })
+    end)
+
     it("reuses history/status data across providers and opens one sidecar per book miss", function()
         local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
         local build_data_provider = get_build_data_provider(Home)
@@ -786,6 +817,51 @@ describe("home data and book caches", function()
             provider:getFeaturedBook("recently_read", "default").path)
         assert.are.equal(kindle_path,
             provider:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
+    end)
+
+    it("keeps local Home books when optional provider calls fail", function()
+        history_items[1] = { file = "/kindle/book.kfx", time = 200 }
+        history_items[2] = { file = "/library/alpha.epub", time = 100 }
+        local function failed() error("provider did not load") end
+        ZenSpec.replace("modules/filebrowser/patches/rakuyomi", {
+            getRecentSeries = failed, isTmpfsChapterFile = failed, getMetadata = failed,
+        })
+        ZenSpec.replace("modules/filebrowser/patches/kindle_virtual_library", {
+            isBookPath = failed, getBookPaths = failed,
+        })
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = Home.newDataProvider({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } }, modules = {},
+        })
+
+        assert.same({ "/library/alpha.epub" }, provider:getContinuePaths())
+        assert.equals("Alpha", provider:getFeaturedBook("recently_read", "default").title)
+        assert.equals("/library/alpha.epub",
+            provider:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
+        assert.same({}, provider:getStripItemsForPage({ kind = "kindle" }, 4, "default", "strip"))
+    end)
+
+    it("skips a failed manga card when choosing the featured Home book", function()
+        local integration = require("modules/filebrowser/patches/rakuyomi")
+        local temporary = "/data/rakuyomi/tmpfs/chapter.cbz"
+        integration.getRecentSeries = function() return {{ file = temporary, time = 200 }} end
+        integration.getRecentBook = function() error("manga provider did not load") end
+        integration.isTmpfsChapterFile = function(path) return path == temporary end
+        history_items[1].time = 100
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = Home.newDataProvider({ browser_cover_badges = {} }, { modules = {} })
+
+        assert.equals("/library/alpha.epub", provider:getFeaturedBook("recently_read", "default").path)
+        assert.equals("/library/alpha.epub",
+            provider:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
+    end)
+
+    it("keeps a Home book when a provider's metadata hook fails", function()
+        require("bookinfomanager").getBookInfo = function() error("broken provider metadata hook") end
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = Home.newDataProvider({ browser_cover_badges = {} }, { modules = {} })
+
+        assert.equals("/library/alpha.epub", provider:getFeaturedBook("recently_read", "default").path)
     end)
 
     it("excludes Rakuyomi chapters from recent Home books when enabled", function()
@@ -1295,6 +1371,36 @@ describe("home data and book caches", function()
         assert.equals(0, #scheduled)
     end)
 
+    it("contains provider errors during deferred Home cover loading", function()
+        local scheduled = {}
+        local UIManager = require("ui/uimanager")
+        UIManager.scheduleIn = function(_self, _delay, callback) scheduled[#scheduled + 1] = callback end
+        local BookInfoManager = require("bookinfomanager")
+        BookInfoManager.getBookInfo = function() return { title = "Alpha" } end
+        BookInfoManager.isExtractingInBackground = function() return false end
+        BookInfoManager.extractInBackground = function() return true end
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local menu = {}
+        set_home_menu(Home, menu)
+        UIManager._window_stack = {{ widget = menu }}
+        local provider = Home.newDataProvider({ browser_cover_badges = {} }, { modules = {} })
+
+        provider:getFeaturedBook("recently_read", "default")
+        table.remove(scheduled, 1)()
+        assert.equals(1, #scheduled)
+        BookInfoManager.getBookInfo = function() error("provider metadata hook failed") end
+        BookInfoManager.isExtractingInBackground = function() error("provider extraction hook failed") end
+        table.remove(scheduled, 1)()
+        assert.equals(0, #scheduled)
+        assert.is_false(provider:isStripCoverWorkBusy())
+
+        Home.invalidateBookCache("/library/alpha.epub")
+        BookInfoManager.extractInBackground = function() error("provider did not initialize") end
+        provider:getFeaturedBook("recently_read", "default")
+        table.remove(scheduled, 1)()
+        assert.equals(0, #scheduled)
+    end)
+
     it("coalesces featured cover extraction into one batch-completion rebuild", function()
         local scheduled = {}
         local extraction_started = false
@@ -1424,7 +1530,8 @@ describe("home data and book caches", function()
             "recently_read", 4, "default", "strip_recent", 10)
 
         assert.are.equal("/library/book-01.epub", books[1].path)
-        assert.are.equal(40, status_lookup_count)
+        -- The unfiltered recent source accepts every status: only visible books are looked up.
+        assert.are.equal(4, status_lookup_count)
     end)
 
     it("requests only visible TBR rows from the persistent index", function()
@@ -1838,6 +1945,41 @@ describe("home data and book caches", function()
         assert.are.same({ true, "reused" }, { Home.resumeActive() })
     end)
 
+    it("parks a built Home across a reading session and discards it only when forced", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local UIManager = require("ui/uimanager")
+        local closed = {}
+        UIManager.close = function(_self, widget) closed[#closed + 1] = widget end
+        local fm = {}
+        local menu = { _zen_home_rebuild_rows = function() return true end }
+        set_home_menu(Home, menu)
+        UIManager._window_stack = { { widget = fm }, { widget = menu } }
+
+        assert.is_true(Home.park())
+        assert.are.same({ { widget = fm } }, UIManager._window_stack)
+        assert.is_true(menu._zen_home_parked)
+        assert.is_true(menu._zen_home_suspended)
+        assert.is_true(menu._zen_navbar_refresh_pending)
+        assert.is_false(Home.park())
+
+        Home.closeAll() -- FileManager teardown while the reader opens
+        assert.are.same({}, closed)
+        assert.is_true(Home.hasActive())
+
+        Home.discardParked() -- critical memory pressure (shutdown passes closeAll(true))
+        assert.are.same({ menu }, closed)
+        assert.is_false(Home.hasActive())
+    end)
+
+    it("does not park a Home that was never built", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local menu = {}
+        set_home_menu(Home, menu)
+        require("ui/uimanager")._window_stack = { { widget = menu } }
+        assert.is_false(Home.park())
+        assert.is_nil(menu._zen_home_parked)
+    end)
+
     it("defers queued Home cover work after Home is hidden", function()
         local scheduled = {}
         local extraction_calls = 0
@@ -1877,7 +2019,7 @@ describe("home data and book caches", function()
         table.remove(scheduled, 1).callback()
 
         assert.are.equal(0, extraction_calls)
-        assert.is_true(menu._zen_home_needs_rebuild)
+        assert.is_true(menu._zen_home_cover_rows_stale)
     end)
 
     it("loads Favorites as a first-class strip source", function()

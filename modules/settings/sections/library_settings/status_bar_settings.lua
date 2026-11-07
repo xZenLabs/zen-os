@@ -10,6 +10,7 @@ local icons = require("common/inline_icon_map")
 local IconItem = require("common/ui/icon_menu_item")
 local Bluetooth = require("modules/menu/bluetooth/bluetooth")
 local DateFormat = require("common/date_format")
+local StatusBar = require("common/status_bar_registry")
 
 local M = {}
 
@@ -229,9 +230,7 @@ function M.build(ctx)
     -- -------------------------------------------------------------------------
 
     local function has_status_items()
-        return #(config.status_bar.left_order or {}) > 0
-            or #(config.status_bar.center_order or {}) > 0
-            or #(config.status_bar.right_order or {}) > 0
+        return StatusBar.hasItems(config.status_bar)
     end
 
     return IconItem.decorate({

@@ -11,7 +11,7 @@
 --       input           = "",
 --       input_type      = "number",
 --       input_hint      = "1 - 42",
---       button_text     = "\u{F18F1} " .. _("Go"),
+--       button_text     = icons.go .. " " .. _("Go"),
 --       button_callback = function() ... end,
 --       -- close_callback: optional, called when X is tapped
 --   }

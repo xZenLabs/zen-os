@@ -5,6 +5,9 @@ describe("config manager folder-path migration", function()
     local written_settings
     local write_error
     local google_key_ensures
+    local saved_device
+    local saved_footer_presets
+    local launcher_store
 
     local function reload_manager(language)
         _G.G_reader_settings = ZenSpec.memorySettings(language and { language = language } or {})
@@ -14,6 +17,10 @@ describe("config manager folder-path migration", function()
     end
 
     before_each(function()
+        saved_device = package.loaded.device
+        saved_footer_presets = package.loaded["modules/reader/patches/reader_footer_presets"]
+        ZenSpec.replace("device", { hasColorScreen = function() return false end })
+        ZenSpec.unload("modules/reader/patches/reader_footer_presets")
         settings_file = { data = {}, flush = function() end }
         written_settings = nil
         write_error = nil
@@ -39,11 +46,17 @@ describe("config manager folder-path migration", function()
             getSettings = function() return {} end,
             saveSettings = function() return true end,
             loadStore = function(kind) return stores[kind] or { settings = {}, presets = {} } end,
+            getActivePreset = function(kind) return stores[kind].active_preset end,
             saveStore = function(kind, store)
                 stores[kind] = store
                 return true
             end,
             migrateStores = function() return false end,
+        })
+        launcher_store = {}
+        ZenSpec.replace("modules/menu/app_launcher/store", {
+            load = function() return launcher_store end,
+            save = function(cfg) launcher_store = cfg return cfg end,
         })
         ZenSpec.replace("config/hardcover_token", {
             ensureFile = function() return false end,
@@ -67,12 +80,21 @@ describe("config manager folder-path migration", function()
         reload_manager()
     end)
 
+    after_each(function()
+        package.loaded.device = saved_device
+        package.loaded["modules/reader/patches/reader_footer_presets"] = saved_footer_presets
+    end)
+
     it("loads complete defaults for a fresh install", function()
         local config = Manager.load()
 
         assert.is_true(config.accent_enabled)
         assert.are.equal(100, config.accent_opacity)
+        assert.is_false(config.accent_night_enabled)
+        assert.are.equal("#000000", config.accent_night_color)
+        assert.are.equal(100, config.accent_night_opacity)
         assert.is_true(config.features.navbar)
+        assert.is_false(config.rakuyomi.open_on_manga_exit)
         assert.is_true(config.navbar.active_tab_underline)
         assert.is_true(config.navbar.active_tab_use_accent)
         assert.are.same({ 0, 0, 0 }, config.navbar.active_tab_color)
@@ -97,6 +119,7 @@ describe("config manager folder-path migration", function()
         assert.is_false(config.quick_settings.tailscale_toggle_wifi)
         assert.are.equal("number", config.reader_footer.chapter_time_format)
         assert.is_false(config.reader_top_status_bar.wifi_hide_when_off)
+        assert.are.same({ "pin" }, config.reader_top_status_bar.right_order)
         assert.are.equal(18, config.page_browser.toc_font_size)
         assert.are.equal(18, config.page_browser.bookmarks_font_size)
         assert.are.same({}, config.folder_cover_paths)
@@ -111,6 +134,97 @@ describe("config manager folder-path migration", function()
         assert.is_false(config.metadata.epub_backup)
         assert.are.equal(1, google_key_ensures)
         assert.is_false(config._meta.quickstart_shown_for_version)
+    end)
+
+    it("moves book info fields from the launcher store into reader controls once", function()
+        launcher_store = {
+            entries = {},
+            book_details_order = { "pages", "read_time" },
+            book_details_enabled = { pages = false, pages_today = true },
+        }
+        local config = Manager.load()
+        assert.are.same({
+            "pages", "read_time", "time_remaining", "pages_today", "time_today", "progress",
+        }, config.reader_controls.book_info.order)
+        assert.is_false(config.reader_controls.book_info.enabled.pages)
+        assert.is_true(config.reader_controls.book_info.enabled.pages_today)
+        assert.is_nil(launcher_store.book_details_order)
+        assert.is_nil(launcher_store.book_details_enabled)
+        assert.are.same({}, launcher_store.entries)
+
+        config.reader_controls.book_info.enabled.pages = true
+        Manager.save(config)
+        assert.is_true(Manager.load().reader_controls.book_info.enabled.pages)
+    end)
+
+    it("adds the pin at the far right once while retaining header choices", function()
+        settings_file.data = { reader_top_status_bar = { left_order = { "current_page" }, right_order = { "battery" } } }
+        local config = Manager.load()
+        assert.are.same({ "current_page" }, config.reader_top_status_bar.left_order)
+        assert.are.same({ "battery", "pin" }, config.reader_top_status_bar.right_order)
+        config.reader_top_status_bar.right_order = { "battery" }
+        Manager.save(config)
+        assert.are.same({ "battery" }, Manager.load().reader_top_status_bar.right_order)
+    end)
+
+    it("disables legacy status bar overlap once without changing other footer settings", function()
+        G_reader_settings:saveSetting("footer", { reclaim_height = true, text_font_size = 22 })
+        stores.reader.settings.footer = { reclaim_height = true, text_font_size = 22 }
+        stores.reader.presets.custom = { footer = { reclaim_height = true } }
+
+        local config = Manager.load()
+        assert.is_false(G_reader_settings:readSetting("footer").reclaim_height)
+        assert.are.equal(22, G_reader_settings:readSetting("footer").text_font_size)
+        assert.is_false(stores.reader.settings.footer.reclaim_height)
+        assert.is_true(stores.reader.presets.custom.footer.reclaim_height)
+        assert.is_true(config._meta.reader_status_bar_space_migrated)
+
+        G_reader_settings:readSetting("footer").reclaim_height = true
+        stores.reader.settings.footer.reclaim_height = true
+        Manager.load()
+        assert.is_true(G_reader_settings:readSetting("footer").reclaim_height)
+        assert.is_true(stores.reader.settings.footer.reclaim_height)
+    end)
+
+    it("resets vertical margin defaults once for an active Zen reader preset", function()
+        stores.reader.active_preset = "(ZenOS) Chapter Time + %"
+        G_reader_settings:saveSetting("copt_t_page_margin", 30)
+        G_reader_settings:saveSetting("copt_b_page_margin", 30)
+        G_reader_settings:saveSetting("copt_h_page_margins", { 40, 50 })
+
+        local config = Manager.load()
+        assert.are.equal(15, G_reader_settings:readSetting("copt_t_page_margin"))
+        assert.are.equal(15, G_reader_settings:readSetting("copt_b_page_margin"))
+        assert.same({ 40, 50 }, G_reader_settings:readSetting("copt_h_page_margins"))
+        assert.is_true(config._meta.reader_vertical_margins_migrated)
+
+        G_reader_settings:saveSetting("copt_t_page_margin", 21)
+        G_reader_settings:saveSetting("copt_b_page_margin", 23)
+        Manager.load()
+        assert.are.equal(21, G_reader_settings:readSetting("copt_t_page_margin"))
+        assert.are.equal(23, G_reader_settings:readSetting("copt_b_page_margin"))
+    end)
+
+    it("keeps global margins when no Zen reader preset is active", function()
+        for _i, name in ipairs({ "", "My preset", "(ZenOS) Custom preset", "Backup of Original" }) do
+            reload_manager()
+            settings_file.data = {}
+            stores.reader.active_preset = name ~= "" and name or nil
+            G_reader_settings:saveSetting("copt_t_page_margin", 30)
+            G_reader_settings:saveSetting("copt_b_page_margin", 42)
+
+            local config = Manager.load()
+            assert.are.equal(30, G_reader_settings:readSetting("copt_t_page_margin"))
+            assert.are.equal(42, G_reader_settings:readSetting("copt_b_page_margin"))
+            assert.is_true(config._meta.reader_vertical_margins_migrated)
+        end
+    end)
+
+    it("keeps a pin already placed in another header slot", function()
+        settings_file.data = { reader_top_status_bar = { left_order = { "pin" }, right_order = { "battery" } } }
+        local config = Manager.load()
+        assert.are.same({ "pin" }, config.reader_top_status_bar.left_order)
+        assert.are.same({ "battery" }, config.reader_top_status_bar.right_order)
     end)
 
     it("preserves an existing Zen mode control", function()
@@ -571,6 +685,36 @@ describe("config manager folder-path migration", function()
         assert.are.equal("default", Manager.load().library_font.font_face)
     end)
 
+    it("forces the navbar active tab solid black once on monochrome screens", function()
+        ZenSpec.replace("device", { screen = { isColorScreen = function() return false end } })
+        settings_file.data = { navbar = {
+            filled_background_opacity = 40,
+            filled_background_color = { 128, 128, 128 },
+            active_tab_color = { 90, 90, 90 },
+            outlined_color = { 12, 34, 56 },
+        } }
+
+        local config = Manager.load()
+
+        assert.are.equal(100, config.navbar.filled_background_opacity)
+        assert.are.same({ 0, 0, 0 }, config.navbar.filled_background_color)
+        assert.are.same({ 0, 0, 0 }, config.navbar.active_tab_color)
+        assert.are.same({ 0, 0, 0 }, config.navbar.outlined_color)
+        assert.is_true(config._meta.navbar_bw_fill_solid_migrated)
+
+        config.navbar.filled_background_opacity = 60
+        Manager.save(config)
+
+        assert.are.equal(60, Manager.load().navbar.filled_background_opacity)
+    end)
+
+    it("keeps navbar fill opacity on color screens", function()
+        ZenSpec.replace("device", { screen = { isColorScreen = function() return true end } })
+        settings_file.data = { navbar = { filled_background_opacity = 60 } }
+
+        assert.are.equal(60, Manager.load().navbar.filled_background_opacity)
+    end)
+
     it("removes the end-of-book default source while preserving tab order", function()
         local order = { "to_be_read", "continue", "author" }
         settings_file.data = { end_book = { strip_source = "author",
@@ -764,5 +908,16 @@ describe("config manager folder-path migration", function()
         Manager.load()
 
         assert.are.equal("carousel", stores.reader.settings.page_browser_layout)
+    end)
+
+    it("moves annotation tab preferences to Page Browser settings", function()
+        settings_file.data = { annotation_viewer = { tabs = {
+            bookmarks = true, highlights = true, annotations = false,
+        } } }
+        local config = Manager.load()
+        assert.is_nil(config.annotation_viewer.tabs)
+        assert.is_true(config.page_browser.tabs.bookmarks)
+        assert.is_true(config.page_browser.tabs.highlights)
+        assert.is_false(config.page_browser.tabs.annotations)
     end)
 end)

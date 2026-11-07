@@ -12,6 +12,7 @@ describe("Zen mode menu patch", function()
         "apps/filemanager/filemanagermenu",
         "apps/reader/modules/readermenu",
         "apps/reader/modules/readerconfig",
+        "apps/reader/readerui",
         "common/shared_state",
         "modules/menu/patches/zen_mode",
     }
@@ -23,6 +24,7 @@ describe("Zen mode menu patch", function()
                     { id = "quicksettings" },
                     { id = "settings" },
                     { id = "search" },
+                    { id = "reader" },
                     { id = "history" },
                     { id = "filemanager", icon = "appbar.filebrowser" },
                     { id = "zen_ui", icon = "_zen_settings_tab" },
@@ -64,6 +66,7 @@ describe("Zen mode menu patch", function()
         ZenSpec.replace("apps/filemanager/filemanagermenu", FileManagerMenu)
         ZenSpec.replace("apps/reader/modules/readermenu", ReaderMenu)
         ZenSpec.replace("apps/reader/modules/readerconfig", ReaderConfig)
+        ZenSpec.replace("apps/reader/readerui", {}) -- reader patches apply once ReaderUI is loaded
         ZenSpec.replace("common/shared_state", {
             register = function(_plugin, entries)
                 refresh_menus = entries.refreshZenModeMenus
@@ -85,7 +88,7 @@ describe("Zen mode menu patch", function()
         local menu = setmetatable({}, { __index = FileManagerMenu })
         menu:onShowMenu()
         assert.are.same({
-            "quicksettings", "settings", "search", "history", "filemanager",
+            "quicksettings", "settings", "search", "reader", "history", "filemanager",
             "zen_ui", "zen_library_home",
         }, tab_ids(menu))
 
@@ -96,7 +99,7 @@ describe("Zen mode menu patch", function()
         plugin.config.features.zen_mode = false
         refresh_menus()
         assert.are.same({
-            "quicksettings", "settings", "search", "history", "zen_ui", "zen_library_home",
+            "quicksettings", "settings", "search", "reader", "history", "zen_ui", "zen_library_home",
         }, tab_ids(menu))
     end)
 
@@ -131,5 +134,16 @@ describe("Zen mode menu patch", function()
         plugin.config.features.reader_bottom_menu = true
         assert.is_true(config:onShowConfigMenu())
         assert.are.equal(2, config.shows)
+    end)
+
+    it("allows an explicit reader-controls request without enabling the bottom swipe", function()
+        plugin.config.features.zen_mode = true
+        plugin.config.features.reader_bottom_menu = false
+        local config = setmetatable({}, { __index = ReaderConfig })
+        assert.is_nil(config:onShowConfigMenu())
+        assert.is_true(config:onShowConfigMenu(true))
+        assert.are.equal(1, config.shows)
+        assert.is_false(plugin.config.features.reader_bottom_menu)
+        assert.is_nil(config:onShowConfigMenu())
     end)
 end)

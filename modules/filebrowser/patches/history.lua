@@ -1,3 +1,4 @@
+local icons = require("common/inline_icon_map")
 local function apply_history()
     local FileManagerHistory = require("apps/filemanager/filemanagerhistory")
     local Menu = require("ui/widget/menu")
@@ -93,7 +94,6 @@ local function apply_history()
         end
         local ButtonDialog_hm = require("ui/widget/buttondialog")
         local UIManager_hm    = require("ui/uimanager")
-        local _hm             = require("gettext")
         local cur_mode = get_hist_display_mode()
         local function apply_mode(mode)
             set_hist_display_mode(mode)
@@ -111,7 +111,7 @@ local function apply_history()
         local function viewBtn(label, icon, mode)
             local active = cur_mode == mode
             return {{
-                text     = icon .. "  " .. label .. (active and "  \u{2713}" or ""),
+                text     = icon .. "  " .. label .. (active and "  " .. icons.check or ""),
                 align    = "left",
                 enabled  = not active,
                 callback = function()
@@ -121,12 +121,12 @@ local function apply_history()
             }}
         end
         view_dialog = ButtonDialog_hm:new{
-            title       = _hm("Display mode"),
+            title       = _("Display mode"),
             title_align = "center",
             buttons     = {
-                viewBtn(_hm("Mosaic"),          "\u{F00A}", "mosaic_image"),
-                viewBtn(_hm("List (detailed)"), "\u{F03A}", "list_image_meta"),
-                viewBtn(_hm("List (basic)"),    "\u{F0CA}", "list_image_filename"),
+                viewBtn(_("Mosaic"),          icons.view_mosaic, "mosaic_image"),
+                viewBtn(_("List (detailed)"), icons.view_list, "list_image_meta"),
+                viewBtn(_("List (basic)"),    icons.view_basic, "list_image_filename"),
             },
         }
         UIManager_hm:show(view_dialog)
@@ -289,7 +289,6 @@ local function apply_history()
                 require("readhistory"):removeItem(item, index)
                 if hist_mgr then hist_mgr:updateItemTable() end
             end
-            local icons = require("common/inline_icon_map")
             fm.file_chooser:showFileDialog({
                 path     = item.file,
                 is_file  = true,

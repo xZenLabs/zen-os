@@ -1,5 +1,5 @@
 -- settings/sections/reader.lua
--- Reader settings items for ZenOS (clock, presets, fonts, footer).
+-- Reader settings items for ZenOS.
 -- Receives ctx: { plugin, config, save_and_apply }
 
 local _ = require("gettext")
@@ -11,9 +11,26 @@ local utils = require("modules/settings/zen_settings_utils")
 local constants = require("common/constants")
 local PresetStore = require("config/preset_store")
 local ReaderThemes = require("common/reader_themes")
+local ThemePreview = require("common/ui/theme_preview")
+local Blitbuffer = require("ffi/blitbuffer")
+local CenterContainer = require("ui/widget/container/centercontainer")
+local FrameContainer = require("ui/widget/container/framecontainer")
+local Geom = require("ui/geometry")
+local Font = require("ui/font")
+local HorizontalGroup = require("ui/widget/horizontalgroup")
+local HorizontalSpan = require("ui/widget/horizontalspan")
+local LeftContainer = require("ui/widget/container/leftcontainer")
+local LineWidget = require("ui/widget/linewidget")
+local OverlapGroup = require("ui/widget/overlapgroup")
+local RightContainer = require("ui/widget/container/rightcontainer")
 local icons = require("common/inline_icon_map")
 local IconItem = require("common/ui/icon_menu_item")
+local Screen = require("device").screen
+local Size = require("ui/size")
+local ColorTextWidget = require("common/ui/color_text_widget")
+local TextWidget = require("ui/widget/textwidget")
 local Bluetooth = require("modules/menu/bluetooth/bluetooth")
+local BottomSwipe = require("common/reader_bottom_swipe")
 
 local M = {}
 
@@ -109,21 +126,51 @@ function M.build(ctx)
     end
 
     local function make_highlight_items()
+        local color_items = {}
         local items = {
             {
-                text = _("Reset"),
-                enabled_func = function()
+                text = _("Menu items"),
+                _zen_settings_submenu = true,
+                keep_menu_open = true,
+                callback = function()
+                    local MenuItems = require("modules/reader/highlight_menu_items")
                     local settings = highlight_settings()
-                    return next(settings.color_names) ~= nil or next(settings.color_codes) ~= nil
+                    settings.submenu_enabled = settings.submenu_enabled or {}
+                    local labels, sort_items = MenuItems.labels(), {}
+                    for _i, id in ipairs(MenuItems.getOrder(settings)) do
+                        local item_id = id
+                        sort_items[#sort_items + 1] = {
+                            text = labels[item_id], orig_item = item_id,
+                            checked_func = function() return MenuItems.isEnabled(settings, item_id) end,
+                            callback = function()
+                                settings.submenu_enabled[item_id] = not MenuItems.isEnabled(settings, item_id)
+                                plugin:saveConfig()
+                            end,
+                        }
+                    end
+                    require("common/ui/zen_arrange_list").show{
+                        title = _("Highlight menu"), plugin = plugin, item_table = sort_items,
+                        callback = function()
+                            local order = {}
+                            for _i, item in ipairs(sort_items) do order[#order + 1] = item.orig_item end
+                            settings.submenu_order = order
+                            plugin:saveConfig()
+                        end,
+                    }
                 end,
-                callback = function(touchmenu_instance)
+            },
+            {
+                text = _("Show labels"),
+                checked_func = function() return highlight_settings().show_labels == true end,
+                callback = function()
                     local settings = highlight_settings()
-                    settings.color_names = {}
-                    settings.color_codes = {}
-                    save_highlights()
-                    if touchmenu_instance then touchmenu_instance:updateItems() end
+                    settings.show_labels = settings.show_labels ~= true
+                    plugin:saveConfig()
                 end,
-                separator = true,
+            },
+            {
+                text = _("Colors"),
+                sub_item_table = color_items,
             },
         }
         for _i, color in ipairs(highlight_colors) do
@@ -136,7 +183,7 @@ function M.build(ctx)
             local function display_color()
                 return highlight_settings().color_codes[color_name] or default_hex
             end
-            table.insert(items, {
+            table.insert(color_items, {
                 text_func = display_name,
                 sub_item_table = {
                     {
@@ -194,13 +241,48 @@ function M.build(ctx)
                                 end, touchmenu_instance)
                         end,
                     },
+                    {
+                        text = _("Set as default"),
+                        radio = true,
+                        checked_func = function()
+                            return color_name == (G_reader_settings:readSetting("highlight_color")
+                                or (Screen:isColorEnabled() and "yellow" or "gray"))
+                        end,
+                        callback = function()
+                            G_reader_settings:saveSetting("highlight_color", color_name)
+                            local reader = require("apps/reader/readerui").instance
+                            if reader and reader.highlight then
+                                reader.view.highlight.saved_color = color_name
+                                if reader.highlight.setSelectionColor then reader.highlight:setSelectionColor() end
+                            end
+                        end,
+                    },
                 },
             })
         end
+        color_items[#color_items + 1] = {
+            text = _("Reset colors and names"),
+            keep_menu_open = true,
+            enabled_func = function()
+                local settings = highlight_settings()
+                return next(settings.color_names) ~= nil or next(settings.color_codes) ~= nil
+            end,
+            callback = function(touchmenu_instance)
+                local settings = highlight_settings()
+                settings.color_names = {}
+                settings.color_codes = {}
+                save_highlights()
+                if touchmenu_instance then touchmenu_instance:updateItems() end
+            end,
+        }
         return items
     end
 
-    local items = {}
+    local items, appearance_items = {}, {}
+    items[#items + 1] = IconItem.decorate({
+        text = _("Appearance"),
+        sub_item_table = appearance_items,
+    }, icons.navbar_styling)
 
     -- -------------------------------------------------------------------------
     -- Top status bar
@@ -226,6 +308,7 @@ function M.build(ctx)
         { key = "current_page",     text = _("Current page") },
         { key = "total_pages",      text = _("Total pages") },
         { key = "page_progress",    text = _("Current / total pages") },
+        { key = "pin",              text = _("Pin") },
     }
     do
         local available = {}
@@ -241,7 +324,7 @@ function M.build(ctx)
         right  = {
             "progress_percent", "current_page", "total_pages", "page_progress",
             "custom_text", "frontlight", "incognito", "bluetooth", "wifi", "battery",
-            "battery_icon", "battery_percent",
+            "battery_icon", "battery_percent", "pin",
         },
     }
 
@@ -481,7 +564,8 @@ function M.build(ctx)
         return t
     end
 
-    table.insert(items, {
+    table.insert(appearance_items, {
+        icon_glyph = icons.settings_status,
         text = _("Top status bar"),
         checked_func = function()
             return config.features["reader_top_status_bar"] == true
@@ -697,13 +781,7 @@ function M.build(ctx)
         },
     })
 
-    local builtin_themes = {
-        { key = "default", text = _("Default") },
-        { key = "dark_warm_gray", text = _("Dark warm gray") },
-        { key = "dark_graphite", text = _("Dark graphite") },
-        { key = "light_sepia", text = _("Light sepia") },
-        { key = "light_tan", text = _("Light tan") },
-    }
+    local builtin_themes = ReaderThemes.builtinList()
 
     local function theme_settings()
         if type(config.reader_themes) ~= "table" then config.reader_themes = {} end
@@ -712,12 +790,7 @@ function M.build(ctx)
     end
 
     local function save_themes()
-        if type(PresetStore.loadStore) == "function" and type(PresetStore.saveStore) == "function" then
-            local reader_store = PresetStore.loadStore("reader")
-            reader_store.reader_themes = config.reader_themes
-            PresetStore.saveStore("reader", reader_store)
-        end
-        plugin:saveConfig()
+        ReaderThemes.saveConfig(plugin)
         if config.features.reader_themes == true then ctx.apply_feature("reader_themes") end
     end
 
@@ -733,7 +806,54 @@ function M.build(ctx)
         end
         local custom = type(config.reader_themes) == "table" and config.reader_themes.custom
         local theme = type(custom) == "table" and custom[key]
-        return type(theme) == "table" and theme.name or _("Default")
+        return type(theme) == "table" and type(theme.name) == "string"
+            and theme.name or _("Default")
+    end
+
+    local function theme_preview_content(key, label, theme_override)
+        return function(width, height, face, enabled)
+            local preview_width = Screen:scaleBySize(136)
+            local preview = ThemePreview.new{
+                plugin = plugin, key = key, theme = theme_override, face = face,
+                width = preview_width,
+                height = math.max(1, height - 2 * Screen:scaleBySize(10)),
+            }
+            if not preview then return nil end
+
+            local left_padding = IconItem.getSettingsLeftPadding()
+            local icon_width = IconItem.SETTINGS_ICON_WIDTH + IconItem.getSettingsIconGap()
+            local gap = Screen:scaleBySize(10)
+            local preview_label = type(label) == "function" and label() or label
+            local name_width = math.max(1,
+                width - left_padding - icon_width - preview_width - gap)
+            local centered_preview = CenterContainer:new{
+                dimen = Geom:new{ w = preview_width, h = height },
+                preview,
+            }
+            return OverlapGroup:new{
+                dimen = Geom:new{ w = width, h = height },
+                LeftContainer:new{
+                    dimen = Geom:new{ w = width, h = height },
+                    HorizontalGroup:new{
+                        align = "center",
+                        HorizontalSpan:new{ width = left_padding + icon_width },
+                        TextWidget:new{
+                            text = preview_label,
+                            max_width = name_width,
+                            face = face,
+                            fgcolor = enabled and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_DARK_GRAY,
+                        },
+                    },
+                },
+                RightContainer:new{
+                    dimen = Geom:new{ w = width, h = height },
+                    HorizontalGroup:new{
+                        centered_preview,
+                        HorizontalSpan:new{ width = gap },
+                    },
+                },
+            }
+        end
     end
 
     local function make_theme_mode_item(mode, label)
@@ -747,6 +867,7 @@ function M.build(ctx)
                     local key = theme.key
                     table.insert(theme_items, {
                         text = theme.text,
+                        _zen_settings_content_func = theme_preview_content(key, theme.text),
                         checked_func = function() return get_theme(mode) == key end,
                         callback = function(touchmenu_instance)
                             theme_settings()[mode] = key
@@ -758,8 +879,11 @@ function M.build(ctx)
                 local custom = theme_settings().custom
                 for key, theme in pairs(custom) do
                     if type(theme) == "table" then
+                        local custom_name = type(theme.name) == "string"
+                            and theme.name or _("Custom theme")
                         table.insert(theme_items, {
-                            text = theme.name or _("Custom theme"),
+                            text = custom_name,
+                            _zen_settings_content_func = theme_preview_content(key, custom_name),
                             checked_func = function() return get_theme(mode) == key end,
                             callback = function(touchmenu_instance)
                                 theme_settings()[mode] = key
@@ -828,7 +952,7 @@ function M.build(ctx)
         return name
     end
 
-    local function create_custom_theme(theme, base_key)
+    local function create_custom_theme(theme, base_key, name)
         local custom = theme_settings().custom
         local number = 1
         local key = "custom_" .. number
@@ -837,7 +961,7 @@ function M.build(ctx)
             key = "custom_" .. number
         end
         local new_theme = {
-            name = unique_custom_theme_name(base_key),
+            name = name or unique_custom_theme_name(base_key),
             text = theme.text,
             background = theme.background,
             font_face = theme.font_face or "default",
@@ -858,6 +982,46 @@ function M.build(ctx)
             end
             editable_theme[field] = value
             save_themes()
+        end
+
+        local function copy_theme(touchmenu_instance)
+            local InputDialog = require("ui/widget/inputdialog")
+            local dlg
+            dlg = InputDialog:new{
+                title = _("Copy theme"),
+                input = "",
+                input_hint = _("Theme name"),
+                buttons = {{
+                    {
+                        text = _("Cancel"),
+                        id = "close",
+                        callback = function() UIManager:close(dlg) end,
+                    },
+                    {
+                        text = _("Set"),
+                        is_enter_default = true,
+                        callback = function()
+                            local name = dlg:getInputText()
+                            name = type(name) == "string" and name:match("^%s*(.-)%s*$") or ""
+                            if name == "" then return end
+                            UIManager:close(dlg)
+                            local new_key = create_custom_theme(editable_theme, nil, name)
+                            save_themes()
+                            if touchmenu_instance then
+                                local parent_items, edit_item = build_custom_theme_items(new_key)
+                                local stack = touchmenu_instance.item_table_stack
+                                if type(stack) == "table" and #stack > 0 then
+                                    table.remove(stack)
+                                end
+                                touchmenu_instance.item_table = parent_items
+                                touchmenu_instance:onMenuSelect(edit_item)
+                            end
+                        end,
+                    },
+                }},
+            }
+            UIManager:show(dlg)
+            dlg:onShowKeyboard()
         end
 
         local edit_items = {}
@@ -916,6 +1080,11 @@ function M.build(ctx)
                 if touchmenu_instance then touchmenu_instance:updateItems() end
             end,
         })
+        table.insert(edit_items, {
+            text = _("Copy theme"),
+            keep_menu_open = true,
+            callback = copy_theme,
+        })
         if editable_key then
             table.insert(edit_items, {
                 text = _("Delete theme"),
@@ -947,9 +1116,66 @@ function M.build(ctx)
                 end,
             })
         end
+        local preview_lines = {
+            "Aa Bb Cc Dd",
+            "The quick brown fox jumps over the lazy dog.",
+            "0123456789",
+        }
+        for index, line in ipairs(preview_lines) do
+            local sample_line = line
+            table.insert(edit_items, {
+                text = _("Theme preview"),
+                _zen_settings_content_func = function(width, height, face)
+                    local text_color, background_color =
+                        ReaderThemes.getPreviewColors(plugin, editable_key, editable_theme)
+                    if not (text_color and background_color) then return nil end
+                    local font_size = face.orig_size or IconItem.getSettingsFontSize()
+                    local preview_face = editable_theme.font_face
+                        and editable_theme.font_face ~= "default"
+                        and Font:getFace(editable_theme.font_face, font_size) or face
+                    local padding = Screen:scaleBySize(12)
+                    local preview = FrameContainer:new{
+                        width = width,
+                        height = height,
+                        padding = padding,
+                        margin = 0,
+                        bordersize = 0,
+                        background = background_color,
+                        LeftContainer:new{
+                            dimen = Geom:new{
+                                w = math.max(1, width - 2 * padding),
+                                h = height,
+                            },
+                            ColorTextWidget:new{
+                                text = sample_line,
+                                max_width = math.max(1, width - 2 * padding),
+                                face = preview_face,
+                                fgcolor = text_color,
+                            },
+                        },
+                    }
+                    if index == 1 then
+                        return OverlapGroup:new{
+                            dimen = Geom:new{ w = width, h = height },
+                            preview,
+                            LineWidget:new{
+                                dimen = Geom:new{ w = width, h = Size.line.thin },
+                                background = Blitbuffer.COLOR_LIGHT_GRAY,
+                            },
+                        }
+                    end
+                    return preview
+                end,
+            })
+        end
 
+        local function editable_name()
+            return editable_theme.name or theme_name(base_key)
+        end
         return {
-            text_func = function() return editable_theme.name or theme_name(base_key) end,
+            text_func = editable_name,
+            _zen_settings_content_func = theme_preview_content(
+                editable_key, editable_name, editable_theme),
             sub_item_table = edit_items,
         }
     end
@@ -998,7 +1224,8 @@ function M.build(ctx)
         }
     end
 
-    table.insert(items, {
+    table.insert(appearance_items, {
+        icon_glyph = icons.reader_themes,
         text = _("Reader themes"),
         checked_func = function()
             return config.features["reader_themes"] == true
@@ -1018,19 +1245,11 @@ function M.build(ctx)
     -- Footer presets
     -- -------------------------------------------------------------------------
 
-    local function build_footer_presets_item()
+    local function build_footer_presets_item(footer)
         return {
             text = _("Zen Presets"),
-            enabled_func = function()
-                local ReaderUI = require("apps/reader/readerui")
-                return ReaderUI.instance ~= nil
-            end,
             sub_item_table_func = function()
-                local ReaderUI = require("apps/reader/readerui")
-                local ui = ReaderUI.instance
-                if not (ui and ui.view and ui.view.footer) then
-                    return {}
-                end
+                footer = footer or require("common/reader_status_bar").getFooterForSettings()
                 local function resolve_preset_font(preset)
                     if not (preset.footer and preset.footer.text_font_face) then return preset end
                     local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
@@ -1054,7 +1273,7 @@ function M.build(ctx)
 
                 local function capture_footer_state()
                     local util = require("util")
-                    local footer_settings = ui.view.footer.settings
+                    local footer_settings = footer.settings
                         or G_reader_settings:readSetting("footer")
                         or {}
                     return {
@@ -1069,7 +1288,7 @@ function M.build(ctx)
                 end
 
                 local function apply_footer_preset(preset)
-                    ui.view.footer:loadPreset(resolve_preset_font(preset))
+                    footer:loadPreset(resolve_preset_font(preset))
                     config.features["reader_top_status_bar"] = true
                     save_and_apply("reader_top_status_bar")
                     local chapter_time_format = preset.chapter_time_format
@@ -1093,12 +1312,58 @@ function M.build(ctx)
                 local presets_items = {}
                 local function refresh_preset_menu(touchmenu_instance)
                     if touchmenu_instance then
-                        local presets_item = build_footer_presets_item()
+                        local presets_item = build_footer_presets_item(footer)
                         touchmenu_instance.item_table = presets_item.sub_item_table_func()
                         touchmenu_instance:updateItems()
                     end
                 end
 
+                local user_presets = PresetStore.list("reader")
+                for _i, preset in ipairs(user_presets) do
+                    local preset_name = preset.name
+                    local is_builtin = preset.builtin == true
+                    table.insert(presets_items, {
+                        text = preset_name or _("Unnamed preset"),
+                        radio = true,
+                        checked_func = function()
+                            return PresetStore.getActivePreset("reader") == preset_name
+                        end,
+                        callback = function(touchmenu_instance)
+                            apply_footer_preset(preset)
+                            if touchmenu_instance then touchmenu_instance:updateItems() end
+                        end,
+                        hold_callback = not is_builtin and function(touchmenu_instance)
+                            local ConfirmBox = require("ui/widget/confirmbox")
+                            UIManager:show(ConfirmBox:new{
+                                text = _("Delete preset?") .. "\n\n" .. (preset_name or ""),
+                                ok_text = _("Delete"),
+                                ok_callback = function()
+                                    PresetStore.delete("reader", preset_name)
+                                    if PresetStore.getActivePreset("reader") == preset_name then
+                                        PresetStore.setActivePreset("reader", nil)
+                                    end
+                                    refresh_preset_menu(touchmenu_instance)
+                                end,
+                            })
+                        end or nil,
+                        separator = _i == #user_presets,
+                    })
+                end
+
+                local footer_presets = require("modules/reader/patches/reader_footer_presets")
+                for _i, preset in ipairs(footer_presets) do
+                    table.insert(presets_items, {
+                        text = _(preset.name),
+                        radio = true,
+                        checked_func = function()
+                            return PresetStore.getActivePreset("reader") == preset.name
+                        end,
+                        callback = function(touchmenu_instance)
+                            apply_footer_preset(preset)
+                            if touchmenu_instance then touchmenu_instance:updateItems() end
+                        end,
+                    })
+                end
                 table.insert(presets_items, {
                     text = _("Save current settings as preset"),
                     keep_menu_open = true,
@@ -1136,90 +1401,17 @@ function M.build(ctx)
                     end,
                 })
 
-                local user_presets = PresetStore.list("reader")
-                for _i, preset in ipairs(user_presets) do
-                    local preset_name = preset.name
-                    local is_builtin = preset.builtin == true
-                    table.insert(presets_items, {
-                        text_func = function()
-                            local active = PresetStore.getActivePreset("reader")
-                            local prefix = active == preset_name and "* " or ""
-                            return prefix .. (preset_name or _("Unnamed preset"))
-                        end,
-                        callback = function(touchmenu_instance)
-                            apply_footer_preset(preset)
-                            if touchmenu_instance then touchmenu_instance:updateItems() end
-                        end,
-                        hold_callback = not is_builtin and function(touchmenu_instance)
-                            local ConfirmBox = require("ui/widget/confirmbox")
-                            UIManager:show(ConfirmBox:new{
-                                text = _("Delete preset?") .. "\n\n" .. (preset_name or ""),
-                                ok_text = _("Delete"),
-                                ok_callback = function()
-                                    PresetStore.delete("reader", preset_name)
-                                    if PresetStore.getActivePreset("reader") == preset_name then
-                                        PresetStore.setActivePreset("reader", nil)
-                                    end
-                                    refresh_preset_menu(touchmenu_instance)
-                                end,
-                            })
-                        end or nil,
-                        separator = _i == #user_presets,
-                    })
-                end
-
-                local footer_presets = require("modules/reader/patches/reader_footer_presets")
-                for _i, preset in ipairs(footer_presets) do
-                    table.insert(presets_items, {
-                        text_func = function()
-                            local active = PresetStore.getActivePreset("reader")
-                            local prefix = active == preset.name and "* " or ""
-                            return prefix .. _(preset.name)
-                        end,
-                        callback = function(touchmenu_instance)
-                            apply_footer_preset(preset)
-                            if touchmenu_instance then touchmenu_instance:updateItems() end
-                        end,
-                    })
-                end
                 return presets_items
             end,
         }
     end
 
     -- -------------------------------------------------------------------------
-    -- Font (passthrough to KOReader's font menu)
-    -- -------------------------------------------------------------------------
-
-    table.insert(items, {
-        text = _("Font"),
-        enabled_func = function()
-            local ReaderUI = require("apps/reader/readerui")
-            local ui = ReaderUI.instance
-            return ui ~= nil and ui.view ~= nil and ui.view.footer ~= nil
-        end,
-        sub_item_table_func = function()
-            local ReaderUI = require("apps/reader/readerui")
-            local ui = ReaderUI.instance
-            if not (ui and ui.font) then return {} end
-            local mock = {}
-            ui.font:addToMainMenu(mock)
-            if not mock.change_font then return {} end
-            local entry = mock.change_font
-            local font_items = entry.sub_item_table_func and entry.sub_item_table_func()
-                or entry.sub_item_table or {}
-            for _i, font_item in ipairs(font_items) do
-                if font_item.checked_func then font_item.radio = true end
-            end
-            return font_items
-        end,
-    })
-
-    -- -------------------------------------------------------------------------
     -- Highlight / Lookup
     -- -------------------------------------------------------------------------
 
     table.insert(items, {
+        icon_glyph = icons.search,
         text = _("Highlight / Lookup"),
         sub_item_table = {
             make_enable_feature_item("dict_quick_lookup", _("Zen quick lookup")),
@@ -1227,6 +1419,30 @@ function M.build(ctx)
             {
                 text = _("Highlight"),
                 sub_item_table_func = make_highlight_items,
+            },
+            {
+                text = _("Lookup"),
+                sub_item_table = {{
+                    text = _("Show labels"),
+                    checked_func = function()
+                        return type(config.dict_quick_lookup) == "table" and config.dict_quick_lookup.show_labels == true
+                    end,
+                    callback = function()
+                        config.dict_quick_lookup = config.dict_quick_lookup or {}
+                        config.dict_quick_lookup.show_labels = config.dict_quick_lookup.show_labels ~= true
+                        plugin:saveConfig()
+                    end,
+                }, {
+                    text = _("Dock to bottom"),
+                    checked_func = function()
+                        return type(config.dict_quick_lookup) ~= "table" or config.dict_quick_lookup.bottom_sheet ~= false
+                    end,
+                    callback = function()
+                        config.dict_quick_lookup = config.dict_quick_lookup or {}
+                        config.dict_quick_lookup.bottom_sheet = config.dict_quick_lookup.bottom_sheet == false
+                        plugin:saveConfig()
+                    end,
+                }},
             },
             {
                 text = _("Show Wikipedia"),
@@ -1295,76 +1511,152 @@ function M.build(ctx)
             end,
         }
     end
-    table.insert(items, IconItem.decorate({
+    local chapter_time_format_item = IconItem.decorate({
         text = _("Time until chapter end"),
         sub_item_table = chapter_time_format_items,
-    }, icons.chapter_time_format))
+    }, icons.chapter_time_format)
 
     -- -------------------------------------------------------------------------
     -- Feature toggles
     -- -------------------------------------------------------------------------
 
-    -- bottom swipe is forced on when page browser is active
+    local function swipe_config()
+        if type(config.reader_bottom_swipe) ~= "table" then
+            config.reader_bottom_swipe = { entries = {}, next_id = 0 }
+        end
+        return config.reader_bottom_swipe
+    end
+
+    local function set_swipe_mode(mode)
+        swipe_config().mode = mode
+        config.features.page_browser = mode == "page_browser"
+        config.features.reader_bottom_menu = mode == "koreader" or mode == "custom"
+        if mode == "reader_controls" then return save_and_apply("reader_controls") end
+        plugin:saveConfig()
+    end
+
+    local swipe_items = {}
+    for _i, choice in ipairs({
+        { "koreader", _("KOReader reader menu") },
+        { "reader_controls", _("Reader controls") },
+        { "page_browser", _("Zen page browser") },
+        { "none", _("None") },
+    }) do
+        local mode = choice[1]
+        swipe_items[#swipe_items + 1] = {
+            text = choice[2],
+            radio = true,
+            checked_func = function() return BottomSwipe.getMode(config) == mode end,
+            callback = function() set_swipe_mode(mode) end,
+        }
+    end
+    swipe_items[#swipe_items + 1] = {
+        text = _("Custom"),
+        sub_title = _("Bottom swipe gesture"),
+        radio = true,
+        checked_func = function() return BottomSwipe.getMode(config) == "custom" end,
+        keep_menu_open = true,
+        sub_item_table_func = function()
+            local editor_ctx = {}
+            for key, value in pairs(ctx) do editor_ctx[key] = value end
+            editor_ctx.button_config = swipe_config()
+            editor_ctx.button_scope = "reader"
+            editor_ctx.button_single = true
+            editor_ctx.save_buttons = function()
+                if BottomSwipe.hasTarget(config) then
+                    set_swipe_mode("custom")
+                elseif swipe_config().mode == "custom" then
+                    set_swipe_mode("none")
+                else
+                    plugin:saveConfig()
+                end
+            end
+            return require("modules/settings/sections/app_launcher_settings").build(editor_ctx).sub_item_table
+        end,
+    }
     table.insert(items, IconItem.decorate({
-        text = _("Enable bottom swipe"),
-        checked_func = function()
-            return config.features["reader_bottom_menu"] == true
-                or config.features["page_browser"] == true
-        end,
-        enabled_func = function()
-            return config.features["page_browser"] ~= true
-        end,
-        callback = function()
-            config.features["reader_bottom_menu"] = config.features["reader_bottom_menu"] ~= true
-            save_and_apply("reader_bottom_menu")
-        end,
+        text = _("Bottom swipe gesture"),
+        sub_item_table = swipe_items,
     }, icons.bottom_swipe))
-    -- Enabling the page browser forces the bottom swipe on.
-    local function make_page_browser_font_size_item(key, section)
+
+    table.insert(items, IconItem.decorate({
+        text = _("Page Browser"),
+        sub_item_table = {{
+            text = _("Top status bar"),
+            enabled_func = function()
+                return config.features.status_bar == true
+                    and require("common/status_bar_registry").hasItems(config.status_bar)
+            end,
+            checked_func = function()
+                return not config.page_browser or config.page_browser.show_status_bar ~= false
+            end,
+            callback = function()
+                config.page_browser = config.page_browser or {}
+                config.page_browser.show_status_bar = config.page_browser.show_status_bar == false
+                plugin:saveConfig()
+            end,
+        }, {
+            text = _("Tabs"),
+            _zen_settings_submenu = true,
+            callback = function()
+                require("modules/reader/page_browser_tabs").show(config, plugin,
+                    require("apps/reader/readerui").instance)
+            end,
+        }},
+    }, icons.page_browser))
+
+    local function reference_settings_reader()
+        local reader = require("apps/reader/readerui").instance
+        if reader then return reader end
+        -- Reuse popup menus with global font defaults when no book is open.
         return {
-            text_func = function()
-                local cfg = type(config.page_browser) == "table" and config.page_browser or {}
-                return string.format("%s — %s %s", section, _("Font size") .. ":", tonumber(cfg[key]) or 18)
-            end,
-            keep_menu_open = true,
-            callback = function(touchmenu_instance)
-                local SpinWidget = require("ui/widget/spinwidget")
-                local cfg = type(config.page_browser) == "table" and config.page_browser or {}
-                UIManager:show(SpinWidget:new{
-                    title_text = string.format("%s — %s", section, _("Font size")),
-                    value = tonumber(cfg[key]) or 18,
-                    value_min = 10,
-                    value_max = 40,
-                    default_value = 18,
-                    callback = function(spin)
-                        if type(config.page_browser) ~= "table" then config.page_browser = {} end
-                        config.page_browser[key] = spin.value
-                        plugin:saveConfig()
-                        if touchmenu_instance then touchmenu_instance:updateItems() end
-                    end,
-                })
-            end,
+            rolling = {},
+            document = { configurable = {
+                font_size = G_reader_settings:readSetting("copt_font_size")
+                    or G_defaults:readSetting("DCREREADER_CONFIG_DEFAULT_FONT_SIZE"),
+            } },
         }
     end
 
-    table.insert(items, IconItem.decorate({
-        text = _("Zen page browser"),
-        checked_func = function()
-            return config.features["page_browser"] == true
-        end,
-        checkmark_callback = function()
-            config.features["page_browser"] = config.features["page_browser"] ~= true
-            save_and_apply("page_browser")
-        end,
+    table.insert(items, {
+        text = _("Footnotes and pinned pages"),
+        icon_name = "pin",
         sub_item_table = {
-            make_page_browser_font_size_item(
-                "toc_font_size", _("Table of contents")
-            ),
-            make_page_browser_font_size_item(
-                "bookmarks_font_size", _("Bookmarks")
-            ),
+            make_enable_feature_item("reader_references", _("Reference drawer")),
+            {
+                text = _("Pinned page options"),
+                sub_item_table_func = function()
+                    local reader = reference_settings_reader()
+                    return require("modules/reader/pin_settings").items(reader, plugin, function()
+                        local state = reader._zen_references
+                        if state and state.drawer and not state.drawer.footnote then state.drawer:reload() end
+                    end)
+                end,
+            },
+            {
+                text = _("Footnote options"),
+                enabled_func = function()
+                    local reader = require("apps/reader/readerui").instance
+                    return not reader or reader.rolling ~= nil
+                end,
+                sub_item_table_func = function()
+                    local reader = reference_settings_reader()
+                    local link = reader.link or require("apps/reader/modules/readerlink")
+                    local native_items = link.getFootnoteSettingsMenuTable(reader.link or { document = reader.document })
+                    local footnote_items = {}
+                    for _i, item in ipairs(native_items) do
+                        for _j, option in ipairs(item.sub_item_table or { item }) do
+                            footnote_items[#footnote_items + 1] = option
+                        end
+                    end
+                    return footnote_items
+                end,
+            },
         },
-    }, icons.page_browser))
+    })
+
+    table.insert(items, require("modules/settings/sections/annotation_settings").build(ctx))
+
     table.insert(items, IconItem.decorate({
         text = _("Restore library location on exit"),
         checked_func = function()
@@ -1380,25 +1672,18 @@ function M.build(ctx)
     -- Bottom status bar (passthrough to KOReader's footer menu)
     -- -------------------------------------------------------------------------
 
-    table.insert(items, {
+    table.insert(appearance_items, 2, {
+        icon_glyph = icons.settings_status,
         text = _("Bottom status bar"),
         checked_func = function()
-            return dispatch_action.isBottomStatusBarVisible(plugin)
+            return dispatch_action.isBottomStatusBarEnabled(plugin)
         end,
         checkmark_callback = function()
             dispatch_action.setBottomStatusBar(plugin,
-                not dispatch_action.isBottomStatusBarVisible(plugin))
-        end,
-        enabled_func = function()
-            local ReaderUI = require("apps/reader/readerui")
-            return ReaderUI.instance ~= nil
+                not dispatch_action.isBottomStatusBarEnabled(plugin))
         end,
         sub_item_table_func = function()
-            local ReaderUI = require("apps/reader/readerui")
-            local ui = ReaderUI.instance
-            if not (ui and ui.view and ui.view.footer) then
-                return {}
-            end
+            local footer = require("common/reader_status_bar").getFooterForSettings()
 
             local ok_fc, FontChooser = pcall(require, "ui/widget/fontchooser")
             if not ok_fc then FontChooser = nil end
@@ -1421,9 +1706,9 @@ function M.build(ctx)
                             value_max = 36,
                             default_value = 14,
                             callback = function(spin)
-                                ui.view.footer.settings.text_font_size = spin.value
-                                ui.view.footer:updateFooterFont()
-                                ui.view.footer:refreshFooter(true, true)
+                                footer.settings.text_font_size = spin.value
+                                footer:updateFooterFont()
+                                footer:refreshFooter(true, true)
                                 if touchmenu_instance then touchmenu_instance:updateItems() end
                             end,
                         })
@@ -1447,9 +1732,9 @@ function M.build(ctx)
                             font_file = footer_settings.text_font_face or "NotoSans-Regular.ttf",
                             default_font_file = "NotoSans-Regular.ttf",
                             callback = function(file)
-                                ui.view.footer.settings.text_font_face = file
-                                ui.view.footer:updateFooterFont()
-                                ui.view.footer:refreshFooter(true, true)
+                                footer.settings.text_font_face = file
+                                footer:updateFooterFont()
+                                footer:refreshFooter(true, true)
                                 if touchmenu_instance then touchmenu_instance:updateItems() end
                             end,
                         })
@@ -1463,9 +1748,9 @@ function M.build(ctx)
                     return footer_settings.text_font_bold == true
                 end,
                 callback = function()
-                    ui.view.footer.settings.text_font_bold = not ui.view.footer.settings.text_font_bold
-                    ui.view.footer:updateFooterFont()
-                    ui.view.footer:refreshFooter(true, true)
+                    footer.settings.text_font_bold = not footer.settings.text_font_bold
+                    footer:updateFooterFont()
+                    footer:refreshFooter(true, true)
                 end,
             })
             local ok_fc_default = pcall(require, "ui/widget/fontchooser")
@@ -1473,11 +1758,11 @@ function M.build(ctx)
                 table.insert(font_sub_items, {
                     text = _("Use default font"),
                     callback = function(touchmenu_instance)
-                        ui.view.footer.settings.text_font_face = "NotoSans-Regular.ttf"
-                        ui.view.footer.settings.text_font_size = 14
-                        ui.view.footer.settings.text_font_bold = false
-                        ui.view.footer:updateFooterFont()
-                        ui.view.footer:refreshFooter(true, true)
+                        footer.settings.text_font_face = "NotoSans-Regular.ttf"
+                        footer.settings.text_font_size = 14
+                        footer.settings.text_font_bold = false
+                        footer:updateFooterFont()
+                        footer:refreshFooter(true, true)
                         if touchmenu_instance then touchmenu_instance:updateItems() end
                     end,
                 })
@@ -1488,9 +1773,9 @@ function M.build(ctx)
             }
 
             local mock = {}
-            ui.view.footer:addToMainMenu(mock)
+            footer:addToMainMenu(mock)
             local result = {}
-            table.insert(result, build_footer_presets_item())
+            table.insert(result, build_footer_presets_item(footer))
             table.insert(result, font_submenu)
             table.insert(result, {
                 text = _("Hide in CBZ/PDF files"),
@@ -1505,16 +1790,64 @@ function M.build(ctx)
                     config.reader_footer.hide_in_cbz =
                         config.reader_footer.hide_in_cbz ~= true
                     plugin:saveConfig()
-                    -- Apply immediately to the current open document.
-                    local footer = ui and ui.view and ui.view.footer
-                    if footer then
-                        footer:applyFooterMode()
+                    footer:applyFooterMode()
+                    footer:refreshFooter(true, true)
+                end,
+            })
+            local ReaderStatusBar = require("common/reader_status_bar")
+            local tap_hide_options = {
+                { false, _("Off") },
+                { "bottom", _("Bottom") },
+                { "top", _("Top") },
+                { "both", _("Top + bottom") },
+            }
+            local tap_hide_items = {}
+            for _i, opt in ipairs(tap_hide_options) do
+                tap_hide_items[#tap_hide_items + 1] = {
+                    text = opt[2],
+                    radio = true,
+                    checked_func = function()
+                        return ReaderStatusBar.getTapHide(plugin, footer) == opt[1]
+                    end,
+                    callback = function()
+                        footer.settings.lock_tap = not opt[1]
+                        if opt[1] then config.reader_footer.tap_hide = opt[1] end
+                        plugin:saveConfig()
+                        -- Reveal anything a previous mode hid.
+                        ReaderStatusBar.resetTopBarTapHidden()
+                        if footer.mode == footer.mode_list.off
+                                and dispatch_action.isBottomStatusBarEnabled(plugin) then
+                            ReaderStatusBar.toggleFooter(footer)
+                        end
                         footer:refreshFooter(true, true)
+                        local reader = require("apps/reader/readerui").instance
+                        if reader then UIManager:setDirty(reader, "ui") end
+                    end,
+                }
+            end
+            table.insert(result, {
+                text_func = function()
+                    local value = ReaderStatusBar.getTapHide(plugin, footer)
+                    for _i, opt in ipairs(tap_hide_options) do
+                        if opt[1] == value then
+                            return string.format("%s %s", _("Hide on tap") .. ":", opt[2])
+                        end
                     end
                 end,
+                sub_item_table = tap_hide_items,
             })
             if mock.status_bar and mock.status_bar.sub_item_table then
                 for _i, item in ipairs(mock.status_bar.sub_item_table) do
+                    if item.text == _("Status bar items") then
+                        for _j, footer_item in ipairs(item.sub_item_table or {}) do
+                            if footer_item.text_func and footer_item.text_func()
+                                    == footer:textOptionTitles("chapter_time_to_read") then
+                                footer_item.checkmark_callback = footer_item.callback
+                                footer_item.callback = nil
+                                footer_item.sub_item_table = { chapter_time_format_item }
+                            end
+                        end
+                    end
                     table.insert(result, item)
                 end
             end
@@ -1522,7 +1855,7 @@ function M.build(ctx)
         end,
     })
 
-    table.insert(items, IconItem.decorate({
+    table.insert(appearance_items, IconItem.decorate({
         text = _("Flash on every CBZ page turn"),
         checked_func = function()
             return config.features.reader_flash_cbz == true
@@ -1533,7 +1866,7 @@ function M.build(ctx)
         end,
     }, icons.reader_flash_cbz))
 
-    table.insert(items, IconItem.decorate({
+    table.insert(appearance_items, 3, IconItem.decorate({
         text = _("Align status bars with book margins"),
         checked_func = function()
             return config.features.reader_status_bar_margins == true
@@ -1551,12 +1884,7 @@ function M.build(ctx)
         end,
     }, icons.reader_status_bar_margins))
 
-    IconItem.decorate(items[1], icons.settings_status)
-    IconItem.decorate(items[2], icons.reader_themes)
-    IconItem.decorate(items[3], icons.title)
-    IconItem.decorate(items[4], icons.search)
-    IconItem.decorate(items[9], icons.settings_status)
-
+    items[#items + 1] = require("modules/settings/sections/reader_controls_settings").build(ctx)
     items[#items + 1] = IconItem.decorate({
         text = _("End of book"),
         sub_item_table_func = function()

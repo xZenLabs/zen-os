@@ -66,6 +66,7 @@ describe("file manager status bar visibility", function()
             isConnected = function(self) return self.connected end,
         }
         replace("ui/network/manager", NetworkMgr)
+        replace("common/wifi_state", ZenSpec.uncachedWifiState())
         replace("ui/widget/overlapgroup", {})
         replace("ui/widget/container/rightcontainer", {})
         local TextWidget = {}

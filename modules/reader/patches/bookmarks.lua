@@ -132,9 +132,9 @@ local function apply_bookmarks()
         end
     end
 
-    local function focus_back_button(menu)
+    local function focus_header_button(menu)
         if not menu._zen_hardware_focus_patched then return end
-        local back = menu.title_bar and menu.title_bar.left_button
+        local back = menu.title_bar and (menu.title_bar.left_button or menu.title_bar.right_button)
         if not (back and menu.layout) then return end
         local Event = require("ui/event")
         local UIManager = require("ui/uimanager")
@@ -199,7 +199,7 @@ local function apply_bookmarks()
             end
         end
 
-        -- Keep Back on the left; place Menu and Close all at the top right.
+        -- Standalone lists only need Menu and Close at the top right.
         local tb = bm_menu.title_bar
         if tb and tb.left_button and tb.right_button then
             local orig_left_tap  = tb.left_button.callback
@@ -242,7 +242,7 @@ local function apply_bookmarks()
             end
 
             -- Left: close bookmarks and return to the Page Browser.
-            tb.left_button = make_title_button(
+            tb.left_button = bm_menu._zen_page_browser_parent and make_title_button(
                 resolve_stock_icon("chevron.left"), orig_right_tap, nil,
                 "left", 2 * button_size
             )
@@ -270,9 +270,9 @@ local function apply_bookmarks()
                 "right"
             )
             tb.close_button = tb.right_button
-            tb.has_left_icon = true
+            tb.has_left_icon = tb.left_button ~= nil
             tb.has_right_icon = true
-            table.insert(tb, tb.left_button)
+            if tb.left_button then table.insert(tb, tb.left_button) end
             table.insert(tb, tb.menu_button)
             table.insert(tb, tb.right_button)
 
@@ -287,7 +287,9 @@ local function apply_bookmarks()
             end
 
             tb.generateHorizontalLayout = function(self_tb)
-                return {{ self_tb.left_button, self_tb.menu_button, self_tb.right_button }}
+                local row = { self_tb.menu_button, self_tb.right_button }
+                if self_tb.left_button then table.insert(row, 1, self_tb.left_button) end
+                return { row }
             end
         end
 
@@ -298,7 +300,7 @@ local function apply_bookmarks()
             item.mandatory_dim = nil
         end
         bm_menu:updateItems(1, true)
-        focus_back_button(bm_menu)
+        focus_header_button(bm_menu)
     end
 end
 

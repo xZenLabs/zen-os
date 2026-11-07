@@ -1,0 +1,44 @@
+The following highlight menu icons are from the Solar Icon Set by 480 Design,
+licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/):
+
+| File | Original Solar design | Changes |
+| --- | --- | --- |
+| `paint_palette.svg` | Design, Tools / Pallete 2 | None |
+| `edit.svg` | Messages, Conversation / Pen New Square | Added a plus sign |
+
+Sources: [Solar Icon Set](https://github.com/480-Design/Solar-Icon-Set/tree/44017167688b49109d88ae6a98979b23d8950db0/icons/SVG/Linear),
+also available in [SVGRepo's Solar Linear collection](https://www.svgrepo.com/collection/solar-linear-icons/).
+
+The following page browser and pinned preview icons are from Material Design Icons by Pictogrammers,
+licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0):
+
+| File | Original Iconify icon | Changes |
+| --- | --- | --- |
+| `grid.svg` | [mdi:view-grid](https://icon-sets.iconify.design/mdi/view-grid/) | Fixed black fill and 24px dimensions |
+| `annotations.svg` | [mdi:note-edit-outline](https://pictogrammers.com/library/mdi/icon/note-edit-outline/) | Fixed black fill and 24px dimensions |
+| `bookmark_outline.svg` | [mdi:bookmark-outline](https://pictogrammers.com/library/mdi/icon/bookmark-outline/) | Fixed black fill and 24px dimensions |
+| `library_shelves.svg` | [mdi:library-shelves](https://pictogrammers.com/library/mdi/icon/library-shelves/) | Fixed black fill and 24px dimensions |
+| `view_carousel_outline.svg` | [mdi:view-carousel-outline](https://pictogrammers.com/library/mdi/icon/view-carousel-outline/) | Fixed black fill and 24px dimensions |
+| `swap_horizontal.svg` | [mdi:swap-horizontal](https://pictogrammers.com/library/mdi/icon/swap-horizontal/) | Fixed black fill and 24px dimensions |
+| `toc.svg` | [mdi:table-of-contents](https://icon-sets.iconify.design/mdi/table-of-contents/) | Fixed black fill, 24px dimensions, wider rows, and increased row spacing |
+| `info.svg` | [mdi:information-outline](https://icon-sets.iconify.design/mdi/information-outline/) | Fixed black fill and 24px dimensions |
+| `more_vertical.svg` | [mdi:dots-vertical](https://icon-sets.iconify.design/mdi/dots-vertical/) | Fixed black fill, 24px dimensions, and reduced dot radius to 1.5px |
+| `fullscreen.svg` | [mdi:arrow-expand](https://pictogrammers.com/library/mdi/icon/arrow-expand/) | Fixed black fill and 24px dimensions |
+| `fullscreen_exit.svg` | [mdi:arrow-expand](https://pictogrammers.com/library/mdi/icon/arrow-expand/) | Fixed black fill, 24px dimensions, and inward arrows |
+| `zoom_in.svg` | [mdi:plus](https://icon-sets.iconify.design/mdi/plus/) | Fixed black fill and 24px dimensions |
+| `zoom_out.svg` | [mdi:minus](https://icon-sets.iconify.design/mdi/minus/) | Fixed black fill and 24px dimensions |
+
+Source: [Material Design Icons](https://github.com/Templarian/MaterialDesign).
+
+`font.svg` uses [material-symbols:match-case](https://icon-sets.iconify.design/material-symbols/match-case/)
+from Material Symbols by Google, licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+Changes: fixed black fill, 24px dimensions, and uniform 1.35× enlargement with the original proportions.
+
+`moon_outline.svg` uses [dark_mode (outlined)](https://github.com/google/material-design-icons/blob/master/src/device/dark_mode/materialiconsoutlined/24px.svg)
+from Material Icons by Google, licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+Changes: fixed black fill and removed the empty background rectangle.
+
+All `settings_*.svg` icons are from [Material Design Icons](https://github.com/Templarian/MaterialDesign)
+by Pictogrammers, licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+Each file is named after its original MDI icon (e.g. `settings_cog.svg` is `mdi:cog`).
+Changes: fixed black fill and 24px dimensions.

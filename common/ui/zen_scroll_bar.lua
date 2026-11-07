@@ -1,3 +1,4 @@
+local icons = require("common/inline_icon_map")
 local function apply_zen_scroll_bar()
     -- Replaces the pagination footer with a pill-bar, dot-style, or page-number
     -- scroll indicator. Style is read live from config; no restart needed to toggle.
@@ -19,6 +20,8 @@ local function apply_zen_scroll_bar()
         zen_settings = true,
         network_switcher = true,
         bluetooth_switcher = true,
+        page_browser_toc = true,
+        page_browser_annotations = true,
     }
 
     local function getRakuyomi()
@@ -52,9 +55,12 @@ local function apply_zen_scroll_bar()
             return
         end
 
-        if self.name == "zen_settings" then
-            self.page_info_text.tap_input = nil
-            self.page_info_text.hold_input = nil
+        -- Stock footer buttons are never painted, so their tap ranges stay at (0,0)
+        -- and swallow top-left taps ("Enter text, letter or page number" dialog).
+        local propagate_event = self.page_info.propagateEvent
+        self.page_info.propagateEvent = function(group, event)
+            if event.handler == "onGesture" then return false end
+            return propagate_event(group, event)
         end
 
         local menu   = self
@@ -222,7 +228,7 @@ local function apply_zen_scroll_bar()
                         input           = "",
                         input_type      = "number",
                         input_hint      = "1 - " .. tostring(nb),
-                        button_text     = "\u{F124} " .. _("Go"),
+                        button_text     = icons.go .. " " .. _("Go"),
                         button_callback = function(dialog)
                             local p = tonumber(dialog:getInputText())
                             if p and p >= 1 and p <= nb then

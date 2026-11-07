@@ -26,6 +26,7 @@ describe("global schedule resume hook", function()
         "modules/global/patches/menu_font",
         "modules/global/patches/unified_title_style",
         "modules/global/patches/button_feedback",
+        "modules/global/patches/rounded_scrollbars",
         "modules/global/patches/responsive_keyboard",
     }
 
@@ -224,8 +225,9 @@ describe("global schedule resume hook", function()
         scheduled[1].callback()
         scheduled[2].callback()
         assert.are.equal(1, _G.night_reschedules)
-        assert.are.equal(2, _G.brightness_reschedules)
-        assert.are.equal(2, _G.warmth_reschedules)
+        -- Frontlight is forced once, after it settles; not at 0.1 s too.
+        assert.are.equal(1, _G.brightness_reschedules)
+        assert.are.equal(1, _G.warmth_reschedules)
     end)
 
     it("applies Zen Keyboard by default", function()
@@ -287,6 +289,21 @@ describe("global schedule resume hook", function()
             config = { features = { zen_keyboard = false } },
         }))
         assert.are.equal(0, responsive_keyboard_applies)
+    end)
+
+    it("invalidates cached Wi-Fi state on network events and resume only", function()
+        local original_wifi_state = package.loaded["common/wifi_state"]
+        local invalidations = 0
+        ZenSpec.replace("common/wifi_state", { invalidate = function() invalidations = invalidations + 1 end })
+        ZenSpec.unload("modules/global/global")
+        global = require("modules/global/global")
+        assert.is_true(global.init(nil, { config = { features = {} } }))
+
+        for _i, handler in ipairs({ "onNetworkConnected", "onNetworkDisconnecting", "onResume", "onCharging" }) do
+            ui_manager:broadcastEvent({ handler = handler })
+        end
+        package.loaded["common/wifi_state"] = original_wifi_state
+        assert.are.equal(3, invalidations)
     end)
 
     it("does not reapply schedules for unrelated broadcasts", function()

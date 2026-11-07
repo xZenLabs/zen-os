@@ -66,7 +66,6 @@ describe("Controls destination settings", function()
             zen_settings_label = "", zen_settings_icon = "zen_ui",
             launcher_label = "", launcher_icon = "app_launcher",
             unified_light_slider = true,
-            hide_reader_actions_in_library = false,
             reader_actions = {},
             tailscale_toggle_wifi = false,
             background_hatching = false,
@@ -289,7 +288,7 @@ describe("Controls destination settings", function()
         end
 
         assert.is_table(setting)
-        assert.are.equal(setting, section.sub_item_table[#section.sub_item_table - 2])
+        assert.are.equal(setting, section.sub_item_table[#section.sub_item_table - 1])
         assert.is_false(setting.checked_func())
         setting.callback()
         assert.is_true(setting.checked_func())
@@ -474,6 +473,7 @@ describe("Controls destination settings", function()
             error("Missing Reader action toggle")
         end
         local builtin = reader_item(arrange_options.item_table[1].sub_item_table_func())
+        assert.are.equal("When enabled, this action is hidden in the library.", builtin.help_text)
         assert.is_false(builtin.checked_func())
         builtin.callback(touch_menu)
         assert.is_true(config.quick_settings.reader_actions.wifi)
@@ -508,7 +508,7 @@ describe("Controls destination settings", function()
         assert.are.equal(13, refreshes)
     end)
 
-    it("toggles hiding reader actions in the library and restores the default on reset", function()
+    it("always hides reader actions in the library and resets per-button reader flags", function()
         ZenSpec.replace("ui/widget/confirmbox", {
             new = function(_self, options) return options end,
         })
@@ -518,23 +518,16 @@ describe("Controls destination settings", function()
             plugin = {},
             save_and_apply = function() saves = saves + 1 end,
         })
-        local hide, reset
+        local reset
         for _i, item in ipairs(section.sub_item_table) do
-            if item.text == "Hide reader actions in library" then hide = item end
+            assert.are_not.equal("Hide reader actions in library", item.text)
             if item.text == "Reset to defaults" then reset = item end
         end
-        assert.is_table(hide)
-        assert.are.equal(hide, section.sub_item_table[#section.sub_item_table - 1])
-        assert.is_false(hide.checked_func())
-        hide.callback()
-        assert.is_true(hide.checked_func())
-        assert.is_true(config.quick_settings.hide_reader_actions_in_library)
         config.quick_settings.reader_actions = { wifi = true }
         reset.callback()
         shown_widget.ok_callback()
-        assert.is_false(hide.checked_func())
         assert.are.same({}, config.quick_settings.reader_actions)
-        assert.are.equal(2, saves)
+        assert.are.equal(1, saves)
     end)
 
     it("toggles unified controls directly and restores them on reset", function()

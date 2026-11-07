@@ -22,26 +22,6 @@ local function apply_night_mode_schedule()
         _G.__ZEN_UI_NIGHT_SCHEDULE = state
     end
 
-    -- Re-install hooks on the current plugin instance (survives FileManager:reinit).
-    do
-        local orig_suspend = zen_plugin.onSuspend
-        zen_plugin.onSuspend = function(self, ...)
-            if state._on_suspend then state._on_suspend() end
-            if type(orig_suspend) == "function" then
-                return orig_suspend(self, ...)
-            end
-        end
-        local orig_resume = zen_plugin.onResume
-        zen_plugin.onResume = function(self, ...)
-            local result
-            if type(orig_resume) == "function" then
-                result = orig_resume(self, ...)
-            end
-            if state._on_resume then state._on_resume() end
-            return result
-        end
-    end
-
     -- Guard against double-init after a package.loaded purge.
     if state.initialized then
         return
@@ -96,23 +76,29 @@ local function apply_night_mode_schedule()
         end
     end
 
-    -- Force hardware inversion on resume; software inversion changes only on transitions.
+    -- Forced (resume) passes re-assert HW inversion only when the flag drifted.
     local function set_night_mode(enable, force)
-        local ReaderThemes = require("common/reader_themes")
         local changed = Screen.night_mode ~= enable
-        if not force and not changed then return end
-        G_reader_settings:saveSetting("night_mode", enable)
         local hw_invert = Device:canHWInvert()
+        local hw_stale = false
+        if force and hw_invert and not changed then
+            local ok_hw, hw = pcall(Screen.getHWNightmode, Screen)
+            hw_stale = not ok_hw or hw ~= enable -- Unknown flag: re-assert.
+        end
+        if not changed and not hw_stale then return end
+        G_reader_settings:saveSetting("night_mode", enable)
         if hw_invert then
             Screen.night_mode = enable
             pcall(Screen.setHWNightmode, Screen, enable)
-        elseif changed then
+        else
             Screen:toggleNightMode()
         end
-        if hw_invert and changed and ReaderThemes.isEnabled(zen_plugin) then
-            ReaderThemes.applyCurrent(zen_plugin)
+        if hw_invert and changed then
+            local ReaderThemes = require("common/reader_themes")
+            if ReaderThemes.isEnabled(zen_plugin) then ReaderThemes.applyCurrent(zen_plugin) end
         end
-        if hw_invert or not changed then
+        -- SW toggleNightMode is wrapped by the frontlight schedules; HW invert bypasses it.
+        if hw_invert then
             for _i, name in ipairs({
                 "__ZEN_UI_BRIGHTNESS_SCHEDULE",
                 "__ZEN_UI_WARMTH_SCHEDULE",
@@ -172,9 +158,6 @@ local function apply_night_mode_schedule()
     state._on_suspend = function()
         UIManager:unschedule(night_on_fn)
         UIManager:unschedule(night_off_fn)
-    end
-    state._on_resume = function()
-        UIManager:nextTick(function() reschedule() end)
     end
     state.initialized = true
 

@@ -22,7 +22,7 @@ local last_plugin_source
 
 local function supported_plugin(plugin, source)
     local bluetooth = type(plugin) == "table" and plugin.kobo_bluetooth
-    if bluetooth and type(bluetooth.isDeviceSupported) == "function" then
+    if type(bluetooth) == "table" and type(bluetooth.isDeviceSupported) == "function" then
         local ok, supported = pcall(bluetooth.isDeviceSupported, bluetooth)
         if ok and supported then
             if source ~= last_plugin_source then
@@ -49,12 +49,13 @@ local function plugin_bluetooth()
             if bluetooth then return bluetooth end
         end
     end
-    local ok_reader, ReaderUI = pcall(require, "apps/reader/readerui")
-    local bluetooth = ok_reader and type(ReaderUI) == "table"
+    -- package.loaded: an unloaded UI has no instance, and requiring ReaderUI at boot costs ~2.5 MiB.
+    local ReaderUI = package.loaded["apps/reader/readerui"]
+    local bluetooth = type(ReaderUI) == "table"
         and ui_plugin(ReaderUI.instance, "ReaderUI")
     if bluetooth then return bluetooth end
-    local ok_manager, FileManager = pcall(require, "apps/filemanager/filemanager")
-    bluetooth = ok_manager and type(FileManager) == "table"
+    local FileManager = package.loaded["apps/filemanager/filemanager"]
+    bluetooth = type(FileManager) == "table"
         and ui_plugin(FileManager.instance, "FileManager")
     if bluetooth then return bluetooth end
     local zen = rawget(_G, "__ZEN_UI_PLUGIN")
@@ -543,7 +544,11 @@ end
 
 function M.getState()
     local plugin = plugin_bluetooth()
-    if plugin then return plugin:isBluetoothEnabled() end
+    if plugin and type(plugin.isBluetoothEnabled) == "function" then
+        local ok, state = pcall(plugin.isBluetoothEnabled, plugin)
+        if ok then return state end
+        logger.warn("kobo.koplugin Bluetooth state failed", state)
+    end
     local device_kind = kind()
     if not device_kind then return nil end
     local now = os.time()

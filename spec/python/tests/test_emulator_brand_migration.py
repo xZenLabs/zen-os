@@ -1,13 +1,12 @@
 import json
 import os
-import signal
 import subprocess
 import tempfile
 from pathlib import Path
 
 import pytest
 
-from zen_driver import ZenDriver, launch, wait_for_socket
+from zen_driver import ZenDriver, launch, stop, wait_for_socket
 
 
 pytestmark = pytest.mark.skipif(
@@ -20,22 +19,11 @@ def _lua_string(value: object) -> str:
     return json.dumps(str(value))
 
 
-def _stop(process: subprocess.Popen[str]) -> None:
-    if process.poll() is not None:
-        return
-    process.send_signal(signal.SIGTERM)
-    try:
-        process.wait(timeout=15)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait()
-
-
 def _expect_restart(process: subprocess.Popen[str], phase: str) -> None:
     try:
         code = process.wait(timeout=45)
     except subprocess.TimeoutExpired:
-        _stop(process)
+        stop(process)
         pytest.fail(f"{phase} did not restart KOReader")
     assert code == 85, f"{phase} exited with {code}, expected KOReader restart code 85"
 
@@ -152,7 +140,7 @@ def test_disabled_legacy_plugin_enables_migrates_and_restarts_twice() -> None:
             assert enabled["legacy_disabled"] is False
             _expect_restart(first_boot, "plugin-manager enable")
         finally:
-            _stop(first_boot)
+            stop(first_boot)
 
         assert legacy_plugin.is_dir()
         assert not canonical_plugin.exists()
@@ -166,7 +154,7 @@ def test_disabled_legacy_plugin_enables_migrates_and_restarts_twice() -> None:
         try:
             _expect_restart(migration_boot, "legacy-to-canonical migration")
         finally:
-            _stop(migration_boot)
+            stop(migration_boot)
 
         assert not legacy_plugin.exists()
         assert canonical_plugin.is_dir()
@@ -238,4 +226,4 @@ def test_disabled_legacy_plugin_enables_migrates_and_restarts_twice() -> None:
             assert settings_state["settings"]["title"] == "Settings"
             assert "Zen UI" not in settings_state["settings"]["title"]
         finally:
-            _stop(final_boot)
+            stop(final_boot)

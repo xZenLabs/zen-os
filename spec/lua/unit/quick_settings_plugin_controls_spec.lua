@@ -61,7 +61,7 @@ describe("quick settings plugin controls", function()
         "modules/menu/app_launcher/plugin_scan",
         "modules/menu/app_launcher/action_filter",
         "modules/menu/app_launcher/model",
-        "modules/menu/app_launcher/book_details_page",
+        "modules/menu/reader_controls/book_info_card",
         "modules/menu/app_launcher/book_switcher_page",
         "modules/menu/app_launcher/page_plan",
         "modules/menu/app_launcher/menu_host",
@@ -94,7 +94,7 @@ describe("quick settings plugin controls", function()
         }) do
             ZenSpec.replace(name, {})
         end
-        ZenSpec.unload("modules/menu/app_launcher/book_details_page")
+        ZenSpec.unload("modules/menu/reader_controls/book_info_card")
         ZenSpec.unload("modules/menu/app_launcher/book_switcher_page")
         ZenSpec.unload("modules/menu/app_launcher/page_plan")
         ZenSpec.unload("modules/menu/patches/app_launcher")
@@ -446,6 +446,22 @@ describe("quick settings plugin controls", function()
         assert.are.equal(zen_icon, zen.widget[1][1].file)
     end)
 
+    it("resolves airplane, network, and battery controls from the selected pack", function()
+        local utils = require("common/utils")
+        local resolve = utils.resolveIcon
+        local names = { airplane = true, network = true, quick_battery = true }
+        utils.resolveIcon = function(icons_dir, name)
+            if names[name] then return "/icons/zen/selected/" .. name .. ".svg" end
+            return resolve(icons_dir, name)
+        end
+        require("modules/menu/patches/quick_settings")()
+        local controls = {}
+        for _i, item in ipairs(_G.__ZEN_UI_QUICK_SETTINGS.getItems()) do controls[item.id] = item end
+        assert.are.equal("/icons/zen/selected/airplane.svg", controls.airplanemode.icon)
+        assert.are.equal("/icons/zen/selected/network.svg", controls.tailscale.icon)
+        assert.are.equal("/icons/zen/selected/quick_battery.svg", controls.battery_stats.icon)
+    end)
+
     it("offers Battery Stats as a control and opens the Zen page", function()
         _G.__ZEN_UI_PLUGIN.config._meta = { installed_plugins = {} }
         local controls = {}
@@ -524,8 +540,6 @@ describe("quick settings plugin controls", function()
             return ids
         end
 
-        assert.are.same(order, rendered_ids(library_host))
-        config.hide_reader_actions_in_library = true
         assert.are.same({ "cb_5" }, rendered_ids(library_host))
         assert.are.same(order, rendered_ids(reader_host))
         menu.menu_container = library_host
@@ -538,8 +552,6 @@ describe("quick settings plugin controls", function()
         config.custom_buttons[5].reader_action = false
         config.custom_buttons[1].reader_action = false
         assert.are.same({ "cb_1", "cb_5" }, rendered_ids(library_host))
-        config.hide_reader_actions_in_library = false
-        assert.are.same(order, rendered_ids(library_host))
     end)
 
     it("flashes the tapped Controls circle before running its action", function()
@@ -977,13 +989,12 @@ describe("quick settings plugin controls", function()
         local ReaderUI = require("apps/reader/readerui")
         local PagePlan = require("modules/menu/app_launcher/page_plan")
         local cfg = {
-            show_book_details = true,
             show_book_switcher = true,
             book_switcher_reader_only = true,
         }
         for _i, case in ipairs({
             { ReaderMenu, { document = { file = "/books/current.epub" } }, {
-                { kind = "book_details" }, { kind = "book_switcher" }, { kind = "buttons", index = 1 },
+                { kind = "book_switcher" }, { kind = "buttons", index = 1 },
             } },
             { FileManagerMenu, false, { { kind = "buttons", index = 1 } } },
         }) do
@@ -1043,9 +1054,8 @@ describe("quick settings plugin controls", function()
         require("device").screen.getHeight = function() return 600 end
         local cfg = {
             entries = {},
-            show_book_details = true,
             show_book_switcher = true,
-            page_order = { "buttons", "book_details", "book_switcher" },
+            page_order = { "buttons", "book_switcher" },
         }
         for index = 1, 18 do
             cfg.entries[index] = { type = "folder", label = "Folder", children = {} }
@@ -1056,12 +1066,10 @@ describe("quick settings plugin controls", function()
         Model.display_label = function(entry) return entry.label end
         Model.find_by_id = function() return nil, nil, cfg.entries[1] end
         local content_height
-        for _i, name in ipairs({ "book_details_page", "book_switcher_page" }) do
-            require("modules/menu/app_launcher/" .. name).build = function(opts)
-                content_height = opts.height
-                return Widget:new{ width = opts.width, height = opts.height },
-                    { buttons = {}, layout_rows = {} }
-            end
+        require("modules/menu/app_launcher/book_switcher_page").build = function(opts)
+            content_height = opts.height
+            return Widget:new{ width = opts.width, height = opts.height },
+                { buttons = {}, layout_rows = {} }
         end
         local status_row = Widget:new{ width = 600, height = 32 }
         local status_enabled = true
@@ -1089,7 +1097,7 @@ describe("quick settings plugin controls", function()
         for _i, enabled in ipairs({ true, false }) do
             status_enabled = enabled
             local button_pages = enabled and 2 or 1
-            for page = 1, button_pages + 2 do
+            for page = 1, button_pages + 1 do
                 local touch_menu = {
                     item_width = 600, height = 504, screen_size = { h = 600 },
                     bar = Widget:new{ height = 40 },
@@ -1098,7 +1106,7 @@ describe("quick settings plugin controls", function()
                     _app_launcher_page = page,
                 }
                 local panel = menu.tab_item_table[2].panel(touch_menu)
-                assert.are.equal(button_pages + 2, touch_menu._zen_panel_refs.page_num)
+                assert.are.equal(button_pages + 1, touch_menu._zen_panel_refs.page_num)
                 if enabled then
                     assert.are.equal(controls[1].width, panel[1].width)
                     assert.are.equal(status_row, panel[2])
@@ -1114,7 +1122,7 @@ describe("quick settings plugin controls", function()
                 end
             end
             cfg.entries = {}
-            cfg.show_book_details, cfg.show_book_switcher = false, false
+            cfg.show_book_switcher = false
             local empty = launcher(600)
             assert.are.equal(enabled and status_row or "Launcher",
                 enabled and empty[2] or empty[2].text)
@@ -1126,8 +1134,66 @@ describe("quick settings plugin controls", function()
             for index = 2, 18 do
                 cfg.entries[index] = { type = "folder", label = "Folder", children = {} }
             end
-            cfg.show_book_details, cfg.show_book_switcher = true, true
+            cfg.show_book_switcher = true
         end
+
+        -- The launcher sizes its own grid: columns round up against the 96dp
+        -- target, cells stretch across the longest row, and rows fill before wrapping.
+        -- The status-row stub above pins its own call contract at scale 1, so
+        -- these grid scenarios exercise the button rows without the status row.
+        require("common/shared_state").get = function() return nil end
+
+        local function grid_menu()
+            return {
+                item_width = 600, height = 2000, screen_size = { h = 600 },
+                bar = Widget:new{ height = 40 },
+                footer = Widget:new{ height = 40 },
+                footer_top_margin = Widget:new{ height = 8 },
+                _app_launcher_page = 1,
+            }
+        end
+        local function set_entries(count)
+            cfg.entries = {}
+            for index = 1, count do
+                cfg.entries[index] = { type = "folder", label = "Folder", children = {} }
+            end
+        end
+
+        -- Rounding down at the 96dp target is what dropped a fifth icon onto a
+        -- row of its own while the Controls tab fitted all five.
+        require("device").screen.scaleBySize = function(_self, value)
+            return math.floor(value * 1.25)
+        end
+        set_entries(5)
+        local packed = grid_menu()
+        menu.tab_item_table[2].panel(packed)
+        assert.are.equal(1, #packed._zen_panel_refs.layout_rows)
+        assert.are.equal(5, #packed._zen_panel_refs.layout_rows[1])
+        -- Every cell is 576/5 wide and the row fills the 10dp inset box.
+        assert.are.equal(576 / 5, packed._zen_panel_refs.buttons[1].widget.width)
+
+        -- Where only four columns fit, rows fill before wrapping: 4+1.
+        require("device").screen.scaleBySize = function(_self, value)
+            return math.floor(value * 1.5)
+        end
+        set_entries(5)
+        local filled = grid_menu()
+        menu.tab_item_table[2].panel(filled)
+        local rows = filled._zen_panel_refs.layout_rows
+        assert.are.equal(2, #rows)
+        assert.are.equal(4, #rows[1])
+        assert.are.equal(1, #rows[2])
+        assert.are.equal(570 / 4, filled._zen_panel_refs.buttons[1].widget.width)
+
+        -- A fixed items-per-row setting overrides the auto column count.
+        cfg.columns = 3
+        local fixed = grid_menu()
+        menu.tab_item_table[2].panel(fixed)
+        rows = fixed._zen_panel_refs.layout_rows
+        assert.are.equal(2, #rows)
+        assert.are.equal(3, #rows[1])
+        assert.are.equal(2, #rows[2])
+        cfg.columns = 0
     end)
 
     it("opens ZenFM settings on hold with a toggle and timeout submenu", function()

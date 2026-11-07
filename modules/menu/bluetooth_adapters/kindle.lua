@@ -105,6 +105,139 @@ function M.logServiceState(context, handle)
         "btch_queued=", read("isBtchQueuedOrRunning"))
 end
 
+local function with_lipc(callback)
+    local ok, lipc = pcall(require, "liblipclua")
+    if not ok or not lipc then return nil end
+    local handle = lipc.init("com.github.koreader.zenui.bluetooth")
+    if not handle then return nil end
+    local result = callback(handle)
+    pcall(handle.close, handle)
+    return result
+end
+
+local function log_service(context)
+    with_lipc(function(handle) M.logServiceState(context, handle) end)
+end
+
+local function read_state_from_command()
+    local out = io.popen("lipc-get-prop -i " .. SERVICE .. " BTstate 2>/dev/null", "r")
+    if not out then return nil end
+    local value = out:read("*n")
+    out:close()
+    return value
+end
+
+-- Short cache: Controls rebuilds poll availability; power requests (facade changing) read live.
+local cached_value, cached_source, cached_at
+local function power_changing()
+    local facade = package.loaded["modules/menu/bluetooth/bluetooth"]
+    return type(facade) == "table" and facade.isChanging and facade.isChanging()
+end
+
+function M.onSuspend() cached_at = nil end
+
+function M.readState()
+    local now = os.time()
+    if cached_at and now - cached_at < 2 and not power_changing() then
+        return cached_value, cached_source
+    end
+    local value = with_lipc(function(handle)
+        local ok, state = pcall(handle.get_int_property, handle, SERVICE, "BTstate")
+        return ok and state or nil
+    end)
+    local source = "LIPC"
+    if type(value) ~= "number" then
+        value = read_state_from_command()
+        source = "command"
+    end
+    cached_value, cached_source, cached_at = type(value) == "number" and value or nil, source, now
+    return cached_value, source
+end
+
+-- request: { id, done, verify, logState } from bluetooth.setEnabled.
+function M.setPower(enabled, request)
+    local request_id, done = request.id, request.done
+    local function log_state(context)
+        local state = request.logState(context)
+        log_service(context)
+        return state
+    end
+    if log_state("before request") == nil then
+        logger.warn("toggle unavailable: could not read BTstate")
+        done(false, "Bluetooth is unavailable.")
+        return false
+    end
+
+    logger.info("toggle requested:", enabled and "on" or "off", "request=", request_id)
+    local function set_property(property, value, numeric)
+        local accepted = with_lipc(function(handle)
+            local setter = numeric and handle.set_int_property or handle.set_string_property
+            local ok, result = pcall(setter, handle, SERVICE, property, value)
+            logger.info(property .. " LIPC:", "request=", request_id, tostring(ok), "result=",
+                type(result) == "number" and tostring(result) or type(result))
+            return ok
+        end)
+        if not accepted then
+            local ok, _r, code = os.execute("lipc-set-prop " .. (numeric and "-i " or "-s ") .. SERVICE
+                .. " " .. property .. " " .. value .. " >/dev/null 2>&1")
+            accepted = ok == true or ok == 0 or code == 0
+            logger.info(property .. " command fallback:", "request=", request_id,
+                tostring(accepted), "exit=", tostring(code))
+        end
+        logger.info(property .. " request:", "request=", request_id,
+            tostring(value), tostring(accepted))
+        return accepted
+    end
+
+    local function request_power()
+        local btenable = set_property("BTenable", enabled and "1:1" or "0:1")
+        local accepted = btenable or set_property("BTflightMode", enabled and 0 or 1, true)
+        log_state("immediately after power request")
+        if accepted then
+            request.verify({ 0.5, 0.5, 1, 2, 4, 8, 8 }, btenable and function()
+                logger.info("BTenable state unchanged; trying BTflightMode")
+                return set_property("BTflightMode", enabled and 0 or 1, true)
+            end, function()
+                logger.warn("power confirmation exhausted:", "request=", request_id,
+                    "command BTstate=", tostring(read_state_from_command()))
+                log_service("power confirmation exhausted")
+            end)
+        else
+            done(false, "Could not change Bluetooth power.")
+        end
+        return accepted
+    end
+    if enabled then return request_power() end
+
+    local adapter = M.new()
+    local devices, err = adapter.getDeviceList()
+    if not devices then logger.warn("could not inspect devices before power-off:", err) end
+    local connected = {}
+    for _i, device in ipairs(devices or {}) do
+        if device.connected then connected[#connected + 1] = device end
+    end
+    logger.info("power-off connections:", "request=", request_id, "connected=", #connected)
+    if #connected == 0 then
+        adapter.close()
+        return request_power()
+    end
+    local index, accepted = 0, true
+    local function disconnect_next()
+        index = index + 1
+        if index > #connected then
+            adapter.close()
+            accepted = request_power()
+            return
+        end
+        adapter.disconnect(connected[index], function(ok, reason)
+            if not ok then logger.warn("disconnect before power-off failed:", reason) end
+            disconnect_next()
+        end)
+    end
+    disconnect_next()
+    return accepted
+end
+
 function M.new()
     local adapter = { id = "kindle" }
     local function finish_scan(reason)

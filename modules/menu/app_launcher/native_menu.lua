@@ -229,8 +229,9 @@ function M.settingsItems(scope, id)
         search = icons.search, main = icons.koreader_menu,
         navi = icons.koreader_navigation, typeset = icons.koreader_typesetting,
     }
+    -- filemanager/reader: callback-only tabs that switch apps (reader = KOReader nightly "open last doc").
     local injected = { zen_ui = true, zen_library_home = true, quicksettings = true,
-        app_launcher = true, filemanager = true }
+        app_launcher = true, filemanager = true, reader = true }
     for _i, tab in ipairs(items) do
         if not injected[tab.id] then
             local setting = tab.id == "setting" or tab.id == "typeset"

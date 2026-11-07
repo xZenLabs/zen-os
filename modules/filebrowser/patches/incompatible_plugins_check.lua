@@ -33,10 +33,17 @@ local function get_folder_key(dir)
     return dir:match("^.*/([^/]+)%.koplugin/")
 end
 
-local function plugin_folder_exists(folder_key)
-    local ok_lfs, lfs = pcall(require, "libs/libkoreader-lfs")
-    if not ok_lfs then return false end
+-- Lists each directory once; returns a set of entry names (empty if unreadable).
+local function list_dir(lfs, dir)
+    local names = {}
+    pcall(function()
+        for entry in lfs.dir(dir) do names[entry] = true end
+    end)
+    return names
+end
 
+-- Maps every installed "<key>.koplugin" directory across plugin lookup paths to true.
+local function installed_plugin_folders(lfs)
     local paths = { "plugins" }
     local extra_paths = G_reader_settings:readSetting("extra_plugin_paths")
     if type(extra_paths) == "string" then extra_paths = { extra_paths } end
@@ -46,24 +53,41 @@ local function plugin_folder_exists(folder_key)
         end
     end
 
+    local found = {}
     for _i, path in ipairs(paths) do
         if type(path) == "string" then
             path = path:gsub("/+$", "")
-            if lfs.attributes(path .. "/" .. folder_key .. ".koplugin", "mode") == "directory" then
-                return true
+            for entry in pairs(list_dir(lfs, path)) do
+                local key = entry:match("^(.+)%.koplugin$")
+                if key and not found[key]
+                        and lfs.attributes(path .. "/" .. entry, "mode") == "directory" then
+                    found[key] = true
+                end
             end
         end
     end
-    return false
+    return found
+end
+
+-- Runs before ConfigManager loads, so read the persisted config directly
+-- (shared with the brand-migration parse; avoids loading gettext-capturing modules).
+local function zen_config()
+    local plugin = rawget(_G, "__ZEN_UI_PLUGIN")
+    if plugin and type(plugin.config) == "table" then return plugin.config end
+    local ok, config = pcall(function()
+        local BrandMigration = require("common/brand_migration")
+        return BrandMigration.readConfigData(require("datastorage"):getSettingsDir()
+            .. "/" .. BrandMigration.SETTINGS_DIR .. "/config.lua")
+    end)
+    return ok and config or nil
 end
 
 local function any_zen_frontlight_automation_enabled()
-    local plugin = rawget(_G, "__ZEN_UI_PLUGIN")
-    local features = plugin and plugin.config and plugin.config.features
+    local config = zen_config()
+    local features = config and config.features
     if type(features) ~= "table" then return false end
-    local config = plugin.config
-    local brightness = config and config.brightness_schedule
-    local warmth = config and config.warmth_schedule
+    local brightness = config.brightness_schedule
+    local warmth = config.warmth_schedule
     return features.brightness_schedule == true
         or features.warmth_schedule     == true
         or features.night_mode_schedule == true
@@ -135,6 +159,13 @@ local AUTO_DISABLE = {
         folder_key = "neo_quicksetting",
         expected_folder_key = "neo_quicksetting",
     },
+    {
+        sentinel = "ui/menu_shell",
+        label = "Modern Menu",
+        fallback_key = "modern_menu",
+        folder_key = "modern_menu",
+        expected_folder_key = "modern_menu",
+    },
 }
 
 local AUTO_DISABLE_PATCHES = {
@@ -202,10 +233,12 @@ local function apply_incompatible_plugins_check()
     local needs_restart = false
     local incompatibility_detected = false
     local disabled_labels = {}
+    local lfs = require("libs/libkoreader-lfs")
+    local installed_folders = installed_plugin_folders(lfs)
 
     for _i, entry in ipairs(AUTO_DISABLE) do
         local sentinel_loaded = package.loaded[entry.sentinel] ~= nil
-        local folder_installed = entry.folder_key and plugin_folder_exists(entry.folder_key)
+        local folder_installed = entry.folder_key and installed_folders[entry.folder_key] == true
         local folder_enabled = folder_installed and disabled_list[entry.folder_key] == nil
         if sentinel_loaded or folder_enabled then
             local dir = get_dir_from_loaded(entry.sentinel)
@@ -243,10 +276,10 @@ local function apply_incompatible_plugins_check()
         local patches_enabled = type(userpatch.arePatchesDisabled) ~= "function"
             or not userpatch.arePatchesDisabled()
         local patch_dir = require("datastorage"):getDataDir() .. "/patches"
-        local lfs = require("libs/libkoreader-lfs")
+        local patch_files = patches_enabled and list_dir(lfs, patch_dir) or {}
         for _i, filename in ipairs(AUTO_DISABLE_PATCHES) do
             local source = patch_dir .. "/" .. filename
-            local installed_and_enabled = patches_enabled
+            local installed_and_enabled = patch_files[filename]
                 and lfs.attributes(source, "mode") == "file"
             if execution_status[filename] ~= nil or installed_and_enabled then
                 incompatibility_detected = true

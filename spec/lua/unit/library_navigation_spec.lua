@@ -10,6 +10,7 @@ describe("library navigation", function()
             "__ZEN_UI_LIBRARY_STATE", "__ZEN_UI_NAVBAR_OPEN_DEFAULT_TAB",
             "__ZEN_UI_NAVBAR_OPEN_FOLDER",
             "__ZEN_UI_NAVBAR_IS_DEFAULT_TAB_ACTIVE", "__ZEN_UI_NAVBAR_DEFAULT_TAB_ICON",
+            "__ZEN_UI_NAVBAR_RESOLVE_DEFAULT_TAB",
         }) do
             _G[name] = nil
         end
@@ -75,6 +76,9 @@ describe("library navigation", function()
         _G.__ZEN_UI_NAVBAR_IS_DEFAULT_TAB_ACTIVE = function() return true end
         Navigation.openDefault(fm, nil, function() order[#order + 1] = "menu" end)
         assert.are.same({ "menu", "overlays", "default", "menu" }, order)
+        _G.__ZEN_UI_NAVBAR_RESOLVE_DEFAULT_TAB = function() return "books" end
+        Navigation.openDefault(fm, nil, function() order[#order + 1] = "menu" end)
+        assert.are.same({ "menu", "overlays", "default", "menu", "menu", "overlays", "default" }, order)
     end)
 
     it("returns Home from the reader safely and preserves restore behavior", function()
@@ -433,6 +437,17 @@ describe("library navigation", function()
         assert.are.equal("/library/Book.epub", ui.shown)
     end)
 
+    it("returns to the library when a partially initialized Rakuyomi reader fails", function()
+        ZenSpec.replace("MangaReader", {
+            is_showing = true, chapter = {},
+            onReturn = function() error("manga plugin did not initialize") end,
+        })
+        local ui = reader()
+        Navigation.showFromReader(ui, { config = { rakuyomi = { open_on_manga_exit = true } } })
+        assert.is_true(ui.closed)
+        assert.are.equal("/library/Book.epub", ui.shown)
+    end)
+
     it("returns to Rakuyomi instead of closing Reader when available", function()
         local returns = 0
         ZenSpec.replace("MangaReader", {
@@ -445,7 +460,7 @@ describe("library navigation", function()
         Navigation.showFromReader(ui, {
             config = {
                 features = { restore_library_view = true },
-                rakuyomi = { return_to_chapter_list_on_exit = true },
+                rakuyomi = { open_on_manga_exit = true, return_to_chapter_list_on_exit = true },
             },
         })
 
@@ -465,12 +480,38 @@ describe("library navigation", function()
 
         Navigation.openDefault(ui, { config = {
             features = { restore_library_view = false },
-            rakuyomi = { return_to_chapter_list_on_exit = false },
+            rakuyomi = { open_on_manga_exit = true, return_to_chapter_list_on_exit = false },
         } }, function() end)
 
         assert.equals(1, returns)
         assert.is_nil(ui.closed)
         assert.is_nil(_G.__ZEN_UI_FORCE_DEFAULT_LIBRARY_TAB)
+    end)
+
+    it("uses Zen's exit setting for Rakuyomi manga by default and when reopening is disabled", function()
+        ZenSpec.replace("MangaReader", {
+            is_showing = true,
+            chapter = { _zen_rakuyomi_source_tab = "manga" },
+            onReturn = function() error("Reopening Rakuyomi is disabled") end,
+        })
+        for _i, rakuyomi in ipairs({ {}, { open_on_manga_exit = false } }) do
+            for _j, restore in ipairs({ true, false }) do
+                local ui = reader("/library/chapter.cbz")
+                local state = { tab = "home", page = 2 }
+                _G.__ZEN_UI_LIBRARY_STATE = state
+                _G.__ZEN_UI_FORCE_DEFAULT_LIBRARY_TAB = nil
+
+                Navigation.openDefault(ui, { config = {
+                    features = { restore_library_view = restore },
+                    rakuyomi = rakuyomi,
+                } }, function() end)
+
+                assert.is_true(ui.closed)
+                assert.equals("/library/chapter.cbz", ui.shown)
+                assert.equals(state, _G.__ZEN_UI_LIBRARY_STATE)
+                assert.equals(not restore or nil, _G.__ZEN_UI_FORCE_DEFAULT_LIBRARY_TAB)
+            end
+        end
     end)
 
     it("restores Home for a Home manga open when library restore is enabled", function()

@@ -124,4 +124,18 @@ describe("arrange state", function()
         })
         assert.is_false(ArrangeState.moveTableItem(items, 3, 1))
     end)
+
+    it("keeps pinned leading items first", function()
+        local items = {
+            { text = "Pinned pages", arrange_pinned_first = true },
+            { text = "One" },
+            { text = "Two" },
+        }
+        local moved, target = ArrangeState.moveTableItem(items, 3, 1)
+        assert.is_true(moved)
+        assert.are.equal(2, target)
+        assert.are.equal("Pinned pages", items[1].text)
+        assert.are.equal("Two", items[2].text)
+        assert.is_false(ArrangeState.moveTableItem(items, 1, 3))
+    end)
 end)

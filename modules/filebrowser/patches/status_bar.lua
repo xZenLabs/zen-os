@@ -9,7 +9,7 @@ local function apply_status_bar()
     local HorizontalGroup = require("ui/widget/horizontalgroup")
     local HorizontalSpan = require("ui/widget/horizontalspan")
     local LeftContainer = require("ui/widget/container/leftcontainer")
-    local NetworkMgr = require("ui/network/manager")
+    local WifiState = require("common/wifi_state")
     local OverlapGroup = require("ui/widget/overlapgroup")
     local RightContainer = require("ui/widget/container/rightcontainer")
     local TextWidget = require("ui/widget/textwidget")
@@ -162,7 +162,13 @@ local function apply_status_bar()
     end
 
     local config = loadConfig()
-    Bluetooth.getState()
+    -- Prime Bluetooth state (LIPC/shell on Kindle) only when the item is shown.
+    for _i, order in ipairs({ config.left_order, config.center_order, config.right_order }) do
+        if type(order) == "table" and require("util").arrayContains(order, "bluetooth") then
+            Bluetooth.getState()
+            break
+        end
+    end
 
     local function getSeparator()
         if config.separator_key == "custom" then
@@ -261,8 +267,6 @@ local function apply_status_bar()
     end
 
     -- Disk free space cache
-    local cached_disk_text = nil
-    local cached_disk_time = 0
     -- RAM usage cache
     local cached_ram_text = nil
     local cached_ram_time = 0
@@ -291,15 +295,14 @@ local function apply_status_bar()
     end
 
     local function getWifiInfo()
-        if NetworkMgr.isWifiChanging and NetworkMgr:isWifiChanging()
-                or not NetworkMgr:isConnected()
-                    and (NetworkMgr:isWifiOn() or NetworkMgr.pending_connection or NetworkMgr.pending_connectivity_check) then
-            return "\u{ECA8}", nil, colors.wifi_searching, nil, true
+        local state = WifiState.get()
+        if state == "searching" then
+            return inline_icons.wifi_on, nil, colors.wifi_searching, nil, true
         end
-        if NetworkMgr:isWifiOn() then
-            return "\u{ECA8}", nil, colors.wifi_on
+        if state == "on" then
+            return inline_icons.wifi_on, nil, colors.wifi_on
         elseif not config.wifi_hide_when_off then
-            return "\u{ECA9}", nil, colors.wifi_off
+            return inline_icons.wifi_off, nil, colors.wifi_off
         end
         return nil
     end
@@ -328,52 +331,23 @@ local function apply_status_bar()
     local function getRamInfo()
         local now = os.time()
         if cached_ram_text and (now - cached_ram_time) < 30 then
-            return "\u{EA5A}", " " .. cached_ram_text, colors.ram
+            return inline_icons.settings_ram, " " .. cached_ram_text, colors.ram
         end
         local statm = io.open("/proc/self/statm", "r")
         if statm then
-            local _, rss = statm:read("*number", "*number")
+            local _size, rss = statm:read("*number", "*number")
             statm:close()
             if rss then
                 cached_ram_text = string.format("%dM", math.floor(rss / 256))
                 cached_ram_time = now
-                return "\u{EA5A}", " " .. cached_ram_text, colors.ram
+                return inline_icons.settings_ram, " " .. cached_ram_text, colors.ram
             end
         end
-        return "\u{EA5A}", " ?M", colors.ram
+        return inline_icons.settings_ram, " ?M", colors.ram
     end
 
     local function getDiskInfo()
-        local now = os.time()
-        if cached_disk_text and (now - cached_disk_time) < 300 then
-            return "\u{F0A0}", " " .. cached_disk_text, colors.disk
-        end
-        -- Use the home_dir KOReader is actually browsing, then common fallbacks.
-        local home_dir = paths.getHomeDir()
-        local search_paths = {}
-        if home_dir and home_dir ~= "" then
-            table.insert(search_paths, home_dir)
-        end
-        for _i, p in ipairs({ "/mnt/us", "/mnt/onboard", "/sdcard", "/" }) do
-            table.insert(search_paths, p)
-        end
-        for _i, spath in ipairs(search_paths) do
-            local pipe = io.popen("df -h " .. spath .. " 2>/dev/null")
-            if pipe then
-                for line in pipe:lines() do
-                    local avail = line:match("%S+%s+%S+%s+%S+%s+(%S+)")
-                    -- Only accept lines where the available field starts with a digit
-                    if avail and avail:match("^%d") then
-                        pipe:close()
-                        cached_disk_text = avail
-                        cached_disk_time = now
-                        return "\u{F0A0}", " " .. avail, colors.disk
-                    end
-                end
-                pipe:close()
-            end
-        end
-        return "\u{F0A0}", " ?", colors.disk
+        return inline_icons.settings_storage, " " .. (utils.getDiskFreeText() or "?"), colors.disk
     end
 
     local function getFrontlightInfo()
@@ -462,9 +436,7 @@ local function apply_status_bar()
         local function iconFace()
             local text_face = f()
             local size = text_face.orig_size or text_face.size or 14
-            return Font:getFace("nerdfonts/symbols.ttf", size)
-                or Font:getFace("SymbolsNerdFont-Regular.ttf", size)
-                or text_face
+            return Font:getFace("nerdfonts/symbols.ttf", size) or text_face
         end
         for _i, key in ipairs(order) do
             local builtin = item_fetchers[key]
@@ -1357,23 +1329,28 @@ local function apply_status_bar()
         return false
     end
 
+    -- Event-driven refreshes repaint only changed items; explicit _updateStatusBar() calls stay full.
+    -- Returns true once a visible bar was handled.
     local function refreshVisibleStatusBar(fm, clock_tick, item_keys)
         if FileManager.instance ~= fm then return end
         local top_widget = topmost_non_toast_widget()
 
         if suppresses_status_bar(top_widget) then return end
         if top_widget == fm or top_widget == fm.show_parent then
-            fm:_updateStatusBar(false, clock_tick or item_keys ~= nil)
+            fm:_updateStatusBar(false, true)
         elseif top_widget and top_widget._zen_status_refresh then
-            if clock_tick and top_widget._zen_status_clock_bound then return end
-            top_widget._zen_status_refresh(top_widget, false, item_keys)
+            if clock_tick and top_widget._zen_status_clock_bound then return true end
+            top_widget._zen_status_refresh(top_widget, false, item_keys, true)
         elseif top_widget and top_widget._zen_home_refresh_clock_widgets then
             -- Featured embedded status bar: no _zen_status_refresh, refreshes via
             -- its clock-widget refreshers instead. Skip clock ticks it handles
             -- through its own heartbeat binding to avoid a double refresh.
-            if clock_tick and top_widget._zen_status_clock_bound then return end
+            if clock_tick and top_widget._zen_status_clock_bound then return true end
             top_widget:_zen_home_refresh_clock_widgets(false, item_keys)
+        else
+            return
         end
+        return true
     end
 
     local show_refresh_pending = false
@@ -1449,8 +1426,10 @@ local function apply_status_bar()
                 end
                 return orig_new(cls, t)
             end
-            orig_setupLayout(self)
+            -- Always restore: a layout error must not strip every TitleBar app-wide.
+            local ok, err = pcall(orig_setupLayout, self)
             TitleBar.new = orig_new
+            if not ok then error(err, 0) end
         else
             orig_setupLayout(self)
         end
@@ -1553,12 +1532,10 @@ local function apply_status_bar()
         hookCharging("onNotCharging")
     end
 
-    -- Suspend: pause the shared heartbeat so it does not fire during sleep.
-    -- Resume: do a visible refresh and restart it on the next minute boundary.
+    -- ZenUI pauses/resumes the shared heartbeat for both FM and reader.
     local orig_onSuspend = FileManager.onSuspend
     FileManager.onSuspend = function(self)
         if orig_onSuspend then orig_onSuspend(self) end
-        clock_timer.pause()
         -- Cancel any pending charging debounce so it doesn't paint into the screensaver.
         if _charging_refresh_timer then
             UIManager:unschedule(_charging_refresh_timer)
@@ -1581,34 +1558,21 @@ local function apply_status_bar()
         end
     end
 
-    -- onResume: defer long enough for the screensaver to finish its full-screen
-    -- repaint and for the titlebar layout to be fully established.  nextTick
-    -- (one loop pass) is too fast — it races against the screensaver's flashui
-    -- flush and can fire before paintTo has set correct layout geometry, which
-    -- causes child widgets to render at offset (0,0) i.e. top-left.
-    -- scheduleIn(0) ticks once more after all current events and repaints settle.
-    -- The topmost-widget guard (same as autoRefresh) prevents painting during
-    -- any modal that might still be on top.
+    -- onResume: defer past the screensaver's flash and titlebar layout; nextTick
+    -- races paintTo geometry and paints children at (0,0). The topmost-widget
+    -- guard prevents painting under any modal still on top.
     local orig_onResume = FileManager.onResume
     FileManager.onResume = function(self)
         if orig_onResume then orig_onResume(self) end
+        local fm = self
         if is_enabled() then
-            local fm = self
-            -- Refresh whichever bar is currently visible.  Two attempts because
-            -- the screensaver may still be the topmost widget immediately after
-            -- resume and block the guard on the first try.
-            local function doResumeRefresh()
-                refreshVisibleStatusBar(fm, false)
-            end
-            UIManager:scheduleIn(0.5, doResumeRefresh)
-            UIManager:scheduleIn(1.5, doResumeRefresh)
-            -- Restart the shared minute heartbeat after the display settles.
-            UIManager:scheduleIn(2, function()
-                if FileManager.instance ~= fm or not _fm_autoRefresh then return end
-                clock_timer.resume()
-                syncMinuteRefresh(fm)
-                clock_timer.restart()
+            -- Retry once if the screensaver is still topmost on the first try.
+            UIManager:scheduleIn(0.5, function()
+                if not refreshVisibleStatusBar(fm, false) then
+                    UIManager:scheduleIn(1, function() refreshVisibleStatusBar(fm, false) end)
+                end
             end)
+            if FileManager.instance == fm and _fm_autoRefresh then syncMinuteRefresh(fm) end
         end
     end
 

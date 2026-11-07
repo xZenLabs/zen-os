@@ -278,6 +278,8 @@ describe("navbar settings", function()
         config.navbar.filled_outline_color = { 255, 255, 255 }
         config.navbar.active_tab_color = { 40, 50, 60 }
         local items = build_navbar().sub_item_table[2].sub_item_table[3].sub_item_table[3].sub_item_table
+        assert.are.equal("Outline color: #000000", items[1].text_func())
+        screen_is_color = true
         assert.are.equal("Outline color: #4F6F8F", items[1].text_func())
         items[1].callback(touch_menu)
         assert.are.equal("Outline color", shown[1].title_text)
@@ -324,6 +326,13 @@ describe("navbar settings", function()
         assert.are.equal(2, navbar_refreshes)
     end)
 
+    it("shows the active-tab accent toggle only on color screens", function()
+        local toggle = build_navbar().sub_item_table[2].sub_item_table[3].sub_item_table[4]
+        assert.is_false(toggle.show_func())
+        screen_is_color = true
+        assert.is_true(toggle.show_func())
+    end)
+
     it("edits custom colors independently of the active accent", function()
         screen_is_color = true
         config.accent_color = "#204080"
@@ -349,6 +358,8 @@ describe("navbar settings", function()
     it("opens filled color wheels with white outline and blue fill defaults", function()
         local items = build_navbar().sub_item_table[2].sub_item_table[3].sub_item_table[2].sub_item_table
         assert.are.equal("Outline color: #FFFFFF", items[1].text_func())
+        assert.are.equal("Fill color: #000000", items[2].text_func())
+        screen_is_color = true
         assert.are.equal("Fill color: #4F6F8F", items[2].text_func())
         items[1].callback(touch_menu)
         assert.are.equal("#FFFFFF", shown[1].hex)

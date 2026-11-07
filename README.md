@@ -14,109 +14,114 @@
   </p>
 </div>
 
-ZenOS is a customizable interface layer for KOReader. It adds a personal Home page, redesigned Library, fast Controls panel, Launcher, reader tools, and unified settings while keeping KOReader underneath.
+ZenOS is a clean, minimal interface for KOReader. You get a Home page, a redesigned Library, a Controls panel, a Launcher, better reader tools, and one place for all your settings. KOReader is still there underneath.
 
 ## Philosophy
 
-ZenOS is built around the simple idea that **less is more.** Everything in ZenOS was designed either to remove clutter or add clear value. The interface stays fast, light, and focused on making reading more enjoyable.
-
-Throughout development, three things were non-negotiable: **performance**, **stability**, and **ease of use**. Every feature was tuned for battery efficiency and responsiveness. 
-
-## Speed & Performance
-
-ZenOS is built to be lightweight and efficient. Its dedicated renderer and intelligent caching avoids repeating expensive work while browsing large libraries. Patches are loaded only where needed, redraws are scoped to changed regions when safe, and layouts are shared across touch and non-touch devices. The result is a responsive interface without unnecessary battery or memory use.
+**Less is more.** Every feature either removes clutter or adds real value. Performance, stability, and ease of use come first, and everything is tuned to be easy on your battery.
 
 ## Features
 
 ### Home
 
-Build a personal Home page for your e-reader with responsive widgets: date and time, featured book, reading stats, reading goals, book strip, and quotes. Arrange them within the screen's space budget, edit widgets directly from Home, or apply and save presets.
+Your own start page. Mix date and time, a featured book, reading stats, goals, a book strip, and quotes. Edit widgets right from Home, or save layouts as presets.
 
-The Quotes widget can combine built-in quotes, annotations, and any selection
-of custom quote files stored in `koreader/settings/ZenOS/quotes/`, while the existing
-`koreader/settings/ZenOS/quotes.lua` remains the primary custom file.
-
-The unified book strip can switch between recent books, favorites, To Be Read, authors, series, languages, tags, collections, Kindle Library when available, a folder, or a custom list. Optional strip controls can also filter by book status or launch actions, Controls, plugin menus, and KOReader menus. Featured books support recent, To Be Read, or a hand-picked title, with configurable metadata and progress labels.
-
-See the [Home guide](docs/home.md).
+**Zen Settings > Home** · [Home guide](docs/home.md)
 
 ### Controls
 
-Swipe down from anywhere for up to nine configurable controls plus brightness and warmth sliders. Buttons can toggle device features, run dispatcher actions, open plugins or KOReader menus, and expose installed integrations such as Bluetooth, Tailscale, and ZenFM. Tap Bluetooth to toggle it, or hold it to manage connections on Kindle, Kobo, and PocketBook. Tailscale can toggle Wi-Fi with itself. Hold the minus button on a lighting slider to jump to zero.
+Swipe down from anywhere for up to nine buttons plus brightness and warmth sliders. Toggle Wi-Fi, Bluetooth, rotation, and modes, or add buttons that run any action, plugin, or KOReader menu.
+
+**Zen Settings > Interface > Controls** · [Controls guide](docs/controls.md)
 
 <img src="./images/quickstart/onboarding/quicksettings.png" width="500" alt="Quick Settings">
 
 ### Library
 
-Choose classic, mosaic, or detailed list layouts from the current folder's context menu, then customize cover ratios, badges, progress, rounded corners, folder covers, and automatic series grouping. **Zen Settings > Library > Appearance > Layout** controls mosaic grids with previews, list items per page, and the fields shown in detailed lists. Display mode, sorting, and status filters can be saved per folder.
+Mosaic, list, or detailed list, set per folder. Badges, progress, rounded covers, folder covers, and automatic series folders. Hold a book to change its status, edit metadata, or pull details and covers from Hardcover, Google Books, or Open Library.
 
-The streamlined context menu handles read status, collections, file operations, and full-screen book details. Its native metadata editor changes book details, filenames, and covers, or fills them from Hardcover, Google Books, and Open Library.
+**Zen Settings > Library** · [Library guide](docs/library.md)
 
 <img src="./images/quickstart/onboarding/library_covers_full.png" width="350" height="auto" alt="Library Covers">
-      
+
 <img src="./images/quickstart/onboarding/library_list_full.png" width="350" height="auto" alt="Library List">
 
 <img src="./images/quickstart/onboarding/context_menu.png" width="350" height="auto" alt="Context Menu">
 
-See the [Library guide](docs/library.md).
-
 ### Navbar
 
-Keep up to seven tabs at the bottom of the Library. Built-in destinations include Library, Kindle Library when available, a chosen Folder, Home, Continue, Favorites, Collections, Authors, Series, Languages, Tags, book statuses, Stats, Manga, and News. Custom tabs can run a Control or dispatcher action, open a plugin or KOReader menu, and use a custom label and icon. Choose any supported tab as the default destination.
+Up to seven tabs at the bottom of the Library: folders, favorites, authors, series, tags, stats, book statuses, or your own actions.
 
+**Zen Settings > Interface > Navbar** · [Navbar guide](docs/navbar.md)
 
 <img src="./images/quickstart/onboarding/navbar.png" width="500" alt="Navigation Bar">
 
-
-See the [Navbar guide](docs/navbar.md).
-
 ### Launcher
 
-Open recent books from the Book switcher, review the current Book details, or build pages of shortcut buttons. Launcher buttons can run Controls and actions, open plugins and KOReader menus, live inside folders, and use row breaks for layout. The Book details, Book switcher, and Buttons pages are reorderable, and Launcher can become the first top-menu tab.
+A top-menu tab with your current book, a book switcher, and pages of shortcut buttons you can sort into folders.
 
-See the [Launcher guide](docs/launcher.md).
+**Zen Settings > Interface > Launcher** · [Launcher guide](docs/launcher.md)
 
 ### Reader
 
-The Zen page browser brings page scrubbing, search, table of contents, bookmarks, font controls, and Book details into one view. It respects stable page labels and non-linear book content. Reader themes can switch with light and dark mode, while independent top and bottom status bars support presets, custom fonts, and configurable content.
+Swipe up for the page browser: page previews, search, TOC, bookmarks, and font settings in one view. Pin pages, use themes for light and dark mode, and set up top and bottom status bars however you like. The lookup and highlight menus show Wikipedia, X-Ray, KOAssistant, and AI Assistant when installed.
 
-Zen-styled dictionary and highlight menus can surface Wikipedia, X-Ray, KOAssistant, and AI Assistant when installed. An opening banner replaces KOReader's blocking opening message, and margin guards reduce accidental selections while holding the screen edge.
+**Zen Settings > Reader** · [Reader guide](docs/reader.md)
 
 <img src="./images/quickstart/onboarding/reader.png" width="500" alt="Reader">
 
-See the [Reader guide](docs/reader.md).
+### Focus modes
 
-### Focus Modes
-
-**Zen Mode** hides most of KOReader's default menu tabs and can now be toggled without restarting. **Lockdown Mode** adds configurable restrictions for a controlled reading setup. **Incognito Mode** temporarily prevents reading-history and statistics tracking and can turn itself off after a chosen timeout.
-
+- **Zen Mode** trims KOReader's top menu down to the essentials. [Guide](docs/zen-mode.md)
+- **Lockdown Mode** locks things down so you can just read. [Guide](docs/lockdown-mode.md)
+- **Incognito Mode** pauses history and stats, and can turn itself off after a timeout.
 
 <img src="./images/quickstart/onboarding/zen_mode.png" width="175" alt="Zen Mode">
 <img src="./images/quickstart/onboarding/lockdown_mode.png" width="175" alt="Lockdown Mode">
 
-See the [Zen Mode](docs/zen-mode.md) and [Lockdown Mode](docs/lockdown-mode.md) guides.
+### Lighting schedules
 
-### Lighting Profiles and Schedules
+Brightness, warmth, and night mode can each run on a schedule, or brightness and warmth can switch with light/dark mode. All optional.
 
-Night mode, brightness, and warmth each have independent schedules. Brightness and warmth can instead follow KOReader's light/dark mode, applying a separate value whenever the mode changes. Use only the automation you want; each system remains optional.
+**Zen Settings > General > Schedules**
 
-### Integrations and Customization
+### Integrations
 
-ZenOS themes the OPDS browser, integrates with Rakuyomi and [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin), can install ZenPM on supported non-Android ARM devices, and adds a ZenFM Control when the plugin is present. Custom icon packs can replace ZenOS and KOReader artwork. Plugins can also contribute Home widgets and status-bar items through public integration APIs.
+Themed OPDS, Rakuyomi, [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin), ZenFM, and one-tap ZenPM install. Custom icon packs can replace ZenOS and KOReader icons.
 
-See the [Extras](docs/extras.md), [Custom Icon Packs](docs/icon-packs.md), and [Actions](docs/actions.md) guides.
+[Extras](docs/extras.md) · [Icon Packs](docs/icon-packs.md) · [Actions](docs/actions.md)
 
-## Unified Settings 
+## Zen Settings
 
-Zen Settings brings ZenOS and frequently used KOReader settings into one searchable, key-friendly interface. Sections are organized as Home, Library, Reader, Interface, Extras, General, KOReader, and About. Library groups Appearance, Folders, Books, and Context menu. Interface groups Controls, Launcher, Navbar, Status bar, the global font, Wallpaper, Blur menu background, and custom icons. General groups Wi-Fi, Bluetooth, schedules, sleep, advanced settings, and updates. Stats, Zen Keyboard, and Zen Search are in Extras. It remembers your previous location, most features remain independently configurable, and ZenOS can update itself without leaving KOReader.
+ZenOS and the KOReader settings you actually use, in one searchable place: Home, Library, Reader, Interface, Extras, General, KOReader, and About. It remembers where you left off and updates ZenOS without leaving KOReader.
 
-New installations include a visual setup guide followed by short on-screen tours of Zen Mode, Zen Settings, and the Reader page browser. The guide remains available from **Zen Settings > About > Setup Guide**.
+New installs get a short setup guide and tours. Rerun it anytime from **Zen Settings > About > Setup Guide**.
 
 <img src="./images/quickstart/onboarding/zen_ui_settings.png" width="500" alt="ZenOS Settings">
 
+## Installation
+
+Needs KOReader 2026.03 or newer (tested on 2026.07). Remove **Project: Title** first. ZenOS disables other conflicting plugins for you.
+
+1. Download `zenos.koplugin.zip` from [Releases](https://github.com/xZenLabs/zen-os/releases).
+2. Unzip it and copy the `zenos.koplugin` **folder** (not the zip) into your plugins directory.
+3. Restart KOReader.
+
+| Device | Plugins directory |
+|--------|-------------------|
+| **Kobo** | `/mnt/onboard/.adds/koreader/plugins/` |
+| **Kindle** | `/mnt/base-us/koreader/plugins/` |
+| **PocketBook** | `/mnt/ext1/applications/koreader/plugins/` |
+| **Android** | `sdcard/koreader/plugins/` |
+| **Desktop (Linux/macOS)** | `/koreader/plugins/` |
+
+> The final path should look like `.../plugins/zenos.koplugin/main.lua`
+
+Coming from Zen UI? Update from its settings page instead; it moves everything over for you. See the [Installation guide](docs/installation.md) for that and for Project: Title.
+
 ## Plugin integration
 
-External plugins can add widgets to the Home page:
+Plugins can add Home widgets:
 
 ```lua
 local register = rawget(_G, "__ZENOS_REGISTER_HOME_ITEM")
@@ -130,105 +135,16 @@ if register then
 end
 ```
 
-The builder receives `width`, `height`, `is_first_row`, and an item-specific
-`module_cfg` table. New items are disabled by default and can be enabled and
-positioned under **Zen Settings > Home > Widgets**. Plugins loaded before ZenOS should register
-when they receive `ZenOSReady`; unregister with
-`_G.__ZENOS_UNREGISTER_HOME_ITEM(id)`. The legacy `__ZEN_UI_*` aliases remain
-available for existing integrations, and `ZenUIReady` is still broadcast.
+- The builder gets `width`, `height`, `is_first_row`, and `module_cfg`.
+- Sizes use a height grid: `xs=1`, `s=2`, `m=3`, `l=4`, `xl=10`. A 4:3 screen has 10 units; taller screens get up to 20.
+- New widgets start disabled. Users turn them on under **Zen Settings > Home > Widgets**.
+- If your plugin loads before ZenOS, register on `ZenOSReady`. Unregister with `_G.__ZENOS_UNREGISTER_HOME_ITEM(id)`.
+- Returns `false` for bad arguments or a built-in ID clash. Re-registering an ID replaces it.
+- Legacy `__ZEN_UI_*` aliases and `ZenUIReady` still work.
 
-Home uses a responsive height grid: `xs=1`, `s=2`, `m=3`, `l=4`, and
-`xl=10`. A 4:3 screen has 10 units; more elongated screens expand automatically,
-up to 20 units. Enabled widgets must fit the current screen's capacity. Legacy
-`preferred_pct` size tables are still accepted and rounded to the nearest
-grid unit.
+## Translations
 
-Registration returns `false` for invalid arguments or a built-in ID collision.
-Registering an existing external ID replaces its builder and options.
-
-## Prerequisites
-
-- KOReader 2026.03 or newer must be installed first. ZenOS is tested against KOReader 2026.07 and compatibility-tested against 2026.03. [Install KOReader](https://github.com/koreader/koreader#installation)
-- Disable or remove **Project: Title** before starting ZenOS. ZenOS automatically disables Simple UI, Visual Overhaul Suite (VOS), QuickMenu, Appearance, Burrow, QuickUI, Reader Menu Redesign, Shortcuts Toolbar, Neo QuickSettings, and known conflicting user patches, then asks you to restart KOReader.
-
-
-## Installation
-
-Already using Zen UI? Update from its settings page instead of installing a
-second plugin folder. The updater preserves your settings and completes the
-move to ZenOS automatically after restarting KOReader.
-
-The migration performs two automatic restarts. If Zen UI is disabled, enable
-it once so its migration can run. Do not manually install `zenos.koplugin`
-beside an existing `zen_ui.koplugin` directory.
-
-The upgrade keeps `koreader/settings/Zen UI` as an unchanged rollback snapshot and
-migrates a separate copy in `koreader/settings/ZenOS`. Downgrading to an older Zen UI
-build therefore restores the settings as they were immediately before the
-ZenOS upgrade; changes made later in ZenOS are intentionally not copied back.
-
-For a fresh installation:
-
-1. Go to the [Releases](https://github.com/xZenLabs/zen-os/releases) page and download `zenos.koplugin.zip` from the latest release.
-2. Unzip the archive. You should have a **folder** named `zenos.koplugin`.
-3. Copy the `zenos.koplugin` **folder** into the KOReader plugins directory for your device (see the table below).
-   - Copy the unzipped **folder**, not the `.zip` file itself.
-4. Restart KOReader. ZenOS will load automatically.
-   - If ZenOS does not load, enable it under **Tools > More tools > Plugin management > ZenOS**.
-> The final path should look like: `.../plugins/zenos.koplugin/main.lua`
-
-
-| Device | Plugins directory |
-|--------|-------------------|
-| **Kobo** | `/mnt/onboard/.adds/koreader/plugins/` |
-| **Kindle** | `/mnt/base-us/koreader/plugins/` |
-| **PocketBook** | `/mnt/ext1/applications/koreader/plugins/` |
-| **Android** | `sdcard/koreader/plugins/` |
-| **Desktop (Linux/macOS)** | `/koreader/plugins/` |
-
-## Migrating from Project Title
-
-If you previously used [Project Title](https://github.com/joshuacant/ProjectTitle), you must disable or remove it before using ZenOS. Both plugins patch the Cover Browser, and having both active at the same time will cause conflicts.
-
-Choose one of the following:
-
-- **Remove it** — Delete the `projecttitle.koplugin` folder from your KOReader plugins directory.
-- **Disable it** — Rename the folder to `projecttitle.koplugin.disabled`. KOReader will ignore it on next launch.
-
-After disabling or removing Project Title, restart KOReader and ZenOS will load cleanly.
-
-## Localization
-
-ZenOS is currently translated into:
-
-| Locale | Language |
-|--------|----------|
-| `en` | English |
-| `it` | Italian |
-| `es` | Spanish |
-| `fr` | French |
-| `nl` | Dutch |
-| `de` | German |
-| `bg` | Bulgarian |
-| `cs` | Czech |
-| `hu` | Hungarian |
-| `id` | Indonesian |
-| `pt_BR` | Brazilian Portuguese |
-| `pt_PT` | European Portuguese |
-| `ro` | Romanian |
-| `ru` | Russian |
-| `uk` | Ukrainian |
-| `ja` | Japanese |
-| `vi` | Vietnamese |
-| `zh_CN` | Simplified Chinese |
-| `zh_TW` | Traditional Chinese |
-| `zh_HK` | Traditional Chinese (Hong Kong) |
-| `zh_MO` | Traditional Chinese (Macau) |
-| `el` | Greek |
-
-If you find any issues or corrections to the translations, please feel free to contribute.
-
-To contribute a translation or fix an existing one, see [locales/README.md](locales/README.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+Available in 23 languages. Spot a mistake or want to add one? See [locales/README.md](locales/README.md) and [Translations](docs/translations.md).
 
 ## Credits
 
@@ -254,22 +170,20 @@ Thank you to everyone who published their KOReader work openly.
 
 ## Contributing
 
-Bug reports, feature requests, translations, and code contributions are all welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+Bugs, ideas, translations, and code are all welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Please follow these guidelines:
+- One feature per PR.
+- PR to `dev`.
+- If you use AI, review and test everything before submitting.
+- Match the existing style and feel.
 
-- **One feature per PR** - Keep pull requests focused on a single feature or fix
-- **PR to dev branch** - Submit PRs to the `dev` branch for testing/review.
-- **Review AI-generated code** - If using AI tools, all code must be thoroughly reviewed and tested before submitting.
-- **Maintain consistency** - New code must align with the project's existing style, theme, and overall user experience
+## Community
 
-## FAQ/Community
-
-Feel free to join the [Zen Discord](https://discord.zen-labs.org) if you want to get help/chat/contribute
+Come hang out on the [Zen Discord](https://discord.zen-labs.org) for help or to chat.
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
+See [SECURITY.md](SECURITY.md).
 
 ## License
 

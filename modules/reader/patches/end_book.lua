@@ -15,29 +15,34 @@ return function()
         plugin:saveConfig()
     end
 
-    local ReaderStatus = require("apps/reader/modules/readerstatus")
-    if ReaderStatus._zen_end_book then return end
-    ReaderStatus._zen_end_book = true
-    local UIManager = require("ui/uimanager")
-    local Rakuyomi = require("modules/filebrowser/patches/rakuyomi")
-    local original = ReaderStatus.onEndOfBook
-    function ReaderStatus:onEndOfBook(...)
-        if Rakuyomi.onEndOfBook(self.ui) then return true end
-        -- Let KOReader handle quickstart, haptics and the user's auto-mark choice.
-        local result = original(self, ...)
-        if G_reader_settings:readSetting("end_document_action") == "zen_end_book"
-                and G_reader_settings:readSetting("lastfile")
-                    ~= require("ui/quickstart").quickstart_filename then
-            local top = UIManager:getTopmostVisibleWidget()
-            if not top or top.name ~= "zen_end_book" then
-                require("modules/reader/end_book").show(self.ui, plugin)
+    -- ReaderStatus loads with ReaderUI; don't pull it in at boot.
+    require("common/on_require").whenLoaded("apps/reader/modules/readerstatus", function()
+        local ReaderStatus = require("apps/reader/modules/readerstatus")
+        if ReaderStatus._zen_end_book then return end
+        ReaderStatus._zen_end_book = true
+        local UIManager = require("ui/uimanager")
+        local Rakuyomi = require("modules/filebrowser/patches/rakuyomi")
+        local original = ReaderStatus.onEndOfBook
+        function ReaderStatus:onEndOfBook(...)
+            if Rakuyomi.onEndOfBook(self.ui) then return true end
+            -- Let KOReader handle quickstart, haptics and the user's auto-mark choice.
+            local result = original(self, ...)
+            if G_reader_settings:readSetting("end_document_action") == "zen_end_book"
+                    and G_reader_settings:readSetting("lastfile")
+                        ~= require("ui/quickstart").quickstart_filename then
+                local top = UIManager:getTopmostVisibleWidget()
+                if not top or top.name ~= "zen_end_book" then
+                    require("modules/reader/end_book").show(self.ui, plugin)
+                end
             end
+            return result
         end
-        return result
-    end
+    end)
 
     local _ = require("gettext")
     local MenuSorter = require("ui/menusorter")
+    if MenuSorter._zen_end_book then return end
+    MenuSorter._zen_end_book = true
     local mergeAndSort = MenuSorter.mergeAndSort
     function MenuSorter:mergeAndSort(prefix, menu_items, ...)
         -- KOReader rebuilds common settings with dofile() for each menu.

@@ -3,11 +3,11 @@ local M = {}
 M.MAX_ACTIONS = 5
 M.WIDGET_UNITS = { featured = 3.75, rating = 1 }
 M.FEATURED_TEXT_STYLES = {
-    title = { font_face = "default", font_size = 14, bold = true },
-    author = { font_face = "default", font_size = 12, bold = false },
+    title = { font_face = "default", font_size = 15, bold = true },
+    author = { font_face = "default", font_size = 13, bold = false },
     series = { font_face = "default", font_size = 9, bold = false },
-    progress = { font_face = "default", font_size = 9, bold = false },
-    status = { font_face = "default", font_size = 9, bold = true },
+    progress = { font_face = "default", font_size = 11, bold = false },
+    status = { font_face = "default", font_size = 11, bold = true },
     navigation = { font_face = "default", font_size = 15, bold = false },
 }
 
@@ -31,6 +31,7 @@ M.actions = {
     { id = "archive", label = _("Archive"), icon = "archive" },
     { id = "next_file", label = _("Next file"), icon = "tab_right" },
     { id = "restart", label = _("Restart Book"), icon = "restart" },
+    { id = "delete", label = _("Delete"), icon = "trash" },
 }
 
 function M.featuredActions(config)
@@ -182,8 +183,11 @@ function M.recommendations(file, book, author_groups, series_groups, get_status)
     local result = { author = {}, next_series = {}, other_series = {} }
     local realpath = require("ffi/util").realpath
     local current_file = realpath(file) or file
+    local current_name = current_file:match("[^/]*$")
     local function is_current(path)
-        return path == file or path == current_file or realpath(path) == current_file
+        if path == file or path == current_file then return true end
+        -- realpath is a syscall chain; only symlinked copies with the same filename can match.
+        return path:match("[^/]*$") == current_name and realpath(path) == current_file
     end
     local authors, seen = {}, {}
     for author in (book.authors or ""):gmatch("[^\n]+") do
@@ -208,11 +212,18 @@ function M.recommendations(file, book, author_groups, series_groups, get_status)
         if statuses[path] == nil then statuses[path] = get_status(path) or "new" end
         return statuses[path]
     end
+    local next_book
     for _i, group in ipairs(series_groups) do
         if group.series == book.series then
+            local after_current = false
             for _j, item in ipairs(group.items) do
-                if not is_current(item.file) and status(item.file) ~= "complete" then
+                if is_current(item.file) then
+                    after_current = true
+                elseif status(item.file) ~= "complete" then
                     result.next_series[#result.next_series + 1] = item.file
+                    if after_current and not next_book and status(item.file) ~= "abandoned" then
+                        next_book = item.file
+                    end
                 end
             end
         else
@@ -222,24 +233,25 @@ function M.recommendations(file, book, author_groups, series_groups, get_status)
                 if value == "reading" and not reading then reading = item.file end
                 if value == "complete" then last_finished = index end
             end
-            local next_book = reading
-            if not next_book and last_finished then
+            local group_next = reading
+            if not group_next and last_finished then
                 for index = last_finished + 1, #group.items do
                     local path = group.items[index].file
                     if status(path) ~= "complete" and status(path) ~= "abandoned" then
-                        next_book = path
+                        group_next = path
                         break
                     end
                 end
             end
-            if next_book and not is_current(next_book) then
+            if group_next and not is_current(group_next) then
                 local files = {}
                 for _j, item in ipairs(group.items) do files[#files + 1] = item.file end
                 result.other_series[#result.other_series + 1] = { series = group.series, files = files }
             end
         end
     end
-    return result
+    -- Second value: first unfinished book after the current one in series order.
+    return result, next_book
 end
 
 function M.new(ui, plugin, config, refresh, close, preview)
@@ -311,22 +323,29 @@ function M.new(ui, plugin, config, refresh, close, preview)
         end
         return paths
     end
-    local recommendations
+    local recommendations, next_in_series
     function data:invalidateRecommendations()
-        recommendations = nil
+        recommendations, next_in_series = nil, nil
     end
     function data:getRecommendations()
         if not recommendations then
-            local db = require("common/db_bookinfo")
-            recommendations = file and M.recommendations(file, book, db.getGroupedByAuthor(),
-                db.getGroupedBySeries(), require("common/book_status").getEffectiveStatusFromFile)
-                or { author = {}, next_series = {}, other_series = {} }
+            if file then
+                local db = require("common/db_bookinfo")
+                recommendations, next_in_series = M.recommendations(file, book, db.getGroupedByAuthor(),
+                    db.getGroupedBySeries(), require("common/book_status").getEffectiveStatusFromFile)
+            else
+                recommendations = { author = {}, next_series = {}, other_series = {} }
+            end
         end
         local controls = plugin.config.end_book and plugin.config.end_book.modules.strip.controls
         if controls and controls.show_buttons.continue and recommendations.continue == nil then
             recommendations.continue = self:getContinuePaths()
         end
         return recommendations
+    end
+    function data:getNextInSeries()
+        self:getRecommendations()
+        return next_in_series
     end
     function data:free()
         if book.cover_bb then book.cover_bb:free(); book.cover_bb = nil end

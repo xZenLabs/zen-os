@@ -4,9 +4,8 @@
 -- depth) and return to the default navbar tab underneath, matching the
 -- behavior in the File Manager and other ZenOS library views.
 
-local function apply_cloud_storage_home()
-    local ok_cs, CloudStorage = pcall(require, "apps/cloudstorage/cloudstorage")
-    if not ok_cs or not CloudStorage then return end
+local function patch_cloud_storage()
+    local CloudStorage = require("apps/cloudstorage/cloudstorage")
     if CloudStorage._zen_home_patched then return end
     CloudStorage._zen_home_patched = true
 
@@ -30,6 +29,11 @@ local function apply_cloud_storage_home()
         end
         return true
     end
+end
+
+-- Patch when KOReader first opens Cloud storage.
+local function apply_cloud_storage_home()
+    require("common/on_require").whenLoaded("apps/cloudstorage/cloudstorage", patch_cloud_storage)
 end
 
 return apply_cloud_storage_home

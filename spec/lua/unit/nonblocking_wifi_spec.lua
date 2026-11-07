@@ -3,6 +3,7 @@ describe("background Wi-Fi toggles", function()
     local Device, UIManager, NetworkMgr, ffiutil, native_ffi
     local scheduled, workers, wifi_on, connected, in_child, standby, notices, events, sleeps, warnings
     local outcome, spawn_failed, off_calls, reads, closed_fds, inherited_flags, shown, closed_notices
+    local sim_now = 0
     local names = {
         "device", "ui/uimanager", "ui/network/manager", "ui/widget/networksetting",
         "ui/widget/infomessage", "ui/widget/confirmbox", "ui/widget/multiconfirmbox",
@@ -27,7 +28,24 @@ describe("background Wi-Fi toggles", function()
     local function tick()
         local task = table.remove(scheduled, 1)
         assert.is_truthy(task)
+        sim_now = math.max(sim_now, task.at or sim_now)
         task.callback(unpack(task.args))
+    end
+
+    -- Run timers in due order for a simulated span (poll intervals back off).
+    local function advance(seconds)
+        local target = sim_now + seconds
+        while true do
+            local index
+            for i, task in ipairs(scheduled) do
+                if task.at <= target and (not index or task.at < scheduled[index].at) then index = i end
+            end
+            if not index then break end
+            local task = table.remove(scheduled, index)
+            sim_now = task.at
+            task.callback(unpack(task.args))
+        end
+        sim_now = target
     end
 
     local function finish_worker(index)
@@ -56,6 +74,7 @@ describe("background Wi-Fi toggles", function()
         native_ffi = require("ffi")
         require("ffi/posix_h")
         scheduled, workers, events, sleeps, shown = {}, {}, {}, {}, {}
+        sim_now = 0
         closed_notices = {}
         warnings = {}
         wifi_on, connected, in_child = false, false, false
@@ -75,7 +94,7 @@ describe("background Wi-Fi toggles", function()
             allowStandby = function() standby = standby - 1 end,
             broadcastEvent = function(_self, event) events[#events + 1] = event.handler end,
             scheduleIn = function(_self, delay, callback, ...)
-                scheduled[#scheduled + 1] = { delay = delay, callback = callback, args = { ... } }
+                scheduled[#scheduled + 1] = { delay = delay, at = sim_now + delay, callback = callback, args = { ... } }
             end,
             unschedule = function(_self, callback)
                 for index = #scheduled, 1, -1 do
@@ -318,7 +337,7 @@ describe("background Wi-Fi toggles", function()
     it("bounds a DNS stall and suppresses notices after disconnecting or switching", function()
         wifi_on, connected = true, true
         NetworkMgr:showWifiConnected("Home")
-        for _i = 1, 61 do tick() end
+        advance(16) -- 15 s check timeout, then collection
         assert.is_truthy(shown[#shown].text:find("timed out", 1, true))
         assert.are.equal(0, standby)
         for _i, action in ipairs({ "off", "switch", "notice" }) do
@@ -428,7 +447,7 @@ describe("background Wi-Fi toggles", function()
         NetworkMgr:restoreWifiAsync()
         NetworkMgr:scheduleConnectivityCheck()
 
-        for _i = 1, 400 do tick() end -- More than 45 seconds with both timers running.
+        advance(50) -- More than 45 seconds with both timers running.
 
         assert.is_false(workers[1].done)
         assert.are.equal(1, #workers)
@@ -1034,9 +1053,21 @@ describe("background Wi-Fi toggles", function()
         assert.are.equal(1, #workers)
     end)
 
+    it("backs off worker polling after the first seconds", function()
+        NetworkMgr:toggleWifiOn(nil, false, false)
+        local delays = {}
+        for _i = 1, 14 do
+            delays[#delays + 1] = scheduled[1].delay
+            tick()
+        end
+        assert.are.same({ 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25,
+            0.5, 0.5, 0.5, 0.5, 1, 1 }, delays)
+        finish_worker()
+    end)
+
     it("bounds a stuck worker and keeps noninteractive failures silent", function()
         NetworkMgr:toggleWifiOn(function() error("Failed callback must not run") end, false, false)
-        for _i = 1, 481 do tick() end
+        advance(121) -- 120 s worker timeout, then collection
         assert.are.equal(2, #workers)
         finish_worker()
         assert.is_false(NetworkMgr.pending_connection)

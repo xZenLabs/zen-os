@@ -38,7 +38,6 @@ local DispatcherMenu = require("common/dispatcher_menu")
 local M = {}
 local show_submenu
 local repopulate
-local plus_icon_path
 local cancel_item_drag_hold
 local pending_callback_resume_path
 local DRAG_UNFOCUS_DELAY = 0.1
@@ -58,13 +57,10 @@ local function discard_background_refreshes(count)
 end
 
 local function get_plus_icon_path()
-    if plus_icon_path ~= nil then return plus_icon_path end
-    plus_icon_path = false
     local ok_root, root = pcall(require, "common/plugin_root")
     if ok_root and root then
-        plus_icon_path = utils.resolveLocalIcon(root .. "/icons/", "plus") or false
+        return utils.resolveIcon(root .. "/icons/", "plus")
     end
-    return plus_icon_path or nil
 end
 
 local function suppress_footer_button(button)
@@ -314,6 +310,7 @@ local function rebuild_icon_row(row)
     local right_padding = Size.padding.default
     local icon_w = IconItem.SETTINGS_ICON_WIDTH
     local arrange_enabled = row.show_parent._zen_arrange_enabled == true
+        and item.arrange_pinned_first ~= true
         and item.arrange_pinned_last ~= true
     local content_w = row.width - left_padding - right_padding
     local item_has_submenu = type(item.sub_item_table) == "table"
@@ -1265,7 +1262,8 @@ local function start_touch_drag(sort_widget, pos, handle_only)
     for _row_i, row in ipairs(sort_widget.main_content or {}) do
         local matches = handle_only and is_arrange_handle_tap(row, pos)
             or not handle_only and is_arrange_row_tap(row, pos)
-        if row.index and row.item and row.item.arrange_pinned_last ~= true and matches then
+        if row.index and row.item and row.item.arrange_pinned_first ~= true
+                and row.item.arrange_pinned_last ~= true and matches then
             cancel_item_drag_hold(sort_widget)
             cancel_drag_unfocus(sort_widget)
             local first = (sort_widget.show_page - 1) * sort_widget.items_per_page + 1

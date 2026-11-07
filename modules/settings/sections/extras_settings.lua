@@ -23,8 +23,7 @@ function M.build(ctx)
     table.insert(items, stats_settings.build(ctx))
     local zenpm_item = zenpm_installer.build_item(plugin)
     if zenpm_item then
-        zenpm_item.icon_file = require("common/utils").resolveLocalIcon(
-            require("common/plugin_root") .. "/icons/", "zenpm")
+        zenpm_item.icon_name = "zenpm"
         table.insert(items, zenpm_item)
     end
 
@@ -123,8 +122,7 @@ function M.build(ctx)
         end
         table.insert(items, {
             text = _("Rakuyomi"),
-            icon_file = require("common/utils").resolveLocalIcon(
-                require("common/plugin_root") .. "/icons/", "tab_manga"),
+            icon_name = "tab_manga",
             sub_item_table = {
                 {
                     text = _("Exclude from Home"),
@@ -141,7 +139,22 @@ function M.build(ctx)
                     end,
                 },
                 {
+                    text = _("Open Rakuyomi on manga exit"),
+                    checked_func = function()
+                        return config.rakuyomi.open_on_manga_exit == true
+                    end,
+                    callback = function(touchmenu_instance)
+                        config.rakuyomi.open_on_manga_exit =
+                            config.rakuyomi.open_on_manga_exit ~= true
+                        plugin:saveConfig()
+                        if touchmenu_instance then touchmenu_instance:updateItems() end
+                    end,
+                },
+                {
                     text = _("Return to chapter list on exit"),
+                    enabled_func = function()
+                        return config.rakuyomi.open_on_manga_exit == true
+                    end,
                     checked_func = function()
                         return config.rakuyomi.return_to_chapter_list_on_exit ~= false
                     end,

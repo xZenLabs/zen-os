@@ -331,6 +331,30 @@ describe("Kobo Bluetooth control", function()
         assert.are.equal(0, #commands)
     end)
 
+    it("uses native Bluetooth when Kobo plugin lookup fails or is incomplete", function()
+        for _i, lookup in ipairs({
+            function() error("kobo plugin failed to load") end,
+            function() return { kobo_bluetooth = true } end,
+        }) do
+            ZenSpec.replace("pluginloader", { getPluginInstance = lookup })
+            assert.is_true(bluetooth.isAvailable())
+            assert.is_false(bluetooth.getState())
+        end
+    end)
+
+    it("uses native Bluetooth when a loaded Kobo plugin cannot report its state", function()
+        for _i, controller in ipairs({
+            { isDeviceSupported = function() return true end },
+            { isDeviceSupported = function() return true end,
+                isBluetoothEnabled = function() error("kobo plugin not initialized") end },
+        }) do
+            ZenSpec.replace("pluginloader", { getPluginInstance = function()
+                return { kobo_bluetooth = controller }
+            end })
+            assert.is_false(bluetooth.getState())
+        end
+    end)
+
     it("uses an active Kobo plugin for its Bluetooth lifecycle", function()
         local calls = {}
         _G.__ZEN_UI_PLUGIN = { ui = { kobo_plugin = { kobo_bluetooth = {

@@ -22,6 +22,8 @@ local function apply_touch_menu_footer()
     local Screen         = Device.screen
 
     local DGENERIC_ICON_SIZE = G_defaults:readSetting("DGENERIC_ICON_SIZE")
+    -- Hatching stripe period; aligning strips to it keeps the pattern seamless.
+    local HATCH_PERIOD = 2 * math.ceil(math.max(1, Screen:scaleBySize(2)))
 
     -- Resolve the bundled icon through the active custom pack when available.
     local _icon_file
@@ -70,14 +72,15 @@ local function apply_touch_menu_footer()
     local orig_onCloseWidget = TouchMenu.onCloseWidget
     local orig_paintTo = TouchMenu.paintTo
 
-    local function hatching_enabled()
+    local function hatching_enabled(menu)
         local quick_settings = zen_plugin and zen_plugin.config and zen_plugin.config.quick_settings
         return quick_settings and quick_settings.background_hatching == true
+            and not (menu.item_table and menu.item_table.id == "reader_controls")
     end
 
     function TouchMenu:onShow(...)
         local result = orig_onShow and orig_onShow(self, ...)
-        if hatching_enabled() then
+        if hatching_enabled(self) then
             self.is_fresh = false -- Use one screen-wide refresh for the backdrop.
             UIManager:setDirty(nil, Screen.night_mode and getFullRefreshMode() or "ui")
         end
@@ -85,6 +88,10 @@ local function apply_touch_menu_footer()
     end
 
     function TouchMenu:onCloseWidget(...)
+        if self._zen_hatched_background then
+            self._zen_hatched_background:free()
+            self._zen_hatched_background = nil
+        end
         local result = orig_onCloseWidget and orig_onCloseWidget(self, ...)
         local ReaderUI = package.loaded["apps/reader/readerui"]
         local reader = ReaderUI and ReaderUI.instance
@@ -108,14 +115,36 @@ local function apply_touch_menu_footer()
     end
 
     function TouchMenu:paintTo(bb, x, y)
-        if hatching_enabled() then
+        if hatching_enabled(self) then
             local menu_bottom = y + self.dimen.h
             local ReaderUI = package.loaded["apps/reader/readerui"]
             local reader_config = ReaderUI and ReaderUI.instance and ReaderUI.instance.config
             local bottom_menu = reader_config and reader_config.config_dialog
             local bottom = bottom_menu and bottom_menu[1]
             local hatch_bottom = bottom and bottom:contentRange().y or self.screen_size.h
-            Hatching.paint(bb, 0, menu_bottom, self.screen_size.w, hatch_bottom - menu_bottom)
+            if hatch_bottom > menu_bottom then
+                if self._zen_hatched_background and (self._zen_hatch_night_mode ~= Screen.night_mode
+                        or self._zen_hatch_bottom ~= hatch_bottom) then
+                    self._zen_hatched_background:free()
+                    self._zen_hatched_background = nil
+                end
+                if not self._zen_hatched_background then
+                    -- Full copy: menu_panel keeps the background on shrink and relies on it.
+                    self._zen_hatched_background = bb:copy()
+                    self._zen_hatch_night_mode = Screen.night_mode
+                    self._zen_hatch_bottom = hatch_bottom
+                    self._zen_hatch_top = hatch_bottom
+                end
+                -- Hatch only the exposed strip, extending upward as the menu shrinks.
+                if menu_bottom < self._zen_hatch_top then
+                    local top = menu_bottom - menu_bottom % HATCH_PERIOD
+                    Hatching.paint(self._zen_hatched_background, 0, top,
+                        self.screen_size.w, self._zen_hatch_top - top)
+                    self._zen_hatch_top = top
+                end
+                bb:blitFrom(self._zen_hatched_background, 0, menu_bottom, 0, menu_bottom,
+                    self.screen_size.w, hatch_bottom - menu_bottom)
+            end
         end
         return orig_paintTo(self, bb, x, y)
     end

@@ -1,4 +1,5 @@
 local M = {}
+local OptionalProvider = require("common/optional_provider")
 
 local FileManager
 local Geom
@@ -82,6 +83,11 @@ local function close_top_chapter_listing()
     if is_chapter_listing(widget) then
         UIManager:close(widget)
     end
+end
+
+local function open_on_manga_exit_enabled()
+    local config = get_zen_config()
+    return config and config.rakuyomi and config.rakuyomi.open_on_manga_exit == true
 end
 
 local function return_to_chapter_list_on_exit_enabled()
@@ -369,6 +375,8 @@ local function recent_series(config)
     return config.rakuyomi.recent_series
 end
 
+local RECENT_SERIES_MAX = 50
+
 local function remember_recent_series(manga, chapter, file, timestamp)
     if type(manga) ~= "table" or type(manga.source) ~= "table"
             or type(manga.source.id) ~= "string" or type(manga.id) ~= "string"
@@ -397,6 +405,8 @@ local function remember_recent_series(manga, chapter, file, timestamp)
         metadata = previous_metadata,
     }
     table.insert(series, 1, recent)
+    -- Bounded: the whole list is rewritten with every config save.
+    for index = #series, RECENT_SERIES_MAX + 1, -1 do series[index] = nil end
     return recent
 end
 
@@ -412,6 +422,7 @@ function M.getRecentSeries(history)
         by_file[recent.file] = recent
     end
     local changed = false
+    local ok_shared, Shared = pcall(require, "RakuyomiShared")
     for _i, entry in ipairs(history or {}) do
         local file = entry.file
         local existing = by_file[file]
@@ -419,7 +430,8 @@ function M.getRecentSeries(history)
             local timestamp = math.max(existing.time, entry.time or 0)
             if timestamp ~= existing.time then changed = true; existing.time = timestamp end
         elseif type(file) == "string" and file:lower():sub(-4) == ".cbz" and M.isChapterFile(file) then
-            local origin = require("RakuyomiShared"):getOrigin(file)
+            local origin = ok_shared and type(Shared) == "table"
+                and type(Shared.getOrigin) == "function" and Shared:getOrigin(file)
             local source = origin and origin.manga_id.source_id
             local previous = source and by_source[source] and by_source[source][origin.manga_id.manga_id]
             local metadata = origin and (not previous or (entry.time or 0) > previous.time)
@@ -717,7 +729,7 @@ function M.installMetadataIntegration()
                 if cover_path then bookinfo.has_cover, bookinfo.cover_fetched = "Y", "Y" end
             end
             if recent then
-                local book = M.getRecentBook(recent, true)
+                local book = OptionalProvider.call(M, "getRecentBook", recent, true) or {}
                 if not bookinfo.ignore_meta then
                     for _i, key in ipairs({ "title", "authors", "series", "series_index", "chapter_label",
                             "keywords", "description", "language" }) do
@@ -917,16 +929,19 @@ function M.installShowReaderCapture()
     function ReaderUI:showReader(file, ...)
         if type(file) == "string" then
             local is_chapter = M.isChapterFile(file) == true
+            local open_on_exit = open_on_manga_exit_enabled()
             local return_to_chapter_list = return_to_chapter_list_on_exit_enabled()
             if is_chapter then
                 local MangaReader = package.loaded["MangaReader"]
                 local chapter = MangaReader and MangaReader.is_showing and MangaReader.chapter
                 local source_tab = chapter and chapter._zen_rakuyomi_source_tab
-                if source_tab then _G.__ZEN_UI_LIBRARY_SOURCE_TAB = source_tab end
-                _G.__ZEN_UI_FORCE_SOURCE_TAB_RESTORE = source_tab == "manga" or nil
-                _G.__ZEN_UI_RAKUYOMI_RETURN_FILE = source_tab == "manga"
+                if source_tab and (source_tab ~= "manga" or open_on_exit) then
+                    _G.__ZEN_UI_LIBRARY_SOURCE_TAB = source_tab
+                end
+                _G.__ZEN_UI_FORCE_SOURCE_TAB_RESTORE = source_tab == "manga" and open_on_exit or nil
+                _G.__ZEN_UI_RAKUYOMI_RETURN_FILE = source_tab == "manga" and open_on_exit
                     and return_to_chapter_list and file or nil
-                if not return_to_chapter_list then
+                if not open_on_exit or not return_to_chapter_list then
                     close_top_chapter_listing()
                 end
             end
@@ -958,13 +973,22 @@ function M.installReaderReturnPatch()
         local ReaderUI = require("apps/reader/readerui")
         local reader = ReaderUI.instance
         local file = reader and reader.document and reader.document.file
+        if self.is_showing and M.isChapterFile(file) and not open_on_manga_exit_enabled() then
+            local Navigation = require("common/library_navigation")
+            return Navigation.showFromReader(reader, zen_plugin, {
+                force_default = not Navigation.restoreEnabled(zen_plugin),
+                after_close = function() self:clean() end,
+            })
+        end
         if self.is_showing and M.isChapterFile(file)
-                and return_to_chapter_list_on_exit_enabled()
                 and not self._zen_rakuyomi_return_pending then
             local orig_callback = self.on_return_callback
             self._zen_rakuyomi_return_pending = true
             self.on_return_callback = function(...)
                 self._zen_rakuyomi_return_pending = nil
+                if not return_to_chapter_list_on_exit_enabled() then
+                    return M.openLibraryView({ hideTopClose = true, forceLibraryView = true })
+                end
                 if rawget(_G, "__ZEN_UI_RAKUYOMI_CHAPTER_LIST_RESTORED") then
                     _G.__ZEN_UI_RAKUYOMI_CHAPTER_LIST_RESTORED = nil
                     return

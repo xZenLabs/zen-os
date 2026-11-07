@@ -141,6 +141,16 @@ describe("app launcher model", function()
             Model.display_label({ type = "break" }))
     end)
 
+    it("marks Contrast as PDF/CBZ-only in the buttons editor", function()
+        local Model = require("modules/menu/app_launcher/model")
+        local entry = { type = "reader_control", control = "contrast", label = "Contrast" }
+        assert.are.equal("Contrast (PDF/CBZ)", Model.display_label(entry))
+        entry.label = "Images"
+        assert.are.equal("Images (PDF/CBZ)", Model.display_label(entry))
+        assert.are.equal("Images", entry.label)
+        assert.are.equal("Font", Model.display_label({ type = "reader_control", control = "font", label = "Font" }))
+    end)
+
     it("adds enabled ZenPM once without replacing an existing launcher entry", function()
         ZenSpec.replace("pluginloader", {
             loadPlugins = function()

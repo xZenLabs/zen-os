@@ -1,3 +1,5 @@
+require("ffi/loadlib")
+require("luasettings") -- loaded by KOReader before plugins
 local lfs = require("libs/libkoreader-lfs")
 
 describe("incompatible plugin and patch check", function()
@@ -290,6 +292,7 @@ describe("incompatible plugin and patch check", function()
         local reader_menu_dir = plugins_dir .. "/zzz-readermenuredesign.koplugin"
         local shortcuts_toolbar_dir = plugins_dir .. "/shortcutstoolbar.koplugin"
         local neo_quicksettings_dir = plugins_dir .. "/neo_quicksetting.koplugin"
+        local modern_menu_dir = plugins_dir .. "/modern_menu.koplugin"
         assert.is_true(lfs.mkdir(plugins_dir))
         assert.is_true(lfs.mkdir(simpleui_dir))
         assert.is_true(lfs.mkdir(vos_dir))
@@ -300,6 +303,7 @@ describe("incompatible plugin and patch check", function()
         assert.is_true(lfs.mkdir(reader_menu_dir))
         assert.is_true(lfs.mkdir(shortcuts_toolbar_dir))
         assert.is_true(lfs.mkdir(neo_quicksettings_dir))
+        assert.is_true(lfs.mkdir(modern_menu_dir))
         settings.extra_plugin_paths = { plugins_dir }
         ZenSpec.replace("userpatch", { execution_status = {} })
 
@@ -313,6 +317,7 @@ describe("incompatible plugin and patch check", function()
         assert.is_true(settings.disabled["zzz-readermenuredesign"])
         assert.is_true(settings.disabled.shortcutstoolbar)
         assert.is_true(settings.disabled.neo_quicksetting)
+        assert.is_true(settings.disabled.modern_menu)
         assert.are.equal(1, settings.flushes)
 
         UIManager.scheduled[1].callback()
@@ -320,7 +325,7 @@ describe("incompatible plugin and patch check", function()
             "Incompatible plugins and patches have been disabled:\n"
                 .. "Simple UI\nVisual Overhaul Suite (VOS)\nQuickMenu\nAppearance\n"
                 .. "Burrow\nQuickUI\nReader Menu Redesign\nShortcuts Toolbar\n"
-                .. "Neo QuickSettings",
+                .. "Neo QuickSettings\nModern Menu",
             UIManager.shown[1].text)
 
         lfs.rmdir(simpleui_dir)
@@ -332,16 +337,20 @@ describe("incompatible plugin and patch check", function()
         lfs.rmdir(reader_menu_dir)
         lfs.rmdir(shortcuts_toolbar_dir)
         lfs.rmdir(neo_quicksettings_dir)
+        lfs.rmdir(modern_menu_dir)
         lfs.rmdir(plugins_dir)
     end)
 
     it("does not restart for an installed plugin that is already disabled", function()
         local plugins_dir = data_dir .. "/plugins"
         local reader_menu_dir = plugins_dir .. "/zzz-readermenuredesign.koplugin"
+        local modern_menu_dir = plugins_dir .. "/modern_menu.koplugin"
         assert.is_true(lfs.mkdir(plugins_dir))
         assert.is_true(lfs.mkdir(reader_menu_dir))
+        assert.is_true(lfs.mkdir(modern_menu_dir))
         settings.extra_plugin_paths = plugins_dir
         settings.disabled["zzz-readermenuredesign"] = true
+        settings.disabled.modern_menu = true
         ZenSpec.replace("userpatch", { execution_status = {} })
 
         assert.is_false(require("modules/filebrowser/patches/incompatible_plugins_check")())
@@ -349,6 +358,7 @@ describe("incompatible plugin and patch check", function()
         assert.are.same({}, UIManager.scheduled)
 
         lfs.rmdir(reader_menu_dir)
+        lfs.rmdir(modern_menu_dir)
         lfs.rmdir(plugins_dir)
     end)
 
@@ -374,5 +384,28 @@ describe("incompatible plugin and patch check", function()
         assert.is_true(require("modules/filebrowser/patches/incompatible_plugins_check")())
         assert.is_true(settings.disabled.autowarmth)
         assert.are.equal(1, settings.flushes)
+    end)
+
+    it("reads the persisted config before the plugin instance exists", function()
+        package.loaded["suntime"] = { loaded = true }
+        local zen_dir = data_dir .. "/ZenOS"
+        local config_path = zen_dir .. "/config.lua"
+        assert.is_true(lfs.mkdir(zen_dir))
+        local file = assert(io.open(config_path, "w"))
+        file:write("return { features = { warmth_schedule = true } }\n")
+        file:close()
+        ZenSpec.replace("datastorage", {
+            getDataDir = function() return data_dir end,
+            getSettingsDir = function() return data_dir end,
+        })
+        ZenSpec.replace("userpatch", { execution_status = {} })
+
+        local ok, err = pcall(function()
+            assert.is_true(require("modules/filebrowser/patches/incompatible_plugins_check")())
+            assert.is_true(settings.disabled.autowarmth)
+        end)
+        os.remove(config_path)
+        lfs.rmdir(zen_dir)
+        assert(ok, err)
     end)
 end)

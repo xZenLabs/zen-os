@@ -18,25 +18,30 @@ local function apply_screensaver_cover()
 
     if not _icons_dir then return end
 
-    local utils = require("common/utils")
-    local Screensaver = require("ui/screensaver")
-    local orig_setup = Screensaver.setup
+    -- Patch when KOReader first shows a screensaver.
+    require("common/on_require").whenLoaded("ui/screensaver", function()
+        local utils = require("common/utils")
+        local Screensaver = require("ui/screensaver")
+        if Screensaver._zen_cover_patched then return end
+        Screensaver._zen_cover_patched = true
+        local orig_setup = Screensaver.setup
 
-    function Screensaver:setup(event, event_message)
-        orig_setup(self, event, event_message)
-        if self.image_file == "resources/koreader.png" then
-            -- Choose logo variant based on the background fill setting:
-            -- black background → white logo; white/none → dark logo.
-            local bg = G_reader_settings:readSetting("screensaver_img_background")
-            if bg == "black" then
-                self.image_file = utils.resolveLocalIcon(_icons_dir, "zen_cover_light")
-                    or (_icons_dir .. "zen_cover_light.svg")
-            else
-                self.image_file = utils.resolveLocalIcon(_icons_dir, "zen_cover")
-                    or (_icons_dir .. "zen_cover.svg")
+        function Screensaver:setup(event, event_message)
+            orig_setup(self, event, event_message)
+            if self.image_file == "resources/koreader.png" then
+                -- Choose logo variant based on the background fill setting:
+                -- black background → white logo; white/none → dark logo.
+                local bg = G_reader_settings:readSetting("screensaver_img_background")
+                if bg == "black" then
+                    self.image_file = utils.resolveLocalIcon(_icons_dir, "zen_cover_light")
+                        or (_icons_dir .. "zen_cover_light.svg")
+                else
+                    self.image_file = utils.resolveLocalIcon(_icons_dir, "zen_cover")
+                        or (_icons_dir .. "zen_cover.svg")
+                end
             end
         end
-    end
+    end)
 end
 
 return apply_screensaver_cover

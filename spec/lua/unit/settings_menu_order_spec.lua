@@ -55,8 +55,8 @@ describe("settings menu organization", function()
             })[seconds]
         end })
         local interface_icon = require("common/inline_icon_map").settings_global
-        assert.are.equal("\u{F0574}", interface_icon)
-        assert.are.equal("\u{F0080}", require("common/inline_icon_map").battery)
+        assert.are.equal("\u{EC73}", interface_icon)
+        assert.are.equal("\u{E77F}", require("common/inline_icon_map").battery)
         replace("common/inline_icon_map", {
             settings = "gear", settings_global = interface_icon, battery = "battery_icon",
         })

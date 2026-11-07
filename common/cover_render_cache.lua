@@ -235,6 +235,21 @@ function M:releaseShared(path, bb)
     return false
 end
 
+-- Releases a getShared() lease once, when the widget holding it is freed.
+-- `cache_key` upvalue name is read by the test driver.
+function M:releaseOnFree(widget, cache_key, bb)
+    if not widget or not cache_key then return end
+    local original_free = widget.free
+    widget.free = function(w, ...)
+        local result = original_free(w, ...)
+        if cache_key then
+            self:releaseShared(cache_key, bb)
+            cache_key = nil
+        end
+        return result
+    end
+end
+
 function M:put(path, width, height, bb)
     if not path or not bb then return nil end
     local cache_key = exact_key(path, width, height)

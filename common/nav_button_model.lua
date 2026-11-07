@@ -1,4 +1,5 @@
 local _ = require("gettext")
+local OptionalProvider = require("common/optional_provider")
 
 local M = {}
 
@@ -60,7 +61,7 @@ end
 function M.isAvailable(entry)
     if type(entry) == "string" then entry = by_id[entry] end
     return type(entry) == "table" and (entry.id ~= "kindle"
-        or require("modules/filebrowser/patches/kindle_virtual_library").isAvailable())
+        or OptionalProvider.call("modules/filebrowser/patches/kindle_virtual_library", "isAvailable") == true)
 end
 
 function M.isSource(entry)

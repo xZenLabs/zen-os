@@ -138,6 +138,9 @@ describe("reader themes", function()
         assert.are.equal("NotoSerif-Regular.ttf", face)
         assert.is_true(Themes.applyBackground(reader, plugin))
         assert.are.equal(0xaabbcc, background)
+        reader.doc_settings = ZenSpec.memorySettings({ font_face = "Saved book font" })
+        assert.is_true(Themes.applyFont(reader, plugin))
+        assert.are.equal("NotoSerif-Regular.ttf", face)
         assert.is_true(Themes.isValidColor("#123abc"))
         assert.is_true(Themes.isValidColor("#abc"))
         assert.is_false(Themes.isValidColor("#123ab"))
@@ -146,6 +149,68 @@ describe("reader themes", function()
         assert.is_true(math.abs(saturation - 2 / 3) < 0.000001)
         assert.is_true(math.abs(value - 0.6) < 0.000001)
         assert.is_nil(Themes.colorToHsv("not-a-color"))
+    end)
+
+    it("provides preview colors for built-in, custom, and default themes", function()
+        local plugin = {
+            config = {
+                reader_themes = {
+                    custom = {
+                        custom_1 = { text = "#123456", background = "#abcdef" },
+                        invalid = { text = "bad", background = "#ffffff" },
+                    },
+                },
+            },
+        }
+        local Blitbuffer = require("ffi/blitbuffer")
+
+        local text, background = Themes.getPreviewColors(plugin, "dark_graphite")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(208, 208, 208, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(37, 37, 37, 255)), tostring(background))
+
+        text, background = Themes.getPreviewColors(plugin, "custom_1")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(18, 52, 86, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(171, 205, 239, 255)), tostring(background))
+
+        text, background = Themes.getPreviewColors(plugin, "default")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(0, 0, 0, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(255, 255, 255, 255)), tostring(background))
+        assert.is_nil(Themes.getPreviewColors(plugin, "invalid"))
+
+        local editable_theme = { text = "#102030", background = "#f0e0d0" }
+        text, background = Themes.getPreviewColors(plugin, nil, editable_theme)
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(16, 32, 48, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(240, 224, 208, 255)), tostring(background))
+        editable_theme.text = "#abcdef"
+        text = Themes.getPreviewColors(plugin, nil, editable_theme)
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(171, 205, 239, 255)), tostring(text))
+
+        G_reader_settings:saveSetting("night_mode", true)
+        text, background = Themes.getPreviewColors(plugin, "dark_graphite")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(208, 208, 208, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(37, 37, 37, 255)), tostring(background))
+    end)
+
+    it("registers the additional built-in theme palettes", function()
+        local expected = {
+            sepia = { "#000000", "#f5e6c8" },
+            darker_sepia = { "#2e2014", "#e6cea9" },
+            old_book = { "#2e1800", "#edd9b0" },
+            sage = { "#1a2e1a", "#eaf0e8" },
+            fern = { "#0f2a14", "#dff0e0" },
+            arctic = { "#0d1b2a", "#e8f0f8" },
+            midnight = { "#e2e8f0", "#121c33" },
+            nord = { "#d8dee9", "#2e3440" },
+            amber_night = { "#fad08a", "#14100a" },
+            sepia_night = { "#c8a070", "#1a0e00" },
+            dark_moss = { "#90c090", "#0a1a0a" },
+            dark_sky = { "#7aaad4", "#0a1428" },
+            velvet = { "#f9d592", "#532653" },
+        }
+        for key, colors in pairs(expected) do
+            assert.are.equal(colors[1], Themes.BUILTIN_THEMES[key].text, key)
+            assert.are.equal(colors[2], Themes.BUILTIN_THEMES[key].background, key)
+        end
     end)
 
     it("does not change the font for built-in themes", function()
@@ -191,7 +256,7 @@ describe("reader themes", function()
         }
 
         assert.is_true(Themes.applyCurrent(plugin))
-        assert.matches("#3f3524", applied_css, 1, true)
+        assert.matches("body, body * { color: #000000 !important; }", applied_css, 1, true)
         assert.are.equal(1, call_cache_resets)
         assert.are.equal(1, buffer_cache_resets)
         assert.are.equal(0xf3ead2, backgrounds[1])
@@ -449,6 +514,23 @@ describe("reader themes", function()
         local repaint, full_repaint = ReaderFooter:shouldBeRepainted()
         assert.is_true(repaint)
         assert.is_true(full_repaint)
+
+        -- With a CRE page buffer, only the footer backdrop is restored.
+        local blits = {}
+        require("device").screen.bb = { blitFrom = function(_self, ...) blits[#blits + 1] = { ... } end }
+        local page = { getWidth = function() return 600 end, getHeight = function() return 800 end }
+        local footer = setmetatable({
+            footer_content = { dimen = { x = 0, y = 760, w = 600, h = 40 } },
+            view = { document = { buffer = page }, state = { offset = { x = 0, y = 0 } } },
+        }, { __index = ReaderFooter })
+        repaint, full_repaint = footer:shouldBeRepainted()
+        assert.is_true(repaint)
+        assert.is_nil(full_repaint)
+        assert.same({ { page, 0, 760, 0, 760, 600, 40 } }, blits)
+        footer.footer_content.dimen.y = 780
+        assert.is_true(select(2, footer:shouldBeRepainted()))
+        assert.are.equal(1, #blits)
+        require("device").screen.bb = nil
         plugin.config.features.reader_themes = false
         repaint, full_repaint = ReaderFooter:shouldBeRepainted()
         assert.is_true(repaint)
@@ -511,4 +593,62 @@ describe("reader themes", function()
         next_tick_callback()
         assert.are.equal("full", dirty_calls[1][3])
     end)
+    it("captures both configured theme modes even while themes are disabled", function()
+        local plugin = { config = { features = { reader_themes = false }, reader_themes = {
+            light_mode = "light_tan", dark_mode = "dark_graphite", custom = {},
+        } } }
+        local snapshot = Themes.capture(plugin)
+        assert.is_false(snapshot.enabled)
+        assert.are.equal("#e8dcc5", snapshot.light_mode.background)
+        assert.are.equal("#252525", snapshot.dark_mode.background)
+    end)
+
+    it("restores profile theme snapshots globally without book overrides", function()
+        local old_reader = package.loaded["apps/reader/readerui"]
+        local old_store = package.loaded["config/preset_store"]
+        local store, saved = {}, 0
+        ZenSpec.replace("config/preset_store", {
+            loadStore = function() return store end,
+            saveStore = function(_kind, value) store = value end,
+        })
+        local reader = { doc_settings = ZenSpec.memorySettings() }
+        ZenSpec.replace("apps/reader/readerui", { instance = reader })
+        local plugin = { saveConfig = function() saved = saved + 1 end,
+            config = { features = { reader_themes = true }, reader_themes = {
+            light_mode = "custom_1", dark_mode = "default", custom = {
+                custom_1 = { text = "#102030", background = "#eeffdd" },
+            },
+        } } }
+        local snapshot = Themes.capture(plugin)
+        plugin.config.reader_themes.custom.custom_1 = nil
+        Themes.restore(plugin, snapshot)
+        assert.are.equal("custom_1", plugin.config.reader_themes.light_mode)
+        snapshot.light_mode.text = "#ffffff"
+        assert.are.equal("#102030", Themes.getTheme(plugin).text)
+        assert.are.same({}, reader.doc_settings.data)
+        assert.are.equal(plugin.config.reader_themes, store.reader_themes)
+        assert.are.equal(1, saved)
+        Themes.restore(plugin, Themes.capture(plugin))
+        assert.is_nil(plugin.config.reader_themes.custom.custom_2)
+        Themes.restore(plugin, { enabled = true, light_mode = Themes.BUILTIN_THEMES.light_tan })
+        assert.are.equal("light_tan", plugin.config.reader_themes.light_mode)
+        Themes.restore(plugin, { enabled = false })
+        assert.is_false(Themes.isEnabled(plugin))
+        package.loaded["apps/reader/readerui"] = old_reader
+        package.loaded["config/preset_store"] = old_store
+    end)
+
+    it("uses global themes even when a book has an old override", function()
+        local old_reader = package.loaded["apps/reader/readerui"]
+        ZenSpec.replace("apps/reader/readerui", { instance = {
+            doc_settings = ZenSpec.memorySettings({ zen_reader_theme = { enabled = false } }), document = {},
+        } })
+        local plugin = { config = { features = { reader_themes = true },
+            reader_themes = { light_mode = "light_tan" } } }
+        assert.is_true(Themes.isEnabled(plugin))
+        assert.are.equal(Themes.BUILTIN_THEMES.light_tan, Themes.getTheme(plugin))
+        assert.matches("#e8dcc5", Themes.appendCss(plugin, "base"), 1, true)
+        package.loaded["apps/reader/readerui"] = old_reader
+    end)
+
 end)

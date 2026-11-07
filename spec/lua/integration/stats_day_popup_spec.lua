@@ -87,7 +87,7 @@ describe("stats day popup page buttons", function()
             dayShift = function() return 0 end,
             queryBooksForPeriod = function() return books end,
         })
-        ZenSpec.replace("common/utils", { resolveLocalIcon = function() end })
+        ZenSpec.replace("common/utils", { resolveLocalIcon = function() end, resolveIcon = function() end })
         ZenSpec.replace("common/shared_state", { registerLoader = function() end })
         ZenSpec.replace("common/ui/zen_modal_close", {
             installTitleBar = function() end,

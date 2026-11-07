@@ -28,16 +28,17 @@ end
 -- Per-row ring computation avoids corner gaps that the double-fill approach
 -- produces (inner white fill overwrites border pixels in corner regions).
 local function paintRoundedRectBorder(bb, rx, ry, rw, rh, color, radius, bg_color, border_w)
+    local paint = Blitbuffer.isColor8(color) and bb.paintRect or bb.paintRectRGB32
     local R  = radius
     local bw = border_w
     local r2 = math.max(0, R - bw)
     if rw > R * 2 then
-        bb:paintRect(rx + R,       ry,           rw - R * 2, bw, color)
-        bb:paintRect(rx + R,       ry + rh - bw, rw - R * 2, bw, color)
+        paint(bb, rx + R,       ry,           rw - R * 2, bw, color)
+        paint(bb, rx + R,       ry + rh - bw, rw - R * 2, bw, color)
     end
     if rh > R * 2 then
-        bb:paintRect(rx,           ry + R,       bw, rh - R * 2, color)
-        bb:paintRect(rx + rw - bw, ry + R,       bw, rh - R * 2, color)
+        paint(bb, rx,           ry + R,       bw, rh - R * 2, color)
+        paint(bb, rx + rw - bw, ry + R,       bw, rh - R * 2, color)
     end
     for dy = 0, R - 1 do
         local T         = R - dy
@@ -59,10 +60,10 @@ local function paintRoundedRectBorder(bb, rx, ry, rw, rh, color, radius, bg_colo
         end
         local bpx = inner_cut - outer_cut
         if bpx > 0 then
-            bb:paintRect(rx + outer_cut,      ry + dy,          bpx, 1, color)
-            bb:paintRect(rx + rw - inner_cut, ry + dy,          bpx, 1, color)
-            bb:paintRect(rx + outer_cut,      ry + rh - 1 - dy, bpx, 1, color)
-            bb:paintRect(rx + rw - inner_cut, ry + rh - 1 - dy, bpx, 1, color)
+            paint(bb, rx + outer_cut,      ry + dy,          bpx, 1, color)
+            paint(bb, rx + rw - inner_cut, ry + dy,          bpx, 1, color)
+            paint(bb, rx + outer_cut,      ry + rh - 1 - dy, bpx, 1, color)
+            paint(bb, rx + rw - inner_cut, ry + rh - 1 - dy, bpx, 1, color)
         end
     end
 end
@@ -91,15 +92,16 @@ function M.paintFilled(bb, bx, by, bw, bh, label, font_size, corner_r, max_text_
     return { x = bx, y = by, w = bw, h = bh }
 end
 
---- Paint an outlined (hollow border) rounded-rect button with centered black bold label.
+--- Paint an outlined rounded-rect button with an accent border and black bold label.
 --- Returns { x, y, w, h } for hit-testing.
 function M.paintOutlined(bb, bx, by, bw, bh, label, font_size, corner_r, border_w,
         max_text_width)
     corner_r  = corner_r  or Screen:scaleBySize(10)
     border_w  = border_w  or Screen:scaleBySize(2)
     font_size = font_size or 22
+    local color = Accent.color()
     paintRoundedRectBorder(bb, bx, by, bw, bh,
-        Blitbuffer.COLOR_BLACK, corner_r, Blitbuffer.COLOR_WHITE, border_w)
+        color, corner_r, Blitbuffer.COLOR_WHITE, border_w)
     local tw = TextWidget:new{
         text    = label,
         face    = Font:getFace("cfont", font_size),

@@ -47,9 +47,7 @@ local function apply_browser_folder_sort()
 
     local M = {}
 
-    function M.get(path)
-        local key = normalize_path(path)
-        if not key then return nil end
+    local function lookup(key, path)
         local m = read_map()
         local entry = m[key]
         if entry == nil and key ~= path then entry = m[path] end
@@ -58,6 +56,12 @@ local function apply_browser_folder_sort()
             return { collate = entry, reverse = false }
         end
         return entry
+    end
+
+    function M.get(path)
+        local key = normalize_path(path)
+        if not key then return nil end
+        return lookup(key, path)
     end
 
     function M.set(path, collate_id, reverse)
@@ -106,9 +110,19 @@ local function apply_browser_folder_sort()
     -- the internal folder-name fallback sort; don't touch that.
     local orig_getSortingFunction = FileChooser.getSortingFunction
 
-    local function sort_item_key(item)
-        local value = tostring(item and (item.path or item.file or item.text) or "")
-        return value:lower() .. "\30" .. value
+    -- Memoized per sort: ties are common (bulk copies share ctime), and each
+    -- comparison would otherwise allocate two keys.
+    local function tiebreak_keys()
+        local keys = {}
+        return function(item)
+            local key = keys[item]
+            if not key then
+                local value = tostring(item and (item.path or item.file or item.text) or "")
+                key = value:lower() .. "\30" .. value
+                keys[item] = key
+            end
+            return key
+        end
     end
 
     FileChooser.collates.date_added = {
@@ -116,6 +130,7 @@ local function apply_browser_folder_sort()
         menu_order = 45,
         can_collate_mixed = true,
         init_sort_func = function()
+            local sort_item_key = tiebreak_keys()
             return function(a, b)
                 local a_attr, b_attr = a.attr or {}, b.attr or {}
                 -- ponytail: ctime approximates arrival; track discovery if stable dates are needed.
@@ -135,6 +150,7 @@ local function apply_browser_folder_sort()
         end
         local sorting = orig_getSortingFunction(self, collate, reverse_collate)
         if not (override and type(sorting) == "function") then return sorting end
+        local sort_item_key = tiebreak_keys()
         return function(a, b)
             if sorting(a, b) then return true end
             if sorting(b, a) then return false end
@@ -204,20 +220,24 @@ local function apply_browser_folder_sort()
 
     local orig_genItemTableFromPath = FileChooser.genItemTableFromPath
 
+    local home_memo = {}
+    local function normalized_home(home_dir)
+        if home_memo.dir ~= home_dir then
+            home_memo.dir, home_memo.key = home_dir, normalize_path(home_dir)
+        end
+        return home_memo.key
+    end
+
     FileChooser.genItemTableFromPath = function(self, path, ...)
-        local real_path = ffiUtil.realpath(path) or path
+        local key = normalize_path(path)
 
         -- Never apply a per-folder sort override to the home directory.
         local home_dir = paths.getHomeDir()
-        if home_dir then
-            local home_real = ffiUtil.realpath(home_dir) or home_dir
-            if real_path == home_real or path == home_dir then
-                return orig_genItemTableFromPath(self, path, ...)
-            end
+        if home_dir and (path == home_dir or key == normalized_home(home_dir)) then
+            return orig_genItemTableFromPath(self, path, ...)
         end
 
-        local override = (real_path and M.get(real_path))
-            or (path ~= real_path and M.get(path))
+        local override = key and lookup(key, path)
 
         if not override then
             return orig_genItemTableFromPath(self, path, ...)
@@ -227,14 +247,14 @@ local function apply_browser_folder_sort()
         self._zen_sort_override = override
         local saved_reverse = self.reverse_collate
 
-        local ok, result_or_err = pcall(orig_genItemTableFromPath, self, path, ...)
+        local ok, result_or_err, readable = pcall(orig_genItemTableFromPath, self, path, ...)
 
         if ok then pcall(sort_directory_items, self, result_or_err, override) end
         self._zen_sort_override = nil
         self.reverse_collate = saved_reverse
 
         if ok then
-            return result_or_err
+            return result_or_err, readable
         else
             -- Fallback: run without override so the browser stays functional.
             return orig_genItemTableFromPath(self, path, ...)

@@ -2,7 +2,6 @@ import json
 import os
 import re
 import shutil
-import signal
 import sqlite3
 import tempfile
 import time
@@ -12,7 +11,7 @@ import pytest
 from PIL import Image
 
 from fixtures import build_library
-from zen_driver import ZenDriver, launch, normalize_visible_text, wait_for_socket
+from zen_driver import ZenDriver, launch, stop, normalize_visible_text, wait_for_socket
 
 
 pytestmark = pytest.mark.skipif(
@@ -245,8 +244,7 @@ def test_two_row_strip_matches_top_and_bottom_spacing() -> None:
             ), home
             assert int(home["visual_gaps"][0]) > int(home["top_visual_inset"]), home
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 def test_wrapped_featured_absorbs_space_above_compact_stats() -> None:
@@ -311,8 +309,7 @@ def test_wrapped_featured_absorbs_space_above_compact_stats() -> None:
             heights = home["widget_heights"]
             assert int(heights["featured"]) > int(heights["stats_triplet"]) * 6, home
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 @pytest.mark.parametrize(
@@ -426,8 +423,7 @@ def test_three_widget_home_evenly_spaces_rows_to_the_bottom(
                 assert int(heights["featured"]) \
                     > int(heights["stats_triplet"]) * 6, home
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 @pytest.mark.parametrize("with_history", [True, False], ids=["history", "empty-history"])
@@ -475,8 +471,7 @@ def test_home_renders_all_core_widgets_with_and_without_history(with_history: bo
                 assert "Alpha Home" not in home["visible_texts"]
                 assert "Start reading a book to fill this space." in home["visible_texts"]
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 @pytest.mark.parametrize("scheduled_dark_mode", [False, True])
@@ -505,7 +500,9 @@ def test_scheduled_dark_mode_preserves_home_cover_colors(scheduled_dark_mode: bo
             + ", night_off_m = " + str(now.tm_min) + " } }\n"
         )
         socket_path = root / "driver.sock"
-        process = launch(runtime, ko_home, socket_path, library, zen_config_source=config)
+        # Zen's schedule auto-disables autowarmth and halts init until restart.
+        process = launch(runtime, ko_home, socket_path, library, zen_config_source=config,
+                         plugins_disabled=("autowarmth",))
         try:
             wait_for_socket(socket_path)
             driver = ZenDriver(socket_path)
@@ -527,8 +524,7 @@ def test_scheduled_dark_mode_preserves_home_cover_colors(scheduled_dark_mode: bo
             assert image.getpixel((0, image.height // 2)) == background
             assert colors.get((32, 96, 192), 0) > 100
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 def test_colorsoft_home_uses_equal_inner_gaps_and_smaller_edge_spacing() -> None:
@@ -601,8 +597,7 @@ def test_colorsoft_home_uses_equal_inner_gaps_and_smaller_edge_spacing() -> None
             assert max(inner_spaces) - min(inner_spaces) <= 2, home
             assert max(edge_spaces) < min(inner_spaces), home
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 def test_compact_home_with_three_goals_never_overlaps() -> None:
@@ -671,8 +666,7 @@ def test_compact_home_with_three_goals_never_overlaps() -> None:
             assert min(home["visual_gaps"]) >= 0, home
             assert max(home["visual_gaps"]) - min(home["visual_gaps"]) <= 2, home
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 @pytest.mark.parametrize("two_row_strip,width,height", [
@@ -756,8 +750,7 @@ def test_home_tags_drill_from_tag_folders_into_books(
                 "activate_home_target", key="group:Focus", action="context"
             )["ok"] is True
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 def test_home_edit_mode_reopens_widget_settings_after_close() -> None:
@@ -826,8 +819,7 @@ def test_home_edit_mode_reopens_widget_settings_after_close() -> None:
             assert reopened.get("ok") is True, reopened
             assert reopened["arrange"].get("status_visible") is True
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 def _wait_for_navbar(driver: ZenDriver, label: str, tab_id: str | None) -> dict[str, object]:
@@ -886,8 +878,7 @@ def test_navbar_tabs_navigate_to_real_library_views() -> None:
                 else:
                     assert state.get("top_tab_id") == tab_id or state.get("top_name") == tab_id
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 @pytest.mark.parametrize("show_labels", [True, False], ids=["labels", "icons"])
@@ -950,8 +941,7 @@ def test_navbar_outlined_radio_refreshes_home(show_labels: bool) -> None:
                     dark_pixels.append(sum(navbar.histogram()[:128]))
             assert dark_pixels[0] - dark_pixels[1] > 500, dark_pixels
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 def test_navbar_press_activates_keyboard_focused_tab() -> None:
@@ -1034,8 +1024,7 @@ def test_navbar_press_activates_keyboard_focused_tab() -> None:
             else:
                 raise AssertionError("holding Enter did not open focused widget options")
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 @pytest.mark.parametrize("display_mode", ["list_image_meta", "mosaic_image"])
@@ -1090,8 +1079,7 @@ def test_navbar_restores_library_and_group_item_focus(display_mode: str) -> None
                 detail = _wait_for_navbar(driver, label, tab_id)
                 assert detail["top_name"] == detail_name
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 def test_navbar_tabs_remain_tappable_with_library_background() -> None:
@@ -1146,8 +1134,7 @@ def test_navbar_tabs_remain_tappable_with_library_background() -> None:
                 assert response["ok"] is True, response
                 _wait_for_navbar(driver, label, tab_id)
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 def test_navbar_recovers_when_the_library_background_disappears() -> None:
@@ -1186,8 +1173,7 @@ def test_navbar_recovers_when_the_library_background_disappears() -> None:
             assert driver.command("activate_navbar_tab", id="home")["ok"] is True
             _wait_for_navbar(driver, "Home", None)
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)
 
 
 def test_mosaic_title_strip_renders_metadata_and_cover_cells() -> None:
@@ -1253,5 +1239,4 @@ def test_mosaic_title_strip_renders_metadata_and_cover_cells() -> None:
             assert screenshot.exists()
             assert screenshot.stat().st_size > 0
         finally:
-            process.send_signal(signal.SIGTERM)
-            process.wait(timeout=15)
+            stop(process)

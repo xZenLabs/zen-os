@@ -67,6 +67,10 @@ describe("bar color text", function()
             end
         end
         Screen.night_mode = true
+        widget.invert_night_mode = false
+        widget:paintTo(bb, 0, 0)
+        assert.are.equal(color, painted_color)
+        widget.invert_night_mode = nil
         Screen.isColorScreen = function() return false end
         widget:paintTo(bb, 0, 0)
         assert.are.equal(color:invert(), painted_color)

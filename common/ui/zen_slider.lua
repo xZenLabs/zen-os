@@ -73,6 +73,10 @@ function ZenSlider:new(o)
     obj.track_height  = obj.track_height  or Screen:scaleBySize(1)   -- very thin rail
     obj.fill_height   = obj.fill_height   or Screen:scaleBySize(6)   -- thicker filled bar
     obj.knob_radius   = obj.knob_radius   or Screen:scaleBySize(16.5)
+    obj._accent_fill  = not obj.fill_color
+    obj._accent_track = not obj.track_color and obj._accent_fill
+    obj._accent_knob  = not obj.knob_color
+    obj._night_mode   = Screen.night_mode
     obj.fill_color    = obj.fill_color    or Accent.color()
     obj.track_color   = obj.track_color   or obj.fill_color -- Avoid black-to-color rail trails on e-ink.
     obj.knob_color    = obj.knob_color    or Accent.color()
@@ -82,7 +86,7 @@ function ZenSlider:new(o)
     obj.dimen     = Geom:new{ w = obj.width or 0, h = obj.height }
     obj._value    = math.max(obj.value_min,
                     math.min(obj.value_max,
-                    Math.round(obj.value or obj.value_min)))
+                    obj.fractional_value and (obj.value or obj.value_min) or Math.round(obj.value or obj.value_min)))
     return obj
 end
 
@@ -153,6 +157,12 @@ function ZenSlider:dirtyDimen()
     }
 end
 
+--- Refresh live drag repaints. DU can't render accent shades. Never dither: on Kaleido it
+--- promotes to GLRC16 with a FULL update, flashing the whole region black.
+function ZenSlider.refreshDrag(region, colored)
+    UIManager:setDirty(nil, colored and "ui" or "fast", region)
+end
+
 --- Returns true if pos (Geom point) is inside the slider widget area.
 function ZenSlider:hitTest(pos)
     return self.dimen ~= nil and pos:intersectWith(self.dimen)
@@ -167,6 +177,13 @@ end
 -- ---------------------------------------------------------------------------
 
 function ZenSlider:paintTo(bb, x, y)
+    if self._night_mode ~= Screen.night_mode then
+        local color = Accent.color()
+        if self._accent_fill then self.fill_color = color end
+        if self._accent_track then self.track_color = color end
+        if self._accent_knob then self.knob_color = color end
+        self._night_mode = Screen.night_mode
+    end
     self.dimen.x = x
     self.dimen.y = y
 
@@ -196,6 +213,13 @@ function ZenSlider:paintTo(bb, x, y)
     local fill_w = Math.round(frac * w)
     if fill_w > 0 then
         paintPill(bb, x, fill_y, fill_w, fh, self.fill_color)
+    end
+
+    if self.default_value ~= nil then
+        local default = math.max(self.value_min, math.min(self.value_max, self.default_value))
+        local tick_w, tick_h = Screen:scaleBySize(2), Screen:scaleBySize(14)
+        bb:paintRect(math.floor(x + self:_valueToX(default)) - math.floor(tick_w / 2),
+            track_cy - math.floor(tick_h / 2), tick_w, tick_h, Blitbuffer.COLOR_BLACK)
     end
 
     -- Knob: white outer circle, then black inner circle (hidden while dragging)

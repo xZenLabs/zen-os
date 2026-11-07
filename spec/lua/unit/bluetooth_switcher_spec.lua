@@ -87,7 +87,9 @@ describe("Bluetooth switcher", function()
         ZenSpec.replace("common/inline_icon_map", {
             details = "i", wifi_off = "x", connect = "+", delete = "d", bluetooth_on = "b",
         })
-        ZenSpec.replace("common/utils", { resolveLocalIcon = function(_path, name)
+        ZenSpec.replace("common/utils", { resolveIcon = function(_path, name)
+            return "/icons/zen/selected/" .. name .. ".svg"
+        end, resolveLocalIcon = function(_path, name)
             return name .. ".svg"
         end })
         ZenSpec.replace("common/plugin_root", "/tmp/zen-ui")
@@ -113,6 +115,7 @@ describe("Bluetooth switcher", function()
         assert.are.same({ "Speaker", "Page turner", "Headphones" },
             { menu.item_table[1].text, menu.item_table[2].text, menu.item_table[3].text })
         assert.are.equal("Connected · -90 dBm", menu.item_table[1]._zen_settings_breadcrumb)
+        assert.are.equal("/icons/zen/selected/app_menu.svg", menu.item_table[1]._zen_caret_icon)
 
         menu.item_table[3].callback()
         assert.are.equal("connect", adapter.last_action)

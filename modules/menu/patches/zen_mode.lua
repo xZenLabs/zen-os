@@ -1,8 +1,7 @@
 local function apply_zen_mode()
     local FileManagerMenu = require("apps/filemanager/filemanagermenu")
-    local ReaderMenu = require("apps/reader/modules/readermenu")
 
-    if FileManagerMenu._zen_mode_patched and ReaderMenu._zen_mode_patched then return end
+    if FileManagerMenu._zen_mode_patched then return end
 
     local zen_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
 
@@ -20,6 +19,7 @@ local function apply_zen_mode()
         ["search"] = true,
         ["menu"] = true,
         ["navi"] = true,
+        ["reader"] = true, -- KOReader nightly file browser "open last doc" tab
     }
 
     local blocked_contains = {
@@ -212,14 +212,6 @@ local function apply_zen_mode()
         sync_menu(self)
     end
 
-    local orig_reader_setUpdateItemTable = ReaderMenu.setUpdateItemTable
-    ReaderMenu.setUpdateItemTable = function(self)
-        ensure_menu_items(self)
-        orig_reader_setUpdateItemTable(self)
-        self._zen_mode_removed_tabs = nil
-        sync_menu(self)
-    end
-
     local orig_fm_onShowMenu = FileManagerMenu.onShowMenu
     FileManagerMenu.onShowMenu = function(self, ...)
         if self.tab_item_table == nil then self:setUpdateItemTable() end
@@ -227,28 +219,41 @@ local function apply_zen_mode()
         return orig_fm_onShowMenu(self, ...)
     end
 
-    local orig_reader_onShowMenu = ReaderMenu.onShowMenu
-    ReaderMenu.onShowMenu = function(self, ...)
-        if self.tab_item_table == nil then self:setUpdateItemTable() end
-        sync_menu(self)
-        return orig_reader_onShowMenu(self, ...)
-    end
+    -- ReaderMenu/ReaderConfig patches wait for ReaderUI.
+    require("common/on_require").whenLoaded("apps/reader/readerui", function()
+        local ReaderMenu = require("apps/reader/modules/readermenu")
+        if ReaderMenu._zen_mode_patched then return end
+        ReaderMenu._zen_mode_patched = true
 
-    local ReaderConfig = require("apps/reader/modules/readerconfig")
-
-    local orig_onShowConfigMenu = ReaderConfig.onShowConfigMenu
-    ReaderConfig.onShowConfigMenu = function(self)
-        if is_enabled() then
-            local features = zen_plugin and zen_plugin.config and zen_plugin.config.features
-            if not (type(features) == "table" and features.reader_bottom_menu == true) then
-                return
-            end
+        local orig_reader_setUpdateItemTable = ReaderMenu.setUpdateItemTable
+        ReaderMenu.setUpdateItemTable = function(self)
+            ensure_menu_items(self)
+            orig_reader_setUpdateItemTable(self)
+            self._zen_mode_removed_tabs = nil
+            sync_menu(self)
         end
-        return orig_onShowConfigMenu(self)
-    end
+
+        local orig_reader_onShowMenu = ReaderMenu.onShowMenu
+        ReaderMenu.onShowMenu = function(self, ...)
+            if self.tab_item_table == nil then self:setUpdateItemTable() end
+            sync_menu(self)
+            return orig_reader_onShowMenu(self, ...)
+        end
+
+        local ReaderConfig = require("apps/reader/modules/readerconfig")
+        local orig_onShowConfigMenu = ReaderConfig.onShowConfigMenu
+        ReaderConfig.onShowConfigMenu = function(self, force)
+            if force ~= true and is_enabled() then
+                local features = zen_plugin and zen_plugin.config and zen_plugin.config.features
+                if not (type(features) == "table" and features.reader_bottom_menu == true) then
+                    return
+                end
+            end
+            return orig_onShowConfigMenu(self)
+        end
+    end)
 
     FileManagerMenu._zen_mode_patched = true
-    ReaderMenu._zen_mode_patched = true
     require("common/shared_state").register(zen_plugin, {
         refreshZenModeMenus = refresh_menus,
     })

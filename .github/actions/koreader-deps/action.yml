@@ -1,0 +1,21 @@
+name: KOReader Emulator Dependencies
+description: Install KOReader emulator build deps, skipping apt-get update unless the cached package index is stale.
+
+runs:
+  using: composite
+  steps:
+    - name: Install KOReader emulator dependencies
+      shell: bash
+      run: |
+        pkgs=(
+          build-essential gettext git lua5.1 luarocks meson nasm ninja-build pkg-config xvfb
+          libsdl2-dev libfreetype6-dev libfontconfig1-dev libharfbuzz-dev libxtst-dev
+          libfribidi-dev libpng-dev libjpeg-dev libsqlite3-dev
+        )
+        # Runner image ships a package index; refresh only if it is stale.
+        if ! sudo apt-get install -y "${pkgs[@]}"; then
+          echo "::notice::apt-get install failed with cached index, running apt-get update"
+          sudo apt-get update
+          sudo apt-get install -y "${pkgs[@]}"
+        fi
+        luarocks --tree="$GITHUB_WORKSPACE/.luarocks" install luacheck

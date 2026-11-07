@@ -4,6 +4,20 @@ describe("reader interaction patches", function()
         require(name)()
     end
 
+    -- status_on_open defers index and sidecar work to the next tick.
+    local function apply_status_on_open()
+        local ticks = {}
+        ZenSpec.replace("ui/uimanager", { nextTick = function(_, fn, ...)
+            local args = { n = select("#", ...), ... }
+            ticks[#ticks + 1] = function() fn(unpack(args, 1, args.n)) end
+        end })
+        apply_patch("modules/reader/patches/status_on_open")
+        return function()
+            for _i, tick in ipairs(ticks) do tick() end
+            ticks = {}
+        end
+    end
+
     local function install_bookmark_button_stub()
         ZenSpec.replace("common/utils", {
             resolveLocalIcon = function(_dir, name) return "/icons/" .. name .. ".svg" end,
@@ -111,16 +125,26 @@ describe("reader interaction patches", function()
                 return settings.changed
             end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        local run_ticks = apply_status_on_open()
 
         local ui = {
+            document = {},
             doc_settings = {
                 changed = true,
                 flush = function() order[#order + 1] = "flush" end,
             },
         }
         ReaderUI.onReaderReady(ui)
+        assert.same({ "stock" }, order)
+        run_ticks()
         assert.same({ "stock", "acknowledge", "flush" }, order)
+
+        -- A reader closed before the tick already flushed on close.
+        order = {}
+        ReaderUI.onReaderReady(ui)
+        ui.document = nil
+        run_ticks()
+        assert.same({ "stock" }, order)
     end)
 
     it("does not flush status when acknowledgement makes no change", function()
@@ -130,9 +154,10 @@ describe("reader interaction patches", function()
         ZenSpec.replace("common/book_status", {
             acknowledgeNewVersion = function() return false end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        local run_ticks = apply_status_on_open()
 
-        ReaderUI.onReaderReady({ doc_settings = { flush = function() flushes = flushes + 1 end } })
+        ReaderUI.onReaderReady({ document = {}, doc_settings = { flush = function() flushes = flushes + 1 end } })
+        run_ticks()
         assert.are.equal(0, flushes)
     end)
 
@@ -159,7 +184,7 @@ describe("reader interaction patches", function()
                 return true
             end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        apply_status_on_open()
 
         ReaderUI.onReaderReady(ui)
 
@@ -186,13 +211,70 @@ describe("reader interaction patches", function()
         ZenSpec.replace("common/reader_defaults", {
             applyDeferredToReader = function() return true end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        apply_status_on_open()
 
         ReaderUI.onReaderReady({ doc_settings = {} })
 
         assert.is_false(plugin.config.features.reader_top_status_bar)
         assert.is_false(plugin.config._meta.reader_defaults_apply_on_next_open)
         assert.are.equal(1, saves)
+    end)
+
+    it("resets saved book margins once only while a Zen reader preset is active", function()
+        local saved_defaults = package.loaded["common/reader_defaults"]
+        local saved_presets = package.loaded["config/preset_store"]
+        local saved_device = package.loaded["device"]
+        ZenSpec.replace("device", { hasColorScreen = function() return false end })
+        ZenSpec.unload("common/reader_defaults")
+        local preset_name = "(ZenOS) Chapter Time + %"
+        ZenSpec.replace("config/preset_store", { getActivePreset = function() return preset_name end })
+        local ReaderUI = { onReaderReady = function() end }
+        ZenSpec.replace("apps/reader/readerui", ReaderUI)
+        ZenSpec.replace("common/book_status", { acknowledgeNewVersion = function() return false end })
+        apply_status_on_open()
+
+        local calls, saves = {}, 0
+        local ui = {
+            rolling = {},
+            document = { configurable = { t_page_margin = 30, b_page_margin = 30, font_size = 23 } },
+            doc_settings = ZenSpec.memorySettings({ copt_t_page_margin = 30, copt_b_page_margin = 30 }),
+            typeset = { onSetPageTopAndBottomMargin = function(_self, margins)
+                calls[#calls + 1] = margins
+            end },
+            saveSettings = function() saves = saves + 1 end,
+        }
+        ReaderUI.onReaderReady(ui)
+        assert.same({ { 15, 15 } }, calls)
+        assert.are.equal(15, ui.document.configurable.t_page_margin)
+        assert.are.equal(15, ui.document.configurable.b_page_margin)
+        assert.are.equal(23, ui.document.configurable.font_size)
+        assert.is_true(ui.doc_settings:isTrue("zen_vertical_margins_migrated"))
+
+        ui.document.configurable.t_page_margin = 22
+        ReaderUI.onReaderReady(ui)
+        assert.are.equal(22, ui.document.configurable.t_page_margin)
+        assert.are.equal(1, saves)
+
+        for _i, name in ipairs({ "", "My preset", "(ZenOS) Custom preset" }) do
+            preset_name = name ~= "" and name or nil
+            ui.doc_settings = ZenSpec.memorySettings({ copt_t_page_margin = 30, copt_b_page_margin = 30 })
+            ReaderUI.onReaderReady(ui)
+            assert.are.equal(22, ui.document.configurable.t_page_margin)
+            assert.are.equal(1, saves)
+            assert.is_false(ui.doc_settings:isTrue("zen_vertical_margins_migrated"))
+        end
+        preset_name = "(ZenOS) Pages and %"
+        ui.doc_settings = ZenSpec.memorySettings()
+        ReaderUI.onReaderReady(ui)
+        assert.are.equal(1, saves)
+        ui.doc_settings = ZenSpec.memorySettings({ copt_t_page_margin = 30 })
+        ui.rolling = nil
+        ReaderUI.onReaderReady(ui)
+        assert.are.equal(1, saves)
+
+        package.loaded["common/reader_defaults"] = saved_defaults
+        package.loaded["config/preset_store"] = saved_presets
+        package.loaded["device"] = saved_device
     end)
 
     it("starts explicit TBR books as reading and removes them from the collection", function()
@@ -219,17 +301,21 @@ describe("reader interaction patches", function()
                 cached[#cached + 1] = { file, key, value }
             end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        local run_ticks = apply_status_on_open()
 
         local summary = { status = "complete" }
         local flushes = 0
         ReaderUI.onReaderReady({
+            document = {},
             doc_settings = {
                 data = { doc_path = "/books/tbr.epub" },
                 readSetting = function(_, key) return key == "summary" and summary or nil end,
                 flush = function() flushes = flushes + 1 end,
             },
         })
+        assert.are.equal(0, removed)
+        assert.are.equal(0, flushes)
+        run_ticks()
 
         assert.are.equal(1, removed)
         assert.same({ "reading" }, saved)
@@ -259,7 +345,7 @@ describe("reader interaction patches", function()
                 cached[#cached + 1] = { file, key, value }
             end,
         })
-        apply_patch("modules/reader/patches/status_on_open")
+        apply_status_on_open()
 
         local summary = { status = "abandoned" }
         ReaderUI.onReaderReady({
@@ -380,6 +466,7 @@ describe("reader interaction patches", function()
                 document = { configurable = { font_size = 23 } },
             },
         }
+        menu._zen_page_browser_parent = {}
         ReaderBookmark.onShowBookmark(bookmark)
 
         assert.are.equal(1, stock_calls)
@@ -521,15 +608,15 @@ describe("reader interaction patches", function()
         apply_patch("modules/reader/patches/bookmarks")
 
         ReaderBookmark.onShowBookmark({})
-        local back_button = title_bar.left_button
-        assert.are.equal(3, #menu.layout[1])
-        assert.are.equal(back_button, menu.layout[1][1])
-        assert.are.equal(title_bar.menu_button, menu.layout[1][2])
-        assert.are.equal(title_bar.right_button, menu.layout[1][3])
-        assert.are.same({ x = 1, y = 1 }, menu.selected)
-        assert.is_true(back_button._zen_keyboard_focused)
+        assert.is_nil(title_bar.left_button)
+        assert.is_false(title_bar.has_left_icon)
+        assert.are.equal(2, #menu.layout[1])
+        assert.are.equal(title_bar.menu_button, menu.layout[1][1])
+        assert.are.equal(title_bar.right_button, menu.layout[1][2])
+        assert.are.same({ x = 2, y = 1 }, menu.selected)
+        assert.is_true(title_bar.right_button._zen_keyboard_focused)
         assert.are.equal("Close", menu.key_events.Close.event)
-        back_button:paintTo({
+        title_bar.right_button:paintTo({
             invertRect = function(_bb, x, y, w, h)
                 focus_rect = { x = x, y = y, w = w, h = h }
             end,

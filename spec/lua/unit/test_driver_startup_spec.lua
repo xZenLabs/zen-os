@@ -1,4 +1,50 @@
 describe("emulator test driver startup", function()
+    it("acknowledges shutdown before closing widgets and quitting", function()
+        local calls, reply_tick, quit_tick = {}, nil, nil
+        local modules = {
+            ["ui/widget/container/widgetcontainer"] = {
+                extend = function(_self, spec) return spec end,
+            },
+            ["ui/event"] = { new = function(_self, name) return name end },
+            ffi = {
+                cdef = function() end,
+                new = function() return {} end,
+                string = function() return "" end,
+                C = {
+                    poll = function() return 1 end,
+                    accept = function() return 7 end,
+                    read = function() return 1 end,
+                },
+            },
+            rapidjson = { decode = function() return { type = "shutdown" } end },
+            ["ui/uimanager"] = {
+                tickAfterNext = function(_self, callback) reply_tick = callback end,
+                scheduleIn = function() end,
+                broadcastEvent = function(_self, event) calls[#calls + 1] = event end,
+                nextTick = function(_self, callback) quit_tick = callback end,
+                quit = function() calls[#calls + 1] = "quit" end,
+            },
+        }
+        local chunk = assert(loadfile(ZenSpec.root .. "/spec/python/zen_ui_test_driver.koplugin/main.lua"))
+        setfenv(chunk, setmetatable({
+            require = function(name) return modules[name] or require(name) end,
+        }, { __index = _G }))
+        local driver = chunk()
+        driver.server_fd = 3
+        driver.reply = function(_self, client, payload)
+            assert.are.equal(7, client)
+            assert.is_true(payload.ok)
+            calls[#calls + 1] = "reply"
+        end
+
+        driver:pollServer()
+        assert.same({}, calls)
+        reply_tick()
+        assert.same({ "reply", "Close" }, calls)
+        quit_tick()
+        assert.same({ "reply", "Close", "quit" }, calls)
+    end)
+
     it("reports the file manager status origin from its titlebar layout", function()
         local title_bar = {
             dimen = { y = 20 },

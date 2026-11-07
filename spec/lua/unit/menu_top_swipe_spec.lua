@@ -91,6 +91,26 @@ describe("top menu tap handling", function()
         assert.are.equal(1, FileManager.instance.menu.shown)
     end)
 
+    it("guards every OPDS header button while keeping the title area tappable", function()
+        local browser = {
+            _zen_opds_browser = true,
+            title_bar = {
+                width = 1000,
+                back_button = { dimen = { x = 0, y = 24, w = 50, h = 40 } },
+                search_button = { dimen = { x = 850, y = 24, w = 50, h = 40 } },
+                action_button = { dimen = { x = 900, y = 24, w = 50, h = 40 } },
+                close_button = { dimen = { x = 950, y = 24, w = 50, h = 40 } },
+            },
+        }
+
+        assert.is_true(Menu.onTap(browser, nil, { pos = point(20, 68) }))
+        assert.is_true(Menu.onTap(browser, nil, { pos = point(870, 66) }))
+        assert.is_true(Menu.onTap(browser, nil, { pos = point(870, 5) }))
+        assert.is_nil(FileManager.instance.menu.shown)
+        assert.is_true(Menu.onTap(browser, nil, { pos = point(500, 10) }))
+        assert.are.equal(1, FileManager.instance.menu.shown)
+    end)
+
     it("limits native reader and file browser menu taps to the top 7%", function()
         for _i, menu_class in ipairs({ ReaderMenu, FileManagerMenu }) do
             local menu = setmetatable({}, { __index = menu_class })

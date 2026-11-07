@@ -11,6 +11,10 @@ describe("Zen settings page", function()
         "gettext",
         "ui/bidi",
         "ui/widget/menu",
+        "ui/widget/container/framecontainer",
+        "ui/font",
+        "ui/widget/textwidget",
+        "common/ui/color_text_widget",
         "ui/widget/infomessage",
         "ui/uimanager",
         "ffi/utf8proc",
@@ -29,6 +33,11 @@ describe("Zen settings page", function()
         "apps/filemanager/filemanager",
         "apps/reader/readerui",
         "common/reader_themes",
+        "common/dispatch_action",
+        "modules/menu/bluetooth/bluetooth",
+        "modules/settings/sections/reader_settings",
+        "modules/settings/zen_settings_utils",
+        "common/ui/zen_arrange_list",
     }
 
     local Menu = {}
@@ -89,6 +98,14 @@ describe("Zen settings page", function()
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("ui/bidi", { mirroredUILayout = function() return false end })
         ZenSpec.replace("ui/widget/menu", Menu)
+        ZenSpec.replace("ui/widget/container/framecontainer", {
+            new = function(_self, spec) return spec end,
+        })
+        ZenSpec.replace("ui/font", { getFace = function() end })
+        ZenSpec.replace("ui/widget/textwidget", {
+            new = function(_self, spec) return spec end,
+        })
+        ZenSpec.replace("common/ui/color_text_widget", {})
         ZenSpec.replace("ui/widget/infomessage", {
             new = function(_self, opts)
                 opts.movable = {}
@@ -948,6 +965,54 @@ describe("Zen settings page", function()
         assert.are.equal("Quotes", shown_widgets[2].title)
     end)
 
+    it("keeps highlight settings as the parent of newly opened and restored menu editors", function()
+        local route
+        require("device").isTouchDevice = function() return true end
+        require("common/ui/icon_menu_item").decorate = function(item) return item end
+        ZenSpec.replace("common/dispatch_action", {})
+        ZenSpec.replace("modules/menu/bluetooth/bluetooth", { isAvailable = function() return false end })
+        ZenSpec.replace("modules/settings/zen_settings_utils", {
+            make_enable_feature_item = function(_feature, text) return { text = text } end,
+        })
+        ZenSpec.replace("common/ui/zen_arrange_list", {
+            show = function()
+                route = PageModule.claimArrangeRoute()
+                PageModule.noteArrangeRoute(route)
+            end,
+        })
+        ZenSpec.unload("modules/settings/sections/reader_settings")
+        require("modules/settings/zen_settings").build = function(plugin)
+            return { sub_item_table = {{
+                text = "Reader",
+                sub_item_table = require("modules/settings/sections/reader_settings").build({
+                    config = plugin.config, plugin = plugin, save_and_apply = function() end,
+                }),
+            }} }
+        end
+        local plugin = { config = { features = {}, reader_themes = {} } }
+        local first = PageModule.show(plugin)
+        assert.is_true(first:openPath({
+            { key = "text", value = "Reader" },
+            { key = "text", value = "Highlight / Lookup" },
+            { key = "text", value = "Highlight" },
+        }))
+        first:onMenuSelect(first.item_table[1])
+        assert.is_false(first._closed)
+        assert.are.equal("Highlight", first.title_bar.title)
+        assert.are.equal("Menu items", route.opener.text)
+        first:closeMenu()
+
+        local restored = PageModule.show(plugin)
+        assert.is_false(restored._closed)
+        assert.are.equal("Highlight", restored.title_bar.title)
+        assert.are.equal(restored, route.deferred_parent)
+        restored:backToUpperMenu()
+        assert.are.equal("Highlight / Lookup", restored.title_bar.title)
+        restored:backToUpperMenu()
+        assert.are.equal("Reader", restored.title_bar.title)
+        assert.is_false(restored._closed)
+    end)
+
     it("restores a standalone widget-settings route from the top menu", function()
         local restored_arrange_path
 
@@ -1281,6 +1346,61 @@ describe("Zen settings page", function()
         assert.are.equal(1, opened)
         assert.is_false(settings._search_active)
         assert.is_true(settings.title_bar.search_collapsed)
+    end)
+
+    it("keeps native item tables stable for plugins that push submenus later", function()
+        local owner = {}
+        local saved_native = package.loaded["modules/menu/app_launcher/native_menu"]
+        local saved_bridge = package.loaded["modules/settings/koreader_settings"]
+        ZenSpec.replace("modules/menu/app_launcher/native_menu", {
+            isSettingsOwner = function(candidate) return candidate == owner end,
+        })
+        ZenSpec.unload("modules/settings/koreader_settings")
+        local ok, err = pcall(function()
+            local Bridge = require("modules/settings/koreader_settings")
+            local picker = {{ text = "Next page" }}
+            local function push(menu)
+                table.insert(menu.item_table_stack, menu.item_table)
+                menu.item_table = picker
+                menu:updateItems(1)
+            end
+            local deferred
+            local device = {
+                {
+                    text = "Map a button…",
+                    keep_menu_open = true,
+                    callback = function(menu)
+                        local at_start = menu.item_table
+                        deferred = function()
+                            if menu.item_table == at_start then push(menu) end
+                        end
+                    end,
+                },
+                {
+                    text = "Button 1",
+                    keep_menu_open = true,
+                    sub_item_table_func = function()
+                        return {{ text = "Change action…", keep_menu_open = true, callback = push }}
+                    end,
+                },
+            }
+            local settings = make_page(Bridge.copyItems({{
+                text = "Device", sub_item_table_func = function() return device end,
+            }}, owner, true))
+
+            settings:onMenuSelect(settings.item_table[1])
+            settings:onMenuSelect(settings.item_table[1])
+            deferred()
+            assert.are.equal(picker, settings.item_table)
+
+            settings:backToUpperMenu()
+            settings:onMenuSelect(settings.item_table[2])
+            settings:onMenuSelect(settings.item_table[1])
+            assert.are.equal(picker, settings.item_table)
+        end)
+        package.loaded["modules/menu/app_launcher/native_menu"] = saved_native
+        package.loaded["modules/settings/koreader_settings"] = saved_bridge
+        assert.is_true(ok, err)
     end)
 
 end)

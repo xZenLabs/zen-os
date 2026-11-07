@@ -439,6 +439,9 @@ describe("network switcher", function()
         })
         ZenSpec.replace("common/plugin_root", "/tmp/zen-ui")
         ZenSpec.replace("common/utils", {
+            resolveIcon = function(_path, name)
+                return "/icons/zen/selected/" .. name .. ".svg"
+            end,
             resolveLocalIcon = function(path, name)
                 assert.are.equal("/tmp/zen-ui/icons/", path)
                 return path .. name .. ".svg"
@@ -2770,7 +2773,7 @@ describe("network switcher", function()
         assert.are.equal("wifi-on", network_menu.item_table[2].icon_glyph)
         assert.is_true(network_menu.item_table[2]._zen_value_black)
         assert.is_true(network_menu.item_table[2]._zen_settings_row)
-        assert.are.equal("/tmp/zen-ui/icons/app_menu.svg",
+        assert.are.equal("/icons/zen/selected/app_menu.svg",
             network_menu.item_table[2]._zen_caret_icon)
         assert.are.equal(2, network_menu.selected_index)
 

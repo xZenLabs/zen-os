@@ -3,6 +3,7 @@ local Blitbuffer = require("ffi/blitbuffer")
 describe("reader top status bar refresh", function()
     local ReaderUI
     local ReaderDogear
+    local ReaderFooter
     local ReaderTypeset
     local ReaderView
     local CreDocument
@@ -30,11 +31,14 @@ describe("reader top status bar refresh", function()
     local dependencies = {
         "apps/reader/modules/readerview",
         "apps/reader/modules/readerdogear",
+        "apps/reader/modules/readerfooter",
         "apps/reader/modules/readertypeset",
         "apps/reader/readerui",
         "modules/menu/bluetooth/bluetooth",
         "common/inline_icon_map",
         "common/ui/color_text_widget",
+        "common/ui/color_icon_widget",
+        "common/plugin_root",
         "common/reader_status_bar",
         "common/reader_themes",
         "common/utils",
@@ -48,6 +52,7 @@ describe("reader top status bar refresh", function()
         "ui/font",
         "ui/geometry",
         "ui/network/manager",
+        "common/wifi_state",
         "ui/size",
         "ui/uimanager",
         "ui/widget/container/centercontainer",
@@ -60,6 +65,7 @@ describe("reader top status bar refresh", function()
         "ui/widget/verticalgroup",
         "ui/widget/verticalspan",
         "modules/reader/patches/reader_top_status_bar",
+        "modules/reader/references",
     }
 
     local function geometry_class()
@@ -113,6 +119,10 @@ describe("reader top status bar refresh", function()
         reset_paint_log()
 
         local screen_bb = {
+            viewport = function(_self, x, y, w, h)
+                assert.is_true(w > 0 and h > 0)
+                return { free = function() end }
+            end,
             paintRect = function(_self, x, y, w, h, color)
                 paint_rects[#paint_rects + 1] = { x = x, y = y, w = w, h = h, color = color }
                 paint_order[#paint_order + 1] = "clear"
@@ -188,6 +198,13 @@ describe("reader top status bar refresh", function()
 
         replace("apps/reader/modules/readerview", ReaderView)
         replace("apps/reader/modules/readerdogear", ReaderDogear)
+        ReaderFooter = {
+            applyFooterMode = function(self, mode)
+                if mode ~= nil then self.mode = mode end
+                self.view.footer_visible = self.mode ~= self.mode_list.off
+            end,
+        }
+        replace("apps/reader/modules/readerfooter", ReaderFooter)
         replace("apps/reader/modules/readertypeset", ReaderTypeset)
         replace("apps/reader/readerui", ReaderUI)
         bluetooth_enabled = false
@@ -196,11 +213,16 @@ describe("reader top status bar refresh", function()
             getCachedState = function() return bluetooth_enabled end,
         })
         replace("common/inline_icon_map", { bluetooth_on = "BT" })
+        replace("common/plugin_root", ZenSpec.root)
+        replace("modules/reader/references", {
+            enabled = function(ui) return ui and ui.references_enabled end,
+            isPinned = function(ui, page) return ui.pin == page end,
+        })
         replace("common/reader_themes", {
             getBackgroundColor = function() end,
             getTextColor = function() end,
         })
-        replace("common/utils", {})
+        replace("common/utils", { resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end })
         replace("common/zen_logger", {
             new = function() return { dbg = function() end } end,
         })
@@ -241,6 +263,7 @@ describe("reader top status bar refresh", function()
             isConnected = function(self) return self.connected end,
         }
         replace("ui/network/manager", NetworkMgr)
+        replace("common/wifi_state", ZenSpec.uncachedWifiState())
         replace("ui/size", {
             line = { thin = 1, medium = 1 }, padding = { small = 2 },
             span = { horizontal_default = 10 },
@@ -264,7 +287,14 @@ describe("reader top status bar refresh", function()
         local function make_text_widget(values, is_color)
             values = values or {}
             values._is_color = is_color
-            values.getSize = function() return { w = 10, h = 18 } end
+            values.getSize = function(self)
+                return { w = self.text == "" and 0 or math.min(10, self.max_width or 10), h = 18 }
+            end
+            values.setMaxWidth = function(self, width)
+                assert.is_true(width > 0)
+                self.max_width = width
+            end
+            values.setText = function(self, text) self.text = text end
             values.free = function() end
             return values
         end
@@ -274,13 +304,23 @@ describe("reader top status bar refresh", function()
         replace("common/ui/color_text_widget", {
             new = function(_self, values) return make_text_widget(values, true) end,
         })
+        replace("common/ui/color_icon_widget", { new = function(_self, values)
+            values._is_icon = true
+            values.getSize = function(self) return { w = self.width, h = self.height } end
+            values.free = function() end
+            return values
+        end })
 
         G_reader_settings = ZenSpec.memorySettings({ footer = {} })
         ZenSpec.unload("common/reader_status_bar")
         local reader_status_bar = require("common/reader_status_bar")
         replace("common/reader_status_bar", {
+            getHeaderFace = reader_status_bar.getHeaderFace,
+            getHeaderHeight = reader_status_bar.getHeaderHeight,
             getHorizontalMargins = reader_status_bar.getHorizontalMargins,
             isMarginAlignmentEnabled = reader_status_bar.isMarginAlignmentEnabled,
+            getTapHide = reader_status_bar.getTapHide,
+            isTopBarTapHidden = reader_status_bar.isTopBarTapHidden,
             disableKoreaderAltStatusBar = function(settings, reader)
                 settings = settings or G_reader_settings
                 settings:saveSetting("copt_status_line", 1)
@@ -313,7 +353,7 @@ describe("reader top status bar refresh", function()
         ZenSpec.unload("modules/reader/patches/reader_top_status_bar")
         require("modules/reader/patches/reader_top_status_bar")()
 
-        local header = { paintTo = function() end }
+        local header = { paintTo = function() paint_order[#paint_order + 1] = "header" end }
         local slot_regions = {
             left = { x = 0, y = 0, w = 100, h = 20 },
             center = { x = 250, y = 0, w = 100, h = 20 },
@@ -321,7 +361,14 @@ describe("reader top status bar refresh", function()
         }
         build_header = get_upvalue(ReaderView.paintTo, "buildHeader")
         collect_item_texts = get_upvalue(build_header, "collectItemTexts")
-        build_group_from_texts = get_upvalue(build_header, "buildGroupFromTexts")
+        local build_slot_widgets = get_upvalue(build_header, "buildSlotWidgets")
+        local fit_slot_widgets = get_upvalue(build_header, "fitSlotWidgets")
+        local header_text_color = get_upvalue(build_header, "header_text_color")
+        build_group_from_texts = function(texts, face, sep, cap)
+            local color = header_text_color()
+            local widgets, natural = build_slot_widgets(texts, face, sep, color)
+            return fit_slot_widgets(texts, widgets, natural, face, sep, color, cap)
+        end
         item_fetchers = get_upvalue(collect_item_texts, "item_fetchers")
         assert.is_true(replace_upvalue(ReaderView.paintTo, "buildHeader", function()
             return header, {}, 20, 600, slot_regions
@@ -369,6 +416,44 @@ describe("reader top status bar refresh", function()
         assert.same({ "clear", "header", "dogear", "dirty" }, paint_order)
     end
 
+    it("does not repaint the bottom return tab during autonomous header refreshes", function()
+        local view = make_view()
+        view.ui._zen_return_button = { paintTo = function()
+            paint_order[#paint_order + 1] = "return"
+        end }
+        NetworkMgr.wifi_on, NetworkMgr.connected = true, true
+        ReaderUI.onNetworkConnected(view.ui)
+        assert.same({ "clear", "header", "dogear", "dirty" }, paint_order)
+    end)
+
+    it("renders a pin in slot order only on a pinned page with references enabled", function()
+        local view = { ui = { references_enabled = true, pin = 5, getCurrentPage = function() return 5 end } }
+        assert.matches("/icons/pin.svg$", item_fetchers.pin(view))
+        local texts = collect_item_texts({ "time", "pin", "battery" }, view)
+        assert.are.same({ "time", "pin", "battery" }, { texts[1].key, texts[2].key, texts[3].key })
+        assert.are.equal("", texts[2].text)
+        assert.matches("/icons/pin.svg$", texts[2].file)
+        for _i, cap in ipairs({ 100, 20, 8 }) do
+            local _group, widgets = build_group_from_texts(texts, {}, " ", cap)
+            local width, icons = 0, 0
+            for _j, widget in ipairs(widgets) do
+                width = width + widget:getSize().w
+                if widget._is_icon then
+                    icons = icons + 1
+                    assert.matches("/icons/pin.svg$", widget.icon)
+                    assert.are.equal(widget.width, widget.height)
+                end
+            end
+            assert.are.equal(1, icons)
+            assert.is_true(width <= cap)
+        end
+        view.ui.pin = 8
+        assert.is_nil(item_fetchers.pin(view))
+        view.ui.pin, view.ui.references_enabled = 5, false
+        assert.is_nil(item_fetchers.pin(view))
+        assert.is_nil(item_fetchers.pin(nil))
+    end)
+
     it("paints and refreshes the header below invisible overlays", function()
         local view = make_view()
         UIManager._window_stack[#UIManager._window_stack + 1] = {
@@ -379,6 +464,7 @@ describe("reader top status bar refresh", function()
         ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
         assert.is_not_nil(view._zen_header_dimen)
         reset_paint_log()
+        NetworkMgr.wifi_on, NetworkMgr.connected = true, true
         ReaderUI.onNetworkConnected(view.ui)
         assert_single_slot(0)
 
@@ -403,9 +489,36 @@ describe("reader top status bar refresh", function()
         assert.are.equal(0, #dirty_calls)
     end)
 
+    it("keeps the header visible behind a reference popup belonging to the reader", function()
+        local view = make_view()
+        UIManager._window_stack[#UIManager._window_stack + 1] = {
+            widget = { name = "zen_reference_drawer", show_parent = view.ui },
+        }
+        view._zen_header_dimen = nil
+        ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+        assert.is_not_nil(view._zen_header_dimen)
+    end)
+
+    it("keeps the header behind highlight popups and their temporary scrolling", function()
+        local view = make_view()
+        local popup = {}
+        view.ui.highlight = { highlight_dialog = popup, restore_page_mode_func = function() end }
+        UIManager._window_stack[#UIManager._window_stack + 1] = { widget = popup }
+        for _i, mode in ipairs({ "page", "scroll" }) do
+            view.view_mode = mode
+            view._zen_header_dimen = nil
+            ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+            assert.is_not_nil(view._zen_header_dimen)
+        end
+        view.ui.highlight.restore_page_mode_func = nil
+        view._zen_header_dimen = nil
+        ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+        assert.is_nil(view._zen_header_dimen)
+    end)
+
     it("uses the default header face when the selected or inherited font is unavailable", function()
-        local get_header_face = get_upvalue(build_header, "getHeaderFace")
-        local Font = get_upvalue(get_header_face, "Font")
+        local get_header_face = require("common/reader_status_bar").getHeaderFace
+        local Font = require("ui/font")
         local fallback = {}
         local calls = {}
         Font.getFace = function(_self, name, size)
@@ -420,8 +533,8 @@ describe("reader top status bar refresh", function()
         local inherited = get_header_face({ font_face = "default", font_size = 14 })
         _G.G_reader_settings:saveSetting("footer", footer)
         assert.are.equal(fallback, inherited)
-        assert.same({ { missing, 14 }, { "cfont", 14 },
-            { missing, 14 }, { "cfont", 14 } }, calls)
+        -- Failed loads are cached, so repeated paints don't retry the missing file.
+        assert.same({ { missing, 14 }, { "cfont", 14 }, { "cfont", 14 } }, calls)
     end)
 
     local function make_typeset(view_mode)
@@ -440,7 +553,7 @@ describe("reader top status bar refresh", function()
         return typeset, document
     end
 
-    it("adds the bottom status bar height only to effective paged CRE margins", function()
+    it("reserves the header's own height in effective paged CRE margins", function()
         local typeset, document = make_typeset("page")
         assert.are.equal(1, G_reader_settings:readSetting("copt_status_line"))
         assert.is_false(G_reader_settings:readSetting("alt_status_bar"))
@@ -449,25 +562,41 @@ describe("reader top status bar refresh", function()
         assert.are.equal(startup_reader, disabled_reader)
 
         typeset:onSetPageMargins(typeset.unscaled_margins)
-        assert.same({ 5, 25, 5, 12 }, document.applied_margins)
-        assert.are.equal(15, document._zen_top_status_bar_reserved_height)
+        assert.same({ 5, 30, 5, 12 }, document.applied_margins)
+        assert.are.equal(20, document._zen_top_status_bar_reserved_height)
 
         typeset:onSetPageMargins(typeset.unscaled_margins)
-        assert.same({ 5, 25, 5, 12 }, document.applied_margins)
+        assert.same({ 5, 30, 5, 12 }, document.applied_margins)
 
         _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar.show_bottom_border = true
         typeset:onSetPageMargins(typeset.unscaled_margins)
-        assert.same({ 5, 26, 5, 12 }, document.applied_margins)
+        assert.same({ 5, 31, 5, 12 }, document.applied_margins)
     end)
 
-    it("keeps equal margins equal when the status bars reclaim their height", function()
+    it("reserves the header independently of footer overlap or visibility", function()
         local typeset, document = make_typeset("page")
         typeset.view.footer.reclaim_height = true
         typeset.unscaled_margins = { 5, 10, 5, 10 }
 
         typeset:onSetPageMargins(typeset.unscaled_margins)
-        assert.same({ 5, 10, 5, 10 }, document.applied_margins)
-        assert.are.equal(0, document._zen_top_status_bar_reserved_height)
+        assert.same({ 5, 30, 5, 10 }, document.applied_margins)
+        assert.are.equal(20, document._zen_top_status_bar_reserved_height)
+
+        typeset.view.footer.getHeight = function() return 0 end
+        typeset:onSetPageMargins(typeset.unscaled_margins)
+        assert.same({ 5, 30, 5, 10 }, document.applied_margins)
+    end)
+
+    it("reserves taller pin icons and releases an empty header", function()
+        local typeset, document = make_typeset("page")
+        local cfg = _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar
+        cfg.font_size, cfg.right_order = 30, { "pin" }
+        typeset:onSetPageMargins(typeset.unscaled_margins)
+        assert.same({ 5, 44, 5, 12 }, document.applied_margins)
+
+        cfg.left_order, cfg.center_order, cfg.right_order = {}, {}, {}
+        typeset:onSetPageMargins(typeset.unscaled_margins)
+        assert.same({ 5, 10, 5, 12 }, document.applied_margins)
     end)
 
     it("removes reserved space outside enabled paged CRE documents", function()
@@ -490,12 +619,12 @@ describe("reader top status bar refresh", function()
         }
         typeset.view = view
         typeset:onSetPageMargins(typeset.unscaled_margins)
-        assert.are.equal(25, document.applied_margins[2])
+        assert.are.equal(30, document.applied_margins[2])
 
         ReaderView.onSetViewMode(view, "scroll")
         assert.are.equal(10, document.applied_margins[2])
         ReaderView.onSetViewMode(view, "page")
-        assert.are.equal(25, document.applied_margins[2])
+        assert.are.equal(30, document.applied_margins[2])
     end)
 
     it("keeps margins unchanged during KOReader's temporary selection scrolling", function()
@@ -504,7 +633,7 @@ describe("reader top status bar refresh", function()
         local highlight = {}
         view.ui = { typeset = typeset, highlight = highlight }
         typeset:onSetPageMargins(typeset.unscaled_margins)
-        assert.are.equal(25, document.applied_margins[2])
+        assert.are.equal(30, document.applied_margins[2])
 
         local margin_updates = 0
         typeset.onSetPageMargins = function() margin_updates = margin_updates + 1 end
@@ -514,7 +643,7 @@ describe("reader top status bar refresh", function()
         ReaderView.onSetViewMode(view, "scroll")
         assert.are.equal("scroll", view.view_mode)
         assert.are.equal(0, margin_updates) -- UpdatePos would reset the active hold gesture.
-        assert.are.equal(25, document.applied_margins[2])
+        assert.are.equal(30, document.applied_margins[2])
 
         highlight.restore_page_mode_func()
         highlight.restore_page_mode_func = nil
@@ -632,11 +761,33 @@ describe("reader top status bar refresh", function()
         assert.are.equal(2, #group)
         assert.is_true(widgets[1]._is_color)
         assert.are.equal("B", widgets[1].text)
-        assert.is_false(widgets[2]._is_color)
+        assert.is_true(widgets[2]._is_color)
+        assert.is_false(widgets[2].invert_night_mode)
         assert.are.equal("73%", widgets[2].text)
 
         _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar.colored = false
         assert.is_nil(collect_item_texts({ "battery" })[1].color)
+    end)
+
+    it("rebuilds text, labels and separators with the current theme color", function()
+        local theme_color = "sepia"
+        package.loaded["common/reader_themes"].getTextColor = function() return theme_color end
+        local texts = { { text = "12:00" }, { text = "Title" } }
+        for _i, color in ipairs({ "sepia", "warm_gray" }) do
+            theme_color = color
+            local _group, widgets = build_group_from_texts(texts, {}, " | ", 500)
+            assert.are.equal(3, #widgets)
+            for _j, widget in ipairs(widgets) do
+                assert.is_true(widget._is_color)
+                assert.are.equal(color, widget.fgcolor)
+                assert.is_false(widget.invert_night_mode)
+            end
+        end
+        local _group, widgets = build_group_from_texts(texts, {}, " | ", 1)
+        assert.are.equal(1, #widgets)
+        assert.is_true(widgets[1]._is_color)
+        assert.are.equal(theme_color, widgets[1].fgcolor)
+        assert.is_false(widgets[1].invert_night_mode)
     end)
 
     it("uses KOReader footer padding with right bookmark clearance and optional reader margins", function()
@@ -652,7 +803,7 @@ describe("reader top status bar refresh", function()
             package.loaded[name].new = function(_self, values) return values or {} end
         end
         local caps = {}
-        assert.is_true(replace_upvalue(build_header, "buildGroupFromTexts", function(texts, _face, _sep, cap)
+        assert.is_true(replace_upvalue(build_header, "fitSlotWidgets", function(texts, _ws, _w, _f, _s, _c, cap)
             caps[#caps + 1] = cap
             if #texts == 0 then return nil, {} end
             return { getSize = function() return { w = 10, h = 18 } end }, {}
@@ -715,8 +866,8 @@ describe("reader top status bar refresh", function()
             assert.same(original_slots, restored_slots)
         end
 
-        assert.is_true(replace_upvalue(build_header, "measureTextsWidth", function(texts)
-            return #texts > 0 and 1000 or 0
+        assert.is_true(replace_upvalue(build_header, "buildSlotWidgets", function(texts)
+            return {}, #texts > 0 and 1000 or 0
         end))
         for _i, slot in ipairs({ "left", "center", "right" }) do
             cfg.left_order, cfg.center_order, cfg.right_order = {}, {}, {}
@@ -782,6 +933,43 @@ describe("reader top status bar refresh", function()
         assert.is_not_nil(view._zen_header_dimen)
     end)
 
+    it("hides with the bottom bar toggled off and refreshes its band", function()
+        local view = make_view()
+        view.dialog = view.ui
+        local footer = { view = view, mode = 1, mode_list = { off = 0 }, settings = {} }
+        view.footer = footer
+        ReaderFooter.applyFooterMode(footer)
+        assert.are.equal(0, #dirty_calls)
+
+        -- KOReader's toggle sets the mode before applying it.
+        footer.mode = 0
+        ReaderFooter.applyFooterMode(footer)
+        assert.are.equal(1, #dirty_calls)
+        assert.are.equal(view.ui, dirty_calls[1].widget)
+        assert.same({ x = 0, y = 0, w = 600, h = 20 }, dirty_calls[1].region)
+        view._zen_header_dimen = nil
+        ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+        assert.is_nil(view._zen_header_dimen)
+
+        -- A bar with nothing to show, or disabled in Zen, never hides the header.
+        footer.has_no_mode, footer.settings.disable_progress_bar = true, true
+        ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+        assert.is_not_nil(view._zen_header_dimen)
+        footer.has_no_mode = false
+        _G.__ZEN_UI_PLUGIN.config.reader_footer = { status_bar_enabled = false }
+        view._zen_header_dimen = nil
+        ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+        assert.is_not_nil(view._zen_header_dimen)
+        _G.__ZEN_UI_PLUGIN.config.reader_footer = nil
+
+        reset_paint_log()
+        ReaderFooter.applyFooterMode(footer)
+        assert.are.equal(0, #dirty_calls)
+        footer.mode = 2
+        ReaderFooter.applyFooterMode(footer)
+        assert.are.equal(1, #dirty_calls)
+    end)
+
     it("refreshes autonomously without exposing a setting", function()
         _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar.auto_refresh = false
         make_view()
@@ -833,8 +1021,7 @@ describe("reader top status bar refresh", function()
 
         local scheduled_before_resume = #scheduled
         ReaderUI.onResume(second.ui)
-        local resume_timer_1 = scheduled[scheduled_before_resume + 1].callback
-        local resume_timer_2 = scheduled[scheduled_before_resume + 2].callback
+        local resume_timer = scheduled[scheduled_before_resume + 1].callback
         ReaderUI.onCharging(second.ui)
         local charging_timer = scheduled[#scheduled].callback
         local auto_refresh = scheduled[1].callback
@@ -842,8 +1029,7 @@ describe("reader top status bar refresh", function()
         unscheduled = {}
         assert.are.equal("closed", ReaderUI.onClose(second.ui, true))
         assert.is_true(unscheduled[auto_refresh])
-        assert.is_true(unscheduled[resume_timer_1])
-        assert.is_true(unscheduled[resume_timer_2])
+        assert.is_true(unscheduled[resume_timer])
         assert.is_true(unscheduled[charging_timer])
     end)
 
@@ -896,10 +1082,17 @@ describe("reader top status bar refresh", function()
         assert_single_slot(500)
 
         reset_paint_log()
+        ReaderUI.onNetworkConnected({}) -- Unchanged Wi-Fi state.
+        assert.are.equal(0, #paint_rects)
+        NetworkMgr.wifi_on, NetworkMgr.connected = true, true
         ReaderUI.onNetworkConnected({})
         assert_single_slot(0)
 
         reset_paint_log()
+        ReaderUI.onCharging({})
+        scheduled[#scheduled].callback()
+        assert.are.equal(0, #paint_rects)
+        battery_capacity = 71
         ReaderUI.onCharging({})
         assert.are.equal(0, #paint_rects)
         scheduled[#scheduled].callback()
@@ -912,9 +1105,13 @@ describe("reader top status bar refresh", function()
         make_view()
 
         ReaderUI.onResume({})
-
-        assert.are.equal(0, #paint_rects)
+        assert.are.equal(1.8, scheduled[2].delay)
         scheduled[2].callback()
+        assert.are.equal(0, #paint_rects) -- Nothing changed while asleep.
+
+        ReaderUI.onResume({})
+        clock_text, battery_capacity = "12:35", 72
+        scheduled[#scheduled - 1].callback()
         assert.are.equal(2, #paint_rects)
         assert.same({ 250, 500 }, { paint_rects[1].x, paint_rects[2].x })
         assert.are.equal(2, #dirty_calls)
@@ -958,11 +1155,12 @@ describe("reader top status bar refresh", function()
             package.loaded["common/reader_themes"].getBackgroundColor = function() return "different" end
             ReaderUI.onResume({})
             reset_paint_log()
-            scheduled[#scheduled - 2].callback()
+            clock_text, battery_capacity = background, battery_capacity - 1
+            NetworkMgr.wifi_on = not NetworkMgr.wifi_on
             scheduled[#scheduled - 1].callback()
 
-            assert.are.equal(6, #paint_rects)
-            assert.are.equal(6, #dirty_calls)
+            assert.are.equal(3, #paint_rects)
+            assert.are.equal(3, #dirty_calls)
             for _j, rect in ipairs(paint_rects) do
                 assert.are.equal(buffer, rect.source)
                 assert.are.equal(100, rect.w)
@@ -1003,6 +1201,7 @@ describe("reader top status bar refresh", function()
             assert.are.equal(scheduled_before + 2, #scheduled) -- Wake repaint and minute timer.
             assert.are.equal(1.8, scheduled[scheduled_before + 1].delay)
             assert.are.equal(0, #dirty_calls)
+            clock_text = tostring(background)
             scheduled[scheduled_before + 1].callback()
 
             assert.are.equal(1, #dirty_calls)
@@ -1034,7 +1233,12 @@ describe("reader top status bar refresh", function()
             end
             ReaderUI.onResume({})
             reset_paint_log()
-            scheduled[#scheduled - 2].callback()
+            scheduled[#scheduled - 1].callback()
+            assert.are.equal(0, #dirty_calls) -- Unchanged values keep the screen untouched.
+            ReaderUI.onResume({})
+            clock_text, battery_capacity = "wake" .. _i, battery_capacity - 1
+            NetworkMgr.wifi_on = not NetworkMgr.wifi_on
+            scheduled[#scheduled - 1].callback()
             assert.are.equal(3, #dirty_calls)
             for _j, call in ipairs(dirty_calls) do
                 assert.are.equal("ui", call.mode)
@@ -1062,11 +1266,114 @@ describe("reader top status bar refresh", function()
         package.loaded["common/reader_themes"].getBackgroundColor = function() return "sepia" end
         ReaderUI.onResume({})
         UIManager._window_stack[#UIManager._window_stack + 1] = { widget = {} }
+        clock_text = "12:35"
 
-        scheduled[#scheduled - 2].callback()
         scheduled[#scheduled - 1].callback()
 
         assert.are.equal(0, #paint_rects)
         assert.are.equal(0, #dirty_calls)
+    end)
+
+    local function stub_layout_widgets()
+        for _i, name in ipairs({
+            "ui/widget/container/centercontainer",
+            "ui/widget/container/leftcontainer",
+            "ui/widget/container/rightcontainer",
+            "ui/widget/horizontalspan",
+            "ui/widget/verticalgroup",
+            "ui/widget/verticalspan",
+        }) do
+            package.loaded[name].new = function(_self, values) return values or {} end
+        end
+        package.loaded["ui/widget/horizontalgroup"].new = function(_self, values)
+            values = values or {}
+            values.getSize = function() return { w = 10, h = 18 } end
+            values.paintTo = function() paint_order[#paint_order + 1] = "header" end
+            return values
+        end
+    end
+
+    it("reuses the built header until an item, color or layout input changes", function()
+        stub_layout_widgets()
+        local created, freed = 0, 0
+        local color_text = package.loaded["common/ui/color_text_widget"]
+        local new = color_text.new
+        color_text.new = function(self, values)
+            local widget = new(self, values)
+            created = created + 1
+            widget.free = function(w)
+                assert.is_nil(w.freed)
+                w.freed, freed = true, freed + 1
+            end
+            return widget
+        end
+        assert.is_true(replace_upvalue(ReaderView.paintTo, "buildHeader", build_header))
+        local view = make_view()
+        local cache = view._zen_header_cache
+        assert.are.equal(3, created)
+        ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+        assert.are.equal(cache, view._zen_header_cache) -- Page turns repaint the cached widgets.
+        assert.are.equal(3, created)
+        assert.are.equal(0, freed)
+
+        for _i, change in ipairs({
+            function() clock_text = "12:35" end,
+            function() package.loaded["common/reader_themes"].getTextColor = function() return "sepia" end end,
+            function() view.dogear = { dogear_size = 50 } end,
+            function() require("device").screen.night_mode = true end,
+        }) do
+            local freed_before = freed
+            change()
+            ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+            assert.are_not.equal(cache, view._zen_header_cache)
+            assert.are.equal(freed_before + 3, freed)
+            cache = view._zen_header_cache
+        end
+        build_header(view)
+        assert.are.equal(cache, view._zen_header_cache)
+
+        ReaderUI.onClose(view.ui)
+        assert.are.equal(created, freed)
+        assert.is_nil(view._zen_header_cache)
+    end)
+
+    it("refreshes only the header band when the top bar was hidden since opening", function()
+        _G.G_reader_settings.flipNilOrFalse = function(self, key)
+            self:saveSetting(key, not self:isTrue(key))
+        end
+        ZenSpec.unload("common/reader_status_bar")
+        local StatusBar = require("common/reader_status_bar")
+        local view = { dialog = {} }
+        StatusBar.toggleTopBar(view)
+        assert.are.equal(view.dialog, dirty_calls[1].widget)
+        assert.same({ x = 0, y = 0, w = 600, h = 20 }, dirty_calls[1].region)
+        view._zen_header_dimen = { x = 0, y = 0, w = 600, h = 25 }
+        StatusBar.toggleTopBar(view)
+        assert.are.equal(view._zen_header_dimen, dirty_calls[2].region)
+    end)
+
+    it("filters hidden-flow chapter marks once per flow and ToC", function()
+        local view = make_view()
+        local cfg = _G.__ZEN_UI_PLUGIN.config.reader_top_status_bar
+        cfg.show_bottom_border, cfg.bottom_border_progress, cfg.show_chapter_marks = true, true, true
+        local tick_lookups = 0
+        view.footer = { ui = view.ui, pageno = 5, pages = 10, percent_finished = 0.5 }
+        view.ui.document = {
+            getPageCount = function() return 10 end,
+            hasHiddenFlows = function() return true end,
+            getPageFlow = function(_self, page)
+                if page ~= 5 then tick_lookups = tick_lookups + 1 end
+                return page == 8 and 1 or 0
+            end,
+            getPageNumberInFlow = function(_self, page) return page end,
+            getTotalPagesInFlow = function() return 9 end,
+        }
+        local ticks = { 2, 8 }
+        view.ui.toc = { getTocTicksFlattened = function() return ticks end }
+        for _i = 1, 2 do ReaderView.paintTo(view, require("device").screen.bb, 0, 0) end
+        assert.are.equal(2, tick_lookups)
+        ticks = { 2, 3, 8 } -- ReaderToc replaces its ticks after a rerender.
+        ReaderView.paintTo(view, require("device").screen.bb, 0, 0)
+        assert.are.equal(5, tick_lookups)
     end)
 end)

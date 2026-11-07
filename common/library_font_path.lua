@@ -4,6 +4,11 @@ local plugin_root = require("common/plugin_root") or ""
 local M = {}
 
 M.BUNDLED_DEFAULT = "fonts/hyperreadable/Hyperreadable-Regular.ttf"
+M.FAMILIES = { "hyperreadable", "libron", "readerly" }
+
+-- Families copied into KOReader's fonts dir; others resolve to the plugin copy.
+local fontdir
+local installed = {}
 
 local plugin_dirs = {
     ["zen_ui.koplugin"] = true,
@@ -13,17 +18,21 @@ local current_plugin_dir = plugin_root:match("([^/]+)$")
 if current_plugin_dir then plugin_dirs[current_plugin_dir] = true end
 
 function M.resolve(font_face)
-    if type(font_face) == "string"
-            and font_face:sub(1, 6) == "fonts/"
-            and plugin_root ~= "" then
-        return plugin_root .. "/" .. font_face
+    if type(font_face) ~= "string" or font_face:sub(1, 6) ~= "fonts/" then return font_face end
+    if installed[font_face:match("^fonts/([^/]+)/")] then
+        return fontdir .. font_face:sub(6)
     end
+    if plugin_root ~= "" then return plugin_root .. "/" .. font_face end
     return font_face
 end
 
 function M.toConfig(font_face)
     if type(font_face) ~= "string" or font_face == "" then return font_face end
     if font_face:sub(1, 6) == "fonts/" then return font_face end
+    if fontdir and font_face:sub(1, #fontdir + 1) == fontdir .. "/" then
+        local relative = font_face:sub(#fontdir + 2)
+        if installed[relative:match("^([^/]+)/")] then return "fonts/" .. relative end
+    end
 
     local root_prefix = plugin_root ~= "" and plugin_root .. "/" or nil
     if root_prefix and font_face:sub(1, #root_prefix) == root_prefix then
@@ -39,17 +48,99 @@ function M.toConfig(font_face)
     return font_face
 end
 
+local function copy_file(src, dst)
+    local fin = io.open(src, "rb")
+    if not fin then return false end
+    local tmp = dst .. ".tmp"
+    local fout = io.open(tmp, "wb")
+    local ok = fout ~= nil
+    while ok do
+        local chunk = fin:read(65536)
+        if not chunk then break end
+        ok = fout:write(chunk) ~= nil
+    end
+    fin:close()
+    if fout then fout:close() end
+    ok = ok and os.rename(tmp, dst)
+    if not ok then os.remove(tmp) end
+    return ok and true or false
+end
+
+-- true = files copied, false = already current, nil = copy failed.
+local function install_family(lfs, src_dir, dst_dir)
+    if lfs.attributes(dst_dir, "mode") ~= "directory" and not lfs.mkdir(dst_dir) then return nil end
+    local ok_dir, iter, dir_obj = pcall(lfs.dir, src_dir)
+    if not ok_dir then return nil end
+    local copied = false
+    for file in iter, dir_obj do
+        if file:sub(1, 1) ~= "." and file:lower():match("%.ttf$") then
+            local src, dst = src_dir .. "/" .. file, dst_dir .. "/" .. file
+            if lfs.attributes(dst, "size") ~= lfs.attributes(src, "size") then
+                if not copy_file(src, dst) then return nil end
+                copied = true
+            end
+        end
+    end
+    return copied
+end
+
+-- Copies bundled families into KOReader's fonts dir so later startups load them natively.
+-- Returns paths newly added to FontList (need fontnames/CRE registration).
+function M.installBundled(FontList)
+    local added = {}
+    if plugin_root == "" or type(FontList.fontdir) ~= "string" then return added end
+    local lfs = require("libs/libkoreader-lfs")
+    fontdir = FontList.fontdir
+    local scan_dirs = {}
+    for _i, family in ipairs(M.FAMILIES) do
+        local src_dir = plugin_root .. "/fonts/" .. family
+        local copied = install_family(lfs, src_dir, fontdir .. "/" .. family)
+        installed[family] = copied ~= nil
+        -- Already-current families were loaded by getFontList's fontdir scan.
+        local scan_dir = copied == nil and src_dir or (copied and fontdir .. "/" .. family)
+        if scan_dir then scan_dirs[#scan_dirs + 1] = scan_dir end
+    end
+    if #scan_dirs == 0 then return added end
+    local known = {}
+    for _i, path in ipairs(FontList.fontlist) do known[path] = true end
+    local mark = {}
+    for _i, scan_dir in ipairs(scan_dirs) do
+        pcall(FontList._readList, FontList, scan_dir, mark)
+    end
+    -- _readList appends unconditionally; drop duplicates in place.
+    local list, seen, n = FontList.fontlist, {}, 0
+    for i = 1, #list do
+        local path = list[i]
+        list[i] = nil
+        if not seen[path] then
+            seen[path] = true
+            n = n + 1
+            list[n] = path
+        end
+    end
+    for path in pairs(mark) do
+        if not known[path] and FontList.fontinfo[path] then added[path] = true end
+    end
+    return added
+end
+
 function M.registerFontAliases(Font, FontList)
     if plugin_root == "" then return end
     local font_dir = require("ffi/util").realpath(FontList.fontdir)
     if not font_dir then return end
-    local depth = select(2, font_dir:gsub("[^/]+", ""))
-    local prefix = string.rep("../", depth)
+    -- Stable KOReader prepends fontdir even to absolute and ./ paths.
+    local prefix = string.rep("../", select(2, font_dir:gsub("[^/]+", "")))
     local bundled_prefix = plugin_root .. "/fonts/"
+    local global_prefix = FontList.fontdir .. "/"
     for _i, path in ipairs(FontList:getFontList()) do
         if path:sub(1, #bundled_prefix) == bundled_prefix then
-            -- Stable KOReader prepends fontdir even to absolute paths.
             Font.fontmap[path] = prefix .. path:sub(2)
+        elseif path:sub(1, #global_prefix) == global_prefix
+                and installed[path:match("^([^/]+)/", #global_prefix + 1)] then
+            local relative = path:sub(#global_prefix + 1)
+            Font.fontmap[path] = relative
+            -- Plugin paths resolved before install (or stored) must load the copy.
+            Font.fontmap[bundled_prefix .. relative] = relative
         end
     end
 end

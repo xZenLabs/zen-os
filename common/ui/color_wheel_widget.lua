@@ -419,8 +419,10 @@ function ColorWheelWidget:update()
         width            = self.screen_width,
         title            = self.title_text,
         with_bottom_line = true,
-        close_button     = true,
-        close_callback   = function() self:onCancel() end,
+        left_icon        = self.back_button and "chevron.left" or nil,
+        left_icon_tap_callback = function() self:onCancel() end,
+        close_button     = not self.back_button,
+        close_callback   = not self.back_button and function() self:onCancel() end or nil,
         show_parent      = self,
     }
 
@@ -544,20 +546,47 @@ function ColorWheelWidget:update()
     }
     local ok_button = not self.embedded and Button:new {
         text        = self.ok_text,
-        width       = self.width - 2 * pad,
+        width       = self.reset_callback and math.floor((self.width - 2 * pad - small_gap) / 2)
+            or self.width - 2 * pad,
         height      = apply_height,
         bordersize  = 0,
         padding     = 0,
         show_parent = self,
         callback    = function() self:onApply() end,
     }
+    local button_row = ok_button
     if ok_button then
         ok_button.paintTo = function(button, bb, x, y)
             button.dimen.x, button.dimen.y = x, y
             ZenButton.paintFilled(bb, x, y, button.dimen.w, button.dimen.h,
                 button.text, button.text_font_size)
         end
-        self.layout[#self.layout + 1] = { ok_button }
+        local buttons = { ok_button }
+        if self.reset_callback then
+            local reset_button = Button:new {
+                text = self.reset_text or _("Reset"),
+                width = ok_button.width,
+                height = apply_height,
+                bordersize = 0,
+                padding = 0,
+                show_parent = self,
+                callback = function()
+                    UIManager:close(self)
+                    self.reset_callback()
+                    if self.close_callback then self.close_callback() end
+                end,
+            }
+            reset_button.paintTo = function(button, bb, x, y)
+                button.dimen.x, button.dimen.y = x, y
+                ZenButton.paintOutlined(bb, x, y, button.dimen.w, button.dimen.h,
+                    button.text, button.text_font_size, nil, nil, button.dimen.w - 2 * pad)
+            end
+            table.insert(buttons, 1, reset_button)
+            button_row = HorizontalGroup:new {
+                reset_button, HorizontalSpan:new { width = small_gap }, ok_button,
+            }
+        end
+        self.layout[#self.layout + 1] = buttons
     end
 
     local vgroup = VerticalGroup:new {
@@ -593,7 +622,7 @@ function ColorWheelWidget:update()
         table.insert(vgroup, #vgroup, VerticalSpan:new { width = pad })
         table.insert(vgroup, #vgroup, CenterContainer:new {
             dimen = Geom:new { w = self.screen_width, h = apply_height },
-            ok_button,
+            button_row,
         })
     end
 

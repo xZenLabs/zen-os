@@ -124,10 +124,81 @@ describe("color picker opacity", function()
             callback = function(hex, opacity) picked = { hex = hex, opacity = opacity } end,
         }
         assert.is_nil(picker.opacity_slider)
+        assert.is_nil(picker[1][1].left_icon)
+        assert.is_true(picker[1][1].close_button)
+        assert.is_function(picker[1][1].close_callback)
         assert.are.equal(2, #picker.layout)
         picker:onApply()
         assert.are.equal("#0000FF", picked.hex)
         assert.is_nil(picked.opacity)
+        picker:onCloseWidget()
+    end)
+
+    it("returns from a settings color picker with a left back button without applying edits", function()
+        local calls = {}
+        local picker
+        package.loaded["ui/uimanager"].close = function(_self, widget)
+            assert.are.equal(picker, widget)
+            calls[#calls + 1] = "close"
+        end
+        picker = Picker:new{
+            hex = "#0000FF", opacity = 60, back_button = true,
+            callback = function() calls[#calls + 1] = "apply" end,
+            cancel_callback = function() calls[#calls + 1] = "cancel" end,
+            close_callback = function() calls[#calls + 1] = "closed" end,
+        }
+        picker.opacity_slider.on_change(25)
+        picker:update()
+        local title_bar = picker[1][1]
+        assert.are.equal("chevron.left", title_bar.left_icon)
+        assert.is_false(title_bar.close_button)
+        assert.is_nil(title_bar.close_callback)
+        assert.are.same({}, calls)
+        title_bar.left_icon_tap_callback()
+        assert.are.same({ "close", "cancel", "closed" }, calls)
+        picker:onCloseWidget()
+    end)
+
+    it("places the accent reset left of Apply and closes without applying a custom color", function()
+        local calls = {}
+        package.loaded["ui/uimanager"].close = function() calls[#calls + 1] = "close" end
+        local picker = Picker:new{
+            hex = "#0000FF", opacity = 60,
+            reset_text = "Accent color",
+            reset_callback = function() calls[#calls + 1] = "accent" end,
+            callback = function() calls[#calls + 1] = "apply" end,
+            close_callback = function() calls[#calls + 1] = "closed" end,
+        }
+        picker.opacity_slider.on_change(25)
+        picker:update()
+        local buttons = picker.layout[#picker.layout]
+        assert.are.equal(2, #buttons)
+        assert.are.equal("Accent color", buttons[1].text)
+        assert.are.equal("Apply", buttons[2].text)
+        local footer = picker[1][#picker[1] - 1][1]
+        assert.are.equal(buttons[1], footer[1])
+        assert.are.equal(buttons[2], footer[3])
+        assert.is_true(buttons[1].width + footer[2].width + buttons[2].width <= picker.width)
+        buttons[1].callback()
+        assert.are.same({ "close", "accent", "closed" }, calls)
+        picker:onCloseWidget()
+    end)
+
+    it("applies the custom color or cancels without selecting the accent", function()
+        local resets, applies = 0, 0
+        local picker = Picker:new{
+            hex = "#0000FF", opacity = 35,
+            reset_callback = function() resets = resets + 1 end,
+            callback = function(hex, opacity)
+                assert.are.equal("#0000FF", hex)
+                assert.are.equal(35, opacity)
+                applies = applies + 1
+            end,
+        }
+        picker:onCancel()
+        assert.are.same({ 0, 0 }, { resets, applies })
+        picker.layout[#picker.layout][2].callback()
+        assert.are.same({ 0, 1 }, { resets, applies })
         picker:onCloseWidget()
     end)
 

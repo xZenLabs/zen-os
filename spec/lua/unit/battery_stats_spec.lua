@@ -91,11 +91,11 @@ describe("battery stats", function()
         assert.are.equal(4 * 3600, stats.asleep_time)
         assert.is_true(math.abs(stats.overall - 2.4) < 0.001)
         assert.is_true(math.abs(stats.remaining - 132000) < 1)
-        assert.are.equal(4, writes)
+        assert.are.equal(3, writes) -- Resume keeps its sample in memory.
 
         now, level, charging = now + 3600, 85, true
         BatteryStats.chargingChanged()
-        assert.are.equal(4, writes)
+        assert.are.equal(3, writes)
         scheduled[#scheduled].callback()
         now, level, charging = now + 3600, 95, false
         BatteryStats.chargingChanged()
@@ -812,5 +812,77 @@ describe("battery stats", function()
         assert.is_nil(stats.current_mah)
         assert.are.equal(1600, stats.design_mah)
         assert.are.equal(75, stats.health)
+    end)
+
+    it("reads Kindle max77696 charge in milliamp hours and overrides its design capacity", function()
+        local lfs = require("libs/libkoreader-lfs")
+        battery_path = os.tmpname()
+        os.remove(battery_path)
+        assert.is_true(lfs.mkdir(battery_path))
+        local function write(name, value)
+            local file = assert(io.open(battery_path .. "/" .. name, "w"))
+            assert(file:write(value))
+            file:close()
+        end
+        write("type", "Battery")
+        write("charge_full", "1293\n")
+        write("charge_now", "1179\n")
+        write("charge_full_design", "790000\n")
+
+        BatteryStats.start()
+        local stats = BatteryStats.snapshot()
+        assert.are.equal(1293, stats.full_mah)
+        assert.are.equal(1179, stats.current_mah)
+        assert.are.equal(790, stats.design_mah)
+        assert.is_nil(stats.health)
+
+        package.loaded.device.model = "KindleVoyage"
+        stats = BatteryStats.snapshot()
+        assert.are.equal(1300, stats.design_mah)
+        assert.is_true(math.abs(stats.health - 1293 / 13) < 0.001)
+    end)
+
+    it("keeps a charging session across FileManager and ReaderUI instance swaps", function()
+        charging, level = true, 20
+        BatteryStats.start()
+        local session_start = stored.charge_session.start_time
+        local writes_before = writes
+        now, level = now + 600, 30
+        BatteryStats.flush() -- old plugin instance closes
+        BatteryStats.start() -- new instance: already running, no reload or gap sample
+        assert.are.equal(writes_before + 1, writes)
+        now, level = now + 600, 40
+        scheduled[#scheduled].callback()
+
+        assert.are.equal(session_start, stored.charge_session.start_time)
+        assert.are.equal(40, stored.charge_session.level)
+        assert.is_nil(stored.events[#stored.events].gap)
+    end)
+
+    it("skips instance-swap samples within a minute of the last sample", function()
+        BatteryStats.start()
+        local writes_before, count = writes, #stored.events
+        now, level = now + 30, 99
+        BatteryStats.flush()
+        assert.are.equal(writes_before, writes)
+        assert.are.equal(count, #stored.events)
+        now = now + 30
+        BatteryStats.flush()
+        assert.are.equal(writes_before + 1, writes)
+        assert.are.equal(99, stored.events[#stored.events].level)
+    end)
+
+    it("defers the resume write until the next flush point", function()
+        BatteryStats.start()
+        BatteryStats.suspend()
+        local writes_before = writes
+        now, level = now + 3600, 97
+        BatteryStats.resume()
+        assert.are.equal(writes_before, writes)
+        assert.are.equal(97, stored.events[#stored.events].level)
+        BatteryStats.flush() -- instance swap within a minute still persists it
+        assert.are.equal(writes_before + 1, writes)
+        BatteryStats.flush()
+        assert.are.equal(writes_before + 1, writes)
     end)
 end)

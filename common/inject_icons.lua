@@ -37,7 +37,7 @@ if _plugin_root then
         ["tab_to_be_read"]      = "tab_to_be_read.svg",
         -- Highlight / lookup popup (shared by highlight_menu + dict_quick_lookup)
         ["lookup.highlight"]    = "lookup_highlight.svg",
-        ["lookup.extend"]       = "lookup_extend.svg",
+        ["lookup_extend"]       = "lookup_extend.svg",
         ["lookup.ai"]           = "lookup_ai.svg",
         ["lookup.vocab"]        = "lookup_vocab.svg",
         ["lookup.vocab_remove"] = "lookup_vocab_remove.svg",

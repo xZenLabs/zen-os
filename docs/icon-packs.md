@@ -6,11 +6,15 @@ settingsPath: Zen Settings > Interface > Custom icons > Custom icon pack
 order: 65
 ---
 
-## Install an icon pack
+<!-- Documentation current through ZenOS v4.3.0. -->
 
-Custom packs belong in the `/koreader/icons/zen` folder inside KOReader's data directory.
-ZenOS creates this folder automatically and scans only its immediate children.
-A typical installation is:
+Swap out ZenOS and KOReader icons with your own. Any icon a pack doesn't include falls back to the normal one, so partial packs are fine.
+
+## Install a pack
+
+1. Copy the pack's folder or `.zip` into `/koreader/icons/zen/` (ZenOS creates it for you).
+2. Turn on **Zen Settings > Interface > Custom icons** and pick the pack under **Custom icon pack**.
+3. Restart KOReader.
 
 ```text
 /koreader/icons/zen/
@@ -18,58 +22,21 @@ A typical installation is:
 └── another-pack/
     ├── pack.json
     ├── appbar.navigation.svg
-    ├── chevron.left.svg
     └── quick_wifi.svg
 ```
 
-Copy either a pack folder or ZIP into `/koreader/icons/zen`, then restart
-KOReader or open **Zen Settings > Interface > Custom icons > Custom icon pack**. ZenOS validates and
-unpacks ZIP files automatically. A successfully installed ZIP is deleted.
+Zips get checked and unpacked automatically, then deleted. If something's wrong, the zip is kept and the error shows in the pack menu. A bad zip never removes the version you already had.
 
-If the same pack is already installed, a valid ZIP replaces it atomically. The
-existing folder is restored if validation or extraction fails. Invalid ZIPs are
-kept so they can be inspected or replaced. Installation errors are shown in the
-pack submenu and written to the KOReader log.
+**Invert with dark mode** is on by default. Turn it off to keep your icon colors in night mode. Color packs turn it off automatically.
 
-Turn on the **Custom icons** switch under **Zen Settings > Interface**, choose the unpacked pack, and restart KOReader.
-Packs are never selected automatically, so the bundled ZenOS and KOReader
-icons remain the default.
+## Make a pack
 
-**Invert with dark mode** is enabled by default under **Custom icons**.
-Turn it off to keep custom icon colors in night mode. This applies immediately
-to loose icons and the selected pack; bundled fallback icons follow night mode.
-Black or very dark custom icons still invert to stay visible on dark backgrounds.
-Selecting or enabling a pack with `"color": true` in `pack.json`, or "color" or
-"colour" in its display name (regardless of capitalization), automatically
-turns this setting off.
+Grab `zen-icon-pack.zip` from [xZenLabs/zen-icon-pack](https://github.com/xZenLabs/zen-icon-pack). It has every replaceable icon plus `ICON-LIST.md`, which says what each file changes.
 
-When custom icons are disabled, icon resolution is unchanged. When enabled,
-the selected pack is checked first; a missing pack icon falls through to the
-same bundled ZenOS and KOReader icons used without a pack. Installing or
-selecting a pack does not modify those fallback files.
-
-## Create a pack
-
-Download `zen-icon-pack.zip` from [xZenLabs/zen-icon-pack](https://github.com/xZenLabs/zen-icon-pack), then extract it. It contains the replaceable icons for ZenOS's Navbar,
-KOReader's top menu tabs, the bottom reader configuration-bar tabs,
-highlight/dictionary/lookup actions, chevrons, dialogs, bookmarks,
-and shared reader controls. The current sample contains 62 icons from the
-2026.07 baseline; unrelated settings, network, and utility artwork is
-intentionally omitted.
-
-1. Rename the `zen-icon-pack` folder to a safe ID such as `my-pack`.
-2. Set the same `id` and your display `name` in `pack.json`.
-3. Replace any canonical icon files while keeping their filenames unchanged.
-4. Keep the whole folder for a complete pack, or remove unchanged icons to
-   make a partial pack.
-5. ZIP the top-level pack folder, not only its contents.
-
-ZIPs may contain only regular files and directories beneath that one top-level
-folder. ZenOS rejects unsafe paths, links and special entries, archives larger
-than 25 MiB, more than 512 entries, files larger than 5 MiB, or more than 50 MiB
-of expanded data.
-
-An example `pack.json` is:
+1. Rename the folder to your pack ID, like `my-pack`.
+2. Set the same `id` and your `name` in `pack.json`.
+3. Replace the icons you want. Keep the filenames. Delete the ones you didn't change if you like.
+4. Zip the whole folder (not just what's inside).
 
 ```json
 {
@@ -80,37 +47,31 @@ An example `pack.json` is:
 }
 ```
 
-`color` is an optional boolean; set it to `true` for a color pack.
-`version` and `author` are optional strings. Pack IDs and icon names may use
-letters, numbers, dots, dashes, and underscores. IDs must start with a letter
-or number, and the folder name must exactly match the ID.
+`color`, `version`, and `author` are optional. Set `color: true` for color packs.
 
-Icons must be `.svg` or `.png` files at the pack root. SVG is preferred when
-both formats exist. Use a transparent background and artwork that remains
-legible in black and white on e-ink screens. Every safely named root icon is
-loaded: it can replace a matching ZenOS or KOReader icon, or be selected for
-a Navbar or Launcher icon. Use `large_chevron_up.svg` to replace the large
-up chevron in the top-menu footer.
+### Rules
 
-The sample ZIP also includes `ICON-LIST.md`, a human-readable catalog of every
-included icon, its exact replacement filename, and the Navbar, top-menu,
-bottom-menu, lookup, or shared control it changes.
+- Icons are `.svg` or `.png` at the pack root. SVG wins if both exist.
+- IDs and filenames: letters, numbers, `.`, `-`, `_`. Must start with a letter or number. Folder name must match the ID.
+- Use transparent backgrounds and keep things readable in black and white.
+- Zip limits: 25 MiB zip, 512 entries, 5 MiB per file, 50 MiB unpacked. No links or weird paths.
 
-## Fallbacks and recovery
+Any extra icon you include can also be picked as a Navbar or Launcher icon.
 
-A pack may be incomplete. For each missing icon, ZenOS falls back to its
-bundled icon and then KOReader's normal icon. With no pack selected, the
-existing loose files directly under `/koreader/icons` continue to work.
+## Icon names worth knowing
 
-If a pack is removed while selected, ZenOS starts with fallback icons and
-shows the selection as unavailable. Choose another pack or **Loose icons**, or
-turn off the **Custom icons** switch in **Interface**, then restart. A failed ZIP installation never
-removes the previously installed version.
+`ICON-LIST.md` has the full list. A few common ones:
 
-ZenOS normally recovers its own hidden `.zen-stage-<id>` and
-`.zen-backup-<id>` transaction folders on the next scan. For manual recovery,
-close KOReader and make a backup of `/koreader/icons/zen` first. Remove or
-replace the retained invalid ZIP. If an installed `<id>` folder is missing but
-`.zen-backup-<id>` remains, rename the backup to `<id>`; stale `.zen-stage-*`
-folders can then be removed. Never move pack files outside `icons/zen` as part
-of recovery.
+- **Settings rows**: `settings_*.svg` (e.g. `settings_cog.svg`, `settings_folder_outline.svg`)
+- **Highlight menu**: `font.svg`, `paint_palette.svg`, `edit.svg`, `trash.svg`, `more_vertical.svg`
+- **Pins and return**: `pin.svg`, `pin_remove.svg`, `return.svg`
+- **Bookmarks**: `bookmark.svg`, `bookmark_remove.svg`, `bookmark_outline.svg`
+- **Controls**: `airplane.svg`, `brightness.svg`, `warmth.svg`, `network.svg`, `quick_battery.svg`
+- **Stats**: `book_open.svg`, `calendar.svg`, `flame.svg`
+- **Update badge**: `zen_ui_update.svg`
+
+## Recovery
+
+If a selected pack goes missing, ZenOS just uses the default icons. Pick another pack or turn off **Custom icons**.
+
+If an install gets interrupted, ZenOS cleans up its `.zen-stage-<id>` and `.zen-backup-<id>` folders on the next scan. To fix it by hand: close KOReader, back up `/koreader/icons/zen`, and rename `.zen-backup-<id>` back to `<id>` if the pack folder is missing.

@@ -1,7 +1,5 @@
 import os
-import signal
 import sqlite3
-import subprocess
 import tempfile
 import time
 import zipfile
@@ -10,7 +8,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from zen_driver import ZenDriver, launch, normalize_visible_text, wait_for_socket
+from zen_driver import ZenDriver, launch, stop, normalize_visible_text, wait_for_socket
 
 
 pytestmark = pytest.mark.skipif(
@@ -238,7 +236,7 @@ def test_metadata_list_rows_follow_detailed_item_settings(display_mode: str, cus
                         assert float(value) == expected_value
                 assert driver.command("settings_page_select", label="Reset to default")["ok"]
                 with sqlite3.connect(ko_home / "settings" / "bookinfo_cache.sqlite3") as connection:
-                    for key, expected_value in {"nb_cols_portrait": 3, "nb_rows_portrait": 3,
+                    for key, expected_value in {"nb_cols_portrait": 3, "nb_rows_portrait": 2,
                                                 "nb_cols_landscape": 4, "nb_rows_landscape": 2}.items():
                         value = connection.execute("SELECT value FROM config WHERE key = ?", (key,)).fetchone()[0]
                         assert float(value) == expected_value
@@ -258,12 +256,7 @@ def test_metadata_list_rows_follow_detailed_item_settings(display_mode: str, cus
                 assert driver.command("settings_page_select", label="Hold to skip")["ok"]
                 assert driver.command("settings_page_state")["settings"]["labels"] == ["Skip 10 pages", "Skip 20 pages", "Beginning / End"]
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            stop(process)
 
 
 def test_double_tap_opening_in_list_mode() -> None:
@@ -325,9 +318,4 @@ def test_double_tap_opening_in_list_mode() -> None:
             assert reader["open"] is True
             assert Path(reader["file"]).resolve() == book.resolve()
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            stop(process)

@@ -117,14 +117,27 @@ describe("home featured widget", function()
             end,
         })
         ZenSpec.replace("common/utils", { formatPageCount = function(pages) return pages .. " pages" end })
+        local function style_font(face, default)
+            return face == "default" and (default or "LibraryFont") or face
+        end
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
             getFontName = function() return "LibraryFont" end,
+            resolveStyleFont = style_font,
+            getStyleFace = function(face, size, default)
+                return require("ui/font"):getFace(style_font(face, default), size)
+            end,
             getScale = function() error("home widget used library font size") end,
             scaleValue = function() error("home widget used library font size") end,
         })
         ZenSpec.replace("modules/filebrowser/patches/home/widgets/cover_common", {
             uniform_height_for_width = function(width)
                 return math.floor(width / cover_ratio)
+            end,
+            target_dims = function(_book, max_w, max_h)
+                if max_h * cover_ratio <= max_w then
+                    return math.floor(max_h * cover_ratio), max_h
+                end
+                return max_w, math.floor(max_w / cover_ratio)
             end,
             make_cover_widget = function(book, max_w, max_h, opts)
                 cover_calls[#cover_calls + 1] = { book = book, max_w = max_w, max_h = max_h, opts = opts }
@@ -134,6 +147,7 @@ describe("home featured widget", function()
                 else
                     width, height = max_w, math.floor(max_w / cover_ratio)
                 end
+                cover_calls[#cover_calls].width, cover_calls[#cover_calls].height = width, height
                 local cover = widget_class("cover"):new{ width = width, height = height }
                 return cover, width, height
             end,
@@ -192,6 +206,7 @@ describe("home featured widget", function()
     it("renders the recent book cover, title, author, and description", function()
         local opened
         local actions
+        local featured_cover_dims
         local book = {
             path = "/library/alpha.epub",
             title = "Alpha",
@@ -239,7 +254,11 @@ describe("home featured widget", function()
             height = 220,
             face_label = { size = 12 },
             module_cfg = { show_description = true, progress_meta = { left = "percent", right = "total_pages" } },
-            data = { getFeaturedBook = function(_, source) assert.are.equal("recently_read", source); return book end },
+            data = { getFeaturedBook = function(_, source, _order, _metadata_only, cover_dims)
+                assert.are.equal("recently_read", source)
+                featured_cover_dims = cover_dims
+                return book
+            end },
             setWidgetActions = function(value) actions = value end,
             openBook = function(path) opened = path end,
         }, "recently_read")
@@ -249,6 +268,9 @@ describe("home featured widget", function()
         assert.are.equal("ui/widget/container/topcontainer", widget[1][1].kind)
         assert.are.equal(1, #cover_calls)
         assert.are.equal(book, cover_calls[1].book)
+        -- The provider gets the exact size make_cover_widget renders, to probe RenderCache.
+        local rendered = cover_calls[1]
+        assert.are.same({ w = rendered.width, h = rendered.height }, featured_cover_dims)
         assert.is_true(has_text("Alpha"))
         assert.equals("LibraryFont", text_widget("Alpha").face.name)
         assert.is_true(has_text("Zen Author"))
@@ -657,7 +679,7 @@ describe("home featured widget", function()
         assert.equals(2, labels)
     end)
 
-    it("places end-of-book pages above percent read below status, with navigation below both", function()
+    it("places end-of-book pages below status without percent read, with navigation below both", function()
         local navigation
         local progress_bar = spy.on(require("common/ui/book_progress"), "bar")
         require("modules/filebrowser/patches/home/widgets/featured_common").build{
@@ -674,7 +696,8 @@ describe("home featured widget", function()
                 return navigation
             end,
         }
-        assert.is_true(has_text("120 pages\n100% read"))
+        assert.is_true(has_text("120 pages"))
+        assert.is_false(has_text("100% read"))
         assert.is_false(has_text("120 / 120"))
         assert.spy(progress_bar).was_not_called()
         assert.is_true(has_text("Finished"))
@@ -683,7 +706,7 @@ describe("home featured widget", function()
         for _i, widget in ipairs(created) do
             if widget.text == "Finished" then status_widget = widget end
         end
-        assert.equals(text_widget("120 pages\n100% read").face.size, status_widget.face.size)
+        assert.equals(text_widget("120 pages").face.size, status_widget.face.size)
         local cover_width = math.min(cover_calls[1].max_w, math.floor(cover_calls[1].max_h * cover_ratio))
         assert.is_true(navigation:getSize().w < 584 - cover_width)
         local found = false
@@ -694,7 +717,7 @@ describe("home featured widget", function()
                 assert.equals(widget[1].width, navigation:getSize().w)
                 local progress_index
                 for index, child in ipairs(widget) do
-                    if child.text == "120 pages\n100% read" then progress_index = index end
+                    if child.text == "120 pages" then progress_index = index end
                 end
                 assert.is_truthy(progress_index)
                 assert.equals("Finished", widget[progress_index - 1][1].text)
@@ -726,13 +749,13 @@ describe("home featured widget", function()
         local status_widget, progress
         for _i, widget in ipairs(created) do
             if widget.text == "Finished" then status_widget = widget end
-            if widget.text == "120 pages\n100% read" then progress = widget end
+            if widget.text == "120 pages" then progress = widget end
         end
         assert.equals("StatusFont", status_widget.face.name)
         assert.is_false(status_widget.bold)
-        assert.equals(17, status_widget.face.size)
+        assert.equals(34, status_widget.face.size)
         assert.equals("ProgressFont", progress.face.name)
-        assert.equals(16, progress.face.size)
+        assert.equals(32, progress.face.size)
         assert.is_true(progress.bold)
     end)
 
@@ -746,7 +769,7 @@ describe("home featured widget", function()
                     pages = 200, stable_pages = 120, stable_current_page = 30 }
             end },
         }
-        assert.is_true(has_text("120 pages\n25% read"))
+        assert.is_true(has_text("120 pages"))
         assert.spy(progress_bar).was_not_called()
     end)
 

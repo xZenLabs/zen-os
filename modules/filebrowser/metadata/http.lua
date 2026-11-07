@@ -1,3 +1,4 @@
+local ffi = require("ffi")
 local json = require("json")
 local logger = require("common/zen_logger").new("metadata_http")
 
@@ -150,7 +151,7 @@ local function dependencies()
             or type(socketutil.reset_timeout) ~= "function" then
         return nil
     end
-    return https, http, ltn12, socketutil
+    return https, ltn12, socketutil
 end
 
 local function valid_origin(url, host)
@@ -159,13 +160,77 @@ local function valid_origin(url, host)
     return url:sub(1, #host + 9) == "https://" .. host .. "/"
 end
 
+local function transport_request(request, max_bytes)
+    if ffi.os ~= "OSX" then return require("socket.http").request(request) end
+    -- macOS DNS can crash after fork; curl starts a fresh process before resolving.
+    local body_path, headers_path = os.tmpname(), os.tmpname()
+    local command = require("util").shell_escape({
+        "/usr/bin/curl", "-q", "--silent", "--proto", "=https",
+        "--connect-timeout", tostring(BLOCK_TIMEOUT), "--max-time", tostring(TOTAL_TIMEOUT),
+        "--max-filesize", tostring(max_bytes), "--cacert", request.cafile,
+        "--output", body_path, "--dump-header", headers_path, "--config", "-",
+    })
+    -- Lua 5.1 popen:close() does not report the child's exit status.
+    command = command .. "; printf '\\nZEN_CURL_EXIT=%s\\n' \"$?\" >> "
+        .. require("util").shell_escape({ headers_path })
+    local function quote(value)
+        return '"' .. value:gsub("\\", "\\\\"):gsub('"', '\\"')
+            :gsub("\r", "\\r"):gsub("\n", "\\n") .. '"'
+    end
+    local config = {
+        "url = " .. quote(request.url),
+        "request = " .. quote(request.method),
+    }
+    if request.method == "HEAD" then config[#config + 1] = "head" end
+    for key, value in pairs(request.headers) do
+        config[#config + 1] = "header = " .. quote(key .. ": " .. value)
+    end
+    if request.source then
+        config[#config + 1] = "data-raw = " .. quote(request.source())
+    end
+    local pipe = io.popen(command, "w")
+    local written = pipe and pipe:write(table.concat(config, "\n") .. "\n")
+    local ok = pipe and pipe:close()
+    local headers_file = io.open(headers_path, "rb")
+    local raw_headers = headers_file and headers_file:read(MAX_RESPONSE_BYTES + 1) or ""
+    if headers_file then headers_file:close() end
+    os.remove(headers_path)
+    local status, headers = nil, {}
+    for line in raw_headers:gmatch("[^\r\n]+") do
+        local code = line:match("^HTTP/%S+%s+(%d%d%d)")
+        if code then
+            status, headers = tonumber(code), {}
+        else
+            local key, value = line:match("^([^:]+):%s*(.*)$")
+            if key then headers[key:lower()] = value end
+        end
+    end
+    local body_file = io.open(body_path, "rb")
+    ok = ok and written and status and body_file and #raw_headers <= MAX_RESPONSE_BYTES
+        and raw_headers:match("\nZEN_CURL_EXIT=0\n$") ~= nil
+    if ok then
+        while true do
+            local chunk = body_file:read(16384)
+            if not chunk then break end
+            if not request.sink(chunk) then
+                ok = false
+                break
+            end
+        end
+    end
+    if body_file then body_file:close() end
+    os.remove(body_path)
+    if not ok then return nil, "metadata transfer failed" end
+    return 1, status, headers
+end
+
 function M.request(options)
     if type(options) ~= "table"
             or not valid_origin(options.url, options.host) then
         return nil, M.failure("malformed")
     end
     if not connected() then return nil, M.failure("offline") end
-    local https, http, ltn12, socketutil = dependencies()
+    local https, ltn12, socketutil = dependencies()
     if not https then return nil, M.failure("network") end
     local cafile = ca_bundle(https)
     local create = cafile and verified_create(https, cafile, options.host)
@@ -198,7 +263,7 @@ function M.request(options)
     if not pcall(socketutil.set_timeout, socketutil, BLOCK_TIMEOUT, TOTAL_TIMEOUT) then
         return nil, M.failure("network")
     end
-    local ok_request, result, status, response_headers = pcall(http.request, {
+    local ok_request, result, status, response_headers = pcall(transport_request, {
         url = options.url,
         method = options.method or "GET",
         redirect = false,
@@ -206,7 +271,8 @@ function M.request(options)
         source = source,
         sink = sink,
         create = create,
-    })
+        cafile = cafile,
+    }, MAX_RESPONSE_BYTES)
     pcall(socketutil.reset_timeout, socketutil)
     if oversized then return nil, M.failure("malformed") end
     if not ok_request or result == nil or tonumber(status) == nil then
@@ -287,7 +353,7 @@ end
 
 local function default_download(url, destination, host, headers)
     if not connected() then return nil, M.failure("offline") end
-    local https, http, ltn12, socketutil = dependencies()
+    local https, ltn12, socketutil = dependencies()
     if not https or not ltn12 then return nil, M.failure("network") end
     local cafile = ca_bundle(https)
     local create = cafile and verified_create(https, cafile, host)
@@ -309,14 +375,15 @@ local function default_download(url, destination, host, headers)
         request_headers[key] = value
     end
     pcall(socketutil.set_timeout, socketutil, BLOCK_TIMEOUT, TOTAL_TIMEOUT)
-    local ok, result, status = pcall(http.request, {
+    local ok, result, status = pcall(transport_request, {
         url = url,
         method = "GET",
         redirect = false,
         headers = request_headers,
         sink = sink,
         create = create,
-    })
+        cafile = cafile,
+    }, MAX_COVER_BYTES)
     pcall(socketutil.reset_timeout, socketutil)
     pcall(file.close, file)
     status = tonumber(status)

@@ -77,6 +77,7 @@ describe("home cover rendering", function()
                 release_request = { path = path, bb = bb }
                 return true
             end,
+            releaseOnFree = ZenSpec.releaseOnFree,
         })
         ZenSpec.unload("modules/filebrowser/patches/home/widgets/cover_common")
     end)

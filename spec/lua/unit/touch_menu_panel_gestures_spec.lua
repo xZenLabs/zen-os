@@ -73,6 +73,7 @@ describe("TouchMenu panel gestures", function()
             onCloseWidget = function() end,
             onPrevPage = function() end,
             onNextPage = function() end,
+            switchMenuTab = function(self) self.stock_switches = (self.stock_switches or 0) + 1 end,
         }
         existing_menu = new_menu()
 
@@ -123,6 +124,56 @@ describe("TouchMenu panel gestures", function()
         menu._zen_panel_refs = { sliders = {{ slider = slider }} }
         return menu, slider
     end
+
+    it("resets an active panel without running native switching callbacks", function()
+        local menu, slider = controls_menu()
+        local tab = menu.item_table
+        menu.tab_item_table, menu.cur_tab = { tab }, 1
+        menu.updateItems = function(self, page) self.reset_page = page end
+        local changed = true
+        menu._zen_panel_refs.reset = function() return changed end
+        menu:switchMenuTab(1)
+        assert.is_nil(menu.stock_switches)
+        assert.are.equal(1, menu.reset_page)
+        assert.are.equal(50, slider:getValue())
+        changed, menu.reset_page = false, nil
+        menu:switchMenuTab(1)
+        assert.is_nil(menu.reset_page)
+        menu.tab_item_table[2] = {}
+        menu:switchMenuTab(2)
+        assert.are.equal(1, menu.stock_switches)
+    end)
+
+    it("cancels pending slider previews when a panel closes or rebuilds", function()
+        local menu = controls_menu()
+        local canceled = 0
+        menu._zen_panel_refs.sliders[1].cancel = function() canceled = canceled + 1 end
+        menu.item_table = {}
+        menu:updateItems(1)
+        assert.are.equal(1, canceled)
+        menu._zen_panel_refs = { sliders = {{ cancel = function() canceled = canceled + 1 end }} }
+        menu:onCloseWidget()
+        assert.are.equal(2, canceled)
+        assert.is_nil(menu._zen_panel_refs)
+    end)
+
+    it("returns an active native tab to its first page or root without switching callbacks", function()
+        local menu = new_menu()
+        local tab = {}
+        menu.tab_item_table, menu.cur_tab, menu.item_table, menu.page = { tab }, 1, tab, 2
+        menu.updateItems = function(self, page) self.reset_page = page; self.page = page end
+        menu:switchMenuTab(1)
+        assert.are.equal(1, menu.reset_page)
+        assert.is_nil(menu.stock_switches)
+        menu.reset_page = nil
+        menu:switchMenuTab(1)
+        assert.is_nil(menu.reset_page)
+        menu.item_table, menu.item_table_stack = {}, { tab }
+        menu:switchMenuTab(1)
+        assert.are.equal(tab, menu.item_table)
+        assert.are.same({}, menu.item_table_stack)
+        assert.is_nil(menu.stock_switches)
+    end)
 
     it("closes controls on an upward swipe without changing a slider or activating a button", function()
         local menu, slider = controls_menu()
@@ -190,6 +241,27 @@ describe("TouchMenu panel gestures", function()
         assert.are.equal(1, pan_registration_count(existing_menu))
     end)
 
+    it("preserves tap feedback on every top menu tab, including Home", function()
+        existing_menu.item_table = {}
+        existing_menu.tab_item_table = {
+            { id = "app_launcher", panel = true },
+            { id = "quicksettings", panel = true },
+            { id = "reader_controls", panel = true },
+            { id = "settings" },
+            { id = "zen_library_home", remember = false },
+        }
+        existing_menu.bar.icon_widgets = {
+            { allow_flash = true }, { allow_flash = true }, { allow_flash = true },
+            { allow_flash = true }, { allow_flash = true },
+        }
+
+        existing_menu:updateItems()
+
+        for _i, button in ipairs(existing_menu.bar.icon_widgets) do
+            assert.is_true(button.allow_flash)
+        end
+    end)
+
     it("routes the sole pan registration to sliders and preserves stock fallback", function()
         local slider_pans = 0
         local menu = new_menu()
@@ -221,17 +293,18 @@ describe("TouchMenu panel gestures", function()
         assert.are.equal(1, menu.stock_pans)
     end)
 
-    it("keeps launcher page controls enabled at both ends", function()
+    it("keeps launcher pagination cycling and omits the Reader controls footer", function()
         local enabled = {}
         local menu = new_menu()
         local page = 1
         menu.item_group = {
-            clear = function() end,
+            clear = function(self) for i = #self, 1, -1 do self[i] = nil end end,
             getSize = function() return { h = 400 } end,
         }
         menu.footer_top_margin = {}
-        menu.footer = {}
+        menu.footer = { { dimen = { h = 58 } }, resetLayout = function() end }
         menu.page_info_text = { setText = function() end }
+        menu.page_info = { resetLayout = function() end }
         menu.page_info_left_chev = {
             showHide = function() end,
             enableDisable = function(_self, value) enabled.left = value end,
@@ -250,15 +323,33 @@ describe("TouchMenu panel gestures", function()
             id = "app_launcher",
             panel = function(self)
                 self._zen_panel_refs = { page = page, page_num = 3 }
+                if self.item_table.id == "reader_controls" then
+                    self._zen_panel_refs.bottom_tabs = {}
+                    self._zen_panel_refs.tab_layout = {}
+                end
                 return {}
             end,
         }
 
         menu:updateItems()
         assert.are.same({ left = true, right = true }, enabled)
+        assert.are.equal(58, menu.footer[1].dimen.h)
+        menu.item_table.id = "reader_controls"
+        menu:updateItems()
+        assert.are.equal(58, menu.footer[1].dimen.h)
+        assert.are.same({ left = false, right = true }, enabled)
+        local footer_visible, pagination_visible = false, false
+        for _i, widget in ipairs(menu.item_group) do
+            footer_visible = footer_visible or widget == menu.footer
+            pagination_visible = pagination_visible or widget == menu.page_info
+        end
+        assert.is_false(footer_visible)
+        assert.is_true(pagination_visible)
+        menu.item_table.id = "app_launcher"
         page = 3
         menu:updateItems()
         assert.are.same({ left = true, right = true }, enabled)
+        assert.are.equal(58, menu.footer[1].dimen.h)
     end)
 
     it("clears underlying text with color refreshes only when the accent is enabled", function()
@@ -286,12 +377,16 @@ describe("TouchMenu panel gestures", function()
         UIManager.setDirty = function(_self, _owner, callback) refresh = callback end
 
         for _i, case in ipairs({
-            { true, "#204080", true, "full", true },
-            { true, "#204080", false, "partial", true },
+            { true, "#204080", true, "full", false },
+            { true, "#204080", false, "ui", false },
             { true, "#204080", false, "ui", false, true },
             { true, "#204080", false, "partial", true, true, true },
             { true, "#204080", true, "full", false, true },
             { true, "#204080", true, "full", true, true, true },
+            { true, "#204080", false, "ui", false, false, false, true },
+            { true, "#204080", false, "partial", true, false, true, true },
+            { true, "#204080", true, "full", false, false, false, true },
+            { true, "#204080", true, "full", true, false, true, true },
             { true, "#000000", true, "flashui", false },
             { true, "#000000", false, "ui", false },
             { false, "#204080", true, "flashui", false },
@@ -299,6 +394,7 @@ describe("TouchMenu panel gestures", function()
         }) do
             screen.isColorScreen = function() return case[1] end
             Device.isKindle = function() return case[6] == true end
+            Device.isKobo = function() return case[8] == true end
             screen.night_mode = case[7] == true
             config.accent_color, menu.is_fresh = case[2], case[3]
             menu:updateItems()
@@ -309,5 +405,63 @@ describe("TouchMenu panel gestures", function()
             assert.are.equal(case[5], dither)
             assert.is_false(menu.is_fresh)
         end
+
+        screen.night_mode = false
+        local launcher = { id = "app_launcher", panel = {} }
+        local controls = { id = "quicksettings", panel = {} }
+        for _i, case in ipairs({
+            { true, "#204080", "partial", true },
+            { true, "#000000", "ui", false },
+            { false, "#204080", "ui", false },
+        }) do
+            screen.isColorScreen = function() return case[1] end
+            config.accent_color = case[2]
+            for _j, height in ipairs({ 300, 600, 700 }) do
+                menu.item_table = launcher
+                menu.item_group.getSize = function() return { h = 600 } end
+                menu:updateItems()
+                local mode, refreshed, dither = refresh()
+                assert.are.equal(case[3], mode)
+                assert.are.equal(region, refreshed)
+                assert.are.equal(case[4], dither)
+
+                menu:updateItems()
+                assert.are.equal("ui", refresh())
+
+                menu.item_table = controls
+                menu.item_group.getSize = function() return { h = height } end
+                menu:updateItems()
+                mode, refreshed, dither = refresh()
+                assert.are.equal(case[3], mode)
+                assert.are.equal(region, refreshed)
+                assert.are.equal(case[4], dither)
+
+                menu:updateItems()
+                assert.are.equal("ui", refresh())
+            end
+        end
+
+        -- Section and page swaps inside one panel tab use a dithered partial, no flash.
+        screen.isColorScreen = function() return true end
+        config.accent_color = "#204080"
+        local view, view_page = "font", 1
+        menu.item_table = { id = "reader_controls", panel = function(self)
+            self._zen_panel_refs = { view = view, view_page = view_page }
+            return {}
+        end }
+        menu:updateItems()
+        refresh()
+        for _i, case in ipairs({ { "font", 1, "ui", false }, { "page", 1, "partial", true },
+                { "page", 2, "partial", true }, { "page", 2, "ui", false } }) do
+            view, view_page = case[1], case[2]
+            menu:updateItems()
+            local mode, _region, dither = refresh()
+            assert.are.equal(case[3], mode)
+            assert.are.equal(case[4], dither)
+        end
+        config.accent_color = "#000000"
+        view = "themes"
+        menu:updateItems()
+        assert.are.equal("ui", refresh())
     end)
 end)

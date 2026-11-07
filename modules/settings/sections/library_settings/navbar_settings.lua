@@ -15,10 +15,11 @@ local icons = require("common/inline_icon_map")
 local IconItem = require("common/ui/icon_menu_item")
 local NativeMenu = require("modules/menu/app_launcher/native_menu")
 local PluginScan = require("modules/menu/app_launcher/plugin_scan")
+local Accent = require("common/ui/accent")
 local DispatcherMenu = require("common/dispatcher_menu")
 local ButtonModel = require("common/nav_button_model")
 local Destination = require("common/library_destination")
-local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
+local OptionalProvider = require("common/optional_provider")
 
 local M = {}
 
@@ -110,6 +111,7 @@ function M.build(ctx)
     local function navbar_color_item(label, key, default, enabled_func, opacity_key)
         local function color_hex()
             local c = type(config.navbar[key]) == "table" and config.navbar[key] or default
+            if not Accent.isSupported() then c = Accent.navbarColor(config, key, default) end
             return string.format("#%02X%02X%02X",
                 math.max(0, math.min(255, tonumber(c[1]) or default[1])),
                 math.max(0, math.min(255, tonumber(c[2]) or default[2])),
@@ -250,7 +252,7 @@ function M.build(ctx)
     end
 
     local function is_tab_available(id)
-        return id ~= "kindle" or Kindle.isAvailable()
+        return id ~= "kindle" or OptionalProvider.call("modules/filebrowser/patches/kindle_virtual_library", "isAvailable") == true
     end
 
     local function countEnabledTabs()
@@ -1676,6 +1678,7 @@ function M.build(ctx)
                             },
                             {
                                 text = _("Use accent color"),
+                                show_func = Accent.isSupported,
                                 separator = true,
                                 checked_func = function() return config.navbar.active_tab_use_accent ~= false end,
                                 callback = function()

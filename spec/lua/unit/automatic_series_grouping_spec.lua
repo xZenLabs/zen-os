@@ -105,25 +105,43 @@ describe("automatic series grouping patch", function()
             end,
         })
         ZenSpec.replace("bookinfomanager", {
+            -- Mirrors ljsqlite3: closing a connection closes every statement it prepared.
             openDbConnection = function(self)
-                directory_prefetches = directory_prefetches + 1
-                self.db_conn = {
-                    prepare = function()
-                        local position = 0
-                        return {
-                            bind = function(stmt, directory)
-                                stmt.directory = directory
-                                position = 0
-                            end,
-                            step = function()
-                                position = position + 1
-                                return cached_rows[position]
-                            end,
-                            clearbind = function(stmt) return stmt end,
-                            reset = function(stmt) return stmt end,
-                        }
-                    end,
-                }
+                if self.db_conn then return end
+                local conn = {}
+                conn.prepare = function()
+                    directory_prefetches = directory_prefetches + 1
+                    local position = 0
+                    local rows = {}
+                    return {
+                        bind = function(stmt, directory)
+                            assert(not conn.closed, "object is closed")
+                            stmt.directory = directory
+                            position = 0
+                            rows = {}
+                            for _i, row in ipairs(cached_rows) do rows[#rows + 1] = row end
+                            -- Indexed books from `metadata` live in the same directory table.
+                            for path, props in pairs(metadata) do
+                                local dir, file = path:match("^(.*)/([^/]+)$")
+                                if dir == directory then
+                                    rows[#rows + 1] = { dir, file, nil, nil, nil, nil, nil, nil,
+                                        nil, nil, nil, nil, props.pages, props.title, props.authors,
+                                        props.series, props.series_index, nil, nil, nil }
+                                end
+                            end
+                        end,
+                        step = function()
+                            position = position + 1
+                            return rows[position]
+                        end,
+                        close = function(stmt) stmt.closed = true end,
+                    }
+                end
+                self.db_conn = conn
+            end,
+            closeDbConnection = function(self)
+                if self.db_conn then self.db_conn.closed = true end
+                self.db_conn = nil
             end,
             getDocProps = function(_, path)
                 doc_props_lookups = doc_props_lookups + 1
@@ -285,6 +303,26 @@ describe("automatic series grouping patch", function()
         FileChooser.switchItemTable(fc, nil, items)
         assert.are.same({ alpha, no_cover, finale }, fc.item_table[1].series_items)
         assert.are.equal(1, directory_prefetches)
+        assert.are.equal(0, doc_props_lookups)
+    end)
+
+    it("keeps batch metadata after CoverBrowser closes the database connection", function()
+        cached_rows = {
+            { "/library/Series-A/", "01 - Alpha.epub", nil, nil, nil, nil, nil, nil,
+                nil, nil, nil, nil, 101, "Alpha", "Zen Author", "Series A", 1, "en", "" },
+            { "/library/Series-A/", "02 - Beta.epub", nil, nil, nil, nil, nil, nil,
+                nil, nil, nil, nil, 102, "Beta", "Zen Author", "Series A", 2, "en", "" },
+        }
+        local function fresh_items()
+            return { item("/library/Series-A/01 - Alpha.epub", "01 - Alpha"),
+                item("/library/Series-A/02 - Beta.epub", "02 - Beta") }
+        end
+        local BookInfoManager = require("bookinfomanager")
+        FileChooser.switchItemTable(chooser(), nil, fresh_items())
+        BookInfoManager:closeDbConnection() -- KOReader does this before every extraction
+        FileChooser.switchItemTable(chooser(), nil, fresh_items())
+
+        assert.are.equal(2, directory_prefetches)
         assert.are.equal(0, doc_props_lookups)
     end)
 
@@ -466,6 +504,121 @@ describe("automatic series grouping patch", function()
         assert.are.same({ loose }, fc.item_table)
         assert.are.equal("Library", title_bar.subtitle)
         assert.is_true(file_manager.updated)
+    end)
+
+    it("treats the directory metadata batch as authoritative for unindexed books", function()
+        local items = {}
+        for index = 1, 20 do
+            items[index] = item("/library/Book" .. index .. ".epub", "Book" .. index)
+        end
+        metadata[items[1].path] = { series = "Saga", series_index = 1 }
+        metadata[items[2].path] = { series = "Saga", series_index = 2 }
+
+        local fc = chooser()
+        FileChooser.switchItemTable(fc, nil, items)
+
+        assert.is_true(fc.item_table[1].is_series_group)
+        assert.are.equal(1, directory_prefetches)
+        assert.are.equal(0, doc_props_lookups)
+    end)
+
+    it("reuses the processed listing for the same cached table and settings", function()
+        local first = item("/library/One.epub", "One")
+        local second = item("/library/Two.epub", "Two")
+        local loose = item("/library/Loose.epub", "Loose")
+        metadata[first.path] = { series = "Saga", series_index = 1 }
+        metadata[second.path] = { series = "Saga", series_index = 2 }
+        metadata[loose.path] = { title = "Loose" }
+        local source = { first, second, loose }
+        local fc = chooser()
+        local collate_calls = 0
+        local collate_id = "natural"
+        fc.getCollate = function()
+            collate_calls = collate_calls + 1
+            return { can_collate_mixed = false }, collate_id
+        end
+
+        FileChooser.switchItemTable(fc, nil, source)
+        local group = fc.item_table[1]
+        local processed = fc.item_table
+        FileChooser.switchItemTable(fc, nil, source)
+
+        assert.are.equal(group, fc.item_table[1])
+        assert.are_not.equal(processed, fc.item_table)
+        -- One getCollate for the memo key on each switch plus one for the first processing.
+        assert.are.equal(3, collate_calls)
+
+        collate_id = "strcoll"
+        FileChooser.switchItemTable(fc, nil, source)
+        assert.are_not.equal(group, fc.item_table[1])
+    end)
+
+    it("does not memoize while some books are not indexed yet", function()
+        local first = item("/library/One.epub", "One")
+        local second = item("/library/Two.epub", "Two")
+        local source = { first, second, item("/library/Loose.epub", "Loose") }
+        metadata[first.path] = { series = "Saga", series_index = 1 }
+        local fc = chooser()
+
+        FileChooser.switchItemTable(fc, nil, source)
+        assert.is_nil(fc.item_table[1].is_series_group)
+
+        metadata[second.path] = { series = "Saga", series_index = 2 }
+        FileChooser.switchItemTable(fc, nil, source)
+        assert.is_true(fc.item_table[1].is_series_group)
+    end)
+
+    it("re-evaluates memoized series completion on each switch", function()
+        local first = item("/library/One.epub", "One")
+        local second = item("/library/Two.epub", "Two")
+        local loose = item("/library/Loose.epub", "Loose")
+        metadata[first.path] = { series = "Saga", series_index = 1 }
+        metadata[second.path] = { series = "Saga", series_index = 2 }
+        metadata[loose.path] = { title = "Loose" }
+        first._zen_effective_status = "complete"
+        second._zen_effective_status = "complete"
+        _G.__ZEN_UI_PLUGIN.config.browser_cover_badges.dim_finished_books = true
+        local source = { first, second, loose }
+        local fc = chooser()
+
+        FileChooser.switchItemTable(fc, nil, source)
+        assert.are.equal("complete", fc.item_table[1].status)
+
+        second._zen_effective_status = "reading"
+        FileChooser.switchItemTable(fc, nil, source)
+        assert.is_nil(fc.item_table[1].status)
+        assert.are.equal(0, fc.item_table[1].percent_finished)
+    end)
+
+    it("keeps the incoming mixed order when no series group forms", function()
+        local zulu = item("/library/Zulu.epub", "Zulu")
+        local alpha = item("/library/Alpha.epub", "Alpha")
+        local saved_settings = _G.G_reader_settings
+        _G.G_reader_settings = ZenSpec.memorySettings({ collate_mixed = true })
+        local fc = chooser()
+        local sorts = 0
+        fc.getCollate = function() return { can_collate_mixed = true }, "strcoll" end
+        fc.getSortingFunction = function()
+            return function(a, b)
+                sorts = sorts + 1
+                return a.text < b.text
+            end
+        end
+
+        FileChooser.switchItemTable(fc, nil, { zulu, alpha })
+        local unsorted = sorts
+        local one, two = item("/library/One.epub", "One"), item("/library/Two.epub", "Two")
+        metadata[one.path] = { series = "Saga", series_index = 1 }
+        metadata[two.path] = { series = "Saga", series_index = 2 }
+        local grouped_fc = chooser()
+        grouped_fc.getCollate, grouped_fc.getSortingFunction = fc.getCollate, fc.getSortingFunction
+        FileChooser.switchItemTable(grouped_fc, nil, { zulu, one, alpha, two })
+        _G.G_reader_settings = saved_settings
+
+        assert.are.same({ zulu, alpha }, fc.item_table)
+        assert.are.equal(0, unsorted)
+        assert.are.equal("Alpha", grouped_fc.item_table[1].text)
+        assert.are.equal("Saga", grouped_fc.item_table[2].text)
     end)
 
     it("leaves ordinary selection and disabled grouping to KOReader", function()

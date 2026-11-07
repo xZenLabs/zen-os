@@ -23,6 +23,7 @@ at runtime — KOReader handles this automatically.
 | `cs` | Czech |
 | `hu` | Hungarian |
 | `id` | Indonesian |
+| `pl` | Polish |
 | `pt_BR` | Brazilian Portuguese |
 | `pt_PT` | European Portuguese |
 | `ro` | Romanian |

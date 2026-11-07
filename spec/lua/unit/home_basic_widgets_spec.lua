@@ -78,9 +78,15 @@ describe("home basic widgets", function()
         }) do
             ZenSpec.replace(name, widget_class(name))
         end
-        ZenSpec.replace("common/utils", { resolveLocalIcon = function() return nil end })
+        ZenSpec.replace("common/utils", {
+            resolveLocalIcon = function() return nil end,
+            resolveIcon = function() return nil end,
+        })
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
             getFontName = function() return "smallinfofont" end,
+            getStyleFace = function(face, size)
+                return require("ui/font"):getFace(face == "default" and "smallinfofont" or face, size)
+            end,
         })
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("ui/gesturerange", widget_class("gesture"))
@@ -341,16 +347,15 @@ describe("home basic widgets", function()
                 icons[#icons + 1] = child[1].file
                 values[#values + 1] = child[3].text
                 assert.are.equal(16, child[3].face.size)
-                assert.are.equal(3, child[2].width)
+                assert.are.equal(5, child[2].width)
                 assert.is_true(child[1].width + child[2].width + child[3]:getSize().w <= 94)
             end
         end
         assert.are.same({ "3", "12345h 45m", "1.5" }, values)
         assert.are.same({
-            utils.resolveLocalIcon(ZenSpec.root .. "/icons/", "calendar"),
-            utils.resolveLocalIcon(ZenSpec.root .. "/icons/", "tab_to_be_read"),
-            utils.resolveLocalIcon(require("libs/libkoreader-lfs").currentdir()
-                .. "/resources/icons/mdlight/", "book.opened"),
+            utils.resolveIcon(ZenSpec.root .. "/icons/", "calendar"),
+            utils.resolveIcon(ZenSpec.root .. "/icons/", "tab_to_be_read"),
+            utils.resolveIcon(ZenSpec.root .. "/icons/", "book.opened"),
         }, icons)
 
         created = {}
@@ -362,6 +367,26 @@ describe("home basic widgets", function()
             if child.text == "12345h 45m" then value_size = child.face.size end
         end
         assert.are.equal(18, value_size)
+    end)
+
+    it("uses pack icons for all metrics", function()
+        require("common/utils").resolveIcon = function(_dir, name)
+            return "/icons/zen/selected/" .. name .. ".svg"
+        end
+        ZenSpec.unload("modules/filebrowser/patches/home/widgets/stats_triplet")
+        require("modules/filebrowser/patches/home/widgets/stats_triplet").build({
+            width = 300, height = 120,
+            config = { middle_stats_triplet = { "book_days", "book_page_minutes", "streak" } },
+            data = { stats = { book_days = "3", book_page_minutes = "1.5", streak = 2 } },
+        })
+        local paths = {}
+        for _i, child in ipairs(created) do
+            if child.kind == "ui/widget/iconwidget" then paths[#paths + 1] = child.file end
+        end
+        assert.are.same({
+            "/icons/zen/selected/calendar.svg", "/icons/zen/selected/book.opened.svg",
+            "/icons/zen/selected/flame.svg",
+        }, paths)
     end)
 
     it("auto-sizes stats text while preserving an exact manual size", function()
@@ -524,7 +549,7 @@ describe("home basic widgets", function()
         end
         assert.are.equal(48, quote_widget.paint_y)
         assert.are.equal(60, author_widget.paint_y)
-        assert.are.same({ 49, 71, -49, 49, nil }, {
+        assert.are.same({ 37, 83, -37, 37, nil }, {
             content_bounds.top,
             content_bounds.bottom,
             content_bounds.min_shift,
@@ -537,7 +562,43 @@ describe("home basic widgets", function()
         assert.are.equal(53, author_widget.paint_y)
     end)
 
-    it("reports the visible quote bounds", function()
+    it("swaps the next quote into its own row without a Home rebuild", function()
+        ZenSpec.unload("modules/filebrowser/patches/home/widgets/quotes")
+        local quotes_list = { { text = "First.", author = "A" }, { text = "Second.", author = "B" } }
+        local index, refreshed, content_bounds = 1, {}, nil
+        local step = function(_self, delta, refresh)
+            index = index + delta
+            if refresh then refresh() end
+        end
+        local widget = require("modules/filebrowser/patches/home/widgets/quotes").build({
+            width = 400,
+            height = 120,
+            config = { quotes = { show_author = true } },
+            data = {
+                getCurrentQuote = function() return quotes_list[index] end,
+                nextQuote = function(self, refresh) step(self, 1, refresh) end,
+                prevQuote = function(self, refresh) step(self, -1, refresh) end,
+            },
+            setContentBounds = function(bounds) content_bounds = bounds end,
+            refreshRow = function(dimen) refreshed[#refreshed + 1] = dimen end,
+        })
+        local body = widget[1]
+        local first_content = body[1]
+        body.dimen = { x = 10, y = 20, w = 400, h = 120 }
+        content_bounds.set_shift(-7)
+
+        assert.is_true(widget:onSwipeQuote(nil, { pos = { x = 40, y = 40 }, direction = "west" }))
+
+        assert.are.equal(2, index)
+        assert.are.equal(body, widget[1])
+        assert.are_not.equal(first_content, body[1])
+        assert.is_true(has_text('"Second."'))
+        assert.are.equal(1, #refreshed)
+        assert.are.same({ 10, 13, 400, 127 },
+            { refreshed[1].x, refreshed[1].y, refreshed[1].w, refreshed[1].h })
+    end)
+
+    it("reports quote bounds independent of quote length", function()
         ZenSpec.unload("modules/filebrowser/patches/home/widgets/quotes")
         local component = require("modules/filebrowser/patches/home/widgets/quotes")
         local function bounds_for(text)
@@ -561,8 +622,9 @@ describe("home basic widgets", function()
             }
         end
 
-        assert.are.same({ 49, 71, -49, 49 }, bounds_for("Short."))
+        assert.are.same({ 37, 83, -37, 37 }, bounds_for("Short."))
         assert.are.same({ 37, 83, -37, 37 }, bounds_for("First\nSecond\nThird"))
+        assert.are.same({ 37, 83, -37, 37 }, bounds_for("One\nTwo\nThree\nFour\nFive"))
     end)
 
     it("gives the bottom quote row a content-independent fixed height", function()
@@ -785,7 +847,7 @@ describe("home basic widgets", function()
         local widget = component.build({
             width = 400,
             height = 120,
-            config = { quotes = { show_author = false } },
+            config = { quotes = { show_author = false, show_title = false } },
             data = {
                 getCurrentQuote = function()
                     return { text = "First\nSecond\nThird\nFourth", author = "" }

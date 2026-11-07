@@ -7,6 +7,7 @@ local ButtonFeedback = require("common/ui/button_feedback")
 local Font       = require("ui/font")
 local Geom       = require("ui/geometry")
 local IconWidget = require("ui/widget/iconwidget")
+local Pill       = require("common/ui/pill")
 local RenderText = require("ui/rendertext")
 local Screen     = require("device").screen
 local library_font = require("modules/filebrowser/patches/library_font")
@@ -144,20 +145,7 @@ function M.flashChevron(side, x, y, w, h)
     ButtonFeedback.flash(ButtonFeedback.paddedRegion(region))
 end
 
--- Filled pill (stadium) shape via scanline paintRect.
-function M.paintPill(bb, px, py, pw, ph, color)
-    if pw <= 0 or ph <= 0 then return end
-    local r = math.min(pw, ph) / 2.0
-    for row = 0, ph - 1 do
-        local dy    = (row + 0.5) - (ph * 0.5)
-        local inset = 0
-        if math.abs(dy) < r then
-            inset = math.ceil(r - math.sqrt(r * r - dy * dy))
-        end
-        local rw = pw - 2 * inset
-        if rw > 0 then bb:paintRect(px + inset, py + row, rw, 1, color) end
-    end
-end
+M.paintPill = Pill.paint
 
 -- Paint the page indicator at absolute screen position (x, y).
 --   x, y      : top-left of the reserved footer strip
@@ -166,14 +154,14 @@ end
 --   cur_page,
 --   total_pages : pagination state
 -- No-ops silently when total_pages <= 1.
-function M.paint(bb, x, y, w, h, cur_page, total_pages, force_style, mirrored)
+function M.paint(bb, x, y, w, h, cur_page, total_pages, force_style, mirrored, dot_size)
     if total_pages <= 1 then return end
     local style = force_style or M.getStyle()
 
     if style == "dots" and total_pages <= 20 then
-        local diam = M.DOT_DIAM
-        local step = diam + M.DOT_GAP
-        if step * total_pages - M.DOT_GAP > w then
+        local diam, gap = dot_size or M.DOT_DIAM, dot_size or M.DOT_GAP
+        local step = diam + gap
+        if step * total_pages - gap > w then
             step = math.max(2, math.floor(w / total_pages))
             diam = math.max(1, step - 1)
         end

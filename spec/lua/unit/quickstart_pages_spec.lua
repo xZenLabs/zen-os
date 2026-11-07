@@ -231,6 +231,23 @@ describe("Quickstart pages", function()
         assert.are.equal(0, navbar_refreshes)
     end)
 
+    it("edits the regular accent during setup even when the night accent is active", function()
+        color_screen = true
+        package.loaded["device"].screen.night_mode = true
+        local config = { accent_color = "#204080", accent_opacity = 80,
+            accent_night_enabled = true, accent_night_color = "#CC8844", accent_night_opacity = 40 }
+        local page = require("common/quickstart/quickstart_pages").build_accent_page({ config = config })
+
+        assert.are.equal("#204080", page.color_picker.hex)
+        assert.are.equal(80, page.color_picker.opacity)
+        page.color_picker.callback("#0088FF", 75)
+        assert.are.equal("#0088FF", config.accent_color)
+        assert.are.equal(75, config.accent_opacity)
+        assert.is_true(config.accent_night_enabled)
+        assert.are.equal("#CC8844", config.accent_night_color)
+        assert.are.equal(40, config.accent_night_opacity)
+    end)
+
     it("saves and enables the chosen accent and refreshes navigation and Home", function()
         color_screen = true
         local config = { accent_enabled = false, accent_color = "#000000", accent_opacity = 100 }

@@ -1,5 +1,4 @@
 import os
-import signal
 import sqlite3
 import subprocess
 import tempfile
@@ -9,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from zen_driver import ZenDriver, launch, wait_for_socket
+from zen_driver import ZenDriver, launch, stop, wait_for_socket
 
 
 pytestmark = pytest.mark.skipif(
@@ -281,12 +280,7 @@ def test_book_opens_in_reader_and_home_returns_to_library(
             if default_tab == "books":
                 _wait_for_folder_cover(driver, folder)
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            stop(process)
 
 
 @pytest.mark.parametrize(
@@ -335,12 +329,7 @@ def test_reader_menu_home_respects_restore_location(
             assert driver.command("home_state")["home"]["on_top"] is (expected_tab == "home")
             assert _wait_for_file_manager(driver).get("path") == str(library.resolve())
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            stop(process)
 
 
 def test_reader_menu_library_restores_nested_physical_folder() -> None:
@@ -378,12 +367,7 @@ def test_reader_menu_library_restores_nested_physical_folder() -> None:
             )
             assert restored_book.get("underline_visible") is False, restored
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            stop(process)
 
 
 def test_reader_menu_library_restores_author_detail() -> None:
@@ -436,12 +420,7 @@ def test_reader_menu_library_restores_author_detail() -> None:
             assert restored.get("top_tab_id") == "authors"
             assert restored.get("stack_names") == ["authors", "authors_detail"]
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            stop(process)
 
 
 def test_customized_footer_items_survive_epub_reopen() -> None:
@@ -481,9 +460,4 @@ def test_customized_footer_items_survive_epub_reopen() -> None:
             assert reopened.get("footer_order_first") == "book_title", reopened
             assert reopened.get("footer_order_second") == "time", reopened
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            stop(process)

@@ -39,15 +39,24 @@ end
 -- Archive is intentionally separate from the library roots: it can share the
 -- Zen browser presentation without feeding archived books back into Home
 -- widgets, library statistics, or library database scans.
+-- Cached by file mtime/size: navbar calls this on every folder change.
+local archive_cache = {}
 function M.getArchiveDir()
     local ok_storage, DataStorage = pcall(require, "datastorage")
     if not ok_storage or not DataStorage then return nil end
     local path = DataStorage:getSettingsDir() .. "/move_to_archive_settings.lua"
-    local ok_settings, archive_settings = pcall(dofile, path)
-    local dir = ok_settings and type(archive_settings) == "table"
-        and archive_settings.archive_dir_path or nil
-    if type(dir) ~= "string" or dir == "" then return nil end
-    return M.normPath(dir:gsub("/*$", ""))
+    local ok_lfs, lfs = pcall(require, "libs/libkoreader-lfs")
+    local attr = ok_lfs and lfs.attributes(path) or nil
+    local stamp = attr and (attr.modification .. ":" .. attr.size) or "missing"
+    if archive_cache.path == path and archive_cache.stamp == stamp then return archive_cache.dir end
+    local dir
+    if attr then
+        local ok_settings, archive_settings = pcall(dofile, path)
+        dir = ok_settings and type(archive_settings) == "table" and archive_settings.archive_dir_path or nil
+    end
+    dir = type(dir) == "string" and dir ~= "" and M.normPath(dir:gsub("/*$", "")) or nil
+    archive_cache = { path = path, stamp = stamp, dir = dir }
+    return dir
 end
 
 function M.isUnsafeFlatViewRoot(path)

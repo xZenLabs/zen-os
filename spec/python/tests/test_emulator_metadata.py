@@ -1,12 +1,10 @@
 import os
-import signal
-import subprocess
 import tempfile
 from pathlib import Path
 
 import pytest
 
-from zen_driver import ZenDriver, launch, wait_for_socket
+from zen_driver import ZenDriver, launch, stop, wait_for_socket
 
 
 pytestmark = pytest.mark.skipif(
@@ -87,9 +85,4 @@ def test_metadata_editor_visual_fixtures() -> None:
             assert "Orbit" in picker["picker"]["secondary_labels"][1]
             _capture(driver, "metadata-hardcover-picker.png")
         finally:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            stop(process)

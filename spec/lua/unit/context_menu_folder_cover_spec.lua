@@ -2,13 +2,14 @@ describe("folder cover context-menu integration", function()
     local missing = {}
     local saved_modules
     local original_plugin
+    local color_screen
 
     local function replace(name, value)
         if saved_modules[name] == nil then
             saved_modules[name] = package.loaded[name] == nil
                 and missing or package.loaded[name]
         end
-        package.loaded[name] = value
+        ZenSpec.replace(name, value)
     end
 
     local function callable_gettext()
@@ -40,6 +41,7 @@ describe("folder cover context-menu integration", function()
             scaleBySize = function(_self, value) return value end,
             getWidth = function() return 600 end,
             getHeight = function() return 800 end,
+            isColorScreen = function() return color_screen end,
         }
         local bidi = {
             auto = function(value) return value end,
@@ -85,6 +87,9 @@ describe("folder cover context-menu integration", function()
             more = "more-icon",
             read_status = "status-icon",
             refresh = "refresh-icon",
+            incognito = "\u{ECF8}",
+            action = "\u{EDD3}",
+            send = "\u{EB89}",
         })
         replace("common/cover_utils", deps.Cover or {})
         replace("common/zen_logger", deps.zen_logger or {
@@ -124,6 +129,8 @@ describe("folder cover context-menu integration", function()
         replace("ui/widget/horizontalgroup", Widget)
         replace("ui/widget/horizontalspan", Widget)
         replace("ui/widget/imagewidget", Widget)
+        replace("ui/widget/iconwidget", Widget)
+        replace("common/ui/glyph_icons", nil)
         replace("ui/widget/container/inputcontainer", Widget)
         replace("ui/gesturerange", Widget)
         replace("ui/widget/textwidget", Widget)
@@ -169,6 +176,7 @@ describe("folder cover context-menu integration", function()
 
     before_each(function()
         saved_modules = {}
+        color_screen = true
         original_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
         _G.__ZEN_UI_PLUGIN = nil
     end)
@@ -811,6 +819,14 @@ describe("folder cover context-menu integration", function()
         assert.are.equal(3, #flashes)
         chooser:showSortOrderDialog({ title = "Sort order" })
         assert.are.equal(4, #scheduled)
+
+        color_screen = false
+        apply_patch()
+        FileManager.setupLayout(fm)
+        local shown = opening_calls
+        chooser:showFileDialog(items[1])
+        assert.are.equal(shown + 1, opening_calls)
+        assert.are.equal(4, #scheduled) -- mono panels skip the cover flash
     end)
 
     it("shows a Home manga context menu with chapter metadata and fullscreen series artwork", function()
@@ -895,7 +911,7 @@ describe("folder cover context-menu integration", function()
                     plugin_args = { file, is_file, book_props }
                     return {
                         {
-                            text = "\u{F05F9}  Incognito",
+                            text = "\u{ECF8}  Incognito",
                             icon = "plugin.svg",
                             callback = function()
                                 assert.are.equal(file_chooser,
@@ -906,9 +922,9 @@ describe("folder cover context-menu integration", function()
                             end,
                         },
                         {
-                            text_func = function() return "\u{F140B}  Dynamic action" end,
+                            text_func = function() return "\u{EDD3}  Dynamic action" end,
                         },
-                        { text = "\u{F048A}  ZenFM Send" },
+                        { text = "\u{EB89}  ZenFM Send" },
                     }
                 end,
                 function() error("broken plugin") end,
@@ -942,8 +958,10 @@ describe("folder cover context-menu integration", function()
                     button.label_container = { dimen = { w = 400, h = 40 } }
                 end
             end
+            self.init(options)
             return options
         end
+        function ButtonDialog.init() end
 
         install_stubs({
             ButtonDialog = ButtonDialog,
@@ -994,6 +1012,7 @@ describe("folder cover context-menu integration", function()
                 isPrimaryHomeRoot = function() return false end,
             },
         })
+        require("common/ui/glyph_icons").install()
         apply_patch()
         FileManager.setupLayout(file_manager)
 
@@ -1038,16 +1057,16 @@ describe("folder cover context-menu integration", function()
         assert.matches("\u{F19C}", assert(find_button(more_dialog, "Archive")).text, 1, true)
         assert.are.equal(1, #more_dialog.buttons[1])
         assert.are.equal(1, #more_dialog.buttons[2])
-        assert.are.equal("\u{F05F9}  Incognito", more_dialog.buttons[1][1].text)
+        assert.are.equal("\u{ECF8}  Incognito", more_dialog.buttons[1][1].text)
         assert.are.equal("Incognito", more_dialog.buttons[1][1].label_widget.text)
-        assert.is_true(has_widget_text(more_dialog.buttons[1][1].label_container, "\u{F05F9}"))
+        assert.is_true(has_widget_text(more_dialog.buttons[1][1].label_container, "\u{ECF8}"))
         assert.is_nil(more_dialog.buttons[1][1].icon)
         assert.are.equal("left", more_dialog.buttons[1][1].align)
-        assert.are.equal("\u{F140B}  Dynamic action", more_dialog.buttons[2][1].text_func())
+        assert.are.equal("\u{EDD3}  Dynamic action", more_dialog.buttons[2][1].text_func())
         assert.are.equal("Dynamic action", more_dialog.buttons[2][1].label_widget.text)
-        assert.is_true(has_widget_text(more_dialog.buttons[2][1].label_container, "\u{F140B}"))
+        assert.is_true(has_widget_text(more_dialog.buttons[2][1].label_container, "\u{EDD3}"))
         assert.are.equal("ZenFM Send", more_dialog.buttons[3][1].label_widget.text)
-        assert.is_true(has_widget_text(more_dialog.buttons[3][1].label_container, "\u{F048A}"))
+        assert.is_true(has_widget_text(more_dialog.buttons[3][1].label_container, "\u{EB89}"))
         assert(find_button(more_dialog, "Incognito")).callback()
         assert.is_true(plugin_action_called)
 

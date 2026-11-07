@@ -9,6 +9,7 @@ describe("Zen TOC hardware focus", function()
     local font_calls
     local text_specs
     local saved_feedback
+    local feedback_region
 
     local function input_container()
         local InputContainer = {}
@@ -35,7 +36,15 @@ describe("Zen TOC hardware focus", function()
 
     before_each(function()
         saved_feedback = package.loaded["common/ui/button_feedback"]
-        ZenSpec.replace("common/ui/button_feedback", { flashButton = function() end })
+        feedback_region = nil
+        ZenSpec.replace("common/ui/button_feedback", {
+            flashButton = function(region) feedback_region = region end,
+            paddedRegion = function(region)
+                return require("ui/geometry"):new{
+                    x = region.x - 4, y = region.y - 4, w = region.w + 8, h = region.h + 8,
+                }
+            end,
+        })
         close_calls = 0
         close_request = nil
         dirty_calls = 0
@@ -45,7 +54,7 @@ describe("Zen TOC hardware focus", function()
         font_calls = {}
         text_specs = {}
         ZenSpec.replace("gettext", function(text)
-            if text == "Table of contents" then return "Translated contents" end
+            if text == "Chapters" then return "Translated contents" end
             if text == "No table of contents available." then return "Translated empty TOC" end
             return text
         end)
@@ -65,9 +74,11 @@ describe("Zen TOC hardware focus", function()
         ZenSpec.replace("ffi/blitbuffer", {
             COLOR_BLACK = "black",
             COLOR_DARK_GRAY = "dark_gray",
+            COLOR_GRAY_5 = "gray_5",
             COLOR_LIGHT_GRAY = "light_gray",
             COLOR_WHITE = "white",
             gray = function(value) return value end,
+            isColor8 = function() return true end,
         })
         ZenSpec.replace("ui/font", {
             getFace = function(_, name, size, index)
@@ -81,11 +92,12 @@ describe("Zen TOC hardware focus", function()
         ZenSpec.replace("datastorage", { getDataDir = function() return "/koreader" end })
         ZenSpec.replace("common/utils", {
             resolveLocalIcon = function(_, name) return "/icons/" .. name .. ".svg" end,
+            resolveIcon = function(_, name) return "/active-icons/" .. name .. ".svg" end,
         })
         ZenSpec.replace("ui/widget/iconwidget", {
             new = function(_self, values)
-                if values.file == "/icons/chevron.left.svg" then back_icon = values end
-                if values.file == "/icons/close.svg" then close_icon = values end
+                if values.file:match("/chevron.left.svg$") then back_icon = values end
+                if values.file:match("/close.svg$") then close_icon = values end
                 values.paintTo = function(self, _bb, x)
                     self.paint_x = x
                 end
@@ -172,7 +184,7 @@ describe("Zen TOC hardware focus", function()
         ZenSpec.unload("common/utils")
     end)
 
-    local function new_widget(on_goto, close_all_callback)
+    local function new_widget(on_goto, close_all_callback, show_back)
         local toc = {}
         for i = 1, 8 do
             toc[i] = { title = "Section " .. i, page = i * 10, depth = 1 }
@@ -184,9 +196,20 @@ describe("Zen TOC hardware focus", function()
                 document = { configurable = { font_size = 21 } },
             },
             focus_page = 1,
+            show_back = show_back,
             on_goto = on_goto,
             close_all_callback = close_all_callback,
         }
+    end
+
+    local function fake_bb(calls)
+        local bb = {}
+        for _i, name in ipairs({ "paintRect", "invertRect", "paintBorder", "paintRoundedRect" }) do
+            bb[name] = function(_bb, ...)
+                if calls then table.insert(calls, { name, ... }) end
+            end
+        end
+        return bb
     end
 
     local function key(name)
@@ -196,7 +219,7 @@ describe("Zen TOC hardware focus", function()
     end
 
     it("moves from Back through every visible section and footer button", function()
-        local widget = new_widget()
+        local widget = new_widget(nil, nil, true)
         assert.are.equal("back", widget._zen_focus_area)
         assert.are.equal("Back", widget.key_events.Close[1][1])
         assert.are.equal("PgFwd", widget.key_events.TocPageDown[1][1])
@@ -240,22 +263,53 @@ describe("Zen TOC hardware focus", function()
         assert.is_true(dirty_calls > 0)
     end)
 
-    it("aligns its title, back icon, and close icon with the header", function()
-        local widget = new_widget()
-        widget:paintTo({ paintRect = function() end }, 0, 0)
+    it("centers its title and aligns its back and close icons with the header", function()
+        local widget = new_widget(nil, nil, true)
+        widget:paintTo(fake_bb(), 0, 0)
 
         assert.are.equal("settings_title", title_spec.face.name)
-        assert.are.equal(54, title_spec.paint_x)
+        assert.are.equal(260, title_spec.paint_x)
         assert.are.equal(28, back_icon.width)
         assert.are.equal(12, back_icon.paint_x)
         assert.are.equal(28, close_icon.width)
         assert.are.equal(544, close_icon.paint_x)
     end)
 
+    it("uses the active titlebar icons and standard close feedback bounds", function()
+        local widget = new_widget(nil, nil, false)
+        local focus_backgrounds = 0
+        local bb = fake_bb()
+        bb.paintRect = function(_bb, _x, _y, _w, _h, color)
+            if color == "black" then focus_backgrounds = focus_backgrounds + 1 end
+        end
+        widget:paintTo(bb, 0, 0)
+
+        assert.are.equal("/active-icons/close.svg", close_icon.file)
+        assert.are.equal(28, close_icon.width)
+        assert.is_true(close_icon.invert)
+        assert.are.equal(0, focus_backgrounds)
+        assert.is_true(widget:_onTap{ pos = { x = 560, y = 20 } })
+        assert.are.same({ x = 540, y = 10, w = 36, h = 36 }, feedback_region)
+    end)
+
+    it("hides Back and skips its focus and touch target in a standalone TOC", function()
+        local widget = new_widget()
+        assert.are.equal("close", widget._zen_focus_area)
+        widget:paintTo(fake_bb(), 0, 0)
+        assert.is_nil(back_icon)
+        assert.is_not_nil(close_icon)
+        widget:_moveFocus(0, 1)
+        assert.are.equal("entry", widget._zen_focus_area)
+        widget:_moveFocus(0, -1)
+        assert.are.equal("close", widget._zen_focus_area)
+        widget:_onTap({ pos = { x = widget._L.back_x + 1, y = widget._L.back_y + 1 } })
+        assert.are.equal(0, close_calls)
+    end)
+
     it("treats a tap on the title text as Back", function()
         local parent_closes = 0
         local widget = new_widget(nil, function() parent_closes = parent_closes + 1 end)
-        widget:paintTo({ paintRect = function() end }, 0, 0)
+        widget:paintTo(fake_bb(), 0, 0)
         local hit = widget._title_hit
 
         assert.is_true(widget:_onTap({
@@ -273,7 +327,7 @@ describe("Zen TOC hardware focus", function()
                 document = { configurable = { font_size = 21 } },
             },
         }
-        widget:paintTo({ paintRect = function() end }, 0, 0)
+        widget:paintTo(fake_bb(), 0, 0)
 
         assert.are.equal("Translated contents", title_spec.text)
         local found_empty
@@ -308,6 +362,43 @@ describe("Zen TOC hardware focus", function()
         assert.are.equal("Chapter ten", widget._entries[2].title)
     end)
 
+    it("opens on the reader's current chapter page and marks it active", function()
+        local toc = {}
+        for i = 1, 20 do toc[i] = { title = "Section " .. i, page = i * 10, depth = 1 } end
+        local widget = ZenTocWidget:new{
+            ui = {
+                toc = { toc = toc },
+                font = { font_face = "ReaderFont" },
+                document = { configurable = { font_size = 21 } },
+                getCurrentPage = function() return 175 end,
+            },
+        }
+        assert.are.equal(17, widget._active_entry_idx)
+        local first, last = widget:_visibleEntryBounds()
+        assert.is_true(first <= 17 and 17 <= last)
+        assert.is_true(widget._toc_page > 1)
+    end)
+
+    it("marks no chapter when the reader is before the first entry", function()
+        assert.is_nil(ZenTocWidget.getCurrentIndex({ { page = 10 }, { page = 20 } }, 3))
+        assert.are.equal(2, ZenTocWidget.getCurrentIndex({ { page = 10 }, { page = 20 } }, 20))
+    end)
+
+    it("shares normalized TOC entries with embedded panels after loading the contents", function()
+        local toc = {
+            fillToc = function(self)
+                self.toc = {
+                    { title = " First \xE2\x80\x8Bchapter ", page = 1, depth = 2 },
+                    { title = "Second title", page = 1, depth = 1 },
+                    { title = "Too deep", page = 2, depth = 4 },
+                }
+            end,
+        }
+        assert.are.same({
+            { title = "First chapter · Second title", page = 1, page_label = "1", depth = 1 },
+        }, ZenTocWidget.getEntries({ toc = toc }))
+    end)
+
     it("closes itself and the page browser from the top-right X", function()
         local parent_closes = 0
         local widget = new_widget(nil, function() parent_closes = parent_closes + 1 end)
@@ -319,7 +410,7 @@ describe("Zen TOC hardware focus", function()
 
     it("refreshes the whole screen when Back or X dismisses a standalone TOC", function()
         for _i, x in ipairs({ 20, 550 }) do
-            local widget = new_widget(function() error("dismissal must not navigate") end)
+            local widget = new_widget(function() error("dismissal must not navigate") end, nil, true)
 
             assert.is_true(widget:_onTap({ pos = { x = x, y = 10 } }))
             assert.are.equal(widget, close_request.widget)
@@ -331,7 +422,7 @@ describe("Zen TOC hardware focus", function()
 
     it("uses the library face and size for TOC entries", function()
         local widget = new_widget()
-        widget:paintTo({ paintRect = function() end }, 0, 0)
+        widget:paintTo(fake_bb(), 0, 0)
 
         assert.same({ name = "LibraryFont", size = 21, index = nil }, font_calls[1])
     end)
@@ -376,5 +467,66 @@ describe("Zen TOC hardware focus", function()
         }
 
         assert.same({ name = "LibraryFont", size = 22, index = nil }, font_calls[1])
+    end)
+
+    local function reading_widget(current_page, stats)
+        local toc = {}
+        for i = 1, 8 do toc[i] = { title = "Section " .. i, page = i * 10, depth = 1 } end
+        return ZenTocWidget:new{
+            ui = {
+                toc = { toc = toc },
+                document = { configurable = { font_size = 21 }, getPageCount = function() return 95 end },
+                getCurrentPage = function() return current_page end,
+                statistics = stats,
+            },
+        }
+    end
+
+    it("outlines the current chapter with its page progress and reading time left", function()
+        local widget = reading_widget(25, { settings = { is_enabled = true }, avg_time = 60 })
+        assert.are.same({ done = 6, total = 10, time = "4 min left" }, widget._progress)
+        assert.are.same({ 1, 2 }, { widget:_visibleEntryBounds() })
+
+        local calls, counts, texts = {}, {}, {}
+        widget:paintTo(fake_bb(calls), 0, 0)
+        for _i, call in ipairs(calls) do counts[call[1]] = (counts[call[1]] or 0) + 1 end
+        for _i, spec in ipairs(text_specs) do texts[spec.text] = spec end
+        assert.is_true(texts["Section 2"].bold)
+        assert.is_not_nil(texts["Page 6 of 10"])
+        assert.is_not_nil(texts["4 min left"])
+        assert.are.equal("gray_5", texts["Section 1"].fgcolor)
+        assert.are.equal("black", texts["Page 6 of 10"].fgcolor)
+        assert.are.equal("black", texts["4 min left"].fgcolor)
+        -- Card and bar track are outlined; read dot and bar fill are solid.
+        assert.are.equal(2, counts.paintBorder)
+        assert.are.equal(2, counts.paintRoundedRect)
+    end)
+
+    it("rings unread chapters when the reader is before the first entry", function()
+        local calls, rings = {}, 0
+        new_widget():paintTo(fake_bb(calls), 0, 0)
+        for _i, call in ipairs(calls) do
+            assert.are_not.equal("paintRoundedRect", call[1])
+            if call[1] == "paintBorder" then
+                rings = rings + 1
+                assert.are.equal("black", call[7])
+            end
+        end
+        assert.are.equal(3, rings)
+    end)
+
+    it("hit-tests rows by their painted heights", function()
+        local selected
+        local widget = reading_widget(25)
+        widget.on_goto = function(page) selected = page end
+        local card_bottom = widget._L.list_y + widget._style.row_h + widget._style.current_h
+        assert.is_true(widget:_onTap({ pos = { x = 300, y = card_bottom - 1 } }))
+        assert.are.equal(20, selected)
+    end)
+
+    it("measures the last chapter to the end of the book and skips time without statistics", function()
+        local ui = { document = { getPageCount = function() return 95 end } }
+        assert.are.same({ done = 6, total = 16 },
+            ZenTocWidget.getChapterProgress(ui, { { page = 10 }, { page = 80 } }, 2, 85))
     end)
 end)
