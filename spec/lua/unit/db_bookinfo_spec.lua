@@ -107,6 +107,8 @@ describe("book info grouping cache", function()
                 }
             end,
         })
+        ZenSpec.unload("common/book_sources")
+        ZenSpec.unload("common/book_sources_kindle")
         ZenSpec.unload("common/db_bookinfo")
         DbBookInfo = require("common/db_bookinfo")
     end)
@@ -210,6 +212,37 @@ describe("book info grouping cache", function()
         assert.are.same({ path }, tags[1].files)
         assert.are.equal("Adventure", tags[1].tag)
         assert.are.equal("Kindle Book", metadata[path].title)
+    end)
+
+    it("includes registered book sources and rebuilds groups when they change", function()
+        local path = "/books/cloud-1.epub"
+        local books = {}
+        local BookSources = require("common/book_sources")
+        BookSources.register("cloud", { books = function() return books end })
+        local before = DbBookInfo.getGroupedByAuthor()
+
+        books = { { file = path, info = { title = "Cloud Book", authors = "Cloud Author",
+            series = "Cloud Saga", series_index = 1 } } }
+        BookSources.changed()
+        local authors = DbBookInfo.getGroupedByAuthor()
+        local series = DbBookInfo.getGroupedBySeries()
+
+        assert.are_not.equal(before, authors)
+        assert.are.equal("Cloud Author", authors[#authors].author)
+        assert.are.same({ path }, authors[#authors].files)
+        assert.are.equal("Cloud Saga", series[#series].series)
+        assert.are.equal("Cloud Book", DbBookInfo.getLightMetadata()[path].title)
+    end)
+
+    it("does not add a source's book that the database already lists", function()
+        require("common/book_sources").register("dup", {
+            books = function()
+                return { { file = "/books/a.epub", info = { authors = "Other Author" } } }
+            end,
+        })
+        for _i, group in ipairs(DbBookInfo.getGroupedByAuthor()) do
+            assert.are_not.equal("Other Author", group.author)
+        end
     end)
 
     it("loads lightweight sorting metadata in one batch", function()
