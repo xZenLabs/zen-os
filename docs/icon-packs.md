@@ -69,6 +69,7 @@ Any extra icon you include can also be picked as a Navbar or Launcher icon.
 - **Controls**: `airplane.svg`, `brightness.svg`, `warmth.svg`, `network.svg`, `quick_battery.svg`
 - **Stats**: `book_open.svg`, `calendar.svg`, `flame.svg`
 - **Update badge**: `zen_ui_update.svg`
+- **Plugin tabs**: `bookshelf.svg`, `bookorbit.tab.svg`
 
 ## Recovery
 
