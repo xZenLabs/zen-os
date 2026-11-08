@@ -8,7 +8,7 @@ local UIManager = require("ui/uimanager")
 local lfs = require("libs/libkoreader-lfs")
 local icons = require("common/inline_icon_map")
 local library_navigation = require("common/library_navigation")
-local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
+local BookSources = require("common/book_sources")
 local paths = require("common/paths")
 local util = require("util")
 local _ = require("gettext")
@@ -154,7 +154,7 @@ end
 function M.contextRow(fm, file, is_file)
     if not (fm and is_file and type(file) == "string"
             and lfs.attributes(file, "mode") == "file")
-            or Kindle.isBookPath(file) then
+            or BookSources.owns(file) then
         return nil
     end
 
@@ -224,7 +224,7 @@ function M.canArchive(file)
     return type(file) == "string" and archive ~= nil
         and lfs.attributes(archive, "mode") == "directory"
         and not is_in_archive(file, archive)
-        and not Kindle.isBookPath(file)
+        and not BookSources.owns(file)
 end
 
 function M.markCompleteAndArchive(reader_status, status_widget)

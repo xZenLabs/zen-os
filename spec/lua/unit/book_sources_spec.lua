@@ -84,6 +84,17 @@ describe("book sources", function()
         assert.is_false(BookSources.showContextMenu("menu", { path = "/books/local.epub" }))
     end)
 
+    it("reports whether any source owns a path", function()
+        BookSources.register("cloud", {
+            books = function() return {} end,
+            owns = function(path) return path == "/books/cloud-1.epub" end,
+        })
+        assert.is_true(BookSources.owns("/books/cloud-1.epub"))
+        assert.is_true(BookSources.owns("/kindle/book.azw3"))
+        assert.is_false(BookSources.owns("/books/local.epub"))
+        assert.is_false(BookSources.owns(nil))
+    end)
+
     it("does not open books whose source has no open handler", function()
         BookSources.register("listed_only", {
             books = function() return {} end,

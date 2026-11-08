@@ -194,22 +194,17 @@ function M.loadBooks(limit, exclude_path, config)
     local ok_lfs, lfs = pcall(require, "libs/libkoreader-lfs")
     local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
     if not ok_bim then BookInfoManager = nil end
-    local ok_kindle, Kindle = pcall(
-        require, "modules/filebrowser/patches/kindle_virtual_library")
+    local BookSources = require("common/book_sources")
     local books = {}
     local seen = {}
     for _i, entry in ipairs(ReadHistory.hist or {}) do
         local path = entry and entry.file
-        local in_library = type(path) == "string" and paths.isInHomeDir(path)
-        local is_kindle = false
-        if not in_library and ok_kindle and type(Kindle.isBookPath) == "function" then
-            is_kindle = Kindle.isBookPath(path)
-            in_library = is_kindle
-        end
-        local is_file = type(path) == "string" and path ~= ""
-            and in_library
+        local is_book = type(path) == "string" and path ~= ""
             and not BookStatus.isImageFile(path)
-            and (is_kindle or not ok_lfs or lfs.attributes(path, "mode") == "file")
+        local is_file = is_book and paths.isInHomeDir(path)
+            and (not ok_lfs or lfs.attributes(path, "mode") == "file")
+        -- Books from a book source (Kindle, a plugin's catalog) have no file.
+        if is_book and not is_file then is_file = BookSources.owns(path) end
         if is_file and path ~= exclude_path and not hidden[path] and not seen[path] then
             seen[path] = true
             if cfg.book_switcher_hide_finished == false
@@ -234,6 +229,7 @@ function M.buildReader(opts)
             opts.close()
             require("common/settings_transition").close()
             UIManager:nextTick(function()
+                if require("common/book_sources").open(path, opts.ui) then return end
                 require("apps/filemanager/filemanagerutil").openFile(opts.ui, path)
             end)
         end,

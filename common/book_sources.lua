@@ -15,7 +15,9 @@
 --       -- rebuilds a grouping, so return a cached list if it is costly.
 --       books = function() return { ... } end,
 --       -- Optional: true for paths this source owns. Needed for open and
---       -- showContextMenu.
+--       -- showContextMenu, and for its books to stay in the reading history
+--       -- views (Home, book switcher) and To Be Read when their file is
+--       -- missing.
 --       owns = function(path) return ... end,
 --       -- Optional: open a book. Return true when handled; ZenOS then skips
 --       -- its own opening (and marking the book as reading).
@@ -125,6 +127,12 @@ local function owner(path)
     for _i, id in ipairs(order) do
         if call(id, sources[id], "owns", path) == true then return id, sources[id] end
     end
+end
+
+--- True when a source owns this path (its book counts as present even
+-- without a file).
+function M.owns(path)
+    return owner(path) ~= nil
 end
 
 --- Opens a source's book. Returns true when a source handled it.
