@@ -21,6 +21,9 @@ local ReaderThemes = require("common/reader_themes")
 local ScrollHtmlWidget = require("ui/widget/scrollhtmlwidget")
 local Size = require("ui/size")
 local TopMenu = require("modules/global/patches/menu_top_swipe")
+local FT = require("ffi/freetype")
+local ffi = require("ffi")
+local Mupdf = require("ffi/mupdf")
 local UIManager = require("ui/uimanager")
 local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
@@ -32,6 +35,28 @@ local Screen = Device.screen
 local utils = require("common/utils")
 local icons_dir = require("common/plugin_root") .. "/icons/"
 local stock_icons_dir = require("libs/libkoreader-lfs").currentdir() .. "/resources/icons/mdlight/"
+
+-- Maps a color channel through crengine's weight and gamma curves on text coverage; other values pass through.
+local function coverageMap(background, foreground, gamma, edge_shift)
+    local map = ffi.new("uint8_t[256]")
+    local range = foreground - background
+    for value = 0, 255 do
+        local coverage = (value - background) / range
+        map[value] = coverage > 0 and coverage < 1 and math.floor(background + range
+            * (1 - (1 - math.max(0, math.min(1, coverage + edge_shift))) ^ gamma) + 0.5) or value
+    end
+    return map
+end
+
+-- crengine's 100% line spacing is the font's own line height; stock Noto Sans keeps its 1.3.
+local function naturalLineHeight(css, font_size)
+    local path = css:match("KOReaderFootnoteFont'; src: url%('(.-)'%)")
+    if not path then return 1.3 end
+    local size = FT.newFaceSize(path, font_size)
+    local height = size:getHeightAndAscender()
+    size:done()
+    return height / font_size
+end
 
 local PinImage = ImageWidget:extend{ alpha = true }
 function PinImage:_render()
@@ -171,8 +196,11 @@ function Drawer:init()
         local scroll_bar, scroll_span = Screen:scaleBySize(4), Screen:scaleBySize(4)
         -- Replace stock doc-aligned left margin so both text edges sit equally inset.
         local inset = Screen:scaleBySize(14)
-        local base_css = source.css .. string.format("\n@page { margin: 0 %dpx 0 %dpx; }",
-            inset - self.right_padding - scroll_bar - scroll_span, inset - self.padding)
+        local line_height = naturalLineHeight(source.css, source.default_font_size)
+            * (self.ui.document.configurable.line_spacing or 100) / 100
+        local base_css = source.css .. string.format(
+            "\n@page { margin: 0 %dpx 0 %dpx; }\nbody { line-height: %.3f !important; }",
+            inset - self.right_padding - scroll_bar - scroll_span, inset - self.padding, line_height)
         local css = base_css .. string.format(
             "\n@page { background-color: %s; }\nhtml, body { background-color: %s !important; }"
                 .. "\nbody, body * { color: #%02x%02x%02x !important; }",
@@ -188,8 +216,8 @@ function Drawer:init()
         -- A painted page background fills MuPDF's bounding box, so measure first.
         local short = not self.landscape and self.htmlwidget:getSinglePageHeight()
         if short then
-            -- Used bbox stops at glyph ink; pad for last-line descent so relayout stays one page.
-            short = short + math.ceil(source.default_font_size * 0.5)
+            -- Used bbox stops at glyph ink; pad for last-line descent and half-leading so relayout stays one page.
+            short = short + math.ceil(source.default_font_size * (line_height / 2 - 0.1))
             self.height = math.min(self.height,
                 math.max(math.ceil(2 * source.default_font_size * 1.3), short) + vertical_inset)
             self.body_height = self.height - vertical_inset
@@ -200,11 +228,13 @@ function Drawer:init()
             self.htmlwidget.css = css
             self.htmlwidget:init()
         end
+        self:matchReaderGlyphs(source.default_font_size)
         self.htmlwidget.v_scroll_bar.bordercolor = self.foreground
         self.htmlwidget.v_scroll_bar.rectcolor = self.foreground
         self.htmlwidget.onTapScrollText = function() return false end
         if state.footnote and state.footnote.xpointer == self.link.xpointer and state.ratio then
-            self.htmlwidget:scrollToRatio(state.ratio)
+            -- Aim mid-page: flooring count * ratio can land a page early from float rounding.
+            self.htmlwidget:scrollToRatio(state.ratio + 0.5 / self.htmlwidget.htmlbox_widget.page_count)
         else state.ratio = nil end
         local link = {}
         for key, value in pairs(self.link) do link[key] = value end
@@ -250,6 +280,44 @@ function Drawer:init()
         self.tap_guard_until = time.now() + time.ms(G_reader_settings:readSetting("ges_double_tap_interval_ms") or 300)
     end
     state.drawer = self
+end
+
+-- MuPDF has no glyph gamma or synthetic weight, so apply them to each rendered page.
+function Drawer:matchReaderGlyphs(font_size)
+    local document = self.ui.document
+    local gamma = document:getGammaLevel()
+    -- crengine thickens stems by font_size * weight / 64 in total, half per edge.
+    local edge_shift = font_size * (document.configurable.font_base_weight or 0) / 128
+    if gamma == 1 and edge_shift == 0 then return end
+    local background, foreground = self.background, self.foreground
+    local maps
+    if Screen:isColorEnabled() then
+        maps = {
+            coverageMap(background:getR(), foreground:getR(), gamma, edge_shift),
+            coverageMap(background:getG(), foreground:getG(), gamma, edge_shift),
+            coverageMap(background:getB(), foreground:getB(), gamma, edge_shift),
+        }
+        if Mupdf.bgr then maps[1], maps[3] = maps[3], maps[1] end
+    else
+        maps = { coverageMap(background:getColor8().a, foreground:getColor8().a, gamma, edge_shift) }
+    end
+    local box = self.htmlwidget.htmlbox_widget
+    local render = box._render
+    box._render = function(widget)
+        if widget.bb then return end
+        render(widget)
+        local bb = widget.bb
+        local data, step, channels = ffi.cast("uint8_t*", bb.data), bb:getBytesPerPixel(), #maps
+        for y = 0, bb.h - 1 do
+            local pixel = data + y * bb.stride
+            for _x = 1, bb.w do
+                for channel = 1, channels do
+                    pixel[channel - 1] = maps[channel][pixel[channel - 1]]
+                end
+                pixel = pixel + step
+            end
+        end
+    end
 end
 
 function Drawer:button(text, callback, width, icon, rotation, align, padding)
