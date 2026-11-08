@@ -760,6 +760,15 @@ local function apply_status_bar()
         return vg
     end
 
+    -- OverlapGroup/VerticalGroup do not track their painted origin; tap hit-tests need it.
+    local function track_origin(widget)
+        local paint = widget.paintTo
+        widget.paintTo = function(w, bb, x, y)
+            w.dimen.x, w.dimen.y = x, y
+            return paint(w, bb, x, y)
+        end
+    end
+
     -- Builds a pure item row (no file-browser navigation) suitable for embedding in other panels.
     -- width: desired row width in pixels (e.g. the panel's inner_width).
     -- opts:  optional table with:
@@ -807,12 +816,7 @@ local function apply_status_bar()
                 left_group,
             },
         }
-        -- OverlapGroup does not track its painted origin.
-        local paint_row = row.paintTo
-        row.paintTo = function(widget, bb, x, y)
-            widget.dimen.x, widget.dimen.y = x, y
-            return paint_row(widget, bb, x, y)
-        end
+        track_origin(row)
         if center_content then
             local CenterContainer = require("ui/widget/container/centercontainer")
             table.insert(row, CenterContainer:new{
@@ -864,6 +868,8 @@ local function apply_status_bar()
             dimen = Geom:new{ w = width, h = Size.line.medium },
             border,
         })
+        vg.dimen = Geom:new{ w = width, h = row_height + Size.line.medium }
+        track_origin(vg)
         vg._zen_status_item_regions = item_regions
         vg._zen_status_item_values = row._zen_status_item_values
         return vg

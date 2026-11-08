@@ -411,6 +411,7 @@ local defaults = {
     },
     highlight_lookup = {
         show_labels         = false,
+        night_invert        = false,
         submenu_order       = { "style", "color", "note", "start_prev", "start_next", "end_prev", "end_next",
             "delete", "more" },
         submenu_enabled     = {},

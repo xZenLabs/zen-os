@@ -385,12 +385,21 @@ describe("reader settings", function()
         end
         local highlights = lookup.sub_item_table[3].sub_item_table_func()
         assert.is_true(highlights[1]._zen_settings_submenu)
-        assert.are.equal(3, #highlights)
+        assert.are.equal(4, #highlights)
         assert.are.equal("Menu items", highlights[1].text)
         assert.are.equal("Show labels", highlights[2].text)
         assert.is_false(highlights[2].checked_func())
-        assert.are.equal("Colors", highlights[3].text)
-        local colors = highlights[3].sub_item_table
+        local invert = highlights[3]
+        assert.are.equal("Invert colors in night mode", invert.text)
+        assert.is_false(invert.checked_func())
+        invert.callback()
+        assert.is_true(config.highlight_lookup.night_invert)
+        assert.is_true(invert.checked_func())
+        invert.callback()
+        assert.is_false(config.highlight_lookup.night_invert)
+        saved = 0
+        assert.are.equal("Colors", highlights[4].text)
+        local colors = highlights[4].sub_item_table
         assert.are.equal(10, #colors)
         local reset, red = colors[#colors], colors[1]
         assert.are.equal("Reset colors and names", reset.text)

@@ -169,6 +169,15 @@ function M.build(ctx)
                 end,
             },
             {
+                text = _("Invert colors in night mode"),
+                checked_func = function() return highlight_settings().night_invert == true end,
+                callback = function()
+                    local settings = highlight_settings()
+                    settings.night_invert = settings.night_invert ~= true
+                    save_highlights()
+                end,
+            },
+            {
                 text = _("Colors"),
                 sub_item_table = color_items,
             },

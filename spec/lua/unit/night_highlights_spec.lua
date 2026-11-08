@@ -180,4 +180,28 @@ describe("night mode highlights", function()
         legacy:init()
         assert.are.equal(Blitbuffer.COLOR_WHITE, legacy:getButtonById("yellow").label_widget.fgcolor)
     end)
+
+    it("defers to stock night inversion when night_invert is on", function()
+        local lookup = { night_invert = true }
+        local prev = rawget(_G, "__ZEN_UI_PLUGIN")
+        _G.__ZEN_UI_PLUGIN = { config = { highlight_lookup = lookup } }
+        local ok, err = pcall(function()
+            local view = setup()
+            local hl = view.ui.highlight
+            hl.selected_text = { sboxes = { { x = 0, y = 0, w = 4, h = 4 } } }
+            local bb = page()
+            view:paintTo(bb)
+            assert.are.equal("#FFFF00", props["crengine.highlight.selection.color"])
+            view:drawHighlightRect(bb, 0, 0, { x = 0, y = 0, w = 4, h = 4 }, "lighten", yellow)
+            assert.are.same({ 0xff, 0xff, 0x00 }, rgb(bb, 0, 0))
+
+            -- Live toggle back to day colors.
+            lookup.night_invert = false
+            view:paintTo(bb)
+            assert.are.equal("#FFFFFF", props["crengine.highlight.selection.color"])
+            bb:free()
+        end)
+        _G.__ZEN_UI_PLUGIN = prev
+        if not ok then error(err, 0) end
+    end)
 end)

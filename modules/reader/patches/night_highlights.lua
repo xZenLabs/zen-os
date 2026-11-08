@@ -1,4 +1,5 @@
--- Night mode: lighten highlights keep their day color and dark text instead of inverting with the page.
+-- Night mode: lighten highlights keep their day color and dark text instead of inverting with the page,
+-- unless highlight_lookup.night_invert is on (stock behavior).
 local function intersect(a, b)
     local x0, y0 = math.max(a.x, b.x), math.max(a.y, b.y)
     local x1, y1 = math.min(a.x + a.w, b.x + b.w), math.min(a.y + a.h, b.y + b.h)
@@ -37,13 +38,21 @@ local function apply_night_highlights()
     local Blitbuffer = require("ffi/blitbuffer")
     local ReaderHighlight = require("apps/reader/modules/readerhighlight")
     local Screen = require("device").screen
+    local plugin = rawget(_G, "__ZEN_UI_PLUGIN")
+
+    -- Day-color highlights apply only in night mode with night_invert off.
+    local function keep_day()
+        if not Screen.night_mode then return false end
+        local lookup = plugin and plugin.config and plugin.config.highlight_lookup
+        return not (type(lookup) == "table" and lookup.night_invert == true)
+    end
 
     -- CRe paints its selection under black text; in night mode draw it as a highlight instead.
     local orig_setSelectionColor = ReaderHighlight.setSelectionColor
     if orig_setSelectionColor then
         ReaderHighlight.setSelectionColor = function(self, ...)
             local result = orig_setSelectionColor(self, ...)
-            self._zen_selection_night = Screen.night_mode == true
+            self._zen_selection_night = keep_day()
             if self._zen_selection_night and not self.ui.paging then
                 self.document._document:setStringProperty("crengine.highlight.selection.color", "#FFFFFF")
             end
@@ -60,10 +69,11 @@ local function apply_night_highlights()
         local hl = orig_setSelectionColor and self.ui.rolling and self.ui.highlight
         if not hl then return orig_paintTo(self, ...) end
         -- Night mode can flip without DeviceListener (e.g. schedules).
-        if hl._zen_selection_night ~= (Screen.night_mode == true) then hl:setSelectionColor() end
+        local day = keep_day()
+        if hl._zen_selection_night ~= day then hl:setSelectionColor() end
         local handles = hl._zen_highlight_handles
         local selected = handles and not handles.index and (handles.draft or handles.item) or hl.selected_text
-        local selection = Screen.night_mode and selected and selected.sboxes
+        local selection = day and selected and selected.sboxes
         if not selection or next(self.highlight.temp) then return orig_paintTo(self, ...) end
         local temp = self.highlight.temp
         self.highlight.temp = { selection }
@@ -81,7 +91,7 @@ local function apply_night_highlights()
 
     local orig_drawHighlightRect = ReaderView.drawHighlightRect
     ReaderView.drawHighlightRect = function(self, bb, x, y, rect, drawer, color, draw_note_mark)
-        if drawer ~= "lighten" or not Screen.night_mode then
+        if drawer ~= "lighten" or not keep_day() then
             return orig_drawHighlightRect(self, bb, x, y, rect, drawer, color, draw_note_mark)
         end
         local box = { x = rect.x, y = rect.y, w = rect.w, h = rect.h }
@@ -121,7 +131,7 @@ local function apply_night_highlights()
         local orig_init = ButtonSelector.init
         ButtonSelector.init = function(self, ...)
             local result = orig_init(self, ...)
-            if not Screen.night_mode then return result end
+            if not keep_day() then return result end
             for i, value in ipairs(self.values or {}) do
                 local swatch = value[3] or self.bg_colors and self.bg_colors[i]
                 local button = swatch and self:getButtonById(value[2])
