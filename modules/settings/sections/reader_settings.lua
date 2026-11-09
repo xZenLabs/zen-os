@@ -170,10 +170,12 @@ function M.build(ctx)
             },
             {
                 text = _("Invert colors in night mode"),
-                checked_func = function() return highlight_settings().night_invert == true end,
+                checked_func = function()
+                    return G_reader_settings:isTrue("highlight_selection_invert_highlight_color")
+                end,
                 callback = function()
-                    local settings = highlight_settings()
-                    settings.night_invert = settings.night_invert ~= true
+                    local key = "highlight_selection_invert_highlight_color"
+                    G_reader_settings:saveSetting(key, not G_reader_settings:isTrue(key))
                     save_highlights()
                 end,
             },

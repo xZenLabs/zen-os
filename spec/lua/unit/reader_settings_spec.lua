@@ -391,12 +391,16 @@ describe("reader settings", function()
         assert.is_false(highlights[2].checked_func())
         local invert = highlights[3]
         assert.are.equal("Invert colors in night mode", invert.text)
+        local invert_key = "highlight_selection_invert_highlight_color"
+        local prev_invert = G_reader_settings:readSetting(invert_key)
+        G_reader_settings:delSetting(invert_key)
         assert.is_false(invert.checked_func())
         invert.callback()
-        assert.is_true(config.highlight_lookup.night_invert)
+        assert.is_true(G_reader_settings:isTrue(invert_key))
         assert.is_true(invert.checked_func())
         invert.callback()
-        assert.is_false(config.highlight_lookup.night_invert)
+        assert.is_false(G_reader_settings:isTrue(invert_key))
+        G_reader_settings:saveSetting(invert_key, prev_invert)
         saved = 0
         assert.are.equal("Colors", highlights[4].text)
         local colors = highlights[4].sub_item_table

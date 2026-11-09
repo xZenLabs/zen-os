@@ -30,8 +30,10 @@ describe("night mode highlights", function()
             end,
         }
         local ReaderHighlight = {
+            -- Mirrors stock: the selection color is pre-inverted at night.
             setSelectionColor = function(self)
-                self.document._document:setStringProperty("crengine.highlight.selection.color", "#FFFF00")
+                self.document._document:setStringProperty("crengine.highlight.selection.color",
+                    screen.night_mode and "#0000FF" or "#FFFF00")
             end,
         }
         ZenSpec.replace("apps/reader/modules/readerview", ReaderView)
@@ -181,27 +183,45 @@ describe("night mode highlights", function()
         assert.are.equal(Blitbuffer.COLOR_WHITE, legacy:getButtonById("yellow").label_widget.fgcolor)
     end)
 
-    it("defers to stock night inversion when night_invert is on", function()
-        local lookup = { night_invert = true }
-        local prev = rawget(_G, "__ZEN_UI_PLUGIN")
-        _G.__ZEN_UI_PLUGIN = { config = { highlight_lookup = lookup } }
+    it("defers to stock night inversion when KOReader's invert color setting is on", function()
+        local key, use_key = "highlight_selection_invert_highlight_color", "highlight_selection_use_highlight_color"
+        local prev, prev_use = G_reader_settings:readSetting(key), G_reader_settings:readSetting(use_key)
+        G_reader_settings:saveSetting(key, true)
+        G_reader_settings:saveSetting(use_key, true)
         local ok, err = pcall(function()
             local view = setup()
             local hl = view.ui.highlight
             hl.selected_text = { sboxes = { { x = 0, y = 0, w = 4, h = 4 } } }
             local bb = page()
+            -- Selection is still drawn as a temp highlight, now through stock inversion.
             view:paintTo(bb)
-            assert.are.equal("#FFFF00", props["crengine.highlight.selection.color"])
+            assert.are.equal("#FFFFFF", props["crengine.highlight.selection.color"])
+            assert.are.equal(0, calls[#calls].inverse)
+            assert.are.same({ 0xff, 0xff, 0x00 }, rgb(bb, 0, 0))
             view:drawHighlightRect(bb, 0, 0, { x = 0, y = 0, w = 4, h = 4 }, "lighten", yellow)
             assert.are.same({ 0xff, 0xff, 0x00 }, rgb(bb, 0, 0))
 
+            -- Color modal: pre-inverted swatches flip back so they invert with the page; labels stay stock.
+            local ButtonSelector = require("ui/widget/buttonselector")
+            local gray = Blitbuffer.Color8(0xcc)
+            local selector = setmetatable({ values = { { "Yellow", "yellow", yellow }, { "Gray", "gray", gray } } },
+                { __index = ButtonSelector })
+            selector:init()
+            local swatch = selector:getButtonById("yellow")
+            assert.are.same({ 0x00, 0x00, 0xff },
+                { swatch[1].background.r, swatch[1].background.g, swatch[1].background.b })
+            assert.are.equal(Blitbuffer.COLOR_BLACK, swatch.label_widget.fgcolor)
+            assert.are.equal(gray, selector:getButtonById("gray")[1].background)
+
             -- Live toggle back to day colors.
-            lookup.night_invert = false
+            G_reader_settings:saveSetting(key, false)
+            local count = #calls
             view:paintTo(bb)
-            assert.are.equal("#FFFFFF", props["crengine.highlight.selection.color"])
+            assert.are.equal(count + 1, #calls)
             bb:free()
         end)
-        _G.__ZEN_UI_PLUGIN = prev
+        G_reader_settings:saveSetting(key, prev)
+        G_reader_settings:saveSetting(use_key, prev_use)
         if not ok then error(err, 0) end
     end)
 end)
