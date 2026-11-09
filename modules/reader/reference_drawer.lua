@@ -52,7 +52,8 @@ end
 local function naturalLineHeight(css, font_size)
     local path = css:match("KOReaderFootnoteFont'; src: url%('(.-)'%)")
     if not path then return 1.3 end
-    local size = FT.newFaceSize(path, font_size)
+    local ok, size = pcall(FT.newFaceSize, path, font_size)
+    if not ok or not size then return 1.3 end
     local height = size:getHeightAndAscender()
     size:done()
     return height / font_size

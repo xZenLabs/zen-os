@@ -1798,7 +1798,7 @@ def _write_font_settings_book(path: Path, sentence: str) -> None:
           <item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/>
           <item id="notes" href="notes.xhtml" media-type="application/xhtml+xml"/>
           </manifest><spine><itemref idref="chapter"/><itemref idref="notes"/></spine></package>""")
-        archive.writestr("chapter.xhtml", f"""<html xmlns="http://www.w3.org/1999/xhtml"
+        archive.writestr("chapter.xhtml", """<html xmlns="http://www.w3.org/1999/xhtml"
           xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Reading</title></head><body>"""
           + f'<p style="text-indent:0">{sentence}</p>' * 6
           + """<p>Short<a epub:type="noteref" href="notes.xhtml#n1">1</a>.
