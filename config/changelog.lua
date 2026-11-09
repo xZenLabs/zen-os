@@ -435,10 +435,11 @@ return {
         "End of book page forward key opens the next book in the series, or the library if none",
         "Bug fixes & performance improvements"
     },
-    ["4.4.0"] = {
+    ["4.3.1"] = {
         "Allow inverting highlight color",
         "Fix edge case crash in pagebrowser tap",
         "Use all reader font settings in footnote",
+        "Add option for other items in highlight menu"
     },
 
 }
