@@ -55,11 +55,12 @@ function M.settingForDictButton(button)
     end
 end
 
-function M.shouldShow(config, setting)
-    local lookup = type(config) == "table" and config.highlight_lookup
-    if type(lookup) ~= "table" then return false end
-    if setting then return lookup[setting] ~= false end
-    return lookup.allow_unknown_items == true
+-- Recognized plugins share highlight_lookup toggles; other items follow the menu's own section.
+function M.shouldShow(config, setting, section)
+    local settings = type(config) == "table" and config[setting and "highlight_lookup" or section]
+    if type(settings) ~= "table" then return false end
+    if setting then return settings[setting] ~= false end
+    return settings.allow_unknown_items == true
 end
 
 return M

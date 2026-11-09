@@ -782,6 +782,19 @@ describe("config manager folder-path migration", function()
         assert.is_false(config.highlight_lookup.show_ai_assistant)
     end)
 
+    it("carries the shared other-items toggle over to the dictionary once", function()
+        settings_file.data = { highlight_lookup = { allow_unknown_items = true } }
+        local config = Manager.load()
+        assert.is_true(config.dict_quick_lookup.allow_unknown_items)
+        assert.is_true(config.highlight_lookup.allow_unknown_items)
+
+        config.dict_quick_lookup.allow_unknown_items = false
+        Manager.save(config)
+        config = Manager.load()
+        assert.is_false(config.dict_quick_lookup.allow_unknown_items)
+        assert.is_true(config.highlight_lookup.allow_unknown_items)
+    end)
+
     it("preserves a custom Library font during the default migration", function()
         settings_file.data = {
             library_font = { font_face = "/fonts/Custom-Regular.ttf", font_size = 18 },

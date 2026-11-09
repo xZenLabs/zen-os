@@ -1173,6 +1173,16 @@ local function migrate_changed_defaults(cfg)
         changed = true
     end
 
+    if cfg._meta.dict_other_items_migrated ~= true then
+        -- Dictionary used to share the highlight menu's toggle.
+        if type(cfg.highlight_lookup) == "table" and cfg.highlight_lookup.allow_unknown_items == true then
+            if type(cfg.dict_quick_lookup) ~= "table" then cfg.dict_quick_lookup = {} end
+            cfg.dict_quick_lookup.allow_unknown_items = true
+        end
+        cfg._meta.dict_other_items_migrated = true
+        changed = true
+    end
+
     local end_book = type(cfg.end_book) == "table" and cfg.end_book or nil
     local end_modules = end_book and type(end_book.modules) == "table" and end_book.modules
     if cfg._meta.end_book_appearance_default_migrated ~= true and end_modules then

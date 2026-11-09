@@ -1782,3 +1782,112 @@ def test_pin_control_visibility_and_footer_space():
             assert native["footer_bar_width"] == zero["footer_bar_width"]
         finally:
             stop(process)
+
+
+def _write_font_settings_book(path: Path, sentence: str) -> None:
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("mimetype", "application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        archive.writestr("META-INF/container.xml", """<container version="1.0"
+          xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles>
+          <rootfile full-path="content.opf" media-type="application/oebps-package+xml"/>
+          </rootfiles></container>""")
+        archive.writestr("content.opf", """<package version="3.0" unique-identifier="id"
+          xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <dc:identifier id="id">zen-note-font</dc:identifier><dc:title>Note font</dc:title>
+          <dc:language>en</dc:language></metadata><manifest>
+          <item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/>
+          <item id="notes" href="notes.xhtml" media-type="application/xhtml+xml"/>
+          </manifest><spine><itemref idref="chapter"/><itemref idref="notes"/></spine></package>""")
+        archive.writestr("chapter.xhtml", """<html xmlns="http://www.w3.org/1999/xhtml"
+          xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Reading</title></head><body>"""
+          + f'<p style="text-indent:0">{sentence}</p>' * 6
+          + """<p>Short<a epub:type="noteref" href="notes.xhtml#n1">1</a>.
+          Long<a epub:type="noteref" href="notes.xhtml#n2">2</a>.</p></body></html>""")
+        archive.writestr("notes.xhtml", f"""<html xmlns="http://www.w3.org/1999/xhtml"
+          xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Notes</title></head><body>
+          <aside epub:type="footnote" id="n1"><p>{sentence}</p></aside>
+          <aside epub:type="footnote" id="n2">""" + f"<p>{sentence}</p>" * 6 + "</aside></body></html>")
+
+
+def _text_lines(image, background):
+    """Returns (top, bottom, ink) per text line, ink being summed distance from the background."""
+    ink = ImageChops.difference(image.convert("L"), Image.new("L", image.size, background))
+    lines = []
+    for y in range(ink.height):
+        row = ink.crop((0, y, ink.width, y + 1))
+        amount = sum(row.getdata())
+        if max(row.getdata()) > 40:
+            if lines and lines[-1][1] == y:
+                lines[-1][1], lines[-1][2] = y + 1, lines[-1][2] + amount
+            else:
+                lines.append([y, y + 1, amount])
+    return lines
+
+
+def _page_and_note_lines(driver, name, index=2):
+    state = _ref(driver, "paint")
+    header = state.get("header_bounds") or {"y": 0, "h": 0}
+    page = Image.open(_capture(driver, f"{name}-page.png"))
+    top = header["y"] + header["h"]
+    crop = page.crop((0, top, page.width, page.height // 3))
+    background = crop.convert("L").getpixel((0, 0))
+    page_lines = _text_lines(crop, background)
+    opened = _ref(driver, "footnote", index=index)
+    content = opened["drawer"]["content"]
+    sheet = Image.open(_capture(driver, f"{name}-note.png"))
+    crop = sheet.crop((content["x"], content["y"], content["x"] + content["w"] - math.ceil(10 * min(opened["screen"].values()) / 600),
+                       content["y"] + content["h"]))
+    note_lines = _text_lines(crop, crop.convert("L").getpixel((0, 0)))
+    _ref(driver, "close")
+    return page_lines, note_lines
+
+
+def test_footnote_text_follows_reader_font_settings():
+    sentence = "Keep this reading position while reading."
+    with tempfile.TemporaryDirectory(prefix="zen-note-font-") as temporary:
+        root = Path(temporary)
+        library = root / "library"
+        library.mkdir()
+        book = library / "note-font.epub"
+        _write_font_settings_book(book, sentence)
+        socket = root / "driver.sock"
+        process = launch(Path(os.environ["KOREADER_DIR"]), root / "home", socket, library)
+        try:
+            wait_for_socket(socket)
+            driver = ZenDriver(socket)
+            assert driver.open_book(book)["ok"]
+            _wait_reader(driver)
+            def apply(gamma, weight, spacing):
+                for name, value in (("font_gamma", gamma), ("font_base_weight", weight), ("line_spacing", spacing)):
+                    assert driver.command("reader_controls", action="setting", name=name, value=value)["ok"]
+
+            def pitch(lines):
+                return (lines[4][0] - lines[0][0]) / 4
+
+            # Heavier synthetic weights can only grow stems by a pixel; plain coverage stays within a few percent.
+            for gamma, weight, spacing, tolerance in ((15, 0, 100, 0.02), (25, -0.5, 110, 0.03), (43, 0, 100, 0.03),
+                                                      (10, 0, 130, 0.03), (15, 1, 100, 0.05), (36, 0.5, 90, 0.04),
+                                                      (15, 3, 150, 0.1)):
+                apply(gamma, weight, spacing)
+                page, note = _page_and_note_lines(driver, f"note-font-{gamma}-{weight}-{spacing}")
+                assert note[0][2] / page[0][2] == pytest.approx(1, abs=tolerance), (gamma, weight)
+                assert pitch(note) == pytest.approx(pitch(page), abs=1), spacing
+
+            # Coverage is remapped between the sheet's own colors, so a light-on-dark theme still gains contrast.
+            assert driver.command("reader_controls", action="theme", theme={
+                "enabled": True,
+                "light_mode": {"text": "#dcdccc", "background": "#1f1f1f"},
+                "dark_mode": {"text": "#dcdccc", "background": "#1f1f1f"},
+            })["ok"]
+            apply(43, 0, 100)
+            page, note = _page_and_note_lines(driver, "note-font-dark-theme")
+            assert note[0][2] / page[0][2] == pytest.approx(1, abs=0.05)
+            content = _ref(driver, "footnote", index=1)["drawer"]["content"]
+            sheet = Image.open(_capture(driver, "note-font-dark-theme-short.png")).convert("RGB")
+            assert sheet.getpixel((content["x"], content["y"])) == (0x1f, 0x1f, 0x1f)
+            _ref(driver, "close")
+            # Extra leading below the last line must not spill a short note onto a second page.
+            apply(15, 0, 200)
+            assert _ref(driver, "footnote", index=1)["drawer"]["html_pages"] == 1
+        finally:
+            stop(process)

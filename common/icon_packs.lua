@@ -250,11 +250,12 @@ local function install_icon_hook()
     function IconWidget:init(...)
         if not self.image and not self.file and type(self.icon) == "string" then
             local path = resolved_icons[self.icon]
-            -- TouchMenu also passes absolute plugin paths as icon names.
-            if not path and self.icon:sub(1, 1) == "/" then
-                local name = self.icon:match("/([^/]+)%.svg$") or self.icon:match("/([^/]+)%.png$")
+            -- Plugin tabs name icons by path: absolute, or "../"-climbing without an extension.
+            if not path and self.icon:find("/", 1, true) then
+                local name = self.icon:match("([^/]+)%.svg$") or self.icon:match("([^/]+)%.png$")
+                    or self.icon:match("([^/]+)$")
                 path = name and resolved_icons[name]
-                if not path then
+                if not path and self.icon:sub(1, 1) == "/" then
                     -- Only hits are memoized: a missing file may appear later.
                     local key = "\0" .. self.icon
                     path = lookup_cache[key]

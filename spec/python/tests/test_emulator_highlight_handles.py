@@ -358,6 +358,33 @@ def test_highlight_menu_arrange_settings_persist() -> None:
             stop(process)
 
 
+def test_new_selection_keeps_other_items_behind_more() -> None:
+    with tempfile.TemporaryDirectory(prefix="zen-highlight-other-") as temporary:
+        root = Path(temporary)
+        home, library = root / "home", root / "library"
+        home.mkdir()
+        library.mkdir()
+        book = library / "other.epub"
+        _write_reader_epub(book)
+        socket = root / "driver.sock"
+        process = launch(Path(os.environ["KOREADER_DIR"]), home, socket, library, zen_config_source=(
+            "return { highlight_lookup = { allow_unknown_items = true }, updater = { update_auto_check = false } }\n"
+        ))
+        try:
+            wait_for_socket(socket)
+            driver = ZenDriver(socket)
+            assert driver.open_book(book)["ok"]
+            state = driver.command("highlight_tools", action="seed")
+            assert state["ok"], state
+            assert "zen_highlight_more" in state["menu_ids"] and "Copy" not in state["menu_ids"]
+            selected = state["draft_text"]
+            state = driver.command("highlight_tools", action="more")
+            assert "Copy" in state["menu_ids"] and "lookup.dictionary" not in state["menu_ids"]
+            assert state["handles"] and state["draft_text"] == selected
+        finally:
+            stop(process)
+
+
 @pytest.mark.parametrize("use_pack", [False, True])
 @pytest.mark.parametrize("show_labels", [False, True])
 def test_highlight_menu_icons_and_settings_shortcut(use_pack: bool, show_labels: bool) -> None:

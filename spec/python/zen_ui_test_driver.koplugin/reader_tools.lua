@@ -1729,6 +1729,7 @@ function M.reference_action(params)
             border = drawer.frame.bordersize, paint_height = drawer.frame.height, grabber = drawer.grabber ~= nil,
             radius = drawer.frame.radius, css = drawer.htmlwidget and drawer.htmlwidget.css,
             font_size = drawer.htmlwidget and drawer.htmlwidget.default_font_size,
+            html_pages = drawer.htmlwidget and drawer.htmlwidget.htmlbox_widget.page_count,
             background = { drawer.background:getR(), drawer.background:getG(), drawer.background:getB() },
             foreground = { drawer.foreground:getR(), drawer.foreground:getG(), drawer.foreground:getB() },
             ratio = drawer:getScrollRatio(), closed = drawer.closed } or nil,

@@ -1,4 +1,5 @@
--- Night mode: lighten highlights keep their day color and dark text instead of inverting with the page.
+-- Night mode: lighten highlights keep their day color and dark text instead of inverting with the page,
+-- unless KOReader's "Invert highlight color in night mode" is on (stock behavior).
 local function intersect(a, b)
     local x0, y0 = math.max(a.x, b.x), math.max(a.y, b.y)
     local x1, y1 = math.min(a.x + a.w, b.x + b.w), math.min(a.y + a.h, b.y + b.h)
@@ -38,6 +39,10 @@ local function apply_night_highlights()
     local ReaderHighlight = require("apps/reader/modules/readerhighlight")
     local Screen = require("device").screen
 
+    local function keep_day()
+        return Screen.night_mode == true and not G_reader_settings:isTrue("highlight_selection_invert_highlight_color")
+    end
+
     -- CRe paints its selection under black text; in night mode draw it as a highlight instead.
     local orig_setSelectionColor = ReaderHighlight.setSelectionColor
     if orig_setSelectionColor then
@@ -60,10 +65,11 @@ local function apply_night_highlights()
         local hl = orig_setSelectionColor and self.ui.rolling and self.ui.highlight
         if not hl then return orig_paintTo(self, ...) end
         -- Night mode can flip without DeviceListener (e.g. schedules).
-        if hl._zen_selection_night ~= (Screen.night_mode == true) then hl:setSelectionColor() end
+        local night = Screen.night_mode == true
+        if hl._zen_selection_night ~= night then hl:setSelectionColor() end
         local handles = hl._zen_highlight_handles
         local selected = handles and not handles.index and (handles.draft or handles.item) or hl.selected_text
-        local selection = Screen.night_mode and selected and selected.sboxes
+        local selection = night and selected and selected.sboxes
         if not selection or next(self.highlight.temp) then return orig_paintTo(self, ...) end
         local temp = self.highlight.temp
         self.highlight.temp = { selection }
@@ -81,7 +87,7 @@ local function apply_night_highlights()
 
     local orig_drawHighlightRect = ReaderView.drawHighlightRect
     ReaderView.drawHighlightRect = function(self, bb, x, y, rect, drawer, color, draw_note_mark)
-        if drawer ~= "lighten" or not Screen.night_mode then
+        if drawer ~= "lighten" or not keep_day() then
             return orig_drawHighlightRect(self, bb, x, y, rect, drawer, color, draw_note_mark)
         end
         local box = { x = rect.x, y = rect.y, w = rect.w, h = rect.h }
@@ -115,19 +121,26 @@ local function apply_night_highlights()
         if side_mark then orig_drawHighlightRect(self, bb, x, y, rect, nil, color, draw_note_mark) end
     end
 
-    -- Color swatches come night-inverted so they show true; flip labels (and grays) to match the page.
+    -- Color swatches come night-inverted so they show true; flip labels (and grays) to match day highlights.
     local ok_selector, ButtonSelector = pcall(require, "ui/widget/buttonselector")
     if ok_selector then
         local orig_init = ButtonSelector.init
         ButtonSelector.init = function(self, ...)
             local result = orig_init(self, ...)
             if not Screen.night_mode then return result end
+            local day = keep_day()
             for i, value in ipairs(self.values or {}) do
                 local swatch = value[3] or self.bg_colors and self.bg_colors[i]
                 local button = swatch and self:getButtonById(value[2])
                 if button and button.label_widget then
-                    if Blitbuffer.isColor8(swatch) then button[1].background = swatch:invert() end
-                    button.label_widget.fgcolor = Blitbuffer.COLOR_WHITE
+                    local gray = Blitbuffer.isColor8(swatch)
+                    if day then
+                        if gray then button[1].background = swatch:invert() end
+                        button.label_widget.fgcolor = Blitbuffer.COLOR_WHITE
+                    elseif not gray then
+                        -- Inverting: undo the pre-invert so swatches invert like the highlights.
+                        button[1].background = swatch:invert()
+                    end
                 end
             end
             return result

@@ -385,12 +385,37 @@ describe("reader settings", function()
         end
         local highlights = lookup.sub_item_table[3].sub_item_table_func()
         assert.is_true(highlights[1]._zen_settings_submenu)
-        assert.are.equal(3, #highlights)
+        assert.are.equal(5, #highlights)
         assert.are.equal("Menu items", highlights[1].text)
         assert.are.equal("Show labels", highlights[2].text)
         assert.is_false(highlights[2].checked_func())
-        assert.are.equal("Colors", highlights[3].text)
-        local colors = highlights[3].sub_item_table
+        local other, lookup_other = highlights[3], lookup.sub_item_table[4].sub_item_table[3]
+        assert.are.equal("Show other items", other.text)
+        assert.are.equal("Show other items", lookup_other.text)
+        assert.is_false(other.checked_func())
+        other.callback()
+        assert.is_true(config.highlight_lookup.allow_unknown_items)
+        assert.is_false(lookup_other.checked_func())
+        lookup_other.callback()
+        assert.is_true(config.dict_quick_lookup.allow_unknown_items)
+        other.callback()
+        assert.is_false(other.checked_func())
+        assert.is_true(lookup_other.checked_func())
+        local invert = highlights[4]
+        assert.are.equal("Invert colors in night mode", invert.text)
+        local invert_key = "highlight_selection_invert_highlight_color"
+        local prev_invert = G_reader_settings:readSetting(invert_key)
+        G_reader_settings:delSetting(invert_key)
+        assert.is_false(invert.checked_func())
+        invert.callback()
+        assert.is_true(G_reader_settings:isTrue(invert_key))
+        assert.is_true(invert.checked_func())
+        invert.callback()
+        assert.is_false(G_reader_settings:isTrue(invert_key))
+        G_reader_settings:saveSetting(invert_key, prev_invert)
+        saved = 0
+        assert.are.equal("Colors", highlights[5].text)
+        local colors = highlights[5].sub_item_table
         assert.are.equal(10, #colors)
         local reset, red = colors[#colors], colors[1]
         assert.are.equal("Reset colors and names", reset.text)
