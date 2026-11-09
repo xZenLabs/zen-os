@@ -176,7 +176,7 @@ local function apply()
     local function show_other_button(button)
         local setting = LookupPluginItems.settingForDictButton(button)
         return LookupPluginItems.shouldShow(
-            _plugin_ref and _plugin_ref.config, setting)
+            _plugin_ref and _plugin_ref.config, setting, "dict_quick_lookup")
     end
 
     -- IDs we handle explicitly; everything else is "unknown".

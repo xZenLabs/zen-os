@@ -74,6 +74,21 @@ function M.build(ctx)
         }
     end
 
+    local function make_other_items_item(section, help_text)
+        return {
+            text = _("Show other items"),
+            help_text = help_text,
+            checked_func = function()
+                return type(config[section]) == "table" and config[section].allow_unknown_items == true
+            end,
+            callback = function()
+                if type(config[section]) ~= "table" then config[section] = {} end
+                config[section].allow_unknown_items = config[section].allow_unknown_items ~= true
+                plugin:saveConfig()
+            end,
+        }
+    end
+
     local highlight_colors = {
         { key = "red", text = _("Red"), hex = "#ff3300" },
         { key = "orange", text = _("Orange"), hex = "#ff8800" },
@@ -168,6 +183,8 @@ function M.build(ctx)
                     plugin:saveConfig()
                 end,
             },
+            make_other_items_item("highlight_lookup",
+                _("Show other KOReader and plugin highlight menu options behind the More button.")),
             {
                 text = _("Invert colors in night mode"),
                 checked_func = function()
@@ -1453,7 +1470,8 @@ function M.build(ctx)
                         config.dict_quick_lookup.bottom_sheet = config.dict_quick_lookup.bottom_sheet == false
                         plugin:saveConfig()
                     end,
-                }},
+                }, make_other_items_item("dict_quick_lookup",
+                    _("Show other KOReader quick lookup options alongside Zen buttons."))},
             },
             {
                 text = _("Show Wikipedia"),
@@ -1478,22 +1496,6 @@ function M.build(ctx)
                 _("Show AI assistant"),
                 _("Show a button for the Assistant plugin, if installed.")
             ),
-            {
-                text = _("Show other items"),
-                help_text = _("Show other KOReader quick lookup options alongside Zen buttons."),
-                checked_func = function()
-                    return type(config.highlight_lookup) == "table"
-                        and config.highlight_lookup.allow_unknown_items == true
-                end,
-                callback = function()
-                    if type(config.highlight_lookup) ~= "table" then
-                        config.highlight_lookup = {}
-                    end
-                    config.highlight_lookup.allow_unknown_items =
-                        config.highlight_lookup.allow_unknown_items ~= true
-                    plugin:saveConfig()
-                end,
-            },
         },
     })
 

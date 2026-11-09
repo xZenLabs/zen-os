@@ -160,7 +160,8 @@ local function apply()
 
     logger.dbg("orig_onShowHighlightMenu=", tostring(orig_onShowHighlightMenu))
 
-    ReaderHighlight.onShowHighlightMenu = function(self, index)
+    -- more: show a new selection's other items instead of the icon row.
+    ReaderHighlight.onShowHighlightMenu = function(self, index, more)
         logger.dbg("onShowHighlightMenu called, is_enabled=",
             tostring(is_enabled()), "selected_text=", tostring(self.selected_text ~= nil))
         if not is_enabled() then
@@ -251,24 +252,39 @@ local function apply()
             })
         end
 
-        -- Include recognized companion-plugin buttons or opted-in unknown items.
+        -- Recognized companion plugins sit under the icon row; opted-in other items live behind More.
         if self._highlight_buttons then
             local ffiUtil = require("ffi/util")
-            local extra = {}
+            local extra, other = {}, {}
             for key, fn_button in ffiUtil.orderedPairs(self._highlight_buttons) do
                 local key_name = key:match("^%d+_(.*)$") or key
                 local plugin_setting = LookupPluginItems.settingForHighlightKey(key)
                 if not KNOWN_KEYS[key_name]
                         and LookupPluginItems.shouldShow(
-                            _plugin_ref and _plugin_ref.config, plugin_setting) then
+                            _plugin_ref and _plugin_ref.config, plugin_setting, "highlight_lookup") then
                     local ok, btn = pcall(fn_button, self, index)
                     if ok and btn then
                         if not btn.show_in_highlight_dialog_func
                             or btn.show_in_highlight_dialog_func() then
-                            table.insert(extra, btn)
+                            -- An existing highlight's menu is already its More section.
+                            table.insert((plugin_setting or index) and extra or other, btn)
                         end
                     end
                 end
+            end
+            if more then
+                buttons, extra = {}, other
+            elseif #other > 0 then
+                table.insert(buttons[1], {
+                    id = "zen_highlight_more", icon = menu_icons.more,
+                    text = labels and _("More") or nil,
+                    callback = function()
+                        local controller = self._zen_highlight_handles
+                        if controller then controller.reopening = true end -- keep the selection across the swap
+                        UIManager:close(self.highlight_dialog)
+                        self:onShowHighlightMenu(nil, true)
+                    end,
+                })
             end
             -- Split into rows of 2 so they render properly.
             local max_cols = 2
@@ -281,7 +297,9 @@ local function apply()
             end
         end
 
-        References.addPinButton(buttons, self.ui, References.selectionPage(self, index), function() self:onClose() end)
+        if not more then
+            References.addPinButton(buttons, self.ui, References.selectionPage(self, index), function() self:onClose() end)
+        end
         LookupPluginItems.protectButtons(buttons)
         if labels then buttons = Labels.prepare(buttons) end
         MenuItems.compact(buttons)

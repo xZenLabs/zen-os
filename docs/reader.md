@@ -81,7 +81,7 @@ Set one theme for light mode and one for dark mode. Make your own with a name, b
 
 Hold a word for **Zen quick lookup**: definition plus action buttons. Hold and drag to highlight for the **Zen highlight menu**: highlight, note, lookup, and more in one place.
 
-Wikipedia, X-Ray, KOAssistant, and AI Assistant show up as buttons when installed. Turn on **Show labels** to see names next to icons. **Show other items** keeps KOReader's remaining lookup options.
+Wikipedia, X-Ray, KOAssistant, and AI Assistant show up as buttons when installed. Turn on **Show labels** to see names next to icons. **Show other items**, set separately under **Highlight** and **Dictionary**, keeps the remaining KOReader and plugin options: in the highlight menu they sit behind the three-dot **More** button.
 
 **Where:** Zen Settings > Reader > Highlight / Lookup
 
