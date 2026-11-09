@@ -83,6 +83,12 @@ function M.showContextMenu(menu, item, after_change)
         and Kindle.showBookContextMenu(menu, item, after_change) == true
 end
 
+function M.bookInfo(path, get_cover)
+    local Kindle = kindle()
+    if not Kindle or type(Kindle.getBookInfo) ~= "function" then return nil end
+    return Kindle.getBookInfo(path, get_cover)
+end
+
 function M.invalidate()
     cache = nil
 end

@@ -14,6 +14,9 @@ describe("book sources", function()
             books = function() return kindle_books end,
             owns = function(path) return path == "/kindle/book.azw3" end,
             showContextMenu = function() return true end,
+            bookInfo = function(path)
+                if path == "/kindle/book.azw3" then return { title = "K", authors = "A" } end
+            end,
         })
         ZenSpec.unload("common/book_sources")
         BookSources = require("common/book_sources")
@@ -114,5 +117,132 @@ describe("book sources", function()
         assert.is_true(registered > first)
         assert.is_true(changed > registered)
         assert.is_true(BookSources.revision() > changed)
+    end)
+
+    describe("metadata", function()
+        local BookInfoManager, db_rows, cover_drops
+
+        before_each(function()
+            db_rows = {
+                ["/books/local.epub"] = { title = "Local", series = "S" },
+                ["/kindle/book.azw3"] = { title = "Old", series = "KS", description = "D" },
+            }
+            BookInfoManager = {
+                getBookInfo = function(_self, path, get_cover)
+                    local row = db_rows[path]
+                    return row and { title = row.title, from_db = true, get_cover = get_cover }
+                end,
+                getDocProps = function(_self, path)
+                    local row = db_rows[path]
+                    if not row then return nil end
+                    local props = {}
+                    for k, v in pairs(row) do props[k] = v end
+                    return props
+                end,
+            }
+            ZenSpec.replace("bookinfomanager", BookInfoManager)
+            cover_drops = {}
+            local function cache(name)
+                return { drop = function(_self, path) cover_drops[#cover_drops + 1] = name .. ":" .. path end }
+            end
+            ZenSpec.replace("common/cover_decode_cache", cache("decode"))
+            ZenSpec.replace("common/cover_render_cache", cache("render"))
+        end)
+
+        after_each(function()
+            ZenSpec.unload("bookinfomanager")
+            ZenSpec.unload("common/cover_decode_cache")
+            ZenSpec.unload("common/cover_render_cache")
+        end)
+
+        it("answers getBookInfo for sources' books and falls through for others", function()
+            local asked
+            BookSources.register("cloud", {
+                books = function() return {} end,
+                bookInfo = function(path, get_cover)
+                    asked = get_cover
+                    if path == "/books/cloud-1.epub" then return { title = "Cloud" } end
+                end,
+            })
+            assert.is_true(BookSources.installMetadataIntegration())
+            assert.is_true(BookSources.installMetadataIntegration()) -- once only
+
+            assert.are.equal("Cloud", BookInfoManager:getBookInfo("/books/cloud-1.epub", true).title)
+            assert.is_true(asked)
+            assert.are.equal("K", BookInfoManager:getBookInfo("/kindle/book.azw3").title)
+            local info = BookInfoManager:getBookInfo("/books/local.epub", true)
+            assert.is_true(info.from_db)
+            assert.is_true(info.get_cover)
+            assert.is_nil(BookInfoManager:getBookInfo("/books/missing.epub"))
+        end)
+
+        it("sends a source's own getBookInfo calls to the database", function()
+            BookSources.register("wrapper", {
+                books = function() return {} end,
+                bookInfo = function(path)
+                    if path ~= "/books/local.epub" then return nil end
+                    local stored = BookInfoManager:getBookInfo(path)
+                    return { title = stored.title .. "+" }
+                end,
+            })
+            BookSources.installMetadataIntegration()
+            assert.are.equal("Local+", BookInfoManager:getBookInfo("/books/local.epub").title)
+        end)
+
+        it("skips a failing source", function()
+            BookSources.register("broken", {
+                books = function() return {} end,
+                bookInfo = function() error("no catalog") end,
+            })
+            BookSources.installMetadataIntegration()
+            assert.is_true(BookInfoManager:getBookInfo("/books/local.epub").from_db)
+            assert.is_true(#warnings >= 1)
+        end)
+
+        it("answers getDocProps, keeping database fields the source doesn't give", function()
+            BookSources.register("cloud", {
+                books = function() return {} end,
+                bookInfo = function(path)
+                    if path == "/books/cloud-1.epub" then
+                        return { title = "Cloud", series = "CS", cover_bb = {} }
+                    end
+                end,
+            })
+            BookSources.installMetadataIntegration()
+
+            assert.are.same({ title = "Cloud", series = "CS" },
+                BookInfoManager:getDocProps("/books/cloud-1.epub"))
+            assert.are.same({ title = "K", authors = "A", series = "KS", description = "D" },
+                BookInfoManager:getDocProps("/kindle/book.azw3"))
+            assert.are.same({ title = "Local", series = "S" },
+                BookInfoManager:getDocProps("/books/local.epub"))
+        end)
+
+        it("drops cached covers for the paths passed to changed()", function()
+            local before = BookSources.revision()
+            BookSources.changed({ "/books/cloud-1.epub" })
+            assert.is_true(BookSources.revision() > before)
+            assert.are.same({ "decode:/books/cloud-1.epub", "render:/books/cloud-1.epub" }, cover_drops)
+            BookSources.changed()
+            assert.are.equal(2, #cover_drops)
+        end)
+    end)
+
+    it("joins the listing keys of sources that show books in a folder", function()
+        assert.are.equal("", BookSources.listingKey("/books"))
+        BookSources.register("cloud", {
+            books = function() return {} end,
+            listingKey = function(folder) if folder == "/books" then return "v7" end end,
+        })
+        BookSources.register("other", {
+            books = function() return {} end,
+            listingKey = function(folder) if folder == "/books" then return 3 end end,
+        })
+        BookSources.register("broken", {
+            books = function() return {} end,
+            listingKey = function() error("boom") end,
+        })
+        assert.are.equal("cloud=v7\31other=3", BookSources.listingKey("/books"))
+        assert.are.equal("", BookSources.listingKey("/elsewhere"))
     end)
 end)

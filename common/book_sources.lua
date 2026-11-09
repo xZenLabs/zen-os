@@ -27,10 +27,30 @@
 --       showContextMenu = function(menu, item, after_change) return true end,
 --       -- Optional: drop cached books (db_bookinfo.invalidate()).
 --       invalidate = function() end,
+--       -- Optional: CoverBrowser metadata for a book this source owns, in
+--       -- the shape BookInfoManager:getBookInfo() returns (title, authors,
+--       -- cover_fetched, has_cover, cover_bb when get_cover...). Return nil
+--       -- for other paths. Answers getBookInfo() and getDocProps() for
+--       -- the whole UI, so keep it cheap and don't block: without the
+--       -- cover yet, return the metadata and call changed({ path }) once
+--       -- the cover arrives. Calls to getBookInfo() for the same path from
+--       -- inside it go to CoverBrowser's database.
+--       bookInfo = function(path, get_cover) return { ... } end,
+--       -- Optional: for a source whose books appear in file browser
+--       -- listings (it adds them itself, e.g. by wrapping
+--       -- FileChooser:getList). Return a string for each folder whose
+--       -- listing shows them (including parent folders that count them, or
+--       -- show them in flat view), nil for others. It goes into the key of
+--       -- ZenOS's cached listings, which are kept across restarts, so it
+--       -- must change whenever the books shown there change (a catalog
+--       -- version or hash, not a counter that restarts). Called for every
+--       -- listing; keep it cheap.
+--       listingKey = function(folder) return ... end,
 --   })
 --
 -- Call changed() when a source's books change, so cached groupings are
--- rebuilt. A source that errors is skipped; the views keep working.
+-- rebuilt; changed(paths) also drops ZenOS's cached covers and metadata
+-- for those books. A source that errors is skipped; the views keep working.
 -- Books whose path db_bookinfo already lists are not added again.
 
 local logger = require("common/zen_logger").new("book_sources")
@@ -92,9 +112,26 @@ function M.unregister(id)
     M.changed()
 end
 
+local function drop_cached_covers(paths)
+    local decode = package.loaded["common/cover_decode_cache"]
+    local render = package.loaded["common/cover_render_cache"]
+    for _i, path in ipairs(paths) do
+        if type(path) == "string" then
+            for _j, cache in ipairs({ decode, render }) do
+                if type(cache) == "table" and type(cache.drop) == "function" then
+                    pcall(cache.drop, cache, path)
+                end
+            end
+        end
+    end
+end
+
 --- Marks every source's books as changed (cached groupings are rebuilt).
-function M.changed()
+-- With a list of paths, also drops ZenOS's cached covers and metadata for
+-- them (call it when a book's metadata or cover changes).
+function M.changed(paths)
     revision = revision + 1
+    if type(paths) == "table" then drop_cached_covers(paths) end
 end
 
 --- Changes whenever a source is registered, removed or reports a change.
@@ -145,6 +182,83 @@ end
 function M.showContextMenu(menu, item, after_change)
     local id, source = owner(type(item) == "table" and item.path or nil)
     return id ~= nil and call(id, source, "showContextMenu", menu, item, after_change) == true
+end
+
+local answering = {} -- paths whose bookInfo is being built (re-entry guard)
+
+--- CoverBrowser metadata from the source that has it, or nil.
+function M.bookInfo(path, get_cover)
+    if type(path) ~= "string" or answering[path] then return nil end
+    load_builtins()
+    answering[path] = true
+    local info
+    for _i, id in ipairs(order) do
+        local source = sources[id]
+        if type(source.bookInfo) == "function" then
+            local result = call(id, source, "bookInfo", path, get_cover)
+            if type(result) == "table" then info = result break end
+        end
+    end
+    answering[path] = nil
+    return info
+end
+
+-- getDocProps() returns these bookinfo fields (CoverBrowser columns 13-20).
+local DOC_PROPS = { "pages", "title", "authors", "series", "series_index",
+    "language", "keywords", "description" }
+
+--- Routes CoverBrowser's getBookInfo() and getDocProps() through the
+-- sources, once for all of them. Installed before ZenOS's own wrappers
+-- (cover caches), so those see sources' books like any other.
+function M.installMetadataIntegration()
+    local ok, BookInfoManager = pcall(require, "bookinfomanager")
+    if not ok or type(BookInfoManager) ~= "table"
+            or type(BookInfoManager.getBookInfo) ~= "function" then
+        return false
+    end
+    if BookInfoManager._zen_book_sources_patched then return true end
+    BookInfoManager._zen_book_sources_patched = true
+
+    local orig_getBookInfo = BookInfoManager.getBookInfo
+    function BookInfoManager:getBookInfo(filepath, get_cover, ...)
+        local info = M.bookInfo(filepath, get_cover)
+        if info then return info end
+        return orig_getBookInfo(self, filepath, get_cover, ...)
+    end
+
+    local orig_getDocProps = BookInfoManager.getDocProps
+    if type(orig_getDocProps) == "function" then
+        function BookInfoManager:getDocProps(filepath, ...)
+            local info = M.bookInfo(filepath, false)
+            local props = orig_getDocProps(self, filepath, ...)
+            if not info then return props end
+            -- A book with a CoverBrowser row (a Kindle book on disk) keeps
+            -- the fields its source doesn't give.
+            props = type(props) == "table" and props or {}
+            for _i, key in ipairs(DOC_PROPS) do
+                if info[key] ~= nil then props[key] = info[key] end
+            end
+            return props
+        end
+    end
+    return true
+end
+
+--- Key for a folder's cached listing: the listing keys of the sources whose
+-- books it shows ("" when none).
+function M.listingKey(folder)
+    load_builtins()
+    local parts = {}
+    for _i, id in ipairs(order) do
+        local source = sources[id]
+        if type(source.listingKey) == "function" then
+            local key = call(id, source, "listingKey", folder)
+            if type(key) == "string" or type(key) == "number" then
+                parts[#parts + 1] = id .. "=" .. tostring(key)
+            end
+        end
+    end
+    return table.concat(parts, "\31")
 end
 
 --- Drops the sources' cached books.
