@@ -369,6 +369,7 @@ describe("file browser navbar navigation", function()
             "__ZEN_UI_NAVBAR_RESOLVE_DEFAULT_TAB", "__ZEN_UI_NAVBAR_IS_DEFAULT_TAB_ACTIVE",
             "__ZEN_UI_NAVBAR_DEFAULT_TAB_ICON",
             "__ZEN_UI_NAVBAR_SELECTED_TAB", "__ZEN_UI_NAVBAR_SELECTION_ORIGIN",
+            "__ZEN_UI_NAVBAR_PAGE_REFRESH_SERIAL",
             "__ZEN_UI_ACTIVE_TAB_LABEL",
             "__ZEN_UI_REINJECT_FM_NAVBAR", "__ZEN_UI_REINJECT_NAVBARS",
             "__ZEN_UI_LIBRARY_STATE", "__ZEN_UI_OPEN_HOME_AFTER_FILEMANAGER",
@@ -2988,6 +2989,20 @@ describe("file browser navbar navigation", function()
         assert.are.equal(0, #UIManager._window_stack)
         assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTED_TAB)
         assert.is_nil(_G.__ZEN_UI_NAVBAR_SELECTION_ORIGIN)
+    end)
+
+    it("repaints the current navbar when open_tab leaves it on top", function()
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+        UIManager._window_stack = { { widget = fm } }
+        _G.__ZEN_UI_REINJECT_FM_NAVBAR()
+        local reinjects = 0
+        _G.__ZEN_UI_REINJECT_NAVBARS = function() reinjects = reinjects + 1 end
+        calls = {}
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("menu"))
+        assert.are.equal(1, reinjects)
+        assert.are.equal("menu", _G.__ZEN_UI_NAVBAR_SELECTED_TAB)
     end)
 
     it("frames the active content with both icons and labels or either one alone", function()

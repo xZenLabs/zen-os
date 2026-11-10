@@ -1791,6 +1791,10 @@ local function apply_navbar()
     -- One full-screen refresh merged with the page's own in this tick. "partial" lets
     -- KOReader flash every full_refresh_count switches, as stock does.
     local function refreshAfterNavbarPageSwitch()
+        -- Serial so a programmatic open can tell that its callback already
+        -- requested the full-screen refresh and must not schedule another.
+        rawset(_G, "__ZEN_UI_NAVBAR_PAGE_REFRESH_SERIAL",
+            (rawget(_G, "__ZEN_UI_NAVBAR_PAGE_REFRESH_SERIAL") or 0) + 1)
         UIManager:setDirty(nil, G_reader_settings:isTrue("avoid_flashing_ui") and "ui" or "partial")
     end
 
@@ -1837,10 +1841,21 @@ local function apply_navbar()
         if not tab_callbacks[tab_id] then return false end
         if shouldTrackActiveTab(tab_id) then
             setActiveTab(tab_id)
-        else
-            selectTransientTab(tab_id)
+            runTabCallback(tab_id)
+            return true
         end
+        selectTransientTab(tab_id)
+        -- The callback may open a view that builds its own navbar; that navbar
+        -- reads the selection while it is constructed. Only repaint when the
+        -- callback left the current top widget (and its navbar) in place and
+        -- did not already request the page-switch refresh.
+        local top_before = navbarTopWidget()
+        local refresh_before = rawget(_G, "__ZEN_UI_NAVBAR_PAGE_REFRESH_SERIAL")
         runTabCallback(tab_id)
+        if rawget(_G, "__ZEN_UI_NAVBAR_PAGE_REFRESH_SERIAL") == refresh_before
+                and navbarTopWidget() == top_before then
+            reinjectNavbars()
+        end
         return true
     end
 
