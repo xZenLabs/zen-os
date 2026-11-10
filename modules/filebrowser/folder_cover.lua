@@ -1012,11 +1012,15 @@ function M.paintDecorations(item, bb, config, x, y)
     if not cached then
         local widget = build_widget(font_size)
         -- A wide count (four digits) can still exceed the circle at a large
-        -- setting; shrink it the way the series badge does.
-        while font_size > 7 and widget:getSize().w > fit_limit do
+        -- setting; shrink it the way the series badge does. The loop starts at
+        -- the requested size and goes below the 7dp default floor only when
+        -- even that would paint outside the badge.
+        local fitted_w = widget:getSize().w
+        while font_size > 1 and fitted_w > fit_limit do
             widget:free()
             font_size = font_size - 1
             widget = build_widget(font_size)
+            fitted_w = widget:getSize().w
         end
         cached = {
             text = text,

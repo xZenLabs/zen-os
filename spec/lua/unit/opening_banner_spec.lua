@@ -223,6 +223,33 @@ describe("opening banner", function()
         assert.are.equal(16, font_size)
     end)
 
+    it("clamps the overlay label to the strip width", function()
+        local _, _, shown = install_stubs()
+        local text_props
+        ZenSpec.replace("ui/widget/textwidget", { new = function(_self, values)
+            text_props = values
+            values.getSize = function() return { w = 400, h = 10 } end
+            values.paintTo = function() end
+            values.free = function() end
+            return values
+        end })
+        -- Identity scale so the expected inset is exact.
+        require("device").screen.scaleBySize = function(_, value) return value end
+        _G.__ZEN_UI_PLUGIN = { config = { browser_cover_badges = {},
+            opening_banner = { font_size = 24 } } }
+        apply_patch()
+
+        local set_cover = rawget(_G, "__ZEN_UI_SET_OPENING_BANNER_COVER")
+        assert.is_true(set_cover({
+            dimen = { x = 31, y = 47, w = 220, h = 330 }, bordersize = 2,
+        }))
+        local banner = shown[#shown]
+        banner:paintTo({ paintRect = function() end }, banner.dimen.x, banner.dimen.y)
+        -- Banner width 216, 4dp inset each side: the 400px label must be told
+        -- to truncate instead of painting past the strip.
+        assert.are.equal(208, text_props.max_width)
+    end)
+
     it("keeps the derived size on a high-DPI screen when unset", function()
         local _, _, shown = install_stubs()
         local font_size

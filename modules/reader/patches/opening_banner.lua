@@ -449,11 +449,16 @@ local function apply_opening_banner()
         -- 3. Only the top edge contrasts on dark banners.
         _draw_border(bb, x, y, w, h, r, black, fg, self.cover_border)
 
+        -- A long title at a large text size can be wider than the strip, so
+        -- clamp it to the available width; TextWidget truncates with an
+        -- ellipsis when max_width is set.
+        local label_inset = math.max(1, Screen:scaleBySize(4))
         local tw = TextWidget:new{
             text      = self.label or _("Opening"),
             face      = Font:getFace("cfont", self.font_size),
             fgcolor   = fg,
             bold      = true,
+            max_width = math.max(1, w - 2 * label_inset),
         }
         local tsz = tw:getSize()
         tw:paintTo(bb,
