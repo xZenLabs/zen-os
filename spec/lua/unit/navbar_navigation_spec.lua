@@ -2896,6 +2896,35 @@ describe("file browser navbar navigation", function()
         assert.are.equal("Menu", filled[1][2].text)
     end)
 
+    it("keeps the active tab painted when a hidden tab is selected", function()
+        local navbar = _G.__ZEN_UI_PLUGIN.config.navbar
+        navbar.show_icons = true
+        navbar.active_tab_filled = true
+        navbar.filled_background_opacity = 100
+        navbar.colored = false
+        navbar.show_tabs.menu = false
+        navbar.tab_order = { "home", "books" }
+        local fm = make_instance()
+        fm[1] = { fm.file_chooser }
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
+        -- A programmatic open can select a tab that is not in the visible row.
+        _G.__ZEN_UI_NAVBAR_SELECTED_TAB = "menu"
+        built_widgets = {}
+        _G.__ZEN_UI_REINJECT_FM_NAVBAR()
+
+        local filled
+        for index = 1, #built_widgets do
+            local widget = built_widgets[index].widget
+            if widget.radius and widget.background then
+                filled = widget
+            end
+        end
+
+        assert.is_not_nil(filled)
+        assert.are.equal("Library", filled[1][2].text)
+    end)
+
     it("drops the render-only selection once the plugin view closes", function()
         local fm = make_instance()
         fm[1] = { fm.file_chooser }

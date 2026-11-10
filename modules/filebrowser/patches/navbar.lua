@@ -2358,8 +2358,18 @@ local function apply_navbar()
         local shared_font_size = layout.shared_font_size
 
         -- Build tab content widgets and measure their natural widths
-        -- The render-only selection outranks active_tab so exactly one tab paints.
-        local painted_tab = rawget(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB") or active_tab
+        -- The render-only selection outranks active_tab, but only when that tab
+        -- is visible: a hidden tab must not blank the navbar's highlight.
+        local painted_tab = active_tab
+        local selected_tab = rawget(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB")
+        if selected_tab then
+            for i = 1, #visible_tabs do
+                if visible_tabs[i].id == selected_tab then
+                    painted_tab = selected_tab
+                    break
+                end
+            end
+        end
         local tab_widgets = {}
         local total_content_w = 0
         for i, tab in ipairs(visible_tabs) do
