@@ -154,6 +154,31 @@ describe("reader controls settings", function()
         assert.are.equal(10, slider.default_value)
     end)
 
+    it("drives one side of the horizontal margins while their sync is off", function()
+        local slider = Settings.slider(reader, "h_page_margins", nil, 2)
+        assert.are.equal(30, slider.value)
+        assert.are.equal(2, slider.side)
+        assert.are.same({ 10, 31 }, slider.decode(slider.value + 1))
+        assert.are.same({ 10, 29 }, slider.advance({ 10, 30 }, -1))
+        assert.are.equal(10, slider.default_value)
+        assert.are.equal("30", Settings.valueText(reader, slider.option, { 10, 30 }, 2))
+        assert.are.same({ 11, 30 }, Settings.slider(reader, "h_page_margins", nil, 1).advance({ 10, 30 }, 1))
+    end)
+
+    it("syncs horizontal margins by default when equal, then keeps the book's choice", function()
+        assert.is_false(Settings.syncedMargins(reader, "h_page_margins"))
+        reader.document.configurable.h_page_margins = { 30, 30 }
+        assert.is_true(Settings.syncedMargins(reader, "h_page_margins"))
+        reader.doc_settings = ZenSpec.memorySettings({})
+        Settings.setMarginSync(reader, "h_page_margins", false)
+        assert.is_false(Settings.syncedMargins(reader, "h_page_margins"))
+        assert.is_false(reader.doc_settings.data.zen_sync_h_page_margins)
+        reader.document.configurable.h_page_margins = { 10, 30 }
+        Settings.setMarginSync(reader, "h_page_margins", true)
+        assert.is_true(Settings.syncedMargins(reader, "h_page_margins"))
+        assert.are.equal(0, #events)
+    end)
+
     it("reads the active native margin sync state before the stored setting", function()
         assert.is_true(Settings.syncedMargins(reader))
         reader.typeset = { sync_t_b_page_margins = false }

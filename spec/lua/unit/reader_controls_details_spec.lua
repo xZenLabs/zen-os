@@ -52,7 +52,8 @@ describe("reader setting context menus", function()
         end })
         anchor = { x = 500, y = 300, w = 40, h = 40 }
         reader = { document = { default_font = "Built-in", configurable = { font_size = 23, font_gamma = 1,
-            word_spacing = { 100, 95 }, t_page_margin = 20, b_page_margin = 30, sync_t_b_page_margins = 0 } },
+            word_spacing = { 100, 95 }, t_page_margin = 20, b_page_margin = 30, sync_t_b_page_margins = 0,
+            h_page_margins = { 20, 20 } } },
             font = { font_face = "Current", onSaveSettings = function() applied[#applied + 1] = "font saved" end },
             config = { options = { prefix = "copt", { options = {
                 { name = "font_size", values = { 12, 24, 36 }, default_value = 20 },
@@ -67,7 +68,9 @@ describe("reader setting context menus", function()
                     right_min = 0, right_max = 140 } },
                 { name = "b_page_margin", default_value = 15 },
                 { name = "sync_t_b_page_margins", values = { 0, 1 } },
-            } } } }, handleEvent = function(_self, event)
+                { name = "h_page_margins", default_value = { 10, 10 }, values = {}, more_options = true,
+                    more_options_param = { left_min = 0, left_max = 140, left_step = 1 } },
+            } } } }, doc_settings = ZenSpec.memorySettings({}), handleEvent = function(_self, event)
                 if event.handler == "onConfigChange" then reader.document.configurable[event.args[1]] = event.args[2] end
             end }
         ZenSpec.unload("modules/menu/reader_controls/details")
@@ -181,6 +184,27 @@ describe("reader setting context menus", function()
         open("t_page_margin")
         action("Sync")
         assert.are.equal(0, reader.document.configurable.sync_t_b_page_margins)
+    end)
+
+    it("toggles horizontal margin sync per book and picks one side while unsynced", function()
+        local popup = open("h_page_margins")
+        assert.are.equal("✓ Sync", popup.buttons[1][1].text)
+        action("Sync")
+        assert.are.same({}, applied)
+        assert.is_false(reader.doc_settings.data.zen_sync_h_page_margins)
+        reader.document.configurable.h_page_margins = { 20, 30 }
+        Details.show(reader, "h_page_margins", function(key, value) applied[#applied + 1] = { key, value } end,
+            function() end, anchor, 2)
+        action("Set value")
+        assert.are.equal(30, shown.value)
+        shown.callback({ value = 35 })
+        assert.are.same({ { "h_page_margins", { 20, 35 } } }, applied)
+        applied = {}
+        popup = open("h_page_margins")
+        assert.are.equal("Sync", popup.buttons[1][1].text)
+        action("Sync")
+        assert.are.same({ { "h_page_margins", { 25, 25 } } }, applied)
+        assert.is_true(reader.doc_settings.data.zen_sync_h_page_margins)
     end)
 
     it("provides font-family defaults and reset using the same context menu", function()

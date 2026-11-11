@@ -39,17 +39,29 @@ function M.label(reader, option)
         or option.name_text or option.alt_name_text or option.name:gsub("_", " ")
 end
 
-function M.syncedMargins(reader)
+-- T/B sync is KOReader's per-book option; L/R sync is Zen's, kept in the book's sidecar.
+function M.syncedMargins(reader, name)
+    if name == "h_page_margins" then
+        local synced = reader.doc_settings and reader.doc_settings:readSetting("zen_sync_h_page_margins")
+        if synced ~= nil then return synced == true end
+        local margins = reader.document.configurable.h_page_margins or {}
+        return margins[1] == margins[2]
+    end
     if reader.typeset and reader.typeset.sync_t_b_page_margins ~= nil then
         return reader.typeset.sync_t_b_page_margins == true
     end
     return reader.document.configurable.sync_t_b_page_margins == 1
 end
 
-function M.valueText(reader, option, value)
+function M.setMarginSync(reader, name, synced)
+    if name ~= "h_page_margins" then return M.apply(reader, "sync_t_b_page_margins", synced and 1 or 0) end
+    if reader.doc_settings then reader.doc_settings:saveSetting("zen_sync_h_page_margins", synced) end
+end
+
+function M.valueText(reader, option, value, side)
     if option.name == "font_base_weight" then return tostring(400 + value * 100) end
-    if option.name == "h_page_margins" and type(value) == "table" and value[1] == value[2] then
-        return tostring(value[1])
+    if option.name == "h_page_margins" and type(value) == "table" and (side or value[1] == value[2]) then
+        return tostring(value[side or 1])
     end
     if option.show_true_value_func then return option.show_true_value_func(value) end
     local params = option.more_options_param or {}
@@ -116,7 +128,8 @@ function M.preview(reader, name, value)
 end
 
 -- UI-only slider positions are integers; native values can be fractional or paired.
-function M.slider(reader, name, visible_presets)
+-- side (1 = left, 2 = right) drives one half of h_page_margins while L/R sync is off.
+function M.slider(reader, name, visible_presets, side)
     local options = M.options(reader)
     local option = options[name]
     if not M.available(reader, option) then return end
@@ -126,8 +139,13 @@ function M.slider(reader, name, visible_presets)
     local fine = name == "font_size" and options.font_fine_tune
     local params = fine and fine.more_options_param or option.more_options_param or {}
     local values = option.values or {}
-    local function scalar(v) return type(v) == "table" and (v[1] + v[2]) / 2 or v end
-    local function wrap(v) return name == "h_page_margins" and { v, v } or v end
+    local function scalar(v) return type(v) == "table" and (side and v[side] or (v[1] + v[2]) / 2) or v end
+    local function wrap(v)
+        if name ~= "h_page_margins" then return v end
+        local pair = { v, v }
+        if side then pair[3 - side] = conf[name][3 - side] end
+        return pair
+    end
     local position, decode, advance, maximum, pick
     -- KOReader steps more_options values by its spin widget step, not by preset.
     if fine or #values < 2 or option.more_options and (type(value) ~= "table" or name == "h_page_margins") then
@@ -206,6 +224,7 @@ function M.slider(reader, name, visible_presets)
     end
     return {
         option = option,
+        side = side,
         value = current,
         default_value = default_position,
         value_min = minimum,

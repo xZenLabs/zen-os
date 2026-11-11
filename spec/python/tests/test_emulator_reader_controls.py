@@ -468,6 +468,23 @@ def test_reader_controls_native_settings_defaults_profiles_and_direct_actions():
             assert state["labels"]["h_page_margins"].startswith("Left/Right:")
             assert "sync_t_b_page_margins" not in state["controls"]
             assert state["config"]["sync_t_b_page_margins"] == 1
+            driver.command("reader_controls", action="choose", id="h_page_margins_more")
+            driver.command("reader_controls", action="setting_menu", button="Sync")
+            assert not driver.command("reader_controls", action="setting_menu")["ok"]
+            state = driver.command("reader_controls")
+            assert "h_page_margins" not in state["controls"]
+            assert state["labels"]["h_page_margins_left"].startswith("Left:")
+            assert state["labels"]["h_page_margins_right"].startswith("Right:")
+            margins = state["config"]["h_page_margins"]
+            state = driver.command("reader_controls", action="choose", id="h_page_margins_right_increase")
+            assert state["config"]["h_page_margins"] == [margins[0], margins[1] + 1]
+            driver.command("reader_controls", action="choose", id="h_page_margins_left_more")
+            popup = driver.command("reader_controls", action="setting_menu")
+            assert popup["paired"] and not popup["positions"]["Sync"]["checked"]
+            driver.command("reader_controls", action="setting_menu", button="Sync")
+            state = driver.command("reader_controls")
+            assert state["config"]["h_page_margins"][0] == state["config"]["h_page_margins"][1]
+            assert state["labels"]["h_page_margins"].startswith("Left/Right:")
             for synced in (0, 1):
                 driver.command("reader_controls", action="choose", id="t_page_margin_more")
                 driver.command("reader_controls", action="setting_menu", button="Sync")
@@ -580,22 +597,27 @@ def test_reader_margin_pickers_native_pairs_and_defaults():
             driver.command("reader_controls", action="open")
             state = driver.command("reader_controls", action="choose", id="page")
             original_size = state.get("default_size")
+
+            def more_id(name):
+                # Unequal L/R margins render as Left/Right rows once the panel rebuilds.
+                controls = driver.command("reader_controls")["controls"]
+                return (name + "_left" if name + "_left" in controls else name) + "_more"
+
             for name in ["h_page_margins", "t_page_margin", "b_page_margin"]:
                 current = state["config"]
                 values = current[name] if name == "h_page_margins" else [
                     current["t_page_margin"], current["b_page_margin"]]
                 saved = [values[0] + 1, values[1] + 2]
                 driver.command("reader_controls", action="setting", name=name, value=saved)
-                driver.command("reader_controls", action="choose", id=name + "_more")
+                driver.command("reader_controls", action="choose", id=more_id(name))
                 popup = driver.command("reader_controls", action="setting_menu")
-                assert popup["buttons"] == (["Sync"] if name != "h_page_margins" else []) + [
-                    "Set as default", "Reset"]
+                assert popup["buttons"] == ["Sync", "Set as default", "Reset"]
                 assert not popup["scrollable"]
                 assert [popup["left_value"], popup["right_value"]] == saved
                 driver.command("reader_controls", action="setting_menu", button="Set as default")
                 assert driver.command("native_settings_confirm", accept=False)["ok"]
                 assert not driver.command("reader_controls", action="setting_menu")["ok"]
-                driver.command("reader_controls", action="choose", id=name + "_more")
+                driver.command("reader_controls", action="choose", id=more_id(name))
                 driver.command("reader_controls", action="setting_menu", button="Set as default")
                 assert driver.command("native_settings_confirm", accept=True)["ok"]
                 assert not driver.command("reader_controls", action="setting_menu")["ok"]
@@ -607,7 +629,7 @@ def test_reader_margin_pickers_native_pairs_and_defaults():
                     assert [state["default_top"], state["default_bottom"]] == saved
                 driver.command("reader_controls", action="setting", name=name,
                                value=[saved[0] + 1, saved[1] + 1])
-                driver.command("reader_controls", action="choose", id=name + "_more")
+                driver.command("reader_controls", action="choose", id=more_id(name))
                 driver.command("reader_controls", action="setting_menu", button="Reset")
                 assert not driver.command("reader_controls", action="setting_menu")["ok"]
                 state = driver.command("reader_controls")
@@ -925,7 +947,7 @@ def test_fixed_layout_reader_controls(extension):
             driver.command("reader_controls", action="choose", id="zoom_mode_type_3")
             assert driver.command("reader_controls")["config"]["zoom_mode_type"] == 0
             state = driver.command("reader_controls", action="paint")
-            assert state["bounds"]["zoom_mode_genus_1"]["h"] == math.ceil(48 * scale)
+            assert state["bounds"]["zoom_mode_genus_1"]["h"] == math.ceil(44 * scale)
             assert state["icons"]["zoom_mode_genus_1_height"] == math.ceil(32 * scale)
             assert "trim_page_1" in state["controls"]
             driver.command("reader_controls", action="choose", id="trim_page_2")

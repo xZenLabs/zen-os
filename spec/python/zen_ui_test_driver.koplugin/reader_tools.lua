@@ -780,7 +780,8 @@ function M.reader_controls(params)
             positions = positions, bounds = dialog.movable.dimen, anchor = dialog._zen_anchor_source,
             left_value = type(value) == "table" and value[1] or nil,
             right_value = type(value) == "table" and value[2] or nil,
-            paired = type(value) == "table" and (not params_config.names or not settings.syncedMargins(ui)),
+            paired = type(value) == "table" and (not (params_config.names or dialog._reader_setting == "h_page_margins")
+                or not settings.syncedMargins(ui, dialog._reader_setting)),
             scrollable = dialog.cropping_widget ~= nil, default_value = default }
     elseif params.action == "inject_color_option" and tm then
         table.insert(require("modules/menu/reader_controls/settings").panel(ui, "appbar.contrast").options, {
@@ -945,7 +946,10 @@ function M.reader_controls(params)
             local id = widget._reader_setting or widget._reader_button_page or widget.text
             local dimen = widget.dimen or widget.slider and widget[1].dimen
             if widget.slider then
-                local spec = require("modules/menu/reader_controls/settings").slider(ui, id)
+                -- Unsynced L/R margins render as h_page_margins_left / _right side sliders.
+                local name, side = id:match("^(h_page_margins)_(%a+)$")
+                local spec = require("modules/menu/reader_controls/settings").slider(ui, name or id, nil,
+                    side and (side == "left" and 1 or 2))
                 local visible_presets = 0
                 for _k, value in ipairs(spec.option.values or {}) do
                     local position = spec.position(value)

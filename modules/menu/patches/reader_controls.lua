@@ -131,11 +131,12 @@ return function(plugin)
                 UIManager:nextTick(function() if tm._zen_panel_refs then tm:updateItems(1) end end)
             end
         end
-        local function option(name, slider, label_override)
+        local function option(name, slider, label_override, side)
             local opt = options[name]
             if not Settings.available(ui, opt) then return end
             local value = ui.document.configurable[name]
             local label = label_override or Settings.label(ui, opt)
+            local id = side and name .. (side == 1 and "_left" or "_right") or name
             local function hold()
                 local names = { name }
                 if name == "t_page_margin" and Settings.syncedMargins(ui) then
@@ -146,11 +147,11 @@ return function(plugin)
             local more = (opt.more_options or ({ font_size = true, font_base_weight = true,
                 font_gamma = true, contrast = true, word_spacing = true, word_expansion = true })[name]) and function(widget)
                     require("modules/menu/reader_controls/details").show(ui, name, apply,
-                        function() if tm._zen_panel_refs then tm:updateItems(1) end end, widget.dimen)
+                        function() if tm._zen_panel_refs then tm:updateItems(1) end end, widget.dimen, side)
                 end
-            local spec = slider and Settings.slider(ui, name, tm._reader_controls_embedded and 7 or nil)
+            local spec = slider and Settings.slider(ui, name, tm._reader_controls_embedded and 7 or nil, side)
             if spec then
-                rows[#rows + 1] = { slider = spec, text = label, name = name, apply = apply, changed = changed,
+                rows[#rows + 1] = { slider = spec, text = label, name = name, id = id, apply = apply, changed = changed,
                     hold = name ~= "font_size" and hold or nil, more = more }
             elseif name == "visible_pages" then
                 rows[#rows + 1] = { text = label, name = name, toggle = value == opt.values[2], hold = hold,
@@ -218,7 +219,12 @@ return function(plugin)
             end
         elseif section == "page" then
             if Settings.group(ui) == "copt" then
-                option("h_page_margins", true, _("Left/Right"))
+                if Settings.syncedMargins(ui, "h_page_margins") then
+                    option("h_page_margins", true, _("Left/Right"))
+                else
+                    option("h_page_margins", true, _("Left"), 1)
+                    option("h_page_margins", true, _("Right"), 2)
+                end
                 local synced = Settings.syncedMargins(ui)
                 option("t_page_margin", true, synced and _("Top/Bottom") or _("Top"))
                 if not synced then option("b_page_margin", true, _("Bottom")) end
@@ -245,6 +251,7 @@ return function(plugin)
                 option("page_scroll")
                 option("rakuyomi_view_mode")
                 option("auto_straighten", false, _("Straighten"))
+                option("text_wrap") -- Line spacing and columns below only apply in reflow.
                 option("line_spacing", true)
                 option("max_columns")
             end
@@ -262,6 +269,7 @@ return function(plugin)
                 option("zoom_overlap_h", true, _("Horizontal"))
                 option("zoom_overlap_v", true, _("Vertical"))
             end
+            option("text_wrap") -- Zoom options above only apply outside reflow.
         elseif section == "profiles" then
             action(_("Defaults"), function() Menus.defaults(ui) end)
             if ui.profiles then
@@ -622,7 +630,7 @@ return function(plugin)
                 local number_width = 0
                 if row.slider then
                     local spec = row.slider
-                    local text = Settings.valueText(ui, spec.option, ui.document.configurable[row.name])
+                    local text = Settings.valueText(ui, spec.option, ui.document.configurable[row.name], spec.side)
                     row.number = TextWidget:new{ text = text, face = row.label.face }
                     number_width = row.number:getSize().w
                     local function measure(sample)
@@ -630,12 +638,12 @@ return function(plugin)
                         number_width = math.max(number_width, row.number:getSize().w)
                     end
                     for _j, index in ipairs({ spec.value_min, spec.value_max, math.max(spec.value_min, spec.value_max - 1) }) do
-                        measure(Settings.valueText(ui, spec.option, spec.decode(index)))
+                        measure(Settings.valueText(ui, spec.option, spec.decode(index), spec.side))
                     end
                     for _j, value in ipairs(spec.option.values or {}) do
                         local position = spec.position(value)
                         if position >= spec.value_min and position <= spec.value_max then
-                            measure(Settings.valueText(ui, spec.option, value))
+                            measure(Settings.valueText(ui, spec.option, value, spec.side))
                         end
                     end
                     row.number:setText(text)
@@ -714,15 +722,19 @@ return function(plugin)
                 line = VerticalGroup:new{ align = "left", title,
                     RightContainer:new{ dimen = Geom:new{ w = w - pad * 2, h = controls:getSize().h }, controls } }
             end
+            -- Equal row heights (a text preset row: 32 cells + 2 border + 8 padding) keep every
+            -- three-row settings page, and so every tab, the same height.
+            local pad_v = inline and math.max(0, Screen:scaleBySize(52) - line:getSize().h) / 2
+                or row.slider and 0 or pad
             return FrameContainer:new{ bordersize = 0, padding = 0, padding_left = pad, padding_right = pad,
-                padding_top = row.slider and 0 or pad, padding_bottom = row.slider and 0 or pad, line }, title
+                padding_top = math.floor(pad_v), padding_bottom = math.ceil(pad_v), line }, title
         end
         local function tab_row(row, items, selected, layout, icons)
             local fill = embedded and value_space + (row.more and 0 or more_width) or 0
             local selection = ZenTabBar:new{ items = items, selected = selected,
                 width = controls_width - step_insets[1] - step_insets[2] + fill,
                 icon_size = Screen:scaleBySize(32), font_size = 16, padding_h = Screen:scaleBySize(4),
-                cell_height = Screen:scaleBySize(embedded and 36 or (icons and 48 or 32)), focusable = true }
+                cell_height = Screen:scaleBySize(embedded and 36 or (icons and 44 or 32)), focusable = true }
             for i, cell in ipairs(selection.cells) do
                 cell._reader_setting = (row.name or row.text) .. "_" .. i
                 track(cell, cell.callback, row.hold, layout)
@@ -773,7 +785,7 @@ return function(plugin)
                 end
                 slider.on_drag_start = function() dragging = true end
                 slider.on_change = function(value)
-                    row.number:setText(Settings.valueText(ui, spec.option, spec.decode(value)))
+                    row.number:setText(Settings.valueText(ui, spec.option, spec.decode(value), spec.side))
                     if slider._dragging then
                         dragging = true
                         slider.hide_knob = false
@@ -811,7 +823,7 @@ return function(plugin)
                         padding_v = embedded and 0 or nil,
                         show_parent = tm,
                         callback = function() advance_step(delta) end }
-                    step._reader_setting = row.name .. (delta < 0 and "_decrease" or "_increase")
+                    step._reader_setting = row.id .. (delta < 0 and "_decrease" or "_increase")
                     track(step, step.callback, nil, layout)
                     track_row[#track_row + 1] = step
                     if delta < 0 then
@@ -822,12 +834,12 @@ return function(plugin)
                 end
                 if row.more and not embedded then
                     track_row[#track_row + 1] = icon_button("more_vertical", row.more, layout, label:getSize().h)
-                    layout[#layout]._reader_setting = row.name .. "_more"
+                    layout[#layout]._reader_setting = row.id .. "_more"
                 elseif more_width > 0 and not embedded then
                     track_row[#track_row + 1] = HorizontalSpan:new{ width = more_width }
                 end
                 local wrapper, label_box = setting_row(row, track_row, layout)
-                widget = SliderRow:new{ slider = slider, step = advance_step, _reader_setting = row.name,
+                widget = SliderRow:new{ slider = slider, step = advance_step, _reader_setting = row.id,
                     label = row.label, label_box = label_box, number = row.number, number_box = row.number_box, wrapper }
                 track(widget, nil, row.hold, layout)
                 refs.sliders[#refs.sliders + 1] = { slider = slider, cancel = cancel }

@@ -441,5 +441,9 @@ return {
         "Use all reader font settings in footnote",
         "Add option for other items in highlight menu"
     },
+    ["4.3.2"] = {
+        "Add reflow option to PDF layout settings in reader controls",
+        "Set left and right margins independently (Sync in the Left/Right margin menu)",
+    },
 
 }
