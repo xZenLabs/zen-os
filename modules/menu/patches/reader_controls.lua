@@ -312,12 +312,13 @@ return function(plugin)
 
     local GestureRange = require("ui/gesturerange")
     -- Tap handling for passive widgets (theme swatches) that sit beside their control.
+    -- Named event: a plain "Tap" would also answer parents' propagated Tap events anywhere on screen.
     local TapTarget = InputContainer:extend{}
     function TapTarget:init()
         self.dimen = self[1]:getSize()
-        self.ges_events.Tap = { GestureRange:new{ ges = "tap", range = self.dimen } }
+        self.ges_events.TapSwatch = { GestureRange:new{ ges = "tap", range = self.dimen } }
     end
-    function TapTarget:onTap() self.callback(); return true end
+    function TapTarget:onTapSwatch() self.callback(); return true end
 
     local Dots = Widget:extend{}
     function Dots:paintTo(bb, x, y)

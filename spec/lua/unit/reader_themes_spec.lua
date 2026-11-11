@@ -390,7 +390,7 @@ describe("reader themes", function()
         assert.are.equal(8, Screen.waveform_flashnight)
     end)
 
-    it("uses a non-flashing gray waveform without flashing promotions for themed page refreshes", function()
+    it("uses the clearing waveform without flashing promotions for themed page refreshes", function()
         local plugin = {
             config = {
                 features = { reader_themes = true },
@@ -408,7 +408,6 @@ describe("reader themes", function()
         local refresh_calls = {}
         local fail_refresh = false
         Screen.waveform_partial, Screen.waveform_night, Screen.waveform_full = 3, 9, 2
-        Screen.waveform_ui = 5
         Screen.night_is_reagl = true
         Screen.refreshPartialImp = require("ffi/framebuffer_mxcfb").refreshPartialImp
         Screen.debug = function() end
@@ -427,24 +426,13 @@ describe("reader themes", function()
             G_reader_settings:saveSetting("night_mode", dark_mode)
             Screen:refreshPartialImp(10, 20, 100, 200, true)
             assert.are.same({
-                flashing = false, waveform = 5, night_waveform = 5, night_is_reagl = false,
+                flashing = false, waveform = 2, night_waveform = 2, night_is_reagl = false,
                 region = { 10, 20, 100, 200 }, dither = false,
             }, refresh_calls[#refresh_calls])
             assert.are.equal(3, Screen.waveform_partial)
             assert.are.equal(9, Screen.waveform_night)
             assert.is_true(Screen.night_is_reagl)
         end
-
-        -- Opt-in GC16 clears ghosting; missing ui waveform falls back to it too.
-        plugin.config.reader_themes.clean_page_turns = true
-        Screen:refreshPartialImp(10, 20, 100, 200, true)
-        assert.are.equal(2, refresh_calls[#refresh_calls].waveform)
-        assert.are.equal(2, refresh_calls[#refresh_calls].night_waveform)
-        plugin.config.reader_themes.clean_page_turns = nil
-        Screen.waveform_ui = nil
-        Screen:refreshPartialImp(10, 20, 100, 200, true)
-        assert.are.equal(2, refresh_calls[#refresh_calls].waveform)
-        Screen.waveform_ui = 5
 
         ReaderUI.instance = nil
         Screen:refreshPartialImp(10, 20, 100, 200, true)
@@ -457,7 +445,7 @@ describe("reader themes", function()
         assert.is_true(refresh_calls[#refresh_calls].dither)
 
         for _i, device_state in ipairs({
-            { kindle = true, color = true, night = true, waveform = 5 },
+            { kindle = true, color = true, night = true, waveform = 2 },
             { kindle = true, color = true, night = false, waveform = 3 },
             { kindle = false, color = true, night = true, waveform = 3 },
             { kindle = true, color = false, night = true, waveform = 3 },

@@ -25,12 +25,9 @@ local function apply_reader_themes()
                     and Device.hasColorScreen and Device:hasColorScreen())) then
             return orig_refreshPartialImp(self, x, y, w, h, dither)
         end
-        -- PARTIAL updates with a 16-gray waveform tint pages without a full-screen flash: the "ui"
-        -- waveform (GL16-class) fades changed pixels, GC16 clears ghosting but flashes each of them.
-        local waveform = ReaderThemes.cleanPageTurns(plugin) and self.waveform_full
-            or self.waveform_ui or self.waveform_full
+        -- GC16 + PARTIAL handles tinted backgrounds without a full-screen flash.
         local partial, night, night_is_reagl = self.waveform_partial, self.waveform_night, self.night_is_reagl
-        self.waveform_partial, self.waveform_night, self.night_is_reagl = waveform, waveform, false
+        self.waveform_partial, self.waveform_night, self.night_is_reagl = self.waveform_full, self.waveform_full, false
         -- Dithering would promote GC16 to a flashing color waveform.
         local ok, result = pcall(orig_refreshPartialImp, self, x, y, w, h, false)
         self.waveform_partial, self.waveform_night, self.night_is_reagl = partial, night, night_is_reagl

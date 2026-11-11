@@ -1266,16 +1266,6 @@ function M.build(ctx)
             make_theme_mode_item("dark_mode", _("Dark mode")),
             make_theme_mode_item("light_mode", _("Light mode")),
             make_custom_themes_item(),
-            {
-                text = _("Flash-free page turns"),
-                help_text = _("Turn themed pages without flashing the text. Disable to flash changed text on every turn, which clears ghosting sooner."),
-                checked_func = function() return not ReaderThemes.cleanPageTurns(plugin) end,
-                callback = function()
-                    local settings = theme_settings()
-                    settings.clean_page_turns = not settings.clean_page_turns or nil
-                    ReaderThemes.saveConfig(plugin)
-                end,
-            },
         },
     })
 
