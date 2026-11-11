@@ -166,7 +166,9 @@ function M.open(on_changed, settings_subpage, plugin)
         else
             add(icons.connect, _("Pair"), function() pair(device) end)
         end
-        if device.hid and device.paired and require("common/hid_keys").supported() then
+        local Keys = require("common/hid_keys")
+        if device.paired and Keys.supported()
+                and (device.hid or device.connected and Keys.connected(device.address)) then
             -- Devices paired before the setup existed still get asked here.
             add(icons.keyboard, _("Map buttons"), function()
                 with_hid_setup(device, function()

@@ -36,10 +36,11 @@ for _k, presets in pairs(M.COMMON) do
     presets[#presets + 1] = { "full_refresh", true, _("Full screen refresh") }
 end
 local EV_KEY = 1
-local paths, addresses = {}, {} -- open uhid nodes, oldest first; path -> address candidates
+local RESCAN_GAPS = { 2, 3, 7 } -- seconds; a link after power-on can take the whole reconnect window
+local paths, addresses = {}, {} -- open HID nodes, oldest first; path -> address candidates, sysfs device
 local active = {} -- code -> binding; the newest connected device wins a clash
 local key_codes = {}
-local capture, capture_timer, swallow
+local capture, capture_timer, swallow, rescan_timer
 
 local function config()
     local Manager = require("config/manager")
@@ -61,12 +62,28 @@ function M.screen()
     return ReaderUI and ReaderUI.instance and "reader" or "library"
 end
 
+-- KOReader reads evdev nodes itself. Elsewhere (PocketBook's InkView) keys arrive without a device,
+-- and opening a node there would restart the platform's input loop.
+local function evdev()
+    local input = Device.input
+    return input ~= nil and type(input.open) == "function" and not (input.input and input.input.is_ffi)
+end
+
 function M.refresh()
     active = {}
-    local bindings = store()
-    for _i, path in ipairs(paths) do
-        local list = bindings[addresses[path][1]] or bindings[addresses[path][2]]
-        for _j, binding in ipairs(list or {}) do active[binding.code] = binding end
+    local bindings, lists = store(), {}
+    if evdev() then
+        for _i, path in ipairs(paths) do
+            lists[#lists + 1] = bindings[addresses[path][1]] or bindings[addresses[path][2]]
+        end
+    else -- no device to tell apart: every mapping applies, in a stable order
+        local known = {}
+        for address in pairs(bindings) do known[#known + 1] = address end
+        table.sort(known)
+        for _i, address in ipairs(known) do lists[#lists + 1] = bindings[address] end
+    end
+    for _i, list in ipairs(lists) do
+        for _j, binding in ipairs(list) do active[binding.code] = binding end
     end
 end
 
@@ -204,21 +221,31 @@ local function forget(path)
 end
 
 -- Fluoride reports the address byte-reversed, BlueZ as is.
-function M._connect(path, uniq)
+function M._connect(path, uniq, sysfs)
     forget(path)
     paths[#paths + 1] = path
-    addresses[path] = { uniq, (uniq:gsub("(%x%x):(%x%x):(%x%x):(%x%x):(%x%x):(%x%x)", "%6:%5:%4:%3:%2:%1")) }
+    addresses[path] = {
+        uniq, (uniq:gsub("(%x%x):(%x%x):(%x%x):(%x%x):(%x%x):(%x%x)", "%6:%5:%4:%3:%2:%1")), sysfs = sysfs,
+    }
     M.refresh()
+end
+
+-- The sysfs device behind a Bluetooth HID node: uhid (Fluoride, BLE on BlueZ), or the kernel's
+-- own HID under the adapter (classic on BlueZ), whose device id starts with bus 0005.
+local function hid_device(path)
+    local node = type(path) == "string" and path:match("/(event%d+)$")
+    local sysfs = node and require("ffi/util").realpath("/sys/class/input/" .. node)
+    if sysfs and (sysfs:find("/uhid/", 1, true) or sysfs:find("/0005:%x+:%x+%.%x+/")) then
+        return sysfs, node
+    end
 end
 
 -- KOReader only opens keyboards itself; a remote's node is opened here.
 -- The uevent beats udev creating the node, so a failed open is retried briefly.
 function M.onInsert(path, attempt)
     local input = Device.input
-    local node = type(path) == "string" and path:match("/(event%d+)$")
-    if not (node and input and type(input.open) == "function") then return end
-    local sysfs = require("ffi/util").realpath("/sys/class/input/" .. node)
-    if not (sysfs and sysfs:find("/uhid/", 1, true)) then return end
+    local sysfs, node = hid_device(path)
+    if not (sysfs and evdev()) then return end
     -- A device that went away leaves its dead fd mapped to the path, and open would be skipped.
     if (input.opened_devices or {})[path] then pcall(input.close, input, path) end
     local ok, err = pcall(input.open, input, path)
@@ -235,7 +262,16 @@ function M.onInsert(path, attempt)
     local uniq = file and (file:read("*l") or ""):upper() or ""
     if file then file:close() end
     logger.info("opened", path)
-    M._connect(path, uniq)
+    M._connect(path, uniq, sysfs)
+end
+
+-- Whether an open HID node belongs to this address: proof of HID where the stack hides the class.
+function M.connected(address)
+    address = address:upper()
+    for _path, candidates in pairs(addresses) do
+        if candidates[1] == address or candidates[2] == address then return true end
+    end
+    return false
 end
 
 function M.onRemove(path)
@@ -246,16 +282,49 @@ function M.onRemove(path)
     M.refresh()
 end
 
+-- Opens HID nodes that appeared and drops the ones that went. A reconnect reuses the node name
+-- with a new sysfs device, so that is what tells a stale node from a live one.
+function M.rescan()
+    local lfs = require("libs/libkoreader-lfs")
+    if not evdev() or lfs.attributes("/sys/class/input", "mode") ~= "directory" then return end
+    local present = {}
+    for node in lfs.dir("/sys/class/input") do
+        local path = "/dev/input/" .. node
+        local sysfs = hid_device(path)
+        if sysfs then
+            present[path] = true
+            if not (addresses[path] and addresses[path].sysfs == sysfs) then M.onInsert(path) end
+        end
+    end
+    for path in pairs(addresses) do
+        if not present[path] then M.onRemove(path) end
+    end
+end
+
+-- Kobo reports no hotplug for uhid nodes: look again once a link has had time to come up.
+function M.rescanSoon()
+    if not evdev() then return end
+    if rescan_timer then UIManager:unschedule(rescan_timer) end
+    local attempt = 1
+    rescan_timer = function()
+        M.rescan()
+        attempt = attempt + 1
+        if RESCAN_GAPS[attempt] then
+            UIManager:scheduleIn(RESCAN_GAPS[attempt], rescan_timer)
+        else
+            rescan_timer = nil
+        end
+    end
+    UIManager:scheduleIn(RESCAN_GAPS[1], rescan_timer)
+end
+
 function M.init()
     local input = Device.input
     if not M.supported() or input._zen_hid_keys_hook then return end
     input._zen_hid_keys_hook = true
     input:registerEventAdjustHook(hook)
-    local lfs = require("libs/libkoreader-lfs")
-    if lfs.attributes("/sys/class/input", "mode") ~= "directory" then return end
-    for node in lfs.dir("/sys/class/input") do
-        if node:match("^event%d+$") then M.onInsert("/dev/input/" .. node) end
-    end
+    M.rescan()
+    M.refresh()
 end
 
 return M

@@ -8,6 +8,7 @@ describe("Bluetooth device adapters", function()
             "modules/menu/bluetooth_adapters/kindle", "modules/menu/bluetooth_adapters/pocketbook",
             "device", "liblipclua", "modules/menu/bluetooth/bluetooth",
             "modules/menu/bluetooth/kobo_bluetooth", "modules/menu/bluetooth_switcher",
+            "modules/menu/bluetooth/bluez",
         }) do originals[name] = package.loaded[name] or false end
         commands, scheduled, unscheduled = {}, {}, {}
         ZenSpec.replace("ui/uimanager", {
@@ -29,12 +30,56 @@ describe("Bluetooth device adapters", function()
         for name, module in pairs(originals) do package.loaded[name] = module or nil end
     end)
 
-    it("reads PocketBook devices and rejects unsafe addresses", function()
+    it("manages PocketBook devices over D-Bus and pairs through bluetoothctl", function()
+        local paired, queries = false, {}
+        popen_stub = stub(io, "popen", function(command)
+            queries[#queries + 1] = command
+            local output = "method return time=0 sender=:1.1\n"
+            if command:find("GetManagedObjects", 1, true) then
+                output = output .. table.concat({
+                    ' object path "/org/bluez/hci0/dev_11_22_33_44_55_66"', '  string "org.bluez.Device1"',
+                    '   string "Address"', '    variant string "11:22:33:44:55:66"',
+                    '   string "Name"', '    variant string "Page turner"',
+                    '   string "Class"', '    variant uint32 9536',
+                    '   string "Paired"', '    variant boolean ' .. tostring(paired),
+                    '   string "Connected"', '    variant boolean ' .. tostring(paired),
+                }, "\n")
+            elseif command:find("Device1.Connect", 1, true) then
+                output = "Error org.bluez.Error.AlreadyConnected: Already Connected"
+            elseif command:find("RemoveDevice", 1, true) then
+                paired = false
+            end
+            return { read = function() return output end, close = function() return 0 end }
+        end)
+        execute_stub = stub(os, "execute", function(command)
+            commands[#commands + 1] = command
+            if command:find(" pair '", 1, true) then paired = true end
+            return 0
+        end)
+        local adapter = require("modules/menu/bluetooth_adapters/pocketbook").new()
+        local devices = adapter.getDeviceList()
+        assert.are.same({ "Page turner", false, true, false },
+            { devices[1].name, devices[1].paired, devices[1].hid, devices[1].le })
+        local results = {}
+        local function record(ok) results[#results + 1] = ok end
+        adapter.pair(devices[1], record)
+        assert.is_truthy(commands[1]:find("--agent NoInputNoOutput", 1, true))
+        assert.is_truthy(queries[#queries]:find("string:Trusted variant:boolean:true", 1, true))
+        adapter.connect(devices[1], record)
+        adapter.forget(devices[1], record)
+        assert.are.same({ true, true, true }, results)
+        local count = #queries
+        adapter.connect({ address = "11:22:33:44:55:66'; reboot" }, record)
+        assert.is_false(results[4])
+        assert.are.same({ 1, count }, { #commands, #queries })
+    end)
+
+    it("falls back to bluetoothctl without D-Bus and rejects unsafe addresses", function()
         local paired = false
         popen_stub = stub(io, "popen", function(command)
-            local output = command:find("devices", 1, true)
-                and "Device 11:22:33:44:55:66 Page turner\n"
-                or "Device 11:22:33:44:55:66\n\tAlias: Page turner\n\tPaired: "
+            local output = command:find("dbus-send", 1, true) and "sh: dbus-send: not found"
+                or command:find("devices", 1, true) and "Device 11:22:33:44:55:66 Page turner\n"
+                or "Device 11:22:33:44:55:66 (random)\n\tAlias: Page turner\n\tIcon: input-keyboard\n\tPaired: "
                     .. (paired and "yes" or "no") .. "\n\tConnected: no\n"
             return { read = function() return output end, close = function() return 0 end }
         end)
@@ -45,16 +90,16 @@ describe("Bluetooth device adapters", function()
         end)
         local adapter = require("modules/menu/bluetooth_adapters/pocketbook").new()
         local devices = adapter.getDeviceList()
-        assert.are.equal("Page turner", devices[1].name)
-        assert.is_false(devices[1].paired)
+        assert.are.same({ "Page turner", false, true, true },
+            { devices[1].name, devices[1].paired, devices[1].hid, devices[1].le })
         local result
         adapter.pair(devices[1], function(ok) result = ok end)
         assert.is_true(result)
         assert.is_truthy(commands[1]:find("--agent NoInputNoOutput", 1, true))
-        assert.is_true(commands[1]:find("'11:22:33:44:55:66'", 1, true) ~= nil)
+        assert.is_truthy(commands[2]:find("bluetoothctl trust '11:22:33:44:55:66'", 1, true))
         adapter.connect({ address = "11:22:33:44:55:66'; reboot" }, function(ok) result = ok end)
         assert.is_false(result)
-        assert.are.equal(1, #commands)
+        assert.are.equal(2, #commands)
         local scan_results = {}
         adapter.scan(function(ok) scan_results[#scan_results + 1] = ok end)
         assert.are.equal(10, scheduled[1].delay)

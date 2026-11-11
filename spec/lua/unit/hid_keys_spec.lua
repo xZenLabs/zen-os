@@ -1,6 +1,6 @@
 describe("HID button mappings", function()
     local names = { "device", "ui/uimanager", "config/manager", "dispatcher", "common/zen_logger",
-        "common/hid_keys", "apps/reader/readerui", "ffi/util" }
+        "common/hid_keys", "apps/reader/readerui", "ffi/util", "libs/libkoreader-lfs" }
     local originals, Keys, hook, config, ticks, executed, saved
 
     local function press(code, value)
@@ -21,7 +21,9 @@ describe("HID button mappings", function()
         ZenSpec.replace("device", { input = {
             event_map = { [193] = "LPgFwd" },
             registerEventAdjustHook = function(_self, fn) hook = fn end,
+            open = function() end, close = function() end,
         } })
+        ZenSpec.replace("libs/libkoreader-lfs", { attributes = function() return nil end })
         ZenSpec.replace("ui/uimanager", {
             nextTick = function(_self, fn) ticks[#ticks + 1] = fn end,
             scheduleIn = function() end, unschedule = function() end,
@@ -127,5 +129,83 @@ describe("HID button mappings", function()
         Keys.onInsert("/dev/input/event2")
         drain()
         assert.are.equal(5, opens)
+    end)
+
+    it("opens Bluetooth HID nodes from uhid and the kernel's HID, not USB ones", function()
+        local input, opens = require("device").input, {}
+        input.open = function(_self, path) opens[#opens + 1] = path end
+        ZenSpec.replace("ffi/util", { realpath = function(path)
+            local node = path:match("event%d+$")
+            return ({
+                event2 = "/sys/devices/virtual/misc/uhid/0005:045E:0B13.0007/input/input8/event2",
+                event3 = "/sys/devices/platform/soc/serial0/hci0/hci0:11/0005:046D:B342.0003/input/input9/event3",
+                event4 = "/sys/devices/platform/soc/usb1/1-1/1-1:1.0/0003:1532:021A.001C/input/input31/event4",
+            })[node] or "/sys/devices/platform/touch/input/input1/" .. node
+        end })
+        for _i, node in ipairs({ "event1", "event2", "event3", "event4" }) do Keys.onInsert("/dev/input/" .. node) end
+        assert.are.same({ "/dev/input/event2", "/dev/input/event3" }, opens)
+    end)
+
+    it("applies every mapping where input arrives without a device", function()
+        local input, opens = require("device").input, 0
+        input.input = { is_ffi = true }
+        input.open = function() opens = opens + 1 end
+        Keys.add("AA:BB:CC:DD:EE:FF", 304).reader = { page_jmp = 1 }
+        Keys.save()
+        Keys.rescan()
+        Keys.onInsert("/dev/input/event2")
+        assert.are.equal(0, opens)
+        package.loaded["apps/reader/readerui"] = { instance = {} }
+        assert.are.equal(0, press(304))
+        assert.is_false(Keys.connected("AA:BB:CC:DD:EE:FF"))
+    end)
+
+    it("rescans for reconnected and vanished remotes", function()
+        local input, opens, nodes, scheduled = require("device").input, 0, { event2 = "a" }, {}
+        input.open = function() opens = opens + 1 end
+        require("ui/uimanager").scheduleIn = function(_self, delay, fn) scheduled[#scheduled + 1] = { delay, fn } end
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function() return "directory" end,
+            dir = function()
+                local list = {}
+                for node in pairs(nodes) do list[#list + 1] = node end
+                local index = 0
+                return function()
+                    index = index + 1
+                    return list[index]
+                end
+            end,
+        })
+        ZenSpec.replace("ffi/util", { realpath = function(path)
+            local node = path:match("event%d+$")
+            return nodes[node] and "/sys/devices/virtual/misc/uhid/0005:045E:0B13." .. nodes[node] .. "/input/" .. node
+        end })
+        local real_open = io.open
+        local open_stub = stub(io, "open", function(path, ...)
+            if path:find("/device/uniq$") then return { read = function() return "aa:bb:cc:dd:ee:ff" end, close = function() end } end
+            return real_open(path, ...)
+        end)
+        finally(function() open_stub:revert() end)
+        Keys.add("AA:BB:CC:DD:EE:FF", 304).library = { page_jmp = 1 }
+
+        Keys.rescanSoon()
+        local delays = {}
+        while #scheduled > 0 do
+            local entry = table.remove(scheduled, 1)
+            delays[#delays + 1] = entry[1]
+            entry[2]()
+        end
+        assert.are.same({ 2, 3, 7 }, delays)
+        assert.are.equal(1, opens) -- an unchanged node is left alone
+        assert.is_true(Keys.connected("AA:BB:CC:DD:EE:FF"))
+        assert.are.equal(0, press(304))
+
+        nodes.event2 = "b" -- same node name, new device
+        Keys.rescan()
+        assert.are.equal(2, opens)
+        nodes.event2 = nil
+        Keys.rescan()
+        assert.is_false(Keys.connected("AA:BB:CC:DD:EE:FF"))
+        assert.are.equal(304, press(304))
     end)
 end)

@@ -113,6 +113,7 @@ function M.show(device, plugin)
             dismiss_callback = Keys.stopCapture,
         }
         UIManager:show(message)
+        Keys.rescan() -- a remote that reconnected by itself may not be open yet
         Keys.capture(function(code)
             UIManager:close(message)
             if not code then

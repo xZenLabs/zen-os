@@ -8,6 +8,7 @@ main.lua|integration
 common/book_status.lua|unit
 modules/menu/bluetooth/bluetooth.lua|unit
 modules/menu/bluetooth/kobo_bluetooth.lua|unit
+modules/menu/bluetooth/bluez.lua|unit
 common/book_walker.lua|unit
 common/brand_migration.lua|unit
 common/clock_schedule.lua|unit

@@ -941,6 +941,7 @@ function ZenUI:onResume()
     local UIManager = require("ui/uimanager")
     UIManager:unschedule(resume_clock_timer)
     UIManager:scheduleIn(2, resume_clock_timer)
+    require("common/hid_keys").rescanSoon()
 end
 
 -- Input hotplug (uevent): open a HID remote's node and apply its button mappings.
@@ -952,6 +953,12 @@ end
 function ZenUI:onEvdevInputRemove(path)
     if self._zenos_brand_inert then return end
     require("common/hid_keys").onRemove(path)
+end
+
+-- Not every remote's node comes with a hotplug event: look for it when Bluetooth changes.
+function ZenUI:onBluetoothStateChanged()
+    if self._zenos_brand_inert then return end
+    require("common/hid_keys").rescanSoon()
 end
 
 -- Wi-Fi came up after a skipped check; the updater ignores repeats while one is pending.
