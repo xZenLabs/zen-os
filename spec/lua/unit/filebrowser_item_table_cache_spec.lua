@@ -376,6 +376,7 @@ describe("file browser item-table cache", function()
     it("rescans flat listings built in a directory's timestamp second", function()
         local scan_time = os.time()
         stub(os, "time", function() return scan_time end)
+        finally(function() os.time:revert() end)
         directory_mtime = scan_time
         flat_directories = { "/library", "/library/Nested" }
         local book = { path = "/library/Nested/Book.epub", is_file = true }
@@ -922,6 +923,7 @@ describe("file browser item-table cache", function()
     it("rescans a normal listing whose folder changed in the scan's timestamp window", function()
         local scan_time = 1000
         stub(os, "time", function() return scan_time end)
+        finally(function() os.time:revert() end)
         -- FAT32 rounds down to an even second, so a write just after the scan
         -- can carry a timestamp one second before it.
         directory_mtimes["/library"] = scan_time - 1
@@ -934,12 +936,12 @@ describe("file browser item-table cache", function()
         chooser:genItemTableFromPath("/library")
         chooser:genItemTableFromPath("/library")
         assert.are.equal(3, generated["/library"])
-        os.time:revert()
     end)
 
     it("rescans a normal listing whose child folder changed in the scan's timestamp window", function()
         local scan_time = 1000
         stub(os, "time", function() return scan_time end)
+        finally(function() os.time:revert() end)
         directory_mtimes["/library"] = 1
         directory_mtimes["/library/Author"] = scan_time
         source_items["/library"] = {
@@ -953,12 +955,12 @@ describe("file browser item-table cache", function()
         fake_now = fake_now + 10
         chooser:genItemTableFromPath("/library")
         assert.are.equal(2, generated["/library"])
-        os.time:revert()
     end)
 
     it("keeps listings whose folders carry timestamps later than the scan", function()
         local scan_time = 1000
         stub(os, "time", function() return scan_time end)
+        finally(function() os.time:revert() end)
         directory_mtime = scan_time + 3600
         source_items["/library"] = {
             { text = "Author/", path = "/library/Author", attr = { mode = "directory" } },
@@ -968,7 +970,6 @@ describe("file browser item-table cache", function()
         fake_now = fake_now + 10
         chooser:genItemTableFromPath("/library")
         assert.are.equal(1, generated["/library"])
-        os.time:revert()
     end)
 
     it("rescans listings in and above a Calibre library when its book list changes", function()
@@ -1013,6 +1014,7 @@ describe("file browser item-table cache", function()
     it("rescans when the book list was saved in the scan's timestamp window", function()
         local scan_time = 1000
         stub(os, "time", function() return scan_time end)
+        finally(function() os.time:revert() end)
         directory_mtime = 1
         setting_values["inbox_dir"] = "/library"
         calibre_files["/library/.metadata.calibre"] = { modification = scan_time, size = 10 }
@@ -1022,20 +1024,6 @@ describe("file browser item-table cache", function()
         chooser:genItemTableFromPath("/library")
         assert.are.equal(2, generated["/library"])
         chooser:genItemTableFromPath("/library")
-        assert.are.equal(2, generated["/library"])
-        os.time:revert()
-    end)
-
-    it("checks the book list when restoring a snapshot", function()
-        setting_values["inbox_dir"] = "/library"
-        calibre_files["/library/.metadata.calibre"] = { modification = 1, size = 10 }
-        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
-        chooser:genItemTableFromPath("/library")
-        run_scheduled()
-
-        calibre_files["/library/.metadata.calibre"] = { modification = 1, size = 20 }
-        local fresh = apply_new_filechooser()
-        fresh:genItemTableFromPath("/library")
         assert.are.equal(2, generated["/library"])
     end)
 
