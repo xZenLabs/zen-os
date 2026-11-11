@@ -924,6 +924,13 @@ local function apply_browser_item_table_cache()
         return drop_persisted_path(path) or dropped
     end
 
+    -- True when the cached listing for path recorded a Calibre book list that
+    -- has changed since its scan. One or two stats; none without Calibre.
+    function FileChooser:_zen_item_table_calibre_changed(path)
+        local value = type(path) == "string" and shared_cache.values[path]
+        return value and not calibre_unchanged(value) or false
+    end
+
     function FileChooser:_zen_prepare_item_table(path, items)
         if self._dummy or self.name ~= "filemanager"
                 or type(path) ~= "string" or type(items) ~= "table" then

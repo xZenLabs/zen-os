@@ -1417,6 +1417,26 @@ describe("file browser navbar navigation", function()
         assert.are.same({ "books:/library" }, calls)
     end)
 
+    it("rebuilds before reveal when Calibre changed the retained Library", function()
+        local fm = make_instance()
+        local fc = fm.file_chooser
+        fc.path = "/library"
+        fc.page = 2
+        dir_mtimes["/library"] = 10
+        UIManager.nextTick = function() end
+        local calibre_changed = false
+        fc._zen_item_table_calibre_changed = function(_self, path)
+            return path == "/library" and calibre_changed
+        end
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
+        calibre_changed = true
+        calls = {}
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
+        assert.are.same({ "books:/library" }, calls)
+    end)
+
     it("dispatches persistent tabs to their intended library views and tracks active state", function()
         make_instance()
         for _i, id in ipairs({ "home", "authors", "series", "tags", "to_be_read" }) do

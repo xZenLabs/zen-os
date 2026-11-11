@@ -883,6 +883,9 @@ local function apply_navbar()
             and retained.sort_signature == _library_sort_signature(fc, home_dir)
             and retained.layout_signature == _library_layout_signature(fc)
             and retained.root_mtime == lfs.attributes(home_dir, "modification")
+            -- Calibre can overwrite books without touching any folder timestamp.
+            and not (type(fc._zen_item_table_calibre_changed) == "function"
+                and fc:_zen_item_table_calibre_changed(home_dir))
     end
 
     materializeHiddenLibrary = function(fm, fc, home_dir, items, detail)

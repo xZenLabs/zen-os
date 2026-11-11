@@ -988,8 +988,12 @@ describe("file browser item-table cache", function()
 
         -- Calibre's first book list in the inbox, then a re-sent book that
         -- overwrites its file without touching any folder.
+        assert.is_false(chooser:_zen_item_table_calibre_changed("/library"))
         calibre_files["/library/Calibre/.metadata.calibre"] = { modification = 1, size = 100 }
+        assert.is_true(chooser:_zen_item_table_calibre_changed("/library"))
+        assert.is_false(chooser:_zen_item_table_calibre_changed("/library/Calibrated"))
         generate_all()
+        assert.is_false(chooser:_zen_item_table_calibre_changed("/library"))
         calibre_files["/library/Calibre/.metadata.calibre"] = { modification = 1, size = 140 }
         generate_all()
         assert.are.equal(3, generated["/library"])
