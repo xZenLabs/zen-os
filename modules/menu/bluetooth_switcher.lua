@@ -110,12 +110,18 @@ function M.open(on_changed, settings_subpage, plugin)
             end
         end)
     end
+    -- Transport and class where the adapter knows them: "BT", "BTLE", "BT HID", "BTLE HID".
+    local function kind(device)
+        if device.le == nil and not device.hid then return nil end
+        return (device.le and "BTLE" or "BT") .. (device.hid and " HID" or "")
+    end
     local function show_info(device)
         local status = device.connected and _("Connected")
             or device.paired and _("Paired") or _("Available")
         UIManager:show(InfoMessage:new{text = table.concat({
             _("Device") .. ": " .. device.name,
             _("Address") .. ": " .. device.address,
+            _("Type") .. ": " .. (kind(device) or "—"),
             _("Status") .. ": " .. status,
             _("Signal") .. ": " .. (device.rssi and tostring(device.rssi) .. " dBm" or "—"),
         }, "\n")})
@@ -139,6 +145,11 @@ function M.open(on_changed, settings_subpage, plugin)
             add(icons.connect, _("Connect"), function() operate("connect", device) end)
         else
             add(icons.connect, _("Pair"), function() operate("pair", device, true) end)
+        end
+        if device.hid and device.paired and require("common/hid_keys").supported() then
+            add(icons.keyboard, _("Map buttons"), function()
+                require("modules/menu/bluetooth_keys").show(device, plugin)
+            end)
         end
         if device.paired then
             add(icons.delete, _("Forget"), function()
@@ -178,15 +189,30 @@ function M.open(on_changed, settings_subpage, plugin)
     end
     render = function(selected_address)
         if closed then return end
+        -- Remotes and controllers need an extra scan the stock one doesn't do; opt-in per session.
+        local hid_search = adapter.hid_available and not adapter.hid_enabled and not scanning and {
+            text = _("Search for remotes and controllers"), _zen_settings_row = true,
+            _zen_display_text = _("Search for remotes and controllers"),
+            callback = function()
+                adapter.hid_enabled = true
+                start()
+            end,
+        } or nil
         if #devices == 0 then
-            show_status(scan_warning or _("No Bluetooth devices found."))
+            local rows = status_items(scan_warning or _("No Bluetooth devices found."))
+            rows[#rows + 1] = hid_search
+            menu:switchItemTable(nil, rows)
+            UIManager:forceRePaint()
             return
         end
         local rows, selected_index = {}, nil
         for _i, device in ipairs(devices) do
             local status = device.connected and _("Connected")
                 or device.paired and _("Paired") or _("Available")
-            local signal = device.rssi and tostring(device.rssi) .. " dBm" or nil
+            local detail = { status, kind(device), device.rssi and tostring(device.rssi) .. " dBm" or nil }
+            for index = #detail, 1, -1 do
+                if not detail[index] then table.remove(detail, index) end
+            end
             local row = {
                 text = device.name, device = device,
                 _zen_settings_row = true,
@@ -194,7 +220,7 @@ function M.open(on_changed, settings_subpage, plugin)
                 _zen_settings_breadcrumb = busy_device == device.address and _("Updating…")
                     or operation_error and operation_error.address == device.address
                         and operation_error.text
-                    or signal and status .. " · " .. signal or status,
+                    or table.concat(detail, " · "),
                 _zen_value_black = true,
                 _zen_primary_bold = device.connected == true,
                 _zen_has_submenu = device.connected == true,
@@ -214,6 +240,7 @@ function M.open(on_changed, settings_subpage, plugin)
             if device.address == selected_address then selected_index = #rows end
         end
         if scan_warning then rows[#rows + 1] = status_items(scan_warning)[1] end
+        rows[#rows + 1] = hid_search
         menu:switchItemTable(nil, rows, selected_index)
     end
 

@@ -27,6 +27,7 @@ common/dispatcher_menu.lua|unit
 common/docprops_cache.lua|unit
 common/font_language.lua|unit
 common/folder_cover_files.lua|unit
+common/hid_keys.lua|unit
 common/history_index.lua|unit
 common/i18n.lua|unit
 common/icon_packs.lua|unit
@@ -224,6 +225,7 @@ modules/menu/bluetooth_adapters/kindle.lua|unit
 modules/menu/bluetooth_adapters/kindle_hid.lua|unit
 modules/menu/bluetooth_adapters/kobo.lua|unit
 modules/menu/bluetooth_adapters/pocketbook.lua|unit
+modules/menu/bluetooth_keys.lua|unit
 modules/menu/bluetooth_switcher.lua|unit
 modules/menu/patches/app_launcher.lua|integration
 modules/menu/patches/brightness_slider.lua|integration
