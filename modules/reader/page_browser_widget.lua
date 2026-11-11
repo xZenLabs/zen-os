@@ -2275,9 +2275,11 @@ return function(ctx)
             and handle_focus_key(self, event.args[1], event.handler == "onKeyPress") then
             return true
         end
-        -- Children already saw the raw hold; embedded Menus' FocusManager:onHold would
-        -- re-send it to their focused row, looping forever when the row ignores holds (TOC).
-        if event.handler == "onHold" then return self:onHold(unpack(event.args, 1, event.args.n)) end
+        -- Children already saw the raw gesture. Re-propagating would loop holds forever via
+        -- embedded Menus' FocusManager:onHold (TOC rows ignore holds) and page Menus twice per swipe.
+        if event.handler == "onHold" or event.handler == "onSwipe" then
+            return self[event.handler](self, unpack(event.args, 1, event.args.n))
+        end
         return _orig_handleEvent(self, event)
     end
 

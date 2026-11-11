@@ -30,6 +30,7 @@ local Accent         = require("common/ui/accent")
 local pager          = require("common/ui/zen_pager")
 local LibraryFont    = require("modules/filebrowser/patches/library_font")
 local Pill           = require("common/ui/pill")
+local RawPaint       = require("common/ui/raw_paint")
 local ReaderFont     = require("common/reader_font")
 local TitleStyle     = require("common/ui/zen_title_style")
 local utils          = require("common/utils")
@@ -264,7 +265,7 @@ function ZenTocWidget.paintRow(bb, x, y, w, h, style, row)
         local accent = Accent.color() -- Black when accents are off or unsupported.
         local rgb = not Blitbuffer.isColor8(accent)
         local paintBorder = rgb and bb.paintBorderRGB32 or bb.paintBorder
-        paintBorder(bb, cx, cy, cw, ch, style.card_border, accent, style.card_radius)
+        RawPaint.run(bb, paintBorder, bb, cx, cy, cw, ch, style.card_border, accent, style.card_radius)
         local left, right = x + style.pad + indent, x + w - style.pad -- Aligned with plain rows.
         local top = cy + style.card_pad
         local pn_w = paint_label(bb, { text = page_label, face = style.face, bold = true,
@@ -285,11 +286,11 @@ function ZenTocWidget.paintRow(bb, x, y, w, h, style, row)
         local bar_w = bar_right - bar_x
         if bar_w <= style.gap then return end
         local bar_y = line_y + math.floor((style.small_h - style.bar_h) / 2)
-        paintBorder(bb, bar_x, bar_y, bar_w, style.bar_h, style.bar_border,
+        RawPaint.run(bb, paintBorder, bb, bar_x, bar_y, bar_w, style.bar_h, style.bar_border,
             accent, Pill.radius(bar_w, style.bar_h))
         local fill_w = math.max(style.bar_h, math.floor(bar_w * p.done / p.total))
         local paintFill = rgb and bb.paintRoundedRectRGB32 or bb.paintRoundedRect
-        paintFill(bb, bar_x, bar_y, fill_w, style.bar_h, accent, Pill.radius(fill_w, style.bar_h))
+        RawPaint.run(bb, paintFill, bb, bar_x, bar_y, fill_w, style.bar_h, accent, Pill.radius(fill_w, style.bar_h))
         return
     end
     local color = row.state == "read" and Blitbuffer.COLOR_GRAY_5 or Blitbuffer.COLOR_BLACK

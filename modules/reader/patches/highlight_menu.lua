@@ -121,7 +121,7 @@ local function apply()
     -- ai_assistant is the main button registered by assistant.koplugin.
     local KNOWN_KEYS = {
         select = true, highlight = true, search = true, translate = true,
-        wikipedia = true, dictionary = true,
+        wikipedia = true, dictionary = true, add_note = true,
         ai_assistant = true,
     }
 
@@ -175,18 +175,33 @@ local function apply()
 
         local buttons = {{}}
         local labels = show_labels()
+        local function use_default_color()
+            self.view.highlight.saved_color = G_reader_settings:readSetting("highlight_color") or self._fallback_color
+            if self.setSelectionColor then self:setSelectionColor() end -- added after v2026.03
+        end
         if not index then
             buttons[1][1] = {
                 icon = "lookup.highlight",
                 text = labels and _("Highlight") or nil,
                 enabled = self.hold_pos ~= nil,
                 callback = function()
-                    self.view.highlight.saved_color = G_reader_settings:readSetting("highlight_color") or self._fallback_color
-                    if self.setSelectionColor then self:setSelectionColor() end -- added after v2026.03
+                    use_default_color()
                     self:saveHighlight(not self.selected_text._zen_resized)
                     self:onClose()
                 end,
             }
+            local note_btn = find_highlight_button(self, nil, "add_note")
+            if note_btn then
+                buttons[1][2] = {
+                    icon = menu_icons.note,
+                    text = labels and _("Note") or nil,
+                    enabled = note_btn.enabled ~= false,
+                    callback = function()
+                        use_default_color()
+                        note_btn.callback()
+                    end,
+                }
+            end
         end
 
         if show_wikipedia() then

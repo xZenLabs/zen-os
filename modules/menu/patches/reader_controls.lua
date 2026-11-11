@@ -310,6 +310,15 @@ return function(plugin)
         return rows
     end
 
+    local GestureRange = require("ui/gesturerange")
+    -- Tap handling for passive widgets (theme swatches) that sit beside their control.
+    local TapTarget = InputContainer:extend{}
+    function TapTarget:init()
+        self.dimen = self[1]:getSize()
+        self.ges_events.Tap = { GestureRange:new{ ges = "tap", range = self.dimen } }
+    end
+    function TapTarget:onTap() self.callback(); return true end
+
     local Dots = Widget:extend{}
     function Dots:paintTo(bb, x, y)
         Pager.paint(bb, x, y, self.dimen.w, self.dimen.h, self.page, self.pages, "dots", nil, self.dot_size)
@@ -407,6 +416,7 @@ return function(plugin)
                     width = math.min(Screen:scaleBySize(96), math.floor(width * 0.45)),
                     height = Screen:scaleBySize(30), face = Font:getFace("cfont", 14),
                     radius = Screen:scaleBySize(4) } -- matches ZenTabBar
+                if swatch then swatch = TapTarget:new{ swatch, callback = callback } end
                 widget = CheckButton:new{ text = item.text, radio = true,
                     width = width - (swatch and swatch:getSize().w + pad or 0),
                     checked = item.checked, face = item.face or Font:getFace("x_smallinfofont"),
@@ -991,7 +1001,6 @@ return function(plugin)
     end
 
     local FocusManager = require("ui/widget/focusmanager")
-    local GestureRange = require("ui/gesturerange")
     local PanelGestures = require("modules/menu/patches/touch_menu_panel")
     local EmbeddedPanel = FocusManager:extend{ _reader_controls_embedded = true }
     function EmbeddedPanel:init()

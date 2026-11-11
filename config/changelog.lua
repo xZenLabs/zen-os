@@ -444,6 +444,11 @@ return {
     ["4.3.2"] = {
         "Add reflow option to PDF layout settings in reader controls",
         "Set left and right margins independently (Sync in the Left/Right margin menu)",
+        "Tap a theme preview in reader controls to select it",
+        "Add flash-free themed page turns (Reader > Reader themes)",
+        "Add note button to new selection highlight menu",
+        "Fix: swiping in page browser chapters and bookmarks skipped every other page",
+        "Fix: accent color inverted on round buttons and corners in night mode on Android",
     },
 
 }

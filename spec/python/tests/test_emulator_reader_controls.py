@@ -566,6 +566,13 @@ def test_reader_controls_native_settings_defaults_profiles_and_direct_actions():
             driver.command("reader_controls", action="open")
             driver.command("reader_controls", action="choose", id="themes")
             assert driver.command("reader_controls")["hatched_background"] is False
+            # Tapping the swatch beside a theme radio selects that theme too.
+            state = driver.command("reader_controls", action="paint")
+            bounds = state["bounds"]["Default"]
+            assert driver.command("reader_controls", action="real_tap", id="Default", dx=bounds["w"] + 48)["ok"]
+            state = driver.command("reader_controls")
+            assert state["global_themes"]["light_mode"] == "default"
+            assert state["radios"]["Default"]
             driver.command("reader_controls", action="close")
 
             driver.command("reader_controls", action="open")

@@ -314,6 +314,9 @@ def test_reader_page_browser_modes_and_search_render() -> None:
                     # Hold used to loop through FocusManager:onHold until stack overflow.
                     assert driver.command("annotation_viewer_action", action="hold", index=1)["ok"]
                     assert driver.command("page_browser_state")["page_browser"]["active_tab"] == "toc"
+                    # Swipe used to reach the Menu twice, skipping every other page.
+                    swiped = driver.command("annotation_viewer_action", action="swipe")
+                    assert swiped["ok"], swiped
                 if tab in ("toc", "bookmarks"):
                     assert state["content_bottom"] == state["screen_height"] - state["edge_padding"]
                 if tab == "aa":

@@ -62,6 +62,10 @@ describe("reader references", function()
         assert.is_false(G_reader_settings:readSetting("footnote_popup_use_book_font"))
         assert.equals(-3, G_reader_settings:readSetting("footnote_popup_relative_font_size"))
         assert.equals(24, G_reader_settings:readSetting("footnote_popup_absolute_font_size"))
+        -- Native toggle turns the book font off by deleting the key.
+        G_reader_settings:delSetting("footnote_popup_use_book_font")
+        References.applyDefaults(ui)
+        assert.is_nil(G_reader_settings:readSetting("footnote_popup_use_book_font"))
     end)
 
     it("only shows Return even with a saved footnote without changing history or reading position", function()

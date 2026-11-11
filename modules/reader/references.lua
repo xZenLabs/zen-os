@@ -17,7 +17,9 @@ function M.enabled(ui)
 end
 
 function M.applyDefaults(ui)
-    if not M.enabled(ui) then return end
+    -- Once only: native toggles delete keys to turn them off.
+    if not M.enabled(ui) or G_reader_settings:isTrue("zen_footnote_defaults_applied") then return end
+    G_reader_settings:saveSetting("zen_footnote_defaults_applied", true)
     for key, value in pairs({ footnote_link_in_popup = true,
         footnote_popup_use_book_font = true, footnote_popup_relative_font_size = 0 }) do
         if G_reader_settings:readSetting(key) == nil then G_reader_settings:saveSetting(key, value) end

@@ -378,6 +378,17 @@ function M.annotation_viewer_action(params)
             },
         }))
         return true
+    elseif params.action == "swipe" then
+        local panel, calls = browser._zen_content_panel, 0
+        local on_swipe = panel.onSwipe
+        panel.onSwipe = function(...) calls = calls + 1; return on_swipe(...) end
+        UIManager:sendEvent(require("ui/event"):new("Gesture", {
+            ges = "swipe", direction = "west", pos = require("ui/geometry"):new{
+                x = panel.dimen.x + panel.dimen.w / 2, y = panel.dimen.y + panel.dimen.h / 2, w = 1, h = 1,
+            },
+        }))
+        panel.onSwipe = nil
+        return calls == 1, "swiped " .. calls .. " times"
     elseif params.action == "close_details" or params.action == "details_more" then
         local viewer = find_widget(function(widget) return widget.buttons_table and widget.titlebar end)
         if not viewer then return false, "details unavailable" end
@@ -890,7 +901,8 @@ function M.reader_controls(params)
         local bounds
         for _i, row in ipairs(tm.layout or {}) do
             for _j, widget in ipairs(row) do
-                if widget._reader_card_action == params.id or params.id == "book_info_card" and widget.onTapDetails then
+                if widget._reader_card_action == params.id or params.id == "book_info_card" and widget.onTapDetails
+                        or widget._reader_theme_choice and widget.text == params.id then
                     bounds = widget.dimen
                 end
             end
