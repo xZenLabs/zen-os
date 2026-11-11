@@ -1845,10 +1845,12 @@ describe("file browser navbar navigation", function()
         UIManager._window_stack = {
             { widget = fm }, { widget = { _zen_navbar_tab_id = "authors" } },
         }
+        fc._zen_folder_aggregate_cache = { values = {}, order = {} }
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
 
         assert.are.same({ "refresh" }, calls)
+        assert.is_nil(fc._zen_folder_aggregate_cache)
     end)
 
     it("refreshes every navbar page switch, including Authors to Library and Home", function()

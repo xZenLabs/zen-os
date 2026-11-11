@@ -1156,7 +1156,10 @@ local function apply_navbar()
                     _refresh_library_path(fc, home_dir)
                 elseif not from_home and not reveal_hidden_filemanager then
                     fc._zen_needs_cover_refresh = nil
-                    -- Keeps the listing cache; it checks the folder itself.
+                    -- Keeps the listing cache; it checks the folder itself. Folder
+                    -- dates are keyed on the folder's timestamp, which an
+                    -- overwritten book leaves unchanged, so rebuild them on rescan.
+                    fc._zen_folder_aggregate_cache = nil
                     _refresh_library_path(fc, home_dir)
                 elseif not refreshSuppressedCoversNow(fm)
                         and type(fc.onGotoPage) == "function" then
