@@ -221,7 +221,6 @@ modules/menu/network_adapters/kobo.lua|unit
 modules/menu/network_switcher.lua|unit
 modules/menu/bluetooth_adapters/common.lua|unit
 modules/menu/bluetooth_adapters/kindle.lua|unit
-modules/menu/bluetooth_adapters/kindle_hid.lua|unit
 modules/menu/bluetooth_adapters/kobo.lua|unit
 modules/menu/bluetooth_adapters/pocketbook.lua|unit
 modules/menu/bluetooth_switcher.lua|unit
