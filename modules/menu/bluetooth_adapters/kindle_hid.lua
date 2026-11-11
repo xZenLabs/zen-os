@@ -9,6 +9,10 @@ local SNOOP = "/mnt/us/bt_snoop_log" -- BtSnoopFileName in bt_stack.conf
 local BT_CONFIG = "/var/local/zbluetooth/bt_config.conf"
 local DMCC = "/usr/bin/dmcc.sh"
 local PRE_GM = "/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC"
+-- Guard rewrite, format(from, to): ("! ", "") inverts it, ("", "! ") restores stock.
+local DMCC_SED = [[sed -i 's|^if %s\(\[ -e "/PRE_GM_DEBUGGING\)|if %s\1|' ]]
+-- HID disconnects otherwise flood the userstore with core dumps
+local MARKERS = { "/mnt/us/DISABLE_CORE_DUMP", "/mnt/us/DISABLE_CORE_DUMP_ALERT" }
 local SYSTEM_FILES = {
     ["/usr/local/bin/dev_is_keyboard.sh"] = [[
 #!/bin/sh
@@ -49,57 +53,73 @@ local function cli(command, after)
         .. "; " .. (after or ":") .. " ) >/dev/null 2>&1 &")
 end
 
+local function write(path, content)
+    local file = io.open(path, "w")
+    if not file then return false end
+    local ok = file:write(content) ~= nil
+    file:close()
+    return ok
+end
+
+-- What setup still has to change: system files, the dmcc.sh guard, core dump markers.
+local function pending()
+    local stale, markers = {}, {}
+    for path, content in pairs(SYSTEM_FILES) do
+        if read(path) ~= content then stale[#stale + 1] = path end
+    end
+    for _i, path in ipairs(MARKERS) do
+        if not exists(path) then markers[#markers + 1] = path end
+    end
+    -- dmcc.sh only runs where the debug flag exists; its guard gets inverted there.
+    local dmcc = exists(PRE_GM) and (read(DMCC) or ""):find('\nif ! [ -e "' .. PRE_GM, 1, true) ~= nil
+    return stale, dmcc, markers
+end
+
 -- ACE stack + uhid only: the system changes white-screen older (BSA) Kindles.
 function M.isSupported()
     return exists(CLI) and exists("/dev/uhid")
 end
 
--- Idempotent; touches the root filesystem only when something is missing.
+function M.isSetUp()
+    local stale, dmcc, markers = pending()
+    return #stale == 0 and not dmcc and #markers == 0
+end
+
+-- Idempotent; a failed run puts back everything it changed.
 function M.setup()
     if not M.isSupported() then return false end
-    -- HID disconnects otherwise flood the userstore with core dumps
-    for _i, name in ipairs({ "DISABLE_CORE_DUMP", "DISABLE_CORE_DUMP_ALERT" }) do
-        local marker = io.open("/mnt/us/" .. name, "a")
-        if marker then marker:close() end
-    end
-    local stale = {}
-    for path, content in pairs(SYSTEM_FILES) do
-        if read(path) ~= content then stale[#stale + 1] = path end
-    end
-    -- dmcc.sh only runs where the debug flag exists; invert its guard there.
-    local dmcc = exists(PRE_GM) and (read(DMCC) or ""):find('\nif ! [ -e "' .. PRE_GM, 1, true) ~= nil
-    if #stale == 0 and not dmcc then return true end
+    local stale, dmcc, markers = pending()
+    if #stale == 0 and not dmcc and #markers == 0 then return true end
     if not run("mntroot rw") then
         logger.warn("setup: could not remount root read-write")
         return false
     end
+    local previous = {}
     -- pcall: root must go back read-only whatever happens in between
     local done, ok = pcall(function()
         local ok = run("mkdir -p /usr/local/bin")
+        for _i, path in ipairs(markers) do ok = write(path, "") and ok end
         for _i, path in ipairs(stale) do
-            local file = io.open(path, "w")
-            if file then
-                ok = file:write(SYSTEM_FILES[path]) ~= nil and ok
-                file:close()
-            else
-                ok = false
-            end
+            previous[path] = read(path) or false
+            ok = write(path, SYSTEM_FILES[path]) and ok
         end
         ok = run("chmod +x /usr/local/bin/dev_is_keyboard.sh") and ok
-        if dmcc then
-            ok = run([[sed -i 's|^if ! \(\[ -e "/PRE_GM_DEBUGGING\)|if \1|' ]] .. DMCC) and ok
-        end
+        if dmcc then ok = run(DMCC_SED:format("! ", "") .. DMCC) and ok end
         return ok
     end)
     if not done then logger.warn("setup: failed:", tostring(ok)) end
     ok = done and ok
-    run("sync")
-    if not run("mntroot ro") then
-        logger.warn("setup: could not remount root read-only")
-        ok = false
+    if not ok then
+        for _i, path in ipairs(markers) do os.remove(path) end
+        for path, content in pairs(previous) do
+            if content then write(path, content) else os.remove(path) end
+        end
+        if dmcc then run(DMCC_SED:format("", "! ") .. DMCC) end
     end
+    run("sync")
+    if not run("mntroot ro") then logger.warn("setup: could not remount root read-only") end
     run("udevadm control --reload-rules")
-    logger.info("setup:", ok and "applied" or "incomplete", "files=", #stale, "dmcc=", tostring(dmcc))
+    logger.info("setup:", ok and "applied" or "undone", "files=", #stale, "dmcc=", tostring(dmcc))
     return ok
 end
 

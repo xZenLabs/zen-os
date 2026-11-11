@@ -8,7 +8,7 @@ function M.show(device, plugin)
     local UIManager = require("ui/uimanager")
     local ArrangeList = require("common/ui/zen_arrange_list")
     local DispatcherMenu = require("common/dispatcher_menu")
-    local IconItem = require("common/ui/icon_menu_item")
+    local GlyphIcons = require("common/ui/glyph_icons")
     local Keys = require("common/hid_keys")
     local icons = require("common/inline_icon_map")
     local T = require("ffi/util").template
@@ -18,6 +18,21 @@ function M.show(device, plugin)
         library = { _("Library"), icons.settings_library },
     }
     local root_menu
+
+    -- The SVG the settings rows use for a glyph; arrange rows would draw the bare font glyph.
+    local function with_icon(item, glyph)
+        item.icon_file = GlyphIcons.path(glyph)
+        if not item.icon_file then item.icon_glyph = glyph end
+        return item
+    end
+
+    -- Hold-on-back returns to the settings root from any depth: every list here closes with it.
+    local function show_list(opts)
+        opts.plugin, opts.allow_arrange, opts.hide_footer_cancel = plugin, false, true
+        local list = ArrangeList.show(opts)
+        list.onCloseZenSettingsSubpages = list._zen_arrange_close_all
+        return list
+    end
 
     local function save()
         Keys.save()
@@ -32,6 +47,25 @@ function M.show(device, plugin)
             save()
             if touch_menu and touch_menu.updateItems then touch_menu:updateItems() end
         end)
+        local common = {}
+        for _i, preset in ipairs(Keys.COMMON[screen]) do
+            if DispatcherMenu.available(Dispatcher, preset[1]) then
+                common[#common + 1] = {
+                    text = preset[3] or Dispatcher:menuTextFunc({ [preset[1]] = preset[2] }), radio = true,
+                    checked_func = function() return Keys.preset(screen, binding[screen]) == preset end,
+                    callback = function()
+                        binding[screen] = { [preset[1]] = preset[2] }
+                        if binding.keys then binding.keys[screen] = nil end
+                        save()
+                    end,
+                }
+            end
+        end
+        -- After "Nothing", ahead of the full sections.
+        table.insert(items, 2, {
+            text = _("Common actions"), sub_item_table = common,
+            checked_func = function() return Keys.preset(screen, binding[screen]) ~= nil end,
+        })
         -- Native key names have no handlers on a touch-only device.
         if Device:hasKeys() then
             local keys = {}
@@ -47,9 +81,9 @@ function M.show(device, plugin)
                     end,
                 }
             end
-            table.insert(items, 1, { text = _("Keys"), sub_item_table = keys })
+            table.insert(items, 3, { text = _("Keys"), sub_item_table = keys })
         end
-        return IconItem.decorate({
+        return with_icon({
             text_func = function()
                 return SCREENS[screen][1] .. ": " .. (Keys.label(binding, screen) or _("(none)"))
             end,
@@ -61,7 +95,7 @@ function M.show(device, plugin)
     local function show_binding(binding)
         local items = {}
         for _i, screen in ipairs(Keys.SCREENS) do items[#items + 1] = screen_row(binding, screen) end
-        items[#items + 1] = IconItem.decorate({
+        items[#items + 1] = with_icon({
             text = _("Remove mapping"),
             callback = function(touch_menu)
                 Keys.remove(device.address, binding)
@@ -69,10 +103,7 @@ function M.show(device, plugin)
                 if touch_menu and touch_menu.closeMenu then touch_menu:closeMenu() end
             end,
         }, icons.delete)
-        ArrangeList.show{
-            title = T(_("Button %1"), binding.code), plugin = plugin,
-            allow_arrange = false, hide_footer_cancel = true, item_table = items,
-        }
+        show_list{ title = T(_("Button %1"), binding.code), item_table = items }
     end
 
     local function listen()
@@ -95,13 +126,14 @@ function M.show(device, plugin)
     end
 
     local function rows()
-        local items = { IconItem.decorate({
+        local items = { {
             text = _("Map a button"), keep_menu_open = true,
+            icon_file = GlyphIcons.iconPath("plus"),
             callback = function(touch_menu)
                 root_menu = touch_menu or root_menu
                 listen()
             end,
-        }, icons.add) }
+        } }
         for _i, binding in ipairs(Keys.list(device.address)) do
             items[#items + 1] = {
                 text_func = function()
@@ -123,10 +155,7 @@ function M.show(device, plugin)
         return items
     end
 
-    return ArrangeList.show{
-        title = device.name, plugin = plugin, allow_arrange = false, hide_footer_cancel = true,
-        item_table = rows(), refresh_func = rows,
-    }
+    return show_list{ title = device.name, item_table = rows(), refresh_func = rows }
 end
 
 return M

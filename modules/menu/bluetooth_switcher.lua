@@ -59,11 +59,14 @@ function M.open(on_changed, settings_subpage, plugin)
         UIManager:broadcastEvent(Event:new("BluetoothStateChanged"))
         if on_changed then on_changed() end
     end
-    local function load_devices(selected_address)
+    -- known_only: paired/connected devices ahead of a scan; a failed read stays quiet.
+    local function load_devices(selected_address, known_only)
         if closed then return false end
-        local list, err = adapter.getDeviceList()
+        local list, err = adapter.getDeviceList(known_only)
         if not list then
-            show_status(adapter.id ~= "kindle" and err or _("Could not read Bluetooth devices."))
+            if not known_only then
+                show_status(adapter.id ~= "kindle" and err or _("Could not read Bluetooth devices."))
+            end
             return false
         end
         devices = list
@@ -126,6 +129,23 @@ function M.open(on_changed, settings_subpage, plugin)
             _("Signal") .. ": " .. (device.rssi and tostring(device.rssi) .. " dBm" or "—"),
         }, "\n")})
     end
+    -- Kindle HID devices need one-time system changes: ask first; a failed setup undoes itself.
+    local function with_hid_setup(device, proceed)
+        if not (device.hid and adapter.hidSetupNeeded and adapter.hidSetupNeeded()) then return proceed() end
+        UIManager:show(ConfirmBox:new{
+            text = _("Remotes and controllers need a one-time change to this Kindle's system files. Apply it now?"),
+            ok_text = _("Apply"),
+            ok_callback = function()
+                if adapter.setupHid() then return proceed() end
+                UIManager:show(InfoMessage:new{
+                    text = _("Could not set up remotes and controllers. The changes were undone."),
+                })
+            end,
+        })
+    end
+    local function pair(device)
+        with_hid_setup(device, function() operate("pair", device, true) end)
+    end
     show_actions = function(device)
         local dialog
         local buttons = {}
@@ -144,11 +164,14 @@ function M.open(on_changed, settings_subpage, plugin)
         elseif device.paired then
             add(icons.connect, _("Connect"), function() operate("connect", device) end)
         else
-            add(icons.connect, _("Pair"), function() operate("pair", device, true) end)
+            add(icons.connect, _("Pair"), function() pair(device) end)
         end
         if device.hid and device.paired and require("common/hid_keys").supported() then
+            -- Devices paired before the setup existed still get asked here.
             add(icons.keyboard, _("Map buttons"), function()
-                require("modules/menu/bluetooth_keys").show(device, plugin)
+                with_hid_setup(device, function()
+                    require("modules/menu/bluetooth_keys").show(device, plugin)
+                end)
             end)
         end
         if device.paired then
@@ -198,8 +221,9 @@ function M.open(on_changed, settings_subpage, plugin)
                 start()
             end,
         } or nil
+        local note = scanning and _("Searching for devices…") or scan_warning
         if #devices == 0 then
-            local rows = status_items(scan_warning or _("No Bluetooth devices found."))
+            local rows = status_items(note or _("No Bluetooth devices found."))
             rows[#rows + 1] = hid_search
             menu:switchItemTable(nil, rows)
             UIManager:forceRePaint()
@@ -232,14 +256,14 @@ function M.open(on_changed, settings_subpage, plugin)
                     elseif device.paired then
                         operate("connect", device)
                     else
-                        operate("pair", device, true)
+                        pair(device)
                     end
                 end,
             }
             rows[#rows + 1] = row
             if device.address == selected_address then selected_index = #rows end
         end
-        if scan_warning then rows[#rows + 1] = status_items(scan_warning)[1] end
+        if note then rows[#rows + 1] = status_items(note)[1] end
         rows[#rows + 1] = hid_search
         menu:switchItemTable(nil, rows, selected_index)
     end
@@ -248,7 +272,10 @@ function M.open(on_changed, settings_subpage, plugin)
         if menu then return menu:onClose() end
     end
     local title_bar = SettingsTitleBar:new{
-        back_callback = close_menu, back_hold_callback = close_menu,
+        back_callback = close_menu,
+        back_hold_callback = function()
+            return require("modules/settings/zen_settings_page").backToRoot() or close_menu()
+        end,
         back_visible = settings_subpage == true,
         close_visible = settings_subpage ~= true,
         close_callback = close_menu, plugin = plugin,
@@ -303,6 +330,7 @@ function M.open(on_changed, settings_subpage, plugin)
     title_bar:init()
     title_bar.root_icon.skip_paint = true
     if settings_subpage then
+        menu.onCloseZenSettingsSubpages = close_menu
         local original_swipe = menu.onSwipe
         menu.onSwipe = function(self, arg, gesture)
             if gesture and gesture.direction == "east" and gesture.pos
@@ -339,11 +367,13 @@ function M.open(on_changed, settings_subpage, plugin)
         if closed then return end
         scan_sequence = scan_sequence + 1
         local sequence = scan_sequence
-        if adapter.id == "kindle" then
-            show_status(_("Searching for devices…"))
-        else
-            if not load_devices() then scanning = false; return end
-            if #devices == 0 then show_status(_("Searching for devices…")) end
+        -- Known devices first, usable while the search runs. Kindle's discovered list is
+        -- stale until the scan ends, so it starts from the paired and connected ones.
+        local kindle = adapter.id == "kindle"
+        if not load_devices(nil, kindle) then
+            if not kindle then scanning = false; return end
+            devices = {}
+            render()
         end
         adapter.scan(function(ok, err)
             if closed or sequence ~= scan_sequence then return end

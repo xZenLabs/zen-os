@@ -105,6 +105,7 @@ describe("Bluetooth device adapters", function()
             }
         end })
         local adapter = require("modules/menu/bluetooth_adapters/kindle").new()
+        assert.are.same({}, adapter.getDeviceList(true)) -- known only: no discoveries
         local devices = adapter.getDeviceList()
         assert.are.equal(1, #devices)
         assert.are.equal("Speaker", devices[1].name)

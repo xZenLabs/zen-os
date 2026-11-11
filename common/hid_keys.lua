@@ -13,7 +13,28 @@ local M = {
         { "Up", _("Up") }, { "Down", _("Down") }, { "Left", _("Left") }, { "Right", _("Right") },
         { "Press", _("Press") }, { "Back", _("Back") }, { "Menu", _("Menu") },
     },
+    -- One-tap choices offered ahead of the full action list: { dispatcher action, value, label }.
+    -- No label: the dispatcher's own title, so Zen actions read "ZenOS: …" as everywhere else.
+    COMMON = {
+        reader = {
+            { "page_jmp", 1, _("Next page") }, { "page_jmp", -1, _("Previous page") },
+            { "next_chapter", true, _("Next chapter") }, { "prev_chapter", true, _("Previous chapter") },
+            { "zen_ui_show_toc", true }, { "zen_ui_show_book_switcher", true },
+            { "zen_ui_show_reader_controls", true }, { "zen_ui_show_page_browser", true },
+            { "toggle_bookmark", true, _("Toggle bookmark") },
+            { "zen_ui_show_home", true },
+        },
+        library = {
+            { "open_previous_document", true, _("Open previous document") },
+            { "zen_ui_show_home", true }, { "zen_ui_show_library", true }, { "zen_ui_show_stats", true },
+        },
+    },
 }
+for _k, presets in pairs(M.COMMON) do
+    presets[#presets + 1] = { "toggle_frontlight", true, _("Toggle frontlight") }
+    presets[#presets + 1] = { "night_mode", true, _("Toggle night mode") }
+    presets[#presets + 1] = { "full_refresh", true, _("Full screen refresh") }
+end
 local EV_KEY = 1
 local paths, addresses = {}, {} -- open uhid nodes, oldest first; path -> address candidates
 local active = {} -- code -> binding; the newest connected device wins a clash
@@ -77,6 +98,14 @@ function M.remove(address, binding)
     if bindings[address] and #bindings[address] == 0 then bindings[address] = nil end
 end
 
+-- The common action a single-action assignment matches, nil for anything else.
+function M.preset(screen, actions)
+    if type(actions) ~= "table" or require("dispatcher"):_itemsCount(actions) ~= 1 then return nil end
+    for _i, preset in ipairs(M.COMMON[screen]) do
+        if actions[preset[1]] == preset[2] then return preset end
+    end
+end
+
 -- What a binding does on a screen, nil when unassigned.
 function M.label(binding, screen)
     local key = binding.keys and binding.keys[screen]
@@ -89,7 +118,8 @@ function M.label(binding, screen)
     local actions = binding[screen]
     local Dispatcher = require("dispatcher")
     if type(actions) ~= "table" or Dispatcher:_itemsCount(actions) == 0 then return nil end
-    return Dispatcher:menuTextFunc(actions)
+    local preset = M.preset(screen, actions)
+    return preset and preset[3] or Dispatcher:menuTextFunc(actions)
 end
 
 local function key_code(name)
@@ -182,7 +212,8 @@ function M._connect(path, uniq)
 end
 
 -- KOReader only opens keyboards itself; a remote's node is opened here.
-function M.onInsert(path)
+-- The uevent beats udev creating the node, so a failed open is retried briefly.
+function M.onInsert(path, attempt)
     local input = Device.input
     local node = type(path) == "string" and path:match("/(event%d+)$")
     if not (node and input and type(input.open) == "function") then return end
@@ -192,7 +223,12 @@ function M.onInsert(path)
     if (input.opened_devices or {})[path] then pcall(input.close, input, path) end
     local ok, err = pcall(input.open, input, path)
     if not ok then
-        logger.warn("could not open", path, tostring(err))
+        attempt = attempt or 1
+        if attempt < 5 then
+            UIManager:scheduleIn(0.5, function() M.onInsert(path, attempt + 1) end)
+        else
+            logger.warn("could not open", path, tostring(err))
+        end
         return
     end
     local file = io.open("/sys/class/input/" .. node .. "/device/uniq")

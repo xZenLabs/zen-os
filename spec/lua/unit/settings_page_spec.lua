@@ -2,7 +2,7 @@ describe("Zen settings page", function()
     local Page
     local PageModule
     local saved_modules
-    local shown_widgets
+    local shown_widgets, broadcasts
     local deferred_apply_flushes
     local translation_refreshes
     local saved_reader_settings
@@ -88,7 +88,7 @@ describe("Zen settings page", function()
 
     before_each(function()
         saved_modules = {}
-        shown_widgets = {}
+        shown_widgets, broadcasts = {}, {}
         deferred_apply_flushes = 0
         translation_refreshes = 0
         saved_reader_settings = G_reader_settings
@@ -114,6 +114,7 @@ describe("Zen settings page", function()
         })
         ZenSpec.replace("ui/uimanager", {
             close = function() end,
+            broadcastEvent = function(_self, event) broadcasts[#broadcasts + 1] = event.handler end,
             nextTick = function(_self, callback) callback() end,
             show = function(_self, widget) shown_widgets[#shown_widgets + 1] = widget end,
         })
@@ -424,12 +425,19 @@ describe("Zen settings page", function()
         assert.is_function(settings.title_bar.back_hold_callback)
 
         settings.itemnumber = 2
+        assert.are.same({}, broadcasts)
         settings.title_bar.back_hold_callback()
 
+        -- Stacked subpages (Wi-Fi, Bluetooth, button mapping) close on this.
+        assert.are.same({ "onCloseZenSettingsSubpages" }, broadcasts)
         assert.are.equal("Settings", settings.title_bar.title)
         assert.are.equal(settings._root_items, settings.item_table)
         assert.are.equal(0, #settings.item_table_stack)
         assert.is_false(settings.title_bar.back_visible)
+        assert.is_true(require("modules/settings/zen_settings_page").backToRoot())
+        settings:closeMenu()
+        assert.are.equal(3, #broadcasts)
+        assert.is_false(require("modules/settings/zen_settings_page").backToRoot())
         assert.is_nil(settings.itemnumber)
     end)
 

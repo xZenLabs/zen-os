@@ -207,7 +207,9 @@ function M.open(on_connected, settings_subpage, plugin)
     end
     local title_bar = SettingsTitleBar:new{
         back_callback = close_menu,
-        back_hold_callback = close_menu,
+        back_hold_callback = function()
+            return require("modules/settings/zen_settings_page").backToRoot() or close_menu()
+        end,
         back_visible = settings_subpage == true,
         close_visible = settings_subpage ~= true,
         close_callback = close_menu,
@@ -247,6 +249,7 @@ function M.open(on_connected, settings_subpage, plugin)
     title_bar:init()
     title_bar.root_icon.skip_paint = true
     if settings_subpage then
+        menu.onCloseZenSettingsSubpages = close_menu
         local menu_on_swipe = menu.onSwipe
         menu.onSwipe = function(self, arg, ges_ev)
             if ges_ev and ges_ev.direction == "east" and ges_ev.pos

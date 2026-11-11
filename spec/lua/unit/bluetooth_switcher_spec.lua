@@ -13,6 +13,7 @@ describe("Bluetooth switcher", function()
             "ui/size",
             "common/ui/zen_settings_titlebar", "common/inline_icon_map", "common/utils",
             "common/plugin_root", "ffi/util", "gettext", "modules/menu/bluetooth_switcher",
+            "common/hid_keys", "modules/menu/bluetooth_keys", "modules/settings/zen_settings_page",
         }) do originals[name] = package.loaded[name] or false end
         shown, scheduled, events, changed = {}, {}, {}, 0
         state = true
@@ -220,6 +221,64 @@ describe("Bluetooth switcher", function()
         assert.are.equal("forget", adapter.last_action)
     end)
 
+    it("asks before the one-time HID setup when pairing and reports a failed one", function()
+        local needed, setup_ok = true, false
+        adapter.hidSetupNeeded = function() return needed end
+        adapter.setupHid = function() return setup_ok end
+        require("modules/menu/bluetooth_switcher").open()
+        local row = menu.item_table[3]
+        row.device.hid = true
+
+        menu:onMenuSelect(row, { x = 0.95 })
+        local confirm = shown[#shown]
+        assert.are.equal("Apply", confirm.ok_text)
+        assert.is_nil(adapter.last_action) -- declined: no setup, no pairing
+        confirm.ok_callback()
+        assert.are.equal("Could not set up remotes and controllers. The changes were undone.",
+            shown[#shown].text)
+        assert.is_nil(adapter.last_action)
+
+        setup_ok = true
+        menu:onMenuHold(row)
+        shown[#shown].buttons[2][1].callback() -- Pair from the actions dialog
+        shown[#shown].ok_callback()
+        assert.is_true(row.device.paired)
+    end)
+
+    it("pairs HID devices without asking once set up and still guards button mapping", function()
+        local mapped, needed = 0, false
+        ZenSpec.replace("common/hid_keys", { supported = function() return true end })
+        ZenSpec.replace("modules/menu/bluetooth_keys", { show = function() mapped = mapped + 1 end })
+        adapter.hidSetupNeeded = function() return needed end
+        adapter.setupHid = function() return true end
+        require("modules/menu/bluetooth_switcher").open()
+        local available_row = menu.item_table[3]
+        available_row.device.hid = true
+        local shown_count = #shown
+        menu:onMenuSelect(available_row, { x = 0.95 })
+        assert.are.equal(shown_count, #shown)
+        assert.is_true(available_row.device.paired)
+
+        local function map()
+            local row
+            for _i, candidate in ipairs(menu.item_table) do
+                if candidate.text == "Page turner" then row = candidate end
+            end
+            row.device.hid = true
+            menu:onMenuHold(row)
+            local actions = shown[#shown]
+            assert.is_truthy(actions.buttons[3][1].text:find("Map buttons", 1, true))
+            actions.buttons[3][1].callback()
+        end
+        map()
+        assert.are.equal(1, mapped)
+        needed = true -- paired before the setup existed
+        map()
+        assert.are.equal(1, mapped)
+        shown[#shown].ok_callback()
+        assert.are.equal(2, mapped)
+    end)
+
     it("shows power and scan failures without starting background work", function()
         state = false
         package.loaded["modules/menu/bluetooth/bluetooth"].setEnabled = function(_enabled, done)
@@ -262,7 +321,7 @@ describe("Bluetooth switcher", function()
         assert.are.equal("Radio busy", menu.item_table[4].text)
         refresh.callback()
         assert.are.equal(2, adapter.scanned)
-        assert.is_nil(menu.item_table[4])
+        assert.are.equal("Searching for devices…", menu.item_table[4].text)
         refresh.callback()
         assert.are.equal(2, adapter.scanned)
         adapter.scan_done(true)
@@ -317,12 +376,64 @@ describe("Bluetooth switcher", function()
         end
         require("modules/menu/bluetooth_switcher").open()
         assert.are.equal(1, adapter.scanned)
-        assert.are.equal(0, reads)
+        assert.are.equal(1, reads) -- known devices; a failed read stays quiet
         assert.are.equal("Searching for devices…", menu.item_table[1].text)
         discovered = true
         adapter.scan_done(true)
-        assert.are.equal(1, reads)
+        assert.are.equal(2, reads)
         assert.are.equal("Headphones", menu.item_table[1].text)
+    end)
+
+    it("lists paired Kindle devices before the scan finishes and keeps them usable", function()
+        local mapped, known_reads = 0, 0
+        ZenSpec.replace("common/hid_keys", { supported = function() return true end })
+        ZenSpec.replace("modules/menu/bluetooth_keys", { show = function() mapped = mapped + 1 end })
+        adapter.id = "kindle"
+        adapter.getDeviceList = function(known_only)
+            if not known_only then
+                return {
+                    { address = paired, name = "Page turner", paired = true, connected = true, hid = true },
+                    { address = available, name = "Headphones" },
+                }
+            end
+            known_reads = known_reads + 1
+            return {{ address = paired, name = "Page turner", paired = true, connected = true, hid = true }}
+        end
+        require("modules/menu/bluetooth_switcher").open()
+        assert.are.equal(1, known_reads)
+        assert.are.same({ "Page turner", "Searching for devices…" },
+            { menu.item_table[1].text, menu.item_table[2].text })
+        assert.is_false(menu.item_table[2].select_enabled)
+
+        menu.item_table[1].callback()
+        shown[#shown].buttons[3][1].callback() -- Map buttons, mid-scan
+        assert.are.equal(1, mapped)
+
+        adapter.scan_done(true)
+        assert.are.same({ "Page turner", "Headphones" }, { menu.item_table[1].text, menu.item_table[2].text })
+        assert.is_nil(menu.item_table[3])
+    end)
+
+    it("returns to the settings root on Back hold and closes with it", function()
+        local roots, page_open = 0, true
+        ZenSpec.replace("modules/settings/zen_settings_page", { backToRoot = function()
+            roots = roots + 1
+            return page_open
+        end })
+        require("modules/menu/bluetooth_switcher").open(nil, true, {})
+        assert.is_true(menu.custom_title_bar.back_hold_callback())
+        assert.are.equal(1, roots)
+        assert.is_false(adapter.closed) -- the settings page closes it through the event
+        menu:onCloseZenSettingsSubpages()
+        assert.is_true(adapter.closed)
+
+        require("modules/menu/bluetooth_switcher").open(nil, true, {})
+        adapter.closed, page_open = false, false
+        menu.custom_title_bar.back_hold_callback()
+        assert.is_true(adapter.closed)
+
+        require("modules/menu/bluetooth_switcher").open()
+        assert.is_nil(menu.onCloseZenSettingsSubpages)
     end)
 
     it("shows a concise Kindle error if the post-scan list cannot be read", function()

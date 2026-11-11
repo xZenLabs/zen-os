@@ -1,6 +1,6 @@
 describe("HID button mappings", function()
     local names = { "device", "ui/uimanager", "config/manager", "dispatcher", "common/zen_logger",
-        "common/hid_keys", "apps/reader/readerui" }
+        "common/hid_keys", "apps/reader/readerui", "ffi/util" }
     local originals, Keys, hook, config, ticks, executed, saved
 
     local function press(code, value)
@@ -33,7 +33,9 @@ describe("HID button mappings", function()
         ZenSpec.replace("dispatcher", {
             execute = function(_self, actions) executed[#executed + 1] = actions end,
             _itemsCount = function(_self, actions) return next(actions) and 1 or 0 end,
-            menuTextFunc = function() return "Next page" end,
+            menuTextFunc = function(_self, actions)
+                return actions.zen_ui_show_book_switcher and "ZenOS: Book switcher" or "Next page"
+            end,
         })
         ZenSpec.replace("common/zen_logger", {
             new = function() return { info = function() end, warn = function() end } end,
@@ -69,6 +71,14 @@ describe("HID button mappings", function()
         assert.are.equal(1, saved)
         assert.are.equal("Next page", Keys.label(binding, "reader"))
         assert.are.equal("Page forward", Keys.label(binding, "library"))
+        -- Common actions carry their own label; anything else falls back to the dispatcher's.
+        assert.are.equal("Previous page", Keys.label({ reader = { page_jmp = -1 } }, "reader"))
+        assert.are.equal("ZenOS: Book switcher",
+            Keys.label({ reader = { zen_ui_show_book_switcher = true } }, "reader"))
+        assert.is_truthy(Keys.preset("reader", { zen_ui_show_book_switcher = true }))
+        assert.are.equal("Next page", Keys.label({ reader = { page_jmp = 5 } }, "reader"))
+        assert.is_nil(Keys.preset("reader", { page_jmp = 5 }))
+        assert.is_nil(Keys.preset("library", { page_jmp = 1 }))
         assert.is_nil(Keys.label({ code = 1 }, "reader"))
 
         -- Not connected: nothing is intercepted.
@@ -85,5 +95,37 @@ describe("HID button mappings", function()
         Keys.save()
         assert.is_nil(config.hid_keys["AA:BB:CC:DD:EE:FF"])
         assert.are.equal(304, press(304))
+    end)
+
+    it("retries opening a hotplugged node until udev has created it, then gives up", function()
+        local input, opens, scheduled, missing = require("device").input, 0, {}, 2
+        require("ui/uimanager").scheduleIn = function(_self, delay, fn) scheduled[#scheduled + 1] = { delay, fn } end
+        ZenSpec.replace("ffi/util", { realpath = function(path)
+            return path:find("event2", 1, true) and "/sys/devices/virtual/misc/uhid/0005:045E:0B13.0007/input/input8/event2"
+                or "/sys/devices/platform/touch/input/input1/event1"
+        end })
+        input.open = function()
+            opens = opens + 1
+            if opens <= missing then error("No such file or directory") end
+        end
+        local function drain()
+            while #scheduled > 0 do
+                local entry = table.remove(scheduled, 1)
+                assert.are.equal(0.5, entry[1])
+                entry[2]()
+            end
+        end
+
+        Keys.onInsert("/dev/input/event1") -- not a uhid device
+        assert.are.equal(0, opens)
+        Keys.onInsert("/dev/input/event2")
+        assert.are.equal(1, opens)
+        drain()
+        assert.are.equal(3, opens)
+
+        opens, missing = 0, 99
+        Keys.onInsert("/dev/input/event2")
+        drain()
+        assert.are.equal(5, opens)
     end)
 end)

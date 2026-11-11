@@ -263,8 +263,10 @@ function M.new()
         logger.info("scan", adapter.scan_id, "handle close:", tostring(closed), tostring(close_result))
     end
 
-    function adapter.getDeviceList()
-        local discovered, err = read_hash("ListDiscovered")
+    -- known_only: paired and connected devices, without the last scan's discoveries.
+    function adapter.getDeviceList(known_only)
+        local discovered, err = {}, nil
+        if not known_only then discovered, err = read_hash("ListDiscovered") end
         if not discovered then return nil, err end
         local paired, pair_error = read_hash("ListPaired")
         if not paired then return nil, pair_error end
@@ -305,7 +307,7 @@ function M.new()
             end
         end
         merge(discovered, nil, "ListDiscovered")
-        merge(adapter.hid_found or {}, nil, "HID capture")
+        merge(not known_only and adapter.hid_found or {}, nil, "HID capture")
         merge(paired, "paired", "ListPaired")
         merge(connected, "connected", "ListConnected")
         if invalid then
@@ -388,10 +390,10 @@ function M.new()
         if not ok then done(false, err); return end
         Common.verify(adapter, device.address, field, expected, done)
     end
-    function adapter.pair(device, done)
-        if device.hid then Hid.setup() end
-        action("Bond", device, "paired", true, done)
-    end
+    function adapter.pair(device, done) action("Bond", device, "paired", true, done) end
+    -- HID devices need one-time system changes; the switcher asks before setupHid.
+    function adapter.hidSetupNeeded() return Hid.isSupported() and not Hid.isSetUp() end
+    adapter.setupHid = Hid.setup
     function adapter.connect(device, done)
         -- btfd Connect is A2DP-only; HID devices connect themselves once bonded and awake.
         if device.hid then

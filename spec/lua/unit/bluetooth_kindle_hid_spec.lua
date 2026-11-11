@@ -44,4 +44,91 @@ describe("Kindle HID discovery capture", function()
         assert.are.same({}, Hid.parseSnoop(header .. record("042fff01" .. gamepad):sub(1, 30)))
         assert.are.same({}, Hid.parseSnoop(""))
     end)
+
+    describe("one-time system setup", function()
+        local lfs = require("libs/libkoreader-lfs")
+        local RULES, HELPER = "/etc/udev/rules.d/99-bt-keyboard.rules", "/usr/local/bin/dev_is_keyboard.sh"
+        local FLAG, DMCC = "/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC", "/usr/bin/dmcc.sh"
+        local originals, files, commands, fail
+
+        before_each(function()
+            originals = { open = io.open, execute = os.execute, remove = os.remove, attributes = lfs.attributes }
+            files = { ["/usr/bin/ace_bt_cli"] = "", ["/dev/uhid"] = "" }
+            commands, fail = {}, {}
+            lfs.attributes = function(path) return files[path] and "file" or nil end
+            io.open = function(path, mode) -- luacheck: ignore
+                if path:sub(1, 1) ~= "/" then return originals.open(path, mode) end
+                if mode == "rb" and not files[path] then return nil end
+                if fail[path] then return nil end
+                return {
+                    read = function() return files[path] end,
+                    write = function(_self, content) files[path] = content; return true end,
+                    close = function() end,
+                }
+            end
+            os.execute = function(command) -- luacheck: ignore
+                commands[#commands + 1] = command
+                for pattern in pairs(fail) do
+                    if command:find(pattern, 1, true) then return 1 end
+                end
+                if command:find("sed -i", 1, true) then
+                    files[DMCC] = command:find("if ! \\(", 1, true) and files[DMCC]:gsub("\nif ! %[", "\nif [")
+                        or files[DMCC]:gsub("\nif %[", "\nif ! [")
+                end
+                return 0
+            end
+            os.remove = function(path) files[path] = nil; return true end -- luacheck: ignore
+        end)
+
+        after_each(function()
+            io.open, os.execute, os.remove = originals.open, originals.execute, originals.remove -- luacheck: ignore
+            lfs.attributes = originals.attributes
+        end)
+
+        local function ran(text)
+            for _i, command in ipairs(commands) do
+                if command:find(text, 1, true) then return true end
+            end
+            return false
+        end
+
+        it("applies once and then reports the Kindle as set up", function()
+            files[FLAG], files[DMCC] = "", '#!/bin/sh\nif ! [ -e "' .. FLAG .. '" ]; then exit; fi\n'
+            assert.is_false(Hid.isSetUp())
+            assert.is_true(Hid.setup())
+            assert.is_true(Hid.isSetUp())
+            assert.is_truthy(files[RULES] and files[HELPER] and files["/mnt/us/DISABLE_CORE_DUMP"])
+            assert.is_truthy(files[DMCC]:find('\nif [ -e "', 1, true))
+            assert.is_true(ran("mntroot ro"))
+
+            commands = {}
+            assert.is_true(Hid.setup())
+            assert.are.same({}, commands)
+        end)
+
+        it("restores stock files when a step fails", function()
+            local stock = '#!/bin/sh\nif ! [ -e "' .. FLAG .. '" ]; then exit; fi\n'
+            files[FLAG], files[DMCC], files[RULES] = "", stock, "user rule\n"
+            fail["chmod +x"] = true
+            assert.is_false(Hid.setup())
+            assert.are.equal("user rule\n", files[RULES])
+            assert.is_nil(files[HELPER])
+            assert.is_nil(files["/mnt/us/DISABLE_CORE_DUMP"])
+            assert.are.equal(stock, files[DMCC])
+            assert.is_true(ran("mntroot ro"))
+            assert.is_false(Hid.isSetUp())
+        end)
+
+        it("changes nothing when root cannot be remounted or the Kindle is unsupported", function()
+            fail["mntroot rw"] = true
+            assert.is_false(Hid.setup())
+            assert.is_nil(files[RULES])
+            assert.is_nil(files["/mnt/us/DISABLE_CORE_DUMP"])
+
+            files["/dev/uhid"], commands = nil, {}
+            assert.is_false(Hid.isSupported())
+            assert.is_false(Hid.setup())
+            assert.are.same({}, commands)
+        end)
+    end)
 end)
