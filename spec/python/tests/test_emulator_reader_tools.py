@@ -314,6 +314,9 @@ def test_reader_page_browser_modes_and_search_render() -> None:
                     # Hold used to loop through FocusManager:onHold until stack overflow.
                     assert driver.command("annotation_viewer_action", action="hold", index=1)["ok"]
                     assert driver.command("page_browser_state")["page_browser"]["active_tab"] == "toc"
+                    # Swipe used to reach the Menu twice, skipping every other page.
+                    swiped = driver.command("annotation_viewer_action", action="swipe")
+                    assert swiped["ok"], swiped
                 if tab in ("toc", "bookmarks"):
                     assert state["content_bottom"] == state["screen_height"] - state["edge_padding"]
                 if tab == "aa":
@@ -978,6 +981,13 @@ def test_page_browser_settings_subsections_and_themes(document_type: str, width:
                 assert driver.command("reader_controls")["section"] == "themes"
                 chosen = driver.command("reader_controls", action="choose", id="Light sepia")
                 assert chosen["global_themes"]["light_mode"] == "light_sepia"
+                _wait_command(driver, "page_browser_state", lambda result: result["page_browser"]["preview_ready"])
+                # Tapping the previewed page closes the browser; it must not land on a theme swatch.
+                assert driver.command("activate_reader_control", name="page_browser_preview_center")["activated"]
+                assert driver.command("page_browser_state").get("page_browser") is None
+                assert driver.command("reader_controls")["global_themes"]["light_mode"] == "light_sepia"
+                assert driver.command("activate_reader_control", name="page_browser")["activated"]
+                assert driver.command("activate_reader_control", name="page_browser_controls")["activated"]
                 _wait_command(driver, "page_browser_state", lambda result: result["page_browser"]["preview_ready"])
             else:
                 assert "themes" not in first["subsections"]

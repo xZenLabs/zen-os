@@ -722,6 +722,11 @@ function M.getDiskFreeText()
     return nil
 end
 
+-- MuPDF 1.28+ loads @font-face files only through the document archive; returns the root resolving this font path.
+function M.htmlFontRoot(path)
+    return path:sub(1, 1) == "/" and "/" or "."
+end
+
 --- Run fn without powerd's FrontlightStateChanged broadcast. Mid-drag it makes ReaderFooter
 --- repaint the dithered ReaderUI, which dithers (and flashes) every other refresh that frame.
 function M.withoutFrontlightBroadcast(powerd, fn)

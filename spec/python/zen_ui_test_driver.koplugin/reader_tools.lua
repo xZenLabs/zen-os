@@ -378,6 +378,17 @@ function M.annotation_viewer_action(params)
             },
         }))
         return true
+    elseif params.action == "swipe" then
+        local panel, calls = browser._zen_content_panel, 0
+        local on_swipe = panel.onSwipe
+        panel.onSwipe = function(...) calls = calls + 1; return on_swipe(...) end
+        UIManager:sendEvent(require("ui/event"):new("Gesture", {
+            ges = "swipe", direction = "west", pos = require("ui/geometry"):new{
+                x = panel.dimen.x + panel.dimen.w / 2, y = panel.dimen.y + panel.dimen.h / 2, w = 1, h = 1,
+            },
+        }))
+        panel.onSwipe = nil
+        return calls == 1, "swiped " .. calls .. " times"
     elseif params.action == "close_details" or params.action == "details_more" then
         local viewer = find_widget(function(widget) return widget.buttons_table and widget.titlebar end)
         if not viewer then return false, "details unavailable" end
@@ -623,7 +634,9 @@ function M.reader_controls(params)
     if params.action == "open" then
         ui.menu:onShowReaderControls()
     elseif params.action == "toc" then
-        UIManager:show(require("modules/reader/zen_toc_widget"):new{ ui = ui })
+        UIManager:show(require("modules/reader/zen_toc_widget"):new{
+            ui = ui, show_page_counts = require("modules/reader/toc_tree").showsCounts(plugin),
+        })
     elseif params.action == "bookmarks" then
         ui.bookmark:onShowBookmark()
     elseif params.action == "book_info" then
@@ -780,7 +793,8 @@ function M.reader_controls(params)
             positions = positions, bounds = dialog.movable.dimen, anchor = dialog._zen_anchor_source,
             left_value = type(value) == "table" and value[1] or nil,
             right_value = type(value) == "table" and value[2] or nil,
-            paired = type(value) == "table" and (not params_config.names or not settings.syncedMargins(ui)),
+            paired = type(value) == "table" and (not (params_config.names or dialog._reader_setting == "h_page_margins")
+                or not settings.syncedMargins(ui, dialog._reader_setting)),
             scrollable = dialog.cropping_widget ~= nil, default_value = default }
     elseif params.action == "inject_color_option" and tm then
         table.insert(require("modules/menu/reader_controls/settings").panel(ui, "appbar.contrast").options, {
@@ -889,7 +903,8 @@ function M.reader_controls(params)
         local bounds
         for _i, row in ipairs(tm.layout or {}) do
             for _j, widget in ipairs(row) do
-                if widget._reader_card_action == params.id or params.id == "book_info_card" and widget.onTapDetails then
+                if widget._reader_card_action == params.id or params.id == "book_info_card" and widget.onTapDetails
+                        or widget._reader_theme_choice and widget.text == params.id then
                     bounds = widget.dimen
                 end
             end
@@ -945,7 +960,10 @@ function M.reader_controls(params)
             local id = widget._reader_setting or widget._reader_button_page or widget.text
             local dimen = widget.dimen or widget.slider and widget[1].dimen
             if widget.slider then
-                local spec = require("modules/menu/reader_controls/settings").slider(ui, id)
+                -- Unsynced L/R margins render as h_page_margins_left / _right side sliders.
+                local name, side = id:match("^(h_page_margins)_(%a+)$")
+                local spec = require("modules/menu/reader_controls/settings").slider(ui, name or id, nil,
+                    side and (side == "left" and 1 or 2))
                 local visible_presets = 0
                 for _k, value in ipairs(spec.option.values or {}) do
                     local position = spec.position(value)

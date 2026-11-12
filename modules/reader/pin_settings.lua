@@ -110,7 +110,7 @@ function M.content(ui, page, settings, background, foreground)
         end
         css = css .. inline_css
     end
-    local font_family, line_height = "sans-serif", 1.2
+    local font_family, line_height, font_root = "sans-serif", 1.2, nil
     if settings.use_book_font and ui.font then
         local cre = require("document/credocument"):engineInit()
         local seen = {}
@@ -118,6 +118,7 @@ function M.content(ui, page, settings, background, foreground)
             local path, face_index = cre.getFontFaceFilenameAndFaceIndex(ui.font.font_face, i >= 3, i % 2 == 0)
             if path and not seen[path] then
                 seen[path] = true
+                font_root = font_root or require("common/utils").htmlFontRoot(path)
                 if i == 1 then
                     local face = require("ui/font"):getFace(path, document.configurable.font_size, face_index)
                     if face then line_height = math.floor(face.ftsize:getHeightAndAscender() + 0.5) / face.size end
@@ -139,7 +140,7 @@ function M.content(ui, page, settings, background, foreground)
         settings.justify and "justify" or "left", color(foreground))
     local size = settings.font_size and Screen:scaleBySize(settings.font_size)
         or Screen:scaleBySize(document.configurable.font_size) + settings.relative_font_size
-    return html, css, math.max(8, size)
+    return html, css, math.max(8, size), font_root
 end
 
 return M

@@ -12,7 +12,7 @@ describe("Double-tap book opening", function()
             ui_manager = package.loaded["ui/uimanager"],
         }
         now = 0
-        config = { developer = { double_tap_to_open_books = true } }
+        config = { developer = { double_tap = true } }
         scheduled = {}
         ZenSpec.replace("ui/time", {
             now = function() return now end,
@@ -67,7 +67,7 @@ describe("Double-tap book opening", function()
 
     it("keeps single-tap opening when disabled", function()
         local BookOpenTap = require("common/book_open_tap")
-        config.developer.double_tap_to_open_books = false
+        config.developer.double_tap = false
 
         assert.is_true(BookOpenTap.willOpen("/books/one.epub"))
         assert.is_true(BookOpenTap.shouldOpen("/books/one.epub"))
@@ -75,7 +75,7 @@ describe("Double-tap book opening", function()
 
     it("opens the single-tap menu only after the double-tap interval", function()
         local BookOpenTap = require("common/book_open_tap")
-        config.developer.single_tap_to_open_context_menu = true
+        config.developer.single_tap_action = "menu"
         local menus = 0
         local show_menu = function() menus = menus + 1 end
 
@@ -91,7 +91,7 @@ describe("Double-tap book opening", function()
 
     it("cancels the menu on a double tap or reset", function()
         local BookOpenTap = require("common/book_open_tap")
-        config.developer.single_tap_to_open_context_menu = true
+        config.developer.single_tap_action = "menu"
         local show_menu = function() error("unexpected context menu") end
 
         assert.is_false(BookOpenTap.shouldOpen("/books/one.epub", 0, show_menu))
@@ -104,7 +104,7 @@ describe("Double-tap book opening", function()
 
     it("replaces the pending menu when another book is tapped", function()
         local BookOpenTap = require("common/book_open_tap")
-        config.developer.single_tap_to_open_context_menu = true
+        config.developer.single_tap_action = "menu"
         local selected
         BookOpenTap.shouldOpen("/books/one.epub", 0, function() selected = "one" end)
         BookOpenTap.shouldOpen("/books/two.epub", 0.1, function() selected = "two" end)
@@ -120,16 +120,67 @@ describe("Double-tap book opening", function()
         BookOpenTap.shouldOpen("/books/one.epub", 0, show_menu)
         assert.is_nil(next(scheduled))
 
-        config.developer.single_tap_to_open_context_menu = true
+        config.developer.single_tap_action = "menu"
         BookOpenTap.shouldOpen("/books/one.epub", 1, show_menu)
         local callback = next(scheduled)
-        config.developer.single_tap_to_open_context_menu = false
+        config.developer.single_tap_action = "none"
         callback()
         assert.is_nil(next(scheduled))
 
-        config.developer.single_tap_to_open_context_menu = true
-        config.developer.double_tap_to_open_books = false
+        config.developer.single_tap_action = "menu"
+        config.developer.double_tap = false
         assert.is_true(BookOpenTap.shouldOpen("/books/one.epub", 2, show_menu))
         assert.is_nil(next(scheduled))
+    end)
+
+    it("opens on single tap and shows the menu on double tap when inverted", function()
+        local BookOpenTap = require("common/book_open_tap")
+        config.developer.single_tap_action = "open"
+        local menus, opens = 0, 0
+        local show_menu = function() menus = menus + 1 end
+        local function open()
+            if BookOpenTap.shouldOpen("/books/one.epub", 0, show_menu, open) then opens = opens + 1 end
+        end
+
+        assert.is_false(BookOpenTap.willOpen("/books/one.epub", 0))
+        assert.is_false(BookOpenTap.shouldOpen("/books/one.epub", 0, show_menu, open))
+        local callback = next(scheduled)
+        callback()
+        assert.are.same({ 0, 1 }, { menus, opens })
+        assert.is_false(BookOpenTap.willOpen("/books/one.epub", 0))
+
+        assert.is_false(BookOpenTap.shouldOpen("/books/one.epub", 1, show_menu, open))
+        assert.is_false(BookOpenTap.willOpen("/books/one.epub", 1.2))
+        assert.is_false(BookOpenTap.shouldOpen("/books/one.epub", 1.2, show_menu, open))
+        assert.is_nil(next(scheduled))
+        assert.are.same({ 1, 1 }, { menus, opens })
+    end)
+
+    it("lets the replayed tap prepare the opening banner", function()
+        local BookOpenTap = require("common/book_open_tap")
+        config.developer.single_tap_action = "open"
+        local will_open
+        BookOpenTap.shouldOpen("/books/one.epub", 0, function() end, function()
+            will_open = BookOpenTap.willOpen("/books/one.epub", 0)
+        end)
+        next(scheduled)()
+        assert.is_true(will_open)
+    end)
+
+    it("opens at once without a menu when single tap opens", function()
+        local BookOpenTap = require("common/book_open_tap")
+        config.developer.single_tap_action = "open"
+        assert.is_true(BookOpenTap.shouldOpen("/books/one.epub", 0))
+        assert.is_nil(next(scheduled))
+    end)
+
+    it("derives the double-tap action from the single-tap action", function()
+        local BookOpenTap = require("common/book_open_tap")
+        assert.are.same({ "none", "open" }, { BookOpenTap.tapActions({}) })
+        assert.are.same({ "menu", "open" }, { BookOpenTap.tapActions({ single_tap_action = "menu" }) })
+        assert.are.same({ "open", "menu" }, { BookOpenTap.tapActions({ single_tap_action = "open" }) })
+        assert.are.same({ "none", "open" }, { BookOpenTap.tapActions({ single_tap_action = "bogus" }) })
+        config.developer.double_tap = false
+        assert.is_nil(BookOpenTap.actions())
     end)
 end)

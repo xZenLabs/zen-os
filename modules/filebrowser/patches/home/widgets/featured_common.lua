@@ -660,8 +660,9 @@ function M.build(ctx, source_key)
                 local align = justify_description_text and "justify" or "left"
                 local bold = description_style.bold == true and "font-weight: bold;" or ""
                 local font_file = library_font.resolveStyleFont(description_style.font_face)
-                local page_css = "@page { margin: 0; }"
+                local page_css, font_root = "@page { margin: 0; }", nil
                 if font_file:find("/", 1, true) then
+                    font_root = zen_utils.htmlFontRoot(font_file)
                     font_file = font_file:gsub("'", "\\'")
                     page_css = string.format([[
 @font-face { font-family: 'ZenDescription'; src: url('%s'); }
@@ -672,7 +673,7 @@ function M.build(ctx, source_key)
 %s
 body { margin: 0; padding: 0; color: #000; line-height: 1.3; text-align: %s !important; %s }
 p { margin: 0; }
-]], page_css, align, bold), Screen:scaleBySize(description_style.font_size))
+]], page_css, align, bold), Screen:scaleBySize(description_style.font_size), nil, nil, font_root)
                 return html_widget
             end
         end
@@ -858,6 +859,8 @@ p { margin: 0; }
         end
         if ges.time ~= nil and not BookOpenTap.shouldOpen(book.path, ges.time, function()
             tap.onHoldFeatured(tap_self, nil, ges)
+        end, function()
+            tap.onTapFeatured(tap_self, nil, ges)
         end) then return true end
         set_opening_banner_cover(cover_widget)
         ctx.openBook(book.path)

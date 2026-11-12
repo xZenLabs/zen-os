@@ -2176,6 +2176,10 @@ return function(ctx)
         local selected_row = self.layout and self.layout[selected.y]
         local selected_widget = selected_row and selected_row[selected.x]
         local selected_id = selected_widget and selected_widget._zen_focus_id or ""
+        -- Rows that own Left/Right (TOC folding) take them instead of moving focus.
+        if dx ~= 0 and selected_widget and type(selected_widget.onHorizontalKey) == "function" then
+            return selected_widget:onHorizontalKey(dx)
+        end
         if dx ~= 0 and selected_id:sub(1, 7) ~= "footer:" then
             if BD.mirroredUILayout() then dx = -dx end
         end
@@ -2275,9 +2279,11 @@ return function(ctx)
             and handle_focus_key(self, event.args[1], event.handler == "onKeyPress") then
             return true
         end
-        -- Children already saw the raw hold; embedded Menus' FocusManager:onHold would
-        -- re-send it to their focused row, looping forever when the row ignores holds (TOC).
-        if event.handler == "onHold" then return self:onHold(unpack(event.args, 1, event.args.n)) end
+        -- Children already saw the raw gesture. Re-propagating would loop holds forever via
+        -- embedded Menus' FocusManager:onHold (TOC rows ignore holds) and page Menus twice per swipe.
+        if event.handler == "onHold" or event.handler == "onSwipe" then
+            return self[event.handler](self, unpack(event.args, 1, event.args.n))
+        end
         return _orig_handleEvent(self, event)
     end
 

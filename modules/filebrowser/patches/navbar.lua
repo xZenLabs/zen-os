@@ -2017,7 +2017,8 @@ local function apply_navbar()
                         and color:invert() or color
                     if outlined then
                         local size = self:getSize()
-                        bb:paintBorderRGB32(x, y, size.w, size.h, Screen:scaleBySize(2), background, self.radius)
+                        require("common/ui/raw_paint").run(bb, bb.paintBorderRGB32, bb, x, y, size.w, size.h,
+                            Screen:scaleBySize(2), background, self.radius)
                     elseif opacity > 0 and opacity < 100 then
                         local size = self:getSize()
                         -- Cached per size/night mode; color is fixed per widget.

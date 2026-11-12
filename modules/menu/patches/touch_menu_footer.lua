@@ -142,8 +142,12 @@ local function apply_touch_menu_footer()
                         self.screen_size.w, self._zen_hatch_top - top)
                     self._zen_hatch_top = top
                 end
-                bb:blitFrom(self._zen_hatched_background, 0, menu_bottom, 0, menu_bottom,
-                    self.screen_size.w, hatch_bottom - menu_bottom)
+                -- Two columns: KOReader <= 2026.07 cuts full-width blits short on padded framebuffers.
+                local background, height = self._zen_hatched_background, hatch_bottom - menu_bottom
+                local half = math.floor(self.screen_size.w / 2)
+                bb:blitFrom(background, 0, menu_bottom, 0, menu_bottom, half, height)
+                bb:blitFrom(background, half, menu_bottom, half, menu_bottom,
+                    self.screen_size.w - half, height)
             end
         end
         return orig_paintTo(self, bb, x, y)

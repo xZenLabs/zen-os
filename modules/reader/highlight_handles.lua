@@ -101,11 +101,12 @@ function Handles:paintTo(bb)
     local color = require("common/reader_themes").getTextColor(rawget(_G, "__ZEN_UI_PLUGIN"))
         or Blitbuffer.COLOR_BLACK
     local paint = Blitbuffer.isColor8(color) and bb.paintRect or bb.paintRectRGB32
+    local RawPaint = require("common/ui/raw_paint")
     local circle = Blitbuffer.isColor8(color) and bb.paintRoundedRect or bb.paintRoundedRectRGB32
     for _side, knob in pairs(self:geometry()) do
         local x, y, r = math.floor(knob.x), math.floor(knob.y), knob.radius
         paint(bb, x - 1, knob.top, Screen:scaleBySize(2), knob.height, color)
-        circle(bb, x - r, y - r, 2 * r, 2 * r, color, r)
+        RawPaint.run(bb, circle, bb, x - r, y - r, 2 * r, 2 * r, color, r)
     end
 end
 

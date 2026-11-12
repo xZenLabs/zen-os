@@ -725,6 +725,17 @@ describe("config manager folder-path migration", function()
         assert.same(order, config.end_book.modules.strip.controls.order)
     end)
 
+    it("migrates legacy double-tap settings to tap actions", function()
+        settings_file.data = { developer = {
+            double_tap_to_open_books = true, single_tap_to_open_context_menu = true,
+        } }
+        local developer = Manager.load().developer
+        assert.is_true(developer.double_tap)
+        assert.are.equal("menu", developer.single_tap_action)
+        assert.is_nil(developer.double_tap_to_open_books)
+        assert.is_nil(developer.single_tap_to_open_context_menu)
+    end)
+
     it("updates end-of-book appearance defaults once and preserves later choices", function()
         settings_file.data = { end_book = { modules = {
             featured = { show_description = true }, strip = { center_books = true },

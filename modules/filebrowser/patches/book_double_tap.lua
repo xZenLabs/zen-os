@@ -44,9 +44,15 @@ local function apply_book_double_tap()
                 BookOpenTap.reset()
                 return original_onTapSelect(self, arg, ges, ...)
             end
-            if not BookOpenTap.shouldOpen(path, ges.time, function()
-                if not is_select_mode(self) then self:onHoldSelect(arg, ges) end
-            end) then return true end
+            local function unless_selecting(method)
+                return function()
+                    if not is_select_mode(self) then self[method](self, arg, ges) end
+                end
+            end
+            if not BookOpenTap.shouldOpen(path, ges.time,
+                    unless_selecting("onHoldSelect"), unless_selecting("onTapSelect")) then
+                return true
+            end
             return original_onTapSelect(self, arg, ges, ...)
         end
         local original_onHoldSelect = ItemClass.onHoldSelect

@@ -79,6 +79,7 @@ common/ui/hatching.lua|unit
 common/ui/icon_menu_item.lua|unit
 common/ui/markdown_text.lua|unit
 common/ui/pill.lua|unit
+common/ui/raw_paint.lua|unit
 common/ui/refresh.lua|unit
 common/ui/truncated_text_message.lua|unit
 common/ui/zen_arrange_list.lua|unit
@@ -203,6 +204,7 @@ modules/global/patches/opds.lua|integration
 modules/global/patches/opds_browser.lua|integration
 modules/global/patches/responsive_keyboard.lua|unit
 modules/global/patches/rounded_scrollbars.lua|unit
+modules/global/patches/raw_rounded_fill.lua|unit
 modules/global/patches/warmth_schedule.lua|integration
 modules/menu/app_launcher/action_filter.lua|integration
 modules/menu/app_launcher/menu_host.lua|integration
@@ -271,6 +273,7 @@ modules/reader/page_actions.lua|integration
 modules/reader/patches/reader_references.lua|unit
 modules/reader/zen_toc_widget.lua|integration
 modules/reader/page_browser_panels.lua|unit
+modules/reader/toc_tree.lua|unit
 modules/reader/page_browser_tabs.lua|unit
 modules/reader/book_note.lua|unit
 modules/reader/annotations.lua|unit

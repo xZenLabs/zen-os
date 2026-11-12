@@ -98,7 +98,7 @@ describe("library settings", function()
         assert.are.same({ "Layout", "Covers", "Scroll bar" }, labels(items[1].sub_item_table))
         assert.are.same({ "Covers", "Series", "Folder name", "Home folder", "Hide up folder" },
             labels(items[2].sub_item_table))
-        assert.are.same({ "Book details", "Metadata", "Double-tap to open a book",
+        assert.are.same({ "Book details", "Metadata", "Double tap",
             "Include new books in TBR", "Treat file updates as New", "Show all files from subfolders" },
             labels(items[3].sub_item_table))
         assert.are.same({ "Archive", "Plugin actions", "Allow delete" }, labels(items[4].sub_item_table))
@@ -330,7 +330,7 @@ describe("library settings", function()
         assert.are.same({ 3, 1 }, { saves, reinitializations })
     end)
 
-    it("toggles double-tap book opening", function()
+    it("toggles double tap and picks single and double tap actions", function()
         local saved = 0
         local config = { features = {}, developer = {}, browser_hide_up_folder = {} }
         local items = require("modules/settings/sections/library_settings").build({
@@ -338,7 +338,11 @@ describe("library settings", function()
             plugin = { saveConfig = function() saved = saved + 1 end },
             save_and_apply = function() end,
         })
-        local double_tap_item = find_item(items, "Double-tap to open a book")
+        local double_tap_item = find_item(items, "Double tap")
+        local function pick(item, label) find_item(item.sub_item_table, label).callback() end
+        local function texts()
+            return { double_tap_item.sub_item_table[1].text_func(), double_tap_item.sub_item_table[2].text_func() }
+        end
 
         assert.is_table(double_tap_item)
         assert.is_false(double_tap_item.checked_func())
@@ -346,16 +350,29 @@ describe("library settings", function()
         assert.is_true(double_tap_item.checked_func())
         assert.are.equal(1, saved)
 
-        local single_tap_item = double_tap_item.sub_item_table[1]
-        assert.are.equal("Single tap to open context menu", single_tap_item.text)
+        local single_tap_item, second_tap_item = double_tap_item.sub_item_table[1], double_tap_item.sub_item_table[2]
         assert.is_true(single_tap_item.enabled_func())
-        assert.is_false(single_tap_item.checked_func())
-        single_tap_item.callback()
-        assert.is_true(single_tap_item.checked_func())
-        assert.are.equal(2, saved)
+        assert.are.same({ "Single tap: Nothing", "Double tap: Open book" }, texts())
+        assert.are.same({ "Open book", "Open context menu", "Nothing" }, {
+            single_tap_item.sub_item_table[1].text, single_tap_item.sub_item_table[2].text,
+            single_tap_item.sub_item_table[3].text,
+        })
+
+        pick(second_tap_item, "Open context menu")
+        assert.are.same({ "Single tap: Open book", "Double tap: Open context menu" }, texts())
+        assert.are.equal("open", config.developer.single_tap_action)
+        pick(second_tap_item, "Open book")
+        assert.are.same({ "Single tap: Open context menu", "Double tap: Open book" }, texts())
+        pick(single_tap_item, "Nothing")
+        pick(second_tap_item, "Open book")
+        assert.are.same({ "Single tap: Nothing", "Double tap: Open book" }, texts())
+        pick(single_tap_item, "Open book")
+        assert.is_true(find_item(second_tap_item.sub_item_table, "Open context menu").checked_func())
+        assert.are.equal(6, saved)
+
         double_tap_item.checkmark_callback()
         assert.is_false(single_tap_item.enabled_func())
-        assert.are.equal(3, saved)
+        assert.are.equal(7, saved)
     end)
 
     it("nests series settings and refreshes the library when they change", function()

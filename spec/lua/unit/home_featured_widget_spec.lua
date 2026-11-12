@@ -90,8 +90,8 @@ describe("home featured widget", function()
         ZenSpec.replace("ui/widget/htmlboxwidget", {
             new = function(_self, values)
                 local widget = widget_class("ui/widget/htmlboxwidget"):new(values)
-                widget.setContent = function(_widget, body, css, font_size)
-                    html_content = { body = body, css = css, font_size = font_size }
+                widget.setContent = function(_widget, body, css, font_size, _xhtml, _no_fixes, font_root)
+                    html_content = { body = body, css = css, font_size = font_size, font_root = font_root }
                 end
                 return widget
             end,
@@ -116,7 +116,8 @@ describe("home featured widget", function()
                 return chars
             end,
         })
-        ZenSpec.replace("common/utils", { formatPageCount = function(pages) return pages .. " pages" end })
+        ZenSpec.replace("common/utils", { formatPageCount = function(pages) return pages .. " pages" end,
+            htmlFontRoot = function(path) return "root:" .. path end })
         local function style_font(face, default)
             return face == "default" and (default or "LibraryFont") or face
         end
@@ -620,6 +621,7 @@ describe("home featured widget", function()
         assert.is_true(description_split.used)
         assert.are.equal("<p>A <strong>formatted</strong> description.</p>", html_content.body)
         assert.matches("/fonts/Description%.ttf", html_content.css)
+        assert.are.equal("root:/fonts/Description.ttf", html_content.font_root)
         assert.matches("text%-align: justify", html_content.css)
         assert.are.equal(16, html_content.font_size)
     end)
