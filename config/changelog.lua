@@ -453,6 +453,6 @@ return {
         "Fix: accent color inverted on round buttons and corners in night mode on Android",
         "Fix: highlight menu More button did nothing with plugins that wrap the highlight menu, e.g. X-Ray",
         "Fix: entire page/chapter being highlighted when navigating with internal book links",
+        "Fix: blurred menu background left a blank strip at the bottom",
     },
-
 }

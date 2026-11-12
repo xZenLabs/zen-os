@@ -406,6 +406,22 @@ describe("Zen TOC hardware focus", function()
         assert.are.same({ idx = 2, title = "Deep", page = 2, page_label = "2", depth = 4, parent = first }, entries[2])
     end)
 
+    it("keeps a deeper same-page heading as a subheading and merges its same-page siblings", function()
+        local entries = ZenTocWidget.getEntries({ toc = { toc = {
+            { title = "Prologue", page = 2, depth = 1 },
+            { title = "1: Prologue", page = 2, depth = 2 },
+            { title = "Arc", page = 4, depth = 1 },
+            { title = "Arc", page = 4, depth = 2 },
+            { title = "2: Arc", page = 4, depth = 2 },
+            { title = "3: Short", page = 4, depth = 2 },
+        } } })
+        local titles = {}
+        for i, e in ipairs(entries) do titles[i] = e.title end
+        assert.are.same({ "Prologue", "1: Prologue", "Arc", "2: Arc · 3: Short" }, titles)
+        assert.are.same({ entries[1], entries[3] }, { entries[2].parent, entries[4].parent })
+        assert.are.equal(2, ZenTocWidget.getCurrentIndex(entries, 2))
+    end)
+
     it("counts chapter pages in page-map labels when the reader shows them", function()
         local labels = { a = "iv", b = "12", c = "30" }
         local indexes = { iv = 4, ["12"] = 12, ["30"] = 30 }

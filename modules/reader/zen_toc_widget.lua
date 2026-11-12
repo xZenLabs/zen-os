@@ -138,7 +138,8 @@ local ZenTocWidget = InputContainer:extend{
 }
 
 -- Full TOC as a linked tree (TocTree.link). ReaderToc exposes the raw array as .toc (not a
--- method). Entries sharing the same page are merged: titles joined with " · ", shallowest depth kept.
+-- method). Entries sharing the same page are merged (titles joined with " · ", shallowest depth
+-- kept) unless the later one is a deeper, distinctly titled subheading.
 function ZenTocWidget.getEntries(ui)
     local toc = ui and ui.toc
     if toc and type(toc.fillToc) == "function" then toc:fillToc() end
@@ -149,17 +150,18 @@ function ZenTocWidget.getEntries(ui)
         local pg    = e.page or 1
         local depth = e.depth or 1
         local title = get_entry_title(ui, e, pg)
-        local idx   = page_to_idx[pg]
-        if idx then
-            local existing = entries[idx].title
-            if title ~= "" and is_placeholder_title(existing) then
-                entries[idx].title = title
-            elseif title ~= "" and title ~= existing then
-                entries[idx].title = existing .. " · " .. title
+        local prev  = entries[page_to_idx[pg]]
+        local sub   = prev and depth > prev.depth and title ~= prev.title
+            and not is_placeholder_title(title) and not is_placeholder_title(prev.title)
+        if prev and not sub then
+            if title ~= "" and is_placeholder_title(prev.title) then
+                prev.title = title
+            elseif title ~= "" and title ~= prev.title then
+                prev.title = prev.title .. " · " .. title
             end
-            entries[idx].depth = math.min(depth, entries[idx].depth)
+            prev.depth = math.min(depth, prev.depth)
         else
-            idx = #entries + 1
+            local idx = #entries + 1
             page_to_idx[pg] = idx
             entries[idx] = { title = title, page = pg, depth = depth }
             entries[idx].page_label, positions[idx] = get_toc_page_label(pagemap, e, pg)
