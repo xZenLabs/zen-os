@@ -1,4 +1,5 @@
 local BookStatus = require("common/book_status")
+local BookSources = require("common/book_sources")
 local BookWalker = require("common/book_walker")
 local ConfigManager = require("config/manager")
 local Cache = require("common/docprops_cache")
@@ -412,16 +413,10 @@ local function explicit_paths()
 
     local files = {}
     for _filepath, path in pairs(members) do
-        local in_library = type(path) == "string" and paths.isInHomeDir(path)
-        local is_kindle = false
-        if type(path) == "string" and not in_library then
-            local ok_kindle, Kindle = pcall(
-                require, "modules/filebrowser/patches/kindle_virtual_library")
-            is_kindle = ok_kindle and type(Kindle.isBookPath) == "function"
-                and Kindle.isBookPath(path)
-        end
-        if type(path) == "string" and (is_kindle
-                or in_library and lfs.attributes(path, "mode") == "file") then
+        local is_file = type(path) == "string" and paths.isInHomeDir(path)
+            and lfs.attributes(path, "mode") == "file"
+        -- Books from a book source (Kindle, a plugin's catalog) have no file.
+        if is_file or type(path) == "string" and BookSources.owns(path) then
             files[#files + 1] = path
         end
     end

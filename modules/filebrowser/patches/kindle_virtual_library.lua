@@ -229,59 +229,52 @@ function M.getBookMetadata(filepath)
     return info
 end
 
+-- CoverBrowser metadata for a Kindle book (the Kindle book source's
+-- bookInfo), or nil for other paths.
+function M.getBookInfo(filepath, get_cover)
+    local book = kindle_book(filepath)
+    if not book or filepath ~= book.source_path then return nil end
+
+    local util = require("util")
+    local directory, filename = util.splitFilePathName(filepath)
+    local ok_lfs, lfs = pcall(require, "libs/libkoreader-lfs")
+    local attr = ok_lfs and lfs.attributes(filepath) or nil
+    local cover_path, cover_w, cover_h = M._thumbnailPath(book.cde_key)
+    local info = {
+        directory = directory,
+        filename = filename,
+        filesize = tonumber(book.source_size) or attr and attr.size,
+        filemtime = attr and attr.modification,
+        in_progress = 0,
+        cover_fetched = "Y",
+        has_meta = "Y",
+        has_cover = cover_path and "Y" or nil,
+        cover_sizetag = cover_path and cover_w .. "x" .. cover_h or nil,
+        title = book.display_name or book.title,
+        authors = type(book.authors) == "table" and table.concat(book.authors, "\n") or nil,
+        cover_w = cover_w,
+        cover_h = cover_h,
+    }
+    if get_cover and cover_path then
+        local RenderImage = require("ui/renderimage")
+        local ok_cover, cover = pcall(RenderImage.renderImageFile,
+            RenderImage, cover_path, false)
+        if ok_cover and cover then
+            info.cover_bb = cover
+            info.cover_w = cover:getWidth()
+            info.cover_h = cover:getHeight()
+            info.cover_sizetag = info.cover_w .. "x" .. info.cover_h
+        else
+            info.has_cover = nil
+        end
+    end
+    return info
+end
+
+-- Kept for callers of the old Kindle-only hook: the Kindle library now
+-- answers through the book sources' shared hook.
 function M.installMetadataIntegration()
-    local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
-    if not ok_bim or type(BookInfoManager) ~= "table"
-            or type(BookInfoManager.getBookInfo) ~= "function" then
-        return false
-    end
-    if BookInfoManager._zen_kindle_metadata_patched then return true end
-
-    local original = BookInfoManager.getBookInfo
-    function BookInfoManager:getBookInfo(filepath, get_cover)
-        local book = kindle_book(filepath)
-        if not book or filepath ~= book.source_path then
-            return original(self, filepath, get_cover)
-        end
-
-        local util = require("util")
-        local directory, filename = util.splitFilePathName(filepath)
-        local ok_lfs, lfs = pcall(require, "libs/libkoreader-lfs")
-        local attr = ok_lfs and lfs.attributes(filepath) or nil
-        local cover_path, cover_w, cover_h = M._thumbnailPath(book.cde_key)
-        local info = {
-            directory = directory,
-            filename = filename,
-            filesize = tonumber(book.source_size) or attr and attr.size,
-            filemtime = attr and attr.modification,
-            in_progress = 0,
-            cover_fetched = "Y",
-            has_meta = "Y",
-            has_cover = cover_path and "Y" or nil,
-            cover_sizetag = cover_path and cover_w .. "x" .. cover_h or nil,
-            title = book.display_name or book.title,
-            authors = type(book.authors) == "table" and table.concat(book.authors, "\n") or nil,
-            cover_w = cover_w,
-            cover_h = cover_h,
-        }
-        if get_cover and cover_path then
-            local RenderImage = require("ui/renderimage")
-            local ok_cover, cover = pcall(RenderImage.renderImageFile,
-                RenderImage, cover_path, false)
-            if ok_cover and cover then
-                info.cover_bb = cover
-                info.cover_w = cover:getWidth()
-                info.cover_h = cover:getHeight()
-                info.cover_sizetag = info.cover_w .. "x" .. info.cover_h
-            else
-                info.has_cover = nil
-            end
-        end
-        return info
-    end
-
-    BookInfoManager._zen_kindle_metadata_patched = true
-    return true
+    return require("common/book_sources").installMetadataIntegration()
 end
 
 local function show_display_mode(menu)

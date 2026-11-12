@@ -148,6 +148,24 @@ describe("archive actions", function()
         assert.is_false(ArchiveActions.canArchive("/library/book.epub"))
     end)
 
+    it("hides archive actions for books a book source owns", function()
+        local real_sources = package.loaded["common/book_sources"]
+        finally(function()
+            package.loaded["common/book_sources"] = real_sources
+            package.loaded["common/archive_actions"] = nil -- holds the stub
+        end)
+        ZenSpec.replace("common/book_sources", {
+            owns = function(path) return path == "/library/book.epub" end,
+        })
+        ZenSpec.unload("common/archive_actions")
+        local ArchiveActions = require("common/archive_actions")
+        local fm = { file_chooser = {}, onRefresh = function() end }
+
+        assert.is_nil(ArchiveActions.contextRow(fm, "/library/book.epub", true))
+        assert.is_false(ArchiveActions.canArchive("/library/book.epub"))
+        assert.is_true(ArchiveActions.canArchive("/library/other.epub"))
+    end)
+
     it("saves a newly chosen archive and requests a live settings refresh", function()
         archive_path = nil
         local refreshes = 0

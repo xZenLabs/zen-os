@@ -23,6 +23,7 @@ describe("file browser item-table cache", function()
     local directory_reads
     local flat_directories
     local source_readable
+    local listing_keys
 
     local module_names = {
         "common/cover_utils",
@@ -38,7 +39,7 @@ describe("file browser item-table cache", function()
         "common/paths", "modules/filebrowser/patches/library_font", "common/utils",
         "gettext", "apps/filemanager/filemanager", "luasettings",
         "config/preset_store", "ui/uimanager", "version",
-        "common/shared_state",
+        "common/shared_state", "common/book_sources",
     }
 
     local function new_filechooser_class()
@@ -117,6 +118,7 @@ describe("file browser item-table cache", function()
         directory_reads = 0
         flat_directories = nil
         source_readable = {}
+        listing_keys = {}
         saved_modules = {}
         for _i, name in ipairs(module_names) do
             saved_modules[name] = package.loaded[name]
@@ -216,6 +218,9 @@ describe("file browser item-table cache", function()
             end,
         })
         ZenSpec.replace("version", { version = "test-koreader" })
+        ZenSpec.replace("common/book_sources", {
+            listingKey = function(path) return listing_keys[path] or "" end,
+        })
         _G.G_reader_settings = {
             readSetting = function(_, key, default)
                 if key == "collate" then return collate_mode end
@@ -431,6 +436,38 @@ describe("file browser item-table cache", function()
         chooser:genItemTableFromPath("/library/series")
 
         assert.are.equal(3, generated["/library/series"])
+    end)
+
+    it("refreshes a folder when the books a source adds to it change", function()
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+
+        listing_keys["/library"] = "cloud=v1"
+        chooser:genItemTableFromPath("/library")
+        chooser:genItemTableFromPath("/library")
+        listing_keys["/library"] = "cloud=v2"
+        chooser:genItemTableFromPath("/library")
+        chooser:genItemTableFromPath("/library/series")
+        listing_keys["/library"] = "cloud=v3"
+        chooser:genItemTableFromPath("/library/series")
+
+        assert.are.equal(2, generated["/library"])
+        assert.are.equal(1, generated["/library/series"])
+    end)
+
+    it("rejects a persisted listing once its book source is gone", function()
+        listing_keys["/library"] = "cloud=v1"
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+        chooser:genItemTableFromPath("/library")
+        run_scheduled()
+
+        local same = apply_new_filechooser()
+        same:genItemTableFromPath("/library")
+        assert.are.equal(1, generated["/library"])
+
+        listing_keys["/library"] = nil
+        local removed = apply_new_filechooser()
+        removed:genItemTableFromPath("/library")
+        assert.are.equal(2, generated["/library"])
     end)
 
     it("promotes a folder when one of its descendant books is read", function()

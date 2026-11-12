@@ -327,6 +327,45 @@ describe("app launcher book switcher page", function()
         assert.are.equal("/books/finished.epub", books[1].path)
     end)
 
+    it("includes history books a book source owns, without a file", function()
+        replace("readhistory", {
+            hist = {
+                { file = "/books/missing.epub" },
+                { file = "/books/cloud-1.epub" },
+                { file = "/books/one.epub" },
+            },
+        })
+        replace("libs/libkoreader-lfs", {
+            attributes = function(path)
+                if path == "/books/one.epub" then return "file" end
+            end,
+        })
+        replace("common/paths", {
+            isInHomeDir = function(path) return path:sub(1, 7) == "/books/" end,
+        })
+        replace("common/book_status", {
+            isImageFile = function() return false end,
+            getEffectiveStatusFromFile = function() return "reading" end,
+        })
+        replace("bookinfomanager", { getBookInfo = function() return nil end })
+        replace("modules/filebrowser/patches/rakuyomi", { getMetadata = function() end })
+        local real_sources = package.loaded["common/book_sources"]
+        finally(function()
+            package.loaded["common/book_sources"] = real_sources
+            package.loaded["modules/menu/app_launcher/book_switcher_page"] = nil -- holds the stub
+        end)
+        replace("common/book_sources", {
+            owns = function(path) return path == "/books/cloud-1.epub" end,
+        })
+
+        local Page = require("modules/menu/app_launcher/book_switcher_page")
+        local books = Page.loadBooks(4, nil, {})
+
+        assert.are.same({ "/books/cloud-1.epub", "/books/one.epub" },
+            { books[1].path, books[2] and books[2].path })
+        assert.are.equal(2, #books)
+    end)
+
     it("fits one or two rows and handles book taps and removal holds", function()
         local created = {}
         local cover_options = {}
