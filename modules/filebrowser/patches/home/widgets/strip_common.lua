@@ -818,6 +818,7 @@ function M.build_strip(ctx, source_key)
         local show_strip_titles = wants_strip_titles
         local books = supplied_books or get_page_books(page_delta or 0) or {}
         local cover_plans = {}
+        local covers_by_path = {}
         if #books == 0 then
         local empty_cover, cover_w, cover_h = cover_common.make_empty_placeholder_cover(
             width, height,
@@ -1096,6 +1097,7 @@ function M.build_strip(ctx, source_key)
             local book = item.book
             local item_w = item.w
             local path = book.path
+            if path then covers_by_path[path] = item.cover end
 
             local content
             if show_strip_titles and title_h > 0 then
@@ -1157,7 +1159,15 @@ function M.build_strip(ctx, source_key)
                     if ges.time ~= nil and not BookOpenTap.shouldOpen(path, ges.time, function()
                         tap.onHoldCover(tap_self, nil, ges)
                     end, function()
-                        tap.onTapCover(tap_self, nil, ges)
+                        -- Hydration may have freed the tapped frame during the delay.
+                        -- Resolve by path so the pending open keeps its original book.
+                        local entry = page_cache[0]
+                        local covers = entry and not entry.freed and entry.frame
+                            and entry.frame._zen_covers_by_path
+                        if not ctx.skipOpeningBanner then
+                            set_opening_banner_cover(covers and covers[path])
+                        end
+                        ctx.openBook(path)
                     end) then return true end
                     if not ctx.skipOpeningBanner then set_opening_banner_cover(item.cover) end
                     ctx.openBook(path)
@@ -1287,6 +1297,7 @@ function M.build_strip(ctx, source_key)
         page_delta, visual_top, visual_bottom)
 
     local frame = FrameContainer:new{
+        _zen_covers_by_path = covers_by_path,
         width = outer_width,
         height = outer_height,
         padding = 0,
