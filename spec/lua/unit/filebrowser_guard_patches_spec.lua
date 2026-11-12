@@ -440,6 +440,20 @@ describe("file browser guard patches", function()
         assert.is_true(file_dialog_args._zen_kindle_processed)
         assert.are.equal(1, #file_dialog_args._zen_extra_buttons)
         assert.matches("Clear cache", file_dialog_args._zen_extra_buttons[1][1].text, 1, true)
+        assert.is_nil(file_dialog_args._zen_is_history)
+
+        -- From Home's Recently read row: keeps the history path, not the cache path.
+        local home_args
+        local orig_dialog_args = file_dialog_args
+        assert.is_true(Kindle.showBookContextMenu(menu, {
+            kindle_book_id = "cc:1", path = "/kindle/book.azw3",
+            _zen_is_history = true, _zen_history_path = "/kindle/book.azw3",
+        }))
+        home_args, file_dialog_args = file_dialog_args, orig_dialog_args
+        assert.are.equal("/cache/book.epub", home_args.path)
+        assert.is_true(home_args._zen_is_history)
+        assert.are.equal("/kindle/book.azw3", home_args._zen_history_path)
+
         file_dialog_args._zen_after_status_change()
         assert.are.equal(2, update_calls)
         assert.are.same({ 1, true }, updated)

@@ -460,6 +460,44 @@ describe("home data and book caches", function()
         assert.is_false(held[2]._zen_hide_edit)
     end)
 
+    it("passes history context to a book source's menu when holding a recent book on Home", function()
+        local file, passed = "/mnt/us/documents/kindle-book.azw3", {}
+        local BookSources = require("common/book_sources")
+        local orig_show = BookSources.showContextMenu
+        finally(function() BookSources.showContextMenu = orig_show end)
+        BookSources.showContextMenu = function(_menu, item)
+            passed[#passed + 1] = item
+            return item.path == file
+        end
+        local fm = require("apps/filemanager/filemanager").instance
+        fm.file_chooser = { showFileDialog = function() error("source should handle its book") end }
+        local Widget = { new = function(_self, values) return values end }
+        for _i, name in ipairs({ "ui/widget/horizontalgroup", "ui/widget/horizontalspan",
+                "ui/widget/verticalgroup", "ui/widget/verticalspan", "ui/widget/container/framecontainer",
+                "ui/widget/container/inputcontainer", "ui/gesturerange" }) do
+            ZenSpec.replace(name, Widget)
+        end
+        ZenSpec.replace("ui/font", { getFace = function() return {} end })
+        ZenSpec.replace("apps/filemanager/filemanagerutil", {})
+        require("device").screen.scaleBySize = function(_self, value) return value end
+        require("common/ui/background").clearWhiteBackgrounds = function() end
+        require("modules/filebrowser/patches/home/components/registry").gridHeights = function() return { 900 } end
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local build_home_content = select(2, get_compute_row_heights(Home))
+        local rows = {{ id = "featured", build = function(ctx)
+            assert.is_true(ctx.showBookMenu(file, "recently_read"))
+            assert.is_true(ctx.showBookMenu(file, "kindle"))
+            return { paintTo = function() end }
+        end }}
+        build_home_content({ height = 900, dimen = { h = 900 } }, {},
+            { show_status_bar = false, modules = {} }, rows, {})
+        assert.equals(2, #passed)
+        assert.is_true(passed[1]._zen_is_history)
+        assert.equals(file, passed[1]._zen_history_path)
+        assert.is_false(passed[2]._zen_is_history)
+        assert.is_nil(passed[2]._zen_history_path)
+    end)
+
     it("keeps preset row heights on their original grids", function()
         ZenSpec.replace("modules/filebrowser/patches/home/components/registry", {
             layoutUnits = function(rows)

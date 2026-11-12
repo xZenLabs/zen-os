@@ -22,8 +22,11 @@
 --       -- Optional: open a book. Return true when handled; ZenOS then skips
 --       -- its own opening (and marking the book as reading).
 --       open = function(path, ui) return true end,
---       -- Optional: long-press on a book in a group view. Return true when
---       -- handled.
+--       -- Optional: long-press on a book in a group view or on Home. Return
+--       -- true when handled. item may carry ZenOS context fields
+--       -- (_zen_is_history, _zen_history_path); a source that shows
+--       -- FileChooser:showFileDialog() should pass them through so the
+--       -- dialog keeps rows such as "Remove from history".
 --       showContextMenu = function(menu, item, after_change) return true end,
 --       -- Optional: drop cached books (db_bookinfo.invalidate()).
 --       invalidate = function() end,
