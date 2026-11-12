@@ -1,5 +1,78 @@
 local KINDLE_PROVIDER = "modules/filebrowser/patches/kindle_virtual_library"
 
+-- === Transient navbar selection lifetime ===
+-- Action/plugin/KOReader-menu/control tabs never become the active tab; they only
+-- paint a render-only selection (_G.__ZEN_UI_NAVBAR_SELECTED_TAB) for as long as
+-- their view is on top. These helpers live outside apply_navbar() on purpose:
+-- that closure already sits at LuaJIT's 200-local limit.
+
+-- Tabs that only run an action: they turn a page or close the File Manager, so
+-- nothing is left on top for a highlight to stand for. `exit` belongs here
+-- because the view it comes from is the one that closes, which also means the
+-- origin can never return to the top and the selection would outlive it.
+local VIEWLESS_TABS = {
+    page_left = true,
+    page_right = true,
+    exit = true,
+}
+
+local function navbarTopWidget()
+    local stack = require("ui/uimanager")._window_stack
+    local top = stack and stack[#stack]
+    return top and top.widget
+end
+
+local function clearTransientSelection()
+    local had_selection = rawget(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB") ~= nil
+    rawset(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB", nil)
+    -- Drop the origin too: it is a widget reference kept in _G, and a stale one
+    -- would make the close hook compare against a view that is no longer ours.
+    rawset(_G, "__ZEN_UI_NAVBAR_SELECTION_ORIGIN", nil)
+    return had_selection
+end
+
+-- Returns true when a selection was recorded, so callers only log the tabs that
+-- actually paint.
+local function selectTransientTab(tab_id)
+    if VIEWLESS_TABS[tab_id] then
+        clearTransientSelection()
+        return false
+    end
+    rawset(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB", tab_id)
+    -- Remember the view the tap came from: once it is on top again, the tab's
+    -- views are gone and the highlight must not outlive them. This works for
+    -- any plugin/action view, not just the ones ZenOS knows by name.
+    rawset(_G, "__ZEN_UI_NAVBAR_SELECTION_ORIGIN", navbarTopWidget())
+    return true
+end
+
+local function reinjectNavbars()
+    local reinject = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
+    if type(reinject) == "function" then require("ui/uimanager"):nextTick(reinject) end
+end
+
+-- Closing a transient tab's own view reveals the view the tap came from, whose
+-- navbar widget still carries the plugin tab's highlight. Drop the selection and
+-- repaint as soon as the stack settles.
+local function installTransientSelectionCloseHook()
+    local UIManager = require("ui/uimanager")
+    if UIManager._zen_navbar_transient_close_hook then return end
+    UIManager._zen_navbar_transient_close_hook = true
+    local orig_close = UIManager.close
+    function UIManager:close(widget, ...)
+        local result = orig_close(self, widget, ...)
+        if rawget(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB") then
+            UIManager:nextTick(function()
+                local origin = rawget(_G, "__ZEN_UI_NAVBAR_SELECTION_ORIGIN")
+                if origin and navbarTopWidget() == origin and clearTransientSelection() then
+                    reinjectNavbars()
+                end
+            end)
+        end
+        return result
+    end
+end
+
 local function apply_navbar()
     -- Bottom nav bar for the KOReader File Manager.
 
@@ -364,6 +437,11 @@ local function apply_navbar()
     -- === Active tab tracking ===
 
     local active_tab
+    -- The render-only navbar selection lives in _G.__ZEN_UI_NAVBAR_SELECTED_TAB.
+    -- Tabs that are not persistent library views (action, plugin, KOReader menu,
+    -- control) paint as selected through it while active_tab still drives view
+    -- restore. It is deliberately a global: this closure already sits at the
+    -- LuaJIT limit of 200 locals plus upvalues, so no local may be added here.
     local _navbar_focused_idx = nil  -- keyboard-focused tab index (nil = file list has focus)
     local _last_menu_item = nil  -- tracks last long-held item for the menu tab
 
@@ -509,6 +587,7 @@ local function apply_navbar()
             cancelHiddenLibraryWarm(fm, id == "books")
         end
         active_tab = id
+        clearTransientSelection()
         syncActiveTabLabel()
         _navbar_focused_idx = nil
         local stays_in_browser = tabStaysInFileManager(id)
@@ -1712,6 +1791,10 @@ local function apply_navbar()
     -- One full-screen refresh merged with the page's own in this tick. "partial" lets
     -- KOReader flash every full_refresh_count switches, as stock does.
     local function refreshAfterNavbarPageSwitch()
+        -- Serial so a programmatic open can tell that its callback already
+        -- requested the full-screen refresh and must not schedule another.
+        rawset(_G, "__ZEN_UI_NAVBAR_PAGE_REFRESH_SERIAL",
+            (rawget(_G, "__ZEN_UI_NAVBAR_PAGE_REFRESH_SERIAL") or 0) + 1)
         UIManager:setDirty(nil, G_reader_settings:isTrue("avoid_flashing_ui") and "ui" or "partial")
     end
 
@@ -1747,6 +1830,8 @@ local function apply_navbar()
         local tab_id = resolve_default_tab()
         if shouldTrackActiveTab(tab_id) then
             setActiveTab(tab_id)
+        else
+            selectTransientTab(tab_id)
         end
         runTabCallback(tab_id)
         return tab_id
@@ -1756,8 +1841,21 @@ local function apply_navbar()
         if not tab_callbacks[tab_id] then return false end
         if shouldTrackActiveTab(tab_id) then
             setActiveTab(tab_id)
+            runTabCallback(tab_id)
+            return true
         end
+        selectTransientTab(tab_id)
+        -- The callback may open a view that builds its own navbar; that navbar
+        -- reads the selection while it is constructed. Only repaint when the
+        -- callback left the current top widget (and its navbar) in place and
+        -- did not already request the page-switch refresh.
+        local top_before = navbarTopWidget()
+        local refresh_before = rawget(_G, "__ZEN_UI_NAVBAR_PAGE_REFRESH_SERIAL")
         runTabCallback(tab_id)
+        if rawget(_G, "__ZEN_UI_NAVBAR_PAGE_REFRESH_SERIAL") == refresh_before
+                and navbarTopWidget() == top_before then
+            reinjectNavbars()
+        end
         return true
     end
 
@@ -2210,6 +2308,9 @@ local function apply_navbar()
             if t.id:sub(1, 3) == "ct_" and not known_custom[t.id] then
                 tabs_by_id[t.id] = nil
                 tab_callbacks[t.id] = nil
+                if rawget(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB") == t.id then
+                    clearTransientSelection()
+                end
                 table.remove(tabs, i)
             end
         end
@@ -2258,10 +2359,22 @@ local function apply_navbar()
         local shared_font_size = layout.shared_font_size
 
         -- Build tab content widgets and measure their natural widths
+        -- The render-only selection outranks active_tab, but only when that tab
+        -- is visible: a hidden tab must not blank the navbar's highlight.
+        local painted_tab = active_tab
+        local selected_tab = rawget(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB")
+        if selected_tab then
+            for i = 1, #visible_tabs do
+                if visible_tabs[i].id == selected_tab then
+                    painted_tab = selected_tab
+                    break
+                end
+            end
+        end
         local tab_widgets = {}
         local total_content_w = 0
         for i, tab in ipairs(visible_tabs) do
-            local widget = createTabWidget(tab, label_max_w, tab.id == active_tab, shared_font_size, i == _navbar_focused_idx)
+            local widget = createTabWidget(tab, label_max_w, tab.id == painted_tab, shared_font_size, i == _navbar_focused_idx)
             tab_widgets[i] = widget
             total_content_w = total_content_w + widget:getSize().w
         end
@@ -2352,13 +2465,47 @@ local function apply_navbar()
             return visible_tabs[idx].id
         end
 
+        -- Repaint whichever navbar is on screen after a render-only selection
+        -- change. Standalone views rebuild through their own reinject hook; the
+        -- File Manager rebuilds through injectNavbar.
+        local function repaintNavbarSelection()
+            UIManager:nextTick(function()
+                local stack = UIManager._window_stack
+                local entry = stack and stack[#stack]
+                local widget = entry and entry.widget
+                if widget and type(widget._zen_reinject_navbar) == "function" then
+                    if widget:_zen_reinject_navbar() ~= "reopened" then
+                        UIManager:setDirty(widget, "ui")
+                    end
+                    return
+                end
+                local fm = FileManager.instance
+                if fm then
+                    injectNavbar(fm)
+                    UIManager:setDirty(fm, "ui")
+                end
+            end)
+        end
+
         navbar.onTapNavBar = function(self, _, ges)
             local tapped_id = self:getTappedTabId(ges.pos)
             if not tapped_id then return false end
-            -- Track active tab for persistent views only, not launcher/action tabs.
-            local track_tab = shouldTrackActiveTab(tapped_id)
-            if track_tab and tapped_id ~= active_tab then
-                setActiveTab(tapped_id)
+            -- Persistent views move active_tab. Transient tabs (action, plugin,
+            -- KOReader menu, control) only move the render-only selection, so a
+            -- tapped tab still paints as selected like every other tab.
+            local selected = rawget(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB")
+            if shouldTrackActiveTab(tapped_id) then
+                clearTransientSelection()
+                if tapped_id ~= active_tab then
+                    setActiveTab(tapped_id)
+                elseif selected then
+                    repaintNavbarSelection()
+                end
+            elseif tapped_id ~= selected then
+                if selectTransientTab(tapped_id) then
+                    logger.info("navbar: transient tab selected", " tab=", tapped_id)
+                end
+                repaintNavbarSelection()
             end
             runTabCallback(tapped_id)
             return true
@@ -2624,6 +2771,14 @@ local function apply_navbar()
         end
 
         syncFileManagerTabForPath(self, path, true)
+        if rawget(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB") then
+            -- Browsing folders ends a transient navbar selection.
+            clearTransientSelection()
+            if is_navbar_enabled() then
+                injectNavbar(self)
+                UIManager:setDirty(self, "ui")
+            end
+        end
     end
 
     -- === Physical Home button: return to the default navbar tab ===
@@ -2758,9 +2913,19 @@ local function apply_navbar()
             local tab = vis_tabs and vis_tabs[idx]
             if not tab then return end
             local tid = tab.id
-            local track = shouldTrackActiveTab(tid)
-            if track and tid ~= active_tab then
-                setActiveTab(tid)
+            local had_selection = rawget(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB") ~= nil
+            if shouldTrackActiveTab(tid) then
+                clearTransientSelection()
+                if tid ~= active_tab then
+                    setActiveTab(tid)
+                elseif had_selection then
+                    repaintNavbar()
+                end
+            else
+                if selectTransientTab(tid) then
+                    logger.info("navbar: transient tab selected (key)", " tab=", tid)
+                end
+                repaintNavbar()
             end
             runTabCallback(tid)
         end
@@ -3032,6 +3197,12 @@ local function apply_navbar()
 
             -- Already in this view: close detail to return to group, or scroll to first page
             if tapped_id == view_tab_id then
+                -- Drop a transient selection so this view's own tab paints again.
+                if rawget(_G, "__ZEN_UI_NAVBAR_SELECTED_TAB") then
+                    clearTransientSelection()
+                    local reinject = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
+                    if type(reinject) == "function" then UIManager:nextTick(reinject) end
+                end
                 if view_tab_id == "home" and resetHomeStripPages() then
                     return true
                 end
@@ -3070,9 +3241,18 @@ local function apply_navbar()
             end
 
             if not shouldTrackActiveTab(tapped_id) then
+                -- Transient tabs only move the render-only selection; the navbar of
+                -- whichever view ends up on top is then rebuilt from it. Set it after
+                -- closing this view, because closing the plugin view clears it.
                 if shouldCloseStandaloneBeforeAction(menu, tapped_id) then
                     closeStandaloneView(menu)
                 end
+                if selectTransientTab(tapped_id) then
+                    logger.info("navbar: transient tab selected (standalone view=" .. tostring(view_tab_id) .. ")",
+                        " tab=", tapped_id)
+                end
+                local reinject = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
+                if type(reinject) == "function" then UIManager:nextTick(reinject) end
                 runTabCallback(tapped_id, view_tab_id)
                 return true
             end
@@ -3504,6 +3684,8 @@ local function apply_navbar()
         local started_at = os.clock()
         local gv = get_shared("group_view")
         local source_tab = rawget(_G, "__ZEN_UI_LIBRARY_SOURCE_TAB") or active_tab
+        -- A transient navbar selection does not survive leaving the library.
+        clearTransientSelection()
         local force_source_restore = rawget(_G, "__ZEN_UI_FORCE_SOURCE_TAB_RESTORE") == true
         local rakuyomi_return_file = rawget(_G, "__ZEN_UI_RAKUYOMI_RETURN_FILE")
         if force_source_restore or rakuyomi_return_file then
@@ -4140,6 +4322,9 @@ local function apply_navbar()
                 if not tapped_id then return false end
                 if tapped_id == "news" then return true end
                 if not shouldTrackActiveTab(tapped_id) then
+                    selectTransientTab(tapped_id)
+                    local reinject = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
+                    if type(reinject) == "function" then UIManager:nextTick(reinject) end
                     runTabCallback(tapped_id, "news")
                     return true
                 end
@@ -4266,6 +4451,8 @@ local function apply_navbar()
             _G.__ZEN_UI_REINJECT_FM_NAVBAR()
         end
     end
+
+    installTransientSelectionCloseHook()
 end
 
 
