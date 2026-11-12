@@ -30,9 +30,12 @@ return function()
             if not marker_xp or setting == false or not References.enabled(self.ui) then
                 return goto_xp(self, xp, marker_xp)
             end
-            -- Flash the link like a tap does instead of the stock margin square.
-            local result = goto_xp(self, xp)
+            -- Flash compact targets like a tap does. Chapter-wide targets (in-book ToC) would select the
+            -- whole page and stall rendering; empty anchors show nothing: both keep the stock margin square.
             local document = self.ui.document
+            local text = document:getTextFromXPointer(marker_xp)
+            if not text or #text > 1000 or not text:find("%S") then return goto_xp(self, xp, marker_xp) end
+            local result = goto_xp(self, xp)
             if self._zen_unmark then UIManager:unschedule(self._zen_unmark) end
             document:highlightXPointer()
             if not document:highlightXPointer(marker_xp) then return result end

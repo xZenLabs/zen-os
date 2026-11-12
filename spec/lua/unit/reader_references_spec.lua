@@ -784,10 +784,14 @@ describe("native footnote adapter", function()
 
     it("flashes the followed link instead of the stock margin marker", function()
         local highlighted = {}
-        ui.document = { highlightXPointer = function(_self, xp)
-            if xp then highlighted[#highlighted + 1] = xp else highlighted = {} end
-            return true
-        end }
+        local texts = { link = "Note text", other = "Note text", chapter = ("x"):rep(1001), anchor = " " }
+        ui.document = {
+            highlightXPointer = function(_self, xp)
+                if xp then highlighted[#highlighted + 1] = xp else highlighted = {} end
+                return true
+            end,
+            getTextFromXPointer = function(_self, xp) return texts[xp] end,
+        }
         local rolling = { ui = ui, view = {} }
         assert.is_true(ReaderRolling.onGotoXPointer(rolling, "top", "link"))
         assert.equals("top", rolling.went)
@@ -801,6 +805,11 @@ describe("native footnote adapter", function()
         ReaderRolling.onGotoXPointer(rolling, "top", "link")
         rolling._zen_unmark()
         assert.same({}, highlighted)
+        for _i, target in ipairs({ "chapter", "anchor", "missing" }) do
+            ReaderRolling.onGotoXPointer(rolling, "top", target)
+            assert.equals(target, rolling.marker)
+            assert.same({}, highlighted)
+        end
         G_reader_settings:saveSetting("followed_link_marker", false)
         ReaderRolling.onGotoXPointer(rolling, "top", "link")
         assert.equals("link", rolling.marker)
