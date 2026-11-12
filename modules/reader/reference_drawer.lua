@@ -49,8 +49,7 @@ local function coverageMap(background, foreground, gamma, edge_shift)
 end
 
 -- crengine's 100% line spacing is the font's own line height; stock Noto Sans keeps its 1.3.
-local function naturalLineHeight(css, font_size)
-    local path = css:match("KOReaderFootnoteFont'; src: url%('(.-)'%)")
+local function naturalLineHeight(path, font_size)
     if not path then return 1.3 end
     local ok, size = pcall(FT.newFaceSize, path, font_size)
     if not ok or not size then return 1.3 end
@@ -197,7 +196,8 @@ function Drawer:init()
         local scroll_bar, scroll_span = Screen:scaleBySize(4), Screen:scaleBySize(4)
         -- Replace stock doc-aligned left margin so both text edges sit equally inset.
         local inset = Screen:scaleBySize(14)
-        local line_height = naturalLineHeight(source.css, source.default_font_size)
+        local font_path = source.css:match("KOReaderFootnoteFont'; src: url%('(.-)'%)")
+        local line_height = naturalLineHeight(font_path, source.default_font_size)
             * (self.ui.document.configurable.line_spacing or 100) / 100
         local base_css = source.css .. string.format(
             "\n@page { margin: 0 %dpx 0 %dpx; }\nbody { line-height: %.3f !important; }",
@@ -210,6 +210,7 @@ function Drawer:init()
         self.htmlwidget = ScrollHtmlWidget:new{
             html_body = source.html_body, is_xhtml = source.is_xhtml, css = base_css,
             default_font_size = source.default_font_size,
+            html_resource_directory = font_path and utils.htmlFontRoot(font_path),
             width = self.body_width, height = self.body_height,
             scroll_bar_width = scroll_bar, text_scroll_span = scroll_span,
             dialog = self, highlight_text_selection = source.highlight_text_selection,
@@ -558,11 +559,12 @@ function Drawer:renderPage()
     self.full_image = nil
     local image = self.pins[self.pin_index].image
     if self.ui.rolling and not image then
-        local html, css, size = require("modules/reader/pin_settings").content(
+        local html, css, size, font_root = require("modules/reader/pin_settings").content(
             self.ui, self.page, self.plugin.config.reader_pins, self.background, self.foreground)
         if html then
             self.htmlwidget = ScrollHtmlWidget:new{
                 html_body = html, css = css, is_xhtml = true, default_font_size = size,
+                html_resource_directory = font_root,
                 width = self.body_width, height = self.body_height, dialog = self,
                 scroll_bar_width = Screen:scaleBySize(4), text_scroll_span = Screen:scaleBySize(4),
             }

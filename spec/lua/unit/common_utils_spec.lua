@@ -24,6 +24,16 @@ describe("common utils deep merge", function()
     end)
 end)
 
+describe("common utils html font root", function()
+    local utils = require("common/utils")
+
+    it("roots absolute fonts at / and bundled relative fonts at the working directory", function()
+        assert.are.equal("/", utils.htmlFontRoot("/mnt/us/fonts/Book.ttf"))
+        assert.are.equal(".", utils.htmlFontRoot("./fonts/noto/NotoSerif-Regular.ttf"))
+        assert.are.equal(".", utils.htmlFontRoot("fonts/noto/NotoSerif-Regular.ttf"))
+    end)
+end)
+
 describe("common utils icon sizing", function()
     local utils = require("common/utils")
 

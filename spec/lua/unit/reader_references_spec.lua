@@ -12,7 +12,8 @@ describe("reader references", function()
         for _i, name in ipairs(names) do saved[name] = package.loaded[name] end
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("device", { screen = { scaleBySize = function(_self, size) return size end } })
-        ZenSpec.replace("common/utils", { resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end })
+        ZenSpec.replace("common/utils", { resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end,
+            htmlFontRoot = function(path) return "root:" .. path end })
         ZenSpec.replace("ffi/util", { template = function(text, value) return (text:gsub("%%1", tostring(value))) end })
         ZenSpec.unload("modules/reader/references")
         References = require("modules/reader/references")
@@ -414,8 +415,9 @@ describe("reader references", function()
         ui.font = { font_face = "Book font" }
         ui.document.configurable = { font_size = 18, line_spacing = 150 }
         ui.document.getHTMLFromXPointers = function() return "<p>Reference</p>" end
-        local html, css = PinSettings.content(ui, 9, settings, bb.COLOR_WHITE, bb.COLOR_BLACK)
+        local html, css, _size, font_root = PinSettings.content(ui, 9, settings, bb.COLOR_WHITE, bb.COLOR_BLACK)
         assert.equals("<p>Reference</p>", html)
+        assert.equals("root:/book.ttf", font_root)
         assert.matches("font-family: ZenPinFont; line-height: 2.000", css, 1, true)
         ZenSpec.replace("ui/font", { getFace = function() return nil end })
         html, css = PinSettings.content(ui, 9, settings, bb.COLOR_WHITE, bb.COLOR_BLACK)
