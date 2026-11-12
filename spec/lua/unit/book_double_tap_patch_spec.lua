@@ -7,6 +7,7 @@ describe("Double-tap book item patch", function()
     local resets
     local saved_modules
     local menu_callback
+    local open_callback
     local menus
 
     before_each(function()
@@ -45,8 +46,8 @@ describe("Double-tap book item patch", function()
 
         ZenSpec.replace("common/book_open_tap", {
             reset = function() resets = resets + 1 end,
-            shouldOpen = function(_path, _time, on_single_tap)
-                menu_callback = on_single_tap
+            shouldOpen = function(_path, _time, on_menu, on_open)
+                menu_callback, open_callback = on_menu, on_open
                 local result = accepted
                 accepted = true
                 return result
@@ -131,11 +132,22 @@ describe("Double-tap book item patch", function()
         assert.are.equal(1, menus)
     end)
 
-    it("does not open a pending menu after entering selection mode", function()
-        local item = { entry = { is_file = true, path = "/books/one.epub" }, menu = {} }
+    it("does not run a pending action after entering selection mode", function()
+        local item = setmetatable({ entry = { is_file = true, path = "/books/one.epub" }, menu = {} },
+            { __index = StandardItem })
         StandardItem.onTapSelect(item, nil, { time = 1 })
         item.menu.ui = { selected_files = {} }
         menu_callback()
-        assert.are.equal(0, menus)
+        open_callback()
+        assert.are.same({ 0, 0 }, { menus, opened })
+    end)
+
+    it("replays a deferred open through the item tap handler", function()
+        local item = setmetatable({ entry = { is_file = true, path = "/books/one.epub" }, menu = {} },
+            { __index = StandardItem })
+        StandardItem.onTapSelect(item, nil, { time = 1 })
+        assert.are.equal(0, opened)
+        open_callback()
+        assert.are.equal(1, opened)
     end)
 end)

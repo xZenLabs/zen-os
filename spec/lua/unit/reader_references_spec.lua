@@ -784,13 +784,18 @@ describe("native footnote adapter", function()
 
     it("flashes the followed link instead of the stock margin marker", function()
         local highlighted = {}
-        local texts = { link = "Note text", other = "Note text", chapter = ("x"):rep(1001), anchor = " " }
+        local long = ("x"):rep(1001)
+        local texts = { link = "Note text", other = "Note text", chapter = long, anchor = " ", note = long,
+            ["/p/a"] = "[1]", ["/section/h1"] = "Title", ["/p"] = long }
+        local words = { note = "/p/a/text().1", anchor = "/p/a/text()[2].0", chapter = "/section/h1/text().0",
+            blob = "/p/text().0" }
         ui.document = {
             highlightXPointer = function(_self, xp)
                 if xp then highlighted[#highlighted + 1] = xp else highlighted = {} end
                 return true
             end,
             getTextFromXPointer = function(_self, xp) return texts[xp] end,
+            getNextVisibleWordStart = function(_self, xp) return words[xp] end,
         }
         local rolling = { ui = ui, view = {} }
         assert.is_true(ReaderRolling.onGotoXPointer(rolling, "top", "link"))
@@ -805,7 +810,13 @@ describe("native footnote adapter", function()
         ReaderRolling.onGotoXPointer(rolling, "top", "link")
         rolling._zen_unmark()
         assert.same({}, highlighted)
-        for _i, target in ipairs({ "chapter", "anchor", "missing" }) do
+        for target, node in pairs({ note = "/p/a", anchor = "/p/a", chapter = "/section/h1" }) do
+            ReaderRolling.onGotoXPointer(rolling, "top", target)
+            assert.is_nil(rolling.marker)
+            assert.same({ node }, highlighted)
+            rolling._zen_unmark()
+        end
+        for _i, target in ipairs({ "blob", "missing" }) do
             ReaderRolling.onGotoXPointer(rolling, "top", target)
             assert.equals(target, rolling.marker)
             assert.same({}, highlighted)

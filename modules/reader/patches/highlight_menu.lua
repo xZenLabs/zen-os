@@ -161,7 +161,8 @@ local function apply()
     logger.dbg("orig_onShowHighlightMenu=", tostring(orig_onShowHighlightMenu))
 
     -- more: show a new selection's other items instead of the icon row.
-    ReaderHighlight.onShowHighlightMenu = function(self, index, more)
+    -- Local so More survives plugins that wrap onShowHighlightMenu with a fixed arity (e.g. X-Ray).
+    local function show_menu(self, index, more)
         logger.dbg("onShowHighlightMenu called, is_enabled=",
             tostring(is_enabled()), "selected_text=", tostring(self.selected_text ~= nil))
         if not is_enabled() then
@@ -297,7 +298,7 @@ local function apply()
                         local controller = self._zen_highlight_handles
                         if controller then controller.reopening = true end -- keep the selection across the swap
                         UIManager:close(self.highlight_dialog)
-                        self:onShowHighlightMenu(nil, true)
+                        show_menu(self, nil, true)
                     end,
                 })
             end
@@ -336,6 +337,7 @@ local function apply()
         logger.dbg("showing custom highlight_dialog")
         UIManager:show(self.highlight_dialog, "[ui]")
     end
+    ReaderHighlight.onShowHighlightMenu = function(self, index) return show_menu(self, index) end
 
     local orig_showHighlightDialog = ReaderHighlight.showHighlightDialog
     ReaderHighlight.showHighlightDialog = function(self, index)

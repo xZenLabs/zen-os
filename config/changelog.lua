@@ -446,8 +446,13 @@ return {
         "Set left and right margins independently (Sync in the Left/Right margin menu)",
         "Tap a theme preview in reader controls to select it",
         "Add note button to new selection highlight menu",
+        "Choose what single and double tap do on a book, e.g. tap to open and double tap for the context menu",
+        "Table of contents folds subchapters under their chapter like KOReader's; the chapter being read starts unfolded",
+        "Option to show chapter page counts in the table of contents (Reader > Table of contents)",
         "Fix: swiping in page browser chapters and bookmarks skipped every other page",
         "Fix: accent color inverted on round buttons and corners in night mode on Android",
+        "Fix: highlight menu More button did nothing with plugins that wrap the highlight menu, e.g. X-Ray",
+        "Fix: entire page/chapter being highlighted when navigating with internal book links",
     },
 
 }

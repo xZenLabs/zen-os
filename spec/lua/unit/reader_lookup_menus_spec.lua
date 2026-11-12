@@ -735,6 +735,8 @@ describe("reader lookup menus", function()
         assert.are.equal(1, #dialog_spec.buttons[2])
         local main, more = dialog_spec, dialog_spec.buttons[1][#dialog_spec.buttons[1]]
         assert.are.equal("zen_highlight_more", more.id)
+        -- Plugins like X-Ray wrap the instance method with a fixed arity.
+        highlight.onShowHighlightMenu = function(this, index) return ReaderHighlight.onShowHighlightMenu(this, index) end
         more.callback()
         assert.are.equal(main, closed)
         assert.are.equal(1, #dialog_spec.buttons)

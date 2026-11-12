@@ -347,6 +347,7 @@ local function show_zen_toc(plugin)
 
     require("ui/uimanager"):show(ZenTocWidget:new{
         ui = reader,
+        show_page_counts = require("modules/reader/toc_tree").showsCounts(plugin),
         on_goto = function(page)
             if reader.link then
                 reader.link:addCurrentLocationToStack()

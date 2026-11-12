@@ -25,20 +25,29 @@ return function()
         ReaderRolling._zen_link_marker_patched = true
         local UIManager = require("ui/uimanager")
         local goto_xp = ReaderRolling.onGotoXPointer
+        -- Highlighting selects the whole node: big ones (in-book ToC chapters) fill the page and stall rendering.
+        local function compact(document, node)
+            local text = node and document:getTextFromXPointer(node)
+            if text and #text <= 1000 and text:find("%S") then return node end
+        end
         ReaderRolling.onGotoXPointer = function(self, xp, marker_xp)
             local setting = G_reader_settings:readSetting("followed_link_marker")
             if not marker_xp or setting == false or not References.enabled(self.ui) then
                 return goto_xp(self, xp, marker_xp)
             end
-            -- Flash compact targets like a tap does. Chapter-wide targets (in-book ToC) would select the
-            -- whole page and stall rendering; empty anchors show nothing: both keep the stock margin square.
+            -- Flash the target like a tap does; for empty anchors or long notes/chapters, the inline
+            -- around its first word (note number [1], chapter heading). Otherwise the stock margin square.
             local document = self.ui.document
-            local text = document:getTextFromXPointer(marker_xp)
-            if not text or #text > 1000 or not text:find("%S") then return goto_xp(self, xp, marker_xp) end
+            local target = compact(document, marker_xp)
+            if not target then
+                local word = document:getNextVisibleWordStart(marker_xp)
+                target = compact(document, word and word:match("^(.+)/text%(%)[^/]*$"))
+            end
+            if not target then return goto_xp(self, xp, marker_xp) end
             local result = goto_xp(self, xp)
             if self._zen_unmark then UIManager:unschedule(self._zen_unmark) end
             document:highlightXPointer()
-            if not document:highlightXPointer(marker_xp) then return result end
+            if not document:highlightXPointer(target) then return result end
             if setting == true then return result end
             self._zen_unmark = function()
                 self._zen_unmark = nil

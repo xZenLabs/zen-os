@@ -66,7 +66,9 @@ return function(plugin)
         launch(tm, function()
             if id == "toc" then
                 UIManager:show(require("modules/reader/zen_toc_widget"):new{
-                    ui = ui, show_back = false, on_goto = function(page)
+                    ui = ui, show_back = false,
+                    show_page_counts = require("modules/reader/toc_tree").showsCounts(plugin),
+                    on_goto = function(page)
                         if ui.link then ui.link:addCurrentLocationToStack() end
                         ui:handleEvent(require("ui/event"):new("GotoPage", page))
                     end,

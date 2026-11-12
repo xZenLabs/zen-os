@@ -42,6 +42,12 @@ function M.command(params)
                 return { callback = function() end }
             end
         end
+        if params.wrap_menu and not h._zen_test_wrapped_menu then
+            -- Mimic plugins (e.g. X-Ray) wrapping the instance method with a fixed arity.
+            local orig = h.onShowHighlightMenu
+            h.onShowHighlightMenu = function(this, index) return orig(this, index) end
+            h._zen_test_wrapped_menu = true
+        end
         if ui.document.is_pdf then h.highlight_write_into_pdf = true end
         local positions = words(ui)
         if #positions < 10 then return { ok = false, error = "not enough selectable words", words = positions } end
@@ -90,7 +96,12 @@ function M.command(params)
     elseif params.action == "save" then
         h.highlight_dialog.buttons[1][1].callback()
     elseif params.action == "more" then
-        h.highlight_dialog:getButtonById("zen_highlight_more").callback()
+        -- Real tap: Button feedback and refresh ordering differ from a bare callback.
+        local UIManager = require("ui/uimanager")
+        UIManager:forceRePaint()
+        local dimen = h.highlight_dialog:getButtonById("zen_highlight_more").dimen
+        UIManager:sendEvent(Event:new("Gesture", { ges = "tap",
+            pos = Geom:new{ x = dimen.x + dimen.w / 2, y = dimen.y + dimen.h / 2 } }))
     elseif params.action == "settings" then
         h.highlight_dialog:getButtonById("zen_highlight_settings").callback()
     elseif params.action == "note" then

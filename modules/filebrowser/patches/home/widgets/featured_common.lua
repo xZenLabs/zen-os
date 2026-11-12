@@ -858,6 +858,8 @@ p { margin: 0; }
         end
         if ges.time ~= nil and not BookOpenTap.shouldOpen(book.path, ges.time, function()
             tap.onHoldFeatured(tap_self, nil, ges)
+        end, function()
+            tap.onTapFeatured(tap_self, nil, ges)
         end) then return true end
         set_opening_banner_cover(cover_widget)
         ctx.openBook(book.path)

@@ -2179,6 +2179,10 @@ return function(ctx)
         if dx ~= 0 and selected_id:sub(1, 7) ~= "footer:" then
             if BD.mirroredUILayout() then dx = -dx end
         end
+        -- Rows that own Left/Right (TOC folding) take them instead of moving focus.
+        if dx ~= 0 and selected_widget and type(selected_widget.onHorizontalKey) == "function" then
+            return selected_widget:onHorizontalKey(dx)
+        end
         local row = selected_row
         if not row then return true end
         local target_x, target_y = selected.x, selected.y

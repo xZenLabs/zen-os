@@ -47,6 +47,12 @@ describe("embedded page-browser lists", function()
             spec:updateItems(1)
             return spec
         end
+        function Menu:getPageNumber(item_number)
+            for page, items in ipairs(self.page_items) do
+                if item_number <= items[#items] then return page end
+            end
+            return #self.page_items
+        end
         -- Stand-in MenuItems for the visible page.
         function Menu:updateItems(number)
             updates = updates + number
@@ -285,5 +291,60 @@ describe("embedded page-browser lists", function()
         assert.are.equal("read", menu.item_table[2].toc_state)
         assert.are.same({ idx = 3, page = 12 }, menu.item_table[3].progress)
         assert.are.equal(22, menu.items_font_size)
+    end)
+
+    it("folds subchapters in the page-browser TOC from taps and D-pad without leaving the page", function()
+        local TocTree = require("modules/reader/toc_tree")
+        local widget_mock = package.loaded["modules/reader/zen_toc_widget"]
+        widget_mock.getEntries = function()
+            return TocTree.link({
+                { title = "Part 1", page = 1, page_label = "1", depth = 1 },
+                { title = "Chapter 1", page = 3, page_label = "3", depth = 2 },
+                { title = "Part 2", page = 8, page_label = "8", depth = 1 },
+                { title = "Chapter 2", page = 9, page_label = "9", depth = 2 },
+            }, { 1, 3, 8, 9 }, 21)
+        end
+        widget_mock.foldHitWidth = function(style, row) return style.size + (row.fold == "collapsed" and 40 or 0) end
+        _G.__ZEN_UI_PLUGIN.config.page_browser.toc_show_page_counts = true
+        local selected_page
+        local menu = Panels.build(browser, "toc", 600, 700, function(page) selected_page = page end)
+        local function titles()
+            local names = {}
+            for i, item in ipairs(menu.item_table) do names[i] = item.entry.title end
+            return names
+        end
+        -- Reading page 5: Chapter 1 is current, so Part 1 starts unfolded and Part 2 folded.
+        assert.are.same({ "Part 1", "Chapter 1", "Part 2" }, titles())
+        assert.are.same({ "expanded", "leaf", "collapsed" },
+            { menu.item_table[1].fold, menu.item_table[2].fold, menu.item_table[3].fold })
+        assert.are.same({ "(7)", "(5)", "(13)" },
+            { menu.item_table[1].count, menu.item_table[2].count, menu.item_table[3].count })
+        assert.are.equal(2, menu.item_table.current)
+        local bb = { rows = {} }
+        menu.item_group[3]:paintTo(bb, 0, 0)
+        assert.are.same({ fold = "collapsed", count = "(13)" }, { fold = bb.rows[1].row.fold, count = bb.rows[1].row.count })
+
+        -- Left of the title unfolds without navigating; the title still navigates.
+        assert.is_true(menu.item_group[3]:onTapSelect(nil, { pos = { x = 61, y = 0 } }))
+        assert.is_nil(selected_page)
+        assert.are.same({ "Part 1", "Chapter 1", "Part 2", "Chapter 2" }, titles())
+        assert.are.equal("expanded", menu.item_table[3].fold)
+        assert.are.equal(2, updates)
+        assert.are.equal(1, focus_rebuilds)
+        assert.is_true(menu.item_group[3]:onTapSelect(nil, { pos = { x = 62, y = 0 } }))
+        assert.are.equal(8, selected_page)
+
+        -- D-pad Left folds and Right unfolds parents; leaves swallow both.
+        assert.is_true(menu.item_group[3]:onHorizontalKey(-1))
+        assert.are.same({ "Part 1", "Chapter 1", "Part 2" }, titles())
+        assert.is_true(menu.item_group[2]:onHorizontalKey(1))
+        assert.are.same({ "Part 1", "Chapter 1", "Part 2" }, titles())
+        assert.is_true(menu.item_group[1]:onHorizontalKey(1))
+        assert.are.same({ "Part 1", "Chapter 1", "Part 2" }, titles())
+        assert.is_true(menu.item_group[1]:onHorizontalKey(-1))
+        assert.are.same({ "Part 1", "Part 2" }, titles())
+        -- The folded parent now stands in for the reading position.
+        assert.are.equal(1, menu.item_table.current)
+        assert.are.equal("current", menu.item_table[1].toc_state)
     end)
 end)

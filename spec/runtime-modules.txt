@@ -273,6 +273,7 @@ modules/reader/page_actions.lua|integration
 modules/reader/patches/reader_references.lua|unit
 modules/reader/zen_toc_widget.lua|integration
 modules/reader/page_browser_panels.lua|unit
+modules/reader/toc_tree.lua|unit
 modules/reader/page_browser_tabs.lua|unit
 modules/reader/book_note.lua|unit
 modules/reader/annotations.lua|unit

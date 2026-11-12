@@ -1156,6 +1156,8 @@ function M.build_strip(ctx, source_key)
                     if ctx.openCover then return ctx.openCover(path) end
                     if ges.time ~= nil and not BookOpenTap.shouldOpen(path, ges.time, function()
                         tap.onHoldCover(tap_self, nil, ges)
+                    end, function()
+                        tap.onTapCover(tap_self, nil, ges)
                     end) then return true end
                     if not ctx.skipOpeningBanner then set_opening_banner_cover(item.cover) end
                     ctx.openBook(path)
