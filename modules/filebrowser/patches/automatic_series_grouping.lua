@@ -507,10 +507,16 @@ local function apply_automatic_series_grouping()
             local dirs = {}
             local files = {}
             local up_item
+            -- Progress collates can't mix folders, but a series group carries the
+            -- progress of its leading book, so rank it among the books.
+            local groups_with_files = has_group and sort_func
+                and type(collate_id) == "string" and collate_id:find("^percent_") ~= nil
 
             for _i, item in ipairs(processed_list) do
                 if item.is_go_up then
                     up_item = item
+                elseif groups_with_files and item.is_series_group then
+                    table.insert(files, item)
                 elseif is_directory(item) then
                     if needs_doc_props_sort then ensure_sort_doc_props(item) end
                     table.insert(dirs, item)
@@ -522,6 +528,12 @@ local function apply_automatic_series_grouping()
 
             if sort_func then
                 local ok_sort, err = pcall(table.sort, dirs, sort_func)
+                if not ok_sort then
+                    logger.warn("sort failed:", err)
+                end
+            end
+            if groups_with_files then
+                local ok_sort, err = pcall(table.sort, files, sort_func)
                 if not ok_sort then
                     logger.warn("sort failed:", err)
                 end
