@@ -1417,6 +1417,26 @@ describe("file browser navbar navigation", function()
         assert.are.same({ "books:/library" }, calls)
     end)
 
+    it("rebuilds before reveal when Calibre changed the retained Library", function()
+        local fm = make_instance()
+        local fc = fm.file_chooser
+        fc.path = "/library"
+        fc.page = 2
+        dir_mtimes["/library"] = 10
+        UIManager.nextTick = function() end
+        local calibre_changed = false
+        fc._zen_item_table_calibre_changed = function(_self, path)
+            return path == "/library" and calibre_changed
+        end
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
+        calibre_changed = true
+        calls = {}
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
+        assert.are.same({ "books:/library" }, calls)
+    end)
+
     it("dispatches persistent tabs to their intended library views and tracks active state", function()
         make_instance()
         for _i, id in ipairs({ "home", "authors", "series", "tags", "to_be_read" }) do
@@ -1813,7 +1833,7 @@ describe("file browser navbar navigation", function()
         assert.are.equal(0, page_refreshes)
     end)
 
-    it("invalidates and refreshes the active Library when its icon is tapped", function()
+    it("refreshes the active Library without dropping its cache when its icon is tapped", function()
         local fm = make_instance()
         local fc = fm.file_chooser
         fc.path = "/library"
@@ -1825,8 +1845,32 @@ describe("file browser navbar navigation", function()
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
 
-        assert.are.same({ "invalidate:/library", "refresh" }, calls)
+        assert.are.same({ "refresh" }, calls)
         assert.are.equal(1, page_refreshes)
+    end)
+
+    it("keeps the Library listing cache when switching from another tab", function()
+        local fm = make_instance()
+        local fc = fm.file_chooser
+        fc.path = "/library"
+        fc._zen_invalidate_item_table_path = function(_self, path)
+            calls[#calls + 1] = "invalidate:" .. path
+        end
+        fc.refreshPath = function() calls[#calls + 1] = "refresh" end
+        package.loaded["common/utils"].closeWidgetsAbove = function(anchor)
+            while UIManager._window_stack[#UIManager._window_stack].widget ~= anchor do
+                table.remove(UIManager._window_stack)
+            end
+        end
+        UIManager._window_stack = {
+            { widget = fm }, { widget = { _zen_navbar_tab_id = "authors" } },
+        }
+        fc._zen_folder_aggregate_cache = { values = {}, order = {} }
+
+        assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
+
+        assert.are.same({ "refresh" }, calls)
+        assert.is_nil(fc._zen_folder_aggregate_cache)
     end)
 
     it("refreshes every navbar page switch, including Authors to Library and Home", function()

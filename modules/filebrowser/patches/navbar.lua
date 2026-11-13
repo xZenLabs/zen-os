@@ -883,6 +883,9 @@ local function apply_navbar()
             and retained.sort_signature == _library_sort_signature(fc, home_dir)
             and retained.layout_signature == _library_layout_signature(fc)
             and retained.root_mtime == lfs.attributes(home_dir, "modification")
+            -- Calibre can overwrite books without touching any folder timestamp.
+            and not (type(fc._zen_item_table_calibre_changed) == "function"
+                and fc:_zen_item_table_calibre_changed(home_dir))
     end
 
     materializeHiddenLibrary = function(fm, fc, home_dir, items, detail)
@@ -1156,7 +1159,11 @@ local function apply_navbar()
                     _refresh_library_path(fc, home_dir)
                 elseif not from_home and not reveal_hidden_filemanager then
                     fc._zen_needs_cover_refresh = nil
-                    _refresh_library_path(fc, home_dir, true)
+                    -- Keeps the listing cache; it checks the folder itself. Folder
+                    -- dates are keyed on the folder's timestamp, which an
+                    -- overwritten book leaves unchanged, so rebuild them on rescan.
+                    fc._zen_folder_aggregate_cache = nil
+                    _refresh_library_path(fc, home_dir)
                 elseif not refreshSuppressedCoversNow(fm)
                         and type(fc.onGotoPage) == "function" then
                     fc:onGotoPage(1)
