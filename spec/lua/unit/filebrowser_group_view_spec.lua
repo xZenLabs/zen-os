@@ -340,6 +340,38 @@ describe("file browser group views", function()
         assert.are.equal("Zelda Berry", menu.item_table[1].text)
     end)
 
+    it("sorts author and series groups by book count, most books first", function()
+        install_group_view({
+            authors = {
+                { author = "Ada Lovelace", files = { "/a1.epub" } },
+                { author = "Zelda Berry", files = { "/z1.epub", "/z2.epub", "/z3.epub" } },
+                { author = "Grace Hopper", files = { "/g1.epub", "/g2.epub" } },
+                { author = "Alan Turing", files = { "/t1.epub", "/t2.epub" } },
+            },
+            series = {
+                { series = "Alpha", items = { { file = "/al.epub" } } },
+                { series = "Omega", items = { { file = "/o1.epub" }, { file = "/o2.epub" } } },
+            },
+        })
+        config.group_view.authors_collate = "count"
+        config.group_view.group_collate = { series = "count" }
+
+        api.showAuthorsView()
+        api.showSeriesView()
+        local authors = assert(find_menu("authors"))
+        local series = assert(find_menu("series"))
+        assert.are.same({ "Zelda Berry", "Alan Turing", "Grace Hopper", "Ada Lovelace" }, {
+            authors.item_table[1].text,
+            authors.item_table[2].text,
+            authors.item_table[3].text,
+            authors.item_table[4].text,
+        })
+        assert.are.same({ "Omega", "Alpha" }, {
+            series.item_table[1].text,
+            series.item_table[2].text,
+        })
+    end)
+
     it("uses the tag-group context menu for external group folders", function()
         install_group_view({})
 

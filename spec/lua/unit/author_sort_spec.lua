@@ -64,4 +64,16 @@ describe("author sort", function()
         AuthorSort.key = original_key
         assert(ok, err)
     end)
+
+    it("orders by count first and falls back to the name comparison on ties", function()
+        local name_calls = 0
+        local function name_less() name_calls = name_calls + 1; return true end
+        assert.is_true(AuthorSort.countLess(3, 1, name_less))
+        assert.is_false(AuthorSort.countLess(1, 3, name_less))
+        assert.are.equal(0, name_calls)
+        assert.is_true(AuthorSort.countLess(2, 2, name_less))
+        assert.are.equal(1, name_calls)
+        assert.is_true(AuthorSort.isMode("count"))
+        assert.are.equal("count", AuthorSort.normalize("count"))
+    end)
 end)

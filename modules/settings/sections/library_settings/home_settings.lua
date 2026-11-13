@@ -1185,7 +1185,8 @@ function M.build(ctx)
                 local group_view = type(config.group_view) == "table"
                     and config.group_view or {}
                 local mode = author_sort.normalize(group_view.authors_collate)
-                local label = mode == "authors_last" and _("Last name") or _("First name")
+                local label = mode == "authors_last" and _("Last name")
+                    or mode == "count" and _("Book count") or _("First name")
                 return _("Sort by") .. ": " .. label
             end,
             sub_item_table = items,
