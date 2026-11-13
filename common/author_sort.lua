@@ -13,6 +13,7 @@ local HTML_SPACES = {
 local VALID = {
     authors = true,
     authors_last = true,
+    count = true,
 }
 
 function M.normalize(mode)
@@ -54,10 +55,17 @@ function M.comparator(mode)
     end
 end
 
+-- Most books first; ties fall back to name_less.
+function M.countLess(count_a, count_b, name_less)
+    if count_a ~= count_b then return count_a > count_b end
+    return name_less()
+end
+
 function M.options(gettext)
     return {
         { key = "authors", text = gettext("First name") },
         { key = "authors_last", text = gettext("Last name") },
+        { key = "count", text = gettext("Book count") },
     }
 end
 

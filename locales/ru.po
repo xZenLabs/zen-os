@@ -919,6 +919,12 @@ msgstr "Книга"
 msgid "Book added to download list"
 msgstr "Книга добавлена в список загрузок"
 
+#. Type: label
+#. Context: Подпись в группах библиотеки по авторам, сериям, языкам и меткам.
+#: author_sort.lua:68 group_view.lua:680 home_settings.lua:1189
+msgid "Book count"
+msgstr "Количество книг"
+
 #. Type: title
 #. Context: Заголовок в настройках кнопок и страниц лаунчера. Подпись в редакторе метаданных книг. Подпись на экране чтения. Также используется в других частях ZenOS.
 #: metadata_editor.lua:400 metadata_editor.lua:401 book_info_card.lua:102 book_details.lua:506 book_info_widget.lua:135 page_browser_tabs.lua:51 library_settings.lua:223 library_settings.lua:1196

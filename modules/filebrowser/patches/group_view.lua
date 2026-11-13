@@ -214,13 +214,14 @@ end
 local function get_group_collate(tab_id)
     local cfg = load_zen_config()
     local group_collate = cfg and cfg.group_view and cfg.group_view.group_collate
-    return group_collate and group_collate[tab_id] == "title_natural"
-        and "title_natural" or "title"
+    local stored = group_collate and group_collate[tab_id]
+    if stored == "title_natural" or stored == "count" then return stored end
+    return "title"
 end
 
 local function set_group_collate(tab_id, collate)
     if tab_id ~= "series" and tab_id ~= "languages" and tab_id ~= "tags" then return end
-    if collate ~= "title" and collate ~= "title_natural" then return end
+    if collate ~= "title" and collate ~= "title_natural" and collate ~= "count" then return end
     local cfg = load_zen_config()
     if type(cfg) ~= "table" then return end
     if type(cfg.group_view) ~= "table" then cfg.group_view = {} end
@@ -460,14 +461,26 @@ local function build_group_item_table(groups, data_type)
     if #items > 1 then
         if data_type == "authors" then
             local collate = get_authors_collate()
-            local compare = author_sort.comparator(collate)
-            table.sort(items, function(a, b)
-                return compare(a._zen_author, b._zen_author)
-            end)
+            if collate == "count" then
+                local compare = author_sort.comparator("authors")
+                table.sort(items, function(a, b)
+                    return author_sort.countLess(#a._zen_files, #b._zen_files,
+                        function() return compare(a._zen_author, b._zen_author) end)
+                end)
+            else
+                local compare = author_sort.comparator(collate)
+                table.sort(items, function(a, b)
+                    return compare(a._zen_author, b._zen_author)
+                end)
+            end
         elseif data_type == "series" or data_type == "languages" or data_type == "tags" then
-            local natural = get_group_collate(data_type) == "title_natural"
-            local compare = title_sort.comparator(natural)
+            local collate = get_group_collate(data_type)
+            local compare = title_sort.comparator(collate == "title_natural")
             table.sort(items, function(a, b)
+                if collate == "count" then
+                    return author_sort.countLess(#a._zen_files, #b._zen_files,
+                        function() return compare(a.text, b.text) end)
+                end
                 return compare(a.text, b.text)
             end)
         end
@@ -664,6 +677,7 @@ local function showGroupSortDialog(tab_id, menu)
     local options = {
         { key = "title", text = icons.font .. "  " .. _("Title") },
         { key = "title_natural", text = icons.title .. "  " .. _("Title natural") },
+        { key = "count", text = icons.file_count .. "  " .. _("Book count") },
     }
     for _i, option in ipairs(options) do
         local active = current == option.key

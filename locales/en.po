@@ -936,6 +936,12 @@ msgstr "Book"
 msgid "Book added to download list"
 msgstr "Book added to download list"
 
+#. Type: label
+#. Context: Label in the library groups for authors, series, languages, and tags.
+#: author_sort.lua:68 group_view.lua:680 home_settings.lua:1189
+msgid "Book count"
+msgstr "Book count"
+
 #. Type: title
 #. Context: Title in the Launcher button and page settings. Label in the book metadata editor. Label in the reading screen. Also used elsewhere in ZenOS.
 #: metadata_editor.lua:400 metadata_editor.lua:401 book_info_card.lua:102 book_details.lua:506 book_info_widget.lua:135 page_browser_tabs.lua:51 library_settings.lua:223 library_settings.lua:1196
