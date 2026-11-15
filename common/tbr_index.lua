@@ -522,6 +522,45 @@ local function read_status(path, doc_settings)
     }
 end
 
+-- Book sources (common/book_sources) can give the status of books without
+-- a sidecar here, e.g. a cloud book read on another device. Read-only:
+-- never stored in the status table, and a sidecar wins.
+local source_status_revision
+
+local function source_revision()
+    local fn = BookSources.statusRevision or BookSources.revision
+    if type(fn) ~= "function" then return 0 end
+    local ok, value = pcall(fn)
+    return ok and value or 0
+end
+
+-- Drops cached results once a source reports that statuses changed.
+local function sync_source_statuses()
+    local current = source_revision()
+    if source_status_revision ~= nil and source_status_revision ~= current then
+        clear_results(true)
+    end
+    source_status_revision = current
+end
+
+local function source_status(path)
+    if type(BookSources.status) ~= "function" then return nil end
+    local ok, known = pcall(BookSources.status, path)
+    if not (ok and type(known) == "table") then return nil end
+    return {
+        status = known.status,
+        percent_finished = known.percent_finished,
+        effective_status = BookStatus.getEffectiveStatus(
+            known.status, known.percent_finished),
+    }
+end
+
+local function has_sidecar(path)
+    if type(DocSettings.findSidecarFile) ~= "function" then return false end
+    local ok, sidecar = pcall(DocSettings.findSidecarFile, DocSettings, path)
+    return ok and sidecar ~= nil and sidecar ~= false
+end
+
 local function status_for(path, attr, doc_settings)
     if doc_settings then
         local cached = get_status_row(path)
@@ -542,7 +581,7 @@ local function status_for(path, attr, doc_settings)
     end
     local signature = sidecar_signature(path, attr)
     if not signature then
-        return { effective_status = "new" }
+        return source_status(path) or { effective_status = "new" }
     end
     local cached = get_status_row(path)
     if cached and cached.signature == signature then return cached end
@@ -746,13 +785,28 @@ end
 local function get_status_buckets(books, mode)
     if status_buckets and status_bucket_mode == mode then return status_buckets end
     local buckets = status_transaction(function()
-        local buckets = {}
-        for _i, book in ipairs(books) do
-            local status = status_for(book.path, book.attr)
-            local display = BookStatus.getDisplayStatus(
-                book.path, status.effective_status)
+        local buckets, listed = {}, {}
+        local function add(path, effective_status)
+            local display = BookStatus.getDisplayStatus(path, effective_status)
             buckets[display] = buckets[display] or {}
-            buckets[display][#buckets[display] + 1] = book.path
+            buckets[display][#buckets[display] + 1] = path
+        end
+        for _i, book in ipairs(books) do
+            listed[book.path] = true
+            add(book.path, status_for(book.path, book.attr).effective_status)
+        end
+        -- A book source's books outside the scanned folders (a catalog book
+        -- not on the device), when their source knows their status.
+        local ok_books, source_books = pcall(BookSources.books)
+        for _i, book in ipairs(ok_books and type(source_books) == "table" and source_books or {}) do
+            local path = book.file
+            if not listed[path] then
+                listed[path] = true
+                local status = source_status(path)
+                if status and not has_sidecar(path) then
+                    add(path, status.effective_status)
+                end
+            end
         end
         return buckets
     end)
@@ -773,6 +827,7 @@ local function build_status_result(statuses, options)
     table.sort(keys)
 
     local books, scope = ensure_inventory()
+    sync_source_statuses()
     explicit_paths()
     local status_mode = BookStatus.includeNewInTBREnabled()
         and "new-is-tbr" or "new-is-unread"
@@ -800,6 +855,7 @@ end
 local function build_result(options)
     options = type(options) == "table" and options or {}
     local books, explicit, scope = sync_sources(options.include_new == true)
+    sync_source_statuses()
     local key = result_key(options, scope.key)
     if result_cache[key] then return result_cache[key] end
 
@@ -1077,11 +1133,13 @@ end
 
 function M.getRevision()
     explicit_paths()
+    sync_source_statuses()
     return revision
 end
 
 -- Revision without the collection resync; cheap enough for per-item cache keys.
 function M.peekRevision()
+    sync_source_statuses()
     return revision
 end
 

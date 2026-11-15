@@ -49,11 +49,23 @@
 --       -- version or hash, not a counter that restarts). Called for every
 --       -- listing; keep it cheap.
 --       listingKey = function(folder) return ... end,
+--       -- Optional: reading status for a book that has no sidecar on this
+--       -- device (e.g. a catalog book not downloaded yet), as
+--       -- { status = "reading"|"complete"|"abandoned", percent_finished =
+--       -- 0..1 } (either may be nil), or nil for books it knows nothing
+--       -- of. A finished book may add finished_at (Unix time or
+--       -- "YYYY-MM-DD"), counted in the books finished this month and
+--       -- year. Read-only: ZenOS never writes it back, and a sidecar on this
+--       -- device wins. Asked for every book without a sidecar, so keep it
+--       -- cheap (return nil early for paths it doesn't own), and call
+--       -- statusChanged() when statuses change.
+--       status = function(path) return { status = "complete" } end,
 --   })
 --
 -- Call changed() when a source's books change, so cached groupings are
 -- rebuilt; changed(paths) also drops ZenOS's cached covers and metadata
--- for those books. A source that errors is skipped; the views keep working.
+-- for those books. Call statusChanged() when only their reading statuses
+-- change: statuses are read again, groupings are kept. A source that errors is skipped; the views keep working.
 -- Books whose path db_bookinfo already lists are not added again.
 
 local logger = require("common/zen_logger").new("book_sources")
@@ -67,6 +79,7 @@ local BUILTIN = {
 local sources = {}  -- id -> source
 local order = {}    -- ids, in registration order
 local revision = 0
+local status_revision = 0
 local builtins_loaded = false
 
 local function load_builtins()
@@ -143,6 +156,16 @@ function M.revision()
     return revision
 end
 
+--- Marks every source's reading statuses as changed (books unchanged).
+function M.statusChanged()
+    status_revision = status_revision + 1
+end
+
+--- Changes whenever revision() does or a source reports a status change.
+function M.statusRevision()
+    return M.revision() + status_revision
+end
+
 --- All sources' books, in registration order: { { file, info }, ... }.
 function M.books()
     load_builtins()
@@ -204,6 +227,41 @@ function M.bookInfo(path, get_cover)
     end
     answering[path] = nil
     return info
+end
+
+local STATUSES = { reading = true, complete = true, abandoned = true }
+
+-- finished_at as "YYYY-MM-DD" (the form of a sidecar's summary.modified).
+local function finished_date(value)
+    if type(value) == "number" and value > 0 then
+        return os.date("%Y-%m-%d", math.floor(value))
+    end
+    if type(value) == "string" then
+        return value:match("^(%d%d%d%d%-%d%d%-%d%d)")
+    end
+end
+
+--- Reading status from the first source that knows the book:
+-- { status, percent_finished, finished_at } (any may be nil), or nil.
+-- finished_at is "YYYY-MM-DD".
+function M.status(path)
+    if type(path) ~= "string" or path == "" then return nil end
+    load_builtins()
+    for _i, id in ipairs(order) do
+        local source = sources[id]
+        if type(source.status) == "function" then
+            local result = call(id, source, "status", path)
+            if type(result) == "table" then
+                local status = STATUSES[result.status] and result.status or nil
+                local percent = tonumber(result.percent_finished)
+                if percent then percent = math.max(0, math.min(1, percent)) end
+                if status or percent then
+                    return { status = status, percent_finished = percent,
+                        finished_at = finished_date(result.finished_at) }
+                end
+            end
+        end
+    end
 end
 
 -- getDocProps() returns these bookinfo fields (CoverBrowser columns 13-20).
