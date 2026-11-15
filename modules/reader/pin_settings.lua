@@ -118,14 +118,15 @@ function M.content(ui, page, settings, background, foreground)
             local path, face_index = cre.getFontFaceFilenameAndFaceIndex(ui.font.font_face, i >= 3, i % 2 == 0)
             if path and not seen[path] then
                 seen[path] = true
-                font_root = font_root or require("common/utils").htmlFontRoot(path)
+                local url
+                font_root, url = require("common/utils").htmlFontRoot(path, font_root)
                 if i == 1 then
                     local face = require("ui/font"):getFace(path, document.configurable.font_size, face_index)
                     if face then line_height = math.floor(face.ftsize:getHeightAndAscender() + 0.5) / face.size end
                 end
                 css = css .. string.format(
                     " @font-face { font-family: ZenPinFont; src: url('%s'); font-weight: %s; font-style: %s; }",
-                    path, i >= 3 and "bold" or "normal", i % 2 == 0 and "italic" or "normal")
+                    url, i >= 3 and "bold" or "normal", i % 2 == 0 and "italic" or "normal")
             end
         end
         font_family = "ZenPinFont"

@@ -196,10 +196,15 @@ function Drawer:init()
         local scroll_bar, scroll_span = Screen:scaleBySize(4), Screen:scaleBySize(4)
         -- Replace stock doc-aligned left margin so both text edges sit equally inset.
         local inset = Screen:scaleBySize(14)
-        local font_path = source.css:match("KOReaderFootnoteFont'; src: url%('(.-)'%)")
+        local font_path, font_root
+        local source_css = source.css:gsub("(KOReaderFootnoteFont'; src: url%(')(.-)('%))", function(open, path, close)
+            font_path = font_path or path
+            font_root, path = utils.htmlFontRoot(path, font_root)
+            return open .. path .. close
+        end)
         local line_height = naturalLineHeight(font_path, source.default_font_size)
             * (self.ui.document.configurable.line_spacing or 100) / 100
-        local base_css = source.css .. string.format(
+        local base_css = source_css .. string.format(
             "\n@page { margin: 0 %dpx 0 %dpx; }\nbody { line-height: %.3f !important; }",
             inset - self.right_padding - scroll_bar - scroll_span, inset - self.padding, line_height)
         local css = base_css .. string.format(
@@ -210,7 +215,7 @@ function Drawer:init()
         self.htmlwidget = ScrollHtmlWidget:new{
             html_body = source.html_body, is_xhtml = source.is_xhtml, css = base_css,
             default_font_size = source.default_font_size,
-            html_resource_directory = font_path and utils.htmlFontRoot(font_path),
+            html_resource_directory = font_root,
             width = self.body_width, height = self.body_height,
             scroll_bar_width = scroll_bar, text_scroll_span = scroll_span,
             dialog = self, highlight_text_selection = source.highlight_text_selection,

@@ -13,7 +13,7 @@ describe("reader references", function()
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("device", { screen = { scaleBySize = function(_self, size) return size end } })
         ZenSpec.replace("common/utils", { resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end,
-            htmlFontRoot = function(path) return "root:" .. path end })
+            htmlFontRoot = function(path) return "root:" .. path, path end })
         ZenSpec.replace("ffi/util", { template = function(text, value) return (text:gsub("%%1", tostring(value))) end })
         ZenSpec.unload("modules/reader/references")
         References = require("modules/reader/references")

@@ -662,7 +662,7 @@ function M.build(ctx, source_key)
                 local font_file = library_font.resolveStyleFont(description_style.font_face)
                 local page_css, font_root = "@page { margin: 0; }", nil
                 if font_file:find("/", 1, true) then
-                    font_root = zen_utils.htmlFontRoot(font_file)
+                    font_root, font_file = zen_utils.htmlFontRoot(font_file)
                     font_file = font_file:gsub("'", "\\'")
                     page_css = string.format([[
 @font-face { font-family: 'ZenDescription'; src: url('%s'); }
