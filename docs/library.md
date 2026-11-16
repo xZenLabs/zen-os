@@ -32,7 +32,7 @@ Hold on empty space (or the Navbar) to open the menu for the folder you're in. F
 
 ## Covers and badges
 
-Badges for page count, series number, favorites, new books, and reading progress. Pick badge size and color (or follow the accent color). You can also use uniform 2:3 or 3:4 covers, round the corners, dim finished books, and show title/author under covers.
+Badges for page count, series number, favorites, new books, and reading progress. Pick badge size and color (or follow the accent color). **Text size** sets the font inside the badges, and **Opening banner text size** sets the font of the strip shown while a book opens; both range from 6 to 24 and a size the box cannot hold is reduced to fit. You can also use uniform 2:3 or 3:4 covers, round the corners, dim finished books, and show title/author under covers.
 
 **Where:** Zen Settings > Library > Appearance > Covers
 

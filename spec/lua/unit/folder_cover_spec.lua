@@ -1105,6 +1105,113 @@ describe("shared folder cover provider", function()
         end
     end)
 
+    it("keeps a shrunk folder count badge cached between paints", function()
+        ZenSpec.replace("device", { screen = { scaleBySize = function(_self, value) return value end } })
+        ZenSpec.replace("ffi/blitbuffer", { COLOR_BLACK = "black", COLOR_WHITE = "white" })
+        ZenSpec.replace("ui/font", { getFace = function(_self, _name, size) return { size = size } end })
+        local builds = 0
+        ZenSpec.replace("ui/widget/textwidget", { new = function(_self, values)
+            builds = builds + 1
+            -- Width tracks the face size, so the shrink loop has a real limit.
+            values.getSize = function() return { w = values.face.size * 4, h = 10 } end
+            values.paintTo = function() end
+            values.free = function(self) self.freed = true end
+            return values
+        end })
+        ZenSpec.replace("common/utils", setmetatable({
+            getBadgeColor = function() return "accent" end,
+            getBadgeTextColor = function() return "black" end,
+        }, { __index = require("common/utils") }))
+        local FolderCover = require("modules/filebrowser/folder_cover")
+        local item = {
+            _zen_cover_frame = { dimen = { x = 0, y = 0, w = 100, h = 150 } },
+            _zen_folder_count = 1234,
+        }
+        local bg = { paintRectRGB32 = function() end }
+        local config = { browser_cover_badges = { badge_font_size = 24 } }
+
+        FolderCover.paintDecorations(item, bg, config, 0, 0)
+        local first = item._zen_folder_count_badge
+        -- Four digits at 24dp cannot fit an 11dp radius, so it shrinks.
+        assert.is_true(first.size < 24)
+        local builds_after_first_paint = builds
+
+        FolderCover.paintDecorations(item, bg, config, 0, 0)
+        assert.are.equal(first, item._zen_folder_count_badge)
+        assert.are.equal(builds_after_first_paint, builds)
+    end)
+
+    it("refits the folder count badge when the badge size changes", function()
+        ZenSpec.replace("device", { screen = { scaleBySize = function(_self, value) return value end } })
+        ZenSpec.replace("ffi/blitbuffer", { COLOR_BLACK = "black", COLOR_WHITE = "white" })
+        ZenSpec.replace("ui/font", { getFace = function(_self, _name, size) return { size = size } end })
+        ZenSpec.replace("ui/widget/textwidget", { new = function(_self, values)
+            -- Half an em per character: wide enough that a four-digit count has to
+            -- shrink, narrow enough that a fitted size exists.
+            values.getSize = function() return { w = values.face.size * 2, h = 10 } end
+            values.paintTo = function() end
+            values.free = function(self) self.freed = true end
+            return values
+        end })
+        ZenSpec.replace("common/utils", setmetatable({
+            getBadgeColor = function() return "accent" end,
+            getBadgeTextColor = function() return "black" end,
+        }, { __index = require("common/utils") }))
+        local FolderCover = require("modules/filebrowser/folder_cover")
+        local item = {
+            _zen_cover_frame = { dimen = { x = 0, y = 0, w = 200, h = 300 } },
+            _zen_folder_count = 1234,
+        }
+        local bg = { paintRectRGB32 = function() end }
+
+        -- extra_large: box 42px, radius 21, fit limit 27, so the count shrinks to 13.
+        FolderCover.paintDecorations(item, bg,
+            { browser_cover_badges = { badge_size = "extra_large", badge_font_size = 16 } }, 0, 0)
+        local first = item._zen_folder_count_badge
+        assert.are.equal(13, first.size)
+
+        -- compact: box 28px, radius 14, fit limit 18. The requested size is still
+        -- 16, so only the fit limit can invalidate the label fitted for 27.
+        FolderCover.paintDecorations(item, bg,
+            { browser_cover_badges = { badge_size = "compact", badge_font_size = 16 } }, 0, 0)
+        local second = item._zen_folder_count_badge
+        assert.are_not.equal(first, second)
+        assert.are.equal(9, second.size)
+        assert.is_true(second.widget:getSize().w <= 18)
+    end)
+
+    it("shrinks a count below the default floor when the badge still cannot hold it", function()
+        ZenSpec.replace("device", { screen = { scaleBySize = function(_self, value) return value end } })
+        ZenSpec.replace("ffi/blitbuffer", { COLOR_BLACK = "black", COLOR_WHITE = "white" })
+        ZenSpec.replace("ui/font", { getFace = function(_self, _name, size) return { size = size } end })
+        ZenSpec.replace("ui/widget/textwidget", { new = function(_self, values)
+            -- Two ems per digit: a four-digit count is still too wide at the
+            -- 7dp default floor of a compact badge, so the fit has to continue.
+            values.getSize = function() return { w = values.face.size * 6, h = 10 } end
+            values.paintTo = function() end
+            values.free = function(self) self.freed = true end
+            return values
+        end })
+        ZenSpec.replace("common/utils", setmetatable({
+            getBadgeColor = function() return "accent" end,
+            getBadgeTextColor = function() return "black" end,
+        }, { __index = require("common/utils") }))
+        local FolderCover = require("modules/filebrowser/folder_cover")
+        local item = {
+            _zen_cover_frame = { dimen = { x = 0, y = 0, w = 100, h = 150 } },
+            _zen_folder_count = 1234,
+        }
+        local bg = { paintRectRGB32 = function() end }
+
+        FolderCover.paintDecorations(item, bg,
+            { browser_cover_badges = { badge_size = "compact", badge_font_size = 16 } }, 0, 0)
+        local badge = item._zen_folder_count_badge
+        -- At 7dp the stub is 42 wide, well past this badge's fit limit, so the
+        -- fit has to continue below the default floor.
+        assert.is_true(badge.size < 7)
+        assert.is_true(badge.widget:getSize().w <= badge.fit_limit)
+    end)
+
     it("uses synthetic group and collection members without scanning paths", function()
         local FolderCover = require("modules/filebrowser/folder_cover")
         local menu = {
