@@ -76,6 +76,24 @@ describe("stats tabs data", function()
         assert.are.equal(4, Data.calendar(S, 2026, 10, false).lead)
     end)
 
+    it("lists a day's books, longest first, with time and pages", function()
+        local now = os.time{ year = 2026, month = 10, day = 20, hour = 20 }
+        local day = os.time{ year = 2026, month = 10, day = 13, hour = 12 }
+        local books = {
+            { 1, "Short Read", "Author A", 100, "aaa" },
+            { 2, "Long Read", "Author B", 200, "bbb" },
+        }
+        local stats = {}
+        for p = 1, 10 do stats[#stats + 1] = { 1, day + p * 60, 60, p, 100 } end
+        for p = 1, 30 do stats[#stats + 1] = { 2, day + 3600 + p * 60, 60, p, 200 } end
+        local S = Data.compute(make_fetch(books, stats), {}, now)
+        assert.are.same({
+            { title = "Long Read", duration = 30 * 60, pages = 30 },
+            { title = "Short Read", duration = 10 * 60, pages = 10 },
+        }, Data.dayBooks(S, 2026, 10, 13))
+        assert.are.same({}, Data.dayBooks(S, 2026, 10, 14))
+    end)
+
     it("steps back through months across the year", function()
         assert.are.same({ 2025, 12 }, { Data.monthsBack(2026, 1, 1) })
         assert.are.same({ 2026, 3 }, { Data.monthsBack(2026, 1, -2) })

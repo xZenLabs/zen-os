@@ -523,7 +523,10 @@ describe("Zen arrange list settings resume", function()
         icons.SETTINGS_TOGGLE_HEIGHT, icons.SETTINGS_TOGGLE_WIDTH = 10, 20
         icons.SETTINGS_ICON_WIDTH, icons.SETTINGS_CARET_SIZE = 10, 10
         icons.getItemFace = function() return { orig_size = 20 } end
-        icons.getSettingsIconFace = icons.getItemFace
+        local row_icons = {}
+        icons.makeSettingsIcon = function(icon_item, height)
+            row_icons[#row_icons + 1] = { item = icon_item, height = height }
+        end
         icons.enableFullRowFocus = function() end
 
         local sort = package.loaded["ui/widget/sortwidget"]
@@ -551,6 +554,8 @@ describe("Zen arrange list settings resume", function()
             menu_mode = true, allow_arrange = false, item_table = { item },
         }
         local function radio() return picker.main_content[1].checkmark_widget end
+        -- rows share the settings icon builder (SVG for mapped glyphs)
+        assert.are.same({ item = item, height = 20 }, row_icons[1])
         assert.is_false(radio().enabled)
         assert.is_false(radio().checked)
         assert.is_true(item.dim)

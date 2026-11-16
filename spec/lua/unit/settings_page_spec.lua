@@ -529,7 +529,8 @@ describe("Zen settings page", function()
         local previous = PageModule.show(plugin)
         local page = PageModule.show(plugin, { title = "Battery", root_items = root })
 
-        assert.is_true(previous._closed)
+        assert.is_false(previous._closed)
+        assert.are.equal(page, _G.__ZEN_UI_SETTINGS_PAGE)
         assert.are.equal(page, shown_widgets[2])
         assert.are.equal("zen_settings", page.name)
         assert.is_true(page.covers_fullscreen)
@@ -549,9 +550,20 @@ describe("Zen settings page", function()
         page.title_bar.close_callback()
         assert.is_true(page._closed)
 
+        -- Settings underneath takes over again
+        assert.is_false(previous._closed)
+        assert.are.equal(previous, _G.__ZEN_UI_SETTINGS_PAGE)
         local settings = PageModule.show(plugin)
+        assert.are.equal(previous, settings)
         assert.are.equal("Settings", settings.title_bar.title)
         assert.is_true(settings.title_bar.search_visible)
+
+        -- With no Settings underneath, a standalone page closes to nothing
+        settings:closeMenu()
+        local alone = PageModule.show(plugin, { title = "Battery", root_items = root })
+        alone:closeMenu()
+        assert.is_nil(_G.__ZEN_UI_SETTINGS_PAGE)
+        assert.are_not.equal(previous, PageModule.show(plugin))
     end)
 
     it("closes every arrange overlay without losing the deepest resume route", function()

@@ -169,7 +169,11 @@ describe("settings menu organization", function()
             assert.are.same(expected, labels(general))
             local battery_item = general[available and 5 or 4]
             assert.are.equal("battery_icon", battery_item.icon_glyph)
-            local battery = battery_item.sub_item_table_func()
+            assert.is_function(battery_item.callback)
+            assert.is_nil(battery_item.sub_item_table_func)
+            -- the list now lives in the battery page's ⋮ menu
+            local build_battery = require("modules/settings/battery_stats_menu").buildItems
+            local battery = build_battery()
             assert.are.same({ "Health", "Usage", "Charging", "Estimated battery life", "Settings" }, labels(battery))
             assert.are.equal("75%", battery[1].mandatory)
             assert.are.equal("0.50%/h", battery[2].mandatory)
@@ -184,7 +188,7 @@ describe("settings menu organization", function()
             assert.are.equal("Current capacity: 600 mAh", health[3].text)
             has_current_capacity = false
             assert.are.equal("Current capacity: -",
-                battery_item.sub_item_table_func()[1].sub_item_table[3].text)
+                build_battery()[1].sub_item_table[3].text)
             has_current_capacity = true
             assert.are.equal("Full capacity: 1200 mAh", health[4].text)
             assert.are.equal("Design capacity: 1600 mAh", health[5].text)
@@ -192,7 +196,7 @@ describe("settings menu organization", function()
                 "Total time to full charge: 2h 0m", "Time since last charge: 1h 0m",
                 "Time since last full charge: 4h 0m" }, labels(charging))
             is_charging = true
-            local active_charging = battery_item.sub_item_table_func()[3]
+            local active_charging = build_battery()[3]
             assert.are.equal("1h 0m", active_charging.mandatory)
             assert.are.same({ "Estimated time to complete charge: 1h 0m", "Previous charge, per hour: 20.00%/h",
                 "Previous charge, total: 40%",
@@ -215,7 +219,7 @@ describe("settings menu organization", function()
             assert.are.equal("0.50%/h", battery[2].mandatory)
             assert.are.equal("Previous charge, per hour: 20.00%/h", battery[3].sub_item_table[1].text)
             missing_stats = "partial"
-            local missing_rows = battery_item.sub_item_table_func()
+            local missing_rows = build_battery()
             assert.are.equal("-", missing_rows[1].mandatory)
             assert.are.equal("-", missing_rows[2].mandatory)
             assert.are.equal("Battery health: -", missing_rows[1].sub_item_table[1].text)
@@ -226,7 +230,7 @@ describe("settings menu organization", function()
                 "Time since last full charge: -" }, labels(missing_rows[3].sub_item_table))
             assert.are.equal("Used per hour: -", missing_rows[2].sub_item_table[1].text)
             missing_stats = "none"
-            assert.are.same({ "-" }, labels(battery_item.sub_item_table_func()))
+            assert.are.same({ "-" }, labels(build_battery()))
             assert.are.equal("Wi-Fi", general[1].text)
             if available then assert.are.equal("Bluetooth", general[2].text) end
             assert.are.same({ "Original control" }, labels(general[#general - 1].sub_item_table))

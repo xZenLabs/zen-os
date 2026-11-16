@@ -556,6 +556,7 @@ function M.build(ctx)
                     },
                     {
                         text = _("Text size"),
+                        keep_menu_open = true,
                         callback = function()
                             local Screen = require("device").screen
                             local badge_scale = utils.getBadgeScale(config)
@@ -585,6 +586,7 @@ function M.build(ctx)
                     },
                     {
                         text = _("Opening banner text size"),
+                        keep_menu_open = true,
                         callback = function()
                             -- Same expression the opening banner derives today, so
                             -- confirming without moving the dial changes nothing.

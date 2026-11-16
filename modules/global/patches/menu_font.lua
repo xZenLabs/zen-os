@@ -26,11 +26,24 @@ local function apply_menu_font()
     if bold_name == font_name then
         bold_name = font_name:gsub("%.ttf", "-Bold.ttf", 1)
     end
-    logger.dbg("bold_name =", bold_name)
+    -- Fonts without a bold file keep KOReader's stock bold faces.
+    local has_bold = bold_name ~= font_name
+        and require("libs/libkoreader-lfs").attributes(bold_name, "mode") == "file"
+    if has_bold then
+        -- Real bold: no synthesized bold on top, fallback fonts use their bold variant.
+        local variants = Font.regular_font_variant
+        if variants then variants[bold_name] = font_name end
+        local ok, face = pcall(Font.getFace, Font, bold_name, 18)
+        if not (ok and face) then
+            if variants then variants[bold_name] = nil end
+            has_bold = false
+        end
+    end
+    logger.dbg("bold_name =", bold_name, "has_bold =", has_bold)
 
     -- ---- Determine default KOReader regular / bold TTFs ----
     local def_regular = Font.fontmap and Font.fontmap["cfont"] or "NotoSans-Regular.ttf"
-    local def_bold    = Font.fontmap and Font.fontmap["ffont"] or "NotoSans-Bold.ttf"
+    local def_bold    = Font.fontmap and Font.fontmap["tfont"] or "NotoSans-Bold.ttf"
     logger.dbg("def_regular =", def_regular, "def_bold =", def_bold)
 
     -- ---- Rewrite Font.fontmap ----
@@ -40,7 +53,7 @@ local function apply_menu_font()
             if file == def_regular then
                 Font.fontmap[name] = font_name
                 count = count + 1
-            elseif file == def_bold then
+            elseif has_bold and file == def_bold then
                 Font.fontmap[name] = bold_name
                 count = count + 1
             end

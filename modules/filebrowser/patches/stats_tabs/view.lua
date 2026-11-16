@@ -29,7 +29,7 @@ local TAB_Y, TAB_H = 14, 70 -- tab bar
 local TOP = 106             -- first section label
 local X, W = 24, 1216       -- card left / width
 local GAP = 16              -- between cards
-local SECTION_H = 44        -- label above a box
+local SECTION_H = 50        -- title above a box
 
 local MONTHS = { "January", "February", "March", "April", "May", "June", "July", "August",
     "September", "October", "November", "December" }
@@ -75,10 +75,6 @@ local function upper(s)
     end))
 end
 
-local function spaced(s)
-    return (s:gsub("([%z\1-\127\194-\244][\128-\191]*)", "%1 "):gsub(" $", ""))
-end
-
 local StatsTabsView = InputContainer:extend{
     name = "zen_stats_tabs",
     width = nil,
@@ -86,6 +82,7 @@ local StatsTabsView = InputContainer:extend{
     S = nil,                -- statistics table from data.lua
     page = 1,
     monday_first = true,
+    on_day_tap = nil,       -- function(year, month, day): a calendar day with reading was tapped
 }
 
 local last_page = 1
@@ -191,11 +188,9 @@ function StatsTabsView:vdiv(bb, x, y, h)
     self:rect(bb, x, y, 2, h, SOFT)
 end
 
---- Section: small label above a rounded box. The box starts SECTION_H below y.
+--- Section: title above a rounded box. The box starts SECTION_H below y.
 function StatsTabsView:card(bb, x, y, w, h, title)
-    if title then
-        self:text(bb, spaced(upper(title)), 24, x + 12, y, w - 24, { fg = MID, bold = true, h = 36 })
-    end
+    if title then self:text(bb, title, 32, x + 12, y, w - 24, { bold = true, h = SECTION_H - 6 }) end
     self:rbox(bb, x, y + SECTION_H, w, h - SECTION_H, 3, 20)
 end
 
@@ -238,7 +233,7 @@ function StatsTabsView:page1(bb)
     }
     for i, c in ipairs(cols) do
         local cx = X + 20 + (i - 1) * cw
-        self:text(bb, upper(c[1]), 24, cx, by + 20, cw, { align = "center", fg = MID, bold = true, h = 36 })
+        self:text(bb, c[1], 26, cx, by + 20, cw, { align = "center", bold = true, h = 36 })
         self:text(bb, c[2], 100, cx, by + 52, cw, { align = "center", bold = true, h = 116 })
         self:text(bb, c[3], 28, cx, by + 170, cw, { align = "center", fg = MID, h = 40 })
         if i > 1 then self:vdiv(bb, cx, by + 24, 180) end
@@ -250,19 +245,14 @@ function StatsTabsView:page1(bb)
     self:card(bb, X, y, W, h, _("Reading speed") .. " · " .. _("min / page"))
     by = y + SECTION_H
     local sp = {
-        { T(_("%1 so far"), month(S.month)), S.cur_speed, true },
+        { T(_("%1 so far"), month(S.month)), S.cur_speed },
         { month(S.prev.m), S.prev.speed },
         { _("Overall"), S.speed_all },
     }
     for i, c in ipairs(sp) do
         local cx = X + 20 + (i - 1) * cw
-        self:text(bb, upper(c[1]), 24, cx, by + 18, cw, { align = "center", fg = MID, bold = true, h = 36 })
-        local v = c[2] and dec(c[2]) or "–"
-        if c[3] then
-            local vw = self:measure(v, 72, true) + 48
-            self:rbox(bb, cx + (cw - vw) / 2, by + 62, vw, 90, 3, 14)
-        end
-        self:text(bb, v, 72, cx, by + 62, cw, { align = "center", bold = true, h = 90 })
+        self:text(bb, c[1], 26, cx, by + 18, cw, { align = "center", bold = true, h = 36 })
+        self:text(bb, c[2] and dec(c[2]) or "–", 72, cx, by + 62, cw, { align = "center", bold = true, h = 90 })
         if i > 1 then self:vdiv(bb, cx, by + 24, 122) end
     end
     y = y + h + 22
@@ -279,18 +269,15 @@ function StatsTabsView:page1(bb)
         { _("Last month"), "(" .. month(S.prev.m) .. ")", int(S.prev.pages), S.prev.sec },
         { _("Monthly average"), months_label, S.monthly_pages and int(S.monthly_pages) or "–", S.monthly_sec },
     }
-    local note_h = 50
-    h = BOTTOM - 16 - note_h - y
+    h = BOTTOM - 16 - y
     self:card(bb, X, y, W, h, _("Pages & time"))
     by = y + SECTION_H
     local c1, c2r, c3r = X + 30, X + 30 + 820, X + W - 30
     local v1, v2 = X + 600, X + 860
     local head_h = 60
-    self:text(bb, spaced(upper(_("Period"))), 22, c1, by + 8, 400, { fg = MID, bold = true, h = head_h - 8 })
-    self:text(bb, spaced(upper(_("Pages"))), 22, c2r - 240, by + 8, 240,
-        { fg = MID, bold = true, align = "right", h = head_h - 8 })
-    self:text(bb, spaced(upper(_("Reading time"))), 22, c3r - 320, by + 8, 320,
-        { fg = MID, bold = true, align = "right", h = head_h - 8 })
+    self:text(bb, _("Period"), 26, c1, by + 8, 400, { bold = true, h = head_h - 8 })
+    self:text(bb, _("Pages"), 26, c2r - 240, by + 8, 240, { align = "right", bold = true, h = head_h - 8 })
+    self:text(bb, _("Reading time"), 26, c3r - 320, by + 8, 320, { align = "right", bold = true, h = head_h - 8 })
     local row_h = math.floor((h - SECTION_H - head_h - 8) / (#rows + 1))
     local ry = by + head_h
     local min_u = " " .. _("min")
@@ -326,16 +313,6 @@ function StatsTabsView:page1(bb)
     time_cell(S.total_sec, ry, true)
     self:vdiv(bb, v1, ry + 18, row_h - 36)
     self:vdiv(bb, v2, ry + 18, row_h - 36)
-    local chars
-    local gs = rawget(_G, "G_reader_settings")
-    if gs and gs.readSetting then chars = tonumber(gs:readSetting("pagemap_chars_per_synthetic_page")) end
-    local note = chars and T(_("Pages = standard pages (%1 characters)."), int(chars))
-        or _("Pages = standard pages.")
-    if (S.legacy_count or 0) > 0 then
-        note = note .. " " .. T(_("Plus %1 finished books without reading data (≈ %2 pages)."),
-            S.legacy_count, int(S.legacy_pages))
-    end
-    self:text(bb, note, 25, X + 12, y + h + 6, W - 24, { fg = MID, h = 40 })
 end
 
 -- ---- page 2: books -----------------------------------------------------------
@@ -484,10 +461,6 @@ function StatsTabsView:page2(bb)
 
     -- books per month
     self:card(bb, X, y, W, h2, _("Books read"))
-    if (S.legacy_count or 0) > 0 then
-        self:text(bb, T(_("Books without reading data: %1"), S.legacy_count), 25, X + 24, y + SECTION_H + 10,
-            W - 48, { h = 34, fg = MID })
-    end
     vals, labels = {}, {}
     local ty, tm = S.year, S.month
     local list = {}
@@ -573,9 +546,9 @@ function StatsTabsView:page3(bb)
     end
     local top = dy + 42
 
-    -- bottom block: book legend, totals box, note; cells take the rest
+    -- bottom block: book legend, totals box; cells take the rest
     local totals_h = 128
-    local bottom_h = 16 + lrows * 46 + 14 + totals_h + 8 + 40
+    local bottom_h = 16 + lrows * 46 + 14 + totals_h
     local avail = (BOTTOM - 16) - top - bottom_h
     local cell_h = math.min(190, math.floor(avail / rows) - gap)
 
@@ -591,6 +564,7 @@ function StatsTabsView:page3(bb)
             self:rbox(bb, cx, cy, cw, cell_h, 2, 12, G(221))
             self:text(bb, tostring(d), 32, cx + 10, cy + 4, cw, { fg = FUTURE, bold = true })
         else
+            if c.sec > 0 then self:hit("day", cx, cy, cw, cell_h, d) end
             if c.today then
                 self:rbox(bb, cx, cy, cw, cell_h, 5, 12, ac)
             else
@@ -645,7 +619,7 @@ function StatsTabsView:page3(bb)
     }
     for i, f in ipairs(figs) do
         local fx = X + (i - 1) * fw
-        self:text(bb, upper(f[1]), 24, fx, fy + 12, fw, { align = "center", fg = MID, bold = true, h = 36 })
+        self:text(bb, f[1], 26, fx, fy + 12, fw, { align = "center", bold = true, h = 36 })
         local big, small
         if f[4] then
             local m = math.floor(f[4] / 60 + 0.5)
@@ -661,8 +635,6 @@ function StatsTabsView:page3(bb)
         if small then self:text(bb, small, 26, sx + bw, fy + 64, sw + 4, { fg = MID, h = 50 }) end
         if i > 1 then self:vdiv(bb, fx, fy + 20, totals_h - 40) end
     end
-    self:text(bb, _("Numbers = books read that day (at least 10 min.)"), 25, X, fy + totals_h + 8, W,
-        { align = "center", fg = MID, h = 36 })
 end
 
 -- ---- painting / events -------------------------------------------------------
@@ -724,7 +696,11 @@ function StatsTabsView:onZenStatsTabsTap(_arg, ges)
         if px >= h.x and px < h.x + h.w and py >= h.y and py < h.y + h.h then
             if h.id == "tab" then return self:setPage(h.data)
             elseif h.id == "prev" then self:shiftMonth(-1) return true
-            elseif h.id == "next" then self:shiftMonth(1) return true end
+            elseif h.id == "next" then self:shiftMonth(1) return true
+            elseif h.id == "day" then
+                if self.on_day_tap then self.on_day_tap(self.cal_y, self.cal_m, h.data) end
+                return true
+            end
         end
     end
     return false

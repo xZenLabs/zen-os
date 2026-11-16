@@ -1,11 +1,12 @@
 describe("General settings", function()
     local wifi_on, bluetooth_available, bluetooth_on, bluetooth_cached
     local toggle_wifi, open_wifi, open_bluetooth, bluetooth_toggles, events, shown
+    local open_battery
 
     before_each(function()
         wifi_on, bluetooth_available, bluetooth_on, bluetooth_cached = false, false, false, nil
         toggle_wifi, open_wifi, open_bluetooth, bluetooth_toggles, events = nil, nil, nil, 0, 0
-        shown = nil
+        shown, open_battery = nil, nil
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("ui/network/manager", { isWifiOn = function() return wifi_on end })
         ZenSpec.replace("modules/menu/network_switcher", {
@@ -38,7 +39,9 @@ describe("General settings", function()
         ZenSpec.replace("modules/settings/sections/updates_settings", {
             build = function() return {{ text = "Update option" }} end,
         })
-        ZenSpec.replace("modules/settings/battery_stats_menu", { buildItems = function() return {} end })
+        ZenSpec.replace("modules/settings/battery_stats_menu", {
+            open = function(...) open_battery = { ... } end,
+        })
         ZenSpec.replace("common/inline_icon_map", setmetatable({}, {
             __index = function(_self, key) return key end,
         }))
@@ -65,6 +68,18 @@ describe("General settings", function()
         assert.are.equal("wifi_on", items[1].icon_glyph)
         assert.are.equal("Advanced option", items[5].sub_item_table[1].text)
         assert.are.equal("Update option", items[6].sub_item_table[1].text)
+    end)
+
+    it("opens the battery page from the Battery row", function()
+        local plugin = {}
+        local items = require("modules/settings/sections/general_settings").build({ plugin = plugin }, {})
+        local battery = items[2]
+        assert.are.equal("Battery", battery.text)
+        assert.is_true(battery._zen_settings_submenu)
+        assert.is_true(battery.keep_menu_open)
+        assert.is_nil(battery.sub_item_table_func)
+        battery.callback()
+        assert.are.equal(plugin, open_battery[1])
     end)
 
     it("opens Wi-Fi management and refreshes after a power change", function()

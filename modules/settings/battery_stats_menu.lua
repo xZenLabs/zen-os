@@ -95,8 +95,8 @@ function M.buildItems()
     return items
 end
 
--- The Battery button opens the battery page (level, curve, usage).
--- buildItems() stays for the settings menu.
+-- Every Battery entry opens the battery page (level, curve, usage).
+-- buildItems() feeds its ⋮ menu.
 function M.open(plugin)
     return require("modules/settings/battery_page").show(plugin, {
         close_all_callback = function()

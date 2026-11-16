@@ -256,7 +256,8 @@ local function settings_control_widget(item, enabled)
     end
 end
 
-local function settings_icon_widget(item, height, face)
+-- Settings row icon: mapped glyphs render as their themable SVG.
+function M.makeSettingsIcon(item, height, face)
     local file = settings_svg_path(item) or (not item.icon_glyph and item.icon_file)
     if file then
         local size = M.getSettingsIconFace(face).size
@@ -282,7 +283,7 @@ local function rebuild_settings_menu_item(row)
     local face = M.getItemFace(item, row.face)
     local left_padding = M.getSettingsLeftPadding()
     local right_padding = Size.padding.large + Size.padding.default
-    local icon_widget = settings_icon_widget(item, row.dimen.h, face)
+    local icon_widget = M.makeSettingsIcon(item, row.dimen.h, face)
     local control_widget = settings_control_widget(item, visual_enabled)
     local icon_gap = M.getSettingsIconGap()
     local left_icon_w = M.SETTINGS_ICON_WIDTH + icon_gap

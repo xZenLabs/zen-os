@@ -32,13 +32,13 @@ Sleep screen, sleep presets, auto dim, and auto suspend.
 
 ## Battery
 
-Charge, health, drain per hour (overall, awake, asleep), screen on/off time, time remaining, and charging history.
+A page with your charge level, time remaining, a level curve (1 day, 7 days, 30 days, or since the last charge), and drain per hour awake, asleep, and with Bluetooth or Wi-Fi on. Hold a tile to change what it shows. The ⋮ menu has health, capacity, charging history, and the page options.
 
 ZenOS logs your battery every 30 minutes and on sleep, wake, and charging changes. Time KOReader was closed or charging doesn't count toward drain. Some numbers show `-` until there's about an hour of data. Capacity and health only show if your device reports them.
 
 History is saved to `koreader/settings/ZenOS/battery_history` (one JSON line per window) if you want to dig in. **Reset battery log** starts fresh without losing charging history or health.
 
-**Where:** Zen Settings > General > Battery
+**Where:** Zen Settings > General > Battery, the Battery quick settings button, or the "ZenOS: Battery Stats" gesture action
 
 ## Language and time
 

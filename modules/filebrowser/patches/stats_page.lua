@@ -444,7 +444,7 @@ local function createDayBookCard(width, title_text, minutes, pages, stat_style)
             },
             createCard{
                 width = pill_w, height = card_h, stat_style = stat_style,
-                value = tostring(pages or 0), label = _("pages"),
+                value = tostring(math.floor((tonumber(pages) or 0) + 0.5)), label = _("pages"),
             },
         }, stat_style, gap),
     }
@@ -531,14 +531,9 @@ local function loadNativeCalendarView()
     if ok and CalendarView then return CalendarView end
 end
 
-local function showCalendarDaySummary(stats_plugin, visible_day_ts, stat_style)
+--- Day popup: a total card and one card per book ({ title, duration, pages }).
+local function showDaySummary(visible_day_ts, books, stat_style)
     stat_style = normalizeStatStyle(stat_style)
-    local shift = StatsDB.dayShift(stats_plugin)
-    local period_begin = visible_day_ts + shift
-    local next_day = os.date("*t", visible_day_ts)
-    next_day.day = next_day.day + 1
-    next_day.isdst = nil
-    local books = StatsDB.queryBooksForPeriod(period_begin, os.time(next_day) + shift)
     local total_duration = 0
     local total_pages = 0
     for _i, book in ipairs(books) do
@@ -642,6 +637,15 @@ local function showCalendarDaySummary(stats_plugin, visible_day_ts, stat_style)
     end
     ZenModalClose.addToFocusLayout(dialog, close_button)
     UIManager:show(dialog)
+end
+
+local function showCalendarDaySummary(stats_plugin, visible_day_ts, stat_style)
+    local shift = StatsDB.dayShift(stats_plugin)
+    local next_day = os.date("*t", visible_day_ts)
+    next_day.day = next_day.day + 1
+    next_day.isdst = nil
+    showDaySummary(visible_day_ts,
+        StatsDB.queryBooksForPeriod(visible_day_ts + shift, os.time(next_day) + shift), stat_style)
 end
 
 local function installCalendarDaySummary(calendar, stats_plugin, stat_style)
@@ -1292,6 +1296,7 @@ end
 local function createTabs(createStatusRow, repaintTitleBar, stats_settings)
     local StatsTabsView = require("modules/filebrowser/patches/stats_tabs/view")
     local Source = require("modules/filebrowser/patches/stats_tabs/source")
+    local TabsData = require("modules/filebrowser/patches/stats_tabs/data")
     local menu = StandalonePage.create_menu{
         name = "stats",
         title = " ",
@@ -1328,6 +1333,10 @@ local function createTabs(createStatusRow, repaintTitleBar, stats_settings)
             error_text = err and _("Could not read the reading statistics.") or nil,
             monday_first = stats_settings.week_start_day == 2,
             show_parent = menu,
+            on_day_tap = function(y, m, d)
+                showDaySummary(os.time{ year = y, month = m, day = d, hour = 0 },
+                    TabsData.dayBooks(data, y, m, d), stats_settings.stat_style)
+            end,
         }
         StandalonePage.mount_body(menu, view)
     end

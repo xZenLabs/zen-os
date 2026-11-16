@@ -264,7 +264,7 @@ describe("library settings", function()
         local badges = find_item(items, "Badges").sub_item_table
 
         local badge_text = find_item(badges, "Text size")
-        assert.is_not_nil(badge_text)
+        assert.is_true(badge_text.keep_menu_open)
         badge_text.callback()
         assert.are.same({ 6, 24, 1 }, { shown.value_min, shown.value_max, shown.value_step })
         assert.are.equal(8, shown.value)
@@ -273,7 +273,7 @@ describe("library settings", function()
         assert.are.equal(1, saves)
 
         local overlay = find_item(badges, "Opening banner text size")
-        assert.is_not_nil(overlay)
+        assert.is_true(overlay.keep_menu_open)
         overlay.callback()
         assert.are.same({ 6, 24, 1 }, { shown.value_min, shown.value_max, shown.value_step })
         assert.are.equal(8, shown.value)

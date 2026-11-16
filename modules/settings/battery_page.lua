@@ -616,11 +616,20 @@ function BatteryPage:_pickTile(idx)
             end,
         } }
     end
-    dialog = ButtonDialog:new{
+    dialog = ButtonDialog:new{ buttons = buttons }
+    local ZenModalClose = require("common/ui/zen_modal_close")
+    local title_bar = require("ui/widget/titlebar"):new{
+        width = dialog.title_group_width,
+        align = "center",
         title = T(_("Tile %1 of %2"), idx, 8),
-        title_align = "center",
-        buttons = buttons,
+        title_face = dialog.info_face,
+        show_parent = dialog,
     }
+    local close_button = ZenModalClose.installTitleBar(
+        title_bar, dialog, function() UIManager:close(dialog) end
+    )
+    dialog:addWidget(title_bar)
+    ZenModalClose.addToFocusLayout(dialog, close_button)
     UIManager:show(dialog)
 end
 

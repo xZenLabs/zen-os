@@ -40,6 +40,12 @@ local function shortsLabel()
     return ok and gettext("Short stories") or "Short stories"
 end
 
+local function addBookPages(day, id, n)
+    local bp = day.book_pages
+    if not bp then bp = {}; day.book_pages = bp end
+    bp[id] = (bp[id] or 0) + n
+end
+
 local function daysInMonth(y, m)
     return tonumber(os.date("%d", os.time({ year = y, month = m + 1, day = 0, hour = 12 })))
 end
@@ -269,6 +275,7 @@ function Data.compute(fetch, meta, now, legacy)
                 day.sec = day.sec + sec / ndays
                 day.books[id] = (day.books[id] or 0) + sec / ndays
                 day.legacy_pages = (day.legacy_pages or 0) + pages / ndays
+                addBookPages(day, id, pages / ndays)
                 local mk = dk:sub(1, 7)
                 local mo = S.months[mk]
                 if not mo then mo = { sec = 0, pages = 0, sessions = 0, days = 0 }; S.months[mk] = mo end
@@ -319,7 +326,10 @@ function Data.compute(fetch, meta, now, legacy)
             if pb then pb.dpages = pb.dpages + factor end
             S.total_pages = S.total_pages + factor
             local day = S.days[r[2]]
-            if day then day.pages = (day.pages or 0) + factor end
+            if day then
+                day.pages = (day.pages or 0) + factor
+                if pb then addBookPages(day, pb.id, factor) end
+            end
             local mo = S.months[tostring(r[2]):sub(1, 7)]
             if mo then mo.pages = mo.pages + factor end
         end
@@ -332,7 +342,10 @@ function Data.compute(fetch, meta, now, legacy)
         if b then b.dpages = b.dpages + n end
         S.total_pages = S.total_pages + n
         local day = S.days[r[3]]
-        if day then day.pages = (day.pages or 0) + n end
+        if day then
+            day.pages = (day.pages or 0) + n
+            if n > 0 then addBookPages(day, r[1], n) end
+        end
         local mo = S.months[tostring(r[3]):sub(1, 7)]
         if mo then mo.pages = mo.pages + n end
     end
@@ -518,6 +531,22 @@ function Data.compute(fetch, meta, now, legacy)
         end
     end
     return S
+end
+
+--- Books read on one day, longest first: { title, duration (seconds), pages }.
+function Data.dayBooks(S, y, m, d)
+    local day = S.days[string.format("%04d-%02d-%02d", y, m, d)]
+    local list = {}
+    for id, sec in pairs(day and day.books or {}) do
+        local b = S.by_id[id]
+        list[#list + 1] = { title = b and b.title or "?", duration = sec,
+            pages = day.book_pages and day.book_pages[id] or 0 }
+    end
+    table.sort(list, function(a, b)
+        if a.duration ~= b.duration then return a.duration > b.duration end
+        return a.title < b.title
+    end)
+    return list
 end
 
 --- Calendar model for one month.
