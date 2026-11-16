@@ -919,6 +919,8 @@ describe("battery stats", function()
         assert.is_true(wifi_marked)
         package.loaded["modules/menu/bluetooth/bluetooth"] = saved_bt
         package.loaded["ui/network/manager"] = saved_net
+    end)
+
     it("reads Kindle max77696 charge in milliamp hours and overrides its design capacity", function()
         local lfs = require("libs/libkoreader-lfs")
         battery_path = os.tmpname()
@@ -983,11 +985,23 @@ describe("battery stats", function()
         local writes_before = writes
         now, level = now + 3600, 97
         BatteryStats.resume()
+        wake()
         assert.are.equal(writes_before, writes)
         assert.are.equal(97, stored.events[#stored.events].level)
         BatteryStats.flush() -- instance swap within a minute still persists it
         assert.are.equal(writes_before + 1, writes)
         BatteryStats.flush()
+        assert.are.equal(writes_before + 1, writes)
+    end)
+
+    it("persists the deferred wake sample when stopped before the next flush point", function()
+        BatteryStats.start()
+        BatteryStats.suspend()
+        local writes_before = writes
+        now, level = now + 3600, 97
+        BatteryStats.resume()
+        wake()
+        BatteryStats.stop() -- unchanged state: stop takes no sample of its own
         assert.are.equal(writes_before + 1, writes)
     end)
 end)

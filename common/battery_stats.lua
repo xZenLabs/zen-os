@@ -314,8 +314,8 @@ local function charge_ended(previous, event)
     return previous and not event.charging and (previous.charging or event.level > previous.level)
 end
 
--- defer_flush keeps the sample in memory; the next suspend/tick/close persists it.
-local function sample(gap, charging_event, defer_flush)
+-- force samples during the wake delay; defer_flush keeps the sample in memory until the next suspend/tick/close.
+local function sample(gap, charging_event, force, defer_flush)
     if not settings then return end
     if wake_pending and not force and not sleeping then
         if charging_event then wake_charge_event = true end
@@ -403,7 +403,7 @@ wake_timer = function()
     wake_pending = false
     local charge_event = wake_charge_event
     wake_charge_event = false
-    sample(nil, charge_event or nil, true)
+    sample(nil, charge_event or nil, true, true) -- Keep the wake sample off flash.
     schedule()
 end
 
@@ -491,7 +491,6 @@ function M.resume()
         UIManager:unschedule(wake_timer)
         UIManager:scheduleIn(WAKE_DELAY, wake_timer)
         return -- wake_timer takes the sample and schedules the next one
-        sample(nil, nil, true) -- Keep the wake path off flash.
     end
     schedule()
 end
@@ -509,6 +508,7 @@ function M.bluetoothChanged()
     UIManager:scheduleIn(3, bt_timer)
 end
 M.wifiChanged = M.bluetoothChanged
+
 -- FileManager/ReaderUI swaps: record a sample but keep the session (no gap).
 -- Throttled: rapid open/close would otherwise rewrite battery.lua every swap.
 local FLUSH_MIN_SECONDS = 60
@@ -530,9 +530,11 @@ function M.stop()
     UIManager:unschedule(bt_timer)
     UIManager:unschedule(wake_timer)
     sample(nil, nil, true)
+    if unflushed then settings:flush() end -- sample() skips unchanged points
     settings = nil
     sleeping = false
     pending_gap = false
+    unflushed = false
     wake_pending, wake_charge_event = false, false
 end
 
@@ -546,7 +548,6 @@ function M.logInfo()
     local curve = settings:readSetting("curve")
     if type(curve) == "table" and curve[1] and (not first or curve[1][1] < first) then first = curve[1][1] end
     return count, first
-    unflushed = false
 end
 
 function M.reset()
