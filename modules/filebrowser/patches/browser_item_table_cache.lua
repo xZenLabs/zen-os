@@ -523,16 +523,13 @@ local function apply_browser_item_table_cache()
         return status_filter(self) ~= nil
     end
 
-    -- A status change rewrites only the book's sidecar, which leaves folder
-    -- timestamps alone, so filtered listings are keyed on ZenOS's status
-    -- revision (bumped by every status change ZenOS makes).
-    local function status_filter_key(self)
-        local filter = status_filter(self)
-        if filter == nil then return "nil" end
-        local BookStatus = package.loaded["common/book_status"]
-        local revision = type(BookStatus) == "table" and type(BookStatus.revision) == "function"
-            and BookStatus.revision()
-        return stable_table_key(filter) .. "@" .. tostring(revision or 0)
+    -- Books that plugins add to a folder's listing (common/book_sources)
+    -- change without the folder's timestamp changing.
+    local ok_sources, BookSources = pcall(require, "common/book_sources")
+    local function book_sources_key(path)
+        if not ok_sources or type(BookSources.listingKey) ~= "function" then return "" end
+        local ok, key = pcall(BookSources.listingKey, path)
+        return ok and tostring(key) or ""
     end
 
     local function stable_key(self, path, override)
@@ -559,6 +556,7 @@ local function apply_browser_item_table_cache()
             tostring(G_reader_settings:isTrue("lock_home_folder")),
             tostring(G_reader_settings:readSetting("home_dir")),
             tostring(self.show_current_dir_for_hold == true),
+            book_sources_key(path),
         }, "\31")
     end
 

@@ -1177,6 +1177,7 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
             if item.path then
                 if toggle_file_selection(menu_self, item) then return end
                 local fm = get_file_manager()
+                if require("common/book_sources").open(item.path, fm) then return end
                 local fmu = require("apps/filemanager/filemanagerutil")
                 if fmu.openFile then
                     fmu.openFile(fm, item.path)
@@ -1192,12 +1193,7 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
                     "series", menu_self)
             end
             if not item.path then return end
-            local ok_kindle, Kindle = pcall(require,
-                "modules/filebrowser/patches/kindle_virtual_library")
-            if ok_kindle and type(Kindle.isBookPath) == "function"
-                    and Kindle.isBookPath(item.path)
-                    and type(Kindle.showBookContextMenu) == "function"
-                    and Kindle.showBookContextMenu(menu_self, item, function()
+            if require("common/book_sources").showContextMenu(menu_self, item, function()
                         menu_self:updateItems()
                     end) then
                 return true
