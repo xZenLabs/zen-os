@@ -148,8 +148,8 @@ local defaults = {
     },
     developer = {
         allow_modal_drag = false,
-        double_tap_to_open_books = false,
-        single_tap_to_open_context_menu = false,
+        double_tap = false,
+        single_tap_action = "none", -- "none" | "menu" | "open"; double tap takes the other role
     },
     navbar = {
         show_tabs = {
@@ -401,6 +401,7 @@ local defaults = {
             toc = true, book_details = false, book_switcher = false },
         show_status_bar = true,
         toc_font_size = 18,
+        toc_show_page_counts = false,
         bookmarks_font_size = 18,
         font_full_page = true,
         contrast_full_page = true,

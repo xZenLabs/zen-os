@@ -722,6 +722,27 @@ function M.getDiskFreeText()
     return nil
 end
 
+local function listable(dir)
+    local ok, _iter, handle = pcall(require("libs/libkoreader-lfs").dir, dir)
+    if ok then handle:close() end
+    return ok
+end
+
+-- MuPDF 1.28+ loads @font-face files only through the document archive; returns the archive root and the
+-- font's url inside it, reusing `root` when given. MuPDF segfaults on roots it cannot list (Android denies "/"),
+-- so those fonts root at their own directory.
+function M.htmlFontRoot(path, root)
+    if not root then
+        root = path:sub(1, 1) == "/" and "/" or "."
+        if not listable(root) then
+            root = path:match("^(.+)/[^/]+$")
+            if not (root and listable(root)) then return nil, path end
+        end
+    end
+    if #root > 1 and path:sub(1, #root + 1) == root .. "/" then path = path:sub(#root + 2) end
+    return root, path
+end
+
 --- Run fn without powerd's FrontlightStateChanged broadcast. Mid-drag it makes ReaderFooter
 --- repaint the dithered ReaderUI, which dithers (and flashes) every other refresh that frame.
 function M.withoutFrontlightBroadcast(powerd, fn)

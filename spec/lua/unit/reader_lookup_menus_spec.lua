@@ -544,7 +544,9 @@ describe("reader lookup menus", function()
 
         local saved, selected = false, false
         local select_callback = function() selected = true end
-        local highlight = {
+        local noted
+        local highlight
+        highlight = {
             selected_text = { text = "start of a multipage highlight" },
             hold_pos = { x = 10, y = 20 },
             view = { highlight = { saved_color = "red" } },
@@ -560,16 +562,22 @@ describe("reader lookup menus", function()
                     assert.is_nil(index)
                     return { enabled = true, callback = select_callback }
                 end,
+                ["04_add_note"] = function()
+                    return { text = "Add note", callback = function() noted = highlight.view.highlight.saved_color end }
+                end,
             },
         }
         ReaderHighlight.onShowHighlightMenu(highlight)
 
         assert.same({ "lookup.highlight", "lookup.dictionary", "lookup.translate", "lookup.search" }, {
-            shown.buttons[1][1].icon, shown.buttons[1][2].icon,
-            shown.buttons[1][3].icon, shown.buttons[1][4].icon,
+            shown.buttons[1][1].icon, shown.buttons[1][3].icon,
+            shown.buttons[1][4].icon, shown.buttons[1][5].icon,
         })
-        assert.are.equal(4, #shown.buttons[1])
+        assert.are.equal(5, #shown.buttons[1])
         assert.are.equal(1, #shown.buttons)
+        assert.is_nil(shown.buttons[1][2].text)
+        shown.buttons[1][2].callback()
+        assert.are.equal("blue", noted)
         shown.buttons[1][1].callback()
         assert.same({ color = "blue", extend = true }, saved)
         assert.are.equal("blue", highlight.selection_color)
@@ -727,6 +735,8 @@ describe("reader lookup menus", function()
         assert.are.equal(1, #dialog_spec.buttons[2])
         local main, more = dialog_spec, dialog_spec.buttons[1][#dialog_spec.buttons[1]]
         assert.are.equal("zen_highlight_more", more.id)
+        -- Plugins like X-Ray wrap the instance method with a fixed arity.
+        highlight.onShowHighlightMenu = function(this, index) return ReaderHighlight.onShowHighlightMenu(this, index) end
         more.callback()
         assert.are.equal(main, closed)
         assert.are.equal(1, #dialog_spec.buttons)

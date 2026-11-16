@@ -374,7 +374,7 @@ def test_new_selection_keeps_other_items_behind_more() -> None:
             wait_for_socket(socket)
             driver = ZenDriver(socket)
             assert driver.open_book(book)["ok"]
-            state = driver.command("highlight_tools", action="seed")
+            state = driver.command("highlight_tools", action="seed", wrap_menu=True)
             assert state["ok"], state
             assert "zen_highlight_more" in state["menu_ids"] and "Copy" not in state["menu_ids"]
             selected = state["draft_text"]

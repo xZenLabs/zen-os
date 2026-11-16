@@ -1611,12 +1611,29 @@ function M.build(ctx)
         }, {
             text = _("Tabs"),
             _zen_settings_submenu = true,
+            keep_menu_open = true,
             callback = function()
                 require("modules/reader/page_browser_tabs").show(config, plugin,
                     require("apps/reader/readerui").instance)
             end,
         }},
     }, icons.page_browser))
+
+    table.insert(items, {
+        text = _("Table of contents"),
+        icon_name = "toc", -- Same icon as the page browser tab.
+        sub_item_table = {{
+            text = _("Show chapter page counts"),
+            checked_func = function()
+                return config.page_browser ~= nil and config.page_browser.toc_show_page_counts == true
+            end,
+            callback = function()
+                config.page_browser = config.page_browser or {}
+                config.page_browser.toc_show_page_counts = not config.page_browser.toc_show_page_counts
+                plugin:saveConfig()
+            end,
+        }},
+    })
 
     local function reference_settings_reader()
         local reader = require("apps/reader/readerui").instance

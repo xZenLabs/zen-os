@@ -88,7 +88,7 @@ describe("settings menu organization", function()
         local font_item, wallpaper_item, status_bar_item
         replace("modules/settings/sections/library_settings", {
             build = function()
-                double_tap_item = { text = "Double-tap to open a book" }
+                double_tap_item = { text = "Double tap" }
                 return { { text = "Original control" }, { text = "Books", sub_item_table = { double_tap_item } } }
             end,
         })

@@ -24,6 +24,42 @@ describe("common utils deep merge", function()
     end)
 end)
 
+describe("common utils html font root", function()
+    local utils = require("common/utils")
+
+    local lfs = require("libs/libkoreader-lfs")
+    local dir = lfs.dir
+    after_each(function() lfs.dir = dir end)
+
+    local function deny(denied)
+        lfs.dir = function(path)
+            if denied[path] then error("cannot open " .. path) end
+            return function() end, { close = function() end }
+        end
+    end
+
+    it("roots absolute fonts at / and bundled relative fonts at the working directory", function()
+        assert.are.same({ "/", "/mnt/us/fonts/Book.ttf" }, { utils.htmlFontRoot("/mnt/us/fonts/Book.ttf") })
+        assert.are.same({ ".", "./fonts/noto/NotoSerif-Regular.ttf" },
+            { utils.htmlFontRoot("./fonts/noto/NotoSerif-Regular.ttf") })
+        assert.are.equal(".", utils.htmlFontRoot("fonts/noto/NotoSerif-Regular.ttf"))
+    end)
+
+    it("roots fonts at their own directory when / cannot be listed", function()
+        deny({ ["/"] = true })
+        local root, url = utils.htmlFontRoot("/system/fonts/Book.ttf")
+        assert.are.same({ "/system/fonts", "Book.ttf" }, { root, url })
+        assert.are.same({ root, "Book-Bold.ttf" }, { utils.htmlFontRoot("/system/fonts/Book-Bold.ttf", root) })
+        assert.are.same({ root, "/sdcard/fonts/Book-Italic.ttf" },
+            { utils.htmlFontRoot("/sdcard/fonts/Book-Italic.ttf", root) })
+    end)
+
+    it("returns no root when the font directory cannot be listed either", function()
+        deny({ ["/"] = true, ["/system/fonts"] = true })
+        assert.are.same({ nil, "/system/fonts/Book.ttf" }, { utils.htmlFontRoot("/system/fonts/Book.ttf") })
+    end)
+end)
+
 describe("common utils icon sizing", function()
     local utils = require("common/utils")
 

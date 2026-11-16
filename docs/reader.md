@@ -28,6 +28,8 @@ Swipe up while reading. You get page previews, a scrubber, search, table of cont
 
 - Hold a page preview to bookmark or pin it.
 - Books with a page map show their real page numbers everywhere.
+- Chapters with subchapters fold like KOReader's table of contents: only top-level chapters show, except the one you are reading. Tap the arrow (or press Right/Left) to unfold or fold.
+- Turn on **Show chapter page counts** (Zen Settings > Reader > Table of contents) to show each chapter's length in parentheses after its title (off by default).
 - Turn on the **Book details** tab if you want it (off by default).
 - In **Aa**, open the three-dot menu and enable **Show full page** to see changes at actual size.
 

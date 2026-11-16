@@ -2415,6 +2415,46 @@ describe("home strip widget", function()
         assert.are.equal(0, #scheduled)
     end)
 
+    it("uses the hydrated cover when a pending tap opens its original book", function()
+        touch_device = true
+        local replay, opened, captured
+        local gate = require("common/book_open_tap")
+        local original = gate.shouldOpen
+        gate.shouldOpen = function(_path, _time, _menu, open) replay = open; return false end
+        local book = { path = "/library/cold.epub", title = "Cold", is_cover_pending = true }
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        local widget = Strip.build({
+            width = 600, height = 160, component_id = "strip",
+            module_cfg = { count = 4, interactive = true },
+            data = {
+                getBooksForStripPage = function() return { book }, false end,
+                warmStripCover = function() book.is_cover_pending = false; return "warmed" end,
+            },
+            openBook = function(path) opened = path end,
+        })
+        local tapped
+        for _i, child in ipairs(created) do
+            if child.onTapCover then tapped = child; break end
+        end
+        tapped.dimen.contains = function() return true end
+        tapped:onTapCover(nil, { pos = { x = 1, y = 1 }, time = 1 })
+        gate.shouldOpen = original
+        assert.is_function(replay)
+        widget:paintTo({}, 0, 0)
+        run_scheduled()
+        local live_cover
+        for _i, child in ipairs(created) do
+            if child._zen_covers_by_path and not child.free_calls then
+                live_cover = child._zen_covers_by_path[book.path]
+            end
+        end
+        rawset(_G, "__ZEN_UI_SET_OPENING_BANNER_COVER", function(cover) captured = cover end)
+        replay()
+        assert.are.equal(book.path, opened)
+        assert.is_not_nil(live_cover)
+        assert.are.equal(live_cover, captured)
+    end)
+
     it("stops visible cover hydration while retained Home is suspended", function()
         local menu = {}
         local warm_requests = 0

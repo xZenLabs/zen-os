@@ -5,7 +5,7 @@ local _ = require("gettext")
 local T = require("ffi/util").template
 local M = {}
 
-function M.show(reader, name, apply, refresh, anchor)
+function M.show(reader, name, apply, refresh, anchor, side)
     local options = Settings.options(reader)
     local is_font = name == "font_face"
     local option = options[name]
@@ -26,7 +26,8 @@ function M.show(reader, name, apply, refresh, anchor)
         end
     end
     local title = is_font and _("Font family") or params.name_text or Settings.label(reader, option)
-    local synced = params.names and Settings.syncedMargins(reader)
+    local syncable = params.names or name == "h_page_margins"
+    local synced = syncable and Settings.syncedMargins(reader, name)
     local dialog
     local function close()
         UIManager:close(dialog)
@@ -63,20 +64,20 @@ function M.show(reader, name, apply, refresh, anchor)
             close()
         end }},
     }
-    local spec = not is_font and Settings.slider(reader, name)
+    local spec = not is_font and Settings.slider(reader, name, nil, side)
     if spec and spec.pick then
         table.insert(actions, 1, {{ text = _("Set value"), callback = function()
             close()
             spec.pick(commit)
         end }})
     end
-    if params.names then
+    if syncable then
         table.insert(actions, 1, {{ text = (synced and "✓ " or "") .. _("Sync"), callback = function()
             if not synced then
                 local mean = math.floor((current[1] + current[2]) / 2 + 0.5)
                 commit({ mean, mean })
             end
-            Settings.apply(reader, "sync_t_b_page_margins", synced and 0 or 1)
+            Settings.setMarginSync(reader, name, not synced)
             close()
         end }})
     end

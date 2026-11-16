@@ -631,6 +631,23 @@ describe("page browser entry", function()
         for _i = 1, 3 do PageBrowserWidget.onFocusMove(browser, { 0, 1 }) end
         expect(browser.layout[browser.selected.y][browser.selected.x]._zen_focus_id == "footer:search")
 
+        require("ui/bidi").mirroredUILayout = function() return true end
+        browser.selected = { x = 3, y = 1 }
+        local physical_dx
+        headers[3].onHorizontalKey = function(_self, dx) physical_dx = dx; return true end
+        PageBrowserWidget.onFocusMove(browser, { 1, 0 })
+        expect(physical_dx == 1)
+        PageBrowserWidget.onFocusMove(browser, { -1, 0 })
+        expect(physical_dx == -1)
+        expect(browser.selected.x == 3)
+        headers[3].onHorizontalKey = nil
+        PageBrowserWidget.onFocusMove(browser, { 1, 0 })
+        expect(browser.selected.x == 2)
+        browser.selected = { x = 2, y = 4 }
+        PageBrowserWidget.onFocusMove(browser, { 1, 0 })
+        expect(browser.selected.x == 3)
+        require("ui/bidi").mirroredUILayout = function() return false end
+
         local carousel_grid = {
             { page_idx = 4 }, { page_idx = 5 }, { page_idx = 6 },
             focus_widget(), focus_widget(), focus_widget(),

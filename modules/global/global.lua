@@ -23,6 +23,7 @@ local PATCH_MODULES = {
     unified_title_style    = "modules/global/patches/unified_title_style",
     button_feedback        = "modules/global/patches/button_feedback",
     rounded_scrollbars     = "modules/global/patches/rounded_scrollbars",
+    raw_rounded_fill       = "modules/global/patches/raw_rounded_fill",
     responsive_keyboard    = "modules/global/patches/responsive_keyboard",
 }
 
@@ -171,6 +172,11 @@ function M.init(logger, plugin)
     local rounded_scrollbars_fn = load_patch("rounded_scrollbars")
     if rounded_scrollbars_fn then
         run_patch(logger, plugin, "rounded_scrollbars", rounded_scrollbars_fn)
+    end
+
+    local raw_rounded_fill_fn = load_patch("raw_rounded_fill")
+    if raw_rounded_fill_fn then
+        run_patch(logger, plugin, "raw_rounded_fill", raw_rounded_fill_fn)
     end
 
     -- Hook the global Resume broadcast so schedules are independent of the

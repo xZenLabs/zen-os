@@ -107,12 +107,19 @@ describe("reader settings", function()
 
     it("groups appearance settings under the reader root", function()
         local config = { features = {}, reader_themes = {} }
-        local items = ReaderSettings.build({ config = config, plugin = {}, save_and_apply = function() end })
+        local items = ReaderSettings.build({ config = config, plugin = { saveConfig = function() end },
+            save_and_apply = function() end })
         local labels = {}
         for _i, item in ipairs(items) do labels[#labels + 1] = item.text end
         assert.are.same({ "Appearance", "Highlight / Lookup", "Bottom swipe gesture", "Page Browser",
-            "Footnotes and pinned pages", "Annotation viewer", "Restore library location on exit", "Reader controls",
-            "End of book" }, labels)
+            "Table of contents", "Footnotes and pinned pages", "Annotation viewer", "Restore library location on exit",
+            "Reader controls", "End of book" }, labels)
+        assert.are.equal("toc", items[5].icon_name)
+        assert.are.equal("Show chapter page counts", items[5].sub_item_table[1].text)
+        assert.is_false(items[5].sub_item_table[1].checked_func())
+        items[5].sub_item_table[1].callback()
+        assert.is_true(config.page_browser.toc_show_page_counts)
+        assert.is_true(items[5].sub_item_table[1].checked_func())
         labels = {}
         for _i, item in ipairs(items[1].sub_item_table) do labels[#labels + 1] = item.text end
         assert.are.same({ "Top status bar", "Bottom status bar", "Align status bars with book margins",
@@ -1054,6 +1061,7 @@ describe("reader settings", function()
         local tabs = find_item(items, "Page Browser").sub_item_table[2]
         assert.are.equal("Tabs", tabs.text)
         assert.is_true(tabs._zen_settings_submenu)
+        assert.is_true(tabs.keep_menu_open)
         tabs.callback()
         assert.same({ config, plugin, ui }, received)
         assert.is_nil(find_item(find_item(items, "Annotation viewer").sub_item_table, "Tabs"))
