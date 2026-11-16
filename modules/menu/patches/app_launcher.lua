@@ -16,7 +16,6 @@
     local Model = require("modules/menu/app_launcher/model")
     local NativeMenu = require("modules/menu/app_launcher/native_menu")
     local PluginScan = require("modules/menu/app_launcher/plugin_scan")
-    local BookSwitcherPage = require("modules/menu/app_launcher/book_switcher_page")
     local PagePlan = require("modules/menu/app_launcher/page_plan")
     local ButtonLabelWidth = require("common/ui/button_label_width")
     local ZenActionButton = require("common/ui/zen_action_button")
@@ -326,7 +325,7 @@
         local page_rows = page_spec.kind == "buttons" and button_pages[button_page] or {}
 
         if is_switcher_page then
-            local panel, switcher_refs = BookSwitcherPage.build{
+            local panel, switcher_refs = require("modules/menu/app_launcher/book_switcher_page").build{
                 width = panel_width,
                 height = panel_height,
                 config = zen_plugin.config,
@@ -580,8 +579,9 @@
 
     local ok_fm, FileManagerMenu = pcall(require, "apps/filemanager/filemanagermenu")
     if ok_fm then patch_menu_class(FileManagerMenu, true) end
-    local ok_rm, ReaderMenu = pcall(require, "apps/reader/modules/readermenu")
-    if ok_rm then patch_menu_class(ReaderMenu, false) end
+    require("common/on_require").whenLoaded("apps/reader/readerui", function()
+        patch_menu_class(require("apps/reader/modules/readermenu"), false)
+    end)
 
     local TouchMenu = require("ui/widget/touchmenu")
     if not TouchMenu.__zen_app_launcher_open_first_patched then

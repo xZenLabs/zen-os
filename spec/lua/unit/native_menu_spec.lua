@@ -142,11 +142,28 @@ describe("native KOReader menu shortcuts", function()
         assert.are.equal(2, #roots)
         assert.are.equal("plugin_orphan", roots[2].sub_item_table_func()[1].id)
         assert.is_true(NativeMenu.isSettingsOwner(reader_menu))
+        ZenSpec.replace("ui/widget/iconwidget", {
+            new = function(_self, o)
+                o.file = o.icon == "plugin.tab" and "/icons/plugin.tab.svg"
+                    or "resources/icons/icon-not-found.svg"
+                return o
+            end,
+        })
         reader_menu.tab_item_table[#reader_menu.tab_item_table + 1] = {
-            id = "plugin_tab", text = "Plugin tab", { text = "Plugin option" },
+            id = "plugin_tab", text = "Plugin tab", icon = "plugin.tab", { text = "Plugin option" },
+        }
+        reader_menu.tab_item_table[#reader_menu.tab_item_table + 1] = {
+            icon = "plugin.tab", callback = function() end,
+        }
+        reader_menu.tab_item_table[#reader_menu.tab_item_table + 1] = {
+            id = "missing_icon_tab", text = "Missing icon", icon = "missing", callback = function() end,
         }
         roots = NativeMenu.settingsItems("active")
+        assert.are.equal(4, #roots)
         assert.are.equal("Plugin tab", roots[3].text)
+        assert.are.equal("/icons/plugin.tab.svg", roots[3].icon_file)
+        assert.is_nil(roots[4].icon_file)
+        assert.is_nil(roots[1].icon_file)
         assert.are.equal("Plugin option", roots[3].sub_item_table_func()[1].text)
         package.loaded["apps/reader/readerui"].instance = nil
         roots = NativeMenu.settingsItems("active")

@@ -13,10 +13,10 @@
 -- Cost notes: DocSettings:open() stats up to ten candidate paths and parses
 -- the WHOLE sidecar (bookmarks, highlights, ...) just to expose summary.  For
 -- counting we only need `summary`, so we locate the sidecar once with
--- findSidecarFile() (at most a few stats) and cache the parsed summary keyed
--- by (path, mtime, size).  Repeated scans therefore re-stat each sidecar but
--- never re-parse it, and unchanged sidecars stay on the cheap path even after
--- the result cache expires.
+-- findSidecarFile() (at most a few stats) and cache the parsed summary per
+-- sidecar path, validated by mtime and size.  Repeated scans therefore re-stat
+-- each sidecar but never re-parse it, and unchanged sidecars stay on the cheap
+-- path even after the result cache expires.
 
 local logger = require("common/zen_logger").new("db_library")
 local paths = require("common/paths")
@@ -34,19 +34,38 @@ local _cache = {
 }
 local CACHE_TTL = 300  -- seconds
 
--- Per-sidecar summary cache.  Key is sidecar path + modification time + size,
--- so an entry is only reused while the file on disk is byte-identical.
--- Bounded FIFO; entries are tiny (a status string and a date string).
+-- Per-sidecar summary cache: sidecar path -> { mtime, size, summary }.
+-- A changed sidecar replaces its entry; entries not seen in a walk are
+-- pruned once the cache outgrows SUMMARY_CACHE_MAX.
 local _summary_cache = {}
-local _summary_order = {}
-local SUMMARY_CACHE_MAX = 1024
+local _summary_count = 0
+local _summary_walk = 0
+local SUMMARY_CACHE_MAX = 2048
 
-local function cache_summary(key, summary)
-    _summary_cache[key] = summary
-    _summary_order[#_summary_order + 1] = key
-    if #_summary_order > SUMMARY_CACHE_MAX then
-        local oldest = table.remove(_summary_order, 1)
-        _summary_cache[oldest] = nil
+local function sidecar_summary(DocSettings, sidecar_file, mtime, size)
+    local cached = _summary_cache[sidecar_file]
+    if not cached then
+        cached = {}
+        _summary_cache[sidecar_file] = cached
+        _summary_count = _summary_count + 1
+    end
+    cached.walk = _summary_walk
+    if cached.mtime ~= mtime or cached.size ~= size then
+        -- Light open: parses only the given sidecar file.
+        local doc_settings = DocSettings.openSettingsFile(sidecar_file)
+        cached.mtime, cached.size = mtime, size
+        cached.summary = doc_settings and doc_settings.data.summary or false
+    end
+    return cached.summary
+end
+
+local function prune_summaries()
+    if _summary_count <= SUMMARY_CACHE_MAX then return end
+    for path, cached in pairs(_summary_cache) do
+        if cached.walk ~= _summary_walk then
+            _summary_cache[path] = nil
+            _summary_count = _summary_count - 1
+        end
     end
 end
 
@@ -96,6 +115,7 @@ function LibraryDB.getBookCounts(exclude_cbz_cbr)
 
         local home_dir = paths.getHomeDir()
 
+        _summary_walk = _summary_walk + 1
         local hist = ReadHistory.hist or {}
         for _i, entry in ipairs(hist) do
             local file = entry.file
@@ -116,18 +136,7 @@ function LibraryDB.getBookCounts(exclude_cbz_cbr)
                     local size = attrs and attrs.size
                     if mtime and size and size > 0 then
                         counts.total = counts.total + 1
-                        local summary = _summary_cache[
-                            sidecar_file .. "\31" .. tostring(mtime) .. "\31" .. tostring(size)
-                        ]
-                        if not summary then
-                            -- Light open: parses only the given sidecar file.
-                            local doc_settings = DocSettings.openSettingsFile(sidecar_file)
-                            summary = doc_settings and doc_settings.data.summary or nil
-                            cache_summary(
-                                sidecar_file .. "\31" .. tostring(mtime) .. "\31" .. tostring(size),
-                                summary
-                            )
-                        end
+                        local summary = sidecar_summary(DocSettings, sidecar_file, mtime, size)
                         if summary then
                             local status = summary.status
                             if status == "complete"
@@ -151,6 +160,7 @@ function LibraryDB.getBookCounts(exclude_cbz_cbr)
                 end
             end
         end
+        prune_summaries()
     end)
 
     if not ok then

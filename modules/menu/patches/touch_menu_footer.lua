@@ -22,6 +22,8 @@ local function apply_touch_menu_footer()
     local Screen         = Device.screen
 
     local DGENERIC_ICON_SIZE = G_defaults:readSetting("DGENERIC_ICON_SIZE")
+    -- Hatching stripe period; aligning strips to it keeps the pattern seamless.
+    local HATCH_PERIOD = 2 * math.ceil(math.max(1, Screen:scaleBySize(2)))
 
     -- Resolve the bundled icon through the active custom pack when available.
     local _icon_file
@@ -121,17 +123,31 @@ local function apply_touch_menu_footer()
             local bottom = bottom_menu and bottom_menu[1]
             local hatch_bottom = bottom and bottom:contentRange().y or self.screen_size.h
             if hatch_bottom > menu_bottom then
-                if self._zen_hatched_background and self._zen_hatch_night_mode ~= Screen.night_mode then
+                if self._zen_hatched_background and (self._zen_hatch_night_mode ~= Screen.night_mode
+                        or self._zen_hatch_bottom ~= hatch_bottom) then
                     self._zen_hatched_background:free()
                     self._zen_hatched_background = nil
                 end
                 if not self._zen_hatched_background then
+                    -- Full copy: menu_panel keeps the background on shrink and relies on it.
                     self._zen_hatched_background = bb:copy()
                     self._zen_hatch_night_mode = Screen.night_mode
-                    Hatching.paint(self._zen_hatched_background, 0, 0, self.screen_size.w, hatch_bottom)
+                    self._zen_hatch_bottom = hatch_bottom
+                    self._zen_hatch_top = hatch_bottom
                 end
-                bb:blitFrom(self._zen_hatched_background, 0, menu_bottom, 0, menu_bottom,
-                    self.screen_size.w, hatch_bottom - menu_bottom)
+                -- Hatch only the exposed strip, extending upward as the menu shrinks.
+                if menu_bottom < self._zen_hatch_top then
+                    local top = menu_bottom - menu_bottom % HATCH_PERIOD
+                    Hatching.paint(self._zen_hatched_background, 0, top,
+                        self.screen_size.w, self._zen_hatch_top - top)
+                    self._zen_hatch_top = top
+                end
+                -- Two columns: KOReader <= 2026.07 cuts full-width blits short on padded framebuffers.
+                local background, height = self._zen_hatched_background, hatch_bottom - menu_bottom
+                local half = math.floor(self.screen_size.w / 2)
+                bb:blitFrom(background, 0, menu_bottom, 0, menu_bottom, half, height)
+                bb:blitFrom(background, half, menu_bottom, half, menu_bottom,
+                    self.screen_size.w - half, height)
             end
         end
         return orig_paintTo(self, bb, x, y)

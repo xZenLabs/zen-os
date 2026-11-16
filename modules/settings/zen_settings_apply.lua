@@ -106,14 +106,19 @@ local function apply_filemanager_layout()
     end
 end
 
-local function apply_navbar_refresh()
+-- after_reinit: FM navbar was just rebuilt by reinit; only refresh standalone views.
+local function apply_navbar_refresh(after_reinit)
     local plugin = active_plugin or rawget(_G, "__ZEN_UI_PLUGIN")
     local home = get_shared(plugin, "home")
     if home and type(home.invalidateNavbar) == "function" then
         home.invalidateNavbar()
     end
-    local reinject = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
-        or rawget(_G, "__ZEN_UI_REINJECT_FM_NAVBAR")
+    local reinject_all = rawget(_G, "__ZEN_UI_REINJECT_NAVBARS")
+    if after_reinit then
+        if type(reinject_all) == "function" then reinject_all(true) end
+        return
+    end
+    local reinject = reinject_all or rawget(_G, "__ZEN_UI_REINJECT_FM_NAVBAR")
     if type(reinject) == "function" then
         reinject()
     else
@@ -127,11 +132,6 @@ local function apply_filemanager_reinit()
     if fm and fm.reinit then
         fm:reinit()
         UIManager:setDirty(FileManager.instance or fm, getFullRefreshMode())
-        UIManager:scheduleIn(0, function()
-            local current = FileManager.instance or fm
-            UIManager:setDirty(current, getFullRefreshMode())
-            UIManager:forceRePaint()
-        end)
     end
 end
 
@@ -192,6 +192,11 @@ local DISRUPTIVE_MODES = {
     navbar_refresh      = true,
 }
 
+local function fm_loaded_instance()
+    local FileManager = package.loaded["apps/filemanager/filemanager"]
+    return FileManager and FileManager.instance
+end
+
 local deferred_applies = {}
 local deferred_callbacks = {}
 
@@ -246,7 +251,9 @@ local function flush_deferred_now()
     for mode, _mode in pairs(pending) do
         run_apply_mode_now(mode)
     end
-    if navbar_refresh then run_apply_mode_now("navbar_refresh") end
+    if navbar_refresh then
+        apply_navbar_refresh(pending.filemanager_reinit and fm_loaded_instance() ~= nil)
+    end
     for _key, callback in pairs(callbacks) do
         callback()
     end
@@ -339,6 +346,12 @@ function M.defer_until_settings_close(key, callback)
     if type(key) ~= "string" or type(callback) ~= "function" then return end
     deferred_callbacks[key] = callback
     if not is_filemanager_menu_open() then UIManager:nextTick(flush_deferred_now) end
+end
+
+-- True when the pending flush will issue its own full-screen refresh.
+function M.pending_full_refresh()
+    if deferred_applies.tbr_refresh then return true end
+    return deferred_applies.filemanager_reinit == true and fm_loaded_instance() ~= nil
 end
 
 -- ZenSettingsPage calls this after it has been closed. TouchMenu has its own

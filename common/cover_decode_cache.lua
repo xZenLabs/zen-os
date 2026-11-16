@@ -7,6 +7,7 @@ local M = {
     _clock = 0,
     _entries = {},
     _metadata_entries = {},
+    _metadata_count = 0,
     _hits = 0,
     _misses = 0,
     _evictions = 0,
@@ -70,21 +71,22 @@ end
 function M:_dropMetadata(key, evicted)
     if not self._metadata_entries[key] then return end
     self._metadata_entries[key] = nil
+    self._metadata_count = self._metadata_count - 1
     if evicted then self._metadata_evictions = self._metadata_evictions + 1 end
 end
 
+-- Evicts the least-recent quarter at once so inserts do not rescan every entry.
 function M:_makeMetadataRoom()
-    local count = 0
-    local oldest_key
-    local oldest_touch
+    local max = self.MAX_METADATA_ENTRIES
+    if self._metadata_count < max then return end
+    local entries = {}
     for key, entry in pairs(self._metadata_entries) do
-        count = count + 1
-        if not oldest_touch or entry.touched < oldest_touch then
-            oldest_key, oldest_touch = key, entry.touched
-        end
+        entries[#entries + 1] = { key = key, touched = entry.touched }
     end
-    if count >= self.MAX_METADATA_ENTRIES and oldest_key then
-        self:_dropMetadata(oldest_key, true)
+    table.sort(entries, function(a, b) return a.touched < b.touched end)
+    local target = math.max(0, max - math.max(1, math.floor(max / 4)))
+    for index = 1, #entries - target do
+        self:_dropMetadata(entries[index].key, true)
     end
 end
 
@@ -185,7 +187,10 @@ function M:putMetadata(key, metadata, validated_at)
         cover_entry.touched = self._clock
         return true
     end
-    if not self._metadata_entries[key] then self:_makeMetadataRoom() end
+    if not self._metadata_entries[key] then
+        self:_makeMetadataRoom()
+        self._metadata_count = self._metadata_count + 1
+    end
     self._clock = self._clock + 1
     self._metadata_entries[key] = {
         metadata = copy_metadata(metadata),
@@ -262,6 +267,7 @@ function M:clear()
     for key in pairs(self._entries) do keys[#keys + 1] = key end
     for _i, key in ipairs(keys) do self:_drop(key) end
     self._metadata_entries = {}
+    self._metadata_count = 0
     self._clock = 0
     self._hits = 0
     self._misses = 0
@@ -292,10 +298,6 @@ end
 function M:stats()
     local count = 0
     for _key in pairs(self._entries) do count = count + 1 end
-    local metadata_count = 0
-    for _key in pairs(self._metadata_entries) do
-        metadata_count = metadata_count + 1
-    end
     return {
         bytes = self._bytes,
         byte_budget = self._byte_budget,
@@ -314,7 +316,7 @@ function M:stats()
         preload_reads = self._preload_reads,
         fast_hits = self._fast_hits,
         metadata_hits = self._metadata_hits,
-        metadata_count = metadata_count,
+        metadata_count = self._metadata_count,
         metadata_puts = self._metadata_puts,
         metadata_evictions = self._metadata_evictions,
     }

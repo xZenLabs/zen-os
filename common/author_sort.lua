@@ -1,5 +1,6 @@
 local sort_key = require("common/sort_key")
 local key_cache = require("common/sort_key_cache")
+local icons = require("common/inline_icon_map")
 local M = {}
 
 local HTML_SPACES = {
@@ -67,7 +68,7 @@ function M.modeButtons(mode, gettext, on_select)
         local key = option.key
         local active = mode == key
         buttons[#buttons + 1] = {{
-            text = "\u{F04BB}  " .. option.text .. (active and "  \u{2713}" or ""),
+            text = icons.title .. "  " .. option.text .. (active and "  " .. icons.check or ""),
             align = "left",
             enabled = not active,
             callback = function() on_select(key) end,

@@ -21,7 +21,7 @@ describe("file browser navbar navigation", function()
     local native_launches
     local dispatcher_executions
     local real_paths
-    local full_repaints
+    local page_refreshes
     local device_has_keys
     local screen_rotation_mode
     local screen_is_color
@@ -85,7 +85,7 @@ describe("file browser navbar navigation", function()
         native_launches = {}
         dispatcher_executions = {}
         real_paths = {}
-        full_repaints = 0
+        page_refreshes = 0
         device_has_keys = false
         screen_rotation_mode = 0
         screen_is_color = false
@@ -223,8 +223,11 @@ describe("file browser navbar navigation", function()
         })
         UIManager = {
             _window_stack = {},
-            setDirty = function() end,
-            forceRePaint = function() full_repaints = full_repaints + 1 end,
+            -- A page switch is one full-screen "partial" refresh (flash cadence is KOReader's).
+            setDirty = function(_self, widget, mode)
+                if widget == nil and mode == "partial" then page_refreshes = page_refreshes + 1 end
+            end,
+            forceRePaint = function() page_refreshes = page_refreshes + 1 end,
             nextTick = function(_, callback)
                 initial_reinject_callback = initial_reinject_callback or callback
                 callback()
@@ -287,6 +290,7 @@ describe("file browser navbar navigation", function()
                 library_font_sizes[#library_font_sizes + 1] = size
                 return { size = size }
             end,
+            getFontName = function() return "font" end,
             scaleValue = function() error("navbar used library font size") end,
         })
         ZenSpec.replace("libs/libkoreader-lfs", {
@@ -1209,17 +1213,15 @@ describe("file browser navbar navigation", function()
         end
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
-        assert.are.equal(1, #next_ticks)
-        table.remove(next_ticks, 1)()
+        assert.are.equal(0, #next_ticks)
         calls = {}
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
         assert.are.same({}, calls)
         assert.are.equal(3, fm.file_chooser.page)
         assert.are.equal(1, cover_resume_calls)
-        assert.are.equal(2, #next_ticks)
+        assert.are.equal(1, #next_ticks)
 
-        table.remove(next_ticks, 1)()
         table.remove(next_ticks, 1)()
         assert.are.same({}, calls)
         assert.is_nil(fm.file_chooser._zen_home_retained_library)
@@ -1290,7 +1292,6 @@ describe("file browser navbar navigation", function()
             next_ticks[#next_ticks + 1] = callback
         end
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
-        table.remove(next_ticks, 1)()
         dir_mtimes["/library/sub"] = 21
         calls = {}
 
@@ -1324,7 +1325,6 @@ describe("file browser navbar navigation", function()
             next_ticks[#next_ticks + 1] = callback
         end
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
-        table.remove(next_ticks, 1)()
         dir_mtimes["/library/sub"] = 21
         calls = {}
 
@@ -1352,7 +1352,6 @@ describe("file browser navbar navigation", function()
             next_ticks[#next_ticks + 1] = callback
         end
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
-        table.remove(next_ticks, 1)()
         local cache_state = "memory_hit"
         fc._zen_warm_item_table = function(_self, path)
             calls[#calls + 1] = "warm:" .. path
@@ -1391,7 +1390,6 @@ describe("file browser navbar navigation", function()
             next_ticks[#next_ticks + 1] = callback
         end
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
-        table.remove(next_ticks, 1)()
         dir_mtimes["/library/Book.sdr"] = 21
         calls = {}
 
@@ -1539,7 +1537,8 @@ describe("file browser navbar navigation", function()
             { widget = fm },
             { widget = home_widget },
         }
-        UIManager.setDirty = function(_self, widget)
+        UIManager.setDirty = function(_self, widget, mode)
+            if widget == nil and mode == "partial" then page_refreshes = page_refreshes + 1 end
             if widget == fm and widget.invisible ~= true then
                 rendered_paths[#rendered_paths + 1] = fc.path
             end
@@ -1555,7 +1554,7 @@ describe("file browser navbar navigation", function()
         assert.is_nil(fc._zen_needs_full_listing)
         assert.are.equal("Folder", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
         assert.are.same({ "/library" }, rendered_paths)
-        assert.are.equal(1, full_repaints)
+        assert.are.equal(1, page_refreshes)
     end)
 
     it("keeps Folder active when FileChooser canonicalizes its configured path", function()
@@ -1692,7 +1691,7 @@ describe("file browser navbar navigation", function()
         assert.is_nil(fc._zen_hidden_home_startup)
         assert.is_nil(fc._zen_needs_full_listing)
         assert.are.equal("Manga", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
-        assert.are.equal(1, full_repaints)
+        assert.are.equal(1, page_refreshes)
     end)
 
     it("handles a cold Folder tap from the live Home navbar", function()
@@ -1729,7 +1728,8 @@ describe("file browser navbar navigation", function()
         dir_mtimes["/library/Fiction"] = 10
         local navbar_config = _G.__ZEN_UI_PLUGIN.config.navbar
         navbar_config.tab_order = { "home", "folder" }
-        UIManager.setDirty = function(_self, widget)
+        UIManager.setDirty = function(_self, widget, mode)
+            if widget == nil and mode == "partial" then page_refreshes = page_refreshes + 1 end
             if (widget == fm or widget == wrapper) and widget.invisible ~= true then
                 rendered_paths[#rendered_paths + 1] = fc.path
             end
@@ -1771,7 +1771,7 @@ describe("file browser navbar navigation", function()
         assert.is_nil(wrapper._zen_hidden_home_startup)
         assert.are.equal("Folder", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
         assert.are.same({ "/library/Fiction" }, rendered_paths)
-        assert.are.equal(2, full_repaints)
+        assert.are.equal(2, page_refreshes)
 
         local filemanager_navbar = fm[1][1][2]
         calls = {}
@@ -1799,7 +1799,7 @@ describe("file browser navbar navigation", function()
         assert.is_nil(fc._zen_hidden_home_startup)
         assert.is_nil(fc._zen_needs_full_listing)
         assert.are.equal("Library", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
-        assert.are.equal(1, full_repaints)
+        assert.are.equal(1, page_refreshes)
     end)
 
     it("does not reopen the navbar page already on top", function()
@@ -1810,7 +1810,7 @@ describe("file browser navbar navigation", function()
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("authors"))
         assert.are.same({}, calls)
-        assert.are.equal(0, full_repaints)
+        assert.are.equal(0, page_refreshes)
     end)
 
     it("invalidates and refreshes the active Library when its icon is tapped", function()
@@ -1826,10 +1826,10 @@ describe("file browser navbar navigation", function()
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
 
         assert.are.same({ "invalidate:/library", "refresh" }, calls)
-        assert.are.equal(1, full_repaints)
+        assert.are.equal(1, page_refreshes)
     end)
 
-    it("fully refreshes every navbar page switch, including Authors to Library and Home", function()
+    it("refreshes every navbar page switch, including Authors to Library and Home", function()
         local fm = make_instance()
         UIManager._window_stack = { { widget = fm } }
         home_widget._zen_navbar_tab_id = "home"
@@ -1852,7 +1852,7 @@ describe("file browser navbar navigation", function()
         end
         local refreshes = 0
         UIManager.setDirty = function(_self, widget, mode, region)
-            if mode == "full" then
+            if mode == "partial" then
                 assert.is_nil(widget)
                 assert.is_nil(region)
                 refreshes = refreshes + 1
@@ -1876,7 +1876,7 @@ describe("file browser navbar navigation", function()
         assert.are.equal(#tabs + 1, refreshes)
     end)
 
-    it("fully refreshes Authors to retained Home through touch and keyboard navigation", function()
+    it("refreshes Authors to retained Home through touch and keyboard navigation", function()
         device_has_keys = true
         _G.__ZEN_UI_PLUGIN.config.navbar.tab_order = { "home", "authors" }
         local fm = make_instance()
@@ -1905,7 +1905,7 @@ describe("file browser navbar navigation", function()
         end
         local refreshes = 0
         UIManager.setDirty = function(_self, widget, mode)
-            if mode == "full" then
+            if mode == "partial" then
                 assert.is_nil(widget)
                 refreshes = refreshes + 1
             end
@@ -1924,11 +1924,10 @@ describe("file browser navbar navigation", function()
         }
         for _i, activate in ipairs(activations) do
             assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("authors"))
-            refreshes, full_repaints = 0, 0
+            refreshes, page_refreshes = 0, 0
             activate()
             assert.are.equal(home_widget, UIManager._window_stack[#UIManager._window_stack].widget)
             assert.are.equal(1, refreshes)
-            assert.are.equal(1, full_repaints)
             assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
             assert.are.equal(1, refreshes)
         end
@@ -1982,13 +1981,13 @@ describe("file browser navbar navigation", function()
             inject(status_menu, tab_id)
         end
         _G.__ZEN_UI_REINJECT_FM_NAVBAR()
-        full_repaints = 0
+        page_refreshes = 0
         calls = {}
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("ct_finished"))
         assert.same({ "status:complete:Finished:ct_finished" }, calls)
         assert.are.equal("Finished", _G.__ZEN_UI_ACTIVE_TAB_LABEL)
-        assert.are.equal(1, full_repaints)
+        assert.are.equal(1, page_refreshes)
 
         local status_navbar = status_menu[1][1][2]
         status_navbar.getTappedTabId = function() return "ct_finished" end
@@ -1996,9 +1995,9 @@ describe("file browser navbar navigation", function()
         assert.is_true(status_navbar:onTapNavBar(nil, { pos = { x = 400, y = 1 } }))
         assert.are.equal(1, status_menu.page)
         assert.are.same({ "status_reset" }, calls)
-        assert.are.equal(2, full_repaints)
+        assert.are.equal(2, page_refreshes)
         assert.is_true(status_navbar:onTapNavBar(nil, { pos = { x = 400, y = 1 } }))
-        assert.are.equal(2, full_repaints)
+        assert.are.equal(2, page_refreshes)
     end)
 
     it("launches available native menu tabs and retains unavailable ones", function()
@@ -2151,7 +2150,7 @@ describe("file browser navbar navigation", function()
             reveal.details)
     end)
 
-    it("uses one full refresh between Library and Home", function()
+    it("uses one page refresh between Library and Home", function()
         local fm = make_instance()
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
         fm.file_chooser.path = "/library"
@@ -2162,10 +2161,10 @@ describe("file browser navbar navigation", function()
             { widget = home_widget },
         }
         local flash_count = 0
-        local full_count = 0
+        local page_count = 0
         UIManager.setDirty = function(_self, _widget, mode)
             if mode == "flashui" then flash_count = flash_count + 1 end
-            if mode == "full" then full_count = full_count + 1 end
+            if mode == "partial" then page_count = page_count + 1 end
         end
         shared.home.resumeActive = function(refresh_type)
             home_refresh_type = refresh_type
@@ -2176,10 +2175,10 @@ describe("file browser navbar navigation", function()
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("home"))
         assert.is_nil(home_refresh_type)
         assert.are.equal(0, flash_count)
-        assert.are.equal(1, full_count)
+        assert.are.equal(1, page_count)
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
         assert.are.equal(0, flash_count)
-        assert.are.equal(2, full_count)
+        assert.are.equal(2, page_count)
     end)
 
     it("reveals a reinitialized hidden FileManager before handling Library taps", function()
@@ -2223,7 +2222,7 @@ describe("file browser navbar navigation", function()
         assert.is_nil(fm.invisible)
         assert.is_nil(fm._zen_hidden_home_startup)
         assert.are.same({
-            mode = "full",
+            mode = "partial",
             top = fm,
         }, reveal)
         local top = UIManager._window_stack[#UIManager._window_stack].widget
@@ -2260,7 +2259,7 @@ describe("file browser navbar navigation", function()
         assert.are.equal(wrapper, UIManager._window_stack[2].widget)
     end)
 
-    it("records a real navbar tap to retained Home with one full refresh", function()
+    it("records a real navbar tap to retained Home with one page refresh", function()
         local fm = make_instance()
         fm.file_chooser.path = "/library"
         fm.file_chooser.page = 1
@@ -2297,8 +2296,8 @@ describe("file browser navbar navigation", function()
         assert.is_true(navbar:onTapNavBar(nil, { pos = { x = 50, y = 1 } }))
 
         assert.are.same({ "resume_home" }, calls)
-        assert.are.equal(1, force_repaints)
-        assert.are.same({ mode = "full" }, dirty[#dirty])
+        assert.are.equal(0, force_repaints)
+        assert.are.same({ mode = "partial" }, dirty[#dirty])
         local reveal
         for _i, measurement in ipairs(measurements) do
             if measurement.message == "Library to Home first reveal" then
@@ -2547,13 +2546,13 @@ describe("file browser navbar navigation", function()
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("stats"))
         assert.are.equal(_G.__ZEN_UI_PLUGIN, stats_plugin)
-        assert.are.equal(1, full_repaints)
+        assert.are.equal(1, page_refreshes)
         local navbar = stats_page[1][1][2]
         calls = {}
 
         assert.is_true(navbar:onTapNavBar(nil, { pos = { x = 620, y = 1 } }))
         assert.are.same({ "to_be_read" }, calls)
-        assert.are.equal(2, full_repaints)
+        assert.are.equal(2, page_refreshes)
     end)
 
     it("keeps navigation working when optional library providers fail", function()
@@ -2747,7 +2746,7 @@ describe("file browser navbar navigation", function()
         assert.are.equal(2, detail.page)
     end)
 
-    it("fully refreshes when revealing the current Library page", function()
+    it("refreshes when revealing the current Library page", function()
         local fm = make_instance()
         fm.file_chooser.path = "/library"
         fm.file_chooser.refreshPath = function() calls[#calls + 1] = "refresh" end
@@ -2763,11 +2762,10 @@ describe("file browser navbar navigation", function()
 
         assert.is_true(_G.__ZEN_UI_NAVBAR_OPEN_TAB("books"))
         assert.are.same({ "refresh" }, calls)
-        assert.are.equal(2, #next_ticks)
+        assert.are.equal(1, #next_ticks)
         table.remove(next_ticks, 1)()
-        table.remove(next_ticks, 1)()
-        assert.are.same({ mode = "full" }, dirty[#dirty])
-        assert.are.equal(1, force_repaints)
+        assert.are.same({ mode = "partial" }, dirty[#dirty])
+        assert.are.equal(0, force_repaints)
     end)
 
     it("rejects unknown tab ids without changing the active tab", function()
@@ -3065,7 +3063,37 @@ describe("file browser navbar navigation", function()
                     bb:free()
                 end
             end
+            if not outlined and opacity > 0 and opacity < 100 then
+                -- Translucent fill buffer is reused across paints and freed with the widget.
+                local fill = frame._zen_fill
+                assert.is_not_nil(fill)
+                local bb = Blitbuffer.new(30, 30, Blitbuffer.TYPE_BBRGB32)
+                frame:paintTo(bb, 4, 6)
+                bb:free()
+                assert.are.equal(fill, frame._zen_fill)
+                frame:free()
+                assert.is_nil(frame._zen_fill)
+            end
         end
+    end)
+
+    it("measures the navbar height once per layout signature", function()
+        local Menu = require("ui/widget/menu")
+        local function navbars_built()
+            local count = 0
+            for _i, entry in ipairs(built_widgets) do
+                local events = entry.widget.ges_events
+                if events and events.TapNavBar then count = count + 1 end
+            end
+            return count
+        end
+        Menu.init({ name = "filemanager" })
+        built_widgets = {}
+        Menu.init({ name = "filemanager" })
+        assert.are.equal(0, navbars_built())
+        _G.__ZEN_UI_PLUGIN.config.navbar.icon_size = 40
+        Menu.init({ name = "filemanager" })
+        assert.are.equal(1, navbars_built())
     end)
 
     it("uses accent fill opacity without applying the saved custom opacity again", function()

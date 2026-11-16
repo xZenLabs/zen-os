@@ -528,10 +528,10 @@ describe("app launcher settings", function()
         assert.are.equal(14, #shown_options.item_table)
         assert.are.equal(4, #shown_options.add_item_table)
         assert.is_false(shown_options.open_add_on_show)
-        local row = shown_options.item_table[1]
+        local row = shown_options.item_table[2]
         assert.are.equal("Font", row.text_func())
         row.callback()
-        assert.is_false(config.reader_controls.entries[1].enabled)
+        assert.is_false(config.reader_controls.entries[2].enabled)
         local items = row.sub_item_table_func()
         assert.are.equal("Label: Font", items[1].text_func())
         assert.is_truthy(items[2].text_func():find("Icon:", 1, true))
@@ -542,12 +542,12 @@ describe("app launcher settings", function()
             assert.are.equal(2 + (extra[button.orig_entry.control] or 0), #settings)
             for _j, item in ipairs(settings) do assert.are_not.equal("Delete", item.text) end
         end
-        local original = shown_options.item_table[1]
-        shown_options.item_table[1] = shown_options.item_table[3]
-        shown_options.item_table[3] = original
+        local original = shown_options.item_table[2]
+        shown_options.item_table[2] = shown_options.item_table[4]
+        shown_options.item_table[4] = original
         shown_options.callback()
-        assert.are.equal("page", config.reader_controls.entries[1].control)
-        table.remove(config.reader_controls.entries, 3)
+        assert.are.equal("page", config.reader_controls.entries[2].control)
+        table.remove(config.reader_controls.entries, 4)
         section.sub_item_table[1].callback()
         assert.are.equal(13, #shown_options.item_table)
         assert.are.equal("Font", shown_options.add_item_table[5].text)
@@ -650,10 +650,11 @@ describe("app launcher settings", function()
             return rows
         end
         local rows = open()
+        for _i, control in ipairs({ "vocabulary", "page_browser", "koreader_menu" }) do rows[control].callback() end
         rows.profiles.callback()
         assert.is_false(rows.profiles.checked_func())
         assert.are.equal("Maximum 8 reader controls per book", message)
-        assert.are.equal(0, reader_saves)
+        assert.are.equal(3, reader_saves)
         rows.font.callback()
         rows.profiles.callback()
         assert.is_false(rows.profiles.checked_func())
@@ -663,7 +664,7 @@ describe("app launcher settings", function()
         rows.font.callback()
         assert.is_false(rows.font.checked_func())
 
-        table.remove(config.reader_controls.entries, 1)
+        table.remove(config.reader_controls.entries, 2)
         rows = open()
         for _i, item in ipairs(shown_options.add_item_table) do
             if item.text == "Font" then item.callback() end

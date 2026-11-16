@@ -7,6 +7,19 @@ function M.isSupported(Device)
     return Device.isKobo and Device:isKobo() and Kobo.isAvailable()
 end
 
+function M.isAvailable() return Kobo.isAvailable() end
+function M.onSuspend() Kobo.onSuspend() end
+
+function M.readState()
+    local state = Kobo.getState()
+    if state ~= nil then return state and 1 or 0 end
+end
+
+-- kobo_bluetooth verifies power itself.
+function M.setPower(enabled, request)
+    return Kobo.setEnabled(enabled, request.done)
+end
+
 function M.new()
     local adapter = { id = "kobo", getDeviceList = Kobo.getDeviceList }
     function adapter.scan(done) Kobo.startScan(done) end

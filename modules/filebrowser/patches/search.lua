@@ -1,3 +1,4 @@
+local icons = require("common/inline_icon_map")
 local function apply_search()
     local FileManagerFileSearcher = require("apps/filemanager/filemanagerfilesearcher")
     local InputDialog = require("ui/widget/inputdialog")
@@ -98,7 +99,7 @@ local function apply_search()
         -- Patch InputDialog:onTap so tapping outside closes both keyboard AND dialog
         local orig_InputDialog_onTap = InputDialog.onTap
 
-        local SEARCH_ICON = "\u{F002}"
+        local SEARCH_ICON = icons.search
 
         search_dialog = InputDialog:new{
             title = _("Search Library"),

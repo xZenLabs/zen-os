@@ -49,12 +49,13 @@ local function plugin_bluetooth()
             if bluetooth then return bluetooth end
         end
     end
-    local ok_reader, ReaderUI = pcall(require, "apps/reader/readerui")
-    local bluetooth = ok_reader and type(ReaderUI) == "table"
+    -- package.loaded: an unloaded UI has no instance, and requiring ReaderUI at boot costs ~2.5 MiB.
+    local ReaderUI = package.loaded["apps/reader/readerui"]
+    local bluetooth = type(ReaderUI) == "table"
         and ui_plugin(ReaderUI.instance, "ReaderUI")
     if bluetooth then return bluetooth end
-    local ok_manager, FileManager = pcall(require, "apps/filemanager/filemanager")
-    bluetooth = ok_manager and type(FileManager) == "table"
+    local FileManager = package.loaded["apps/filemanager/filemanager"]
+    bluetooth = type(FileManager) == "table"
         and ui_plugin(FileManager.instance, "FileManager")
     if bluetooth then return bluetooth end
     local zen = rawget(_G, "__ZEN_UI_PLUGIN")

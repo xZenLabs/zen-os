@@ -122,7 +122,7 @@ local function apply_collections()
         menu._zen_get_collection_title = function(name)
             local ReadCollection = require("readcollection")
             if name == ReadCollection.default_collection_name then
-                return require("gettext")("Favorites")
+                return _("Favorites")
             end
             return name
         end
@@ -256,7 +256,6 @@ local function apply_collections()
         local ReadCollection = require("readcollection")
         local ButtonDialog   = require("ui/widget/buttondialog")
         local UIManager_ss   = require("ui/uimanager")
-        local _g             = require("gettext")
 
         close_parent()
 
@@ -266,19 +265,19 @@ local function apply_collections()
         local current       = coll_settings and coll_settings.collate
 
         local SORT_OPTIONS = {
-            { key = "title",    text = "\u{F04BB}  " .. _g("Title")         },
-            { key = "title_natural", text = "\u{F04BB}  " .. _g("Title natural") },
-            { key = "strcoll",  text = icons.filename .. "  " .. _g("Filename") },
-            { key = "authors",  text = "\u{F0013}  " .. _g("Authors")       },
-            { key = "series",   text = "\u{F0436}  " .. _g("Series")        },
-            { key = "access",   text = "\u{F02DA}  " .. _g("Recently read") },
-            { key = "keywords", text = "\u{F12F7}  " .. _g("Keywords")      },
+            { key = "title",    text = icons.title .. "  " .. _("Title")         },
+            { key = "title_natural", text = icons.title .. "  " .. _("Title natural") },
+            { key = "strcoll",  text = icons.filename .. "  " .. _("Filename") },
+            { key = "authors",  text = icons.authors .. "  " .. _("Authors")       },
+            { key = "series",   text = icons.series .. "  " .. _("Series")        },
+            { key = "access",   text = icons.history .. "  " .. _("Recently read") },
+            { key = "keywords", text = icons.keywords .. "  " .. _("Keywords")      },
         }
 
         for _i, opt in ipairs(SORT_OPTIONS) do
             local is_active = current == opt.key
             table.insert(sort_buttons, {{
-                text     = opt.text .. (is_active and "  \u{2713}" or ""),
+                text     = opt.text .. (is_active and "  " .. icons.check or ""),
                 align    = "left",
                 enabled  = not is_active,
                 callback = function()
@@ -293,7 +292,7 @@ local function apply_collections()
             }})
         end
         table.insert(sort_buttons, {{
-            text     = "\u{F04BF}  " .. _g("Order") .. "  " .. submenu_arrow,
+            text     = icons.sort .. "  " .. _("Order") .. "  " .. submenu_arrow,
             align    = "left",
             enabled  = current ~= nil,
             callback = function()
@@ -315,7 +314,7 @@ local function apply_collections()
         if current then
             table.insert(sort_buttons, {})
             table.insert(sort_buttons, {{
-                text = "\u{F099B}  " .. _g("Clear"),
+                text = icons.clear .. "  " .. _("Clear"),
                 align = "left",
                 callback = function()
                     UIManager_ss:close(sort_dialog)
@@ -332,7 +331,7 @@ local function apply_collections()
             }})
         end
         sort_dialog = ButtonDialog:new{
-            title       = _g("Sort collection by"),
+            title       = _("Sort collection by"),
             title_align = "center",
             buttons     = apply_button_group_font(sort_buttons),
         }
@@ -347,7 +346,6 @@ local function apply_collections()
         local ReadCollection = require("readcollection")
         local ButtonDialog   = require("ui/widget/buttondialog")
         local UIManager_cm   = require("ui/uimanager")
-        local _              = require("gettext")
 
         local coll_name    = item.name
         local is_favorites = coll_name == ReadCollection.default_collection_name
@@ -373,7 +371,7 @@ local function apply_collections()
             }})
         end
         table.insert(extra_buttons, {{
-            text     = "\u{F0337}  " .. _("Connect folders"),
+            text     = icons.connect .. "  " .. _("Connect folders"),
             align    = "left",
             callback = function()
                 local ok_fm, FM = pcall(require, "apps/filemanager/filemanager")
@@ -411,7 +409,7 @@ local function apply_collections()
             local function viewBtn(label, icon, mode)
                 local active = cur_mode == mode
                 return {{
-                    text     = icon .. "  " .. label .. (active and "  \u{2713}" or ""),
+                    text     = icon .. "  " .. label .. (active and "  " .. icons.check or ""),
                     align    = "left",
                     enabled  = not active,
                     callback = function()
@@ -425,9 +423,9 @@ local function apply_collections()
                 title       = _("Display mode"),
                 title_align = "center",
                 buttons     = apply_button_group_font({
-                    viewBtn(_("Mosaic"),          "\u{F00A}", "mosaic_image"),
-                    viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"),
-                    viewBtn(_("List (basic)"),    "\u{F0CA}", "list_image_filename"),
+                    viewBtn(_("Mosaic"),          icons.view_mosaic, "mosaic_image"),
+                    viewBtn(_("List (detailed)"), icons.view_list, "list_image_meta"),
+                    viewBtn(_("List (basic)"),    icons.view_basic, "list_image_filename"),
                 }),
             }
             UIManager_cm:show(view_dialog)
@@ -452,7 +450,7 @@ local function apply_collections()
             local buttons = {}
             for _i, row in ipairs(prepend_buttons) do table.insert(buttons, row) end
             table.insert(buttons, {{
-                text     = "\u{F06D0}  " .. _("Display") .. "  " .. submenu_arrow,
+                text     = icons.display .. "  " .. _("Display") .. "  " .. submenu_arrow,
                 align    = "left",
                 callback = function()
                     UIManager_cm:close(button_dialog)
@@ -460,7 +458,7 @@ local function apply_collections()
                 end,
             }})
             table.insert(buttons, {{
-                text     = "\u{F04BF}  " .. _("Sort") .. "  " .. submenu_arrow,
+                text     = icons.sort .. "  " .. _("Sort") .. "  " .. submenu_arrow,
                 align    = "left",
                 callback = function()
                     show_coll_sort_submenu(coll_name,
@@ -485,7 +483,6 @@ local function apply_collections()
 
         local ButtonDialog   = require("ui/widget/buttondialog")
         local UIManager_nb   = require("ui/uimanager")
-        local _              = require("gettext")
 
         local files = get_visible_files_from_menu(menu)
             or get_collection_files_in_cover_order(raw_coll_name)
@@ -509,7 +506,7 @@ local function apply_collections()
             local function viewBtn(label, icon, mode)
                 local active = cur_mode == mode
                 return {{
-                    text     = icon .. "  " .. label .. (active and "  \u{2713}" or ""),
+                    text     = icon .. "  " .. label .. (active and "  " .. icons.check or ""),
                     align    = "left",
                     enabled  = not active,
                     callback = function()
@@ -523,9 +520,9 @@ local function apply_collections()
                 title       = _("Display mode"),
                 title_align = "center",
                 buttons     = apply_button_group_font({
-                    viewBtn(_("Mosaic"),          "\u{F00A}", "mosaic_image"),
-                    viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"),
-                    viewBtn(_("List (basic)"),    "\u{F0CA}", "list_image_filename"),
+                    viewBtn(_("Mosaic"),          icons.view_mosaic, "mosaic_image"),
+                    viewBtn(_("List (detailed)"), icons.view_list, "list_image_meta"),
+                    viewBtn(_("List (basic)"),    icons.view_basic, "list_image_filename"),
                 }),
             }
             UIManager_nb:show(view_dialog)
@@ -552,7 +549,7 @@ local function apply_collections()
             local button_dialog
             local buttons = {
                 {{
-                    text     = "\u{F04BF}  " .. _("Sort") .. "  " .. submenu_arrow,
+                    text     = icons.sort .. "  " .. _("Sort") .. "  " .. submenu_arrow,
                     align    = "left",
                     callback = function()
                         show_coll_sort_submenu(raw_coll_name,
@@ -561,7 +558,7 @@ local function apply_collections()
                     end,
                 }},
                 {{
-                    text     = "\u{F06D0}  " .. _("Display") .. "  " .. submenu_arrow,
+                    text     = icons.display .. "  " .. _("Display") .. "  " .. submenu_arrow,
                     align    = "left",
                     callback = function()
                         UIManager_nb:close(button_dialog)
@@ -584,7 +581,6 @@ local function apply_collections()
         end
         local ButtonDialog = require("ui/widget/buttondialog")
         local UIManager_bm = require("ui/uimanager")
-        local _            = require("gettext")
 
         local button_dialog
 
@@ -598,7 +594,7 @@ local function apply_collections()
             local function viewBtn(label, icon, mode)
                 local active = cur_mode == mode
                 return {{
-                    text     = icon .. "  " .. label .. (active and "  \u{2713}" or ""),
+                    text     = icon .. "  " .. label .. (active and "  " .. icons.check or ""),
                     align    = "left",
                     enabled  = not active,
                     callback = function()
@@ -616,9 +612,9 @@ local function apply_collections()
                 title       = _("Display mode"),
                 title_align = "center",
                 buttons     = apply_button_group_font({
-                    viewBtn(_("Mosaic"),          "\u{F00A}", "mosaic_image"),
-                    viewBtn(_("List (detailed)"), "\u{F03A}", "list_image_meta"),
-                    viewBtn(_("List (basic)"),    "\u{F0CA}", "list_image_filename"),
+                    viewBtn(_("Mosaic"),          icons.view_mosaic, "mosaic_image"),
+                    viewBtn(_("List (detailed)"), icons.view_list, "list_image_meta"),
+                    viewBtn(_("List (basic)"),    icons.view_basic, "list_image_filename"),
                 }),
             }
             UIManager_bm:show(view_dialog)
@@ -626,7 +622,7 @@ local function apply_collections()
 
         local buttons = {
             {{
-                text     = "\u{F0B9D}  " .. _("New collection"),
+                text     = icons.new_folder .. "  " .. _("New collection"),
                 align    = "left",
                 callback = function()
                     UIManager_bm:close(button_dialog)
@@ -634,12 +630,12 @@ local function apply_collections()
                 end,
             }},
             {{
-                text     = "\u{F06D0}  " .. _("Display") .. "  " .. submenu_arrow,
+                text     = icons.display .. "  " .. _("Display") .. "  " .. submenu_arrow,
                 align    = "left",
                 callback = showDisplaySubmenu,
             }},
             {{
-                text     = "\u{F04BF}  " .. _("Arrange"),
+                text     = icons.sort .. "  " .. _("Arrange"),
                 align    = "left",
                 callback = function()
                     UIManager_bm:close(button_dialog)
@@ -647,7 +643,7 @@ local function apply_collections()
                 end,
             }},
             {{
-                text     = "\u{F0349}  " .. _("Search"),
+                text     = icons.search .. "  " .. _("Search"),
                 align    = "left",
                 callback = function()
                     UIManager_bm:close(button_dialog)
@@ -675,7 +671,7 @@ local function apply_collections()
                     local ReadCollection = require("readcollection")
                     return show_named_coll_blank_menu(
                         fm_coll, nil, ReadCollection.default_collection_name,
-                        require("gettext")("Favorites"), true) == true
+                        _("Favorites"), true) == true
                 end
                 return false
             end,
@@ -985,7 +981,6 @@ local function apply_collections()
             local menu = self.booklist_menu
             if menu and is_enabled() then
                 Background.applyToMenu(menu)
-                local _ = require("gettext")
                 local fav_display = _("Favorites")
                 local raw_fav = resolved_name
                 local fm_coll = self
@@ -1021,7 +1016,6 @@ local function apply_collections()
 
         local display_name = resolved_name
         if is_favorites then
-            local _ = require("gettext")
             display_name = _("Favorites")
         end
 

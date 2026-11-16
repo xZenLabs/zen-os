@@ -59,12 +59,28 @@ local function apply_reader_themes()
         return result
     end
 
+    -- Restore the rendered CRE page under the last painted footer, like the top status bar.
+    local function restoreFooterBackdrop(footer)
+        local view = footer.view
+        local dimen = footer.footer_content and footer.footer_content.dimen
+        local buffer = view and view.render_mode == nil and view.document and view.document.buffer
+        local offset = view and view.state and view.state.offset
+        if not (dimen and dimen.w and buffer and offset and Screen.bb) then return false end
+        local sx, sy = dimen.x - offset.x, dimen.y - offset.y
+        if sx < 0 or sy < 0 or sx + dimen.w > buffer:getWidth() or sy + dimen.h > buffer:getHeight() then
+            return false
+        end
+        Screen.bb:blitFrom(buffer, dimen.x, dimen.y, sx, sy, dimen.w, dimen.h)
+        return true
+    end
+
     local orig_shouldBeRepainted = ReaderFooter.shouldBeRepainted
     if type(orig_shouldBeRepainted) == "function" then
         ReaderFooter.shouldBeRepainted = function(self, ...)
             local repaint, full_repaint = orig_shouldBeRepainted(self, ...)
-            -- A transparent footer needs ReaderView to redraw its backdrop first.
-            if repaint and not full_repaint and ReaderThemes.isActive(plugin) then
+            -- A transparent footer needs its backdrop redrawn first; fall back to a full ReaderView repaint.
+            if repaint and not full_repaint and ReaderThemes.isActive(plugin)
+                    and not restoreFooterBackdrop(self) then
                 return true, true
             end
             return repaint, full_repaint

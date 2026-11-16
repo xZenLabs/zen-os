@@ -1,3 +1,4 @@
+require("ffi/loadlib")
 describe("ZenOS brand migration", function()
     local BrandMigration
     local lfs
@@ -92,11 +93,8 @@ describe("ZenOS brand migration", function()
             lfs = lfs,
             g_settings = g_settings or ZenSpec.memorySettings(),
             lua_settings = fake_lua_settings,
-            plugin_loader = {
-                _discover = function()
-                    return { { path = plugin_root } }
-                end,
-            },
+            -- Keep the runtime's real plugins dir out of root-conflict probes.
+            default_plugin_path = path(test_root, "missing-default-plugins"),
         }
         for key, value in pairs(extra or {}) do options[key] = value end
         return options
@@ -224,6 +222,38 @@ describe("ZenOS brand migration", function()
 
         assert.are.equal("current", result.status)
         assert.are.same({}, dofile(config_path))
+    end)
+
+    it("parses a marked config once and hands it to its owner", function()
+        local current_plugin = mkdir(path(plugins_dir, "zenos.koplugin"))
+        local current_settings = mkdir(path(settings_dir, "ZenOS"))
+        local config_path = path(current_settings, "config.lua")
+        write_file(config_path, "return { _meta = { zenos_brand_migration_v1 = true } }\n")
+        local opens = 0
+        local LuaSettings = require("luasettings")
+        local counting = setmetatable({
+            open = function(self, file)
+                opens = opens + 1
+                return LuaSettings.open(self, file)
+            end,
+        }, { __index = LuaSettings })
+        local saved = package.loaded.luasettings
+        package.loaded.luasettings = counting
+        local ok, err = pcall(function()
+            local options = migration_options(current_plugin)
+            options.lua_settings = nil
+            assert.are.equal("current", BrandMigration.detectStartup(nil, options).status)
+            assert.are.equal(1, opens)
+            assert.is_true(BrandMigration.readConfigData(config_path)._meta.zenos_brand_migration_v1)
+            local settings = BrandMigration.takeConfigSettings(config_path)
+            assert.are.equal(1, opens)
+            assert.are.equal(config_path, settings.file)
+            assert.is_nil(BrandMigration.takeConfigSettings(config_path))
+            assert.are.equal("table", type(BrandMigration.preparedSettings(settings_dir)))
+            assert.is_nil(BrandMigration.preparedSettings(settings_dir))
+        end)
+        package.loaded.luasettings = saved
+        assert(ok, err)
     end)
 
     it("defers the legacy directory rename until plugin init", function()
@@ -468,27 +498,15 @@ return {
         write_file(config_path, config_contents)
         local g_settings = ZenSpec.memorySettings({
             plugins_disabled = { zen_ui = true },
+            extra_plugin_paths = { first_parent },
         })
-        local discover_calls = 0
-        local plugin_loader = {
-            _discover = function()
-                discover_calls = discover_calls + 1
-                return {
-                    { name = "zen_ui", path = legacy_plugin },
-                    { name = "zenos", path = current_plugin },
-                }
-            end,
-        }
 
         local result = BrandMigration.detectStartup(nil,
-            migration_options(current_plugin, g_settings, {
-                plugin_loader = plugin_loader,
-            }))
+            migration_options(current_plugin, g_settings))
 
         assert.are.equal("plugin_conflict", result.status)
         assert.is_true(result.inert)
         assert.is_nil(result.pending)
-        assert.are.equal(1, discover_calls)
         assert.are.same({ legacy_plugin, current_plugin }, result.conflict_paths)
         assert.are.equal(config_contents, read_file(config_path))
         assert.are.equal("directory", lfs.attributes(legacy_settings, "mode"))
@@ -500,7 +518,7 @@ return {
         assert.is_nil(disabled.zenos)
     end)
 
-    it("falls back to configured lookup paths after malformed discovery", function()
+    it("probes configured lookup paths instead of rescanning plugin dirs", function()
         local first_parent = mkdir(path(test_root, "first_plugins"))
         local second_parent = mkdir(path(test_root, "second_plugins"))
         local legacy_plugin = mkdir(path(first_parent, "zen_ui.koplugin"))
@@ -508,14 +526,9 @@ return {
         local g_settings = ZenSpec.memorySettings({
             extra_plugin_paths = { first_parent, second_parent },
         })
+        local discover_calls = 0
         local plugin_loader = {
-            _discover = function()
-                return {
-                    {},
-                    { path = path(first_parent, "unrelated.koplugin") },
-                    { path = path(test_root, "missing/zen_ui.koplugin") },
-                }
-            end,
+            _discover = function() discover_calls = discover_calls + 1 end,
         }
 
         local result = BrandMigration.detectStartup(nil,
@@ -524,6 +537,7 @@ return {
                 default_plugin_path = path(test_root, "missing-default-plugins"),
             }))
 
+        assert.are.equal(0, discover_calls)
         assert.are.equal("plugin_conflict", result.status)
         assert.are.same({ legacy_plugin, current_plugin }, result.conflict_paths)
     end)

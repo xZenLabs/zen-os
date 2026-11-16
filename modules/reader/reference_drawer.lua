@@ -1,4 +1,5 @@
 local Blitbuffer = require("ffi/blitbuffer")
+local BottomSheet = require("common/ui/bottom_sheet")
 local Button = require("ui/widget/button")
 local ButtonFeedback = require("common/ui/button_feedback")
 local CenterContainer = require("ui/widget/container/centercontainer")
@@ -9,6 +10,7 @@ local FocusManager = require("ui/widget/focusmanager")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
 local GestureRange = require("ui/gesturerange")
+local GlyphIcons = require("common/ui/glyph_icons")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local ImageWidget = require("ui/widget/imagewidget")
@@ -19,6 +21,9 @@ local ReaderThemes = require("common/reader_themes")
 local ScrollHtmlWidget = require("ui/widget/scrollhtmlwidget")
 local Size = require("ui/size")
 local TopMenu = require("modules/global/patches/menu_top_swipe")
+local FT = require("ffi/freetype")
+local ffi = require("ffi")
+local Mupdf = require("ffi/mupdf")
 local UIManager = require("ui/uimanager")
 local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
@@ -30,6 +35,28 @@ local Screen = Device.screen
 local utils = require("common/utils")
 local icons_dir = require("common/plugin_root") .. "/icons/"
 local stock_icons_dir = require("libs/libkoreader-lfs").currentdir() .. "/resources/icons/mdlight/"
+
+-- Maps a color channel through crengine's weight and gamma curves on text coverage; other values pass through.
+local function coverageMap(background, foreground, gamma, edge_shift)
+    local map = ffi.new("uint8_t[256]")
+    local range = foreground - background
+    for value = 0, 255 do
+        local coverage = (value - background) / range
+        map[value] = coverage > 0 and coverage < 1 and math.floor(background + range
+            * (1 - (1 - math.max(0, math.min(1, coverage + edge_shift))) ^ gamma) + 0.5) or value
+    end
+    return map
+end
+
+-- crengine's 100% line spacing is the font's own line height; stock Noto Sans keeps its 1.3.
+local function naturalLineHeight(path, font_size)
+    if not path then return 1.3 end
+    local ok, size = pcall(FT.newFaceSize, path, font_size)
+    if not ok or not size then return 1.3 end
+    local height = size:getHeightAndAscender()
+    size:done()
+    return height / font_size
+end
 
 local PinImage = ImageWidget:extend{ alpha = true }
 function PinImage:_render()
@@ -44,10 +71,30 @@ function PinImage:_render()
     self._offset_y = math.floor(self.center_y_ratio * self._bb_h - self.height / 2)
 end
 
-function PinImage:panBy(x, y)
-    local center_x, center_y = ImageWidget.panBy(self, x, y)
-    self.drawer:saveImageSettings()
-    return center_x, center_y
+-- Live drags repaint only the drawer with "fast"; the final call settles with a dithered refresh and saves.
+function PinImage:panBy(x, y, live)
+    if not self._bb then return end
+    local max_x, max_y = self._max_off_center_x_ratio, self._max_off_center_y_ratio
+    self.center_x_ratio = math.max(0.5 - max_x, math.min((x + self._offset_x + self.width / 2) / self._bb_w, 0.5 + max_x))
+    self.center_y_ratio = math.max(0.5 - max_y, math.min((y + self._offset_y + self.height / 2) / self._bb_h, 0.5 + max_y))
+    local offset_x = math.floor(self.center_x_ratio * self._bb_w - self.width / 2 + 0.5) -- Round: float ratios must not drift.
+    local offset_y = math.floor(self.center_y_ratio * self._bb_h - self.height / 2 + 0.5)
+    if offset_x ~= self._offset_x or offset_y ~= self._offset_y or (not live and self.live_moved) then
+        self._offset_x, self._offset_y, self.live_moved = offset_x, offset_y, live
+        local drawer = self.drawer
+        if live then
+            -- Only the image changes: skip repainting the page under the translucent drawer, and its shadow.
+            local alpha = rawget(drawer, "alpha") -- Usually nil: the class default applies.
+            drawer.alpha, drawer.image_only = false, true
+            UIManager:setDirty(drawer, "fast", self.dimen)
+            drawer.alpha = alpha
+        else
+            -- GC16 flash: "flashui" maps to REAGL on some Kindles, which leaves the fast-refresh ghosting.
+            UIManager:setDirty(drawer, "full", self.dimen, true)
+        end
+    end
+    if not live then self.drawer:saveImageSettings() end
+    return self.center_x_ratio, self.center_y_ratio
 end
 
 function PinImage:paintTo(bb, x, y)
@@ -99,7 +146,7 @@ end
 
 local Drawer = FocusManager:extend{
     name = "zen_reference_drawer", covers_footer = true, disable_double_tap = true,
-    alpha = 0.3, -- Repaint the background before blending the shadow.
+    alpha = BottomSheet.alpha,
 }
 
 function Drawer:new(spec)
@@ -116,8 +163,9 @@ function Drawer:init()
     if state.drawer then state.drawer:onClose() end
     self.dimen = Screen:getSize()
     self.landscape = self.dimen.w > self.dimen.h
-    self.side_margin = self.footnote and Screen:scaleBySize(8) or 0
-    self.width = (self.landscape and math.floor(self.dimen.w / 2) or self.dimen.w) - 2 * self.side_margin
+    local margin
+    margin, self.width = BottomSheet.dock(self.dimen.w, self.dimen.h)
+    self.side_margin = self.footnote and margin or 0
     self.height = self.landscape and self.dimen.h or math.floor(self.dimen.h * 0.4)
     if not self.footnote then
         self.width, self.height = math.floor(self.dimen.w * 0.7), math.floor(self.dimen.h * 0.7)
@@ -130,7 +178,6 @@ function Drawer:init()
     self.top_padding = Screen:scaleBySize(self.footnote and 16 or 4)
     self.bottom_padding = Screen:scaleBySize(self.footnote and 8 or 2)
     self.border_size = Screen:scaleBySize(2)
-    self.shadow_size = Screen:scaleBySize(4)
     self.background = ReaderThemes.getBackgroundColor(self.plugin)
     if not self.background then
         local color = G_reader_settings:readSetting("cre_background_color")
@@ -149,8 +196,17 @@ function Drawer:init()
         local scroll_bar, scroll_span = Screen:scaleBySize(4), Screen:scaleBySize(4)
         -- Replace stock doc-aligned left margin so both text edges sit equally inset.
         local inset = Screen:scaleBySize(14)
-        local base_css = source.css .. string.format("\n@page { margin: 0 %dpx 0 %dpx; }",
-            inset - self.right_padding - scroll_bar - scroll_span, inset - self.padding)
+        local font_path, font_root
+        local source_css = source.css:gsub("(KOReaderFootnoteFont'; src: url%(')(.-)('%))", function(open, path, close)
+            font_path = font_path or path
+            font_root, path = utils.htmlFontRoot(path, font_root)
+            return open .. path .. close
+        end)
+        local line_height = naturalLineHeight(font_path, source.default_font_size)
+            * (self.ui.document.configurable.line_spacing or 100) / 100
+        local base_css = source_css .. string.format(
+            "\n@page { margin: 0 %dpx 0 %dpx; }\nbody { line-height: %.3f !important; }",
+            inset - self.right_padding - scroll_bar - scroll_span, inset - self.padding, line_height)
         local css = base_css .. string.format(
             "\n@page { background-color: %s; }\nhtml, body { background-color: %s !important; }"
                 .. "\nbody, body * { color: #%02x%02x%02x !important; }",
@@ -159,6 +215,7 @@ function Drawer:init()
         self.htmlwidget = ScrollHtmlWidget:new{
             html_body = source.html_body, is_xhtml = source.is_xhtml, css = base_css,
             default_font_size = source.default_font_size,
+            html_resource_directory = font_root,
             width = self.body_width, height = self.body_height,
             scroll_bar_width = scroll_bar, text_scroll_span = scroll_span,
             dialog = self, highlight_text_selection = source.highlight_text_selection,
@@ -166,8 +223,8 @@ function Drawer:init()
         -- A painted page background fills MuPDF's bounding box, so measure first.
         local short = not self.landscape and self.htmlwidget:getSinglePageHeight()
         if short then
-            -- Used bbox stops at glyph ink; pad for last-line descent so relayout stays one page.
-            short = short + math.ceil(source.default_font_size * 0.5)
+            -- Used bbox stops at glyph ink; pad for last-line descent and half-leading so relayout stays one page.
+            short = short + math.ceil(source.default_font_size * (line_height / 2 - 0.1))
             self.height = math.min(self.height,
                 math.max(math.ceil(2 * source.default_font_size * 1.3), short) + vertical_inset)
             self.body_height = self.height - vertical_inset
@@ -178,11 +235,13 @@ function Drawer:init()
             self.htmlwidget.css = css
             self.htmlwidget:init()
         end
+        self:matchReaderGlyphs(source.default_font_size)
         self.htmlwidget.v_scroll_bar.bordercolor = self.foreground
         self.htmlwidget.v_scroll_bar.rectcolor = self.foreground
         self.htmlwidget.onTapScrollText = function() return false end
         if state.footnote and state.footnote.xpointer == self.link.xpointer and state.ratio then
-            self.htmlwidget:scrollToRatio(state.ratio)
+            -- Aim mid-page: flooring count * ratio can land a page early from float rounding.
+            self.htmlwidget:scrollToRatio(state.ratio + 0.5 / self.htmlwidget.htmlbox_widget.page_count)
         else state.ratio = nil end
         local link = {}
         for key, value in pairs(self.link) do link[key] = value end
@@ -201,15 +260,23 @@ function Drawer:init()
     self.ges_events.EdgeSwipe = { GestureRange:new{ ges = "swipe",
         range = function() return Geom:new{ x = self.frame.dimen.x, y = self.frame.dimen.y,
             w = self.frame.dimen.w, h = self.top_padding + self.border_size } end } }
-    for _i, name in ipairs({ "Swipe", "Pan", "PanRelease", "Pinch", "Spread" }) do
-        local gesture = ({ Swipe = "swipe", Pan = "pan", PanRelease = "pan_release",
+    for _i, name in ipairs({ "Swipe", "MultiSwipe", "Pan", "PanRelease", "Pinch", "Spread" }) do
+        local gesture = ({ Swipe = "swipe", MultiSwipe = "multiswipe", Pan = "pan", PanRelease = "pan_release",
             Pinch = "pinch", Spread = "spread" })[name]
         self.ges_events[name] = { GestureRange:new{ ges = gesture,
             range = function() return self.content.dimen end } }
     end
-    if not self.footnote then self.ges_events.Swipe[1].range = self.dimen end
-    self.ges_events.PanRelease[1].range = self.dimen -- Finish drags released outside the preview.
-    if self.footnote and self.footnote.ges_events then
+    if not self.footnote then
+        self.ges_events.Swipe[1].range = self.dimen
+        self.ges_events.MultiSwipe[1].range = self.dimen
+    end
+    -- Releases anywhere on screen settle drags that left the preview; the handlers ignore releases without a drag.
+    self.ges_events.PanRelease[1].range = nil
+    if not self.footnote then
+        self.ges_events.Hold = { GestureRange:new{ ges = "hold", range = function() return self.content.dimen end } }
+        self.ges_events.HoldPan = { GestureRange:new{ ges = "hold_pan", range = self.dimen } }
+        self.ges_events.HoldRelease = { GestureRange:new{ ges = "hold_release" } }
+    elseif self.footnote.ges_events then
         for _i, name in ipairs({ "HoldStartText", "HoldPanText", "HoldReleaseText" }) do
             self.ges_events[name] = self.footnote.ges_events[name]
         end
@@ -220,6 +287,44 @@ function Drawer:init()
         self.tap_guard_until = time.now() + time.ms(G_reader_settings:readSetting("ges_double_tap_interval_ms") or 300)
     end
     state.drawer = self
+end
+
+-- MuPDF has no glyph gamma or synthetic weight, so apply them to each rendered page.
+function Drawer:matchReaderGlyphs(font_size)
+    local document = self.ui.document
+    local gamma = document:getGammaLevel()
+    -- crengine thickens stems by font_size * weight / 64 in total, half per edge.
+    local edge_shift = font_size * (document.configurable.font_base_weight or 0) / 128
+    if gamma == 1 and edge_shift == 0 then return end
+    local background, foreground = self.background, self.foreground
+    local maps
+    if Screen:isColorEnabled() then
+        maps = {
+            coverageMap(background:getR(), foreground:getR(), gamma, edge_shift),
+            coverageMap(background:getG(), foreground:getG(), gamma, edge_shift),
+            coverageMap(background:getB(), foreground:getB(), gamma, edge_shift),
+        }
+        if Mupdf.bgr then maps[1], maps[3] = maps[3], maps[1] end
+    else
+        maps = { coverageMap(background:getColor8().a, foreground:getColor8().a, gamma, edge_shift) }
+    end
+    local box = self.htmlwidget.htmlbox_widget
+    local render = box._render
+    box._render = function(widget)
+        if widget.bb then return end
+        render(widget)
+        local bb = widget.bb
+        local data, step, channels = ffi.cast("uint8_t*", bb.data), bb:getBytesPerPixel(), #maps
+        for y = 0, bb.h - 1 do
+            local pixel = data + y * bb.stride
+            for _x = 1, bb.w do
+                for channel = 1, channels do
+                    pixel[channel - 1] = maps[channel][pixel[channel - 1]]
+                end
+                pixel = pixel + step
+            end
+        end
+    end
 end
 
 function Drawer:button(text, callback, width, icon, rotation, align, padding)
@@ -273,8 +378,12 @@ function Drawer:buildLayout()
             self.zoom_button = self:button(nil, function() self:zoom(nil, not self.full_image) end, self.bar_height,
                 utils.resolveLocalIcon(icons_dir, self.full_image and "fullscreen_exit" or "fullscreen"))
         end
-        local buttons_width = self.bar_height * (self.zoom_button and 2 or 1)
-            + (self.zoom_button and self.padding or 0)
+        self.close_button = self:button(nil, function() self:onClose() end, self.bar_height,
+            utils.resolveLocalIcon(stock_icons_dir, "chevron.up"), 180)
+        local right = { self.zoom_button, self.close_button }
+        if not self.zoom_button then table.remove(right, 1) end
+        local menu_gap = self.full_image and self.padding or 0 -- Bordered pills need a gap.
+        local buttons_width = self.bar_height * (#right + 1) + self.padding * (#right - 1) + menu_gap
         local left_span = math.floor((self.body_width - buttons_width - self.padding + self.right_padding) / 2)
         self.page_button = self:button(T(_("Page %1"), References.pageLabel(self.ui, self.page)),
             function() self:onExpand() end, left_span, nil, nil, "left")
@@ -292,16 +401,16 @@ function Drawer:buildLayout()
         self.page_button.dimen.w = left_span
         self.page_button.label_container.dimen.w = left_span - 2 * self.page_button.padding_h
         table.insert(contents, 1, VerticalSpan:new{ width = self.header_gap })
-        local header = { allow_mirroring = false,
-            self.page_button,
-            HorizontalSpan:new{ width = self.body_width - left_span - buttons_width - (self.padding - self.right_padding) },
-            self.menu_button, HorizontalSpan:new{ width = self.padding - self.right_padding } }
+        -- Page, menu | zoom, close.
+        local header = { allow_mirroring = false, self.page_button, HorizontalSpan:new{ width = menu_gap }, self.menu_button,
+            HorizontalSpan:new{ width = self.body_width - left_span - buttons_width - (self.padding - self.right_padding) } }
         self.layout = {{ self.page_button, self.menu_button }, { self.content }}
-        if self.zoom_button then
-            table.insert(header, 3, HorizontalSpan:new{ width = self.padding })
-            table.insert(header, 3, self.zoom_button)
-            table.insert(self.layout[1], 2, self.zoom_button)
+        for i, button in ipairs(right) do
+            if i > 1 then header[#header + 1] = HorizontalSpan:new{ width = self.padding } end
+            header[#header + 1] = button
+            table.insert(self.layout[1], button)
         end
+        header[#header + 1] = HorizontalSpan:new{ width = self.padding - self.right_padding }
         table.insert(contents, 1, HorizontalGroup:new(header))
         if self.pager_height > 0 then
             self.pager = PinPager:new{ drawer = self,
@@ -352,38 +461,80 @@ function Drawer:buildLayout()
                 or (not self.footnote or self.landscape) and self.dimen.w - self.width - self.side_margin or self.side_margin,
             self.footnote and self.landscape and 0 or self.dimen.h - self.height }, contents,
     }
-    local size = self.frame:getSize()
-    self.refresh_dimen = Geom:new{
-        x = self.frame.overlap_offset[1] - self.shadow_size,
-        y = self.frame.overlap_offset[2] - self.shadow_size,
-        w = size.w + 2 * self.shadow_size,
-        h = self.frame.height + 2 * self.shadow_size,
-    }:intersect(self.dimen)
+    self.refresh_dimen = BottomSheet.refreshArea(self.frame.overlap_offset[1], self.frame.overlap_offset[2],
+        self.frame:getSize().w, self.frame.height)
     self[1] = OverlapGroup:new{ dimen = self.dimen, allow_mirroring = false, self.frame }
 end
 
 function Drawer:paintTo(bb, x, y)
-    local frame, shadow, opacity = self.frame, self.shadow_size, self.alpha
-    local width, height = frame:getSize().w, frame.height
-    local radius = frame.radius + frame.bordersize
-    local fx, fy = x + frame.overlap_offset[1], y + frame.overlap_offset[2]
-    local shade = Screen.night_mode and bb.lightenRect or bb.darkenRect
-    -- Blend only the narrow perimeter; the opaque frame covers the inner corner pixels.
-    shade(bb, fx + radius, fy - shadow, width - 2 * radius, shadow, opacity)
-    shade(bb, fx + radius, fy + height, width - 2 * radius, shadow, opacity)
-    shade(bb, fx - shadow, fy + radius, shadow, height - 2 * radius, opacity)
-    shade(bb, fx + width, fy + radius, shadow, height - 2 * radius, opacity)
-    local outer_radius = radius + shadow
-    for row = 0, outer_radius - 1 do
-        local dy = outer_radius - row - 0.5
-        local cut = math.ceil(outer_radius - math.sqrt(outer_radius * outer_radius - dy * dy))
-        local span = outer_radius - cut
-        shade(bb, fx - shadow + cut, fy - shadow + row, span, 1, opacity)
-        shade(bb, fx + width - radius, fy - shadow + row, span, 1, opacity)
-        shade(bb, fx - shadow + cut, fy + height + shadow - row - 1, span, 1, opacity)
-        shade(bb, fx + width - radius, fy + height + shadow - row - 1, span, 1, opacity)
+    if self.image_only then
+        self.image_only = nil
+        FocusManager.paintTo(self, bb, x, y)
+        return self:paintMinimap(bb)
     end
+    local frame = self.frame
+    BottomSheet.paintShadow(bb, x + frame.overlap_offset[1], y + frame.overlap_offset[2],
+        frame:getSize().w, frame.height, frame.radius + frame.bordersize)
     FocusManager.paintTo(self, bb, x, y)
+    self:paintMinimap(bb)
+end
+
+-- Per-row {left, right} corner insets traced from KOReader's own rounded rect, so corners match the drawer frame.
+local corner_cuts = {}
+local function cornerCuts(radius)
+    if corner_cuts[radius] then return corner_cuts[radius] end
+    local size = 2 * radius
+    local mask = Blitbuffer.new(size, size, Blitbuffer.TYPE_BB8)
+    mask:fill(Blitbuffer.COLOR_BLACK)
+    mask:paintRoundedRect(0, 0, size, size, Blitbuffer.COLOR_WHITE, radius)
+    local cuts = {}
+    for row = 0, size - 1 do
+        local left, right = 0, 0
+        while left < radius and mask:getPixel(left, row).a == 0 do left = left + 1 end
+        while right < radius and mask:getPixel(size - 1 - right, row).a == 0 do right = right + 1 end
+        cuts[row] = { left, right }
+    end
+    mask:free()
+    corner_cuts[radius] = cuts
+    return cuts
+end
+
+-- Fill a rounded rect via fill(x, y, w, h): trimmed corner rows, then the middle band at once.
+local function fillRounded(fill, x, y, w, h, radius)
+    radius = math.min(radius, math.floor(math.min(w, h) / 2))
+    if radius < 1 then return fill(x, y, w, h) end
+    local cuts = cornerCuts(radius)
+    for row = 0, radius - 1 do
+        local top, bottom = cuts[row], cuts[2 * radius - 1 - row]
+        fill(x + top[1], y + row, w - top[1] - top[2], 1)
+        fill(x + bottom[1], y + h - row - 1, w - bottom[1] - bottom[2], 1)
+    end
+    fill(x, y + radius, w, h - 2 * radius)
+end
+
+-- Bottom-left overview of an overflowing image: gray image area, light box for the visible viewport.
+function Drawer:paintMinimap(bb)
+    self.minimap = nil
+    local image = not self.htmlwidget and self.plugin.config.reader_pins.minimap and self.content
+    if not (image and image._bb and image.dimen) then return end
+    local bb_w, bb_h, view_w, view_h = image._bb_w, image._bb_h, image.width, image.height
+    if bb_w <= view_w and bb_h <= view_h then return end
+    local ratio = Screen:scaleBySize(56) / math.max(bb_w, bb_h)
+    local w, h = math.max(1, math.floor(bb_w * ratio + 0.5)), math.max(1, math.floor(bb_h * ratio + 0.5))
+    local bottom = image.dimen.y + image.dimen.h
+    if self.pager and self.pager.dimen and self.pager.dimen.y < bottom then bottom = self.pager.dimen.y end
+    local gap = Screen:scaleBySize(4)
+    local x, y = math.max(image.dimen.x, 0) + gap, bottom - gap - h
+    local x0, y0 = math.max(0, image._offset_x), math.max(0, image._offset_y)
+    local x1, y1 = math.min(bb_w, image._offset_x + view_w), math.min(bb_h, image._offset_y + view_h)
+    local view = Geom:new{ x = x + math.floor(x0 * ratio), y = y + math.floor(y0 * ratio),
+        w = math.max(1, math.ceil((x1 - x0) * ratio)), h = math.max(1, math.ceil((y1 - y0) * ratio)) }
+    self.minimap = { dimen = Geom:new{ x = x, y = y, w = w, h = h }, view = view, ratio = ratio }
+    local radius = Size.radius.default
+    local darken, lighten = bb.darkenRect, bb.lightenRect
+    if Screen.night_mode then darken, lighten = lighten, darken end
+    fillRounded(function(rx, ry, rw, rh) darken(bb, rx, ry, rw, rh, 0.45) end, x, y, w, h, radius)
+    fillRounded(function(rx, ry, rw, rh) lighten(bb, rx, ry, rw, rh, 0.6) end, view.x, view.y, view.w, view.h, radius)
 end
 
 function Drawer:onEdgeSwipe(_arg, ges)
@@ -413,11 +564,12 @@ function Drawer:renderPage()
     self.full_image = nil
     local image = self.pins[self.pin_index].image
     if self.ui.rolling and not image then
-        local html, css, size = require("modules/reader/pin_settings").content(
+        local html, css, size, font_root = require("modules/reader/pin_settings").content(
             self.ui, self.page, self.plugin.config.reader_pins, self.background, self.foreground)
         if html then
             self.htmlwidget = ScrollHtmlWidget:new{
                 html_body = html, css = css, is_xhtml = true, default_font_size = size,
+                html_resource_directory = font_root,
                 width = self.body_width, height = self.body_height, dialog = self,
                 scroll_bar_width = Screen:scaleBySize(4), text_scroll_span = Screen:scaleBySize(4),
             }
@@ -499,17 +651,52 @@ function Drawer:onSpread() return self:zoom(1.25) end
 function Drawer:onPinch() return self:zoom(0.8) end
 
 function Drawer:onPan(_arg, ges)
-    self.pan = ges.relative
+    if self.htmlwidget or self.scale <= self.fit_scale then
+        self.pan = ges.relative
+        return true
+    end
+    -- ges.relative is cumulative from touch start; apply only the delta since the last event.
+    local last = self.live_pan
+    if not last then
+        last = { x = 0, y = 0 }
+        -- Drags starting on the minimap move its viewport box, so the image pans the other way, scaled up.
+        self.minimap_drag = self.minimap and self.minimap.dimen:contains(ges.start_pos or ges.pos) and self.minimap.ratio
+    end
+    local scale = self.minimap_drag and -1 / self.minimap_drag or 1
+    self.content:panBy((last.x - ges.relative.x) * scale, (last.y - ges.relative.y) * scale, true)
+    self.live_pan = ges.relative
     return true
 end
 
 function Drawer:onPanRelease()
-    if not self.htmlwidget and self.pan then self.content:panBy(-self.pan.x, -self.pan.y) end
-    self.pan = nil
+    if not (self.live_pan or self.pan) then return false end
+    if self.live_pan then
+        self.content:panBy(0, 0)
+    elseif not self.htmlwidget and self.pan then
+        self.content:panBy(-self.pan.x, -self.pan.y)
+    end
+    self.pan, self.live_pan, self.minimap_drag = nil, nil, nil
+    return true
+end
+
+function Drawer:onHold()
+    if self.htmlwidget then return false end
+    self.holding = true
+    return true
+end
+function Drawer:onHoldPan(arg, ges)
+    if not self.holding then return false end
+    return self:onPan(arg, ges)
+end
+function Drawer:onHoldRelease()
+    if not self.holding then return false end
+    self.holding = nil
+    self:onPanRelease()
     return true
 end
 
 function Drawer:onSwipe(_arg, ges)
+    if self.live_pan then return self:onPanRelease() end -- Quick drag lifted as a swipe: already moved live.
     if not self.frame.dimen:contains(ges.pos) then return TopMenu.handleSwipe(ges) end
     if not self.footnote and ges.direction == "south"
             and ges.pos.y < self.frame.dimen.y + self.frame.dimen.h * 0.07 then
@@ -532,6 +719,8 @@ function Drawer:onSwipe(_arg, ges)
     end
     return true
 end
+-- Drags that bend arrive as multiswipe; unhandled, they skip the settle and reach the reader's gestures.
+Drawer.onMultiSwipe = Drawer.onSwipe
 
 function Drawer:onTapClose(_arg, ges)
     if self.tap_guard_until and time.now() < self.tap_guard_until then return true end
@@ -544,26 +733,52 @@ function Drawer:onTapClose(_arg, ges)
         return self:changePage(ges.pos.x < dimen.x + dimen.w / 2 and -1 or 1)
     end
     if self.content.dimen:contains(ges.pos) then
-        if self.footnote then return self:onExpand() end
+        if self.footnote then return self:followLink(ges) or self:onExpand() end
         if not self.htmlwidget then self:showImage() end
     end
     return true
 end
 
+-- Links inside a footnote act as on the page; a footnote target replaces this sheet.
+function Drawer:followLink(ges)
+    if G_reader_settings:isFalse("tap_to_follow_links") then return end
+    local html = self.htmlwidget.htmlbox_widget
+    local pos = html:getPosFromAbsPos(ges.pos)
+    local uri = pos and (html:getLinkByPosition(pos) or {}).uri
+    if not uri or uri == "" then return end
+    -- Footnote start stands in for the untracked source anchor.
+    self.ui.link:onGotoLink({ xpointer = uri, a_xpointer = self.link.xpointer }, false,
+        G_reader_settings:isTrue("footnote_link_in_popup"))
+    if not self.closed then self:onClose() end
+    return true
+end
+
 function Drawer:showImage()
     local viewer = require("ui/widget/imageviewer"):new{
-        image = self.preview.bb, image_disposable = false, fullscreen = true, with_title_bar = false,
+        -- Own copy: rotation closes the drawer and frees preview.bb under the viewer.
+        image = self.preview.bb:copy(), image_disposable = true, fullscreen = true, with_title_bar = false,
     }
     viewer.onTap = function(image_viewer) image_viewer:onClose(); return true end
     UIManager:show(viewer)
 end
 
 function Drawer:onExpand()
-    if self.footnote then self.footnote.follow_callback(); return true end
-    if self.page == self.ui:getCurrentPage() then return true end
-    self:onClose()
-    self.ui.link:addCurrentLocationToStack()
-    self.ui:handleEvent(Event:new("GotoPage", self.page))
+    local footnote = self.footnote
+    local page = footnote and self.ui.document:getPageFromXPointer(self.link.xpointer) or self.page
+    if page == self.ui:getCurrentPage() then
+        if footnote then footnote.follow_callback() end
+        return true
+    end
+    UIManager:show(require("ui/widget/confirmbox"):new{
+        text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+        ok_text = _("Yes"), cancel_text = _("No"),
+        ok_callback = function()
+            if footnote then return footnote.follow_callback() end
+            self:onClose()
+            self.ui.link:addCurrentLocationToStack()
+            self.ui:handleEvent(Event:new("GotoPage", page))
+        end,
+    })
     return true
 end
 
@@ -615,19 +830,19 @@ function Drawer:showMenu()
     local dialog
     local rows = {}
     local function add(item)
-        rows[#rows + 1] = {{ text = item.text, enabled = item.enabled,
+        rows[#rows + 1] = {{ text = item.text, icon = item.icon, enabled = item.enabled,
             checked_func = item.checked_func, callback = function()
                 UIManager:close(dialog)
                 item.callback()
             end }}
     end
-    add{ text = _("Remove pin"), callback = function()
+    add{ text = _("Remove pin"), icon = utils.resolveIcon(icons_dir, "pin_remove"), callback = function()
         References.setPin(self.ui, self.page, true)
         local index = self.pin_index
         self:onClose()
         References.openPinned(self.ui, index)
     end }
-    add{ text = _("Settings"), callback = function()
+    add{ text = _("Settings"), icon = GlyphIcons.iconPath(GlyphIcons.SVG.settings), callback = function()
         self:onClose()
         require("modules/settings/zen_settings_page").show(self.plugin, {
             path = { { key = "text", value = _("Reader") },

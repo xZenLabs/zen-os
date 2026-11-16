@@ -501,9 +501,11 @@ describe("shared folder cover provider", function()
             ["/library/folder/a.epub"] = "complete",
             ["/library/folder/b.epub"] = "complete",
         }
+        local revision = 0
         ZenSpec.replace("common/book_status", {
             getEffectiveStatus = function(status) return status end,
             getEffectiveStatusFromFile = function(path) return statuses[path] end,
+            revision = function() return revision end,
         })
         install_lfs(function()
             return { { name = "a.epub" }, { name = "b.epub" } }
@@ -518,6 +520,8 @@ describe("shared folder cover provider", function()
         assert.is_true(FolderCover.allBooksFinished({}, entry, preview, 2))
 
         statuses["/library/folder/b.epub"] = "reading"
+        assert.is_true(FolderCover.allBooksFinished({}, entry, preview, 2)) -- cached until a status change is seen
+        revision = revision + 1
         assert.is_false(FolderCover.allBooksFinished({}, entry, preview, 2))
         assert.is_false(FolderCover.allBooksFinished({}, entry, {}, 0))
     end)

@@ -1,8 +1,5 @@
-local function apply_metadata_editor()
-    local BookInfo = require("apps/filemanager/filemanagerbookinfo")
-    if BookInfo._zen_metadata_editor_patched then return end
-    BookInfo._zen_metadata_editor_patched = true
-
+-- Builds the Book Info editor on first use; keeps the 1k-line editor off the boot path.
+local function build_show_from_book_details()
     local Editor = require("modules/filebrowser/metadata_editor")
     local Service = require("modules/filebrowser/metadata/service")
     local HardcoverStore = require("config/hardcover_token")
@@ -712,6 +709,14 @@ local function apply_metadata_editor()
                     or _("No metadata providers are available. Open settings?"))
             return
         end
+        local NetworkMgr = require("ui/network/manager")
+        if not NetworkMgr:isConnected() then
+            -- Prompt for Wi-Fi, then rerun once connected.
+            NetworkMgr:runWhenConnected(function()
+                start_hardcover_search(editor, draft, query, cover_only, replace_callback, only_key)
+            end)
+            return
+        end
         local auto_pick = metadata_config().hardcover_auto_match ~= false
         local explicit_query = query ~= nil
         query = query or draft
@@ -984,7 +989,7 @@ local function apply_metadata_editor()
         start_hardcover_search(editor, draft, nil, nil, nil, only_key)
     end
 
-    function BookInfo:showFromBookDetails(doc_settings_or_file, book_props, options)
+    local function showFromBookDetails(self, doc_settings_or_file, book_props, options)
         options = type(options) == "table" and options or {}
         local file = resolve_file(doc_settings_or_file)
         local draft, load_err = call_service("load", file)
@@ -1220,6 +1225,19 @@ local function apply_metadata_editor()
             on_back = options.back_callback,
             on_close_all = options.close_parent_callback,
         }
+    end
+    return showFromBookDetails
+end
+
+local function apply_metadata_editor()
+    local BookInfo = require("apps/filemanager/filemanagerbookinfo")
+    if BookInfo._zen_metadata_editor_patched then return end
+    BookInfo._zen_metadata_editor_patched = true
+
+    local impl
+    function BookInfo:showFromBookDetails(...)
+        impl = impl or build_show_from_book_details()
+        return impl(self, ...)
     end
 end
 

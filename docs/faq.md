@@ -6,48 +6,52 @@ settingsPath: ''
 order: 6
 ---
 
-<!-- Documentation current through ZenOS v3.3.0. -->
+<!-- Documentation current through ZenOS v4.3.0. -->
 
 ## How do I install ZenOS?
 
-See the [Installation](/zen-os/docs/installation) guide for full installation instructions.
+See [Installation](/zen-os/docs/installation).
 
-## ZenOS is not starting and doesn't show in the Plugins list
+## ZenOS isn't starting or showing in the plugins list
 
-Make sure you downloaded the [release](https://github.com/xZenLabs/zen-os/releases) and did not leave a second folder inside `zenos.koplugin`. The installed `zenos.koplugin` folder must contain `main.lua` and the other ZenOS code files directly, not another nested `zenos.koplugin` folder.
+Most likely a nested folder. Inside `zenos.koplugin` you should see `main.lua` right away, not another `zenos.koplugin` folder. Make sure you grabbed the zip from [Releases](https://github.com/xZenLabs/zen-os/releases).
 
 ![zenos.koplugin folder inside the KOReader plugins directory](/images/zen_os/plugins_folder.webp)
 
-## How do I access the reader menu?
+## How do I get to the reader menu?
 
-Swipe up while in a book, then tap the **Aa** icon.
+Swipe up in a book, then tap **Aa**.
 
 ![Page browser menu](/images/zen_os/page_browser_menu.webp)
 
 ## No books found
 
-Set the Home folder to the location where your books are, preferably a dedicated folder such as `/books`, under **Zen Settings > Library > Folders > Home folder > Set home folder**. Sideloaded books must use an open, DRM-free format such as EPUB or PDF. ZenOS cannot natively open books delivered through Amazon Send to Kindle or Kindle formats such as KFX and AZW3. On Kindle devices, you can install [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) to access books books from the native Kindle library.
+Point your home folder at where your books are (a dedicated `/books` folder works best): **Zen Settings > Library > Folders > Home folder > Set home folder**.
 
-## How do I open my native Kindle library?
+Books need to be DRM-free, like EPUB or PDF. Kindle formats (KFX, AZW3) and Send to Kindle books won't open directly. On Kindle, install [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) to get at those.
 
-Install [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) on a Kindle device and restart KOReader. **Kindle Library** then becomes available as a Navbar tab and Home Book strip source. The plugin prepares a book on its first open and caches it for later use.
+## How do I open my Kindle library?
 
-## Calibre loads all my books into folders of the authors, how can I fix that?
+Install [kindle.koplugin](https://github.com/kaikozlov/kindle.koplugin) and restart. **Kindle Library** then shows up as a Navbar tab and a Home Book strip source. The first open of each book takes a moment while it's prepared.
 
-Enable the setting **Zen Settings > Library > Books > Show all files from subfolders**.
+## Calibre put all my books in author folders
 
-## Which plugins and patches are incompatible with ZenOS?
+Turn on **Zen Settings > Library > Books > Show all files from subfolders**.
 
-Most patches not made specifically for ZenOS should not be used. Remove or disable them to avoid any conflicts.
+## How do I browse the whole filesystem?
 
-Disable each item before using ZenOS unless its action is **Remove**; those plugins must be deleted from KOReader's plugins folder.
+Set **Zen Settings > Library > Folders > Home folder > Lock home folder** to **Off**.
 
-| Plugin | Action |
+## Which plugins and patches conflict with ZenOS?
+
+Most patches not made for ZenOS will cause trouble, so remove them. These plugins also conflict:
+
+| Plugin | What to do |
 | --- | --- |
 | Project: Title | Remove |
+| QuickMenu | Remove |
 | Simple UI | Disable |
 | Visual Overhaul Suite (VOS) | Disable |
-| QuickMenu | Remove |
 | Appearance | Disable |
 | Burrow | Disable |
 | QuickUI | Disable |
@@ -55,5 +59,4 @@ Disable each item before using ZenOS unless its action is **Remove**; those plug
 | Shortcuts Toolbar | Disable |
 | Neo QuickSettings | Disable |
 
-## How do I navigate the entire filesystem?
-Set **Zen Settings > Library > Folders > Home folder > Lock home folder** to **Off**.
+ZenOS disables most of these for you on first launch and asks to restart.

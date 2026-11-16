@@ -375,6 +375,8 @@ local function recent_series(config)
     return config.rakuyomi.recent_series
 end
 
+local RECENT_SERIES_MAX = 50
+
 local function remember_recent_series(manga, chapter, file, timestamp)
     if type(manga) ~= "table" or type(manga.source) ~= "table"
             or type(manga.source.id) ~= "string" or type(manga.id) ~= "string"
@@ -403,6 +405,8 @@ local function remember_recent_series(manga, chapter, file, timestamp)
         metadata = previous_metadata,
     }
     table.insert(series, 1, recent)
+    -- Bounded: the whole list is rewritten with every config save.
+    for index = #series, RECENT_SERIES_MAX + 1, -1 do series[index] = nil end
     return recent
 end
 

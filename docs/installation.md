@@ -6,54 +6,18 @@ settingsPath: ''
 order: 5
 ---
 
-<!-- Documentation current through ZenOS v3.3.0. -->
+<!-- Documentation current through ZenOS v4.3.0. -->
 
-![zenos.koplugin folder inside the KOReader plugins directory](/images/zen_os/plugins_folder.webp)
+## Before you start
 
-## Prerequisites
-
-- KOReader 2026.03 or later must be installed first. ZenOS is tested against KOReader 2026.07 and compatibility-tested against 2026.03. [Install KOReader](https://github.com/koreader/koreader#installation)
-- Disable or remove Project: Title before starting ZenOS. ZenOS automatically disables Simple UI, QuickMenu, Appearance, etc and known conflicting user patches, then asks you to restart KOReader.
-
-## Migrating from Project Title
-
-If you previously used [Project Title](https://github.com/joshuacant/ProjectTitle), keep reading. Otherwise skip to the [Install](#install) section.
-
- If you have Project Title installed, you must disable or remove it before using ZenOS. Both plugins patch the Cover Browser, and having both active at the same time will cause conflicts.
-
-Choose one of the following:
-
-- **Remove it** — Delete the `projecttitle.koplugin` folder from your KOReader plugins directory.
-- **Disable it** — Rename the folder to `projecttitle.koplugin.disabled`. KOReader will ignore it on next launch.
-
-After disabling or removing Project Title, restart KOReader and ZenOS will load cleanly.
+- Install [KOReader](https://github.com/koreader/koreader#installation) 2026.03 or newer. ZenOS is tested on 2026.07.
+- Remove or disable **Project: Title** (see below). ZenOS handles the other conflicting plugins for you.
 
 ## Install
 
-Already using Zen UI? Update from its settings page instead of copying ZenOS
-beside it. The updater preserves your settings and completes the rename after
-restarting KOReader.
-
-The migration performs two automatic restarts. It keeps `koreader/settings/Zen UI` as an
-unchanged rollback snapshot and migrates a separate copy to `koreader/settings/ZenOS`.
-If Zen UI is disabled, enable it once so the migration can run. Do not manually
-install `zenos.koplugin` beside an existing `zen_ui.koplugin` directory.
-
-For a fresh installation:
-
-1. Go to the [Releases](https://github.com/xZenLabs/zen-os/releases) page and download `zenos.koplugin.zip` from the latest release.
-2. Unzip the archive. You should have a **folder** named `zenos.koplugin`.
-3. Copy the `zenos.koplugin` **folder** into the KOReader plugins directory for your device (see table below).
-   - Make sure you are copying the unzipped **folder** and **not the .zip** file itself.
-4. Restart KOReader. ZenOS will load automatically.
-   - If you don't see ZenOS load, manually enable the plugin in Tools > More tools > Plugin management > ZenOS.
-   - On first launch, ZenOS guides you through setup, the top menu, and the Reader page browser.
-
-> The final path should look like: `.../plugins/zenos.koplugin/main.lua`
-
-![zenos.koplugin folder inside the KOReader plugins directory](/images/zen_os/plugins_folder.webp)
-
-## Plugins directory by device
+1. Download `zenos.koplugin.zip` from the latest [release](https://github.com/xZenLabs/zen-os/releases).
+2. Unzip it. You should get a **folder** called `zenos.koplugin`.
+3. Copy that **folder** (not the zip) into your device's plugins directory:
 
 | Device | Plugins directory |
 | --- | --- |
@@ -62,5 +26,28 @@ For a fresh installation:
 | **PocketBook** | `/mnt/ext1/applications/koreader/plugins/` |
 | **Android** | `/sdcard/koreader/plugins/` |
 | **Desktop (Linux/macOS)** | `/koreader/plugins/` |
+
+4. Restart KOReader. The setup guide walks you through the rest.
+
+> The final path should look like `.../plugins/zenos.koplugin/main.lua`
+
+![zenos.koplugin folder inside the KOReader plugins directory](/images/zen_os/plugins_folder.webp)
+
+Not loading? Enable it under **Tools > More tools > Plugin management > ZenOS**, and check the [FAQ](/zen-os/docs/faq).
+
+## Coming from Zen UI?
+
+Don't install ZenOS next to it. Update from Zen UI's settings page instead. It keeps your settings and moves everything over after two automatic restarts. If Zen UI is disabled, turn it on once so the move can run.
+
+Your old settings stay in `koreader/settings/Zen UI` as a backup, so downgrading puts you right back where you were.
+
+## Coming from Project: Title?
+
+Both plugins patch the same parts of KOReader, so only one can run. Either:
+
+- **Remove it**: delete `projecttitle.koplugin` from your plugins folder, or
+- **Disable it**: rename it to `projecttitle.koplugin.disabled`.
+
+Then restart KOReader.
 
 ![ZenOS Startup Screen](/images/zen_os/quickstart.webp)

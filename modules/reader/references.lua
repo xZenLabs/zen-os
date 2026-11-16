@@ -17,7 +17,9 @@ function M.enabled(ui)
 end
 
 function M.applyDefaults(ui)
-    if not M.enabled(ui) then return end
+    -- Once only: native toggles delete keys to turn them off.
+    if not M.enabled(ui) or G_reader_settings:isTrue("zen_footnote_defaults_applied") then return end
+    G_reader_settings:saveSetting("zen_footnote_defaults_applied", true)
     for key, value in pairs({ footnote_link_in_popup = true,
         footnote_popup_use_book_font = true, footnote_popup_relative_font_size = 0 }) do
         if G_reader_settings:readSetting(key) == nil then G_reader_settings:saveSetting(key, value) end
@@ -66,10 +68,18 @@ function M.pinLocations(ui)
     return locations
 end
 
-function M.pins(ui)
+-- Read-only pin list from sidecar data; stock KOReader keeps a single pin.
+function M.storedLocations(data)
+    local owner = plugin or rawget(_G, "__ZEN_UI_PLUGIN")
+    local features = owner and owner.config and owner.config.features
+    local locations = features and features.reader_references == true and data.zen_pinned_pages
+    return locations or data.pinned_page and { data.pinned_page } or {}
+end
+
+function M.pins(ui, locations)
     local pins = {}
     local images = ui.doc_settings:readSetting("zen_pinned_images") or {}
-    for index, location in ipairs(M.pinLocations(ui)) do
+    for index, location in ipairs(locations or M.pinLocations(ui)) do
         local page, image
         if ui.rolling and type(location) == "string" then
             image = images[location]
@@ -90,12 +100,25 @@ function M.pinnedPage(ui)
     return pin and pin.page
 end
 
-function M.isPinned(ui, page)
-    local location = page and ui.rolling and ui.document:getPageXPointer(page)
+-- Pinned pages and xpointers, rebuilt after pin edits or CRE rerendering; queried on every header paint.
+local function pinnedSet(ui)
+    local hash, count = ui.rolling and ui.rolling.rendering_hash or 0, ui.document:getPageCount()
+    local set = ui._zen_pinned_set
+    if set and set.hash == hash and set.count == count then return set end
+    set = { hash = hash, count = count, pages = {}, locations = {} }
     for _i, pin in ipairs(M.pins(ui)) do
-        if pin.page == page or location and pin.location == location then return true end
+        set.pages[pin.page] = true
+        if ui.rolling and type(pin.location) == "string" then set.locations[pin.location] = true end
     end
-    return false
+    ui._zen_pinned_set = set
+    return set
+end
+
+function M.isPinned(ui, page)
+    local set = pinnedSet(ui)
+    if set.pages[page] then return true end
+    if not (page and ui.rolling and next(set.locations)) then return false end
+    return set.locations[ui.document:getPageXPointer(page)] == true
 end
 
 function M.setPin(ui, page, remove, image)
@@ -121,8 +144,11 @@ function M.setPin(ui, page, remove, image)
             ui.doc_settings:saveSetting("zen_pinned_image_settings", images)
         end
     elseif not found then
-        locations[#locations + 1] = location
+        -- Newest on top, and the drawer opens on it.
+        table.insert(locations, 1, location)
+        ui.doc_settings:saveSetting("zen_last_pinned_page", ui.rolling and location or page)
     else return end
+    ui._zen_pinned_set = nil
     ui.doc_settings:saveSetting("zen_pinned_pages", locations)
     local images = ui.doc_settings:readSetting("zen_pinned_images")
     if image or images then
@@ -335,7 +361,7 @@ function M.clear(ui)
     if ui and ui._zen_return_button then ui._zen_return_button:hide() end
     local state = ui and ui._zen_references
     if state and state.drawer then state.drawer:onClose() end
-    if ui then ui._zen_references = nil end
+    if ui then ui._zen_references, ui._zen_pinned_set = nil, nil end
 end
 
 return M

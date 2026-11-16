@@ -115,15 +115,28 @@ describe("ZenOS legacy main lifecycle", function()
             saved_modules[name] = package.loaded[name]
             saved_preloads[name] = package.preload[name]
         end
-        package.loaded.pluginloader = {
-            _discover = function()
-                return { { path = legacy_plugin } }
+        package.loaded.pluginloader = {}
+        -- Hide the runtime's real plugins dir from root-conflict probes.
+        saved_modules["libs/libkoreader-lfs"] = lfs
+        local runtime_plugins = lfs.currentdir() .. "/plugins/"
+        local function hidden(path)
+            return type(path) == "string" and path:sub(1, #runtime_plugins) == runtime_plugins
+        end
+        package.loaded["libs/libkoreader-lfs"] = setmetatable({
+            attributes = function(path, ...)
+                if hidden(path) then return nil end
+                return lfs.attributes(path, ...)
             end,
-        }
+            symlinkattributes = function(path, ...)
+                if hidden(path) then return nil end
+                return lfs.symlinkattributes(path, ...)
+            end,
+        }, { __index = lfs })
     end)
 
     after_each(function()
         package.path = original_package_path
+        package.loaded["libs/libkoreader-lfs"] = saved_modules["libs/libkoreader-lfs"]
         for _i, name in ipairs(isolated_modules) do
             package.loaded[name] = saved_modules[name]
             package.preload[name] = saved_preloads[name]

@@ -66,6 +66,7 @@ describe("file manager status bar visibility", function()
             isConnected = function(self) return self.connected end,
         }
         replace("ui/network/manager", NetworkMgr)
+        replace("common/wifi_state", ZenSpec.uncachedWifiState())
         replace("ui/widget/overlapgroup", {})
         replace("ui/widget/container/rightcontainer", {})
         local TextWidget = {}
@@ -259,6 +260,35 @@ describe("file manager status bar visibility", function()
         row:paintTo({}, 10, 60)
         assert.are.same({ 10, 60 }, painted)
         assert.are.same({ x = 10, y = 60, w = 580, h = 16 }, row.dimen)
+    end)
+
+    it("tracks the painted origin of bordered embedded status rows", function()
+        local status_api, painted
+        require("common/shared_state").register = function(_plugin, api) status_api = api end
+        local Container = {
+            new = function(_self, values) return values or {} end,
+        }
+        replace("ui/geometry", Container)
+        replace("ui/widget/horizontalspan", Container)
+        replace("ui/widget/container/leftcontainer", Container)
+        replace("ui/widget/container/centercontainer", Container)
+        replace("ui/widget/linewidget", Container)
+        replace("ui/size", { line = { medium = 2 } })
+        replace("ui/widget/overlapgroup", Container)
+        replace("ui/widget/verticalgroup", {
+            new = function(_self, values)
+                values.paintTo = function(_row, _bb, x, y) painted = { x, y } end
+                return values
+            end,
+        })
+        require("modules/filebrowser/patches/status_bar")()
+        assert.is_true(replace_upvalue(status_api.buildStatusRow, "_buildGroup",
+            function() return nil, {}, {} end))
+
+        local row = status_api.buildStatusRow(580, { show_bottom_border = true })
+        row:paintTo({}, 10, 60)
+        assert.are.same({ 10, 60 }, painted)
+        assert.are.same({ x = 10, y = 60, w = 580, h = 18 }, row.dimen)
     end)
 
     it("limits embedded refreshes to changed and shifted status items", function()

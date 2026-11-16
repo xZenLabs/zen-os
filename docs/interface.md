@@ -6,75 +6,44 @@ settingsPath: Zen Settings > Interface
 order: 45
 ---
 
-## Overview
+<!-- Documentation current through ZenOS v4.3.0. -->
 
-Interface settings shape how you control, navigate, and personalize ZenOS. They cover Controls, Launcher, Navbar, Status bar, Font, Wallpaper, Blur menu background, and Custom icons.
-
-## Options
-
-- **[Controls](/zen-os/docs/controls)**: buttons, labels, and frontlight sliders.
-- **[Launcher](/zen-os/docs/launcher)**: shortcut buttons, folders, and launcher pages.
-- **[Navbar](/zen-os/docs/navbar)**: tabs, destinations, and navigation styling.
-- **Status bar**: the Library status bar's left, center, and right items, separators, border, and text styling.
-- **Font**: the global ZenOS font family and base text size.
-- **Wallpaper**: the image behind Library surfaces, with related Home and Navbar surfaces refreshed when it changes.
-- **Blur menu background**: a hatched backdrop below the top menu.
-- **Custom icons**: use the row's switch to enable icon overrides; open the submenu to choose a pack.
+How ZenOS looks and how you get around. [Controls](/zen-os/docs/controls), [Launcher](/zen-os/docs/launcher), and [Navbar](/zen-os/docs/navbar) have their own pages.
 
 ## Accent color
 
-On color screens, the Setup Guide includes an accent color page with an embedded color wheel, brightness and opacity controls. It also appears once after the update changelog for existing installations. Continuing saves your selection; leaving the controls untouched keeps your current settings.
+Color screens only. Pick a color and opacity for sliders, switches, filled buttons, badges, and active tabs. Turn on **Night mode accent** to use a different color in night mode.
 
-Open **Zen Settings > Interface > Accent color > Night mode accent** to choose a separate color and opacity for night mode. Choosing a color enables it. Use the row's switch to return to the regular accent without losing your night settings. It follows KOReader's night mode, including scheduled changes, and is disabled by default.
+**Where:** Zen Settings > Interface > Accent color
 
 ## Status bar
 
-Open **Zen Settings > Interface > Status bar** to enable the Library status bar or configure its contents. Use the row's switch to hide or restore it, then open **Left items**, **Center items**, or **Right items** to choose and arrange each slot. Reader status bars are configured separately under **Zen Settings > Reader**.
+The bar at the top of the Library. Fill the left, center, and right slots with Bluetooth, Incognito, Wi-Fi, disk, RAM, brightness, battery, time, date, or custom text. Also set the separator, bottom border, bold text, and colored icons.
+
+Reader status bars are separate, under [Reader](/zen-os/docs/reader).
+
+**Where:** Zen Settings > Interface > Status bar
 
 ## Font
 
-Open **Zen Settings > Interface > Font** to choose a font family, set the base text size from 10 to 40, or reset both to their defaults. Existing font settings are preserved. Reader fonts are configured separately under **Reader**.
+Font family and base text size (10–40) for ZenOS. Doesn't touch your reading font.
+
+**Where:** Zen Settings > Interface > Font
 
 ## Wallpaper
 
-Open **Zen Settings > Interface > Wallpaper** to choose a JPG, JPEG, or PNG image. Transparent PNG pixels appear white. Changing or clearing the image refreshes Library, Home, and Navbar surfaces. You can also choose whether dark mode inverts the image.
+Set a JPG or PNG behind the Library, Home, and Navbar. Adjust opacity and choose whether it inverts in dark mode. Hold the **Image** row to clear it.
+
+**Where:** Zen Settings > Interface > Wallpaper
 
 ## Blur menu background
 
-This setting adds a hatched backdrop below the top menu.
+Adds a hatched backdrop behind the top menu so it stands out from the page.
+
+**Where:** Zen Settings > Interface > Blur menu background
 
 ## Custom icons
 
-**Custom icons** enables loose overrides or a selected icon pack. See [Custom Icon Packs](/zen-os/docs/icon-packs) for installation and authoring details.
+Swap ZenOS and KOReader icons with your own or an icon pack. See [Custom Icon Packs](/zen-os/docs/icon-packs).
 
-## Setting reference
-
-Paths below start at **Zen Settings > Interface**.
-
-| Setting | Description |
-| --- | --- |
-| Controls | Configures buttons and frontlight sliders. See [Controls](/zen-os/docs/controls). |
-| Launcher | Configures shortcut pages, buttons, and folders. See [Launcher](/zen-os/docs/launcher). |
-| Navbar | Configures tabs and their appearance. See [Navbar](/zen-os/docs/navbar). |
-| Accent color | Enables or disables the accent using the row's switch and opens its settings. Keeps the saved color and opacity when disabled. Available on color screens. |
-| Accent color > Accent color | Picks a color with the color wheel or hex input and adjusts its opacity. Applies to cover badges without a custom color, sliders, enabled Controls and Launcher button fills, active book-strip and page-switcher tabs, enabled switches, filled buttons, outlined Zen button borders, and button feedback. Outlined Zen button text stays black. Toggle and Controls icon button outlines stay black. Slider rails share the fill color to reduce ghosting when the fill grows. Controls sliders retain the accent while dragging, using local normal refreshes to preserve shades and erase the knob cleanly. Repeated drag values skip redraws. |
-| Accent color > Reset accent color | Restores the default black accent at full opacity. |
-| Accent color > Night mode accent | Enables a separate color and opacity while night mode is active. Switching it off keeps the saved night choice and uses the regular accent. The parent Accent color switch controls both accents. |
-| Status bar | Shows or hides the Library status bar using the row's switch; opens its settings. |
-| Status bar > Custom text | Sets custom status text. Empty text falls back to the device model. |
-| Status bar > Show bottom border | Draws a separator below the status bar. |
-| Status bar > Bold text | Uses bold text in the status bar. |
-| Status bar > Colored status icons | Uses colored status icons when supported. |
-| Status bar > Left items | Selects Bluetooth, Incognito, Wi-Fi, disk space, RAM usage, brightness, battery, time, date, or custom text for the left slot. Available plugins can add items. |
-| Status bar > Center items | Selects status items for the center slot. |
-| Status bar > Right items | Selects status items for the right slot. |
-| Status bar > Left/center/right items > Arrange | Reorders enabled items in the selected slot. |
-| Status bar > Separator | Selects dot, bar, dash, bullet, space, small space, none, or a custom separator. |
-| Font | Sets the global ZenOS font family and base text size. Reader fonts are separate. |
-| Wallpaper | Enables the selected image behind Library surfaces. |
-| Wallpaper > Image | Chooses a JPG, JPEG, or PNG image; hold the row to clear it. |
-| Wallpaper > Opacity | Adjusts the wallpaper's opacity. |
-| Wallpaper > Invert with dark mode | Inverts the wallpaper in dark mode when enabled. |
-| Blur menu background | Fills the area below the top menu with a hatched backdrop. |
-| Custom icons | Enables loose icon overrides or the selected icon pack. |
-| Custom icons > Custom icon pack | Selects or installs a pack from `/koreader/icons/zen`. |
+**Where:** Zen Settings > Interface > Custom icons

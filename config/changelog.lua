@@ -1,3 +1,4 @@
+local icons = require("common/inline_icon_map")
 -- Post-update "What's New" bullet lists, keyed by version string.
 -- Add an entry for each release with noteworthy changes.
 -- Omit a version to show no changelog on that update.
@@ -98,8 +99,8 @@ return {
     },
     ["2.0.0"] = {
         "IMPORTANT: This update has breaking changes, settings changed in v2.0 will not be saved if you go back to v1.x. Update via settings or completely delete old zen_ui.koplugin",
-        "\u{F02DC} NEW Home page + widgets",
-        "\u{F15FC} NEW Launcher",
+        icons.settings_home .. " NEW Home page + widgets",
+        icons.settings_launcher .. " NEW Launcher",
         "Major performance improvements across the entire app",
         "Added default tab option for navbar (Navbar > Tab settings)",
         "Added automatic grouping of series into virtual folders (Library > Folders)",
@@ -423,9 +424,35 @@ return {
         "Keep the reader status bar visible behind reference popups",
         "Better Rakuyomi settings (Extras > Rakuyomi)",
         "Add customizable reader controls (bottom tab menu in a book) (Reader > Reader controls)",
-        "Update page browser (Reader > Page browser)",
+        "Update page browser (Reader > Page browser > Tabs)",
+        "Show pinned pages in the annotation viewer, with an optional page browser tab",
+        "Table of contents marks read and unread chapters and outlines the current one with page progress and time left",
         "Update highlight function",
-        "Update highlight submenu (Reader > Lookup / Highlight)"
+        "Update highlight submenu (Reader > Lookup / Highlight)",
+        "Background OPDS downloads with queueing and Read now",
+        "Library and OPDS context menu icons follow custom icon packs",
+        "Fix startup crash loop on books whose cover extraction keeps crashing",
+        "End of book page forward key opens the next book in the series, or the library if none",
+        "Bug fixes & performance improvements"
     },
-
+    ["4.3.1"] = {
+        "Allow inverting highlight color",
+        "Fix edge case crash in pagebrowser tap",
+        "Use all reader font settings in footnote",
+        "Add option for other items in highlight menu"
+    },
+    ["4.3.2"] = {
+        "Add reflow option to PDF layout settings in reader controls",
+        "Set left and right margins independently (Sync in the Left/Right margin menu)",
+        "Tap a theme preview in reader controls to select it",
+        "Add note button to new selection highlight menu",
+        "Choose what single and double tap do on a book, e.g. tap to open and double tap for the context menu",
+        "Table of contents folds subchapters under their chapter like KOReader's; the chapter being read starts unfolded",
+        "Option to show chapter page counts in the table of contents (Reader > Table of contents)",
+        "Fix: swiping in page browser chapters and bookmarks skipped every other page",
+        "Fix: accent color inverted on round buttons and corners in night mode on Android",
+        "Fix: highlight menu More button did nothing with plugins that wrap the highlight menu, e.g. X-Ray",
+        "Fix: entire page/chapter being highlighted when navigating with internal book links",
+        "Fix: blurred menu background left a blank strip at the bottom",
+    },
 }

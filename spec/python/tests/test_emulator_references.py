@@ -92,11 +92,20 @@ def _ref(driver: ZenDriver, action="state", **params):
         while "bounds" not in state["return_button"] and time.monotonic() < deadline:
             time.sleep(0.05)
             state = driver.command("reference_action", action="state")["references"]
-    if action in {"expand", "gesture", "goto", "browser_jump", "toc_jump", "return", "turn", "expire_return", "suspend"} or (
+    if action in {"confirm", "expand", "gesture", "goto", "browser_jump", "toc_jump", "return", "turn", "expire_return", "suspend"} or (
         action != "state" and state.get("drawer") and "bounds" not in state["drawer"]
     ):
         return _ref(driver)
     return state
+
+
+def _navigate(driver: ZenDriver, action="expand", **params):
+    prompt = _ref(driver, action, **params)
+    assert prompt["confirm_text"]
+    assert prompt.get("drawer") and prompt["history"] == _ref(driver, "confirm", cancel=True)["history"]
+    assert _ref(driver)["page"] == prompt["page"]
+    _ref(driver, action, **params)
+    return _ref(driver, "confirm")
 
 
 def _browser(driver: ZenDriver):
@@ -134,9 +143,9 @@ def _assert_pin_alignment(driver, state, name):
 def _assert_pin_header_padding(state):
     drawer = state["drawer"]
     assert not drawer.get("control_radius") and not drawer.get("dots_background")
-    bounds, menu = (drawer[key] for key in ("bounds", "menu"))
+    bounds, menu, close = (drawer[key] for key in ("bounds", "menu", "close"))
     right = min(state["screen"]["w"], bounds["x"] + bounds["w"])
-    assert not drawer.get("close") and not drawer.get("close_icon")
+    assert drawer["close_icon"].endswith("/chevron.up.svg")
     label = drawer["page_label"]
     assert drawer["page_label_text"].endswith(str(drawer["page"]))
     assert drawer["page_icon"].endswith("/pin.svg")
@@ -145,17 +154,17 @@ def _assert_pin_header_padding(state):
     padding = math.ceil(4 * scale)
     assert label["x"] + padding == drawer["page_icon_bounds"]["x"]
     assert drawer["page_label_content_width"] + 2 * padding == label["w"]
-    assert label["x"] + label["w"] <= menu["x"]
-    assert label["y"] == menu["y"] and label["h"] == menu["h"]
+    assert label["x"] + label["w"] + (math.ceil(8 * scale) if drawer["full_image"] else 0) == menu["x"]
+    assert label["y"] == menu["y"] == close["y"] and label["h"] == menu["h"] == close["h"]
     assert drawer["content"]["y"] - label["y"] - label["h"] == math.ceil(8 * scale)
-    assert right - menu["x"] - menu["w"] == math.ceil(8 * scale) + math.ceil(2 * scale)
+    assert right - close["x"] - close["w"] == math.ceil(8 * scale) + math.ceil(2 * scale)
     _assert_pin_header_icon_padding(state)
 
 
 def _assert_pin_header_icon_padding(state):
     drawer = state["drawer"]
     scale = min(state["screen"].values()) / 600
-    for name in ("menu", "zoom", "zoom_in", "zoom_out"):
+    for name in ("menu", "zoom", "zoom_in", "zoom_out", "close"):
         if not drawer.get(name):
             continue
         padding = math.ceil((2 if name == "menu" else 4) * scale)
@@ -294,7 +303,7 @@ def test_reference_popups_preserve_the_reader_header(landscape):
                 assert opened["drawer"] and opened["location"] == original["location"]
                 bounds = opened["drawer"]["bounds"]
                 if reference == "footnote":
-                    margin = math.ceil(8 * min(opened["screen"].values()) / 600)
+                    margin = math.ceil((8 if landscape else 2) * min(opened["screen"].values()) / 600)
                     available = opened["screen"]["w"] // (2 if landscape else 1)
                     assert bounds["w"] == available - 2 * margin
                     assert bounds["x"] > 0
@@ -308,7 +317,8 @@ def test_reference_popups_preserve_the_reader_header(landscape):
                 assert ImageChops.difference(page.crop(strip), after.crop(strip)).getbbox()
                 assert max(ImageChops.difference(expected, after.crop(strip)).convert("L").getextrema()) <= 1
                 outside = (bounds["x"] - shadow - 1, middle)
-                assert after.getpixel(outside) == page.getpixel(outside)
+                if outside[0] >= 0:  # Portrait margin is narrower than the shadow.
+                    assert after.getpixel(outside) == page.getpixel(outside)
                 for turn in range(3):
                     previous = _ref(driver)
                     changed = _ref(driver, "next")
@@ -443,7 +453,7 @@ def test_return_button_tracks_jumps_without_tracking_page_turns(format):
             _ref(driver, "pin", page=3)
             pin = _ref(driver, "open_pin")
             assert not pin["return_button"]["visible"]
-            expanded = _ref(driver, "expand")
+            expanded = _navigate(driver)
             assert expanded["return_button"]["visible"]
             same_pin = _ref(driver, "open_pin")
             no_op = _ref(driver, "check_pin_navigation")
@@ -462,7 +472,7 @@ def test_return_button_tracks_jumps_without_tracking_page_turns(format):
                 _ref(driver, "return")
                 _ref(driver, "footnote", index=2)
                 assert not _ref(driver)["return_button"]["visible"]
-                assert _ref(driver, "expand")["return_button"]["visible"]
+                assert _navigate(driver)["return_button"]["visible"]
                 _ref(driver, "return")
             _ref(driver, "goto", page=3)
             assert not _ref(driver, "suspend")["return_button"]["visible"]
@@ -582,7 +592,7 @@ def test_pin_drawer_preserves_reading_and_page_actions(format, use_pack):
             opened = _ref(driver, "open_pin")
             _assert_pin_header_padding(opened)
             assert opened["drawer"]["content"]["h"] + math.ceil(32 * scale) == content["h"]
-            assert opened["drawer"]["page"] == pin
+            assert opened["drawer"]["page"] == second_pin["pins"][0]["page"]  # Newest pin on top, opened first.
             assert opened["page"] == start["page"] and opened["history"] == start["history"]
             _capture(driver, f"{format}-drawer.png")
             pin = second_pin["pins"][1]["page"]
@@ -590,7 +600,7 @@ def test_pin_drawer_preserves_reading_and_page_actions(format, use_pack):
             _ref(driver, "zoom", factor=1.25)
             _ref(driver, "close")
             assert _ref(driver, "open_pin")["drawer"]["page"] == pin
-            expanded = _ref(driver, "expand")
+            expanded = _navigate(driver)
             assert expanded["page"] == pin and expanded["history"] == start["history"] + 1
             _browser(driver)
             for mode in ("single", "carousel", "grid"):
@@ -620,7 +630,7 @@ def test_pin_drawer_preserves_reading_and_page_actions(format, use_pack):
             _ref(driver, "close_book")
             assert driver.open_book(book)["ok"]
             _wait_reader(driver)
-            assert _ref(driver)["pin_anchor"] == pinned["pin_anchor"]
+            assert _ref(driver)["pin_anchor"] == second_pin["pin_anchor"]  # Native pin mirrors the top one.
         finally:
             stop(process)
 
@@ -660,7 +670,7 @@ def test_footnote_drawer_reopens_and_returns_after_expansion():
             reopened = _ref(driver, "open_note")
             assert reopened["drawer"]["ratio"] == pytest.approx(scrolled["drawer"]["ratio"])
             assert not reopened["browser_open"] and reopened["location"] == start["location"]
-            expanded = _ref(driver, "gesture", target="body")
+            expanded = _navigate(driver, "gesture", target="body")
             assert not expanded.get("drawer") and expanded["page"] != start["page"]
             assert expanded["history"] == start["history"] + 1
             assert expanded["return_button"]["visible"]
@@ -750,7 +760,7 @@ def test_reference_popup_defaults_theme_outline_and_gestures(night):
             assert not closed.get("drawer") and closed["location"] == current["location"]
             assert closed["history"] == current["history"]
             _ref(driver, "open_note")
-            expanded = _ref(driver, "gesture", gesture="swipe", direction="north")
+            expanded = _navigate(driver, "gesture", gesture="swipe", direction="north")
             assert not expanded.get("drawer") and expanded["history"] == current["history"] + 1
             _browser(driver)
             assert _ref(driver, "page_action", id="back")["page"] == current["page"]
@@ -763,7 +773,7 @@ def test_reference_popup_defaults_theme_outline_and_gestures(night):
             assert image.getpixel((button["x"] + button["w"] - 2, button["y"] + button["h"] - 2)) == background
             assert not _ref(driver, "gesture", gesture="swipe", direction="south").get("drawer")
             _ref(driver, "open_pin")
-            expanded = _ref(driver, "gesture", target="header")
+            expanded = _navigate(driver, "gesture", target="header")
             assert not expanded.get("drawer") and expanded["page"] == expanded["pin"]
         finally:
             stop(process)
@@ -1249,7 +1259,7 @@ def test_pinned_preview_spacing_and_swipe_dismissal(format):
                 assert closed.get("location") == original.get("location")
                 assert len(closed["pins"]) == 1
             _ref(driver, "open_pin")
-            navigated = _ref(driver, "gesture", target="header")
+            navigated = _navigate(driver, "gesture", target="header")
             assert not navigated.get("drawer") and navigated["page"] == opened["drawer"]["page"]
             assert navigated["history"] == original["history"] + 1
             if format == "epub":
@@ -1324,7 +1334,8 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
                     archive.writestr(f"{index}.png", buffer.getvalue())
         socket = root / "driver.sock"
         process = launch(Path(os.environ["KOREADER_DIR"]), root / "home", socket, library, zen_config_source=(
-            "return { highlight_lookup = { show_labels = " + str(show_labels).lower() + " } }"
+            "return { reader_pins = { minimap = true }, highlight_lookup = { show_labels = "
+            + str(show_labels).lower() + " } }"
         ))
         try:
             wait_for_socket(socket)
@@ -1384,20 +1395,20 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             assert restored["full_image"] and restored["scale"] == pytest.approx(single_zoomed["scale"])
             _ref(driver, "close")
             _ref(driver, "pin", page=original["page_count"])
-            fresh = _ref(driver, "open_pin", index=2)["drawer"]
+            fresh = _ref(driver, "open_pin", index=1)["drawer"]
             assert fresh["image"] and not fresh["full_image"]
             assert max(fresh["image_view"][axis] / fresh["content"][axis] for axis in ("w", "h")) == pytest.approx(1, abs=0.01)
             fresh_scale = fresh["scale"]
-            restored = _ref(driver, "previous")["drawer"]
+            restored = _ref(driver, "next")["drawer"]
             assert restored["full_image"] and restored["scale"] == pytest.approx(single_zoomed["scale"])
-            _ref(driver, "next")
+            _ref(driver, "previous")
             _ref(driver, "pin_control", target="zoom")
             _ref(driver, "zoom", factor=2)
             _ref(driver, "pin_menu")
             _ref(driver, "pin_popup_action", text="Remove pin")
             _ref(driver, "close")
             _ref(driver, "pin", page=original["page_count"])
-            fresh = _ref(driver, "open_pin", index=2)["drawer"]
+            fresh = _ref(driver, "open_pin", index=1)["drawer"]
             assert not fresh["full_image"]
             assert fresh["scale"] == pytest.approx(fresh_scale)
             _ref(driver, "pin_menu")
@@ -1406,8 +1417,8 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             _ref(driver, "pin_control", target="zoom")
             _ref(driver, "close")
             _ref(driver, "pin", page=3)
-            opened = _ref(driver, "open_pin")
-            assert opened["drawer"]["image"]
+            opened = _ref(driver, "open_pin", index=2)
+            assert opened["drawer"]["image"] and not opened["drawer"].get("minimap")  # Fitted: nothing to pan.
             assert opened["double_tap_disabled"]
             drawer = opened["drawer"]
             _assert_pin_header_padding(opened)
@@ -1417,7 +1428,7 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             assert not drawer.get("zoom_in") and not drawer.get("zoom_out")
             assert drawer["page_label"]["x"] + drawer["page_label"]["w"] <= zoom["x"]
             gap = math.ceil(8 * min(opened["screen"].values()) / 600)
-            assert zoom["x"] + zoom["w"] + gap == menu["x"]
+            assert zoom["x"] + zoom["w"] + gap == drawer["close"]["x"]
             assert zoom["y"] == menu["y"] and zoom["h"] == menu["h"]
             toggled = _ref(driver, "pin_control", target="zoom")
             assert toggled["drawer"]["full_image"]
@@ -1469,9 +1480,9 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             zoom_out, zoom_in = filled["zoom_out"], filled["zoom_in"]
             assert filled["zoom_in_icon"].endswith("/icons/zoom_in.svg")
             assert filled["zoom_out_icon"].endswith("/icons/zoom_out.svg")
-            assert zoom_out["x"] == zoom_in["x"] == filled["menu"]["x"]
+            assert zoom_out["x"] == zoom_in["x"] == filled["close"]["x"]
             assert zoom_in["y"] + zoom_in["h"] + gap == zoom_out["y"]
-            assert zoom_in["x"] + zoom_in["w"] == filled["menu"]["x"] + filled["menu"]["w"]
+            assert zoom_in["x"] + zoom_in["w"] == filled["close"]["x"] + filled["close"]["w"]
             assert zoom_in["y"] == filled["menu"]["y"] + filled["menu"]["h"] + 2 * gap
             assert zoom_out["y"] + zoom_out["h"] < filled["pager"]["y"]
             snapshot = Image.open(_capture(driver, f"pin-{format}-full.png")).convert("RGB")
@@ -1489,6 +1500,43 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             magnified = _ref(driver, "pin_control", target="zoom_in")
             assert magnified["drawer"]["full_image"] and magnified["drawer"]["scale"] > filled["scale"]
             assert not magnified["pin_popup_buttons"]
+            # Minimap: bottom-left inside the image, gray with a lighter viewport box.
+            minimap, viewport = magnified["drawer"]["minimap"], magnified["drawer"]["content"]
+            area, view = minimap["dimen"], minimap["view"]
+            assert area["x"] > viewport["x"] and area["x"] + area["w"] < viewport["x"] + viewport["w"] // 2
+            assert area["y"] > viewport["y"] + viewport["h"] // 2 and area["y"] + area["h"] < viewport["y"] + viewport["h"]
+            assert area["x"] < view["x"] and area["y"] < view["y"]
+            assert view["x"] + view["w"] <= area["x"] + area["w"] and view["y"] + view["h"] <= area["y"] + area["h"]
+            mapped = Image.open(_capture(driver, f"pin-{format}-minimap.png")).convert("RGB")
+            gray = mapped.getpixel((area["x"] + 1, area["y"] + area["h"] // 2))
+            light = mapped.getpixel((view["x"] + view["w"] // 2, view["y"] + view["h"] // 2))
+            assert gray[0] == gray[1] == gray[2] and gray[0] < light[0]
+            # Hold-drag pans live: each event applies only its delta, before release.
+            held = _ref(driver, "gesture", target="body", gesture="hold")["drawer"]["image_view"]
+            step = _ref(driver, "gesture", target="body", gesture="hold_pan", relative={"x": 10, "y": 10})["drawer"]
+            moved = _ref(driver, "gesture", target="body", gesture="hold_pan", relative={"x": 20, "y": 20})["drawer"]
+            assert step["image_view"] != held and step["pin_index"] == magnified["drawer"]["pin_index"]
+            for axis in ("x", "y"):
+                assert moved["image_view"][axis] - held[axis] == 2 * (step["image_view"][axis] - held[axis])
+            released = _ref(driver, "gesture", target="body", gesture="hold_release")["drawer"]
+            assert released["image_view"] == moved["image_view"]
+            # A quick drag lifted as a swipe keeps its live position instead of paging or jumping.
+            _ref(driver, "gesture", target="body", gesture="pan", relative={"x": -10, "y": -10})
+            swiped = _ref(driver, "gesture", target="body", gesture="swipe", direction="west", distance=500)["drawer"]
+            assert swiped["image_view"] == step["image_view"] and swiped["pin_index"] == magnified["drawer"]["pin_index"]
+            _ref(driver, "gesture", target="body", gesture="pan", relative={"x": 100000, "y": 100000})
+            corner = _ref(driver, "gesture", target="body", gesture="pan_release")["drawer"]["minimap"]
+            assert (corner["view"]["x"], corner["view"]["y"]) == (corner["dimen"]["x"], corner["dimen"]["y"])
+            # Dragging on the minimap moves its viewport box, panning the image the same way, scaled up.
+            origin = _ref(driver, "gesture", target="minimap", gesture="hold")["drawer"]["image_view"]
+            dragged = _ref(driver, "gesture", target="minimap", gesture="hold_pan", relative={"x": 3, "y": 3})["drawer"]
+            for axis in ("x", "y"):
+                assert dragged["image_view"][axis] - origin[axis] == pytest.approx(3 / corner["ratio"], abs=1)
+            done = _ref(driver, "gesture", target="body", gesture="hold_release")["drawer"]
+            assert done["image_view"] == dragged["image_view"] and done["minimap"]["view"]["x"] > corner["view"]["x"]
+            # Drags released outside the drawer still settle.
+            assert _ref(driver, "gesture", target="body", gesture="pan", relative={"x": 15, "y": 15})["drawer"]["panning"]
+            assert not _ref(driver, "gesture", target="outside", gesture="pan_release")["drawer"]["panning"]
             reduced = _ref(driver, "pin_control", target="zoom_out")
             assert reduced["drawer"]["full_image"] and reduced["drawer"]["scale"] < magnified["drawer"]["scale"]
             fitted = _ref(driver, "pin_control", target="zoom")
@@ -1541,7 +1589,7 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             assert reset["drawer"]["center"] == {"x": 0.5, "y": 0.5}
             assert reset["double_tap_disabled"]
             next_pin = _ref(driver, "pin_control", target="next")
-            assert next_pin["drawer"]["pin_index"] == 2
+            assert next_pin["drawer"]["pin_index"] == 1  # Wraps to the newer page-3 pin on top.
             if format == "epub":
                 assert not next_pin["drawer"]["image"]
                 assert not next_pin["drawer"].get("zoom")
@@ -1556,7 +1604,7 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             assert driver.command("settings_page_select", label="Position")["ok"]
             assert driver.command("settings_page_select", label="Left")["ok"]
             assert driver.command("close_settings_page")["ok"]
-            left = _ref(driver, "open_pin", index=1)["drawer"]
+            left = _ref(driver, "open_pin", index=2)["drawer"]
             assert left["bounds"]["x"] < 0
             assert left["content"]["x"] == 0
             assert left["content"]["w"] == left["bounds"]["x"] + left["bounds"]["w"] - left["border"]
@@ -1570,7 +1618,7 @@ def test_pinned_images_pan_and_zoom_without_switching_pins(format, show_labels):
             assert left_panned["center"]["y"] > left_zoomed["center"]["y"]
             _capture(driver, f"pin-{format}-full-left.png")
             next_pin = _ref(driver, "pin_control", target="next")["drawer"]
-            assert next_pin["pin_index"] == 2
+            assert next_pin["pin_index"] == 1
             if format == "epub":
                 assert not next_pin["full_image"]
                 assert not next_pin.get("zoom_in") and not next_pin.get("zoom_out")
@@ -1732,5 +1780,114 @@ def test_pin_control_visibility_and_footer_space():
             _ref(driver, "enabled", enabled=False)
             native = _ref(driver, "paint")
             assert native["footer_bar_width"] == zero["footer_bar_width"]
+        finally:
+            stop(process)
+
+
+def _write_font_settings_book(path: Path, sentence: str) -> None:
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("mimetype", "application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        archive.writestr("META-INF/container.xml", """<container version="1.0"
+          xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles>
+          <rootfile full-path="content.opf" media-type="application/oebps-package+xml"/>
+          </rootfiles></container>""")
+        archive.writestr("content.opf", """<package version="3.0" unique-identifier="id"
+          xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <dc:identifier id="id">zen-note-font</dc:identifier><dc:title>Note font</dc:title>
+          <dc:language>en</dc:language></metadata><manifest>
+          <item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/>
+          <item id="notes" href="notes.xhtml" media-type="application/xhtml+xml"/>
+          </manifest><spine><itemref idref="chapter"/><itemref idref="notes"/></spine></package>""")
+        archive.writestr("chapter.xhtml", """<html xmlns="http://www.w3.org/1999/xhtml"
+          xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Reading</title></head><body>"""
+          + f'<p style="text-indent:0">{sentence}</p>' * 6
+          + """<p>Short<a epub:type="noteref" href="notes.xhtml#n1">1</a>.
+          Long<a epub:type="noteref" href="notes.xhtml#n2">2</a>.</p></body></html>""")
+        archive.writestr("notes.xhtml", f"""<html xmlns="http://www.w3.org/1999/xhtml"
+          xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Notes</title></head><body>
+          <aside epub:type="footnote" id="n1"><p>{sentence}</p></aside>
+          <aside epub:type="footnote" id="n2">""" + f"<p>{sentence}</p>" * 6 + "</aside></body></html>")
+
+
+def _text_lines(image, background):
+    """Returns (top, bottom, ink) per text line, ink being summed distance from the background."""
+    ink = ImageChops.difference(image.convert("L"), Image.new("L", image.size, background))
+    lines = []
+    for y in range(ink.height):
+        row = ink.crop((0, y, ink.width, y + 1))
+        amount = sum(row.getdata())
+        if max(row.getdata()) > 40:
+            if lines and lines[-1][1] == y:
+                lines[-1][1], lines[-1][2] = y + 1, lines[-1][2] + amount
+            else:
+                lines.append([y, y + 1, amount])
+    return lines
+
+
+def _page_and_note_lines(driver, name, index=2):
+    state = _ref(driver, "paint")
+    header = state.get("header_bounds") or {"y": 0, "h": 0}
+    page = Image.open(_capture(driver, f"{name}-page.png"))
+    top = header["y"] + header["h"]
+    crop = page.crop((0, top, page.width, page.height // 3))
+    background = crop.convert("L").getpixel((0, 0))
+    page_lines = _text_lines(crop, background)
+    opened = _ref(driver, "footnote", index=index)
+    content = opened["drawer"]["content"]
+    sheet = Image.open(_capture(driver, f"{name}-note.png"))
+    crop = sheet.crop((content["x"], content["y"], content["x"] + content["w"] - math.ceil(10 * min(opened["screen"].values()) / 600),
+                       content["y"] + content["h"]))
+    note_lines = _text_lines(crop, crop.convert("L").getpixel((0, 0)))
+    _ref(driver, "close")
+    return page_lines, note_lines
+
+
+def test_footnote_text_follows_reader_font_settings():
+    sentence = "Keep this reading position while reading."
+    with tempfile.TemporaryDirectory(prefix="zen-note-font-") as temporary:
+        root = Path(temporary)
+        library = root / "library"
+        library.mkdir()
+        book = library / "note-font.epub"
+        _write_font_settings_book(book, sentence)
+        socket = root / "driver.sock"
+        process = launch(Path(os.environ["KOREADER_DIR"]), root / "home", socket, library)
+        try:
+            wait_for_socket(socket)
+            driver = ZenDriver(socket)
+            assert driver.open_book(book)["ok"]
+            _wait_reader(driver)
+            def apply(gamma, weight, spacing):
+                for name, value in (("font_gamma", gamma), ("font_base_weight", weight), ("line_spacing", spacing)):
+                    assert driver.command("reader_controls", action="setting", name=name, value=value)["ok"]
+
+            def pitch(lines):
+                return (lines[4][0] - lines[0][0]) / 4
+
+            # Heavier synthetic weights can only grow stems by a pixel; plain coverage stays within a few percent.
+            for gamma, weight, spacing, tolerance in ((15, 0, 100, 0.02), (25, -0.5, 110, 0.03), (43, 0, 100, 0.03),
+                                                      (10, 0, 130, 0.03), (15, 1, 100, 0.05), (36, 0.5, 90, 0.04),
+                                                      (15, 3, 150, 0.1)):
+                apply(gamma, weight, spacing)
+                page, note = _page_and_note_lines(driver, f"note-font-{gamma}-{weight}-{spacing}")
+                assert note[0][2] / page[0][2] == pytest.approx(1, abs=tolerance), (gamma, weight)
+                assert pitch(note) == pytest.approx(pitch(page), abs=1), spacing
+
+            # Coverage is remapped between the sheet's own colors, so a light-on-dark theme still gains contrast.
+            assert driver.command("reader_controls", action="theme", theme={
+                "enabled": True,
+                "light_mode": {"text": "#dcdccc", "background": "#1f1f1f"},
+                "dark_mode": {"text": "#dcdccc", "background": "#1f1f1f"},
+            })["ok"]
+            apply(43, 0, 100)
+            page, note = _page_and_note_lines(driver, "note-font-dark-theme")
+            assert note[0][2] / page[0][2] == pytest.approx(1, abs=0.05)
+            content = _ref(driver, "footnote", index=1)["drawer"]["content"]
+            sheet = Image.open(_capture(driver, "note-font-dark-theme-short.png")).convert("RGB")
+            assert sheet.getpixel((content["x"], content["y"])) == (0x1f, 0x1f, 0x1f)
+            _ref(driver, "close")
+            # Extra leading below the last line must not spill a short note onto a second page.
+            apply(15, 0, 200)
+            assert _ref(driver, "footnote", index=1)["drawer"]["html_pages"] == 1
         finally:
             stop(process)

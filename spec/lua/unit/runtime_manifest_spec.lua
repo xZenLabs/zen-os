@@ -31,8 +31,7 @@ describe("runtime test manifest", function()
             assert.is_truthy(manifest[path], "unclassified runtime module: " .. path)
             manifest[path] = nil
         end
-        for path in pairs(manifest) do
-            assert.fail("manifest entry has no runtime module: " .. path)
-        end
+        local stale = next(manifest)
+        assert.is_nil(stale, "manifest entry has no runtime module: " .. tostring(stale))
     end)
 end)

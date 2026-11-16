@@ -381,7 +381,7 @@ describe("reader book details", function()
         spec.cover_tap_callback()
         assert.equals(cover, shown.image)
         assert.is_true(shown.fullscreen)
-        assert.is_false(shown.image_disposable)
+        assert.is_true(shown.image_disposable) -- getBookInfo(file, true) hands over a fresh copy
         assert.is_false(shown.with_title_bar)
         assert.is_true(shown:onTap())
         assert.is_true(shown.closed)

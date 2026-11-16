@@ -215,9 +215,17 @@ local function apply_library_background()
 
     local orig_setupLayout = FileManager.setupLayout
     function FileManager:setupLayout(...)
+        -- Paint hooks use a memoized path; re-check the file whenever the library is shown.
+        Background.invalidateLibraryPath()
         local ret = orig_setupLayout(self, ...)
         if is_active() then clear_backgrounds(self) end
         return ret
+    end
+
+    local orig_onResume = FileManager.onResume
+    function FileManager:onResume(...)
+        Background.invalidateLibraryPath()
+        if orig_onResume then return orig_onResume(self, ...) end
     end
 
     local orig_paintTo = FileManager.paintTo

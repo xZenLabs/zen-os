@@ -43,6 +43,7 @@ return function(plugin)
     local ZenIconButton = require("common/ui/zen_icon_button")
     local ZenActionButton = require("common/ui/zen_action_button")
     local ZenTabBar = require("common/ui/zen_tab_bar")
+    local ThemePreview = require("common/ui/theme_preview")
     local StepButton = require("common/ui/slider_step_button")
     local utils = require("common/utils")
     local root = require("common/plugin_root")
@@ -65,7 +66,9 @@ return function(plugin)
         launch(tm, function()
             if id == "toc" then
                 UIManager:show(require("modules/reader/zen_toc_widget"):new{
-                    ui = ui, show_back = false, on_goto = function(page)
+                    ui = ui, show_back = false,
+                    show_page_counts = require("modules/reader/toc_tree").showsCounts(plugin),
+                    on_goto = function(page)
                         if ui.link then ui.link:addCurrentLocationToStack() end
                         ui:handleEvent(require("ui/event"):new("GotoPage", page))
                     end,
@@ -79,7 +82,7 @@ return function(plugin)
             elseif id == "koreader_menu" then
                 ui.config:onShowConfigMenu(true)
             elseif id == "bookmarks" then
-                ui:handleEvent(require("ui/event"):new("ShowPageBrowser", "bookmarks"))
+                require("modules/reader/annotation_viewer").show(plugin, ui, "bookmarks")
             end
         end)
     end
@@ -130,11 +133,12 @@ return function(plugin)
                 UIManager:nextTick(function() if tm._zen_panel_refs then tm:updateItems(1) end end)
             end
         end
-        local function option(name, slider, label_override)
+        local function option(name, slider, label_override, side)
             local opt = options[name]
             if not Settings.available(ui, opt) then return end
             local value = ui.document.configurable[name]
             local label = label_override or Settings.label(ui, opt)
+            local id = side and name .. (side == 1 and "_left" or "_right") or name
             local function hold()
                 local names = { name }
                 if name == "t_page_margin" and Settings.syncedMargins(ui) then
@@ -145,11 +149,11 @@ return function(plugin)
             local more = (opt.more_options or ({ font_size = true, font_base_weight = true,
                 font_gamma = true, contrast = true, word_spacing = true, word_expansion = true })[name]) and function(widget)
                     require("modules/menu/reader_controls/details").show(ui, name, apply,
-                        function() if tm._zen_panel_refs then tm:updateItems(1) end end, widget.dimen)
+                        function() if tm._zen_panel_refs then tm:updateItems(1) end end, widget.dimen, side)
                 end
-            local spec = slider and Settings.slider(ui, name, tm._reader_controls_embedded and 7 or nil)
+            local spec = slider and Settings.slider(ui, name, tm._reader_controls_embedded and 7 or nil, side)
             if spec then
-                rows[#rows + 1] = { slider = spec, text = label, name = name, apply = apply, changed = changed,
+                rows[#rows + 1] = { slider = spec, text = label, name = name, id = id, apply = apply, changed = changed,
                     hold = name ~= "font_size" and hold or nil, more = more }
             elseif name == "visible_pages" then
                 rows[#rows + 1] = { text = label, name = name, toggle = value == opt.values[2], hold = hold,
@@ -217,7 +221,12 @@ return function(plugin)
             end
         elseif section == "page" then
             if Settings.group(ui) == "copt" then
-                option("h_page_margins", true, _("Left/Right"))
+                if Settings.syncedMargins(ui, "h_page_margins") then
+                    option("h_page_margins", true, _("Left/Right"))
+                else
+                    option("h_page_margins", true, _("Left"), 1)
+                    option("h_page_margins", true, _("Right"), 2)
+                end
                 local synced = Settings.syncedMargins(ui)
                 option("t_page_margin", true, synced and _("Top/Bottom") or _("Top"))
                 if not synced then option("b_page_margin", true, _("Bottom")) end
@@ -237,11 +246,14 @@ return function(plugin)
                         end }
                 end
                 option("rakuyomi_view_mode")
+                option("embedded_css")
+                option("embedded_fonts") -- KOReader enables it only with embedded style and book fonts.
             else
                 option("page_margin", true)
                 option("page_scroll")
                 option("rakuyomi_view_mode")
                 option("auto_straighten", false, _("Straighten"))
+                option("text_wrap") -- Line spacing and columns below only apply in reflow.
                 option("line_spacing", true)
                 option("max_columns")
             end
@@ -259,6 +271,7 @@ return function(plugin)
                 option("zoom_overlap_h", true, _("Horizontal"))
                 option("zoom_overlap_v", true, _("Vertical"))
             end
+            option("text_wrap") -- Zoom options above only apply outside reflow.
         elseif section == "profiles" then
             action(_("Defaults"), function() Menus.defaults(ui) end)
             if ui.profiles then
@@ -289,8 +302,6 @@ return function(plugin)
                 if tm._reader_controls_embedded then changed("reader_theme") end
                 tm:updateItems(1)
             end)
-            local settings = table.remove(themes)
-            if not tm._reader_controls_embedded then rows[1] = settings end
             for _i, theme in ipairs(themes) do theme.theme_choice = true end
             if tm._reader_controls_embedded then
                 for i = 1, #themes, 2 do rows[#rows + 1] = { pair = { themes[i], themes[i + 1] } } end
@@ -300,6 +311,16 @@ return function(plugin)
         end
         return rows
     end
+
+    local GestureRange = require("ui/gesturerange")
+    -- Tap handling for passive widgets (theme swatches) that sit beside their control.
+    -- Named event: a plain "Tap" would also answer parents' propagated Tap events anywhere on screen.
+    local TapTarget = InputContainer:extend{}
+    function TapTarget:init()
+        self.dimen = self[1]:getSize()
+        self.ges_events.TapSwatch = { GestureRange:new{ ges = "tap", range = self.dimen } }
+    end
+    function TapTarget:onTapSwatch() self.callback(); return true end
 
     local Dots = Widget:extend{}
     function Dots:paintTo(bb, x, y)
@@ -346,6 +367,16 @@ return function(plugin)
             layout[#layout + 1] = widget
             return widget
         end
+        local function control_icon(icon_name)
+            local path = utils.resolveIcon(icons_dir, icon_name)
+                or utils.resolveLocalIcon(icons_dir, icon_name)
+                or utils.resolveLocalIcon(icons_dir, "lightning")
+            -- Thin-stroke variant unless an icon pack/custom icon overrides the bundled one.
+            if path and path == utils.resolveLocalIcon(icons_dir, icon_name) then
+                path = utils.resolveLocalIcon(thin_icons, icon_name) or path
+            end
+            return path
+        end
         local function icon_button(name, callback, layout, icon_size, button_size)
             local down = name == "chevron.down"
             local directory = name == "more_vertical" and icons_dir or stock_icons
@@ -362,11 +393,11 @@ return function(plugin)
             return track(widget, activate, nil, layout)
         end
         local function button(item, width, layout, label_width)
-            local widget, button_widget
+            local widget, button_widget, swatch
             local callback = function() if item.callback then item.callback(tm, button_widget) end end
             local font_pad = pad
             width = width - font_pad * 2
-            local setting_title = not item.zen_button and item.title and TextWidget:new{
+            local setting_title = item.title and TextWidget:new{
                 text = item.title, face = Font:getFace("x_smallinfofont") }
             local title_width = setting_title and (label_width or setting_title:getSize().w) or 0
             if setting_title then setting_title:setMaxWidth(title_width) end
@@ -376,16 +407,21 @@ return function(plugin)
                 more._reader_setting = item.name .. "_more"
                 width = width - more:getSize().w
             end
-            if item.zen_button or item.name == "font_face" then
+            if item.name == "font_face" then
                 local label = TextWidget:new{ text = item.text, face = Font:getFace("cfont", 18), bold = true }
                 local button_width = math.min(width - (setting_title and title_width + pad or 0),
                     label:getSize().w + pad * 4)
                 label:free()
                 widget = ZenActionButton:new{ text = item.text, width = button_width, height = Screen:scaleBySize(40),
-                    font_size = 18, callback = callback, outlined = item.name == "font_face" or item.outlined,
-                    radius = item.name == "font_face" and Screen:scaleBySize(4) or nil }
+                    font_size = 18, callback = callback, outlined = true, radius = Screen:scaleBySize(4) }
             elseif item.radio then
-                widget = CheckButton:new{ text = item.text, width = width, radio = true,
+                swatch = item.theme_key and ThemePreview.new{ plugin = plugin, key = item.theme_key,
+                    width = math.min(Screen:scaleBySize(96), math.floor(width * 0.45)),
+                    height = Screen:scaleBySize(30), face = Font:getFace("cfont", 14),
+                    radius = Screen:scaleBySize(4) } -- matches ZenTabBar
+                if swatch then swatch = TapTarget:new{ swatch, callback = callback } end
+                widget = CheckButton:new{ text = item.text, radio = true,
+                    width = width - (swatch and swatch:getSize().w + pad or 0),
                     checked = item.checked, face = item.face or Font:getFace("x_smallinfofont"),
                     single_line = item.theme_choice, padding = 0, margin = 0,
                     callback = callback, parent = tm, show_parent = tm }
@@ -408,15 +444,11 @@ return function(plugin)
             widget._reader_theme_choice = item.theme_choice == true
             track(widget, callback, item.hold, layout)
             if more then layout[#layout + 1] = more end
-            if item.zen_button then
-                local button_width = widget:getSize().w
-                local title = item.title and TextWidget:new{ text = item.title,
-                    face = Font:getFace("x_smallinfofont"), bold = true, max_width = width - button_width - pad }
+            if item.theme_choice then
+                local swatch_w = swatch and swatch:getSize().w or 0
                 widget = HorizontalGroup:new{ align = "center",
-                    LeftContainer:new{ dimen = Geom:new{ w = width - button_width, h = widget:getSize().h },
-                        title or HorizontalSpan:new{ width = 0 } }, widget }
-            elseif item.theme_choice then
-                widget = LeftContainer:new{ dimen = Geom:new{ w = width, h = Screen:scaleBySize(40) }, widget }
+                    LeftContainer:new{ dimen = Geom:new{ w = width - swatch_w, h = Screen:scaleBySize(40) }, widget },
+                    swatch }
             else
                 local title = setting_title and (embedded and LeftContainer or RightContainer):new{
                     dimen = Geom:new{ w = title_width, h = widget:getSize().h }, setting_title }
@@ -425,7 +457,7 @@ return function(plugin)
                 widget = title and HorizontalGroup:new{ align = "center", title, right } or right
             end
             if more then widget = HorizontalGroup:new{ align = "center", widget, more } end
-            local pad_v = item.zen_button and pad / 2 or item.name == "font_face" and pad / 4 or 0
+            local pad_v = item.name == "font_face" and pad / 4 or 0
             return FrameContainer:new{ bordersize = 0, padding = 0, padding_left = pad, padding_right = pad,
                 padding_top = pad_v, padding_bottom = pad_v, widget }
         end
@@ -457,15 +489,7 @@ return function(plugin)
             if arrows then icons[1] = utils.resolveLocalIcon(stock_icons, "chevron.left") end
             for i = (state.button_page - 1) * cols + 1, math.min(#entries, state.button_page * cols) do
                 local entry = entries[i]
-                local icon_name = Buttons.icon(entry) or "lightning"
-                local path = utils.resolveIcon(icons_dir, icon_name)
-                    or utils.resolveLocalIcon(icons_dir, icon_name)
-                    or utils.resolveLocalIcon(icons_dir, "lightning")
-                -- Thin-stroke variant unless an icon pack/custom icon overrides the bundled one.
-                if path and path == utils.resolveLocalIcon(icons_dir, icon_name) then
-                    path = utils.resolveLocalIcon(thin_icons, icon_name) or path
-                end
-                icons[#icons + 1] = path
+                icons[#icons + 1] = control_icon(Buttons.icon(entry) or "lightning")
                 visible_entries[#visible_entries + 1] = entry
             end
             if arrows then icons[#icons + 1] = utils.resolveLocalIcon(stock_icons, "chevron.right") end
@@ -595,6 +619,11 @@ return function(plugin)
                 opts.refresh = function() tm:updateItems(1) end
                 details, detail_refs = require("modules/menu/app_launcher/book_switcher_page").buildReader(opts)
             else
+                opts.actions = {}
+                for _i, id in ipairs({ "search", "bookmarks", "toc" }) do
+                    opts.actions[#opts.actions + 1] = { id = id, icon = control_icon(Buttons.icon{
+                        type = "reader_control", control = id }), callback = function() direct_action(tm, id) end }
+                end
                 details, detail_refs = require("modules/menu/reader_controls/book_info_card").build(opts)
             end
             panel[#panel + 1] = details
@@ -614,7 +643,7 @@ return function(plugin)
                 local number_width = 0
                 if row.slider then
                     local spec = row.slider
-                    local text = Settings.valueText(ui, spec.option, ui.document.configurable[row.name])
+                    local text = Settings.valueText(ui, spec.option, ui.document.configurable[row.name], spec.side)
                     row.number = TextWidget:new{ text = text, face = row.label.face }
                     number_width = row.number:getSize().w
                     local function measure(sample)
@@ -622,12 +651,12 @@ return function(plugin)
                         number_width = math.max(number_width, row.number:getSize().w)
                     end
                     for _j, index in ipairs({ spec.value_min, spec.value_max, math.max(spec.value_min, spec.value_max - 1) }) do
-                        measure(Settings.valueText(ui, spec.option, spec.decode(index)))
+                        measure(Settings.valueText(ui, spec.option, spec.decode(index), spec.side))
                     end
                     for _j, value in ipairs(spec.option.values or {}) do
                         local position = spec.position(value)
                         if position >= spec.value_min and position <= spec.value_max then
-                            measure(Settings.valueText(ui, spec.option, value))
+                            measure(Settings.valueText(ui, spec.option, value, spec.side))
                         end
                     end
                     row.number:setText(text)
@@ -706,15 +735,19 @@ return function(plugin)
                 line = VerticalGroup:new{ align = "left", title,
                     RightContainer:new{ dimen = Geom:new{ w = w - pad * 2, h = controls:getSize().h }, controls } }
             end
+            -- Equal row heights (a text preset row: 32 cells + 2 border + 8 padding) keep every
+            -- three-row settings page, and so every tab, the same height.
+            local pad_v = inline and math.max(0, Screen:scaleBySize(52) - line:getSize().h) / 2
+                or row.slider and 0 or pad
             return FrameContainer:new{ bordersize = 0, padding = 0, padding_left = pad, padding_right = pad,
-                padding_top = row.slider and 0 or pad, padding_bottom = row.slider and 0 or pad, line }, title
+                padding_top = math.floor(pad_v), padding_bottom = math.ceil(pad_v), line }, title
         end
         local function tab_row(row, items, selected, layout, icons)
             local fill = embedded and value_space + (row.more and 0 or more_width) or 0
             local selection = ZenTabBar:new{ items = items, selected = selected,
                 width = controls_width - step_insets[1] - step_insets[2] + fill,
                 icon_size = Screen:scaleBySize(32), font_size = 16, padding_h = Screen:scaleBySize(4),
-                cell_height = Screen:scaleBySize(embedded and 36 or (icons and 48 or 32)), focusable = true }
+                cell_height = Screen:scaleBySize(embedded and 36 or (icons and 44 or 32)), focusable = true }
             for i, cell in ipairs(selection.cells) do
                 cell._reader_setting = (row.name or row.text) .. "_" .. i
                 track(cell, cell.callback, row.hold, layout)
@@ -765,7 +798,7 @@ return function(plugin)
                 end
                 slider.on_drag_start = function() dragging = true end
                 slider.on_change = function(value)
-                    row.number:setText(Settings.valueText(ui, spec.option, spec.decode(value)))
+                    row.number:setText(Settings.valueText(ui, spec.option, spec.decode(value), spec.side))
                     if slider._dragging then
                         dragging = true
                         slider.hide_knob = false
@@ -779,11 +812,12 @@ return function(plugin)
                                 Screen.bb:invertRect(cell.x, cell.y, cell.w, cell.h)
                             end
                             local colored = Accent.isEnabled(plugin.config)
-                            UIManager:setDirty(nil, colored and "ui" or "fast", slider:dirtyDimen():combine(cell), colored)
+                            ZenSlider.refreshDrag(slider:dirtyDimen():combine(cell), colored)
                         end
                         if not pending then
                             pending = true
-                            UIManager:scheduleIn(0.15, preview)
+                            -- CRE previews re-layout the book; throttle them harder than paged docs.
+                            UIManager:scheduleIn(ui.rolling and 0.5 or 0.15, preview)
                         end
                     else
                         UIManager:setDirty(tm, "ui", widget and widget.dimen or slider.dimen)
@@ -802,7 +836,7 @@ return function(plugin)
                         padding_v = embedded and 0 or nil,
                         show_parent = tm,
                         callback = function() advance_step(delta) end }
-                    step._reader_setting = row.name .. (delta < 0 and "_decrease" or "_increase")
+                    step._reader_setting = row.id .. (delta < 0 and "_decrease" or "_increase")
                     track(step, step.callback, nil, layout)
                     track_row[#track_row + 1] = step
                     if delta < 0 then
@@ -813,12 +847,12 @@ return function(plugin)
                 end
                 if row.more and not embedded then
                     track_row[#track_row + 1] = icon_button("more_vertical", row.more, layout, label:getSize().h)
-                    layout[#layout]._reader_setting = row.name .. "_more"
+                    layout[#layout]._reader_setting = row.id .. "_more"
                 elseif more_width > 0 and not embedded then
                     track_row[#track_row + 1] = HorizontalSpan:new{ width = more_width }
                 end
                 local wrapper, label_box = setting_row(row, track_row, layout)
-                widget = SliderRow:new{ slider = slider, step = advance_step, _reader_setting = row.name,
+                widget = SliderRow:new{ slider = slider, step = advance_step, _reader_setting = row.id,
                     label = row.label, label_box = label_box, number = row.number, number_box = row.number_box, wrapper }
                 track(widget, nil, row.hold, layout)
                 refs.sliders[#refs.sliders + 1] = { slider = slider, cancel = cancel }
@@ -965,11 +999,11 @@ return function(plugin)
             if not painted then table.remove(refs.swipe_zones, i) end
         end
         panel:resetLayout()
+        refs.view, refs.view_page = state.section, state.page -- Content swaps need a color clean refresh.
         return LeftContainer:new{ dimen = Geom:new{ w = w, h = panel:getSize().h }, panel }
     end
 
     local FocusManager = require("ui/widget/focusmanager")
-    local GestureRange = require("ui/gesturerange")
     local PanelGestures = require("modules/menu/patches/touch_menu_panel")
     local EmbeddedPanel = FocusManager:extend{ _reader_controls_embedded = true }
     function EmbeddedPanel:init()
@@ -983,6 +1017,7 @@ return function(plugin)
         self:updateItems()
     end
     function EmbeddedPanel:updateItems()
+        local old_refs = self._zen_panel_refs
         for _i, ref in ipairs(self._zen_panel_refs and self._zen_panel_refs.sliders or {}) do ref.cancel() end
         local previous = self[1]
         if previous then previous:free() end
@@ -993,7 +1028,11 @@ return function(plugin)
         end
         self.dimen.h = self[1]:getSize().h
         if previous then
-            UIManager:setDirty(self.show_parent or self, "ui")
+            -- Panel region only; a height change relayouts the parent via on_layout_changed.
+            -- Swapped sections/pages need a clean refresh; "ui" ghosts old accent fills.
+            local swap_type, dither
+            if Accent.isEnabled(plugin.config) then swap_type, dither = PanelGestures.viewSwapRefresh(old_refs, self._zen_panel_refs) end
+            UIManager:setDirty(self.show_parent or self, swap_type or "ui", self.dimen.x and self.dimen or nil, dither)
             if self.on_layout_changed then self.on_layout_changed() end
         end
     end

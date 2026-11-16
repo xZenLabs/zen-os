@@ -146,8 +146,8 @@ local function paintCoverBadge(canvas, Blitbuffer, Font, TextWidget, Screen,
             and math.max(7, math.floor(badge_size * 0.40))
             or  math.max(7, math.floor(badge_size * 0.24))
         local tw = TextWidget:new{
-            text    = do_tbr and "\u{F0150}"
-                or (do_pause and "\u{F03E4}" or (math.floor(100 * progress) .. "%")),
+            text    = do_tbr and icons.tbr
+                or (do_pause and icons.on_hold or (math.floor(100 * progress) .. "%")),
             face    = Font:getFace("cfont", font_sz),
             bold    = not do_tbr and not do_pause,
             fgcolor = Blitbuffer.COLOR_BLACK,
@@ -249,7 +249,7 @@ local function buildContextMenuBB(slot_w, slot_h, cover_info)
             local ok_iw,  ImageWidget     = pcall(require, "ui/widget/imagewidget")
             local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
             if ok_iw and ok_bim then
-                local _, _, sf = BookInfoManager.getCachedCoverSize(
+                local _w, _h, sf = BookInfoManager.getCachedCoverSize(
                     cover_info.w, cover_info.h, cover_max_w, cover_max_h)
                 cover_frame = FrameContainer:new{
                     padding    = 0,
@@ -300,11 +300,11 @@ local function buildContextMenuBB(slot_w, slot_h, cover_info)
     end)
 
     local buttons = {
-        {{ text = "\u{F02FD}  " .. _("Details"),                              align = "left", callback = function() end }},
-        {{ text = "\u{F01BE}  " .. _("Move"),                                 align = "left", callback = function() end }},
-        {{ text = "\u{F04CE}  " .. _("Add to collection") .. "  " .. icons.arrow_right, align = "left", callback = function() end }},
-        {{ text = "\u{F0B64}  " .. _("Read status") .. "  " .. icons.arrow_right,       align = "left", callback = function() end }},
-        {{ text = "\u{F090C}  " .. _("Edit") .. "  " .. icons.arrow_right,              align = "left", callback = function() end }},
+        {{ text = icons.details .. "  " .. _("Details"),                              align = "left", callback = function() end }},
+        {{ text = icons.move .. "  " .. _("Move"),                                 align = "left", callback = function() end }},
+        {{ text = icons.fav_add .. "  " .. _("Add to collection") .. "  " .. icons.arrow_right, align = "left", callback = function() end }},
+        {{ text = icons.read_status .. "  " .. _("Read status") .. "  " .. icons.arrow_right,       align = "left", callback = function() end }},
+        {{ text = icons.edit .. "  " .. _("Edit") .. "  " .. icons.arrow_right,              align = "left", callback = function() end }},
     }
 
     local dialog = ButtonDialog:new{

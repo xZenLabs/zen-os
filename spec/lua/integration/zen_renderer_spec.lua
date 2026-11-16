@@ -195,6 +195,7 @@ describe("Zen renderer", function()
             hasReusable = function() return render_reusable or render_exact end,
             render = function() return nil end,
             drop = function() end,
+            releaseOnFree = ZenSpec.releaseOnFree,
         })
         ZenSpec.replace("common/cover_decode_cache", {
             getFreshMetadata = function() return fresh_metadata end,
@@ -268,6 +269,8 @@ describe("Zen renderer", function()
         ZenSpec.unload("modules/filebrowser/folder_cover")
         local shared_folder_overlay =
             require("modules/filebrowser/folder_cover").overlayName
+        local shared_queue_hydration =
+            require("modules/filebrowser/folder_cover").queueHydration
         ZenSpec.replace("modules/filebrowser/folder_cover", {
             isBook = function(entry)
                 return entry.is_file == true or type(entry.file) == "string"
@@ -302,6 +305,7 @@ describe("Zen renderer", function()
                 }
             end,
             overlayName = shared_folder_overlay,
+            queueHydration = shared_queue_hydration,
             paintDecorations = function() end,
             allBooksFinished = function(_menu, entry)
                 return entry.all_finished == true
@@ -503,6 +507,124 @@ describe("Zen renderer", function()
         row:paintTo({ paintBorder = function(_bb, ...) outline = { ... } end }, 5, 7)
         assert.are.same({ 9, 11, 312, 56, 3, 0, 0 }, outline)
         require("apps/filemanager/filemanager").instance = nil
+    end)
+
+    -- Loads browser_list_item_layout against the widget stubs used here.
+    local function load_list_layout()
+        local ListMenuItem = { update = function() end, paintTo = function() end }
+        local function stock_builder() return ListMenuItem end
+        ZenSpec.replace("listmenu", { _updateItemsBuildUI = stock_builder })
+        ZenSpec.replace("covermenu", { updateItems = function() end })
+        ZenSpec.replace("readcollection", { isFileInCollection = function() return false end })
+        local identity = function(text) return text end
+        ZenSpec.replace("ui/bidi", {
+            mirroredUILayout = function() return false end,
+            directory = identity, auto = identity, filename = identity, ltr = identity,
+        })
+        ZenSpec.replace("util", {
+            splitFilePathName = function(path) return path:match("^(.*/)([^/]*)$") end,
+            getFriendlySize = function() return "" end,
+        })
+        ZenSpec.replace("apps/filemanager/filemanagerutil", {
+            splitFileNameType = function(name) return name:match("^(.-)%.?([^%.]*)$") end,
+        })
+        ZenSpec.replace("apps/filemanager/filemanager", { setupLayout = function() end })
+        ZenSpec.replace("ui/widget/container/rightcontainer", class())
+        local ImageWidget = class()
+        function ImageWidget:_render() end
+        ZenSpec.replace("ui/widget/imagewidget", ImageWidget)
+        local textwidget = require("ui/widget/textwidget")
+        local text_new = textwidget.new
+        textwidget.new = function(self, values)
+            values = text_new(self, values)
+            values.getWidth = function(widget) return widget:getSize().w end
+            values.setMaxWidth = function() end
+            return values
+        end
+        require("modules/filebrowser/patches/home/widgets/cover_common").decorate_cover_frame =
+            function(frame) return frame end
+        require("modules/filebrowser/patches/library_font").getScale = function() return 1 end
+        local textbox = require("ui/widget/textboxwidget")
+        local textbox_new = textbox.new
+        textbox.new = function(self, values)
+            values = textbox_new(self, values)
+            values.getSize = function(widget) return { w = widget.width, h = 8 } end
+            values.init = function() end
+            return values
+        end
+        ZenSpec.replace("device", { screen = {
+            scaleBySize = function(_self, value) return value end,
+        } })
+        ZenSpec.unload("modules/filebrowser/patches/browser_list_item_layout")
+        require("modules/filebrowser/patches/browser_list_item_layout")()
+        return ListMenuItem
+    end
+
+    it("leases cached list-row covers without reading the cover blob", function()
+        local leased, released = {}, {}
+        local shared_bb = { getWidth = function() return 30 end }
+        local RenderCache = require("common/cover_render_cache")
+        RenderCache.getShared = function(_self, path, width, height)
+            leased[#leased + 1] = { path, width, height }
+            return shared_bb
+        end
+        RenderCache.releaseShared = function(_self, path, bb)
+            released[#released + 1] = { path, bb }
+        end
+        fresh_metadata = {
+            title = "Cached", cover_fetched = "Y", has_cover = "Y",
+            cover_w = 600, cover_h = 900, cover_sizetag = "600x900",
+        }
+        local ListMenuItem = load_list_layout()
+
+        local row = setmetatable({
+            entry = { path = "/books/cached.epub", is_file = true },
+            filepath = "/books/cached.epub",
+            do_cover_image = true, width = 320, height = 64,
+            menu = { getBookInfo = function() return {} end },
+            _underline_container = {},
+        }, { __index = ListMenuItem })
+        row:update()
+
+        assert.are.same({}, book_info_requests)
+        assert.are.equal(1, #leased)
+        assert.are.equal("/books/cached.epub", leased[1][1])
+        local image = row._cover_frame[1][1]
+        assert.are.equal(shared_bb, image.image)
+        assert.is_false(image.image_disposable)
+        image:free()
+        image:free()
+        assert.are.same({ { "/books/cached.epub", shared_bb } }, released)
+    end)
+
+    it("defers cold list folder previews to the shared hydration queue", function()
+        local ListMenuItem = load_list_layout()
+        require("modules/filebrowser/folder_cover").title = function(_entry, text) return text end
+        local requests = 0
+        local menu = {
+            _zen_request_cover_hydration = function() requests = requests + 1 end,
+        }
+        local row = setmetatable({
+            entry = { path = "/folder", text = "Folder", cold_folder = true },
+            text = "Folder", do_cover_image = true, width = 320, height = 64,
+            menu = menu, _underline_container = {},
+        }, { __index = ListMenuItem })
+
+        row:update()
+
+        assert.is_true(folder_requests[1].options.cached_only)
+        assert.are.same({ row }, menu._zen_cover_hydration_items)
+        assert.are.equal("folder", row._zen_cover_hydration_kind)
+        assert.are.equal(1, requests)
+
+        menu._zen_cover_hydration_items = {}
+        row._zen_cover_hydration_queued = nil
+        row._zen_folder_hydrating = true
+        row._underline_container = {}
+        row:update()
+        assert.is_false(folder_requests[2].options.cached_only)
+        assert.is_true(folder_requests[2].options.allow_expensive)
+        assert.are.same({}, menu._zen_cover_hydration_items)
     end)
 
     it("uses an exact shared real cover without requesting the decoded blob", function()
@@ -879,7 +1001,7 @@ describe("Zen renderer", function()
         assert.are.equal(24, two_line_label.height)
 
         _G.__ZEN_UI_PLUGIN.config.browser_folder_cover.name_opaque = false
-        local translucent_menu = folder_menu()
+        local translucent_menu = folder_menu(string.rep("Translucent folder name ", 10))
         MosaicMenu._updateItemsBuildUI(translucent_menu)
         local translucent_overlay = translucent_menu.layout[1][1]._underline_container[1][1]
         local translucent_strip = translucent_overlay[2][1][1][1]

@@ -2244,6 +2244,12 @@ msgstr "Divizor"
 msgid "Dividing lines"
 msgstr "Linii despărțitoare"
 
+#. Type: setting
+#. Context: Settings label in the reader Lookup settings.
+#: reader_settings.lua:1445
+msgid "Dock to bottom"
+msgstr "Ancorează jos"
+
 #. Type: label
 #. Context: Reader tab controls, defaults, profiles, and themes.
 #: reader_controls.lua:559 buttons.lua:33
@@ -3198,6 +3204,12 @@ msgstr "Pictogramă: %1"
 msgid "Icons"
 msgstr "Pictograme"
 
+#. Type: setting
+#. Context: { text = _("Image minimap"), checked_func = function() return settings.minimap end,
+#: pin_settings.lua:72
+msgid "Image minimap"
+msgstr "Minihartă imagine"
+
 #. Type: message
 #. Context: Mesaj în setările pentru aspectul interfeței.
 #: interface_settings.lua:374
@@ -3953,6 +3965,12 @@ msgstr "Dimensiune etichete bară de navigare"
 #: quickstart_pages.lua:708
 msgid "Navbar Tabs"
 msgstr "File bare de navigare"
+
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Navigați la pagina %1?"
 
 #. Type: setting
 #. Context: Denumirea unei setări în setările pentru aspectul și comportamentul bibliotecii.

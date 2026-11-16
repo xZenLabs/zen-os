@@ -39,17 +39,29 @@ function M.label(reader, option)
         or option.name_text or option.alt_name_text or option.name:gsub("_", " ")
 end
 
-function M.syncedMargins(reader)
+-- T/B sync is KOReader's per-book option; L/R sync is Zen's, kept in the book's sidecar.
+function M.syncedMargins(reader, name)
+    if name == "h_page_margins" then
+        local synced = reader.doc_settings and reader.doc_settings:readSetting("zen_sync_h_page_margins")
+        if synced ~= nil then return synced == true end
+        local margins = reader.document.configurable.h_page_margins or {}
+        return margins[1] == margins[2]
+    end
     if reader.typeset and reader.typeset.sync_t_b_page_margins ~= nil then
         return reader.typeset.sync_t_b_page_margins == true
     end
     return reader.document.configurable.sync_t_b_page_margins == 1
 end
 
-function M.valueText(reader, option, value)
+function M.setMarginSync(reader, name, synced)
+    if name ~= "h_page_margins" then return M.apply(reader, "sync_t_b_page_margins", synced and 1 or 0) end
+    if reader.doc_settings then reader.doc_settings:saveSetting("zen_sync_h_page_margins", synced) end
+end
+
+function M.valueText(reader, option, value, side)
     if option.name == "font_base_weight" then return tostring(400 + value * 100) end
-    if option.name == "h_page_margins" and type(value) == "table" and value[1] == value[2] then
-        return tostring(value[1])
+    if option.name == "h_page_margins" and type(value) == "table" and (side or value[1] == value[2]) then
+        return tostring(value[side or 1])
     end
     if option.show_true_value_func then return option.show_true_value_func(value) end
     local params = option.more_options_param or {}
@@ -107,6 +119,8 @@ function M.preview(reader, name, value)
     -- Native rerendering resets touch detection; keep the current drag alive.
     input.inhibitInput = function() end
     input.inhibitInputUntil = input.inhibitInput
+    -- Rapid previews would hit FULL_REFRESH_COUNT and promote to a flashing "full" (GCC16 on Kaleido).
+    require("ui/uimanager"):avoidFlashOnNextRepaint()
     local ok, result = pcall(M.apply, reader, name, value)
     input.inhibitInput, input.inhibitInputUntil = inhibit, inhibit_until
     if not ok then error(result) end
@@ -114,32 +128,61 @@ function M.preview(reader, name, value)
 end
 
 -- UI-only slider positions are integers; native values can be fractional or paired.
-function M.slider(reader, name, visible_presets)
+-- side (1 = left, 2 = right) drives one half of h_page_margins while L/R sync is off.
+function M.slider(reader, name, visible_presets, side)
     local options = M.options(reader)
     local option = options[name]
     if not M.available(reader, option) then return end
     local conf = reader.document.configurable
     local value = option.current_func and option.current_func() or conf[name]
     if value == nil then return end
+    -- Side controls must stay separate even when an edit makes the values equal.
+    if name == "h_page_margins" and side then M.setMarginSync(reader, name, false) end
     local fine = name == "font_size" and options.font_fine_tune
     local params = fine and fine.more_options_param or option.more_options_param or {}
     local values = option.values or {}
-    local function scalar(v) return type(v) == "table" and (v[1] + v[2]) / 2 or v end
-    local position, decode, advance, maximum
-    if fine or #values < 2 then
-        local lo = params.value_min or values[1]
-        local hi = params.value_max or values[#values]
-        local step = fine and fine.args and math.abs(fine.args[1]) or params.value_step or 1
-        if type(lo) ~= "number" or type(hi) ~= "number" or hi <= lo then return end
+    local function scalar(v) return type(v) == "table" and (side and v[side] or (v[1] + v[2]) / 2) or v end
+    local function wrap(v)
+        if name ~= "h_page_margins" then return v end
+        local pair = { v, v }
+        if side then pair[3 - side] = conf[name][3 - side] end
+        return pair
+    end
+    local position, decode, advance, maximum, pick
+    -- KOReader steps more_options values by its spin widget step, not by preset.
+    if fine or #values < 2 or option.more_options and (type(value) ~= "table" or name == "h_page_margins") then
+        local vt, shift = params.value_table, params.value_table_shift or 0
+        local lo = vt and 1 - shift or params.value_min or params.left_min or scalar(values[1])
+        local hi = vt and #vt - shift or params.value_max or params.left_max or scalar(values[#values])
+        local step = fine and fine.args and math.abs(fine.args[1]) or params.value_step or params.left_step or 1
+        if type(lo) ~= "number" or type(hi) ~= "number" or hi == lo then return end
+        if hi < lo then lo, hi = hi, lo end
+        -- Keep the preset order's direction (e.g. white threshold runs 255 → 32).
+        local sign = #values > 1 and scalar(values[1]) > scalar(values[#values]) and -1 or 1
+        local origin = sign > 0 and lo or hi
+        local function clamp(v) return wrap(tonumber(string.format("%.6f", math.max(lo, math.min(hi, v))))) end
         maximum = math.floor((hi - lo) / step + 0.5)
-        position = function(v) return math.max(0, math.min(maximum, (scalar(v) - lo) / step)) end
-        decode = function(index)
-            local v = tonumber(string.format("%.6f", math.min(hi, lo + index * step)))
-            return name == "h_page_margins" and { v, v } or v
-        end
-        advance = function(current, direction)
-            local v = tonumber(string.format("%.6f", math.max(lo, math.min(hi, scalar(current) + direction * step))))
-            return name == "h_page_margins" and { v, v } or v
+        position = function(v) return math.max(0, math.min(maximum, (scalar(v) - origin) * sign / step)) end
+        decode = function(index) return clamp(origin + sign * index * step) end
+        advance = function(current, direction) return clamp(scalar(current) + sign * direction * step) end
+        pick = function(callback)
+            local decimals = #(tostring(step):match("%.(%d+)$") or "")
+            local default = G_reader_settings:readSetting(M.group(reader) .. "_" .. name)
+            if default == nil then default = option.default_value end
+            local current = scalar(conf[name])
+            require("ui/uimanager"):show(require("ui/widget/spinwidget"):new{
+                title_text = params.name_text or M.label(reader, option),
+                value = current, value_min = lo, value_max = hi, value_step = step,
+                value_hold_step = params.value_hold_step or params.left_hold_step
+                    or #values > 1 and math.abs(scalar(values[2]) - scalar(values[1])) or nil,
+                value_table = vt, value_index = vt and current + shift,
+                default_value = default ~= nil and scalar(default) + (vt and shift or 0) or nil,
+                precision = params.precision or decimals > 0 and "%." .. decimals .. "f" or nil,
+                unit = params.unit,
+                callback = function(spin)
+                    callback(wrap(vt and spin.value_index - shift or spin.value))
+                end,
+            })
         end
     else
         for _i, v in ipairs(values) do if type(scalar(v)) ~= "number" then return end end
@@ -177,11 +220,13 @@ function M.slider(reader, name, visible_presets)
         end
         local count = visible_presets or 5
         local first = math.max(1, math.min(#values - count + 1, center - math.floor(count / 2)))
-        minimum = math.min(position(values[first]), math.floor(current), math.floor(anchor))
-        visible_maximum = math.max(position(values[math.min(#values, first + count - 1)]), math.ceil(current), math.ceil(anchor))
+        local a, b = position(values[first]), position(values[math.min(#values, first + count - 1)])
+        minimum = math.floor(math.min(a, b, current, anchor) + 0.000001)
+        visible_maximum = math.ceil(math.max(a, b, current, anchor) - 0.000001)
     end
     return {
         option = option,
+        side = side,
         value = current,
         default_value = default_position,
         value_min = minimum,
@@ -189,6 +234,7 @@ function M.slider(reader, name, visible_presets)
         position = position,
         decode = decode,
         advance = advance,
+        pick = pick,
     }
 end
 

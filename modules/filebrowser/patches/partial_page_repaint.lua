@@ -25,17 +25,20 @@ local function apply_partial_page_repaint()
     end
 
     local function schedule_repaint(self)
+        local perpage = self.perpage
+        if not perpage or perpage <= 0 then return end
+        local total = #(self.item_table or {})
+        local page = self.page or 1
+        local items_on_page = math.max(0, math.min(perpage, total - (page - 1) * perpage))
+        -- Only slots emptied since the last update can hold ghosts; plain refreshes and
+        -- reader returns keep the same count and need no full-waveform flash.
+        local shown = self._zen_repaint_shown
+        self._zen_repaint_shown = items_on_page
         if not is_enabled() or self.items_max_lines then return end
         -- Skip transient overlay choosers (e.g. MoveChooser) that shouldn't
         -- trigger a forced full repaint when their item count < perpage.
         if self._zen_no_forced_repaint then return end
-        local total   = #(self.item_table or {})
-        if total == 0 then return end
-        local perpage = self.perpage
-        if not perpage or perpage <= 0 then return end
-        local page          = self.page or 1
-        local items_on_page = math.max(0, math.min(perpage, total - (page - 1) * perpage))
-        local short_page = items_on_page > 0 and items_on_page < perpage
+        local short_page = shown and items_on_page > 0 and items_on_page < shown
         if short_page and not pending then
             pending = true
             local widget = self

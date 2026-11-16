@@ -9,6 +9,7 @@ describe("embedded page-browser lists", function()
         "modules/reader/book_details", "modules/reader/book_info_widget",
         "modules/menu/app_launcher/book_switcher_page", "ui/uimanager",
         "ui/widget/container/centercontainer", "ui/geometry",
+        "ui/widget/container/inputcontainer", "ui/gesturerange",
     }
 
     before_each(function()
@@ -28,14 +29,51 @@ describe("embedded page-browser lists", function()
         ZenSpec.replace("ui/widget/titlebar", {
             new = function(_self, spec) spec.getHeight = function() return 50 end; return spec end,
         })
-        ZenSpec.replace("ui/widget/menu", {
-            new = function(_self, spec)
-                spec.layout = { { "first row" } }
-                spec.selected = { x = 1, y = 1 }
-                spec.updateItems = function(_menu, number) updates = updates + number end
-                return spec
-            end,
-        })
+        local function class(base)
+            base.extend = function(self, cls)
+                cls = cls or {}
+                cls.__index = cls
+                return setmetatable(cls, { __index = self })
+            end
+            base.__index = base
+            return base
+        end
+        local Menu = class{}
+        function Menu:new(spec)
+            setmetatable(spec, self)
+            spec.selected = { x = 1, y = 1 }
+            spec.available_height = 200
+            spec:setupItemHeights()
+            spec:updateItems(1)
+            return spec
+        end
+        function Menu:getPageNumber(item_number)
+            for page, items in ipairs(self.page_items) do
+                if item_number <= items[#items] then return page end
+            end
+            return #self.page_items
+        end
+        -- Stand-in MenuItems for the visible page.
+        function Menu:updateItems(number)
+            updates = updates + number
+            self.item_group = { resetLayout = function() end }
+            self.layout = { { "title button" } }
+            for index, idx in ipairs(self.page_items[1]) do
+                local old = { idx = idx, dimen = require("ui/geometry"):new{ w = 600, h = self.item_table[idx].height },
+                    free = function() end }
+                self.item_group[index] = old
+                self.layout[#self.layout + 1] = { old }
+            end
+        end
+        ZenSpec.replace("ui/widget/menu", Menu)
+        local InputContainer = class{}
+        function InputContainer:new(spec)
+            setmetatable(spec, self)
+            spec:init()
+            return spec
+        end
+        ZenSpec.replace("ui/widget/container/inputcontainer", InputContainer)
+        ZenSpec.replace("ui/gesturerange", { new = function(_self, spec) return spec end })
         ZenSpec.replace("modules/reader/zen_toc_widget", {
             getEntries = function()
                 return {
@@ -43,6 +81,34 @@ describe("embedded page-browser lists", function()
                     { title = "Nested", page = 5, page_label = "v", depth = 2 },
                     { title = "Last", page = 10, page_label = "x", depth = 1 },
                 }
+            end,
+            getCurrentPage = function(ui) return ui:getCurrentPage() end,
+            getCurrentIndex = function(entries, page)
+                local current
+                for i, entry in ipairs(entries) do
+                    if entry.page <= page then current = i end
+                end
+                return current
+            end,
+            getRowState = function(idx, current)
+                if idx == current then return "current" end
+                return current and idx < current and "read" or "unread"
+            end,
+            getChapterProgress = function(_ui, _entries, idx, page) return { idx = idx, page = page } end,
+            getRowStyle = function(size) return { size = size, row_h = 50, current_h = 80 } end,
+            paginate = function(count, available_h, height_of)
+                local pages, page, used = {}, {}, 0
+                for i = 1, count do
+                    if used + height_of(i) > available_h and #page > 0 then
+                        pages[#pages + 1], page, used = page, {}, 0
+                    end
+                    page[#page + 1], used = i, used + height_of(i)
+                end
+                pages[#pages + 1] = page
+                return pages
+            end,
+            paintRow = function(bb, x, y, w, h, style, row)
+                table.insert(bb.rows, { x = x, y = y, w = w, h = h, style = style, row = row })
             end,
         })
         browser = {
@@ -52,6 +118,7 @@ describe("embedded page-browser lists", function()
             _zenRebuildFocusLayout = function() focus_rebuilds = focus_rebuilds + 1 end,
             onClose = function() closes = closes + 1; return true end,
             ui = {
+                getCurrentPage = function() return 5 end,
                 annotation = {
                     annotations = {
                         { page = "xp1", text = "First marker", datetime = "2026-02", pos0 = "marker1" },
@@ -85,11 +152,10 @@ describe("embedded page-browser lists", function()
         assert.is_true(menu.is_borderless)
         assert.are.equal(browser, menu.show_parent)
         assert.are.equal(700, menu.height)
-        assert.are.equal("Table of contents", menu.custom_title_bar.title)
+        assert.are.equal("Chapters", menu.custom_title_bar.title)
         assert.is_nil(menu.custom_title_bar.close_callback)
         assert.are.equal(22, menu.items_font_size)
         assert.are.equal(2, menu.item_table.current)
-        assert.is_true(menu.item_table[2].bold)
         assert.are.equal("  Nested", menu.item_table[2].text)
         assert.are.equal("v", menu.item_table[2].mandatory)
         assert.is_true(menu:onMenuSelect(menu.item_table[2]))
@@ -97,10 +163,39 @@ describe("embedded page-browser lists", function()
         assert.are.equal(menu.item_table[2], selected_item)
         assert.are.equal(0, closes)
         menu:updateItems(2)
-        assert.are.equal(2, updates)
+        assert.are.equal(3, updates)
         assert.are.equal(2, font_scopes)
         assert.are.equal(1, focus_rebuilds)
-        assert.are.same({ { "first row" } }, menu.layout)
+        assert.are.equal("title button", menu.layout[1][1])
+    end)
+
+    it("pages TOC rows by height and swaps in shared custom-painted rows", function()
+        local selected_page
+        local menu = Panels.build(browser, "toc", 600, 700, function(page) selected_page = page end)
+        assert.are.same({ 50, 80, 50 }, { menu.item_table[1].height, menu.item_table[2].height,
+            menu.item_table[3].height })
+        assert.are.same({ { 1, 2, 3 } }, menu.page_items)
+        assert.are.same({ "read", "current", "unread" }, { menu.item_table[1].toc_state,
+            menu.item_table[2].toc_state, menu.item_table[3].toc_state })
+        assert.are.same({ idx = 2, page = 5 }, menu.item_table[2].progress)
+
+        local bb = { rows = {}, invertRect = function(self) self.inverted = true end }
+        for index, row in ipairs(menu.item_group) do
+            assert.are.equal(row, menu.layout[index + 1][1])
+            row:paintTo(bb, 0, index * 100)
+        end
+        assert.are.equal(22, bb.rows[1].style.size)
+        assert.is_falsy(bb.rows[1].row.separator)
+        assert.is_falsy(bb.rows[2].row.separator)
+        assert.is_falsy(bb.rows[3].row.separator)
+        assert.are.equal("Last", bb.rows[3].row.entry.title)
+        assert.are.equal(300, menu.item_group[3].dimen.y)
+
+        menu.item_group[3]:onFocus()
+        menu.item_group[3]:paintTo(bb, 0, 300)
+        assert.is_true(bb.inverted)
+        assert.is_true(menu.item_group[3]:onTapSelect())
+        assert.are.equal(10, selected_page)
     end)
 
     it("delegates all annotation kinds to the shared viewer", function()
@@ -185,11 +280,71 @@ describe("embedded page-browser lists", function()
         assert.are.equal(2, closes)
     end)
 
-    it("uses the mapped document page and browser's retained plugin config", function()
+    it("marks the reading position's chapter, not the browsed page, and keeps plugin config", function()
         _G.__ZEN_UI_PLUGIN = nil
-        browser.focus_page = 2
+        browser.focus_page = 10
+        browser._zenFocusedDocumentPage = function() return 10 end
+        browser.ui.getCurrentPage = function() return 12 end
         local menu = Panels.build(browser, "toc", 600, 700, function() end)
-        assert.are.equal(2, menu.item_table.current)
+        assert.are.equal(3, menu.item_table.current)
+        assert.are.equal("current", menu.item_table[3].toc_state)
+        assert.are.equal("read", menu.item_table[2].toc_state)
+        assert.are.same({ idx = 3, page = 12 }, menu.item_table[3].progress)
         assert.are.equal(22, menu.items_font_size)
+    end)
+
+    it("folds subchapters in the page-browser TOC from taps and D-pad without leaving the page", function()
+        local TocTree = require("modules/reader/toc_tree")
+        local widget_mock = package.loaded["modules/reader/zen_toc_widget"]
+        widget_mock.getEntries = function()
+            return TocTree.link({
+                { title = "Part 1", page = 1, page_label = "1", depth = 1 },
+                { title = "Chapter 1", page = 3, page_label = "3", depth = 2 },
+                { title = "Part 2", page = 8, page_label = "8", depth = 1 },
+                { title = "Chapter 2", page = 9, page_label = "9", depth = 2 },
+            }, { 1, 3, 8, 9 }, 21)
+        end
+        widget_mock.foldHitWidth = function(style, row) return style.size + (row.fold == "collapsed" and 40 or 0) end
+        _G.__ZEN_UI_PLUGIN.config.page_browser.toc_show_page_counts = true
+        local selected_page
+        local menu = Panels.build(browser, "toc", 600, 700, function(page) selected_page = page end)
+        local function titles()
+            local names = {}
+            for i, item in ipairs(menu.item_table) do names[i] = item.entry.title end
+            return names
+        end
+        -- Reading page 5: Chapter 1 is current, so Part 1 starts unfolded and Part 2 folded.
+        assert.are.same({ "Part 1", "Chapter 1", "Part 2" }, titles())
+        assert.are.same({ "expanded", "leaf", "collapsed" },
+            { menu.item_table[1].fold, menu.item_table[2].fold, menu.item_table[3].fold })
+        assert.are.same({ "(7)", "(5)", "(13)" },
+            { menu.item_table[1].count, menu.item_table[2].count, menu.item_table[3].count })
+        assert.are.equal(2, menu.item_table.current)
+        local bb = { rows = {} }
+        menu.item_group[3]:paintTo(bb, 0, 0)
+        assert.are.same({ fold = "collapsed", count = "(13)" }, { fold = bb.rows[1].row.fold, count = bb.rows[1].row.count })
+
+        -- Left of the title unfolds without navigating; the title still navigates.
+        assert.is_true(menu.item_group[3]:onTapSelect(nil, { pos = { x = 61, y = 0 } }))
+        assert.is_nil(selected_page)
+        assert.are.same({ "Part 1", "Chapter 1", "Part 2", "Chapter 2" }, titles())
+        assert.are.equal("expanded", menu.item_table[3].fold)
+        assert.are.equal(2, updates)
+        assert.are.equal(1, focus_rebuilds)
+        assert.is_true(menu.item_group[3]:onTapSelect(nil, { pos = { x = 62, y = 0 } }))
+        assert.are.equal(8, selected_page)
+
+        -- D-pad Left folds and Right unfolds parents; leaves swallow both.
+        assert.is_true(menu.item_group[3]:onHorizontalKey(-1))
+        assert.are.same({ "Part 1", "Chapter 1", "Part 2" }, titles())
+        assert.is_true(menu.item_group[2]:onHorizontalKey(1))
+        assert.are.same({ "Part 1", "Chapter 1", "Part 2" }, titles())
+        assert.is_true(menu.item_group[1]:onHorizontalKey(1))
+        assert.are.same({ "Part 1", "Chapter 1", "Part 2" }, titles())
+        assert.is_true(menu.item_group[1]:onHorizontalKey(-1))
+        assert.are.same({ "Part 1", "Part 2" }, titles())
+        -- The folded parent now stands in for the reading position.
+        assert.are.equal(1, menu.item_table.current)
+        assert.are.equal("current", menu.item_table[1].toc_state)
     end)
 end)

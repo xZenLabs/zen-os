@@ -3,7 +3,7 @@ local util = require("util")
 describe("reader setting context menus", function()
     local Details, reader, shown, applied, original, globals, anchor, closed, refreshes
     local modules = { "modules/menu/reader_controls/details", "ui/uimanager", "ui/widget/confirmbox",
-        "common/ui/zen_anchored_menu" }
+        "common/ui/zen_anchored_menu", "ui/widget/spinwidget" }
 
     local function action(text)
         for _i, row in ipairs(shown.buttons) do
@@ -44,6 +44,7 @@ describe("reader setting context menus", function()
             end,
         })
         ZenSpec.replace("ui/widget/confirmbox", { new = function(_self, config) return config end })
+        ZenSpec.replace("ui/widget/spinwidget", { new = function(_self, config) return config end })
         ZenSpec.replace("common/ui/zen_anchored_menu", { new = function(config)
             config.layout = config.buttons
             config.moveFocusTo = function() end
@@ -51,7 +52,8 @@ describe("reader setting context menus", function()
         end })
         anchor = { x = 500, y = 300, w = 40, h = 40 }
         reader = { document = { default_font = "Built-in", configurable = { font_size = 23, font_gamma = 1,
-            word_spacing = { 100, 95 }, t_page_margin = 20, b_page_margin = 30, sync_t_b_page_margins = 0 } },
+            word_spacing = { 100, 95 }, t_page_margin = 20, b_page_margin = 30, sync_t_b_page_margins = 0,
+            h_page_margins = { 20, 20 } } },
             font = { font_face = "Current", onSaveSettings = function() applied[#applied + 1] = "font saved" end },
             config = { options = { prefix = "copt", { options = {
                 { name = "font_size", values = { 12, 24, 36 }, default_value = 20 },
@@ -66,7 +68,9 @@ describe("reader setting context menus", function()
                     right_min = 0, right_max = 140 } },
                 { name = "b_page_margin", default_value = 15 },
                 { name = "sync_t_b_page_margins", values = { 0, 1 } },
-            } } } }, handleEvent = function(_self, event)
+                { name = "h_page_margins", default_value = { 10, 10 }, values = {}, more_options = true,
+                    more_options_param = { left_min = 0, left_max = 140, left_step = 1 } },
+            } } } }, doc_settings = ZenSpec.memorySettings({}), handleEvent = function(_self, event)
                 if event.handler == "onConfigChange" then reader.document.configurable[event.args[1]] = event.args[2] end
             end }
         ZenSpec.unload("modules/menu/reader_controls/details")
@@ -83,9 +87,10 @@ describe("reader setting context menus", function()
         local popup = open("font_size")
         assert.are.equal(anchor, popup.anchor)
         assert.is_true(popup.anchor_right)
-        assert.are.equal(2, #popup.buttons)
-        assert.are.equal("Set as default", popup.buttons[1][1].text)
-        assert.are.equal("Reset", popup.buttons[2][1].text)
+        assert.are.equal(3, #popup.buttons)
+        assert.are.equal("Set value", popup.buttons[1][1].text)
+        assert.are.equal("Set as default", popup.buttons[2][1].text)
+        assert.are.equal("Reset", popup.buttons[3][1].text)
         assert.is_nil(popup.rows_per_page)
         assert.is_nil(popup.value_widget)
         action("Reset")
@@ -111,6 +116,17 @@ describe("reader setting context menus", function()
         open("font_size")
         action("Reset")
         assert.are.equal(24, reader.document.configurable.font_size)
+    end)
+
+    it("picks an exact value with KOReader's spin step", function()
+        local popup = open("font_size")
+        action("Set value")
+        assert.are.same({ popup }, closed)
+        assert.are.equal(23, shown.value)
+        assert.are.equal(0.5, shown.value_step)
+        assert.are.equal("%.1f", shown.precision)
+        shown.callback({ value = 30.5 })
+        assert.are.same({ { "font_size", 30.5 } }, applied)
     end)
 
     it("restores gamma's native default index, including zero", function()
@@ -153,7 +169,7 @@ describe("reader setting context menus", function()
 
     it("keeps margin sync available and saves both defaults", function()
         local popup = open("t_page_margin")
-        assert.are.equal(3, #popup.buttons)
+        assert.are.equal(4, #popup.buttons)
         action("Sync")
         assert.is_nil(shown)
         assert.are.same({ popup }, closed)
@@ -168,6 +184,27 @@ describe("reader setting context menus", function()
         open("t_page_margin")
         action("Sync")
         assert.are.equal(0, reader.document.configurable.sync_t_b_page_margins)
+    end)
+
+    it("toggles horizontal margin sync per book and picks one side while unsynced", function()
+        local popup = open("h_page_margins")
+        assert.are.equal("✓ Sync", popup.buttons[1][1].text)
+        action("Sync")
+        assert.are.same({}, applied)
+        assert.is_false(reader.doc_settings.data.zen_sync_h_page_margins)
+        reader.document.configurable.h_page_margins = { 20, 30 }
+        Details.show(reader, "h_page_margins", function(key, value) applied[#applied + 1] = { key, value } end,
+            function() end, anchor, 2)
+        action("Set value")
+        assert.are.equal(30, shown.value)
+        shown.callback({ value = 35 })
+        assert.are.same({ { "h_page_margins", { 20, 35 } } }, applied)
+        applied = {}
+        popup = open("h_page_margins")
+        assert.are.equal("Sync", popup.buttons[1][1].text)
+        action("Sync")
+        assert.are.same({ { "h_page_margins", { 25, 25 } } }, applied)
+        assert.is_true(reader.doc_settings.data.zen_sync_h_page_margins)
     end)
 
     it("provides font-family defaults and reset using the same context menu", function()

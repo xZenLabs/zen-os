@@ -831,9 +831,13 @@ function BookInfoWidget:onShow()
     UIManager:setDirty(self.show_parent or self, function() return "partial", self.dimen end)
 end
 
+-- Idempotent: runs from onClose and onCloseWidget (closeAll, parent close).
 function BookInfoWidget:free()
+    if self._freed then return end
+    self._freed = true
     if self._description_widget then self._description_widget:free() end
-    if self._cover_widget then self._cover_widget:free() end
+    if self._cover_widget then self._cover_widget:free()
+    elseif self.cover and self.cover.free then self.cover:free() end -- owned but never wrapped
     if self._back_icon then self._back_icon:free() end
     if self._close_icon then self._close_icon:free() end
     if self._edit_widget then self._edit_widget:free() end
@@ -851,6 +855,10 @@ function BookInfoWidget:onClose()
     self:free()
     UIManager:close(self, "ui", self.dimen)
     return true
+end
+
+function BookInfoWidget:onCloseWidget()
+    self:free()
 end
 
 function BookInfoWidget:onEdit()

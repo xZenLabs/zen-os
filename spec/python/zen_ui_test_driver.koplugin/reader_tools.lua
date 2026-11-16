@@ -37,6 +37,10 @@ local function find_widget(predicate)
     end
 end
 
+local function confirm_box()
+    return find_widget(function(widget) return getmetatable(widget) == require("ui/widget/confirmbox") end)
+end
+
 local function menu_anchor(widget)
     local anchor = widget._zen_anchor_source or widget.anchor
     return type(anchor) == "function" and anchor() or anchor
@@ -151,6 +155,7 @@ function M.page_browser_state()
         end
     end
     local annotation_title = panel and panel.name == "page_browser_annotations" and panel.title_bar
+    local annotation_subtitle = annotation_title and annotation_title._zen_subtitle
     local button_labels = {}
     for _i, buttons in ipairs(top.buttons_table or note_editor and note_editor.buttons or {}) do
         local labels = {}
@@ -163,9 +168,11 @@ function M.page_browser_state()
         for _j, frame in ipairs(row[1] and row[1][1] or {}) do
             local box = frame[1]
             if box and not box.text and box[3] and box[3].text then
-                annotation_bookmarks[#annotation_bookmarks + 1] = {
-                    icon = box[1].file, lines = #box[3].vertical_string_list, max_lines = box[3].lines_per_page,
-                }
+                if box[1].file then
+                    annotation_bookmarks[#annotation_bookmarks + 1] = {
+                        icon = box[1].file, lines = #box[3].vertical_string_list, max_lines = box[3].lines_per_page,
+                    }
+                end
                 box = box[3]
             end
             if box and box.text and box.face then
@@ -203,7 +210,9 @@ function M.page_browser_state()
     local focused_preview = focused_frame and focused_frame[1] and focused_frame[1][1]
     local full_preview = browser._zen_full_page_preview
     local more_menu = find_widget(function(widget)
-        return browser._zen_more_button and menu_anchor(widget) == browser._zen_more_button.dimen and widget.buttons
+        local anchor = menu_anchor(widget)
+        return widget.buttons and (browser._zen_more_button and anchor == browser._zen_more_button.dimen
+            or browser._zen_annotation_more and anchor == browser._zen_annotation_more.dimen)
     end)
     local annotation_items = {}
     for _i, item in ipairs(browser._zen_content_panel and browser._zen_content_panel.item_table or {}) do
@@ -227,15 +236,18 @@ function M.page_browser_state()
         annotation_dialog = annotation_dialog and { bounds = annotation_dialog.movable.dimen,
             rows = menu_rows(annotation_dialog), anchor = menu_anchor(annotation_dialog) } or nil,
         annotation_text = browser._zen_annotations and top.text or nil,
-        annotation_subtitle = annotation_title and annotation_title.subtitle,
-        annotation_subtitle_size = annotation_title and annotation_title.subtitle_widget.face.orig_size,
-        annotation_subtitle_black = annotation_title and annotation_title.subtitle_widget.fgcolor
+        annotation_subtitle = annotation_subtitle and annotation_subtitle.text,
+        annotation_subtitle_size = annotation_subtitle and annotation_subtitle.face.orig_size,
+        annotation_subtitle_bold = annotation_subtitle and annotation_subtitle.bold == true,
+        annotation_subtitle_x = annotation_subtitle and annotation_subtitle.overlap_offset[1],
+        annotation_subtitle_black = annotation_subtitle and annotation_subtitle.fgcolor
             == require("ffi/blitbuffer").COLOR_BLACK,
-        annotation_search = annotation_title and annotation_title.right_button and {
-            icon = annotation_title.right_button.image.file,
-            bounds = annotation_title.right_button.image.dimen,
+        annotation_more_bounds = browser._zen_annotation_more and browser._zen_annotation_more.dimen,
+        annotation_search = annotation_title and {
+            icon = annotation_title._zen_search.image.file,
+            bounds = annotation_title._zen_search.image.dimen,
             title_bounds = {
-                x = annotation_title.dimen.x + annotation_title.title_h_padding,
+                x = annotation_title.dimen.x + math.floor((annotation_title.dimen.w - annotation_title.title_widget:getSize().w) / 2),
                 y = annotation_title.dimen.y + annotation_title.title_group[1]:getSize().h,
                 w = annotation_title.title_widget:getSize().w, h = annotation_title.title_widget:getSize().h,
             },
@@ -278,6 +290,7 @@ function M.page_browser_state()
         top_is_browser = UIManager._window_stack[#UIManager._window_stack].widget == browser,
         panel_height = browser._zen_panel_h,
         preview_divider = browser._zen_preview_divider and browser._zen_preview_divider.dimen,
+        header_divider = browser._zen_header_divider and browser._zen_header_divider.dimen,
         chapter_bounds = browser._zen_chapter_zone,
         previous_bounds = browser._zen_btn_skip_left_zone,
         next_bounds = browser._zen_btn_skip_right_zone,
@@ -347,8 +360,7 @@ function M.annotation_viewer_action(params)
         return true
     elseif params.action == "search" then
         local title = browser._zen_content_panel.title_bar
-        local button = browser._zen_standalone and title.left_button or title.right_button
-        local bounds = button.image.dimen
+        local bounds = title._zen_search.image.dimen
         UIManager:sendEvent(require("ui/event"):new("Gesture", {
             ges = "tap", pos = require("ui/geometry"):new{
                 x = bounds.x + bounds.w / 2, y = bounds.y + bounds.h / 2, w = 1, h = 1,
@@ -358,10 +370,35 @@ function M.annotation_viewer_action(params)
     elseif params.action == "details" then
         browser._zen_content_panel:onMenuSelect(browser._zen_content_panel.item_table[params.index or 1])
         return true
-    elseif params.action == "close_details" then
+    elseif params.action == "hold" then
+        local bounds = browser._zen_content_panel.item_group[params.index or 1].dimen
+        UIManager:sendEvent(require("ui/event"):new("Gesture", {
+            ges = "hold", pos = require("ui/geometry"):new{
+                x = bounds.x + bounds.w / 2, y = bounds.y + bounds.h / 2, w = 1, h = 1,
+            },
+        }))
+        return true
+    elseif params.action == "swipe" then
+        local panel, calls = browser._zen_content_panel, 0
+        local on_swipe = panel.onSwipe
+        panel.onSwipe = function(...) calls = calls + 1; return on_swipe(...) end
+        UIManager:sendEvent(require("ui/event"):new("Gesture", {
+            ges = "swipe", direction = "west", pos = require("ui/geometry"):new{
+                x = panel.dimen.x + panel.dimen.w / 2, y = panel.dimen.y + panel.dimen.h / 2, w = 1, h = 1,
+            },
+        }))
+        panel.onSwipe = nil
+        return calls == 1, "swiped " .. calls .. " times"
+    elseif params.action == "close_details" or params.action == "details_more" then
         local viewer = find_widget(function(widget) return widget.buttons_table and widget.titlebar end)
         if not viewer then return false, "details unavailable" end
-        viewer.titlebar.right_button.callback()
+        local button = params.action == "details_more" and viewer._zen_more or viewer.titlebar.right_button
+        button.callback()
+        return true
+    elseif params.action == "close_dialog" then
+        local top = UIManager:getTopmostVisibleWidget()
+        if not (top.buttontable and top.movable) then return false, "dialog unavailable" end
+        UIManager:close(top)
         return true
     elseif params.action == "input" then
         local input = find_widget(function(widget) return type(widget.setInputText) == "function" end)
@@ -389,8 +426,9 @@ function M.annotation_viewer_state()
     for _i, item in ipairs(viewer._zen_content_panel.item_table) do
         items[#items + 1] = { file = item.record.file, kind = item.record.kind }
     end
-    return { ok = true, scope = viewer._zen_annotations.scope, loading = viewer._zen_annotations.loading == true,
-        items = items, search_icon = viewer._zen_content_panel.title_bar.left_button.image.file }
+    return { ok = true, tab = viewer._zen_active_tab, scope = viewer._zen_annotations.scope, loading = viewer._zen_annotations.loading == true,
+        items = items, search_icon = viewer._zen_content_panel.title_bar._zen_search.image.file,
+        status_row = viewer._zen_status_row ~= nil }
 end
 
 function M.page_browser_key(key)
@@ -596,7 +634,9 @@ function M.reader_controls(params)
     if params.action == "open" then
         ui.menu:onShowReaderControls()
     elseif params.action == "toc" then
-        UIManager:show(require("modules/reader/zen_toc_widget"):new{ ui = ui })
+        UIManager:show(require("modules/reader/zen_toc_widget"):new{
+            ui = ui, show_page_counts = require("modules/reader/toc_tree").showsCounts(plugin),
+        })
     elseif params.action == "bookmarks" then
         ui.bookmark:onShowBookmark()
     elseif params.action == "book_info" then
@@ -624,6 +664,7 @@ function M.reader_controls(params)
             for _page = 1, (tm._zen_panel_refs and tm._zen_panel_refs.page_num or 1) do
                 for _i, ref in ipairs(tm._zen_panel_refs and tm._zen_panel_refs.buttons or {}) do
                     if ref.widget._reader_control_id == params.id or ref.widget._reader_setting == params.id
+                            or ref.widget._reader_card_action == params.id
                             or ref.widget._reader_button_page == params.id
                             or ref.widget.book_path == params.id
                             or ref.widget.text == params.id then found = ref; break end
@@ -679,6 +720,20 @@ function M.reader_controls(params)
             local button = dialog.buttons[params.index or 1][1]
             if params.hold then button.hold_callback() else button.callback() end
         end
+    elseif params.action == "spin" then
+        local spin = find_widget(function(widget) return widget.value_widget and widget.value_step end)
+        if not spin then return { ok = false } end
+        local state = { ok = true, value = spin.value, value_min = spin.value_min, value_max = spin.value_max,
+            value_step = spin.value_step, precision = spin.precision }
+        if params.value then
+            spin.value_widget.value = params.value
+            for _i, row in ipairs(spin.layout or {}) do
+                for _j, button in ipairs(row) do
+                    if button.text == spin.ok_text then button.callback() end
+                end
+            end
+        end
+        return state
     elseif params.action == "font_menu" then
         local dialog = font_menu()
         if dialog then
@@ -738,7 +793,8 @@ function M.reader_controls(params)
             positions = positions, bounds = dialog.movable.dimen, anchor = dialog._zen_anchor_source,
             left_value = type(value) == "table" and value[1] or nil,
             right_value = type(value) == "table" and value[2] or nil,
-            paired = type(value) == "table" and (not params_config.names or not settings.syncedMargins(ui)),
+            paired = type(value) == "table" and (not (params_config.names or dialog._reader_setting == "h_page_margins")
+                or not settings.syncedMargins(ui, dialog._reader_setting)),
             scrollable = dialog.cropping_widget ~= nil, default_value = default }
     elseif params.action == "inject_color_option" and tm then
         table.insert(require("modules/menu/reader_controls/settings").panel(ui, "appbar.contrast").options, {
@@ -839,6 +895,25 @@ function M.reader_controls(params)
     elseif params.action == "paint" then
         UIManager:setDirty("all", "ui")
         UIManager:forceRePaint()
+    elseif params.action == "windows" then
+        return { ok = true, count = #UIManager._window_stack }
+    elseif params.action == "real_tap" and tm then
+        -- Dispatch through UIManager so child gesture handlers run as on device.
+        UIManager:forceRePaint()
+        local bounds
+        for _i, row in ipairs(tm.layout or {}) do
+            for _j, widget in ipairs(row) do
+                if widget._reader_card_action == params.id or params.id == "book_info_card" and widget.onTapDetails
+                        or widget._reader_theme_choice and widget.text == params.id then
+                    bounds = widget.dimen
+                end
+            end
+        end
+        if not bounds then return { ok = false, error = "widget unavailable" } end
+        UIManager:sendEvent(require("ui/event"):new("Gesture", { ges = "tap", time = require("ui/time").now(),
+            pos = require("ui/geometry"):new{ x = bounds.x + (params.dx or math.floor(bounds.w / 2)),
+                y = bounds.y + math.floor(bounds.h / 2), w = 0, h = 0 } }))
+        return { ok = true }
     elseif params.action == "next_page" and tm then
         tm:onNextPage()
     elseif params.action == "setting" then
@@ -859,7 +934,7 @@ function M.reader_controls(params)
     tm = active_controls()
     local controls, labels, toggles, radios, font_count, header = {}, {}, {}, {}, 0, {}
     local bounds, selections, step_styles, zen_buttons, label_ends = {}, {}, {}, {}, {}
-    local icons, outlined, title_heights, switcher_books = {}, {}, {}, {}
+    local icons, outlined, title_heights, switcher_books, card_actions = {}, {}, {}, {}, {}
     local slider_bounds, slider_states, value_cells, theme_count, family_label, family_radius = {}, {}, {}, 0, nil, nil
     for _i, row in ipairs(tm and tm.layout or {}) do
         for _j, widget in ipairs(row) do
@@ -875,13 +950,20 @@ function M.reader_controls(params)
             if widget._reader_control_id then
                 icons[widget._reader_control_id] = widget.image.file
             end
+            if widget._reader_card_action then
+                card_actions[#card_actions + 1] = widget._reader_card_action
+                icons[widget._reader_card_action] = widget.image.file
+            end
             if widget.label_box then
                 labels[widget._reader_setting or widget.text] = widget.label.text .. (widget.number and widget.number.text or "")
             end
             local id = widget._reader_setting or widget._reader_button_page or widget.text
             local dimen = widget.dimen or widget.slider and widget[1].dimen
             if widget.slider then
-                local spec = require("modules/menu/reader_controls/settings").slider(ui, id)
+                -- Unsynced L/R margins render as h_page_margins_left / _right side sliders.
+                local name, side = id:match("^(h_page_margins)_(%a+)$")
+                local spec = require("modules/menu/reader_controls/settings").slider(ui, name or id, nil,
+                    side and (side == "left" and 1 or 2))
                 local visible_presets = 0
                 for _k, value in ipairs(spec.option.values or {}) do
                     local position = spec.position(value)
@@ -997,7 +1079,7 @@ function M.reader_controls(params)
     for _i, widget in ipairs(tm and tm.item_group or {}) do footer_visible = footer_visible or widget == tm.footer end
     local family_menu = font_menu()
     local family_anchor = family_menu and menu_anchor(family_menu)
-    return { ok = true, header = header, switcher_books = switcher_books,
+    return { ok = true, header = header, switcher_books = switcher_books, card_actions = card_actions,
         font_family_label = family_label,
         font_family_radius = family_radius,
         font_menu = family_menu and { open = true, count = #family_menu.buttons,
@@ -1315,6 +1397,11 @@ function M.reference_action(params)
     elseif action == "open_note" then References.openFootnote(ui)
     elseif action == "close" then drawer:onClose()
     elseif action == "expand" then drawer:onExpand()
+    elseif action == "confirm" then
+        local box = confirm_box()
+        if not box then return { ok = false, error = "Confirm box missing" } end
+        UIManager:close(box)
+        if params.cancel then box.cancel_callback() else box.ok_callback() end
     elseif action == "check_pin_navigation" then
         local dirty, repaint = UIManager.setDirty, UIManager.widgetRepaint
         navigation_updates = 0
@@ -1375,6 +1462,36 @@ function M.reference_action(params)
         end
         plugin.config.reader_top_status_bar.hide_in_cbz = false
         UIManager:setDirty(ui, "ui")
+    elseif action == "footer_progress_only" or action == "footer_tap" or action == "footer_state" then
+        local footer = ui.view.footer
+        if params.preset then
+            local presets = require("modules/reader/patches/reader_footer_presets")
+            footer:loadPreset(require("util").tableDeepCopy(presets[params.preset]))
+        elseif action == "footer_progress_only" then
+            for _i, mode in ipairs(footer.mode_index) do footer.settings[mode] = false end
+            footer.settings.disable_progress_bar = false
+        end
+        if params.settings then
+            for key, value in pairs(params.settings) do footer.settings[key] = value end
+            footer:updateFooterContainer()
+            footer:set_has_no_mode()
+            footer:updateFooterTextGenerator()
+            if footer.has_no_mode then footer:applyFooterMode(footer.mode_list.page_progress) end
+            footer:refreshFooter(true, true)
+        end
+        if action == "footer_tap" then
+            local screen = require("device").screen
+            UIManager:sendEvent(require("ui/event"):new("Gesture", { ges = "tap", time = require("ui/time").now(),
+                pos = require("ui/geometry"):new{ x = screen:getWidth() / 2, y = screen:getHeight() - 5, w = 1, h = 1 } }))
+        end
+        local plugin = require("pluginloader"):getPluginInstance("zenos")
+        return { ok = true, references = { footer_visible = ui.view.footer_visible, has_no_mode = footer.has_no_mode,
+            mode_name = footer.mode_index[footer.mode],
+            bar = footer.progress_bar.dimen and { x = footer.progress_bar.dimen.x, w = footer.progress_bar.dimen.w },
+            pin = footer._zen_pin_dimen and { x = footer._zen_pin_dimen.x, w = footer._zen_pin_dimen.w },
+            margins = { require("common/reader_status_bar").getHorizontalMargins(ui.document, 0, plugin) },
+            screen_w = require("device").screen:getWidth(),
+            zen_enabled = require("common/dispatch_action").isBottomStatusBarEnabled(plugin) } }
     elseif action == "header_refresh" then
         ui:onNetworkConnected()
     elseif action == "bookmark" then
@@ -1424,10 +1541,12 @@ function M.reference_action(params)
             from_xpointer = link.a_xpointer, link_y = link.start_y }, false,
             G_reader_settings:isTrue("footnote_link_in_popup"))
     elseif action == "gesture" then
+        local inner = params.target == "body" or params.target == "header" or params.target == "minimap"
         local bounds = params.target == "body" and drawer.content.dimen
+            or params.target == "minimap" and drawer.minimap.dimen
             or params.target == "header" and drawer.page_button.dimen or drawer.frame.dimen
         local pos = require("ui/geometry"):new{ x = bounds.x + bounds.w * (params.x_ratio or 0.5), y = bounds.y + bounds.h / 2 }
-        if params.target ~= "body" and params.target ~= "header" then
+        if not inner then
             pos.y = bounds.y + math.floor(drawer.top_padding / 2)
         end
         if params.y_ratio then pos.y = bounds.y + bounds.h * params.y_ratio end
@@ -1523,6 +1642,7 @@ function M.reference_action(params)
     return { ok = true, references = {
         page = ui:getCurrentPage(), page_count = ui.document:getPageCount(),
         navigation_updates = navigation_updates, top_menu_open = top_menu_open,
+        confirm_text = (confirm_box() or {}).text,
         footer_left_margin = require("common/reader_status_bar").getHorizontalMargins(ui.document,
             footer.horizontal_margin, require("pluginloader"):getPluginInstance("zenos")),
         location = ui.rolling and ui.document:getXPointer() or nil,
@@ -1609,6 +1729,9 @@ function M.reference_action(params)
             zoom_out_icon = drawer.zoom_out_button and drawer.zoom_out_button.label_widget.file,
             zoom_out_icon_bounds = drawer.zoom_out_button and drawer.zoom_out_button.label_widget.dimen,
             close_icon = drawer.close_button and drawer.close_button.label_widget.file,
+            close_icon_bounds = drawer.close_button and drawer.close_button.label_widget.dimen,
+            minimap = drawer.minimap,
+            panning = drawer.live_pan ~= nil,
             close = drawer.close_button and drawer.close_button.dimen, page = drawer.page, footnote = drawer.footnote ~= nil,
             bounds = drawer.frame.dimen, content = drawer.content.dimen, scale = drawer.scale,
             image = drawer.htmlwidget == nil,
@@ -1624,6 +1747,7 @@ function M.reference_action(params)
             border = drawer.frame.bordersize, paint_height = drawer.frame.height, grabber = drawer.grabber ~= nil,
             radius = drawer.frame.radius, css = drawer.htmlwidget and drawer.htmlwidget.css,
             font_size = drawer.htmlwidget and drawer.htmlwidget.default_font_size,
+            html_pages = drawer.htmlwidget and drawer.htmlwidget.htmlbox_widget.page_count,
             background = { drawer.background:getR(), drawer.background:getG(), drawer.background:getB() },
             foreground = { drawer.foreground:getR(), drawer.foreground:getG(), drawer.foreground:getB() },
             ratio = drawer:getScrollRatio(), closed = drawer.closed } or nil,

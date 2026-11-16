@@ -261,4 +261,61 @@ describe("home quotes", function()
         assert.are.equal(parsed, open_calls)
         assert.are.equal(1, perf.sidecar_cache_hits)
     end)
+
+    it("loads the default quote list lazily", function()
+        ZenSpec.unload("modules/filebrowser/patches/home/quote_list")
+        ZenSpec.unload("modules/filebrowser/patches/home/home_quotes")
+        HomeQuotes = require("modules/filebrowser/patches/home/home_quotes")
+        assert.is_nil(package.loaded["modules/filebrowser/patches/home/quote_list"])
+    end)
+
+    it("reuses the quote list until custom files change", function()
+        local mtime = 1
+        local lfs = require("libs/libkoreader-lfs")
+        local attributes = lfs.attributes
+        lfs.attributes = function(path, field)
+            if not field and path:match("quotes%.lua$") then return { modification = mtime, size = 9 } end
+            return attributes(path, field)
+        end
+        dofile_stub.returns({ "First", "Second" })
+        local config = { sources = { custom = true } }
+        local first = HomeQuotes.getQuotes(config)
+        assert.are.equal(first, HomeQuotes.getQuotes(config))
+        assert.stub(dofile_stub).was_called(1)
+        mtime = 2
+        assert.are_not.equal(first, HomeQuotes.getQuotes(config))
+        assert.stub(dofile_stub).was_called(2)
+    end)
+
+    it("refreshes only the invalidated book's annotations", function()
+        book_mode = "file"
+        sidecar_stat = { modification = 1000, size = 128 }
+        local texts = { ["/books/a.epub"] = "A one", ["/books/b.epub"] = "B one" }
+        local opened = {}
+        ZenSpec.replace("readhistory", {
+            hist = { { file = "/books/a.epub" }, { file = "/books/b.epub" } },
+        })
+        ZenSpec.replace("ffi/util", { realpath = function(path) return path end })
+        ZenSpec.replace("docsettings", {
+            findSidecarFile = function(_, file) return file .. ".sdr/metadata.epub.lua" end,
+            openSettingsFile = function(file)
+                local book = file:match("^(.-)%.sdr/")
+                opened[#opened + 1] = book
+                return { data = { annotations = { { drawer = "x", text = texts[book] } } } }
+            end,
+        })
+        local config = { sources = { annotations = true } }
+        HomeQuotes.getQuotes(config)
+        opened = {}
+        texts["/books/b.epub"] = "B two"
+        sidecar_stat = { modification = 2000, size = 128 }
+
+        HomeQuotes.invalidateAnnotations("/books/b.epub")
+        local quotes, perf = HomeQuotes.getQuotes(config)
+
+        assert.are.same({ "/books/b.epub" }, opened)
+        assert.are.equal(1, perf.annotation_cache_hits)
+        assert.are.same({ "A one", "B two" }, { quotes[1].text, quotes[2].text })
+    end)
 end)
+

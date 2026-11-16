@@ -322,4 +322,72 @@ describe("book status", function()
             "/books/book-1.epub"))
         assert.are.equal(40, opens)
     end)
+
+    it("caches scalar sidecar fields only and serves them through a read-only snapshot", function()
+        local opens = 0
+        local doc = settings({
+            summary = { status = "reading", modified = "2026-01-01" },
+            percent_finished = 0.5,
+            zen_new_mtime = 200,
+            doc_pages = 321,
+            stats = { pages = 300, title = "Big" },
+            annotations = { { text = "heavy" } },
+        })
+        ZenSpec.replace("docsettings", {
+            findSidecarFile = function() return "/books/book.sdr/metadata.lua" end,
+            hasSidecarFile = function() return true end,
+            open = function()
+                opens = opens + 1
+                return doc
+            end,
+        })
+        local BookStatus = require("common/book_status")
+
+        local miss = BookStatus.getFileStatusData("/books/book.epub")
+        assert.are.equal(doc, miss.doc_settings)
+        local hit = BookStatus.getFileStatusData("/books/book.epub")
+        assert.are.equal(1, opens)
+        assert.are_not.equal(doc, hit.doc_settings)
+        assert.are.equal(321, hit.doc_settings:readSetting("doc_pages"))
+        assert.are.same({ pages = 300 }, hit.doc_settings:readSetting("stats"))
+        assert.are.same({ status = "reading" }, hit.doc_settings:readSetting("summary"))
+        assert.is_nil(hit.doc_settings:readSetting("annotations"))
+    end)
+
+    it("primes from in-memory settings once and reuses the display status per TBR revision", function()
+        local opens = 0
+        local explicit_checks = 0
+        local tbr_revision = 1
+        local doc = settings({ summary = { status = "complete" }, zen_new_mtime = 200 })
+        ZenSpec.replace("docsettings", {
+            findSidecarFile = function() return "/books/book.sdr/metadata.lua" end,
+            hasSidecarFile = function() return true end,
+            open = function() opens = opens + 1; return doc end,
+        })
+        ZenSpec.replace("common/tbr_index", {
+            peekRevision = function() return tbr_revision end,
+            isExplicit = function()
+                explicit_checks = explicit_checks + 1
+                return false
+            end,
+        })
+        local BookStatus = require("common/book_status")
+
+        assert.is_true(BookStatus.prime("/books/book.epub", doc))
+        local checks = explicit_checks
+        assert.are.equal("complete", BookStatus.getFileStatusData("/books/book.epub").display_status)
+        assert.are.equal("complete", BookStatus.getFileStatusData("/books/book.epub").display_status)
+        assert.are.equal(0, opens)
+        assert.are.equal(checks, explicit_checks)
+        tbr_revision = 2
+        BookStatus.getFileStatusData("/books/book.epub")
+        assert.are.equal(checks + 1, explicit_checks)
+
+        assert.is_false(BookStatus.takePrimed("/books/other.epub"))
+        assert.is_true(BookStatus.takePrimed("/books/book.epub"))
+        assert.is_false(BookStatus.takePrimed("/books/book.epub"))
+        BookStatus.prime("/books/book.epub", doc)
+        BookStatus.invalidate("/books/book.epub")
+        assert.is_false(BookStatus.takePrimed("/books/book.epub"))
+    end)
 end)

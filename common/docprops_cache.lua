@@ -7,6 +7,7 @@ local logger = require("common/zen_logger").new("docprops_cache")
 local M = {}
 local DB_PATH = DataStorage:getSettingsDir() .. "/docprops_cache.sqlite"
 local db
+local verified -- quick_check + schema ran on this file this process
 local in_operation
 
 function M.close()
@@ -16,16 +17,20 @@ end
 
 local function open_db()
     if db then return db end
+    if verified and not lfs.attributes(DB_PATH, "mode") then verified = nil end
     db = sqlite3.open(DB_PATH)
-    local check = db:exec("PRAGMA quick_check(1)")[1][1]
-    if check ~= "ok" then error("ljsqlite3[corrupt] " .. tostring(check)) end
+    -- Full-file scan once per process; the handle is reopened on every UI swap.
+    if not verified then
+        local check = db:exec("PRAGMA quick_check(1)")[1][1]
+        if check ~= "ok" then error("ljsqlite3[corrupt] " .. tostring(check)) end
+    end
     local mode = Device:canUseWAL() and "WAL" or "TRUNCATE"
     mode = db:exec("PRAGMA journal_mode = " .. mode)[1][1]
     -- WAL/NORMAL keeps a rebuildable cache consistent without syncing every insert.
     db:exec("PRAGMA synchronous = " .. (mode == "wal" and "NORMAL" or "FULL"))
+    db:exec("PRAGMA temp_store = MEMORY; PRAGMA cache_size = -2000;")
+    if verified then return db end
     db:exec([[
-        PRAGMA temp_store = MEMORY;
-        PRAGMA cache_size = -2000;
         CREATE TABLE IF NOT EXISTS doc_props_cache (
             cache_key TEXT PRIMARY KEY,
             props TEXT,
@@ -46,11 +51,13 @@ local function open_db()
         CREATE INDEX IF NOT EXISTS zen_doc_status_home_tbr
             ON zen_doc_status_cache(home_root, status, effective_status);
     ]])
+    verified = true
     return db
 end
 
 local function preserve_corrupt_db()
     M.close() -- Both cache users must release the same handle before renaming.
+    verified = nil
     local base = DB_PATH .. ".corrupt-" .. os.date("%Y%m%d-%H%M%S")
     local backup, index = base, 0
     while lfs.attributes(backup) do

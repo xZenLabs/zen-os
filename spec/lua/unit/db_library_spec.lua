@@ -1,5 +1,6 @@
 describe("library statistics", function()
     local open_calls
+    local mtime
 
     before_each(function()
         local today = os.date("%Y-%m-%d")
@@ -13,6 +14,7 @@ describe("library statistics", function()
             ["/books/archive.CBR"] = { status = "complete", modified = today },
         }
         open_calls = 0
+        mtime = 1000
 
         ZenSpec.replace("common/zen_logger", {
             new = function() return { info = function() end, warn = function() end } end,
@@ -23,7 +25,7 @@ describe("library statistics", function()
         })
         ZenSpec.replace("libs/libkoreader-lfs", {
             attributes = function()
-                return { modification = 1000, size = 128 }
+                return { modification = mtime, size = 128 }
             end,
         })
         ZenSpec.replace("modules/filebrowser/patches/rakuyomi", {
@@ -83,5 +85,20 @@ describe("library statistics", function()
         LibraryDB.getBookCounts()
 
         assert.are.equal(parsed, open_calls)
+    end)
+
+    it("re-parses only changed sidecars and keeps one entry per sidecar", function()
+        local LibraryDB = require("common/db_library")
+        LibraryDB.getBookCounts()
+        local parsed = open_calls
+
+        mtime = 2000
+        LibraryDB.invalidateCache()
+        LibraryDB.getBookCounts()
+        assert.are.equal(parsed * 2, open_calls)
+
+        LibraryDB.invalidateCache()
+        LibraryDB.getBookCounts()
+        assert.are.equal(parsed * 2, open_calls)
     end)
 end)
