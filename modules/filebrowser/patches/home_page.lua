@@ -3225,11 +3225,12 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
 
     local function show_book_context_menu(path, source, component_id)
         if type(path) ~= "string" or path == "" then return false end
-        if source == "kindle" then
-            return OptionalProvider.call(KINDLE_PROVIDER,
-                "showBookContextMenu", nil, { file = path, path = path }, M.rebuildActive) or false
-        end
-        if BookSources.showContextMenu(nil, { file = path, path = path }, M.rebuildActive) then
+        local is_history = source == "recently_read"
+        if BookSources.showContextMenu(nil, {
+            file = path, path = path,
+            _zen_is_history = is_history,
+            _zen_history_path = is_history and path or nil,
+        }, M.rebuildActive) then
             return true
         end
         local fm = FileManager.instance
@@ -3249,7 +3250,7 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
             _zen_disable_select = true,
             _zen_rakuyomi_book = is_rakuyomi,
             _zen_hide_edit = is_rakuyomi,
-            _zen_is_history = source == "recently_read" and not is_rakuyomi,
+            _zen_is_history = is_history and not is_rakuyomi,
             _zen_collection_name = explicit_collection,
             _zen_widget_settings = dcfg.edit_mode == true and function()
                 return require("modules/settings/sections/library_settings/home_settings")

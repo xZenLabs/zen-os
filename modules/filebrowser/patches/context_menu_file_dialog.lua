@@ -1928,13 +1928,14 @@ return function(ctx, self_fc, item)
                         ok_text = _("Remove"),
                         ok_callback = function()
                             local ReadHistory = require("readhistory")
-                            ReadHistory:removeItemByPath(file)
+                            local history_path = item._zen_history_path or file
+                            ReadHistory:removeItemByPath(history_path)
                             local plug = zen_plugin or rawget(_G, "__ZEN_UI_PLUGIN")
                             local home = plug and SharedState.get(plug, "home")
                             if home and home.rebuildActive then
                                 UIManager:nextTick(function()
                                     if type(home.invalidateBookCache) == "function" then
-                                        home.invalidateBookCache(file, true)
+                                        home.invalidateBookCache(history_path, true)
                                     end
                                     home.rebuildActive()
                                 end)

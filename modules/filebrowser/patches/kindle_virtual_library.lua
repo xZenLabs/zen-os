@@ -391,6 +391,11 @@ function M.showBookContextMenu(menu, item, after_change)
         _zen_kindle_book = true,
         _zen_kindle_processed = is_processed,
         _zen_extra_buttons = { clear_cache },
+        -- Context from the caller (Home's Recently read row): lets the dialog
+        -- offer "Remove from history" for the path history actually holds,
+        -- which can differ from the cache path shown here.
+        _zen_is_history = item._zen_is_history,
+        _zen_history_path = item._zen_history_path,
         _zen_refresh = function()
             if type(library.refresh) == "function" then library:refresh(true) end
             refresh_view()
