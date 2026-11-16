@@ -455,4 +455,12 @@ return {
         "Fix: entire page/chapter being highlighted when navigating with internal book links",
         "Fix: blurred menu background left a blank strip at the bottom",
     },
+    ["4.4.0"] = {
+        "Add updated Battery page",
+        "Add updated Stats page",
+        "Add text size for cover badges and the opening banner (Library > Appearance > Covers > Badges)",
+        "Library opens faster: the listing is kept when switching tabs",
+        "Plugins can add books to the Authors, Series, Languages, and Tags views",
+        "Fix: crash on Android when opening a footnote popup",
+    },
 }
