@@ -12,6 +12,7 @@ local HomePresets = require("modules/filebrowser/patches/home/home_presets")
 local LanguageName = require("common/language_name")
 local MemoryPolicy = require("common/memory_policy")
 local OptionalProvider = require("common/optional_provider")
+local BookSources = require("common/book_sources")
 local ReadingGoals = require("common/reading_goals")
 local PresetStore = require("config/preset_store")
 local Registry = require("modules/filebrowser/patches/home/components/registry")
@@ -1176,16 +1177,17 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             end
             if #dataset.history >= HOME_STRIP_MAX_BOOKS then break end
             local in_library = path ~= nil and LibraryPaths.isInHomeDir(path)
-            local is_kindle = path ~= nil and not in_library
-                and OptionalProvider.call(KINDLE_PROVIDER, "isBookPath", path) == true
-            local is_rakuyomi = path ~= nil and not is_kindle
+            local is_file = path ~= nil and lfs.attributes(path, "mode") == "file"
+            -- Books from a book source (Kindle, a plugin's catalog) have no file.
+            local is_source = path ~= nil and not is_file and BookSources.owns(path)
+            local is_rakuyomi = path ~= nil and not is_source
                 and (#recent > 0 or exclude_rakuyomi or not in_library)
                 and is_rakuyomi_history_path(path)
             if path ~= nil
                 and path ~= ""
                 and not is_tmpfs_chapter(path)
-                and (is_kindle or lfs.attributes(path, "mode") == "file")
-                and (is_kindle or in_library or is_rakuyomi)
+                and (is_source or is_file)
+                and (is_source or in_library or is_rakuyomi)
                 and not dataset.rakuyomi_recent[path]
                 and not ((#recent > 0 or exclude_rakuyomi) and is_rakuyomi) then
                 table.insert(dataset.history, path)
@@ -3213,6 +3215,7 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
         _G.__ZEN_UI_LIBRARY_SOURCE_TAB = "home"
         if OptionalProvider.call(RAKUYOMI_PROVIDER, "resumeRecentSeries", path) then return end
         local fm = FileManager.instance
+        if BookSources.open(path, fm) then return end
         if filemanagerutil.openFile then
             filemanagerutil.openFile(fm, path)
         elseif fm and type(fm.openFile) == "function" then
@@ -3225,6 +3228,9 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
         if source == "kindle" then
             return OptionalProvider.call(KINDLE_PROVIDER,
                 "showBookContextMenu", nil, { file = path, path = path }, M.rebuildActive) or false
+        end
+        if BookSources.showContextMenu(nil, { file = path, path = path }, M.rebuildActive) then
+            return true
         end
         local fm = FileManager.instance
         local fc = fm and fm.file_chooser

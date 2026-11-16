@@ -9,6 +9,8 @@ common/book_status.lua|unit
 modules/menu/bluetooth/bluetooth.lua|unit
 modules/menu/bluetooth/kobo_bluetooth.lua|unit
 common/book_walker.lua|unit
+common/book_sources.lua|unit
+common/book_sources_kindle.lua|unit
 common/brand_migration.lua|unit
 common/clock_schedule.lua|unit
 common/clock_timer.lua|unit
@@ -181,6 +183,10 @@ modules/filebrowser/patches/search.lua|integration
 modules/filebrowser/patches/standalone_page.lua|integration
 modules/filebrowser/patches/stats_settings.lua|integration
 modules/filebrowser/patches/stats_page.lua|integration
+modules/filebrowser/patches/stats_tabs/books.lua|integration
+modules/filebrowser/patches/stats_tabs/data.lua|unit
+modules/filebrowser/patches/stats_tabs/source.lua|integration
+modules/filebrowser/patches/stats_tabs/view.lua|integration
 modules/filebrowser/patches/status_bar.lua|integration
 modules/filebrowser/patches/status_on_open.lua|integration
 modules/global/global.lua|integration

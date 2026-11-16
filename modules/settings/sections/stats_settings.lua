@@ -369,6 +369,41 @@ function M.build(ctx)
                     return items
                 end,
             }, icons.calendar),
+            IconItem.decorate({
+                text = _("Layout"),
+                sub_item_table_func = function()
+                    local items = {}
+                    for _i, entry in ipairs({
+                        { "tabs", _("Tabs: overview, books, calendar") },
+                        { "dashboard", _("Dashboard with widgets") },
+                    }) do
+                        local layout = entry[1]
+                        items[#items + 1] = {
+                            text = entry[2],
+                            radio = true,
+                            checked_func = function() return StatsSettings.load().layout == layout end,
+                            callback = function()
+                                local settings = StatsSettings.load()
+                                settings.layout = layout
+                                save(settings)
+                            end,
+                        }
+                    end
+                    return items
+                end,
+            }, icons.settings_layout),
+            IconItem.decorate({
+                text = _("Count omnibus volumes as separate books"),
+                help_text = _("Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."),
+                checked_func = function()
+                    return StatsSettings.load().count_omnibus ~= false
+                end,
+                callback = function()
+                    local settings = StatsSettings.load()
+                    settings.count_omnibus = settings.count_omnibus == false
+                    save(settings)
+                end,
+            }, icons.series),
         },
     }, icons.settings_stats)
 end
