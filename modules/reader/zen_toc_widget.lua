@@ -4,7 +4,7 @@
 --   local ZenTocWidget = require("modules/reader/zen_toc_widget")
 --   UIManager:show(ZenTocWidget:new{
 --       ui         = pbw.ui,          -- ReaderUI instance
---       focus_page = pbw.focus_page,  -- current page for highlighting
+--       focus_page = page,            -- optional; defaults to the reader's current page
 --       on_goto    = function(page)   -- called when user taps a chapter
 --           if pbw:updateFocusPage(page, false) then pbw:update() end
 --       end,
@@ -12,6 +12,7 @@
 --
 -- Interaction:
 --   Tap entry         → navigate to chapter, close modal
+--   Tap fold arrow    → expand / collapse subchapters (D-pad Right / Left)
 --   Tap outside / ‹   → close modal
 --   Swipe left/right  → next / prev page of TOC entries
 --   Zen scroll bar    → shows current position in TOC list
@@ -26,11 +27,16 @@ local TextWidget     = require("ui/widget/textwidget")
 local UIManager      = require("ui/uimanager")
 local lfs            = require("libs/libkoreader-lfs")
 local Screen         = Device.screen
+local Accent         = require("common/ui/accent")
 local pager          = require("common/ui/zen_pager")
 local LibraryFont    = require("modules/filebrowser/patches/library_font")
+local Pill           = require("common/ui/pill")
+local RawPaint       = require("common/ui/raw_paint")
 local ReaderFont     = require("common/reader_font")
 local TitleStyle     = require("common/ui/zen_title_style")
+local TocTree        = require("modules/reader/toc_tree")
 local utils          = require("common/utils")
+local T              = require("ffi/util").template
 local _              = require("gettext")
 
 local function resolve_stock_icon(name)
@@ -40,6 +46,7 @@ end
 
 local BACK_ICON_PATH = resolve_stock_icon("chevron.left")
 local CLOSE_ICON_PATH = resolve_stock_icon("close")
+local FOLD_ICON_PATH = { collapsed = resolve_stock_icon("control.expand"), expanded = resolve_stock_icon("control.collapse") }
 
 local function supports_hardware_focus()
     local has_dpad = type(Device.hasDPad) == "function" and Device:hasDPad()
@@ -85,18 +92,36 @@ local function get_entry_title(ui, entry, page)
     return title
 end
 
-local function get_toc_page_label(ui, entry, fallback_page)
+-- The page map when the reader shows its labels instead of screen pages.
+local function label_pagemap(ui)
     local pagemap = ui and ui.pagemap
-    if pagemap and type(pagemap.wantsPageLabels) == "function"
-        and pagemap:wantsPageLabels()
-        and entry and entry.xpointer
-        and type(pagemap.getXPointerPageLabel) == "function" then
-        local label = pagemap:getXPointerPageLabel(entry.xpointer)
-        if label then
-            return tostring(label)
-        end
+    if pagemap and type(pagemap.wantsPageLabels) == "function" and pagemap:wantsPageLabels() then
+        return pagemap
     end
-    return tostring(fallback_page)
+end
+
+-- Display label plus counting position: the page-map index when labels are shown, else the page.
+local function get_toc_page_label(pagemap, entry, page)
+    if not pagemap then return tostring(page), page end
+    local label = entry.xpointer and type(pagemap.getXPointerPageLabel) == "function"
+        and pagemap:getXPointerPageLabel(entry.xpointer)
+    if not label then return tostring(page) end
+    -- getPageLabelProps expects the cleaned label.
+    local index = type(pagemap.getPageLabelProps) == "function"
+        and pagemap:getPageLabelProps(pagemap:getXPointerPageLabel(entry.xpointer, true))
+    return tostring(label), index or nil
+end
+
+-- Position just past the last page, in the same units as get_toc_page_label.
+local function get_book_end(ui, pagemap)
+    local total
+    if pagemap then
+        total = type(pagemap.getPageLabelProps) == "function" and pagemap:getPageLabelProps()
+    else
+        local doc = ui and ui.document
+        total = doc and type(doc.getPageCount) == "function" and doc:getPageCount()
+    end
+    return total and total + 1 or nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -107,143 +132,253 @@ local ZenTocWidget = InputContainer:extend{
     on_goto    = nil,   -- callback(page_num) when entry tapped
     close_all_callback = nil,
     show_back = false,
-    focus_page = 1,     -- current page; used to highlight active chapter
+    focus_page = nil,   -- page whose chapter is highlighted; defaults to reader position
     font_size  = nil,
+    show_page_counts = false, -- "(N)" after each title; see TocTree.showsCounts
 }
 
+-- Full TOC as a linked tree (TocTree.link). ReaderToc exposes the raw array as .toc (not a
+-- method). Entries sharing the same page are merged (titles joined with " · ", shallowest depth
+-- kept) unless the later one is a deeper, distinctly titled subheading.
 function ZenTocWidget.getEntries(ui)
-    -- Collect TOC entries, cap depth at 3 to avoid overwhelming the list.
-    -- ReaderToc exposes the raw array as .toc (not a method).
-    -- Entries sharing the same page are merged: titles joined with " · ".
     local toc = ui and ui.toc
     if toc and type(toc.fillToc) == "function" then toc:fillToc() end
     local raw = (toc and toc.toc) or {}
-    local entries = {}
-    local page_to_idx = {}
+    local pagemap = label_pagemap(ui)
+    local entries, positions, page_to_idx = {}, {}, {}
     for _i, e in ipairs(raw) do
         local pg    = e.page or 1
         local depth = e.depth or 1
-        if depth <= 3 then
-            local title = get_entry_title(ui, e, pg)
-            local idx   = page_to_idx[pg]
-            if idx then
-                -- Merge: append title only if it's not a duplicate string
-                local existing = entries[idx].title
-                if title ~= "" and is_placeholder_title(existing) then
-                    entries[idx].title = title
-                elseif title ~= "" and title ~= existing then
-                    entries[idx].title = existing .. " · " .. title
-                end
-                -- Keep the shallowest (lowest) depth
-                if depth < entries[idx].depth then
-                    entries[idx].depth = depth
-                end
-            else
-                page_to_idx[pg] = #entries + 1
-                table.insert(entries, {
-                    title      = title,
-                    page       = pg,
-                    page_label = get_toc_page_label(ui, e, pg),
-                    depth      = depth,
-                })
+        local title = get_entry_title(ui, e, pg)
+        local prev  = entries[page_to_idx[pg]]
+        local sub   = prev and depth > prev.depth and title ~= prev.title
+            and not is_placeholder_title(title) and not is_placeholder_title(prev.title)
+        if prev and not sub then
+            if title ~= "" and is_placeholder_title(prev.title) then
+                prev.title = title
+            elseif title ~= "" and title ~= prev.title then
+                prev.title = prev.title .. " · " .. title
             end
+            prev.depth = math.min(depth, prev.depth)
+        else
+            local idx = #entries + 1
+            page_to_idx[pg] = idx
+            entries[idx] = { title = title, page = pg, depth = depth }
+            entries[idx].page_label, positions[idx] = get_toc_page_label(pagemap, e, pg)
         end
     end
-    return entries
+    return TocTree.link(entries, positions, get_book_end(ui, pagemap))
+end
+
+-- Index of the last entry starting at or before page (the current chapter).
+function ZenTocWidget.getCurrentIndex(entries, page)
+    local current
+    for i, e in ipairs(entries) do
+        if e.page <= page then current = i end
+    end
+    return current
+end
+
+function ZenTocWidget.getCurrentPage(ui)
+    local ok, page = pcall(function() return ui:getCurrentPage() end)
+    return ok and type(page) == "number" and page or 1
+end
+
+function ZenTocWidget.getRowState(idx, current)
+    if idx == current then return "current" end
+    return current and idx < current and "read" or "unread"
+end
+
+-- Pages done/total in entry idx, plus time left at the reader's pace (stats plugin).
+function ZenTocWidget.getChapterProgress(ui, entries, idx, page)
+    local entry, next_entry = entries[idx], entries[idx + 1]
+    local doc = ui and ui.document
+    local last = next_entry and next_entry.page - 1
+        or (doc and type(doc.getPageCount) == "function" and doc:getPageCount())
+        or entry.page
+    local total = math.max(1, last - entry.page + 1)
+    local done = math.max(1, math.min(total, page - entry.page + 1))
+    local progress = { done = done, total = total }
+    local stats = ui and ui.statistics
+    local avg = stats and stats.settings and stats.settings.is_enabled and tonumber(stats.avg_time)
+    -- avg > 0 also rules out NaN.
+    if avg and avg > 0 and avg < math.huge and done < total then
+        local left = total - done
+        if type(stats._zenPagesInStatisticsUnits) == "function" then
+            left = stats:_zenPagesInStatisticsUnits(left)
+        end
+        local minutes = math.floor(left * avg / 60)
+        progress.time = T(_("%1 min left"), minutes < 1 and "< 1" or minutes)
+    end
+    return progress
+end
+
+local function text_height(face)
+    local tw = TextWidget:new{ text = "Wg", face = face, padding = 0 }
+    local h = tw:getSize().h
+    tw:free()
+    return h
+end
+
+-- Row faces and geometry shared by the modal and the page-browser panel.
+function ZenTocWidget.getRowStyle(font_size)
+    local face = LibraryFont.getFace(font_size)
+    local small_face = LibraryFont.getFace(math.max(10, math.floor(font_size * 0.8 + 0.5)))
+    local text_h, small_h = text_height(face), text_height(small_face)
+    local pad = Screen:scaleBySize(20) -- Matches annotation rows.
+    local card_pad = Screen:scaleBySize(12)
+    local row_h = math.max(Screen:scaleBySize(48), text_h + Screen:scaleBySize(16))
+    local inset = Screen:scaleBySize(8)
+    return {
+        face = face, small_face = small_face, text_h = text_h, small_h = small_h,
+        pad = pad, gap = Screen:scaleBySize(8), inset = inset, card_pad = card_pad,
+        card_radius = Screen:scaleBySize(12), card_border = Screen:scaleBySize(2),
+        dot = Screen:scaleBySize(9), dot_gap = Screen:scaleBySize(12), dot_border = Screen:scaleBySize(2),
+        fold = Screen:scaleBySize(14), fold_gap = Screen:scaleBySize(10),
+        bar_h = Screen:scaleBySize(6), bar_border = Screen:scaleBySize(1),
+        row_h = row_h,
+        current_h = math.max(row_h, text_h + small_h + 2 * card_pad + Screen:scaleBySize(8)) + 2 * inset,
+    }
+end
+
+-- Greedy split into pages of entry indices (Menu.page_items shape).
+function ZenTocWidget.paginate(count, available_h, height_of)
+    local pages, page, used = {}, {}, 0
+    for i = 1, count do
+        local h = height_of(i)
+        if used + h > available_h and #page > 0 then
+            pages[#pages + 1], page, used = page, {}, 0
+        end
+        page[#page + 1], used = i, used + h
+    end
+    pages[#pages + 1] = page
+    return pages
+end
+
+-- Text vertically centered in [y, y + h]; right = true anchors x as the right edge. Returns width.
+local function paint_label(bb, spec)
+    local tw = TextWidget:new{
+        text = spec.text, face = spec.face, bold = spec.bold, max_width = spec.max_w, padding = 0,
+        fgcolor = spec.color or Blitbuffer.COLOR_BLACK,
+    }
+    local sz = tw:getSize()
+    tw:paintTo(bb, spec.right and spec.x - sz.w or spec.x, spec.y + math.floor((spec.h - sz.h) / 2))
+    tw:free()
+    return sz.w
+end
+
+local function text_width(text, face)
+    local tw = TextWidget:new{ text = text, face = face, padding = 0 }
+    local w = tw:getSize().w
+    tw:free()
+    return w
+end
+
+-- Fold column (only in nested lists) plus 14px per depth level.
+local function row_indent(style, row)
+    return (row.fold and style.fold + style.fold_gap or 0)
+        + Screen:scaleBySize(14 * math.max(0, (row.entry.depth or 1) - 1))
+end
+
+-- Taps left of the title text on a parent row fold it instead of navigating.
+function ZenTocWidget.foldHitWidth(style, row)
+    return style.pad + row_indent(style, row) + style.dot + style.dot_gap
+end
+
+local function paint_fold(bb, style, row, x, y, h)
+    local file = FOLD_ICON_PATH[row.fold]
+    if not file then return end
+    local icon = IconWidget:new{ file = file, width = style.fold, height = style.fold, dim = row.state == "read" }
+    icon:paintTo(bb, x, y + math.floor((h - style.fold) / 2))
+    icon:free()
+end
+
+-- Title, optional "(N)" count and right-aligned page label on one line.
+local function paint_title_line(bb, style, row, left, right, y, h, color, bold)
+    local e = row.entry
+    local pn_w = paint_label(bb, { text = e.page_label or tostring(e.page), face = style.face, bold = bold,
+        color = color, x = right, y = y, h = h, right = true })
+    local count_w = row.count and text_width(row.count, style.face) + style.gap or 0
+    local title_w = paint_label(bb, { text = e.title, face = style.face, bold = bold, color = color,
+        x = left, y = y, h = h, max_w = right - pn_w - style.gap - count_w - left })
+    if row.count then
+        paint_label(bb, { text = row.count, face = style.face, color = color,
+            x = left + title_w + style.gap, y = y, h = h })
+    end
+end
+
+-- row = { entry, state = "read"|"current"|"unread", progress?, separator?,
+--         fold = "expanded"|"collapsed"|"leaf"|nil, count = "(N)"|nil }
+-- Read rows get a filled dot, unread rows a ring, the current chapter an outlined progress card.
+function ZenTocWidget.paintRow(bb, x, y, w, h, style, row)
+    local indent = row_indent(style, row)
+    if row.separator then bb:paintRect(x, y, w, 1, Blitbuffer.COLOR_LIGHT_GRAY) end
+    if row.state == "current" then
+        local inset = style.inset
+        local cx, cy, cw, ch = x + inset, y + inset, w - 2 * inset, h - 2 * inset
+        local accent = Accent.color() -- Black when accents are off or unsupported.
+        local rgb = not Blitbuffer.isColor8(accent)
+        local paintBorder = rgb and bb.paintBorderRGB32 or bb.paintBorder
+        RawPaint.run(bb, paintBorder, bb, cx, cy, cw, ch, style.card_border, accent, style.card_radius)
+        local left, right = x + style.pad + indent, x + w - style.pad -- Aligned with plain rows.
+        local top = cy + style.card_pad
+        paint_fold(bb, style, row, x + style.pad, top, style.text_h)
+        paint_title_line(bb, style, row, left, right, top, style.text_h, nil, true)
+        local p = row.progress
+        if not p then return end
+        local line_y = cy + ch - style.card_pad - style.small_h
+        local label = { face = style.small_face, y = line_y, h = style.small_h }
+        label.text, label.x = T(_("Page %1 of %2"), p.done, p.total), left
+        local bar_x = left + paint_label(bb, label) + style.gap
+        local bar_right = right
+        if p.time then
+            label.text, label.x, label.right = p.time, right, true
+            bar_right = right - paint_label(bb, label) - style.gap
+        end
+        local bar_w = bar_right - bar_x
+        if bar_w <= style.gap then return end
+        local bar_y = line_y + math.floor((style.small_h - style.bar_h) / 2)
+        RawPaint.run(bb, paintBorder, bb, bar_x, bar_y, bar_w, style.bar_h, style.bar_border,
+            accent, Pill.radius(bar_w, style.bar_h))
+        local fill_w = math.max(style.bar_h, math.floor(bar_w * p.done / p.total))
+        local paintFill = rgb and bb.paintRoundedRectRGB32 or bb.paintRoundedRect
+        RawPaint.run(bb, paintFill, bb, bar_x, bar_y, fill_w, style.bar_h, accent, Pill.radius(fill_w, style.bar_h))
+        return
+    end
+    local color = row.state == "read" and Blitbuffer.COLOR_GRAY_5 or Blitbuffer.COLOR_BLACK
+    local d = style.dot
+    local dot_x, dot_y = x + style.pad + indent, y + math.floor((h - d) / 2)
+    if row.state == "read" then
+        bb:paintRoundedRect(dot_x, dot_y, d, d, color, Pill.radius(d, d))
+    else
+        bb:paintBorder(dot_x, dot_y, d, d, style.dot_border, color, Pill.radius(d, d))
+    end
+    paint_fold(bb, style, row, x + style.pad, y, h)
+    paint_title_line(bb, style, row, dot_x + d + style.dot_gap, x + w - style.pad, y, h, color, nil)
 end
 
 function ZenTocWidget:init()
     local sw = Screen:getWidth()
     local sh = Screen:getHeight()
     self.dimen = Geom:new{ x = 0, y = 0, w = sw, h = sh }
-    local entries = ZenTocWidget.getEntries(self.ui)
-    self._entries = entries
+    self._all = ZenTocWidget.getEntries(self.ui)
 
     local text_font_size = tonumber(self.font_size)
         or ReaderFont.getInfo(self.ui, 18).size
-    self._text_face = LibraryFont.getFace(text_font_size)
-
-    -- -----------------------------------------------------------------------
-    -- Layout constants (all screen-scaled)
-    -- -----------------------------------------------------------------------
-    local MODAL_W     = sw
-    local BORDER      = 0
-    local PAD         = Screen:scaleBySize(16)   -- horizontal content padding
-    local TITLE_H     = TitleStyle.HEADER_CONTENT_HEIGHT
-    local SEP_H       = TitleStyle.DIVIDER_HEIGHT
-    local row_sample  = TextWidget:new{ text = "Wg", face = self._text_face, padding = 0 }
-    local ROW_H       = math.max(Screen:scaleBySize(48), row_sample:getSize().h + Screen:scaleBySize(16))
-    row_sample:free()
-    local BAR_PAD_V   = Screen:scaleBySize(7)
-    local DOT_DIAM    = Screen:scaleBySize(10)
-    local DOT_GAP     = Screen:scaleBySize(12)
-
-    -- Fit rows into full screen height (minus title bar and optional scrollbar).
-    local max_list_h_full = sh - TITLE_H - SEP_H
-    local per_page_full   = math.max(1, math.floor(max_list_h_full / ROW_H))
-
-    -- Footer style follows the library "Scroll bar" setting (bar/dots/page_number).
-    -- page_number needs the taller strip to fit its chevron icons.
-    local toc_style   = pager.getStyle()
-    local needs_bar   = #entries > per_page_full
-    local SCROLLBAR_H = needs_bar
-        and (toc_style == "page_number" and pager.PN_FOOTER_H or pager.FOOTER_H)
-        or 0
-
-    local max_list_h = max_list_h_full - SCROLLBAR_H
-    local per_page   = math.max(1, math.floor(max_list_h / ROW_H))
-    local list_h     = per_page * ROW_H
-    local MODAL_H    = sh
-    local MODAL_X    = 0
-    local MODAL_Y    = 0
-
-    local BACK_W = TitleStyle.BUTTON_SIZE
-    local BACK_X = TitleStyle.LEFT_PADDING
-    local BACK_Y = MODAL_Y
-
-    -- Y where entry rows start (absolute screen coords).
-    local LIST_Y = MODAL_Y + TITLE_H + SEP_H
-
-    -- Footer bar geometry (shared by paintTo and the page_number tap zones).
-    local BAR_W = math.floor(MODAL_W * 0.78)
-    local BAR_X = math.floor((MODAL_W - BAR_W) / 2)   -- offset from modal left
-    local BAR_Y = pager.getCenteredFooterY(
-        LIST_Y + list_h,
-        MODAL_Y + MODAL_H - SCROLLBAR_H,
-        SCROLLBAR_H,
-        needs_bar
-    )
-
-    self._L = {
-        sw = sw, sh = sh,
-        modal_w = MODAL_W, modal_h = MODAL_H,
-        modal_x = MODAL_X, modal_y = MODAL_Y,
-        border  = BORDER,  pad     = PAD,
-        title_h = TITLE_H, sep_h   = SEP_H,
-        row_h   = ROW_H,   per_page = per_page,
-        list_h  = list_h,  list_y   = LIST_Y,
-        bar_pad_v = BAR_PAD_V,
-        dot_diam = DOT_DIAM, dot_gap = DOT_GAP,
-        scrollbar_h = SCROLLBAR_H,
-        style   = toc_style,
-        bar_w   = BAR_W,   bar_x   = BAR_X, bar_y = BAR_Y,
-        back_x = BACK_X, back_y = BACK_Y,
-        back_w = BACK_W, back_h = TITLE_H,
-        close_all_x = MODAL_X + MODAL_W
-            - TitleStyle.RIGHT_PADDING - TitleStyle.BUTTON_SIZE,
-        close_all_w = TitleStyle.BUTTON_SIZE,
-    }
-
-    local nb_pages = math.max(1, math.ceil(#entries / per_page))
-    self._nb_pages = nb_pages
+    self._style = ZenTocWidget.getRowStyle(text_font_size)
+    self._text_face = self._style.face
+    self._page = self.focus_page or ZenTocWidget.getCurrentPage(self.ui)
+    -- Top level only, except the chapter being read (native ReaderToc default).
+    self._expanded = TocTree.initialFolding(self._all[ZenTocWidget.getCurrentIndex(self._all, self._page) or 0])
     self._toc_page = 1
+    self:_layout()
 
     -- Scroll to the page containing the active (current) chapter.
-    self:_initActivePage()
+    self._toc_page = self:_pageOf(self._active_entry_idx or 1)
     self._zen_focus_enabled = supports_hardware_focus()
     if self._zen_focus_enabled then
         self._zen_focus_area = self.show_back == false and "close" or "back"
-        self._zen_focus_entry_idx = (self._toc_page - 1) * per_page + 1
+        self._zen_focus_entry_idx = (self:_visibleEntryBounds())
     end
 
     -- -----------------------------------------------------------------------
@@ -286,9 +421,132 @@ function ZenTocWidget:init()
     end
 end
 
+-- Visible rows, active chapter and geometry; rerun whenever folding changes the row list.
+function ZenTocWidget:_layout()
+    local sw, sh = self.dimen.w, self.dimen.h
+    local entries = TocTree.visible(self._all, self._expanded)
+    self._entries = entries
+    self._active_entry_idx = ZenTocWidget.getCurrentIndex(entries, self._page)
+    self._progress = self._active_entry_idx
+        and ZenTocWidget.getChapterProgress(self.ui, entries, self._active_entry_idx, self._page) or nil
+
+    -- -----------------------------------------------------------------------
+    -- Layout constants (all screen-scaled)
+    -- -----------------------------------------------------------------------
+    local MODAL_W     = sw
+    local BORDER      = 0
+    local PAD         = self._style.pad   -- horizontal content padding
+    local TITLE_H     = TitleStyle.HEADER_CONTENT_HEIGHT
+    local SEP_H       = TitleStyle.DIVIDER_HEIGHT
+    local ROW_H       = self._style.row_h
+    local BAR_PAD_V   = Screen:scaleBySize(7)
+    local DOT_DIAM    = Screen:scaleBySize(10)
+    local DOT_GAP     = Screen:scaleBySize(12)
+
+    -- Fit rows into full screen height (minus title bar and optional scrollbar).
+    local max_list_h_full = sh - TITLE_H - SEP_H
+    local total_h = #entries * ROW_H
+        + (self._active_entry_idx and self._style.current_h - ROW_H or 0)
+
+    -- Footer style follows the library "Scroll bar" setting (bar/dots/page_number).
+    -- page_number needs the taller strip to fit its chevron icons.
+    local toc_style   = pager.getStyle()
+    local needs_bar   = total_h > max_list_h_full
+    local SCROLLBAR_H = needs_bar
+        and (toc_style == "page_number" and pager.PN_FOOTER_H or pager.FOOTER_H)
+        or 0
+
+    local max_list_h = max_list_h_full - SCROLLBAR_H
+    local per_page   = math.max(1, math.floor(max_list_h / ROW_H))
+    local list_h     = needs_bar and per_page * ROW_H or max_list_h
+    local MODAL_H    = sh
+    local MODAL_X    = 0
+    local MODAL_Y    = 0
+
+    local BACK_W = TitleStyle.BUTTON_SIZE
+    local BACK_X = TitleStyle.LEFT_PADDING
+    local BACK_Y = MODAL_Y
+
+    -- Y where entry rows start (absolute screen coords).
+    local LIST_Y = MODAL_Y + TITLE_H + SEP_H
+
+    -- Footer bar geometry (shared by paintTo and the page_number tap zones).
+    local BAR_W = math.floor(MODAL_W * 0.78)
+    local BAR_X = math.floor((MODAL_W - BAR_W) / 2)   -- offset from modal left
+    local BAR_Y = pager.getCenteredFooterY(
+        LIST_Y + list_h,
+        MODAL_Y + MODAL_H - SCROLLBAR_H,
+        SCROLLBAR_H,
+        needs_bar
+    )
+
+    self._L = {
+        sw = sw, sh = sh,
+        modal_w = MODAL_W, modal_h = MODAL_H,
+        modal_x = MODAL_X, modal_y = MODAL_Y,
+        border  = BORDER,  pad     = PAD,
+        title_h = TITLE_H, sep_h   = SEP_H,
+        row_h   = ROW_H,
+        list_h  = list_h,  list_y   = LIST_Y,
+        bar_pad_v = BAR_PAD_V,
+        dot_diam = DOT_DIAM, dot_gap = DOT_GAP,
+        scrollbar_h = SCROLLBAR_H,
+        style   = toc_style,
+        bar_w   = BAR_W,   bar_x   = BAR_X, bar_y = BAR_Y,
+        back_x = BACK_X, back_y = BACK_Y,
+        back_w = BACK_W, back_h = TITLE_H,
+        close_all_x = MODAL_X + MODAL_W
+            - TitleStyle.RIGHT_PADDING - TitleStyle.BUTTON_SIZE,
+        close_all_w = TitleStyle.BUTTON_SIZE,
+    }
+
+    self._pages = ZenTocWidget.paginate(#entries, list_h, function(i) return self:_rowHeight(i) end)
+    self._nb_pages = #self._pages
+end
+
+function ZenTocWidget:_rowHeight(i)
+    return i == self._active_entry_idx and self._style.current_h or self._style.row_h
+end
+
+-- Paint / hit-test description of visible row i; first is the page's first row.
+function ZenTocWidget:_row(i, first)
+    local e, active = self._entries[i], self._active_entry_idx
+    return {
+        entry = e,
+        state = ZenTocWidget.getRowState(i, active),
+        progress = i == active and self._progress or nil,
+        -- No line above the first row or next to the current card.
+        separator = i > first and i ~= active and i - 1 ~= active,
+        fold = TocTree.foldState(e, self._expanded, self._all.nested),
+        count = TocTree.countText(e, self.show_page_counts),
+    }
+end
+
+-- Toggles a parent's subchapters, keeping that row on screen.
+function ZenTocWidget:_toggleFold(entry)
+    TocTree.toggle(self._all, entry, self._expanded)
+    self:_layout()
+    local idx = 1
+    for i, e in ipairs(self._entries) do
+        if e == entry then idx = i; break end
+    end
+    self._toc_page = self:_pageOf(idx)
+    if self._zen_focus_area == "entry" then self._zen_focus_entry_idx = idx end
+    UIManager:setDirty(self, "ui", self.dimen)
+end
+
+-- D-pad Right unfolds the focused parent, Left folds it (tree-view idiom).
+function ZenTocWidget:_foldKey(dx)
+    local entry = self._entries[self._zen_focus_entry_idx]
+    if entry and entry.has_children and (self._expanded[entry] == true) == (dx < 0) then
+        self:_toggleFold(entry)
+    end
+    return true
+end
+
 function ZenTocWidget:_visibleEntryBounds()
-    local first = (self._toc_page - 1) * self._L.per_page + 1
-    return first, math.min(first + self._L.per_page - 1, #self._entries)
+    local page = self._pages[self._toc_page]
+    return page[1] or 1, page[#page] or 0
 end
 
 function ZenTocWidget:_hasFooterButtons()
@@ -380,6 +638,8 @@ function ZenTocWidget:onKeyPress(key)
         elseif key:match({ "Left" })
                 and (self._zen_focus_area == "close" or self._zen_focus_area == "footer") then
             return self:_moveFocus(-1, 0)
+        elseif self._zen_focus_area == "entry" and (key:match({ "Right" }) or key:match({ "Left" })) then
+            return self:_foldKey(key:match({ "Right" }) and 1 or -1)
         elseif key:match({ "Press" }) or key:match({ "Return" }) or key:match({ "Enter" }) then
             return self:onPress()
         end
@@ -424,7 +684,7 @@ function ZenTocWidget:_gotoTocPage(target)
     local L = self._L
     target = math.max(1, math.min(self._nb_pages, target))
     if target == self._toc_page then return end
-    local old_first = (self._toc_page - 1) * L.per_page + 1
+    local old_first = self:_visibleEntryBounds()
     local row_offset = math.max(0, (self._zen_focus_entry_idx or old_first) - old_first)
     self._toc_page = target
     if self._zen_focus_enabled and self._zen_focus_area == "entry" then
@@ -438,20 +698,12 @@ function ZenTocWidget:_gotoTocPage(target)
     end)
 end
 
--- ---------------------------------------------------------------------------
--- Determine which TOC page contains the current chapter
--- ---------------------------------------------------------------------------
-function ZenTocWidget:_initActivePage()
-    local active_idx = 1
-    for i, e in ipairs(self._entries) do
-        if e.page <= self.focus_page then
-            active_idx = i
-        end
+-- TOC page holding visible row idx.
+function ZenTocWidget:_pageOf(idx)
+    for page, items in ipairs(self._pages) do
+        if items[#items] and idx <= items[#items] then return page end
     end
-    self._active_entry_idx = active_idx
-    local L = self._L
-    self._toc_page = math.max(1,
-        math.min(self._nb_pages, math.ceil(active_idx / L.per_page)))
+    return 1
 end
 
 -- ---------------------------------------------------------------------------
@@ -471,14 +723,14 @@ function ZenTocWidget:paintTo(bb, x, y)
     -- Title bar: aligned with Zen settings and arrange screens.
     -- -----------------------------------------------------------------------
     local title_tw = TextWidget:new{
-        text    = _("Table of contents"),
+        text    = _("Chapters"),
         face    = TitleStyle.getTitleFace(),
         fgcolor = Blitbuffer.COLOR_BLACK,
         bold    = true,
         padding = 0,
     }
     local tsz = title_tw:getSize()
-    local title_x = TitleStyle.getTitleX(mx)
+    local title_x = mx + math.floor((L.modal_w - tsz.w) / 2)
     local title_y = my + TitleStyle.VERTICAL_PADDING
         + math.floor((TitleStyle.ROW_HEIGHT - tsz.h) / 2)
     self._title_hit = { x = title_x, y = title_y, w = tsz.w, h = tsz.h }
@@ -531,8 +783,7 @@ function ZenTocWidget:paintTo(bb, x, y)
     -- -----------------------------------------------------------------------
     -- TOC entry rows
     -- -----------------------------------------------------------------------
-    local start_i = (self._toc_page - 1) * L.per_page + 1
-    local end_i   = math.min(start_i + L.per_page - 1, #self._entries)
+    local start_i, end_i = self:_visibleEntryBounds()
     local ry      = y + L.list_y   -- absolute y of the first row
 
     if #self._entries == 0 then
@@ -549,62 +800,17 @@ function ZenTocWidget:paintTo(bb, x, y)
             ry + math.floor((L.list_h - esz.h) / 2))
         etw:free()
     else
+        local row_top = ry
         for i = start_i, end_i do
-            local e        = self._entries[i]
-            local row_top  = ry + (i - start_i) * L.row_h
-            local is_active = (i == self._active_entry_idx)
-
-            -- Row separator (above every row except the first)
-            if i > start_i then
-                bb:paintRect(mx, row_top, L.modal_w, 1, Blitbuffer.gray(220))
-            end
-
-            -- Active row highlight band
-            if is_active then
-                bb:paintRect(mx + L.border, row_top + 1,
-                    L.modal_w - L.border * 2, L.row_h - 1,
-                    Blitbuffer.gray(238))
-            end
-
-            -- Depth indent
-            local indent = Screen:scaleBySize(14 * math.max(0, (e.depth or 1) - 1))
-            local text_x = mx + L.pad + indent
-
-            -- Page number (right-aligned)
-            local page_str = e.page_label or tostring(e.page)
-            local pn_tw    = TextWidget:new{
-                text    = page_str,
-                face    = self._text_face,
-                fgcolor = Blitbuffer.COLOR_BLACK,
-                bold    = is_active,
-                padding = 0,
-            }
-            local pn_sz = pn_tw:getSize()
-            local pn_x  = mx + L.modal_w - L.pad - pn_sz.w
-            pn_tw:paintTo(bb, pn_x,
-                row_top + math.floor((L.row_h - pn_sz.h) / 2))
-            pn_tw:free()
-
-            -- Chapter title (truncated to available width)
-            local title_max_w = pn_x - text_x - Screen:scaleBySize(8)
-            local title_tw2 = TextWidget:new{
-                text      = e.title,
-                face      = self._text_face,
-                fgcolor   = Blitbuffer.COLOR_BLACK,
-                bold      = is_active,
-                max_width = title_max_w,
-                padding   = 0,
-            }
-            local t_sz = title_tw2:getSize()
-            title_tw2:paintTo(bb, text_x,
-                row_top + math.floor((L.row_h - t_sz.h) / 2))
-            title_tw2:free()
+            local row_h = self:_rowHeight(i)
+            ZenTocWidget.paintRow(bb, mx, row_top, L.modal_w, row_h, self._style, self:_row(i, start_i))
 
             if self._zen_focus_enabled and self._zen_focus_area == "entry"
                     and i == self._zen_focus_entry_idx then
                 bb:invertRect(mx + L.border, row_top + 1,
-                    L.modal_w - L.border * 2, L.row_h - 1)
+                    L.modal_w - L.border * 2, row_h - 1)
             end
+            row_top = row_top + row_h
         end
     end
 
@@ -692,16 +898,21 @@ function ZenTocWidget:_onTap(ges)
 
     -- Tap on an entry row
     if p.y >= L.list_y and p.y < L.list_y + L.list_h then
-        local row_idx   = math.floor((p.y - L.list_y) / L.row_h)
-        local entry_idx = (self._toc_page - 1) * L.per_page + row_idx + 1
-        if entry_idx >= 1 and entry_idx <= #self._entries then
-            local entry = self._entries[entry_idx]
-            local page  = entry.page
-            self:onClose()
-            if self.on_goto then
-                self.on_goto(page)
+        local first, last = self:_visibleEntryBounds()
+        local row_bottom = L.list_y
+        for entry_idx = first, last do
+            row_bottom = row_bottom + self:_rowHeight(entry_idx)
+            if p.y < row_bottom then
+                local entry = self._entries[entry_idx]
+                if entry.has_children
+                        and p.x < L.modal_x + ZenTocWidget.foldHitWidth(self._style, self:_row(entry_idx, first)) then
+                    self:_toggleFold(entry)
+                    return true
+                end
+                self:onClose()
+                if self.on_goto then self.on_goto(entry.page) end
+                return true
             end
-            return true
         end
     end
 

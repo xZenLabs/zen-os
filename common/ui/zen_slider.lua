@@ -157,6 +157,12 @@ function ZenSlider:dirtyDimen()
     }
 end
 
+--- Refresh live drag repaints. DU can't render accent shades. Never dither: on Kaleido it
+--- promotes to GLRC16 with a FULL update, flashing the whole region black.
+function ZenSlider.refreshDrag(region, colored)
+    UIManager:setDirty(nil, colored and "ui" or "fast", region)
+end
+
 --- Returns true if pos (Geom point) is inside the slider widget area.
 function ZenSlider:hitTest(pos)
     return self.dimen ~= nil and pos:intersectWith(self.dimen)

@@ -500,7 +500,9 @@ def test_scheduled_dark_mode_preserves_home_cover_colors(scheduled_dark_mode: bo
             + ", night_off_m = " + str(now.tm_min) + " } }\n"
         )
         socket_path = root / "driver.sock"
-        process = launch(runtime, ko_home, socket_path, library, zen_config_source=config)
+        # Zen's schedule auto-disables autowarmth and halts init until restart.
+        process = launch(runtime, ko_home, socket_path, library, zen_config_source=config,
+                         plugins_disabled=("autowarmth",))
         try:
             wait_for_socket(socket_path)
             driver = ZenDriver(socket_path)

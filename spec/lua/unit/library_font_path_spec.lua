@@ -74,10 +74,16 @@ describe("bundled UI font paths", function()
         assert.are.equal(lfs.attributes(ZenSpec.root .. "/" .. face, "size"),
             lfs.attributes(global, "size"))
         assert.is_true(added[global])
-        assert.is_nil(lfs.attributes(fontdir .. "/SymbolsNerdFont-Regular.ttf"))
         assert.are.equal(global, paths.resolve(face))
         assert.are.equal(face, paths.toConfig(global))
         assert.are.equal(fontdir .. "/stock/Stock.ttf", paths.toConfig(fontdir .. "/stock/Stock.ttf"))
+
+        -- Plugin paths resolved before install must load the installed copy.
+        local Font = { fontmap = {} }
+        FontList.getFontList = function(self) return self.fontlist end
+        paths.registerFontAliases(Font, FontList)
+        assert.are.equal("hyperreadable/Hyperreadable-Regular.ttf", Font.fontmap[global])
+        assert.are.equal("hyperreadable/Hyperreadable-Regular.ttf", Font.fontmap[ZenSpec.root .. "/" .. face])
 
         -- Second run: nothing to copy or rescan.
         read_dirs = {}

@@ -52,6 +52,7 @@ describe("updater repository redirects", function()
         })
         ZenSpec.replace("common/plugin_root", "/plugins/zenos.koplugin")
         ZenSpec.replace("config/manager", {
+            get = function() return config end,
             load = function() return config end,
             save = function() end,
         })
@@ -417,21 +418,24 @@ describe("updater repository redirects", function()
         } }, logs)
     end)
 
-    it("logs only the final automatic check result when the network stays down", function()
+    it("arms no timers while Wi-Fi is off and checks once it connects", function()
         network_up = false
         local updater = require("modules/settings/zen_updater")
 
         updater.schedule_wakeup_check()
-        scheduled[1].callback()
-        assert.are.equal(0, #logs)
-        assert.are.equal(2, #scheduled)
-
-        scheduled[2].callback()
-
+        assert.are.equal(0, #scheduled)
         assert.are.same({ {
             level = "info",
-            text = "automatic update check status=skipped reason=network_unavailable",
+            text = "automatic update check status=skipped reason=wifi_off",
         } }, logs)
+
+        network_up = true
+        updater.on_network_connected()
+        updater.on_network_connected()
+        assert.are.equal(1, #scheduled)
+        scheduled[1].callback()
+        assert.are.equal(2, #requests)
+        assert.is_true(updater.has_update())
     end)
 
     it("skips automatic checks when Wi-Fi is powered on without a connection", function()

@@ -869,6 +869,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         assert.are.same({ 0.05, 0.35 }, scheduled_delays)
         local iterations = 0
@@ -906,6 +907,30 @@ describe("filebrowser cover preloading", function()
         }, render_calls)
     end)
 
+    it("does not preload the next page after a plain folder open or refresh", function()
+        local CoverMenu = require("covermenu")
+        require("modules/filebrowser/patches/cover_preload")()
+        local menu = {
+            item_table = {
+                { is_file = true, path = "/current.epub" },
+                { is_file = true, path = "/next.epub" },
+            },
+            page = 1, page_num = 2, perpage = 1,
+            display_mode_type = "mosaic",
+            cover_specs = { max_cover_w = 100, max_cover_h = 150 },
+        }
+
+        CoverMenu.updateItems(menu)
+        local iterations = 0
+        while #scheduled > 0 and iterations < 10 do
+            iterations = iterations + 1
+            table.remove(scheduled, 1)()
+        end
+
+        assert.are.same({}, status_warmed)
+        assert.are.same({}, warmed)
+    end)
+
     it("interleaves cover work with a multi-tick adjacent status queue", function()
         local CoverMenu = require("covermenu")
         local items = {}
@@ -928,6 +953,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         table.remove(scheduled, 1)()
         assert.are.same({
@@ -982,6 +1008,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1007,6 +1034,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1042,6 +1070,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1083,6 +1112,7 @@ describe("filebrowser cover preloading", function()
             show_parent = {},
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1110,6 +1140,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1149,6 +1180,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
 
         assert.are.equal(1, #scheduled)
@@ -1180,10 +1212,12 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         local stale_status_tick = scheduled[1]
         local stale_cover_tick = scheduled[2]
         menu.page = 2
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         stale_status_tick()
         stale_cover_tick()
@@ -1219,6 +1253,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1248,6 +1283,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1281,6 +1317,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1309,6 +1346,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
 
         assert.are.equal(0, #scheduled)
@@ -1353,6 +1391,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 93, max_cover_h = 137 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1387,6 +1426,7 @@ describe("filebrowser cover preloading", function()
             placeholder:free()
         end
         menu.page = 2
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
 
         local page_update = last_measurement_named("Cover page updated")
@@ -1421,6 +1461,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1455,6 +1496,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1499,6 +1541,7 @@ describe("filebrowser cover preloading", function()
                 cover_specs = { max_cover_w = case.width, max_cover_h = case.height },
             }
 
+            menu._zen_cover_preload_direction = 1 -- preload follows page turns
             CoverMenu.updateItems(menu)
             while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -1532,6 +1575,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         while #scheduled > 0 do table.remove(scheduled, 1)() end
 
@@ -3273,6 +3317,7 @@ describe("filebrowser cover preloading", function()
             cover_specs = { max_cover_w = 100, max_cover_h = 150 },
         }
 
+        menu._zen_cover_preload_direction = 1 -- preload follows page turns
         CoverMenu.updateItems(menu)
         extracting = true
         table.remove(scheduled, 1)()
@@ -3352,6 +3397,31 @@ describe("filebrowser cover preloading", function()
         assert.are.equal(2, polls)
         assert.are.equal(0, #menu.items_to_update)
         assert.is_nil(menu._zen_cover_poll_action)
+    end)
+
+    it("backs off the extraction poll to one second after the first polls", function()
+        update_items = function(menu)
+            menu.items_to_update = { { filepath = "/next.epub" } }
+            menu.items_update_action = function() end
+        end
+        local BookInfoManager = require("bookinfomanager")
+        local saved_extracting = BookInfoManager.isExtractingInBackground
+        BookInfoManager.isExtractingInBackground = function() return true end
+        local CoverMenu = require("covermenu")
+        require("modules/filebrowser/patches/cover_preload")()
+        local menu = {
+            item_table = { { is_file = true, path = "/current.epub" } },
+            page = 1, page_num = 1, perpage = 1,
+            display_mode_type = "mosaic", show_parent = {},
+            cover_specs = { max_cover_w = 100, max_cover_h = 150 },
+        }
+
+        CoverMenu.updateItems(menu)
+        scheduled_delays = {}
+        for _i = 1, 5 do table.remove(scheduled, 1)() end
+        BookInfoManager.isExtractingInBackground = saved_extracting
+
+        assert.are.same({ 0.4, 0.4, 1, 1, 1 }, scheduled_delays)
     end)
 
     it("reconciles completed extraction before polling the final page", function()
@@ -3623,7 +3693,7 @@ describe("filebrowser cover preloading", function()
         end
         local CoverMenu = require("covermenu")
         require("modules/filebrowser/patches/cover_preload")()
-        assert.are.equal(0.4, BookInfoManager.subprocesses_collect_interval)
+        assert.are.equal(1, BookInfoManager.subprocesses_collect_interval)
         local first = {
             item_table = {}, page = 1, page_num = 1, perpage = 1,
             display_mode_type = "mosaic", path = "/first.epub",

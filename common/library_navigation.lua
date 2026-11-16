@@ -142,6 +142,14 @@ function M.showFromReader(ui, plugin, opts)
     end
 
     ui:onClose()
+    -- onClose flushed doc_settings; prime status caches so Home skips re-parsing the sidecar.
+    if file and ui.doc_settings then
+        pcall(function()
+            if require("common/book_status").prime(file, ui.doc_settings) then
+                require("common/tbr_index").refreshPath(file, ui.doc_settings)
+            end
+        end)
+    end
     if opts.after_close then opts.after_close() end
     if can_show_file_manager then
         ui:showFileManager(file)

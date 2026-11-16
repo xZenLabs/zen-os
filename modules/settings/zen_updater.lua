@@ -51,6 +51,7 @@ M._last_error       = nil   -- last update-check error message for UI
 M._banner_loaded    = false -- true after init_banner() has run
 M._wakeup_timer     = nil   -- pending UIManager scheduled function (for unschedule)
 M._check_cancelled  = false -- set to true by cancel_wakeup_check to abort mid-poll
+M._check_running    = false -- true while an automatic check task is in flight
 M._on_update_found  = nil   -- optional callback fired when background check detects a new update
 
 -- ---------------------------------------------------------------------------
@@ -430,7 +431,7 @@ local function https_get(url, depth)
     if NetworkMgr and NetworkMgr.logWifiDiagnostics then NetworkMgr:logWifiDiagnostics("update_request_start") end
     local body = {}
     local ok_req, req_err = pcall(function()
-        local _, code, headers, status = https.request{
+        local _body, code, headers, status = https.request{
             url     = url,
             headers = { ["User-Agent"] = USER_AGENT },
             redirect = false,
@@ -544,7 +545,7 @@ local function https_download(url, dest_path, expected_sha256, depth)
         if not is_valid_asset_url(resolved_url) then
             return false, "untrusted redirect origin"
         end
-        local _, r_code, r_headers = https.request{
+        local _body, r_code, r_headers = https.request{
             url     = resolved_url,
             method  = "HEAD",
             headers = { ["User-Agent"] = USER_AGENT },
@@ -570,7 +571,7 @@ local function https_download(url, dest_path, expected_sha256, depth)
     local f, ferr = io.open(dest_path, "wb")
     if not f then return false, ferr end
 
-    local _, dl_code = https.request{
+    local _body, dl_code = https.request{
         url     = resolved_url,
         headers = { ["User-Agent"] = USER_AGENT },
         sink    = ltn12.sink.file(f),
@@ -613,7 +614,7 @@ local UP_KEY_CHANNEL      = "update_channel"
 local UP_KEY_AUTO         = "update_auto_check"
 
 local function load_updater_config()
-    local ok, cfg = pcall(ConfigManager.load)
+    local ok, cfg = pcall(function() return ConfigManager.get() or ConfigManager.load() end)
     if not ok or type(cfg) ~= "table" then
         return nil, nil
     end
@@ -931,14 +932,18 @@ function M.init_banner()
     if updater then
         M._has_update = updater[UP_KEY_AVAIL] == true
         clear_release_details()
+        -- Write only when stale release fields were actually present (avoids a flush every boot).
+        local had_release = updater.latest_version ~= nil or updater.update_dl_url ~= nil
+            or updater.update_sha256 ~= nil
         clear_persisted_release_state(updater)
-        save_updater_config(cfg)
+        if had_release then save_updater_config(cfg) end
     end
 end
 
 --- Cancel any pending background wakeup check.
 function M.cancel_wakeup_check()
     M._check_cancelled = true
+    M._check_running = false
     local ok_um, UIManager = pcall(require, "ui/uimanager")
     if ok_um and UIManager and M._wakeup_timer then
         UIManager:unschedule(M._wakeup_timer)
@@ -964,6 +969,12 @@ function M.schedule_wakeup_check()
         logger.info("automatic update check status=skipped reason=interval")
         return
     end
+    -- Radio off: no timers; on_network_connected() re-arms once it connects.
+    local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
+    if not ok_nm or not NetworkMgr or not NetworkMgr:isWifiOn() then
+        logger.info("automatic update check status=skipped reason=wifi_off")
+        return
+    end
 
     local ok_um, UIManager = pcall(require, "ui/uimanager")
     if not ok_um or not UIManager then
@@ -972,18 +983,29 @@ function M.schedule_wakeup_check()
     end
 
     local function has_network()
-        local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
-        return ok_nm and NetworkMgr and NetworkMgr:isConnected()
+        return NetworkMgr:isConnected()
     end
 
     -- Run the network check; on failure retry with exponential backoff.
     -- Uses a subprocess so the UI thread is never blocked.
-    local function run_check_with_retry(retry_count, error_delay)
+    local run_check_with_retry
+    local function schedule_retry(retry_count, delay)
+        local function retry()
+            M._wakeup_timer = nil
+            run_check_with_retry(retry_count, delay * 2)
+        end
+        M._wakeup_timer = retry
+        UIManager:scheduleIn(delay, retry)
+    end
+
+    run_check_with_retry = function(retry_count, error_delay)
         if M._check_cancelled then return end
+        M._check_running = true
         network_check_async(
             nil,  -- invisible trap: taps pass through normally
             nil,
             function(net_ok)
+                M._check_running = false
                 if M._check_cancelled then return end
                 if net_ok then
                     persist_state(os.time())
@@ -993,19 +1015,18 @@ function M.schedule_wakeup_check()
                         M._on_update_found()
                     end
                 elseif retry_count < NET_ERROR_MAX_RETRIES then
-                    local next_count = retry_count + 1
-                    local next_delay = error_delay * 2
-                    local function error_retry()
-                        M._wakeup_timer = nil
-                        run_check_with_retry(next_count, next_delay)
-                    end
-                    M._wakeup_timer = error_retry
-                    UIManager:scheduleIn(error_delay, error_retry)
+                    schedule_retry(retry_count + 1, error_delay)
                 else
                     logger.warn("automatic update check status=failed attempts=", NET_ERROR_MAX_RETRIES + 1, "error=", tostring(M._last_error))
                 end
             end,
-            nil,
+            function()
+                M._check_running = false
+                -- Any tap dismisses the invisible trap and kills the check; retry later.
+                if not M._check_cancelled and retry_count < NET_ERROR_MAX_RETRIES then
+                    schedule_retry(retry_count + 1, error_delay)
+                end
+            end,
             true
         )
     end
@@ -1013,7 +1034,7 @@ function M.schedule_wakeup_check()
     -- Deferred so the HTTPS call never blocks the onResume/init handler directly.
     local function attempt()
         M._wakeup_timer = nil
-        if M._check_cancelled then return end
+        if M._check_cancelled or not is_check_due() then return end
         local net_up = has_network()
         if not net_up then
             -- No network after settle delay -- retry once after NET_RETRY_DELAY.
@@ -1036,6 +1057,12 @@ function M.schedule_wakeup_check()
 
     M._wakeup_timer = attempt
     UIManager:scheduleIn(NET_SETTLE_DELAY, attempt)
+end
+
+--- Wi-Fi connected: start a due check unless one is already pending or running.
+function M.on_network_connected()
+    if M._wakeup_timer or M._check_running then return end
+    M.schedule_wakeup_check()
 end
 
 --- Check for updates with a live network request.
@@ -1643,7 +1670,7 @@ function M.build_update_now_item(plugin)
     return {
         text_func = function()
             if M._has_update then
-                return "\u{F01B} " .. _("Update available")
+                return icons.upgrade .. " " .. _("Update available")
             end
             return _("Update ZenOS")
         end,

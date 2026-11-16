@@ -55,8 +55,8 @@ describe("settings menu organization", function()
             })[seconds]
         end })
         local interface_icon = require("common/inline_icon_map").settings_global
-        assert.are.equal("\u{F0574}", interface_icon)
-        assert.are.equal("\u{F0080}", require("common/inline_icon_map").battery)
+        assert.are.equal("\u{EC73}", interface_icon)
+        assert.are.equal("\u{E77F}", require("common/inline_icon_map").battery)
         replace("common/inline_icon_map", {
             settings = "gear", settings_global = interface_icon, battery = "battery_icon",
         })
@@ -88,7 +88,7 @@ describe("settings menu organization", function()
         local font_item, wallpaper_item, status_bar_item
         replace("modules/settings/sections/library_settings", {
             build = function()
-                double_tap_item = { text = "Double-tap to open a book" }
+                double_tap_item = { text = "Double tap" }
                 return { { text = "Original control" }, { text = "Books", sub_item_table = { double_tap_item } } }
             end,
         })

@@ -21,8 +21,8 @@ exclude_files = {
 -- Keep long-line cleanup incremental and allow intentional throwaway
 -- locals like _i/_j (we avoid bare _ to keep gettext _() safe).
 ignore = {
-    "211/_*", -- Unused local variable
-    "231/_*", -- Local variable is set but never accessed
+    "211/_.*", -- Unused local variable
+    "231/_.*", -- Local variable is set but never accessed
     "631",    -- Line is too long
     "dummy",
 }

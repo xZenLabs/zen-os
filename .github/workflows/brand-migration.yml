@@ -30,7 +30,6 @@ jobs:
             build-essential gettext git lua5.1 luarocks meson nasm ninja-build pkg-config xvfb \
             libsdl2-dev libfreetype6-dev libfontconfig1-dev libharfbuzz-dev libxtst-dev \
             libfribidi-dev libpng-dev libjpeg-dev libsqlite3-dev
-          python -m pip install fonttools
 
       - name: Restore KOReader build
         id: koreader-cache

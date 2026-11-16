@@ -2244,6 +2244,12 @@ msgstr "Dải phân cách"
 msgid "Dividing lines"
 msgstr "Đường phân cách"
 
+#. Type: setting
+#. Context: Settings label in the reader Lookup settings.
+#: reader_settings.lua:1445
+msgid "Dock to bottom"
+msgstr "Ghim xuống dưới"
+
 #. Type: label
 #. Context: Reader tab controls, defaults, profiles, and themes.
 #: reader_controls.lua:559 buttons.lua:33
@@ -3198,6 +3204,12 @@ msgstr "Biểu tượng: %1"
 msgid "Icons"
 msgstr "Biểu tượng"
 
+#. Type: setting
+#. Context: { text = _("Image minimap"), checked_func = function() return settings.minimap end,
+#: pin_settings.lua:72
+msgid "Image minimap"
+msgstr "Bản đồ nhỏ của hình ảnh"
+
 #. Type: message
 #. Context: Thông báo cho người dùng trong phần cài đặt giao diện.
 #: interface_settings.lua:374
@@ -3514,7 +3526,7 @@ msgstr "Trái"
 #. Context: Tên mục cài đặt trong phần cài đặt giao diện, phần cài đặt cách hiển thị và hoạt động của màn hình đọc và phần cài đặt thanh trạng thái của thư viện.
 #: interface_settings.lua:138 reader_settings.lua:567 status_bar_settings.lua:319
 msgid "Left items"
-msgstr "Các mục còn lại"
+msgstr "Các mục bên trái"
 
 #. Type: label
 #. Context: if Settings.group(ui) == "copt" then option("h_page_margins", true, _("Left/Right")) local synced = Settings.syncedMargins(ui)
@@ -3953,6 +3965,12 @@ msgstr "Kích thước nhãn thanh điều hướng"
 #: quickstart_pages.lua:708
 msgid "Navbar Tabs"
 msgstr "Tab thanh điều hướng"
+
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Chuyển đến trang %1?"
 
 #. Type: setting
 #. Context: Tên mục cài đặt trong phần cài đặt cách hiển thị và hoạt động của thư viện.

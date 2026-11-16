@@ -91,9 +91,10 @@ return function(file_name, invalid_error)
 
     function M.ensureFile()
         local path = M.path()
-        local existing = io.open(path, "rb")
-        if existing then
-            existing:close()
+        local perms = require("libs/libkoreader-lfs").attributes(path, "permissions")
+        if perms then
+            -- chmod rewrites the inode even when unchanged; skip when already 0600.
+            if perms == "rw-------" or ffi.os == "Windows" then return false end
             local restricted, err = restrict_file(path)
             if not restricted then return nil, err end
             return false

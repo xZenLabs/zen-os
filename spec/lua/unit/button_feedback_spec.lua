@@ -19,6 +19,7 @@ describe("rounded button feedback", function()
         screen = {
             scaleBySize = function(_self, size) return size end,
             isColorScreen = function() return false end,
+            calculateRealCoordinates = function(_self, x, y, w, h) return x, y, w, h end,
         }
         UIManager = {
             setDirty = function() end, forceRePaint = function() end, yieldToEPDC = function() end,
@@ -158,7 +159,7 @@ describe("rounded button feedback", function()
         end
         UIManager.forceRePaint = function()
             if not pending then return end
-            screen:refreshUIImp(pending.x, pending.y, pending.w, pending.h, true)
+            screen:refreshUI(pending.x, pending.y, pending.w, pending.h, true)
             pending = nil
         end
         UIManager.yieldToEPDC = function()
@@ -222,7 +223,7 @@ describe("rounded button feedback", function()
         screen.waveform_ui, screen.waveform_full = 257, 2
         screen.mech_refresh = function() error("monochrome UI must use the stock waveform") end
         local expected, calls
-        screen.refreshUIImp = function(_self, ...)
+        screen.refreshUI = function(_self, ...)
             assert.are.same(expected, { ... })
             calls = calls + 1
             return "stock"
@@ -235,7 +236,7 @@ describe("rounded button feedback", function()
             package.loaded.device.isSunxi = function() return device[2] end
             for _j, region in ipairs({ { 0, 0, 80, 60, true }, { 10, 20, 30, 40, false } }) do
                 expected = region
-                assert.are.equal("stock", screen:refreshUIImp(unpack(region)))
+                assert.are.equal("stock", screen:refreshUI(unpack(region)))
             end
         end
         assert.are.equal(6, calls)
@@ -246,7 +247,7 @@ describe("rounded button feedback", function()
         screen.waveform_ui, screen.waveform_full = 257, 2
         screen.bb = Blitbuffer.new(80, 60, Blitbuffer.TYPE_BB8)
         screen.bb:fill(Blitbuffer.Color8(32))
-        screen.refreshUIImp = function() error("feedback must bypass AUTO") end
+        screen.refreshUI = function() error("feedback must bypass AUTO") end
         local region = { x = 20, y = 20, w = 32, h = 24 }
         local pending, refreshes = nil, 0
         UIManager.setDirty = function(_self, _owner, mode, refreshed)
@@ -255,7 +256,7 @@ describe("rounded button feedback", function()
         end
         UIManager.forceRePaint = function()
             if not pending then return end
-            screen:refreshUIImp(pending.x, pending.y, pending.w, pending.h, true)
+            screen:refreshUI(pending.x, pending.y, pending.w, pending.h, true)
             pending = nil
         end
         require("modules/global/patches/button_feedback")()
@@ -286,21 +287,24 @@ describe("rounded button feedback", function()
         screen.waveform_ui, screen.waveform_full = 257, 2
         screen.mech_refresh = function() error("must preserve the stock refresh") end
         local calls = 0
-        screen.refreshUIImp = function(_self, ...)
+        screen.refreshUI = function(_self, ...)
             assert.are.same({ 10, 20, 30, 40, true }, { ... })
             calls = calls + 1
             return "stock"
         end
         require("modules/global/patches/button_feedback")()
 
+        -- Non-feedback UI refreshes keep the stock (AUTO) waveform on color screens.
+        assert.are.equal("stock", screen:refreshUI(10, 20, 30, 40, true))
+        Feedback.markRegion({ x = 10, y = 20, w = 30, h = 40 })
         screen.night_mode = true
-        assert.are.equal("stock", screen:refreshUIImp(10, 20, 30, 40, true))
+        assert.are.equal("stock", screen:refreshUI(10, 20, 30, 40, true))
         screen.night_mode = false
         screen.waveform_full = nil
-        assert.are.equal("stock", screen:refreshUIImp(10, 20, 30, 40, true))
+        assert.are.equal("stock", screen:refreshUI(10, 20, 30, 40, true))
         screen.waveform_full, screen.mech_refresh = 2, nil
-        assert.are.equal("stock", screen:refreshUIImp(10, 20, 30, 40, true))
-        assert.are.equal(3, calls)
+        assert.are.equal("stock", screen:refreshUI(10, 20, 30, 40, true))
+        assert.are.equal(4, calls)
     end)
 
     it("clips colored feedback snapshots at screen edges and restores rotated buffers", function()

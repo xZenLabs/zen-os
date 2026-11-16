@@ -22,9 +22,9 @@ if not ok_lfs then lfs = nil end
 
 local M = {}
 
--- Cache the constructed cover-fit ImageWidget keyed by "path|w|h".
-local _cache = {}
-local _buffer_cache = {}
+-- One composited full-screen buffer; a key change (night mode, opacity, path) frees the old one.
+local _screen_buffer -- { key = string, bb = Blitbuffer }
+local _path_memo -- resolved library_path for the current config; see M.invalidateLibraryPath
 local _missing_recovery_handler
 local _missing_recovery_pending = false
 local _missing_recovery_running = false
@@ -165,15 +165,11 @@ function M.validateImage(path)
     return true
 end
 
--- Build (or fetch cached) a cover-fit ImageWidget for the given rect.
-local function get_widget(path, w, h)
+-- Build a cover-fit ImageWidget for the given rect; the caller frees it.
+local function new_widget(path, w, h)
     if not ImageWidget or w <= 0 or h <= 0 or not file_exists(path) then
         return nil
     end
-    local key = string.format("%s|%d|%d", path, w, h)
-    local cached = _cache[key]
-    if cached then return cached end
-
     local img_w, img_h = native_size(path)
     if not img_w then return nil end
 
@@ -190,7 +186,6 @@ local function get_widget(path, w, h)
         alpha = true,
         original_in_nightmode = false,
     }
-    _cache[key] = iw
     return iw
 end
 
@@ -198,8 +193,9 @@ end
 function M.paint(bb, x, y, w, h, path)
     if not bb or type(path) ~= "string" or path == "" then return false end
     local painted = false
+    local iw
     local ok, err = pcall(function()
-        local iw = get_widget(path, w, h)
+        iw = new_widget(path, w, h)
         if not iw then return end
         iw:paintTo(bb, x, y)
         if Screen.night_mode and not M.library_invert_with_dark_mode() then
@@ -207,6 +203,7 @@ function M.paint(bb, x, y, w, h, path)
         end
         painted = true
     end)
+    if iw then pcall(iw.free, iw) end
     if not ok then
         logger.warn("paint failed for", tostring(path), tostring(err))
     end
@@ -222,15 +219,18 @@ local function get_screen_buffer(path, w, h, bb_type)
     local preinvert = Screen.night_mode and not M.library_invert_with_dark_mode()
     local key = string.format("%s|%d|%d|%s|%s|%d|%s", path, w, h,
         tostring(bb_type), night_key, opacity, tostring(preinvert))
-    local cached = _buffer_cache[key]
-    if cached then return cached end
+    if _screen_buffer and _screen_buffer.key == key then return _screen_buffer.bb end
+    if _screen_buffer then
+        pcall(_screen_buffer.bb.free, _screen_buffer.bb)
+        _screen_buffer = nil
+    end
     if not file_exists(path) then return nil end
 
-    local out
+    local out, iw
     local ok = pcall(function()
         out = Blitbuffer.new(w, h, bb_type or Screen.bb:getType())
         out:fill(Blitbuffer.COLOR_WHITE)
-        local iw = get_widget(path, w, h)
+        iw = new_widget(path, w, h)
         if not iw then error("no background widget") end
         iw:paintTo(out, 0, 0)
         if preinvert then
@@ -245,11 +245,13 @@ local function get_screen_buffer(path, w, h, bb_type)
             end
         end
     end)
+    -- The scaled decode is only needed to composite; keep just the screen buffer.
+    if iw then pcall(iw.free, iw) end
     if not ok or not out then
         if out then pcall(function() out:free() end) end
         return nil
     end
-    _buffer_cache[key] = out
+    _screen_buffer = { key = key, bb = out }
     return out
 end
 
@@ -358,20 +360,33 @@ function M.library_invert_with_dark_mode(plugin)
     return type(bg) ~= "table" or bg.invert_with_dark_mode ~= false
 end
 
+-- Called app-wide from paint hooks, so the extension check and file stat are
+-- memoized per config; the file is re-checked after M.invalidateLibraryPath().
 function M.library_path(plugin)
     schedule_missing_background_work()
     local cfg, resolved_plugin = library_config(plugin)
     local bg = type(cfg) == "table" and cfg.library_background
-    local path = type(bg) == "table" and type(bg.path) == "string" and bg.path or ""
-    if type(bg) == "table" and bg.enabled == true
-            and is_supported_image_path(path) then
+    if type(bg) ~= "table" then return "" end
+    local path = type(bg.path) == "string" and bg.path or ""
+    local memo = _path_memo
+    if memo and memo.bg == bg and memo.path == path and memo.enabled == bg.enabled then
+        return memo.result
+    end
+    local result = ""
+    if bg.enabled == true and is_supported_image_path(path) then
         if not file_exists(path) then
             disable_missing_library_background(resolved_plugin, cfg, bg, path)
             return ""
         end
-        return path
+        result = path
     end
-    return ""
+    _path_memo = { bg = bg, path = path, enabled = bg.enabled, result = result }
+    return result
+end
+
+-- Re-check the configured file on the next lookup (FileManager show, resume).
+function M.invalidateLibraryPath()
+    _path_memo = nil
 end
 
 function M.library_active()
@@ -413,13 +428,10 @@ end
 
 -- Drop all cached widgets (call when the configured path changes).
 function M.clearCache()
-    for k, iw in pairs(_cache) do
-        pcall(function() iw:free() end)
-        _cache[k] = nil
-    end
-    for k, cached_bb in pairs(_buffer_cache) do
-        pcall(function() cached_bb:free() end)
-        _buffer_cache[k] = nil
+    _path_memo = nil
+    if _screen_buffer then
+        pcall(_screen_buffer.bb.free, _screen_buffer.bb)
+        _screen_buffer = nil
     end
 end
 

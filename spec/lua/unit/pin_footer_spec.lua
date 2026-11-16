@@ -56,7 +56,8 @@ describe("bottom status-bar pin control", function()
         end })
         Footer = {
             getHeight = function(self) return self.vertical_frame:getSize().h + self.bottom_padding end,
-            _updateFooterText = function() end, onCloseWidget = function() end,
+            _updateFooterText = function(self) self._seen_width = self._saved_screen_width end,
+            onCloseWidget = function() end,
             paintTo = function(self, bb, x)
                 local height = self.vertical_frame:getSize().h + self.bottom_padding
                 self.footer_content.dimen.y = 800 - height
@@ -181,5 +182,52 @@ describe("bottom status-bar pin control", function()
             assert.is_true(box.y + box.h <= region.y + region.h - footer.bottom_padding)
             assert.equals(800, region.y + region.h)
         end
+    end)
+
+    it("shrinks a text-less alongside progress bar so it stops before the pin", function()
+        local footer = setmetatable({
+            settings = { all_at_once = true, progress_bar_position = "alongside" },
+            ui = {}, view = { footer_visible = true }, has_no_mode = true,
+            height = 14, horizontal_margin = 10, bottom_padding = 1, _saved_screen_width = 600,
+            footer_text_face = { realname = "footer.ttf", orig_size = 14, size = 14 },
+        }, { __index = Footer })
+        footer:updateFooterContainer()
+        footer:_updateFooterText(true)
+        -- Reserve only the box plus a short gap, not the full pin width.
+        local box_w = footer._zen_pin_label:getSize().w + 2 * 9 * (color_screen and 1 or 0.875)
+        assert.equals(600 - box_w - 8, footer._seen_width)
+        assert.equals(600, footer._saved_screen_width)
+
+        footer.has_no_mode = false
+        footer:_updateFooterText(true)
+        assert.equals(600, footer._seen_width)
+    end)
+
+    it("refreshes the whole previously painted footer when it hides", function()
+        local bb = { paintBorder = function() end }
+        screen.bb = bb
+        local dirty = {}
+        package.loaded["ui/uimanager"].setDirty = function(_self, widget, mode, region)
+            dirty[#dirty + 1] = { widget = widget, mode = mode, region = region }
+        end
+        local dialog = {}
+        local footer = setmetatable({
+            settings = {}, ui = {}, view = { footer_visible = true, dialog = dialog },
+            height = 14, horizontal_margin = 10, bottom_padding = 1,
+            footer_text_face = { realname = "footer.ttf", orig_size = 14, size = 14 },
+        }, { __index = Footer })
+        footer:updateFooterContainer()
+        footer:paintTo(bb, 0, 0)
+        local painted_h = footer.footer_content.dimen.h
+        assert.is_true(painted_h > footer.height + footer.bottom_padding)
+
+        footer.view.footer_visible = false
+        footer:_updateFooterText(true)
+        assert.equals(1, #dirty)
+        assert.equals(dialog, dirty[1].widget)
+        assert.equals(painted_h, dirty[1].region.h)
+        assert.equals(800, dirty[1].region.y + dirty[1].region.h)
+        footer:_updateFooterText(true)
+        assert.equals(1, #dirty)
     end)
 end)

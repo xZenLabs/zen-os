@@ -173,17 +173,23 @@ local function candidate_sort(menu, path)
         sorting = function(a, b) return unreversed(b, a) end
     end
     local history = collate_id == "access" and history_snapshot() or nil
+    -- Tiebreak key computed once per candidate rather than twice per comparison.
+    local function fallback_key(item)
+        local key = item._zen_sort_fallback
+        if not key then
+            local value = tostring(item.path or item.file or item.text or "")
+            key = value:lower() .. "\30" .. value
+            item._zen_sort_fallback = key
+        end
+        return key
+    end
+    local function both(a, b) return sorting(a, b), sorting(b, a) end
     local function less(a, b)
         if sorting then
-            local ok_ab, before = pcall(sorting, a, b)
-            local ok_ba, after = pcall(sorting, b, a)
-            if ok_ab and ok_ba and before ~= after then return before end
+            local ok, before, after = pcall(both, a, b)
+            if ok and before ~= after then return before end
         end
-        local a_value = tostring(a.path or a.file or a.text or "")
-        local b_value = tostring(b.path or b.file or b.text or "")
-        local a_key = a_value:lower() .. "\30" .. a_value
-        local b_key = b_value:lower() .. "\30" .. b_value
-        return a_key < b_key
+        return fallback_key(a) < fallback_key(b)
     end
     return collate_id, collate, history, less
 end
@@ -260,10 +266,12 @@ local function scan_descriptor(menu, path, max_covers, fallback_count, allow_exp
     return { count = count, entries = candidates, exact = exact }
 end
 
+local FILE_COUNT = "(%d+)%s*" .. require("common/inline_icon_map").file_count
+
 local function mandatory_file_count(mandatory)
     if type(mandatory) == "number" then return mandatory end
     if type(mandatory) ~= "string" then return nil end
-    return tonumber(mandatory:match("(%d+)%s*\xef\x80\x96"))
+    return tonumber(mandatory:match(FILE_COUNT))
         or tonumber(mandatory:match("^%D*(%d+)%D*$"))
 end
 
@@ -302,6 +310,21 @@ local function get_descriptor(menu, entry, max_covers, allow_expensive)
         descriptor_cache.values[table.remove(descriptor_cache.order, 1)] = nil
     end
     return descriptor, false, enumeration_ms
+end
+
+-- Queues a tile/row for cover_preload's chunked hydration (item:update with
+-- _zen_folder_hydrating / _zen_cover_hydrating set).
+function M.queueHydration(item, kind)
+    if item._zen_cover_hydration_queued then return end
+    local menu = item.menu
+    if not menu then return end
+    menu._zen_cover_hydration_items = menu._zen_cover_hydration_items or {}
+    item._zen_cover_hydration_queued = true
+    item._zen_cover_hydration_kind = kind or "book"
+    menu._zen_cover_hydration_items[#menu._zen_cover_hydration_items + 1] = item
+    if type(menu._zen_request_cover_hydration) == "function" then
+        menu:_zen_request_cover_hydration()
+    end
 end
 
 function M.isBook(entry)
@@ -405,6 +428,8 @@ function M.entries(menu, entry, load_members, limit)
     return nil, false
 end
 
+local finished_cache = {} -- path -> { mtime, revision, at, value }
+
 local function member_status(entry)
     if entry._zen_effective_status then return entry._zen_effective_status end
     if entry.status ~= nil or entry.percent_finished ~= nil then
@@ -416,25 +441,38 @@ local function member_status(entry)
     if ok then return status end
 end
 
+local function scan_all_finished(menu, path)
+    local ok, iter, dir_obj = pcall(lfs.dir, path)
+    if not ok then return false end
+    local collate_id = sort_policy(menu, path)
+    local needs_attributes = collate_id == "access" or collate_id == "date"
+        or collate_id == "size"
+    local seen = 0
+    for name in iter, dir_obj do
+        local book = visible_book(menu, path, name, needs_attributes)
+        if book then
+            seen = seen + 1
+            if member_status({ path = book }) ~= "complete" then return false end
+        end
+    end
+    return seen > 0
+end
+
 function M.allBooksFinished(menu, entry, entries, count)
     count = tonumber(count) or 0
     if count < 1 then return false end
     if type(entries) ~= "table" or #entries < count then
         if is_directory(entry) and not is_virtual(entry, menu) and entry.path then
-            local ok, iter, dir_obj = pcall(lfs.dir, entry.path)
-            if not ok then return false end
-            local collate_id = sort_policy(menu, entry.path)
-            local needs_attributes = collate_id == "access" or collate_id == "date"
-                or collate_id == "size"
-            local seen = 0
-            for name in iter, dir_obj do
-                local path = visible_book(menu, entry.path, name, needs_attributes)
-                if path then
-                    seen = seen + 1
-                    if member_status({ path = path }) ~= "complete" then return false end
-                end
+            -- Tiles repaint often; rescan only after a folder or status change (60 s cap for external edits).
+            local mtime = lfs.attributes(entry.path, "modification")
+            local revision = BookStatus.revision and BookStatus.revision() or 0
+            local hit = finished_cache[entry.path]
+            if hit and hit.mtime == mtime and hit.revision == revision and os.time() - hit.at < 60 then
+                return hit.value
             end
-            return seen > 0
+            local value = scan_all_finished(menu, entry.path)
+            finished_cache[entry.path] = { mtime = mtime, revision = revision, at = os.time(), value = value }
+            return value
         end
         local loaded = { M.entries(menu, entry, true, count) }
         entries = loaded[1]
@@ -652,6 +690,8 @@ function M.build(menu, entry, menu_text, max_w, max_h, options)
 end
 
 local label_strip_cache = {}
+local LABEL_FIT_CACHE_MAX = 256
+local label_fit_cache, label_fit_count = {}, 0
 local label_ui
 local cached_label_strip
 
@@ -818,16 +858,6 @@ function M.overlayName(cover, options)
     local label_w = math.max(1, cover_w - 2 * border - 2 * label_pad_h)
     local label_h = math.max(1, cover_h - 2 * border)
     local text = ui.BD.directory(options.title or "")
-    local badge_probe = ui.TextWidget:new{
-        text = "0",
-        face = ui.library_font.getFace(ui.library_font.scaleValue(15)),
-        bold = true,
-        padding = 0,
-    }
-    local available_h = math.max(1,
-        label_h - 2 * badge_probe:getSize().h - 2 * label_pad_v)
-    badge_probe:free()
-
     local max_font_size = ui.library_font.getBaseSize() + 1
     local min_font_size = ui.library_font.scaleValue(14)
     local function make_label(size, height)
@@ -844,21 +874,45 @@ function M.overlayName(cover, options)
         }
     end
 
-    local height_probe = make_label(max_font_size)
-    local two_line_h = math.min(available_h, 2 * height_probe:getLineHeight())
-    height_probe:free()
+    -- Fitting shapes up to one probe per font size; tiles repeat it every rebuild.
+    local fit_key = table.concat({ text, label_w, label_h,
+        tostring(ui.library_font.getFontName and ui.library_font.getFontName()),
+        max_font_size, min_font_size }, "\30")
+    local fit = label_fit_cache[fit_key]
+    if not fit then
+        local badge_probe = ui.TextWidget:new{
+            text = "0",
+            face = ui.library_font.getFace(ui.library_font.scaleValue(15)),
+            bold = true,
+            padding = 0,
+        }
+        local available_h = math.max(1,
+            label_h - 2 * badge_probe:getSize().h - 2 * label_pad_v)
+        badge_probe:free()
 
-    local font_size = max_font_size
-    while font_size >= min_font_size do
-        local probe = make_label(font_size)
-        local line_count = #probe.vertical_string_list
-        local line_h = probe:getLineHeight()
-        probe:free()
-        if line_count <= 2 and line_count * line_h <= two_line_h then break end
-        font_size = font_size - 1
+        local height_probe = make_label(max_font_size)
+        local two_line_h = math.min(available_h, 2 * height_probe:getLineHeight())
+        height_probe:free()
+
+        local font_size = max_font_size
+        while font_size >= min_font_size do
+            local probe = make_label(font_size)
+            local line_count = #probe.vertical_string_list
+            local line_h = probe:getLineHeight()
+            probe:free()
+            if line_count <= 2 and line_count * line_h <= two_line_h then break end
+            font_size = font_size - 1
+        end
+        if font_size < min_font_size then font_size = min_font_size end
+        if label_fit_count >= LABEL_FIT_CACHE_MAX then
+            label_fit_cache, label_fit_count = {}, 0
+        end
+        fit = { font_size = font_size, two_line_h = two_line_h }
+        label_fit_cache[fit_key] = fit
+        label_fit_count = label_fit_count + 1
     end
-    if font_size < min_font_size then font_size = min_font_size end
-    local label = transparent_folder_label(ui, make_label(font_size, two_line_h))
+    local two_line_h = fit.two_line_h
+    local label = transparent_folder_label(ui, make_label(fit.font_size, two_line_h))
     local label_dimen = ui.Geom:new{
         w = label_w + 2 * (label_pad_h + CoverUtils.BORDER_SIZE),
         h = two_line_h + 2 * (label_pad_v + CoverUtils.BORDER_SIZE),
@@ -1059,8 +1113,10 @@ function M.clear(path)
     if not path then
         descriptor_cache = { values = {}, order = {} }
         history_cache = nil
+        finished_cache = {}
         return
     end
+    finished_cache[path] = nil
     descriptor_cache.values[path] = nil
     for index = #descriptor_cache.order, 1, -1 do
         if descriptor_cache.order[index] == path then

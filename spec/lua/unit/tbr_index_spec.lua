@@ -10,6 +10,7 @@ describe("TBR path inventory", function()
     local config
     local ReadCollection
     local scheduled
+    local scheduled_delays
     local collection_writes
     local updated_collection_order
     local arrange_options
@@ -59,6 +60,7 @@ describe("TBR path inventory", function()
         opens = 0
         open_fail = nil
         scheduled = {}
+        scheduled_delays = {}
         collection_writes = 0
         updated_collection_order = nil
         arrange_options = nil
@@ -211,6 +213,10 @@ describe("TBR path inventory", function()
         ZenSpec.replace("common/title_sort", { sortKey = function(value) return value:lower() end })
         ZenSpec.replace("ui/uimanager", {
             nextTick = function(_self, fn) scheduled[#scheduled + 1] = fn end,
+            scheduleIn = function(_self, delay, fn)
+                scheduled_delays[#scheduled_delays + 1] = delay
+                scheduled[#scheduled + 1] = fn
+            end,
             unschedule = function() end,
         })
         ZenSpec.replace("common/ui/zen_arrange_list", {
@@ -833,20 +839,55 @@ describe("TBR path inventory", function()
     end)
 
     it("scans a cold nested inventory over multiple UI ticks", function()
-        attrs["/books/shelf"] = { mode = "directory", modification = 1 }
-        entries["/books"][#entries["/books"] + 1] = "shelf"
-        entries["/books/shelf"] = { ".", ".." }
-        add_book("/books/shelf/a.epub")
+        for shelf = 1, 40 do
+            local path = "/books/shelf" .. shelf
+            attrs[path] = { mode = "directory", modification = 1 }
+            entries["/books"][#entries["/books"] + 1] = "shelf" .. shelf
+            entries[path] = { ".", ".." }
+        end
+        add_book("/books/shelf1/a.epub")
         local Index = require("common/tbr_index")
 
         assert.is_true(Index.scheduleAudit())
         table.remove(scheduled, 1)()
         assert.is_true(Index.isAuditRunning())
         assert.are.equal(1, #scheduled)
+        -- A zero-delay continuation keeps UIManager from ever polling input.
+        assert.is_true(scheduled_delays[1] > 0)
 
         run_scheduled()
         assert.is_false(Index.isAuditRunning())
-        assert.same({ "/books/shelf/a.epub" }, Index.getInventoryPaths())
+        assert.same({ "/books/shelf1/a.epub" }, Index.getInventoryPaths())
+    end)
+
+    it("skips system and sidecar directories like the book walker", function()
+        for _i, name in ipairs({ "proc", "tmp", "a.sdr" }) do
+            attrs["/books/" .. name] = { mode = "directory", modification = 1 }
+            entries["/books"][#entries["/books"] + 1] = name
+            entries["/books/" .. name] = { ".", ".." }
+            add_book("/books/" .. name .. "/x.epub")
+        end
+        add_book("/books/a.epub")
+        local Index = require("common/tbr_index")
+
+        assert.is_true(Index.scheduleAudit())
+        run_scheduled()
+        assert.same({ "/books/a.epub" }, Index.getInventoryPaths())
+    end)
+
+    it("does not rescan a directory reached through a symlink loop", function()
+        attrs["/books"].dev, attrs["/books"].ino = 1, 10
+        attrs["/books/loop"] = { mode = "directory", modification = 1, dev = 1, ino = 10 }
+        entries["/books"][#entries["/books"] + 1] = "loop"
+        entries["/books/loop"] = { ".", ".." }
+        add_book("/books/a.epub")
+        add_book("/books/loop/a.epub")
+        local Index = require("common/tbr_index")
+
+        assert.is_true(Index.scheduleAudit())
+        run_scheduled()
+        assert.is_true(Index.isAuditComplete())
+        assert.same({ "/books/a.epub" }, Index.getInventoryPaths())
     end)
 
     it("reuses a count result for the immediately following page", function()
@@ -954,6 +995,41 @@ describe("shared document cache", function()
         assert.are.equal(0, tonumber(first:exec("SELECT count(*) FROM doc_props_cache")[1][1]))
         assert.are.equal(0, tonumber(first:exec("SELECT count(*) FROM zen_doc_status_cache")[1][1]))
         assert.same({}, warnings)
+    end)
+
+    it("scans integrity once per process and re-verifies a removed file", function()
+        local sqlite3 = require("lua-ljsqlite3/init")
+        local open, checks = sqlite3.open, 0
+        sqlite3.open = function(path)
+            local db = open(path)
+            return {
+                exec = function(_self, sql)
+                    if sql:find("quick_check", 1, true) then checks = checks + 1 end
+                    return db:exec(sql)
+                end,
+                prepare = function(_self, sql) return db:prepare(sql) end,
+                close = function() db:close() end,
+            }
+        end
+        local function count()
+            return Cache.withDB(function(db)
+                return tonumber(db:exec("SELECT count(*) FROM doc_props_cache")[1][1])
+            end)
+        end
+        local ok, err = pcall(function()
+            assert.are.equal(0, count())
+            Cache.close()
+            assert.are.equal(0, count())
+            assert.are.equal(1, checks)
+            Cache.close()
+            for name in host_lfs.dir(directory) do
+                if name ~= "." and name ~= ".." then os.remove(directory .. "/" .. name) end
+            end
+            assert.are.equal(0, count())
+            assert.are.equal(2, checks)
+        end)
+        sqlite3.open = open
+        assert(ok, err)
     end)
 
     it("uses full syncing when WAL is unavailable", function()

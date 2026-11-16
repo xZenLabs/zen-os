@@ -8,6 +8,8 @@ local EXTENSIONS = { "jpg", "jpeg" }
 local NAME_CACHE_MAX = 32
 local NAME_CACHE_TTL_S = 2
 local name_cache = { values = {}, order = {} }
+local CANONICAL_CACHE_MAX = 128
+local canonical_cache, canonical_count = {}, 0
 local SUPPORTED_EXTENSIONS = {}
 for _i, extension in ipairs(EXTENSIONS) do
     SUPPORTED_EXTENSIONS[extension] = true
@@ -24,6 +26,21 @@ local function canonical(path)
     if path == "" then path = "/" end
     local ok, resolved = pcall(ffiUtil.realpath, path)
     return paths.normPath(ok and resolved or path)
+end
+
+-- Tile builds resolve the same folders every page; realpath walks each component.
+local function cached_canonical(path)
+    if type(path) ~= "string" then return nil end
+    local resolved = canonical_cache[path]
+    if resolved == nil then
+        if canonical_count >= CANONICAL_CACHE_MAX then
+            canonical_cache, canonical_count = {}, 0
+        end
+        resolved = canonical(path) or false
+        canonical_cache[path] = resolved
+        canonical_count = canonical_count + 1
+    end
+    return resolved or nil
 end
 
 local function attributes(path, field)
@@ -43,12 +60,15 @@ local function split_managed_name(filename)
 end
 
 local function directory_names(folder)
-    local modification = attributes(folder, "modification")
+    local modification = tonumber(attributes(folder, "modification"))
     local checked_at = os.time()
     local cached = name_cache.values[folder]
+    -- A scan made TTL seconds after the last mtime is final until mtime changes;
+    -- newer scans may have missed a same-second write, so they expire.
     if modification and cached and cached.modification == modification
-            and checked_at >= cached.checked_at
-            and checked_at - cached.checked_at < NAME_CACHE_TTL_S then
+            and (cached.checked_at - modification >= NAME_CACHE_TTL_S
+                or (checked_at >= cached.checked_at
+                    and checked_at - cached.checked_at < NAME_CACHE_TTL_S)) then
         return cached.names
     end
     local names = {}
@@ -123,12 +143,12 @@ end
 local function configured_covers(folder, mode)
     local config = current_config()
     local cover_map = config and config.folder_cover_paths
-    local slots = type(cover_map) == "table" and cover_map[canonical(folder)] or nil
+    local slots = type(cover_map) == "table" and cover_map[cached_canonical(folder)] or nil
     if type(slots) ~= "table" then return nil, false end
 
     local result = {}
     for slot = 1, M.slotCount(mode) do
-        local path = canonical(slots[slot])
+        local path = cached_canonical(slots[slot])
         local attr = path and attributes(path) or nil
         if attr and attr.mode == "file" and source_extension(path) then
             result[slot] = path
@@ -188,6 +208,7 @@ function M.set(folder, mode, slot, source)
     if not slot or slot % 1 ~= 0 or slot < 1 or slot > max_slot then
         return nil, "invalid_slot"
     end
+    canonical_cache, canonical_count = {}, 0
     folder = canonical(folder)
     local folder_attr = folder and attributes(folder) or nil
     if not folder_attr or folder_attr.mode ~= "directory" then
@@ -242,6 +263,7 @@ function M.clear(folder, mode, slot)
     if not slot or slot % 1 ~= 0 or slot < 1 or slot > max_slot then
         return nil, "invalid_slot"
     end
+    canonical_cache, canonical_count = {}, 0
     folder = canonical(folder)
     local folder_attr = folder and attributes(folder) or nil
     if not folder_attr or folder_attr.mode ~= "directory" then

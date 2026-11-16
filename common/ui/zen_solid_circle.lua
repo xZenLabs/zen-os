@@ -24,7 +24,7 @@ function SolidCircle:paintTo(bb, x, y)
         local radius = self.radius + (self.bordersize > 0 and self.bordersize or 0)
         local paint = Blitbuffer.isColor8(self.background)
             and bb.paintRoundedRect or bb.paintRoundedRectRGB32
-        paint(bb, x, y, self.width, self.height, self.background, radius)
+        require("common/ui/raw_paint").run(bb, paint, bb, x, y, self.width, self.height, self.background, radius)
     end
     if self.bordersize > 0 then
         bb:paintBorder(x, y, self.width, self.height,

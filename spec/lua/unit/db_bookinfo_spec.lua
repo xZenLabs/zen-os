@@ -222,6 +222,52 @@ describe("book info grouping cache", function()
         assert.are.equal(1, exec_calls)
     end)
 
+    it("skips per-book stats when building library-wide sort metadata", function()
+        local lfs = require("libs/libkoreader-lfs")
+        local attributes = lfs.attributes
+        local book_stats = 0
+        lfs.attributes = function(path, key)
+            if path:find("%.epub$") then book_stats = book_stats + 1 end
+            return attributes(path, key)
+        end
+
+        local metadata = DbBookInfo.getLightMetadata()
+
+        assert.are.equal("Title A", metadata["/books/a.epub"].title)
+        assert.are.equal(0, book_stats)
+    end)
+
+    it("prepares one blob-less metadata statement per connection", function()
+        local columns = {
+            "directory", "filename", "filesize", "filemtime", "in_progress", "unsupported",
+            "cover_fetched", "has_meta", "has_cover", "cover_sizetag", "ignore_meta",
+            "ignore_cover", "pages", "title", "authors", "series", "series_index",
+            "language", "keywords", "description", "cover_w", "cover_h",
+            "cover_bb_type", "cover_bb_stride", "cover_bb_data",
+        }
+        local manager = require("bookinfomanager")
+        manager.get_stmt = {
+            _header = function(_self, header)
+                for index, name in ipairs(columns) do header[index] = name end
+            end,
+        }
+
+        local first = DbBookInfo.getMetadataStatement(manager)
+        local second = DbBookInfo.getMetadataStatement(manager)
+
+        assert.is_not_nil(first)
+        assert.are.equal(first, second)
+        assert.are.equal(1, #prepared_queries)
+        assert.is_nil(prepared_queries[1].sql:find("cover_bb", 1, true))
+        assert.matches("cover_w,cover_h FROM bookinfo WHERE directory=%? AND filename=%?",
+            prepared_queries[1].sql)
+
+        columns[14] = "renamed"
+        manager.db_conn = setmetatable({}, { __index = manager.db_conn })
+        assert.is_nil(DbBookInfo.getMetadataStatement(manager))
+        manager.get_stmt = nil
+    end)
+
     it("loads and caches one directory with bound normalized paths", function()
         local conn = require("bookinfomanager").db_conn
         local original_prepare = conn.prepare

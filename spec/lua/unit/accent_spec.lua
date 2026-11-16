@@ -506,6 +506,18 @@ describe("interface accent", function()
         bb:free()
     end)
 
+    it("never dithers live drag refreshes so Kaleido avoids flashing color waveforms", function()
+        local UIManager = require("ui/uimanager")
+        local calls = {}
+        UIManager.setDirty = function(_self, widget, mode, region, dither)
+            calls[#calls + 1] = { widget = widget, mode = mode, region = region, dither = dither }
+        end
+        local Slider, region = require("common/ui/zen_slider"), { x = 1, y = 2, w = 3, h = 4 }
+        Slider.refreshDrag(region, true)
+        Slider.refreshDrag(region, false)
+        assert.are.same({ { mode = "ui", region = region }, { mode = "fast", region = region } }, calls)
+    end)
+
     it("refreshes the whole slider on first contact and skips repeated drag values", function()
         local slider = require("common/ui/zen_slider"):new{
             width = 120, value_min = 0, value_max = 100, value = 50, knob_radius = 8,
@@ -576,5 +588,26 @@ describe("interface accent", function()
         source:free()
         _G.__ZEN_UI_PLUGIN.config.accent_color = "#FFFF80"
         Accent.styleIcon({ _render = function() error("light accents keep dark icons") end }, true)
+    end)
+
+    it("shares one cached inverted bitmap per icon file and size", function()
+        local source = Blitbuffer.new(2, 2, Blitbuffer.TYPE_BBRGB32)
+        source:setPixel(0, 0, Blitbuffer.ColorRGB32(0, 0, 0, 255))
+        local function icon(file)
+            return { file = file, _is_straight_alpha = true,
+                _render = function(self) self._bb, self._bb_disposable = source, false end }
+        end
+        local first, second = icon("/icons/a.svg"), icon("/icons/a.svg")
+        Accent.styleIcon(first, true)
+        Accent.styleIcon(second, true)
+        assert.are.equal(first._bb, second._bb)
+        assert.is_false(first._bb_disposable)
+        assert.are_not.equal(source, first._bb)
+        assert.are.equal(0, source:getPixel(0, 0).r)
+        assert.are.equal(255, first._bb:getPixel(0, 0).r)
+        local other = icon("/icons/b.svg")
+        Accent.styleIcon(other, true)
+        assert.are_not.equal(first._bb, other._bb)
+        source:free()
     end)
 end)

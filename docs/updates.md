@@ -6,33 +6,25 @@ settingsPath: Zen Settings > General > Updates
 order: 79
 ---
 
-<!-- Documentation current through ZenOS v3.3.0. -->
+<!-- Documentation current through ZenOS v4.3.0. -->
 
-## Overview
-
-The Updates section installs ZenOS updates directly on the device and, on supported devices, KOReader updates. It also shows the changelog, selects the update channel, and controls automatic update checks.
-
-> **Note:** When you see the Zen icon with the dot, that means that an update is available.
+ZenOS updates itself right on the device. No computer needed.
 
 ![Zen update icon](/images/zen_os/zen_update.svg)
 
-## Updating
+When an update is out, the Zen icon gets a dot, a banner shows at the top of Zen Settings, and **Update ZenOS** changes to **Update available**. Tap it to install.
 
-You can update ZenOS from **Zen Settings > General > Updates > Update ZenOS** without leaving KOReader or connecting to a computer. ZenOS also checks for updates automatically — when one is available the item becomes **Update available**, a banner appears at the top of Zen Settings, and the settings icon shows a dot.
+## Channels
 
-Two update channels are available:
+- **Stable**: fully tested. Use this one unless you want to help test.
+- **Beta**: new features first, but expect some bugs.
 
-- **Stable** — Fully tested releases. Recommended for most users.
-- **Beta** — Gets new features faster but may be unstable or contain bugs.
+## Settings
 
-You can switch channels and toggle automatic update checking from **Zen Settings > General > Updates**.
+- **Update ZenOS**: check and install.
+- **Update KOReader**: runs KOReader's updater on devices that support it.
+- **Changelog**: see what's new.
+- **Channel**: Stable or Beta.
+- **Automatic update checking**: on or off.
 
-## Setting reference
-
-| Setting | Description |
-| --- | --- |
-| Updates > Update ZenOS | Checks for available ZenOS updates and starts the update flow. The label changes to Update available when a newer release has already been detected. |
-| Updates > Update KOReader | Runs KOReader's updater on devices that support over-the-air updates. |
-| Updates > Changelog | Opens the ZenOS changelog. |
-| Updates > Channel | Selects the update channel. |
-| Updates > Automatic update checking | Enables or disables automatic update checks. |
+**Where:** Zen Settings > General > Updates

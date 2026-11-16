@@ -8,7 +8,8 @@ describe("Bluetooth state cache", function()
         for _i, name in ipairs({
             "device", "modules/menu/bluetooth/kobo_bluetooth", "common/zen_logger", "modules/menu/bluetooth/bluetooth",
             "modules/menu/bluetooth_switcher", "modules/menu/bluetooth_adapters/kindle",
-            "ui/uimanager", "ui/event", "liblipclua",
+            "modules/menu/bluetooth_adapters/kobo", "modules/menu/bluetooth_adapters/pocketbook",
+            "modules/menu/bluetooth_adapters/common", "ui/uimanager", "ui/event", "liblipclua", "libopenlipclua",
         }) do
             originals[name] = package.loaded[name] or false
         end
@@ -27,9 +28,10 @@ describe("Bluetooth state cache", function()
         ZenSpec.replace("common/zen_logger", {
             new = function() return { info = function() end, warn = function() end } end,
         })
-        ZenSpec.replace("modules/menu/bluetooth_adapters/kindle", { new = function()
-            return { getDeviceList = function() return {} end, close = function() end }
-        end, logServiceState = function() end })
+        ZenSpec.replace("libopenlipclua", {})
+        for _i, name in ipairs({ "kindle", "kobo", "pocketbook", "common" }) do
+            ZenSpec.unload("modules/menu/bluetooth_adapters/" .. name)
+        end
         ZenSpec.unload("modules/menu/bluetooth/bluetooth")
     end)
 
@@ -158,13 +160,13 @@ describe("Bluetooth state cache", function()
         assert.are.same({ true, true, true, false }, results)
         assert.is_true(Bluetooth.getState())
 
-        ZenSpec.replace("modules/menu/bluetooth_adapters/kindle", { new = function()
+        require("modules/menu/bluetooth_adapters/kindle").new = function()
             return {
                 getDeviceList = function() return { { address = "AA:BB:CC:DD:EE:FF", connected = true } } end,
                 disconnect = function(_device, callback) callback(true) end,
                 close = function() end,
             }
-        end, logServiceState = function() end })
+        end
         assert.is_false(Bluetooth.setEnabled(false, function(ok) results[#results + 1] = ok end))
         assert.is_false(results[#results])
         execute_stub:revert()

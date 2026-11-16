@@ -24,6 +24,42 @@ describe("common utils deep merge", function()
     end)
 end)
 
+describe("common utils html font root", function()
+    local utils = require("common/utils")
+
+    local lfs = require("libs/libkoreader-lfs")
+    local dir = lfs.dir
+    after_each(function() lfs.dir = dir end)
+
+    local function deny(denied)
+        lfs.dir = function(path)
+            if denied[path] then error("cannot open " .. path) end
+            return function() end, { close = function() end }
+        end
+    end
+
+    it("roots absolute fonts at / and bundled relative fonts at the working directory", function()
+        assert.are.same({ "/", "/mnt/us/fonts/Book.ttf" }, { utils.htmlFontRoot("/mnt/us/fonts/Book.ttf") })
+        assert.are.same({ ".", "./fonts/noto/NotoSerif-Regular.ttf" },
+            { utils.htmlFontRoot("./fonts/noto/NotoSerif-Regular.ttf") })
+        assert.are.equal(".", utils.htmlFontRoot("fonts/noto/NotoSerif-Regular.ttf"))
+    end)
+
+    it("roots fonts at their own directory when / cannot be listed", function()
+        deny({ ["/"] = true })
+        local root, url = utils.htmlFontRoot("/system/fonts/Book.ttf")
+        assert.are.same({ "/system/fonts", "Book.ttf" }, { root, url })
+        assert.are.same({ root, "Book-Bold.ttf" }, { utils.htmlFontRoot("/system/fonts/Book-Bold.ttf", root) })
+        assert.are.same({ root, "/sdcard/fonts/Book-Italic.ttf" },
+            { utils.htmlFontRoot("/sdcard/fonts/Book-Italic.ttf", root) })
+    end)
+
+    it("returns no root when the font directory cannot be listed either", function()
+        deny({ ["/"] = true, ["/system/fonts"] = true })
+        assert.are.same({ nil, "/system/fonts/Book.ttf" }, { utils.htmlFontRoot("/system/fonts/Book.ttf") })
+    end)
+end)
+
 describe("common utils icon sizing", function()
     local utils = require("common/utils")
 
@@ -36,6 +72,16 @@ describe("common utils icon sizing", function()
     it("keeps other icons at their requested size", function()
         assert.are.equal(1, utils.iconOpticalScale("quick_wifi"))
         assert.are.equal(1, utils.iconOpticalScale(nil))
+    end)
+
+    it("keeps icon-pack replacements of logo icons at their requested size", function()
+        local saved = package.loaded["common/icon_packs"]
+        package.loaded["common/icon_packs"] = {
+            isPackIcon = function(path) return path == "/icons/zen/pack/zenfm.svg" end,
+        }
+        assert.are.equal(1, utils.iconOpticalScale("zenfm", "/icons/zen/pack/zenfm.svg"))
+        assert.are.equal(1.25, utils.iconOpticalScale("zenfm", "/plugins/zenos/icons/zenfm.svg"))
+        package.loaded["common/icon_packs"] = saved
     end)
 end)
 
@@ -78,5 +124,25 @@ describe("Controls menu tab placement", function()
         config.features.quick_settings = false
         assert.is_false(utils.controlReplacesMenuTab(config, "launcher"))
         assert.is_false(utils.controlReplacesMenuTab(nil, "launcher"))
+    end)
+end)
+
+describe("common utils frontlight broadcast", function()
+    local utils = require("common/utils")
+
+    it("silences powerd broadcasts only while fn runs, even when it errors", function()
+        local Class = { broadcasts = 0 }
+        Class.__index = Class
+        function Class:stateChanged() self.broadcasts = self.broadcasts + 1 end
+        local powerd = setmetatable({}, Class)
+        utils.withoutFrontlightBroadcast(powerd, function() powerd:stateChanged() end)
+        assert.are.equal(0, powerd.broadcasts)
+        assert.is_nil(rawget(powerd, "stateChanged"))
+        assert.has_error(function()
+            utils.withoutFrontlightBroadcast(powerd, function() error("boom") end)
+        end)
+        assert.is_nil(rawget(powerd, "stateChanged"))
+        powerd:stateChanged()
+        assert.are.equal(1, powerd.broadcasts)
     end)
 end)

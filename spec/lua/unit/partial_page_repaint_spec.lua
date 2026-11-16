@@ -45,27 +45,34 @@ describe("partial page repaint", function()
         ZenSpec.unload("modules/filebrowser/patches/partial_page_repaint")
         require("modules/filebrowser/patches/partial_page_repaint")()
         local chooser = { item_table = { 1, 2, 3 }, page = 2, perpage = 2 }
+        -- Turning from the full first page onto the one-item last page.
+        local function turn(menu)
+            chooser.page = 1
+            menu.updateItems(chooser)
+            chooser.page = 2
+            menu.updateItems(chooser)
+        end
 
         for _i, menu in ipairs({ FileChooser, CoverMenu }) do
             local scheduled_before = #scheduled
-            menu.updateItems(chooser)
+            turn(menu)
             assert.are.equal(scheduled_before, #scheduled)
 
             plugin.config.features.partial_page_repaint = true
-            menu.updateItems(chooser)
+            turn(menu)
             assert.are.equal(scheduled_before + 1, #scheduled)
             plugin.config.features.partial_page_repaint = false
             scheduled[#scheduled]()
             assert.are.equal(_i - 1, repaint_calls)
 
             plugin.config.features.partial_page_repaint = true
-            menu.updateItems(chooser)
+            turn(menu)
             assert.are.equal(scheduled_before + 2, #scheduled)
             scheduled[#scheduled]()
             assert.are.equal(_i, repaint_calls)
 
             plugin.config.features.partial_page_repaint = false
-            menu.updateItems(chooser)
+            turn(menu)
             assert.are.equal(scheduled_before + 2, #scheduled)
         end
     end)
@@ -84,10 +91,12 @@ describe("partial page repaint", function()
         ZenSpec.unload("modules/filebrowser/patches/partial_page_repaint")
         require("modules/filebrowser/patches/partial_page_repaint")()
         local chooser = {
-            item_table = { 1, 2, 3 }, page = 2, perpage = 2,
+            item_table = { 1, 2, 3 }, page = 1, perpage = 2,
             _zen_cover_hydration_generation = 1,
         }
 
+        FileChooser.updateItems(chooser)
+        chooser.page = 2
         FileChooser.updateItems(chooser)
         chooser.page = 1
         FileChooser.updateItems(chooser)
@@ -142,6 +151,9 @@ describe("partial page repaint", function()
         assert.are.equal("full", refresh_mode)
 
         for _i, avoid in ipairs({ true, false }) do
+            chooser.item_table = { 1, 2, 3, 4 }
+            chooser:updateItems()
+            chooser.item_table = { 1, 2, 3 }
             chooser:updateItems()
             G_reader_settings:saveSetting("avoid_flashing_ui", avoid)
             scheduled[#scheduled]()
@@ -149,5 +161,25 @@ describe("partial page repaint", function()
             assert.are.equal(_i + 1, dirty_calls)
             assert.are.equal(_i + 1, repaint_calls)
         end
+    end)
+
+    it("does not flash when a short page is refreshed in place", function()
+        local scheduled = {}
+        local FileChooser = { updateItems = function() end }
+        ZenSpec.replace("ui/widget/filechooser", FileChooser)
+        ZenSpec.replace("covermenu", {})
+        ZenSpec.replace("ui/uimanager", {
+            nextTick = function(_self, callback) scheduled[#scheduled + 1] = callback end,
+        })
+        ZenSpec.unload("modules/filebrowser/patches/partial_page_repaint")
+        require("modules/filebrowser/patches/partial_page_repaint")()
+        local chooser = { item_table = { 1, 2, 3 }, page = 1, perpage = 9 }
+
+        FileChooser.updateItems(chooser)
+        FileChooser.updateItems(chooser)
+        chooser.item_table = { 1, 2, 3, 4 }
+        FileChooser.updateItems(chooser)
+
+        assert.are.equal(0, #scheduled)
     end)
 end)

@@ -91,29 +91,51 @@ function M.navbarColor(config, key, default)
     return c
 end
 
-function M.styleIcon(icon, active)
-    local Blitbuffer = require("ffi/blitbuffer")
-    icon.alpha = true
-    if active and M.foreground() == Blitbuffer.COLOR_WHITE then
-        icon:_render()
-        if icon._bb then
-            icon._bb = icon._bb:copy()
-            icon._bb_disposable = true
-            local bb = icon._bb
-            if icon._is_straight_alpha then
-                bb:invertRect(0, 0, bb:getWidth(), bb:getHeight())
-            else
-                -- MuPDF stores premultiplied RGB, so inversion must preserve alpha.
-                for y = 0, bb:getHeight() - 1 do
-                    for x = 0, bb:getWidth() - 1 do
-                        local c = bb:getPixel(x, y):getColorRGB32()
-                        bb:setPixel(x, y, Blitbuffer.ColorRGB32(
-                            c.alpha - c.r, c.alpha - c.g, c.alpha - c.b, c.alpha))
-                    end
-                end
+local function invert_icon(bb, straight_alpha)
+    bb = bb:copy()
+    if straight_alpha then
+        bb:invertRect(0, 0, bb:getWidth(), bb:getHeight())
+    else
+        -- MuPDF stores premultiplied RGB, so inversion must preserve alpha.
+        local Blitbuffer = require("ffi/blitbuffer")
+        for y = 0, bb:getHeight() - 1 do
+            for x = 0, bb:getWidth() - 1 do
+                local c = bb:getPixel(x, y):getColorRGB32()
+                bb:setPixel(x, y, Blitbuffer.ColorRGB32(
+                    c.alpha - c.r, c.alpha - c.g, c.alpha - c.b, c.alpha))
             end
         end
     end
+    return bb
+end
+
+-- Two-generation LRU of inverted icon bbs; evicted bbs are left to the FFI finalizer
+-- since live widgets may still reference them.
+local INVERTED_MAX = 48
+local inverted, inverted_old, inverted_n = {}, {}, 0
+
+function M.styleIcon(icon, active)
+    local Blitbuffer = require("ffi/blitbuffer")
+    icon.alpha = true
+    if not (active and M.foreground() == Blitbuffer.COLOR_WHITE) then return end
+    icon:_render()
+    local bb = icon._bb
+    if not bb then return end
+    if not icon.file then
+        icon._bb, icon._bb_disposable = invert_icon(bb, icon._is_straight_alpha), true
+        return
+    end
+    local key = table.concat({ icon.file, bb:getWidth(), bb:getHeight(), icon.rotation_angle or 0,
+        icon._is_straight_alpha and 1 or 0 }, "|")
+    local styled = inverted[key]
+    if not styled then
+        styled = inverted_old[key] or invert_icon(bb, icon._is_straight_alpha)
+        if inverted_n >= INVERTED_MAX then inverted_old, inverted, inverted_n = inverted, {}, 0 end
+        inverted[key], inverted_n = styled, inverted_n + 1
+    end
+    if icon._bb_disposable and bb.free then bb:free() end
+    -- Shared cached bb: IconWidget:free must not release it.
+    icon._bb, icon._bb_disposable = styled, false
 end
 
 function M.styleButton(button, icon, active)

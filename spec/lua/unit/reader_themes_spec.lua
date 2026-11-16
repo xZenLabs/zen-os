@@ -151,6 +151,68 @@ describe("reader themes", function()
         assert.is_nil(Themes.colorToHsv("not-a-color"))
     end)
 
+    it("provides preview colors for built-in, custom, and default themes", function()
+        local plugin = {
+            config = {
+                reader_themes = {
+                    custom = {
+                        custom_1 = { text = "#123456", background = "#abcdef" },
+                        invalid = { text = "bad", background = "#ffffff" },
+                    },
+                },
+            },
+        }
+        local Blitbuffer = require("ffi/blitbuffer")
+
+        local text, background = Themes.getPreviewColors(plugin, "dark_graphite")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(208, 208, 208, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(37, 37, 37, 255)), tostring(background))
+
+        text, background = Themes.getPreviewColors(plugin, "custom_1")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(18, 52, 86, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(171, 205, 239, 255)), tostring(background))
+
+        text, background = Themes.getPreviewColors(plugin, "default")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(0, 0, 0, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(255, 255, 255, 255)), tostring(background))
+        assert.is_nil(Themes.getPreviewColors(plugin, "invalid"))
+
+        local editable_theme = { text = "#102030", background = "#f0e0d0" }
+        text, background = Themes.getPreviewColors(plugin, nil, editable_theme)
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(16, 32, 48, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(240, 224, 208, 255)), tostring(background))
+        editable_theme.text = "#abcdef"
+        text = Themes.getPreviewColors(plugin, nil, editable_theme)
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(171, 205, 239, 255)), tostring(text))
+
+        G_reader_settings:saveSetting("night_mode", true)
+        text, background = Themes.getPreviewColors(plugin, "dark_graphite")
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(208, 208, 208, 255)), tostring(text))
+        assert.are.equal(tostring(Blitbuffer.ColorRGB32(37, 37, 37, 255)), tostring(background))
+    end)
+
+    it("registers the additional built-in theme palettes", function()
+        local expected = {
+            sepia = { "#000000", "#f5e6c8" },
+            darker_sepia = { "#2e2014", "#e6cea9" },
+            old_book = { "#2e1800", "#edd9b0" },
+            sage = { "#1a2e1a", "#eaf0e8" },
+            fern = { "#0f2a14", "#dff0e0" },
+            arctic = { "#0d1b2a", "#e8f0f8" },
+            midnight = { "#e2e8f0", "#121c33" },
+            nord = { "#d8dee9", "#2e3440" },
+            amber_night = { "#fad08a", "#14100a" },
+            sepia_night = { "#c8a070", "#1a0e00" },
+            dark_moss = { "#90c090", "#0a1a0a" },
+            dark_sky = { "#7aaad4", "#0a1428" },
+            velvet = { "#f9d592", "#532653" },
+        }
+        for key, colors in pairs(expected) do
+            assert.are.equal(colors[1], Themes.BUILTIN_THEMES[key].text, key)
+            assert.are.equal(colors[2], Themes.BUILTIN_THEMES[key].background, key)
+        end
+    end)
+
     it("does not change the font for built-in themes", function()
         local face
         local reader = {
@@ -452,6 +514,23 @@ describe("reader themes", function()
         local repaint, full_repaint = ReaderFooter:shouldBeRepainted()
         assert.is_true(repaint)
         assert.is_true(full_repaint)
+
+        -- With a CRE page buffer, only the footer backdrop is restored.
+        local blits = {}
+        require("device").screen.bb = { blitFrom = function(_self, ...) blits[#blits + 1] = { ... } end }
+        local page = { getWidth = function() return 600 end, getHeight = function() return 800 end }
+        local footer = setmetatable({
+            footer_content = { dimen = { x = 0, y = 760, w = 600, h = 40 } },
+            view = { document = { buffer = page }, state = { offset = { x = 0, y = 0 } } },
+        }, { __index = ReaderFooter })
+        repaint, full_repaint = footer:shouldBeRepainted()
+        assert.is_true(repaint)
+        assert.is_nil(full_repaint)
+        assert.same({ { page, 0, 760, 0, 760, 600, 40 } }, blits)
+        footer.footer_content.dimen.y = 780
+        assert.is_true(select(2, footer:shouldBeRepainted()))
+        assert.are.equal(1, #blits)
+        require("device").screen.bb = nil
         plugin.config.features.reader_themes = false
         repaint, full_repaint = ReaderFooter:shouldBeRepainted()
         assert.is_true(repaint)

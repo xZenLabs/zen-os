@@ -2244,6 +2244,12 @@ msgstr "分隔線"
 msgid "Dividing lines"
 msgstr "分隔線"
 
+#. Type: setting
+#. Context: Settings label in the reader Lookup settings.
+#: reader_settings.lua:1445
+msgid "Dock to bottom"
+msgstr "停靠在底部"
+
 #. Type: label
 #. Context: Reader tab controls, defaults, profiles, and themes.
 #: reader_controls.lua:559 buttons.lua:33
@@ -3198,6 +3204,12 @@ msgstr "圖示：%1"
 msgid "Icons"
 msgstr "圖示"
 
+#. Type: setting
+#. Context: { text = _("Image minimap"), checked_func = function() return settings.minimap end,
+#: pin_settings.lua:72
+msgid "Image minimap"
+msgstr "圖片小地圖"
+
 #. Type: message
 #. Context: 介面外觀設定中向使用者顯示的提示訊息。
 #: interface_settings.lua:374
@@ -3953,6 +3965,12 @@ msgstr "導覽列標籤大小"
 #: quickstart_pages.lua:708
 msgid "Navbar Tabs"
 msgstr "導覽分頁"
+
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "跳至第 %1 頁？"
 
 #. Type: setting
 #. Context: 書庫的顯示與操作設定中的設定項目名稱。

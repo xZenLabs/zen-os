@@ -10,8 +10,28 @@ local StatsDB = {}
 
 local FLUSH_MIN_INTERVAL_S = 10
 local last_flush_at = 0
-local STREAK_WINDOW_S = 370 * 86400
+local STREAK_MAX_DAYS = 36600
 local comic_md5_cache = {}
+
+local function comic_hash(file, ok_docsettings, DocSettings, ok_util, util)
+    local hash
+    if ok_docsettings and DocSettings then
+        local ok_hash, sidecar_hash = pcall(function()
+            local sidecar = DocSettings:findSidecarFile(file)
+            local settings = sidecar and DocSettings.openSettingsFile(sidecar)
+            return settings and settings.data.partial_md5_checksum
+        end)
+        if ok_hash then hash = sidecar_hash end
+    end
+    if not hash and ok_util and util and type(util.partialMD5) == "function" then
+        local ok_hash, computed = pcall(util.partialMD5, file)
+        if ok_hash then hash = computed end
+    end
+    if type(hash) == "string" and #hash == 32 and hash:match("^%x+$") then
+        return hash:lower()
+    end
+    return false
+end
 
 local function comic_filter_sql()
     -- ponytail: stats has no paths; persist a format index if cleared history must stay filterable.
@@ -23,30 +43,23 @@ local function comic_filter_sql()
     if type(ReadHistory.reload) == "function" then
         pcall(ReadHistory.reload, ReadHistory, false)
     end
-    local hashes = {}
+    local hashes, live = {}, {}
     for _i, entry in ipairs(ReadHistory.hist or {}) do
         local file = entry and entry.file
         if type(file) == "string" and file:lower():match("%.cb[rz]$") then
+            live[file] = true
+            -- History time changes on every open; misses are cached too (false).
             local cached = comic_md5_cache[file]
-            local hash = cached and cached.time == entry.time and cached.hash or nil
-            if not hash and ok_docsettings and DocSettings then
-                local ok_hash, sidecar_hash = pcall(function()
-                    local sidecar = DocSettings:findSidecarFile(file)
-                    local settings = sidecar and DocSettings.openSettingsFile(sidecar)
-                    return settings and settings.data.partial_md5_checksum
-                end)
-                if ok_hash then hash = sidecar_hash end
+            if not cached or cached.time ~= entry.time then
+                cached = { time = entry.time,
+                    hash = comic_hash(file, ok_docsettings, DocSettings, ok_util, util) }
+                comic_md5_cache[file] = cached
             end
-            if not hash and ok_util and util and type(util.partialMD5) == "function" then
-                local ok_hash, computed = pcall(util.partialMD5, file)
-                if ok_hash then hash = computed end
-            end
-            if type(hash) == "string" and #hash == 32 and hash:match("^%x+$") then
-                hash = hash:lower()
-                comic_md5_cache[file] = { time = entry.time, hash = hash }
-                hashes[hash] = true
-            end
+            if cached.hash then hashes[cached.hash] = true end
         end
+    end
+    for file in pairs(comic_md5_cache) do
+        if not live[file] then comic_md5_cache[file] = nil end
     end
 
     local quoted = {}
@@ -98,7 +111,6 @@ function StatsDB.weekStart(now_t)
 end
 
 local function period_starts(stats_plugin)
-    local one_day = 86400
     local shift = StatsDB.dayShift(stats_plugin)
     local now_t = os.date("*t", os.time() - shift)
     local week_start, week_start_day = StatsDB.weekStart(now_t)
@@ -107,7 +119,6 @@ local function period_starts(stats_plugin)
         hour = 0, min = 0, sec = 0,
     })
     return {
-        one_day = one_day,
         shift = shift,
         start_today = start_today + shift,
         period_begin = week_start + shift,
@@ -123,110 +134,73 @@ local function period_starts(stats_plugin)
     }
 end
 
-local function query_period_stats(conn, start_time, need_pages, need_duration, book_filter)
-    book_filter = book_filter or ""
-    if need_pages and need_duration then
-        local sql = [[
-            SELECT count(*), sum(sum_duration)
-            FROM (
-                SELECT sum(duration) AS sum_duration
-                FROM page_stat
-                WHERE start_time >= %d%s
-                GROUP BY id_book, page
-            );
-        ]]
-        local pages, duration = conn:rowexec(string.format(sql, start_time, book_filter))
-        return tonumber(pages) or 0, tonumber(duration) or 0
-    end
-    if need_pages then
-        local sql = [[
-            SELECT count(*)
-            FROM (
-                SELECT 1
-                FROM page_stat
-                WHERE start_time >= %d%s
-                GROUP BY id_book, page
-            );
-        ]]
-        return tonumber(conn:rowexec(string.format(sql, start_time, book_filter))) or 0, 0
-    end
-    if need_duration then
-        local sql = [[
-            SELECT sum(sum_duration)
-            FROM (
-                SELECT sum(duration) AS sum_duration
-                FROM page_stat
-                WHERE start_time >= %d%s
-                GROUP BY id_book, page
-            );
-        ]]
-        return 0, tonumber(conn:rowexec(string.format(sql, start_time, book_filter))) or 0
-    end
-    return 0, 0
-end
+local PERIODS = {
+    { name = "today", start = "start_today" },
+    { name = "week", start = "period_begin" },
+    { name = "month", start = "start_month" },
+    { name = "year", start = "start_year" },
+}
 
-local function streak_walk(days_list, one_day, shift)
-    local now_ts = os.time() - shift
-    local today_str = os.date("%Y-%m-%d", now_ts)
-    local today_t = os.date("*t", now_ts)
-    local yesterday_str = os.date("%Y-%m-%d", os.time({
-        year = today_t.year, month = today_t.month, day = today_t.day - 1,
-        hour = 12, min = 0, sec = 0,
-    }))
-    local most_recent = days_list[1]
-    if most_recent ~= today_str and most_recent ~= yesterday_str then return 0 end
-
-    local streak = 0
-    local expected = most_recent
-    for i = 1, #days_list do
-        if days_list[i] ~= expected then break end
-        streak = streak + 1
-        local y, mo, dd = expected:match("(%d+)-(%d+)-(%d+)")
-        local noon = os.time({
-            year = tonumber(y),
-            month = tonumber(mo),
-            day = tonumber(dd),
-            hour = 12, min = 0, sec = 0,
-        })
-        expected = os.date("%Y-%m-%d", noon - one_day)
-    end
-    return streak
-end
-
-local function query_streak(conn, starts)
-    -- Query page_stat_data directly (no view join) with an adaptive 370-day
-    -- window aligned to the reading day. When the walk reaches the window edge
-    -- (every day inside the window has reading data), the window itself
-    -- truncates the result, so fall back to the unbounded query for an exact
-    -- streak. (Duration rescaling in the page_stat view cannot zero out a row
-    -- that has duration > 0, so the semantic is preserved.)
-    local window_start = starts.start_today - STREAK_WINDOW_S
-    local sql_streak = [[
-        SELECT DISTINCT strftime('%%Y-%%m-%%d', start_time - %d, 'unixepoch', 'localtime') AS day
-        FROM page_stat_data
-        WHERE duration > 0 AND start_time >= %d
-        ORDER BY day DESC;
-    ]]
-    local ok_streak, streak_result = pcall(conn.exec, conn,
-        string.format(sql_streak, starts.shift, window_start))
-    if not ok_streak then
-        logger.warn("streak query error:", streak_result)
-        return 0
-    end
-    if not (streak_result and streak_result.day) then return 0 end
-    local window_first_day = os.date("%Y-%m-%d", window_start - starts.shift)
-    local streak = streak_walk(streak_result.day, starts.one_day, starts.shift)
-    if streak == #streak_result.day and streak_result.day[#streak_result.day] == window_first_day then
-        local sql_full = [[
-            SELECT DISTINCT strftime('%%Y-%%m-%%d', start_time - %d, 'unixepoch', 'localtime') AS day
-            FROM page_stat_data
-            WHERE duration > 0
-            ORDER BY day DESC;
-        ]]
-        local ok_full, full_result = pcall(conn.exec, conn, string.format(sql_full, starts.shift))
-        if ok_full and full_result and full_result.day then
-            streak = streak_walk(full_result.day, starts.one_day, starts.shift)
+-- Nested periods share one scan of the rescaling page_stat view; per-period
+-- page counts and durations match separate `start_time >= X` group-by queries.
+local function query_period_stats(conn, starts, fields, book_filter, stats)
+    local inner, outer, names, min_start = {}, {}, {}, nil
+    for _i, period in ipairs(PERIODS) do
+        local name = period.name
+        if fields[name .. "_pages"] or fields[name .. "_duration"] then
+            local start = starts[period.start]
+            min_start = math.min(min_start or start, start)
+            inner[#inner + 1] = string.format("max(start_time >= %d) AS n_%s, "
+                .. "sum(CASE WHEN start_time >= %d THEN duration END) AS d_%s", start, name, start, name)
+            outer[#outer + 1] = string.format("sum(n_%s), sum(d_%s)", name, name)
+            names[#names + 1] = name
         end
+    end
+    if not min_start then return end
+    local row = { conn:rowexec(string.format(
+        "SELECT %s FROM (SELECT %s FROM page_stat WHERE start_time >= %d%s GROUP BY id_book, page);",
+        table.concat(outer, ", "), table.concat(inner, ", "), min_start, book_filter or "")) }
+    for i, name in ipairs(names) do
+        if fields[name .. "_pages"] then stats[name .. "_pages"] = tonumber(row[i * 2 - 1]) or 0 end
+        if fields[name .. "_duration"] then stats[name .. "_duration"] = tonumber(row[i * 2]) or 0 end
+    end
+end
+
+-- Walks back one reading day at a time with indexed probes on page_stat_data(start_time).
+-- (page_stat rescaling cannot zero a row with duration > 0, so the raw table suffices.)
+local function query_streak(conn, starts)
+    local t = os.date("*t", os.time() - starts.shift)
+    local function day_start(offset)
+        return os.time({
+            year = t.year, month = t.month, day = t.day - offset,
+            hour = 0, min = 0, sec = 0,
+        }) + starts.shift
+    end
+    local function has_reading(from, to)
+        local sql = "SELECT 1 FROM page_stat_data WHERE start_time >= " .. string.format("%d", from)
+            .. (to and string.format(" AND start_time < %d", to) or "")
+            .. " AND duration > 0 LIMIT 1;"
+        return conn:rowexec(sql) ~= nil
+    end
+    local ok, streak = pcall(function()
+        -- Future-dated rows (clock skew) make the latest day neither today nor yesterday.
+        if has_reading(day_start(-1)) then return 0 end
+        local offset = has_reading(day_start(0)) and 0
+            or has_reading(day_start(1), day_start(0)) and 1
+        if not offset then return 0 end
+        local count = 0
+        local upper = day_start(offset - 1)
+        while count < STREAK_MAX_DAYS do
+            local lower = day_start(offset + count)
+            if not has_reading(lower, upper) then break end
+            count = count + 1
+            upper = lower
+        end
+        return count
+    end)
+    if not ok then
+        logger.warn("streak query error:", streak)
+        return 0
     end
     return streak
 end
@@ -415,26 +389,7 @@ function StatsDB.queryHomeStats(fields, exclude_cbz_cbr)
     local starts = period_starts()
     local book_filter = exclude_cbz_cbr == true and comic_filter_sql() or ""
     local ok, query_err = pcall(function()
-        if requested.today_pages or requested.today_duration then
-            stats.today_pages, stats.today_duration =
-                query_period_stats(conn, starts.start_today,
-                    requested.today_pages, requested.today_duration, book_filter)
-        end
-        if requested.week_pages or requested.week_duration then
-            stats.week_pages, stats.week_duration =
-                query_period_stats(conn, starts.period_begin,
-                    requested.week_pages, requested.week_duration, book_filter)
-        end
-        if requested.month_pages or requested.month_duration then
-            stats.month_pages, stats.month_duration =
-                query_period_stats(conn, starts.start_month,
-                    requested.month_pages, requested.month_duration, book_filter)
-        end
-        if requested.year_pages or requested.year_duration then
-            stats.year_pages, stats.year_duration =
-                query_period_stats(conn, starts.start_year,
-                    requested.year_pages, requested.year_duration, book_filter)
-        end
+        query_period_stats(conn, starts, requested, book_filter, stats)
         if requested.streak then
             stats.streak = query_streak(conn, starts)
         end
@@ -447,25 +402,57 @@ function StatsDB.queryHomeStats(fields, exclude_cbz_cbr)
     return stats
 end
 
--- Returns a stats table:
--- {
---   today_pages        number
---   today_duration     number  (seconds)
---   week_pages         number
---   week_duration      number  (seconds)
---   week_daily         list of { date, pages, duration }
---   streak             number  (consecutive reading days)
---   total_books        number  (distinct books with any page_stat row)
--- }
-function StatsDB.queryStats()
+local SQL_PEAKS = [[
+    WITH daily AS (
+        SELECT strftime('%Y-%m-%d', start_time - DAY_SHIFT, 'unixepoch', 'localtime') AS day,
+               SUM(duration) AS day_total,
+               MIN(start_time - DAY_SHIFT) AS rep_ts
+        FROM page_stat_data
+        GROUP BY day
+    )
+    SELECT
+        (SELECT day_total FROM daily ORDER BY day_total DESC LIMIT 1),
+        (SELECT rep_ts FROM daily ORDER BY day_total DESC LIMIT 1),
+        (SELECT week_total FROM (
+            SELECT SUM(day_total) AS week_total, MIN(rep_ts) AS rep_ts
+            FROM daily
+            GROUP BY date(day, '-' || ((strftime('%w', day) - WEEK_START_DAY + 7) % 7) || ' days')
+        ) ORDER BY week_total DESC LIMIT 1),
+        (SELECT rep_ts FROM (
+            SELECT SUM(day_total) AS week_total, MIN(rep_ts) AS rep_ts
+            FROM daily
+            GROUP BY date(day, '-' || ((strftime('%w', day) - WEEK_START_DAY + 7) % 7) || ' days')
+        ) ORDER BY week_total DESC LIMIT 1),
+        (SELECT month_total FROM (
+            SELECT SUM(day_total) AS month_total, MIN(rep_ts) AS rep_ts
+            FROM daily
+            GROUP BY substr(day, 1, 7)
+        ) ORDER BY month_total DESC LIMIT 1),
+        (SELECT rep_ts FROM (
+            SELECT SUM(day_total) AS month_total, MIN(rep_ts) AS rep_ts
+            FROM daily
+            GROUP BY substr(day, 1, 7)
+        ) ORDER BY month_total DESC LIMIT 1);
+]]
+
+local ALL_PARTS = {
+    today = true, week = true, month = true, year = true,
+    streak = true, lifetime = true, peaks = true, books_year = true,
+}
+
+-- parts: set of today/week/month/year/streak/lifetime/peaks/books_year; nil = all.
+function StatsDB.queryStats(parts)
+    parts = type(parts) == "table" and parts or ALL_PARTS
     local stats = {
         today_pages         = 0,
         today_duration      = 0,
         week_pages          = 0,
         week_duration       = 0,
+        month_pages         = 0,
+        month_duration      = 0,
+        year_pages          = 0,
+        year_duration       = 0,
         streak              = 0,
-        total_books         = 0,
-        week_daily          = {},
         -- lifetime aggregates (from book table)
         lifetime_read_time  = 0,
         lifetime_pages      = 0,
@@ -478,14 +465,7 @@ function StatsDB.queryStats()
         peak_week_ts        = nil,
         peak_month_duration = 0,
         peak_month_ts       = nil,
-        -- this-month and this-year aggregates
-        month_pages         = 0,
-        month_duration      = 0,
-        year_pages          = 0,
-        year_duration       = 0,
-        -- distinct books with any session in each period
-        books_this_week     = 0,
-        books_this_month    = 0,
+        -- distinct books with any session this year
         books_this_year     = 0,
     }
 
@@ -499,217 +479,66 @@ function StatsDB.queryStats()
     end
 
     local ok, query_err = pcall(function()
-        -- Time boundaries
         local starts = period_starts()
-        local start_today = starts.start_today
-        local period_begin = starts.period_begin
-        local start_month = starts.start_month
-        local start_year = starts.start_year
 
-        -- Today
-        local sql_today = [[
-            SELECT count(*), sum(sum_duration)
-            FROM (
-                SELECT sum(duration) AS sum_duration
-                FROM page_stat
-                WHERE start_time >= %d
-                GROUP BY id_book, page
-            );
-        ]]
-        local p, d = conn:rowexec(string.format(sql_today, start_today))
-        stats.today_pages    = tonumber(p) or 0
-        stats.today_duration = tonumber(d) or 0
-        logger.info("today pages=", stats.today_pages,
-                    "duration=", stats.today_duration)
+        local fields = {}
+        for _i, period in ipairs(PERIODS) do
+            if parts[period.name] then
+                fields[period.name .. "_pages"] = true
+                fields[period.name .. "_duration"] = true
+            end
+        end
+        local ok_periods, period_err = pcall(query_period_stats, conn, starts, fields, "", stats)
+        if not ok_periods then logger.warn("period query error:", period_err) end
 
-        -- This week (totals)
-        local sql_week = [[
-            SELECT count(*), sum(sum_duration)
-            FROM (
-                SELECT sum(duration) AS sum_duration
-                FROM page_stat
-                WHERE start_time >= %d
-                GROUP BY id_book, page
-            );
-        ]]
-        local wp, wd = conn:rowexec(string.format(sql_week, period_begin))
-        stats.week_pages    = tonumber(wp) or 0
-        stats.week_duration = tonumber(wd) or 0
-        logger.info("week pages=", stats.week_pages,
-                    "duration=", stats.week_duration)
+        if parts.streak then stats.streak = query_streak(conn, starts) end
 
-        -- This week (daily breakdown)
-        -- NOTE: %% in the format string becomes % after string.format(); SQLite
-        -- then receives strftime('%Y-%m-%d', …) which is what it expects.
-        local sql_daily = [[
-            SELECT dates, count(*) AS pages, sum(sum_duration) AS durations
-            FROM (
-                SELECT strftime('%%Y-%%m-%%d', start_time - %d, 'unixepoch', 'localtime') AS dates,
-                       sum(duration) AS sum_duration
-                FROM page_stat
-                WHERE start_time >= %d
-                GROUP BY id_book, page, dates
-            )
-            GROUP BY dates
-            ORDER BY dates DESC;
-        ]]
-        local result = conn:exec(string.format(sql_daily, starts.shift, period_begin))
-        if result then
-            for i = 1, #result.dates do
-                table.insert(stats.week_daily, {
-                    date     = result.dates[i],
-                    pages    = tonumber(result[2][i]) or 0,
-                    duration = tonumber(result[3][i]) or 0,
-                })
+        if parts.lifetime then
+            -- Total time, total pages, book count, average time over books with recorded time.
+            local ok_lt, lt1, lt2, lt3, lt4 = pcall(conn.rowexec, conn, [[
+                SELECT
+                    COALESCE(SUM(total_read_time), 0),
+                    COALESCE(SUM(total_read_pages), 0),
+                    COUNT(*),
+                    COALESCE(AVG(CASE WHEN total_read_time > 0
+                                     THEN total_read_time END), 0)
+                FROM book;
+            ]])
+            if ok_lt then
+                stats.lifetime_read_time = tonumber(lt1) or 0
+                stats.lifetime_pages     = tonumber(lt2) or 0
+                stats.books_read         = tonumber(lt3) or 0
+                stats.avg_time_per_book  = math.floor(tonumber(lt4) or 0)
+            else
+                logger.warn("lifetime query error:", lt1)
             end
         end
 
-        -- Total books with reading sessions
-        local sql_total = "SELECT count(DISTINCT id_book) FROM page_stat;"
-        local ok_tot, total = pcall(conn.rowexec, conn, sql_total)
-        if not ok_tot then
-            logger.warn("total_books query error:", total)
+        if parts.peaks then
+            -- One pass over page_stat_data (durations only, so no view): daily totals
+            -- feed week/month peaks; ORDER BY + LIMIT 1 also yields a date-label timestamp.
+            local ok_pk, pd_dur, pd_ts, pw_dur, pw_ts, pm_dur, pm_ts =
+                pcall(conn.rowexec, conn, (SQL_PEAKS:gsub("WEEK_START_DAY", tostring(starts.week_start_day - 1))
+                    :gsub("DAY_SHIFT", tostring(starts.shift))))
+            if ok_pk then
+                stats.peak_day_duration   = tonumber(pd_dur) or 0
+                stats.peak_day_ts         = tonumber(pd_ts)
+                stats.peak_week_duration  = tonumber(pw_dur) or 0
+                stats.peak_week_ts        = tonumber(pw_ts)
+                stats.peak_month_duration = tonumber(pm_dur) or 0
+                stats.peak_month_ts       = tonumber(pm_ts)
+            end
         end
-        stats.total_books = tonumber(total) or 0
-        logger.info("total_books=", stats.total_books)
 
-        -- ── Reading streak ───────────────────────────────────────────────────
-        stats.streak = query_streak(conn, starts)
-        logger.info("streak=", stats.streak)
-
-        -- ── Lifetime aggregates (book table) ─────────────────────────────────
-        -- Four columns in one query: total_read_time sum, total_read_pages sum,
-        -- book count, average read time (only for books with recorded time).
-        -- Wrapped in its own pcall so a missing book table doesn't break the rest.
-        local sql_lifetime = [[
-            SELECT
-                COALESCE(SUM(total_read_time), 0),
-                COALESCE(SUM(total_read_pages), 0),
-                COUNT(*),
-                COALESCE(AVG(CASE WHEN total_read_time > 0
-                                 THEN total_read_time END), 0)
-            FROM book;
-        ]]
-        local ok_lt, lt1, lt2, lt3, lt4 = pcall(conn.rowexec, conn, sql_lifetime)
-        if ok_lt then
-            stats.lifetime_read_time = tonumber(lt1) or 0
-            stats.lifetime_pages     = tonumber(lt2) or 0
-            stats.books_read         = tonumber(lt3) or 0
-            stats.avg_time_per_book  = math.floor(tonumber(lt4) or 0)
-        else
-            logger.warn("lifetime query error:", lt1)
+        if parts.books_year then
+            local ok_by, by_v = pcall(conn.rowexec, conn, string.format(
+                "SELECT count(DISTINCT id_book) FROM page_stat_data WHERE start_time >= %d;",
+                starts.start_year))
+            stats.books_this_year = ok_by and (tonumber(by_v) or 0) or 0
         end
-        logger.info("lifetime_read_time=", stats.lifetime_read_time,
-                    "books_read=", stats.books_read)
 
-        -- ── Personal records (peak daily / weekly / monthly duration) ─────────
-        -- Queries run directly against page_stat_data (indexed on start_time)
-        -- rather than the page_stat view, since only durations matter here.
-        -- One pass over page_stat_data: per-day aggregates are materialised
-        -- once, and the week/month peaks are derived from that daily result.
-        -- Each subquery yields (duration, rep_ts) for its peak period.
-        -- ORDER BY + LIMIT 1 replaces COALESCE(MAX(...)) so we also get a
-        -- representative timestamp that can be formatted into a date label.
-        -- When the table is empty, rowexec returns nil for all columns.
-        local sql_peaks = [[
-            WITH daily AS (
-                SELECT strftime('%Y-%m-%d', start_time - DAY_SHIFT, 'unixepoch', 'localtime') AS day,
-                       SUM(duration) AS day_total,
-                       MIN(start_time - DAY_SHIFT) AS rep_ts
-                FROM page_stat_data
-                GROUP BY day
-            )
-            SELECT
-                (SELECT day_total FROM daily ORDER BY day_total DESC LIMIT 1),
-                (SELECT rep_ts FROM daily ORDER BY day_total DESC LIMIT 1),
-                (SELECT week_total FROM (
-                    SELECT SUM(day_total) AS week_total, MIN(rep_ts) AS rep_ts
-                    FROM daily
-                    GROUP BY date(day, '-' || ((strftime('%w', day) - WEEK_START_DAY + 7) % 7) || ' days')
-                ) ORDER BY week_total DESC LIMIT 1),
-                (SELECT rep_ts FROM (
-                    SELECT SUM(day_total) AS week_total, MIN(rep_ts) AS rep_ts
-                    FROM daily
-                    GROUP BY date(day, '-' || ((strftime('%w', day) - WEEK_START_DAY + 7) % 7) || ' days')
-                ) ORDER BY week_total DESC LIMIT 1),
-                (SELECT month_total FROM (
-                    SELECT SUM(day_total) AS month_total, MIN(rep_ts) AS rep_ts
-                    FROM daily
-                    GROUP BY substr(day, 1, 7)
-                ) ORDER BY month_total DESC LIMIT 1),
-                (SELECT rep_ts FROM (
-                    SELECT SUM(day_total) AS month_total, MIN(rep_ts) AS rep_ts
-                    FROM daily
-                    GROUP BY substr(day, 1, 7)
-                ) ORDER BY month_total DESC LIMIT 1);
-        ]]
-        local ok_pk, pd_dur, pd_ts, pw_dur, pw_ts, pm_dur, pm_ts =
-            pcall(conn.rowexec, conn, (sql_peaks:gsub("WEEK_START_DAY", tostring(starts.week_start_day - 1))
-                :gsub("DAY_SHIFT", tostring(starts.shift))))
-        stats.peak_day_duration = ok_pk and (tonumber(pd_dur) or 0) or 0
-        stats.peak_day_ts       = ok_pk and tonumber(pd_ts) or nil
-        stats.peak_week_duration = ok_pk and (tonumber(pw_dur) or 0) or 0
-        stats.peak_week_ts       = ok_pk and tonumber(pw_ts) or nil
-        stats.peak_month_duration = ok_pk and (tonumber(pm_dur) or 0) or 0
-        stats.peak_month_ts       = ok_pk and tonumber(pm_ts) or nil
-        logger.info("peak_day=", stats.peak_day_duration,
-                    "peak_week=", stats.peak_week_duration,
-                    "peak_month=", stats.peak_month_duration)
-
-        -- ── Month and Year aggregates ─────────────────────────────────────────
-
-        local sql_month_agg = [[
-            SELECT count(*), sum(sum_duration)
-            FROM (
-                SELECT sum(duration) AS sum_duration
-                FROM page_stat
-                WHERE start_time >= %d
-                GROUP BY id_book, page
-            );
-        ]]
-        local ok_mo, mo_p, mo_d = pcall(conn.rowexec, conn,
-            string.format(sql_month_agg, start_month))
-        stats.month_pages    = ok_mo and (tonumber(mo_p) or 0) or 0
-        stats.month_duration = ok_mo and (tonumber(mo_d) or 0) or 0
-
-        local sql_year_agg = [[
-            SELECT count(*), sum(sum_duration)
-            FROM (
-                SELECT sum(duration) AS sum_duration
-                FROM page_stat
-                WHERE start_time >= %d
-                GROUP BY id_book, page
-            );
-        ]]
-        local ok_yr, yr_p, yr_d = pcall(conn.rowexec, conn,
-            string.format(sql_year_agg, start_year))
-        stats.year_pages    = ok_yr and (tonumber(yr_p) or 0) or 0
-        stats.year_duration = ok_yr and (tonumber(yr_d) or 0) or 0
-
-        -- Distinct books with reading sessions in each period
-        local ok_bw, bw_v = pcall(conn.rowexec, conn, string.format(
-            "SELECT count(DISTINCT id_book) FROM page_stat_data WHERE start_time >= %d;",
-            period_begin))
-        stats.books_this_week = ok_bw and (tonumber(bw_v) or 0) or 0
-
-        local ok_bm, bm_v = pcall(conn.rowexec, conn, string.format(
-            "SELECT count(DISTINCT id_book) FROM page_stat_data WHERE start_time >= %d;",
-            start_month))
-        stats.books_this_month = ok_bm and (tonumber(bm_v) or 0) or 0
-
-        local ok_by, by_v = pcall(conn.rowexec, conn, string.format(
-            "SELECT count(DISTINCT id_book) FROM page_stat_data WHERE start_time >= %d;",
-            start_year))
-        stats.books_this_year = ok_by and (tonumber(by_v) or 0) or 0
-
-        logger.info("page totals:",
-            "today=", stats.today_pages,
-            "week=", stats.week_pages)
-        logger.info("month_pages=", stats.month_pages,
-                    "year_pages=", stats.year_pages,
-                    "books_this_week=", stats.books_this_week,
-                    "books_this_month=", stats.books_this_month,
-                    "books_this_year=", stats.books_this_year)
+        logger.info("today=", stats.today_pages, "week=", stats.week_pages,
+            "month=", stats.month_pages, "year=", stats.year_pages, "streak=", stats.streak)
     end)
 
     if not ok then

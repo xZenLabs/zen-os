@@ -121,7 +121,7 @@ local function apply()
     -- ai_assistant is the main button registered by assistant.koplugin.
     local KNOWN_KEYS = {
         select = true, highlight = true, search = true, translate = true,
-        wikipedia = true, dictionary = true,
+        wikipedia = true, dictionary = true, add_note = true,
         ai_assistant = true,
     }
 
@@ -160,7 +160,9 @@ local function apply()
 
     logger.dbg("orig_onShowHighlightMenu=", tostring(orig_onShowHighlightMenu))
 
-    ReaderHighlight.onShowHighlightMenu = function(self, index)
+    -- more: show a new selection's other items instead of the icon row.
+    -- Local so More survives plugins that wrap onShowHighlightMenu with a fixed arity (e.g. X-Ray).
+    local function show_menu(self, index, more)
         logger.dbg("onShowHighlightMenu called, is_enabled=",
             tostring(is_enabled()), "selected_text=", tostring(self.selected_text ~= nil))
         if not is_enabled() then
@@ -174,18 +176,33 @@ local function apply()
 
         local buttons = {{}}
         local labels = show_labels()
+        local function use_default_color()
+            self.view.highlight.saved_color = G_reader_settings:readSetting("highlight_color") or self._fallback_color
+            if self.setSelectionColor then self:setSelectionColor() end -- added after v2026.03
+        end
         if not index then
             buttons[1][1] = {
                 icon = "lookup.highlight",
                 text = labels and _("Highlight") or nil,
                 enabled = self.hold_pos ~= nil,
                 callback = function()
-                    self.view.highlight.saved_color = G_reader_settings:readSetting("highlight_color") or self._fallback_color
-                    if self.setSelectionColor then self:setSelectionColor() end -- added after v2026.03
+                    use_default_color()
                     self:saveHighlight(not self.selected_text._zen_resized)
                     self:onClose()
                 end,
             }
+            local note_btn = find_highlight_button(self, nil, "add_note")
+            if note_btn then
+                buttons[1][2] = {
+                    icon = menu_icons.note,
+                    text = labels and _("Note") or nil,
+                    enabled = note_btn.enabled ~= false,
+                    callback = function()
+                        use_default_color()
+                        note_btn.callback()
+                    end,
+                }
+            end
         end
 
         if show_wikipedia() then
@@ -251,24 +268,39 @@ local function apply()
             })
         end
 
-        -- Include recognized companion-plugin buttons or opted-in unknown items.
+        -- Recognized companion plugins sit under the icon row; opted-in other items live behind More.
         if self._highlight_buttons then
             local ffiUtil = require("ffi/util")
-            local extra = {}
+            local extra, other = {}, {}
             for key, fn_button in ffiUtil.orderedPairs(self._highlight_buttons) do
                 local key_name = key:match("^%d+_(.*)$") or key
                 local plugin_setting = LookupPluginItems.settingForHighlightKey(key)
                 if not KNOWN_KEYS[key_name]
                         and LookupPluginItems.shouldShow(
-                            _plugin_ref and _plugin_ref.config, plugin_setting) then
+                            _plugin_ref and _plugin_ref.config, plugin_setting, "highlight_lookup") then
                     local ok, btn = pcall(fn_button, self, index)
                     if ok and btn then
                         if not btn.show_in_highlight_dialog_func
                             or btn.show_in_highlight_dialog_func() then
-                            table.insert(extra, btn)
+                            -- An existing highlight's menu is already its More section.
+                            table.insert((plugin_setting or index) and extra or other, btn)
                         end
                     end
                 end
+            end
+            if more then
+                buttons, extra = {}, other
+            elseif #other > 0 then
+                table.insert(buttons[1], {
+                    id = "zen_highlight_more", icon = menu_icons.more,
+                    text = labels and _("More") or nil,
+                    callback = function()
+                        local controller = self._zen_highlight_handles
+                        if controller then controller.reopening = true end -- keep the selection across the swap
+                        UIManager:close(self.highlight_dialog)
+                        show_menu(self, nil, true)
+                    end,
+                })
             end
             -- Split into rows of 2 so they render properly.
             local max_cols = 2
@@ -281,7 +313,9 @@ local function apply()
             end
         end
 
-        References.addPinButton(buttons, self.ui, References.selectionPage(self, index), function() self:onClose() end)
+        if not more then
+            References.addPinButton(buttons, self.ui, References.selectionPage(self, index), function() self:onClose() end)
+        end
         LookupPluginItems.protectButtons(buttons)
         if labels then buttons = Labels.prepare(buttons) end
         MenuItems.compact(buttons)
@@ -303,6 +337,7 @@ local function apply()
         logger.dbg("showing custom highlight_dialog")
         UIManager:show(self.highlight_dialog, "[ui]")
     end
+    ReaderHighlight.onShowHighlightMenu = function(self, index) return show_menu(self, index) end
 
     local orig_showHighlightDialog = ReaderHighlight.showHighlightDialog
     ReaderHighlight.showHighlightDialog = function(self, index)

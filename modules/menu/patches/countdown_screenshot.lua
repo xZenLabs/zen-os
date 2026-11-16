@@ -18,7 +18,6 @@ local Geom             = require("ui/geometry")
 local logger           = require("common/zen_logger").new("countdown_screenshot")
 local TextWidget       = require("ui/widget/textwidget")
 local UIManager        = require("ui/uimanager")
-local getFullRefreshMode = require("common/ui/refresh")
 local WidgetContainer  = require("ui/widget/container/widgetcontainer")
 local Screen           = Device.screen
 local util             = require("util")
@@ -95,8 +94,8 @@ local function get_device_name()
         or Device.product or Device.name or "unknown")
 end
 
+-- Screen:shot reads the framebuffer; flush pending paints without an e-ink flash.
 local function repaint_before_screenshot()
-    UIManager:setDirty(nil, getFullRefreshMode())
     local ok, err = pcall(function() UIManager:forceRePaint() end)
     if not ok then
         logger.dbg("forceRePaint before shot failed:", err)
@@ -172,7 +171,6 @@ local function show_save_dialog(screenshot_name)
         buttons = buttons,
     }
     UIManager:show(dialog)
-    UIManager:setDirty(nil, getFullRefreshMode())
 end
 
 -- Run the countdown, take the screenshot, then show the save dialog.
@@ -183,8 +181,7 @@ function M.run(seconds)
 
     local function close_bar()
         if current_bar then
-            UIManager:close(current_bar)
-            UIManager:setDirty(nil, "ui")
+            UIManager:close(current_bar, "ui", current_bar.dimen)
             current_bar = nil
         end
     end

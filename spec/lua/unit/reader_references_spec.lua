@@ -12,7 +12,8 @@ describe("reader references", function()
         for _i, name in ipairs(names) do saved[name] = package.loaded[name] end
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("device", { screen = { scaleBySize = function(_self, size) return size end } })
-        ZenSpec.replace("common/utils", { resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end })
+        ZenSpec.replace("common/utils", { resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end,
+            htmlFontRoot = function(path) return "root:" .. path, path end })
         ZenSpec.replace("ffi/util", { template = function(text, value) return (text:gsub("%%1", tostring(value))) end })
         ZenSpec.unload("modules/reader/references")
         References = require("modules/reader/references")
@@ -62,6 +63,10 @@ describe("reader references", function()
         assert.is_false(G_reader_settings:readSetting("footnote_popup_use_book_font"))
         assert.equals(-3, G_reader_settings:readSetting("footnote_popup_relative_font_size"))
         assert.equals(24, G_reader_settings:readSetting("footnote_popup_absolute_font_size"))
+        -- Native toggle turns the book font off by deleting the key.
+        G_reader_settings:delSetting("footnote_popup_use_book_font")
+        References.applyDefaults(ui)
+        assert.is_nil(G_reader_settings:readSetting("footnote_popup_use_book_font"))
     end)
 
     it("only shows Return even with a saved footnote without changing history or reading position", function()
@@ -137,7 +142,7 @@ describe("reader references", function()
         local buttons = References.pinButtons(ui, 9)
         assert.equals("Pin this page", buttons[1].text)
         buttons[1].callback()
-        assert.same({ "xp:4", "xp:9" }, References.pinLocations(ui))
+        assert.same({ "xp:9", "xp:4" }, References.pinLocations(ui))
         assert.is_false(References.pinButtons(ui, 9)[1].enabled)
         References.setPin(ui, 9)
         assert.equals(2, #References.pins(ui))
@@ -177,7 +182,7 @@ describe("reader references", function()
         References.setPin(ui, 12)
         local settings = ui.doc_settings
         ui.document.getPageFromXPointer = function(_self, xp) return tonumber(xp:match("%d+")) + 2 end
-        assert.equals(10, References.pins(ui)[1].page)
+        assert.equals(14, References.pins(ui)[1].page)
         References.clear(ui)
         assert.equals(settings, ui.doc_settings)
         assert.equals(2, #References.pins(ui))
@@ -202,12 +207,33 @@ describe("reader references", function()
         ui.doc_settings:saveSetting("pinned_page", {{ page = 3 }})
         assert.equals(3, References.pinnedPage(ui))
         References.setPin(ui, 9)
-        assert.equals(9, References.pins(ui)[2].page)
+        assert.equals(9, References.pins(ui)[1].page)
         References.setPin(ui, 0)
         References.setPin(ui, 101)
         assert.equals(2, #References.pins(ui))
         References.pinLocations(ui)[3] = "xp:8"
         assert.equals(2, #References.pins(ui))
+    end)
+
+    it("caches pinned pages for header paints until pins change or the book repaginates", function()
+        References.setPin(ui, 8)
+        local lookups = 0
+        local resolve = ui.document.getPageFromXPointer
+        ui.document.getPageFromXPointer = function(...) lookups = lookups + 1; return resolve(...) end
+        assert.is_true(References.isPinned(ui, 8))
+        assert.is_false(References.isPinned(ui, 9))
+        assert.is_true(References.isPinned(ui, 8))
+        assert.equals(1, lookups)
+
+        References.setPin(ui, 9)
+        assert.is_true(References.isPinned(ui, 9))
+        ui.document.getPageFromXPointer = function(_self, xp) return tonumber(xp:match("%d+")) + 2 end
+        assert.is_true(References.isPinned(ui, 9)) -- Same rendering: cached pages.
+        ui.rolling.rendering_hash = 42
+        assert.is_true(References.isPinned(ui, 11))
+        assert.is_true(References.isPinned(ui, 9)) -- Anchor xpointer still matches.
+        assert.is_true(References.isPinned(ui, 10))
+        assert.is_false(References.isPinned(ui, 12))
     end)
 
     it("clears temporary state and closes the drawer on document close", function()
@@ -389,8 +415,9 @@ describe("reader references", function()
         ui.font = { font_face = "Book font" }
         ui.document.configurable = { font_size = 18, line_spacing = 150 }
         ui.document.getHTMLFromXPointers = function() return "<p>Reference</p>" end
-        local html, css = PinSettings.content(ui, 9, settings, bb.COLOR_WHITE, bb.COLOR_BLACK)
+        local html, css, _size, font_root = PinSettings.content(ui, 9, settings, bb.COLOR_WHITE, bb.COLOR_BLACK)
         assert.equals("<p>Reference</p>", html)
+        assert.equals("root:/book.ttf", font_root)
         assert.matches("font-family: ZenPinFont; line-height: 2.000", css, 1, true)
         ZenSpec.replace("ui/font", { getFace = function() return nil end })
         html, css = PinSettings.content(ui, 9, settings, bb.COLOR_WHITE, bb.COLOR_BLACK)
@@ -556,8 +583,9 @@ describe("reader references", function()
         References.setPin(ui, 4)
         References.setPin(ui, 9)
         References.setPin(ui, 12)
+        assert.same({ "xp:12", "xp:9", "xp:4" }, References.pinLocations(ui))
         assert.is_true(References.openPinned(ui))
-        assert.equals(4, shown.page)
+        assert.equals(12, shown.page) -- The newest pin is on top and opens first.
         References.openPinned(ui, 2)
         assert.equals("xp:9", ui.doc_settings:readSetting("zen_last_pinned_page"))
         References.clear(ui)
@@ -570,8 +598,8 @@ describe("reader references", function()
         References.setPin(ui, 6, true)
         References.openPinned(ui)
         assert.equals(11, shown.page)
-        assert.equals(1, shown.pin_index)
-        References.openPinned(ui, 2)
+        assert.equals(2, shown.pin_index)
+        References.openPinned(ui, 1)
         assert.equals(14, shown.page)
         References.setPin(ui, 14, true)
         References.openPinned(ui)
@@ -690,13 +718,26 @@ describe("native footnote adapter", function()
 
     it("adds a small scaled internal-link tap allowance after precise detection misses", function()
         local ges = { pos = { x = 100, y = 200 } }
-        local link = setmetatable({ ui = ui, onGoToPageLink = function(_self, gesture, internal_only, distance)
-            assert.equals(ges, gesture)
-            assert.is_true(internal_only)
-            assert.equals(16, distance)
-            return "nearby link"
-        end }, { __index = ReaderLink })
+        local probed, targets = {}, { ["100,184"] = "#note", ["116,200"] = "http://example.com" }
+        local link = setmetatable({ ui = ui,
+            getLinkFromGes = function(_self, gesture)
+                local key = gesture.pos.x .. "," .. gesture.pos.y
+                probed[#probed + 1] = key
+                return targets[key] and { xpointer = targets[key] }
+            end,
+            onGotoLink = function(_self, target, neglect, popup)
+                assert.equals("#note", target.xpointer)
+                assert.is_false(neglect)
+                assert.is_true(popup)
+                return "nearby link"
+            end,
+            onGoToPageLink = function() error("scanned page links") end,
+        }, { __index = ReaderLink })
+        G_reader_settings:saveSetting("footnote_link_in_popup", true)
         assert.equals("nearby link", link:onTap(nil, ges))
+        assert.same({ "116,200", "84,200", "100,216", "100,184" }, probed)
+        targets["100,184"] = nil
+        assert.is_nil(link:onTap(nil, ges))
         link.native_tap_result = "precise link"
         assert.equals("precise link", link:onTap(nil, ges))
         link.native_tap_result = nil
@@ -745,10 +786,19 @@ describe("native footnote adapter", function()
 
     it("flashes the followed link instead of the stock margin marker", function()
         local highlighted = {}
-        ui.document = { highlightXPointer = function(_self, xp)
-            if xp then highlighted[#highlighted + 1] = xp else highlighted = {} end
-            return true
-        end }
+        local long = ("x"):rep(1001)
+        local texts = { link = "Note text", other = "Note text", chapter = long, anchor = " ", note = long,
+            ["/p/a"] = "[1]", ["/section/h1"] = "Title", ["/p"] = long }
+        local words = { note = "/p/a/text().1", anchor = "/p/a/text()[2].0", chapter = "/section/h1/text().0",
+            blob = "/p/text().0" }
+        ui.document = {
+            highlightXPointer = function(_self, xp)
+                if xp then highlighted[#highlighted + 1] = xp else highlighted = {} end
+                return true
+            end,
+            getTextFromXPointer = function(_self, xp) return texts[xp] end,
+            getNextVisibleWordStart = function(_self, xp) return words[xp] end,
+        }
         local rolling = { ui = ui, view = {} }
         assert.is_true(ReaderRolling.onGotoXPointer(rolling, "top", "link"))
         assert.equals("top", rolling.went)
@@ -762,6 +812,17 @@ describe("native footnote adapter", function()
         ReaderRolling.onGotoXPointer(rolling, "top", "link")
         rolling._zen_unmark()
         assert.same({}, highlighted)
+        for target, node in pairs({ note = "/p/a", anchor = "/p/a", chapter = "/section/h1" }) do
+            ReaderRolling.onGotoXPointer(rolling, "top", target)
+            assert.is_nil(rolling.marker)
+            assert.same({ node }, highlighted)
+            rolling._zen_unmark()
+        end
+        for _i, target in ipairs({ "blob", "missing" }) do
+            ReaderRolling.onGotoXPointer(rolling, "top", target)
+            assert.equals(target, rolling.marker)
+            assert.same({}, highlighted)
+        end
         G_reader_settings:saveSetting("followed_link_marker", false)
         ReaderRolling.onGotoXPointer(rolling, "top", "link")
         assert.equals("link", rolling.marker)

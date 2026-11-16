@@ -40,6 +40,7 @@ describe("library background cleanup", function()
         }
         local buffers = {}
         local file_checks = 0
+        local widget_frees = 0
         ZenSpec.replace("device", { screen = screen })
         ZenSpec.replace("libs/libkoreader-lfs", {
             attributes = function()
@@ -61,7 +62,7 @@ describe("library background cleanup", function()
                             buffer:invertRect()
                         end
                     end,
-                    free = function() end,
+                    free = function() widget_frees = widget_frees + 1 end,
                 }
             end,
         })
@@ -80,7 +81,7 @@ describe("library background cleanup", function()
                 function buffer:darkenRect(_x, _y, _w, _h, amount)
                     self.darkened = amount
                 end
-                function buffer:free() end
+                function buffer:free() self.freed = true end
                 buffers[#buffers + 1] = buffer
                 return buffer
             end,
@@ -132,6 +133,10 @@ describe("library background cleanup", function()
         assert.is_true(Background.paintScreenRegion(destination,
             0, 0, 0, 0, 800, 600, "/library/background.png"))
         assert.are.equal(3, #buffers)
+        -- Only the current composite stays resident; scaled decodes are freed after use.
+        assert.is_true(buffers[1].freed and buffers[2].freed)
+        assert.is_nil(buffers[3].freed)
+        assert.are.equal(1 + 3 * 2, widget_frees) -- validate probe + 3 x (size probe + scaled)
         assert.are.equal(1, buffers[3].inversions)
         assert.are.equal(0.75, buffers[3].darkened)
         assert.is_nil(buffers[3].lightened)
@@ -185,6 +190,9 @@ describe("library background cleanup", function()
             return true
         end)
         exists = false
+        menu:paintTo({}, 0, 0)
+        assert.is_true(config.library_background.enabled) -- path lookup is memoized
+        Background.invalidateLibraryPath() -- FileManager show / resume
         menu:paintTo({}, 0, 0)
         assert.are.equal("", Background.library_path(plugin))
 

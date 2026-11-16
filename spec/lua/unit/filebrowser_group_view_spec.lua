@@ -538,7 +538,7 @@ describe("file browser group views", function()
         dialogs[#dialogs].buttons[6][1].callback()
 
         local order_dialog = dialogs[#dialogs]
-        assert.are.equal("\u{F0DC}  Order TBR", order_dialog.buttons[3][1].text)
+        assert.are.equal("\u{EBBE}  Order TBR", order_dialog.buttons[3][1].text)
         order_dialog.buttons[3][1].callback()
         assert.is_table(tbr_order_options)
     end)
@@ -586,7 +586,7 @@ describe("file browser group views", function()
         assert.is_function(file_dialog_args._zen_sort_cb)
         file_dialog_args._zen_sort_cb()
         local author_dialog = dialogs[#dialogs]
-        assert.is_truthy(author_dialog.buttons[1][1].text:find("\u{F04BB}", 1, true))
+        assert.is_truthy(author_dialog.buttons[1][1].text:find("\u{EBBA}", 1, true))
         assert.is_truthy(author_dialog.buttons[1][1].text:find("First name", 1, true))
         assert.is_truthy(author_dialog.buttons[2][1].text:find("Last name", 1, true))
         assert.are.equal(">", author_dialog.buttons[3][1].text:sub(-1))

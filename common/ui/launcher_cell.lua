@@ -63,7 +63,7 @@ local function make_cell(opts)
     local icon_path, icon_name = icon_spec(opts.icon)
     local icon_size = opts.icon_size
     local rendered_icon_size = math.floor(
-        icon_size * utils.iconOpticalScale(opts.icon) + 0.5)
+        icon_size * utils.iconOpticalScale(opts.icon, icon_path) + 0.5)
     local circle_size = opts.circle_size
     local circle_border = opts.circle_border
     local active = opts.active == true and not opts.dimmed

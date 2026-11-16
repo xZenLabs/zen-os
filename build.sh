@@ -53,20 +53,11 @@ for cmd in rsync zip mktemp; do
   fi
 done
 
-if ! command -v pyftsubset >/dev/null 2>&1; then
-  echo "Error: pyftsubset is required to subset SymbolsNerdFont-Regular.ttf (install fonttools)" >&2
-  exit 1
-fi
-
 DIST_DIR="$REPO_ROOT/dist"
 CANONICAL_OUT_ZIP="$DIST_DIR/${CANONICAL_PLUGIN_DIR_NAME}.zip"
 COMPAT_OUT_ZIP="$DIST_DIR/${COMPAT_PLUGIN_DIR_NAME}.zip"
 STAGE_PARENT="$(mktemp -d "${TMPDIR:-/tmp}/koplugin-build.XXXXXX")"
 PAYLOAD_DIR="$STAGE_PARENT/payload"
-INLINE_ICON_MAP="$REPO_ROOT/common/inline_icon_map.lua"
-NERD_FONT_NAME="SymbolsNerdFont-Regular.ttf"
-NERD_FONT_SRC="$REPO_ROOT/fonts/$NERD_FONT_NAME"
-NERD_FONT_STAGE="$PAYLOAD_DIR/fonts/$NERD_FONT_NAME"
 
 cleanup() {
   rm -rf "$STAGE_PARENT"
@@ -110,28 +101,6 @@ rsync -a \
   --exclude '__pycache__' \
   --exclude '.*' \
   "$REPO_ROOT/" "$PAYLOAD_DIR/"
-
-UNICODE_LIST="$(mktemp "$STAGE_PARENT/nerd-font-unicodes.XXXXXX")"
-unicode_escape_re='\\u\{([0-9A-Fa-f]+)\}'
-while IFS= read -r line; do
-  rest="$line"
-  while [[ "$rest" =~ $unicode_escape_re ]]; do
-    printf 'U+%s\n' "${BASH_REMATCH[1]}" >> "$UNICODE_LIST"
-    rest="${rest#*${BASH_REMATCH[0]}}"
-  done
-done < "$INLINE_ICON_MAP"
-
-if [[ ! -s "$UNICODE_LIST" ]]; then
-  echo "Error: no inline icon codepoints found in $INLINE_ICON_MAP" >&2
-  exit 1
-fi
-
-pyftsubset "$NERD_FONT_SRC" \
-  --unicodes-file="$UNICODE_LIST" \
-  --output-file="$NERD_FONT_STAGE" \
-  --drop-tables+=PfEd \
-  --name-IDs='*' \
-  --name-languages='*'
 
 create_archive() {
   local plugin_name="$1"

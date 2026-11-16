@@ -2245,6 +2245,12 @@ msgstr "Разделительная линия"
 msgid "Dividing lines"
 msgstr "Разделительные линии"
 
+#. Type: setting
+#. Context: Settings label in the reader Lookup settings.
+#: reader_settings.lua:1445
+msgid "Dock to bottom"
+msgstr "Закрепить внизу"
+
 #. Type: label
 #. Context: Reader tab controls, defaults, profiles, and themes.
 #: reader_controls.lua:559 buttons.lua:33
@@ -3199,6 +3205,12 @@ msgstr "Значок: %1"
 msgid "Icons"
 msgstr "Значки"
 
+#. Type: setting
+#. Context: { text = _("Image minimap"), checked_func = function() return settings.minimap end,
+#: pin_settings.lua:72
+msgid "Image minimap"
+msgstr "Миникарта изображения"
+
 #. Type: message
 #. Context: Сообщение в настройках внешнего вида интерфейса.
 #: interface_settings.lua:374
@@ -3954,6 +3966,12 @@ msgstr "Размер меток панели навигации"
 #: quickstart_pages.lua:708
 msgid "Navbar Tabs"
 msgstr "Вкладки навигации"
+
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Перейти на страницу %1?"
 
 #. Type: setting
 #. Context: Название настройки в настройках внешнего вида и поведения библиотеки.

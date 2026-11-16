@@ -1,3 +1,5 @@
+local WifiState = require("common/wifi_state")
+
 local M = {}
 local initialized = false
 
@@ -21,6 +23,7 @@ local PATCH_MODULES = {
     unified_title_style    = "modules/global/patches/unified_title_style",
     button_feedback        = "modules/global/patches/button_feedback",
     rounded_scrollbars     = "modules/global/patches/rounded_scrollbars",
+    raw_rounded_fill       = "modules/global/patches/raw_rounded_fill",
     responsive_keyboard    = "modules/global/patches/responsive_keyboard",
 }
 
@@ -171,6 +174,11 @@ function M.init(logger, plugin)
         run_patch(logger, plugin, "rounded_scrollbars", rounded_scrollbars_fn)
     end
 
+    local raw_rounded_fill_fn = load_patch("raw_rounded_fill")
+    if raw_rounded_fill_fn then
+        run_patch(logger, plugin, "raw_rounded_fill", raw_rounded_fill_fn)
+    end
+
     -- Hook the global Resume broadcast so schedules are independent of the
     -- active widget. This also covers Android, which broadcasts Resume without
     -- going through Device:_afterResume.
@@ -190,12 +198,13 @@ function M.init(logger, plugin)
     if nonblocking_wifi_fn then
         run_patch(logger, plugin, "nonblocking_wifi", nonblocking_wifi_fn)
     end
-    local SCHEDULE_STATES = {
-        "__ZEN_UI_NIGHT_SCHEDULE",
+    local NIGHT_SCHEDULE_STATES = { "__ZEN_UI_NIGHT_SCHEDULE" }
+    local FRONTLIGHT_SCHEDULE_STATES = {
         "__ZEN_UI_BRIGHTNESS_SCHEDULE",
         "__ZEN_UI_WARMTH_SCHEDULE",
     }
-    local FRONTLIGHT_SCHEDULE_STATES = {
+    local SCHEDULE_STATES = {
+        "__ZEN_UI_NIGHT_SCHEDULE",
         "__ZEN_UI_BRIGHTNESS_SCHEDULE",
         "__ZEN_UI_WARMTH_SCHEDULE",
     }
@@ -215,7 +224,7 @@ function M.init(logger, plugin)
     end
 
     local function reschedule_schedules()
-        reschedule_states(SCHEDULE_STATES)
+        reschedule_states(NIGHT_SCHEDULE_STATES)
     end
 
     local function reapply_frontlight_schedules()
@@ -226,14 +235,19 @@ function M.init(logger, plugin)
         UIManager:unschedule(reschedule_schedules)
         UIManager:unschedule(reapply_frontlight_schedules)
         UIManager:scheduleIn(0.1, reschedule_schedules)
-        -- Some frontlights ignore writes immediately after resume.
+        -- Frontlight waits: some ignore writes immediately after resume.
         UIManager:scheduleIn(1.5, reapply_frontlight_schedules)
     end
 
     if type(UIManager.broadcastEvent) == "function" then
         local orig_broadcastEvent = UIManager.broadcastEvent
         UIManager.broadcastEvent = function(self, event, ...)
-            if event and event.handler == "onResume" then
+            local handler = event and event.handler
+            -- Status bars read cached Wi-Fi state; any network change or wake re-probes it.
+            if handler == "onResume" or (type(handler) == "string" and handler:find("^onNetwork")) then
+                WifiState.invalidate()
+            end
+            if handler == "onResume" then
                 schedule_resume_reapply()
             elseif event and event.handler == "onSuspend" then
                 UIManager:unschedule(reschedule_schedules)

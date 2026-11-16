@@ -5,7 +5,6 @@ local M = {}
 
 M.BUNDLED_DEFAULT = "fonts/hyperreadable/Hyperreadable-Regular.ttf"
 M.FAMILIES = { "hyperreadable", "libron", "readerly" }
-local NERD_FONT = "SymbolsNerdFont-Regular.ttf"
 
 -- Families copied into KOReader's fonts dir; others resolve to the plugin copy.
 local fontdir
@@ -92,15 +91,21 @@ function M.installBundled(FontList)
     if plugin_root == "" or type(FontList.fontdir) ~= "string" then return added end
     local lfs = require("libs/libkoreader-lfs")
     fontdir = FontList.fontdir
-    local known = {}
-    for _i, path in ipairs(FontList.fontlist) do known[path] = true end
-    local mark = {}
+    local scan_dirs = {}
     for _i, family in ipairs(M.FAMILIES) do
         local src_dir = plugin_root .. "/fonts/" .. family
         local copied = install_family(lfs, src_dir, fontdir .. "/" .. family)
         installed[family] = copied ~= nil
+        -- Already-current families were loaded by getFontList's fontdir scan.
         local scan_dir = copied == nil and src_dir or (copied and fontdir .. "/" .. family)
-        if scan_dir then pcall(FontList._readList, FontList, scan_dir, mark) end
+        if scan_dir then scan_dirs[#scan_dirs + 1] = scan_dir end
+    end
+    if #scan_dirs == 0 then return added end
+    local known = {}
+    for _i, path in ipairs(FontList.fontlist) do known[path] = true end
+    local mark = {}
+    for _i, scan_dir in ipairs(scan_dirs) do
+        pcall(FontList._readList, FontList, scan_dir, mark)
     end
     -- _readList appends unconditionally; drop duplicates in place.
     local list, seen, n = FontList.fontlist, {}, 0
@@ -132,10 +137,12 @@ function M.registerFontAliases(Font, FontList)
             Font.fontmap[path] = prefix .. path:sub(2)
         elseif path:sub(1, #global_prefix) == global_prefix
                 and installed[path:match("^([^/]+)/", #global_prefix + 1)] then
-            Font.fontmap[path] = path:sub(#global_prefix + 1)
+            local relative = path:sub(#global_prefix + 1)
+            Font.fontmap[path] = relative
+            -- Plugin paths resolved before install (or stored) must load the copy.
+            Font.fontmap[bundled_prefix .. relative] = relative
         end
     end
-    Font.fontmap[NERD_FONT] = prefix .. bundled_prefix:sub(2) .. NERD_FONT
 end
 
 local function default_font()

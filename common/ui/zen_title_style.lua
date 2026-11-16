@@ -48,6 +48,29 @@ function M.getStockIconSizeRatio()
     return M.ICON_BASE_SIZE / (generic_size or 32)
 end
 
+-- Stock TitleBar aligns the title baseline with its icons; center the whole text block on them instead.
+function M.centerStockTitle(title_bar)
+    local button = title_bar.left_button or title_bar.right_button
+    if not button then return end
+    local icon_h = button.height
+    local group = title_bar.title_group
+    local text_h = group:getSize().h - group[1]:getSize().h
+    local padding = math.max(0, math.floor(title_bar.button_padding + (icon_h - text_h) / 2))
+    if padding ~= group[1]:getSize().h then
+        title_bar.title_top_padding = padding
+        title_bar:clear()
+        title_bar:init()
+    end
+    -- Text taller than the icon box: lower the icons instead.
+    local icon_top = padding + math.floor((text_h - icon_h) / 2)
+    if icon_top <= title_bar.button_padding then return end
+    for _k, icon in pairs({ title_bar.left_button, title_bar.right_button }) do
+        icon.padding_top = icon_top
+        icon.button:resetLayout()
+        icon:update()
+    end
+end
+
 function M.applyToStockTitleBar(title_bar)
     title_bar.title_face = M.getTitleFace()
     title_bar.left_icon_size_ratio = M.getStockIconSizeRatio()

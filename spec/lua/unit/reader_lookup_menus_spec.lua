@@ -123,7 +123,8 @@ describe("reader lookup menus", function()
                 _G.__ZEN_UI_PLUGIN = {
                     config = {
                         features = { dict_quick_lookup = true },
-                        highlight_lookup = { allow_unknown_items = true },
+                        highlight_lookup = {},
+                        dict_quick_lookup = { allow_unknown_items = true, bottom_sheet = false },
                     },
                 }
                 require("modules/reader/patches/dict_quick_lookup")()
@@ -543,7 +544,9 @@ describe("reader lookup menus", function()
 
         local saved, selected = false, false
         local select_callback = function() selected = true end
-        local highlight = {
+        local noted
+        local highlight
+        highlight = {
             selected_text = { text = "start of a multipage highlight" },
             hold_pos = { x = 10, y = 20 },
             view = { highlight = { saved_color = "red" } },
@@ -559,16 +562,22 @@ describe("reader lookup menus", function()
                     assert.is_nil(index)
                     return { enabled = true, callback = select_callback }
                 end,
+                ["04_add_note"] = function()
+                    return { text = "Add note", callback = function() noted = highlight.view.highlight.saved_color end }
+                end,
             },
         }
         ReaderHighlight.onShowHighlightMenu(highlight)
 
         assert.same({ "lookup.highlight", "lookup.dictionary", "lookup.translate", "lookup.search" }, {
-            shown.buttons[1][1].icon, shown.buttons[1][2].icon,
-            shown.buttons[1][3].icon, shown.buttons[1][4].icon,
+            shown.buttons[1][1].icon, shown.buttons[1][3].icon,
+            shown.buttons[1][4].icon, shown.buttons[1][5].icon,
         })
-        assert.are.equal(4, #shown.buttons[1])
+        assert.are.equal(5, #shown.buttons[1])
         assert.are.equal(1, #shown.buttons)
+        assert.is_nil(shown.buttons[1][2].text)
+        shown.buttons[1][2].callback()
+        assert.are.equal("blue", noted)
         shown.buttons[1][1].callback()
         assert.same({ color = "blue", extend = true }, saved)
         assert.are.equal("blue", highlight.selection_color)
@@ -713,8 +722,29 @@ describe("reader lookup menus", function()
         assert.are.equal("Chat/Action (KOA)", dialog_spec.buttons[2][1].text)
         assert.are.equal(2, #dialog_spec.buttons)
 
-        _G.__ZEN_UI_PLUGIN.config.highlight_lookup.allow_unknown_items = true
+        _G.__ZEN_UI_PLUGIN.config.dict_quick_lookup = { allow_unknown_items = true }
         ReaderHighlight.onShowHighlightMenu(highlight)
+        assert.are.equal(1, #dialog_spec.buttons[2])
+
+        -- A new selection keeps other items behind More.
+        _G.__ZEN_UI_PLUGIN.config.highlight_lookup.allow_unknown_items = true
+        local closed
+        package.loaded["ui/uimanager"].close = function(_, widget) closed = widget end
+        setmetatable(highlight, { __index = ReaderHighlight })
+        ReaderHighlight.onShowHighlightMenu(highlight)
+        assert.are.equal(1, #dialog_spec.buttons[2])
+        local main, more = dialog_spec, dialog_spec.buttons[1][#dialog_spec.buttons[1]]
+        assert.are.equal("zen_highlight_more", more.id)
+        -- Plugins like X-Ray wrap the instance method with a fixed arity.
+        highlight.onShowHighlightMenu = function(this, index) return ReaderHighlight.onShowHighlightMenu(this, index) end
+        more.callback()
+        assert.are.equal(main, closed)
+        assert.are.equal(1, #dialog_spec.buttons)
+        assert.are.equal(1, #dialog_spec.buttons[1])
+        assert.are.equal("Other", dialog_spec.buttons[1][1].text)
+
+        -- An existing highlight's menu is already its More section.
+        ReaderHighlight.onShowHighlightMenu(highlight, 3)
         assert.are.same({ "Chat/Action (KOA)", "Other" }, {
             dialog_spec.buttons[2][1].text,
             dialog_spec.buttons[2][2].text,
@@ -740,7 +770,8 @@ describe("reader lookup menus", function()
         _G.__ZEN_UI_PLUGIN = {
             config = {
                 features = { dict_quick_lookup = true },
-                highlight_lookup = { show_wikipedia = true, allow_unknown_items = true },
+                highlight_lookup = { show_wikipedia = true },
+                dict_quick_lookup = { allow_unknown_items = true },
             },
         }
         require("modules/reader/patches/dict_quick_lookup")()
@@ -833,6 +864,10 @@ describe("reader lookup menus", function()
         assert.are.equal(2, #result)
 
         _G.__ZEN_UI_PLUGIN.config.highlight_lookup.allow_unknown_items = true
+        result = DictQuickLookup.buildButtonLayout({ highlight = {} })
+        assert.are.equal(2, #result)
+
+        _G.__ZEN_UI_PLUGIN.config.dict_quick_lookup = { allow_unknown_items = true }
         result = DictQuickLookup.buildButtonLayout({ highlight = {} })
         assert.are.equal("third_party", result[3][1].id)
     end)

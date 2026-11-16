@@ -24,6 +24,14 @@ jobs:
       suite: full
       ref: ${{ needs.luacheck.outputs.commit }}
 
+  benchmark:
+    name: Benchmark
+    needs: [luacheck, release]
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/benchmark.yml
+    with:
+      ref: ${{ needs.luacheck.outputs.commit }}
+
   luacheck:
     name: LuaCheck
     runs-on: ubuntu-latest
@@ -50,6 +58,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      released: ${{ steps.version_check.outputs.skip == 'false' }}
 
     steps:
       - name: Checkout
@@ -106,10 +116,6 @@ jobs:
           PRERELEASE_VERSION="${{ steps.version_check.outputs.version }}"
           sed -i "s/version = \"[^\"]*\"/version = \"${PRERELEASE_VERSION}\"/" _meta.lua
 
-      - name: Install fonttools
-        if: steps.version_check.outputs.skip == 'false'
-        run: pip install fonttools
-
       - name: Download latest ZenOS Launcher
         if: steps.version_check.outputs.skip == 'false'
         env:
@@ -143,6 +149,7 @@ jobs:
         if: steps.version_check.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_DEBUG: api # TEMP: diagnose 403 on release create
         run: |
           TAG="${{ steps.version_check.outputs.tag }}"
           gh release create "$TAG" \

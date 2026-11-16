@@ -1858,6 +1858,11 @@ local Driver = WidgetContainer:extend{}
 function Driver:init()
     self.socket_path = os.getenv("ZEN_UI_TEST_SOCKET")
     self.testing = os.getenv("ZEN_UI_TESTING") == "1"
+    if os.getenv("ZEN_UI_BENCH") == "1" then
+        -- No socket polling: its 20 ms wakeups would add noise to measurements.
+        require("zen_bench").start()
+        return
+    end
     if self.testing and self.socket_path and #self.socket_path < SOCKET_PATH_MAX then
         -- Let FileManager/Reader finish opening and paint before serving commands.
         UIManager:tickAfterNext(function() self:startServer() end)
@@ -2236,7 +2241,7 @@ function Driver:handleCommand(command)
             end)
             state.featured_status_size = status_text and status_text.face.orig_size
             local progress = find_descendant(page.body_widget[1][3], function(widget)
-                return type(widget.text) == "string" and widget.text:match("%d+%% read$") ~= nil
+                return type(widget.text) == "string" and widget.text:match("^%d+.*pages$") ~= nil
             end)
             state.featured_progress_text = progress and progress.text
             state.featured_progress_size = progress and progress.face.orig_size

@@ -182,8 +182,8 @@ def _assert_fits(layout):
     assert not layout["has_scroll"], layout
     assert layout["featured_finished_icon"], layout["visible_texts"]
     assert "Finished" in layout["visible_texts"]
-    assert re.fullmatch(r"\d+\s+pages\n\d+% read", layout["featured_progress_text"])
-    assert layout["featured_progress_lines"] == 2
+    assert re.fullmatch(r"\d+\s+pages", layout["featured_progress_text"])
+    assert layout["featured_progress_lines"] == 1
     assert not layout["featured_progress_truncated"]
     assert layout["body_size"]["w"] <= layout["body_bounds"]["w"], layout
     assert layout["body_size"]["h"] <= layout["body_bounds"]["h"], layout
@@ -211,7 +211,6 @@ def _assert_fits(layout):
 @pytest.mark.parametrize("width,height,dpi", [(600, 800, 160), (800, 600, 160), (1404, 1872, 227)])
 def test_end_book_renders_and_preserves_changed_default_after_restart(width, height, dpi):
     runtime = Path(os.environ["KOREADER_DIR"])
-    window_scale = 2 if sys.platform == "darwin" else 1  # ponytail: assumes Retina; query SDL scale for other Mac displays.
     with tempfile.TemporaryDirectory(prefix="zen-end-book-") as temporary:
         root = Path(temporary)
         home, library, socket = root / "home", root / "books", root / "driver.sock"
@@ -281,8 +280,9 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                     )
         for first_run in (True, False):
             process = launch(runtime, home, socket, library, initialize_settings=first_run,
-                             env_overrides={"EMULATE_READER_W": str(width // window_scale), "EMULATE_READER_H": str(height // window_scale),
-                                            "EMULATE_READER_DPI": str(dpi)})
+                             # Offscreen: real windows are clamped to the host display (1404x1872 won't fit most Macs).
+                             env_overrides={"EMULATE_READER_W": str(width), "EMULATE_READER_H": str(height),
+                                            "EMULATE_READER_DPI": str(dpi), "SDL_VIDEO_DRIVER": "offscreen"})
             try:
                 wait_for_socket(socket)
                 driver = ZenDriver(socket)
@@ -326,6 +326,7 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 assert state["rows"] == ["stats_triplet", "featured", "strip"]
                 assert state["strip_two_rows"] is False
                 assert min(state["featured_status_size"], state["featured_progress_size"]) > 0
+                assert state["featured_title_size"] > state["featured_status_size"]
                 assert [label["label"] for label in state["strip_labels"]] == [
                     "Next in series", "More by Zen Author", "Continue",
                 ]

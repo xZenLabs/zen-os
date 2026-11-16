@@ -36,6 +36,7 @@ local defaults = {
         use_book_font = true,
         relative_font_size = 0,
         justify = true,
+        minimap = true,
     },
     updater = {
         just_updated_version = "",
@@ -51,9 +52,9 @@ local defaults = {
             enabled = { stats_triplet = true, featured = true, rating = false, quotes = true, strip = true },
         },
         middle_stats_triplet = { "book_days", "book_duration", "book_daily_minutes" },
-        quotes = { show_author = false, show_title = true, automatic_font_size = true, max_font_size = 18 },
+        quotes = { show_author = false, show_title = false, automatic_font_size = true, max_font_size = 18 },
         modules = {
-            stats_triplet = { automatic_font_size = true, max_font_size = 24, stat_style = "divider", show_icons = true,
+            stats_triplet = { automatic_font_size = true, max_font_size = 22, label_scale = 0.7, stat_style = "divider", show_icons = true,
                 show_label = false, label = "",
                 text_styles = { label = { font_face = "default", font_size = 14, bold = false } } },
             featured = { show_status_bar = false, show_description = false, navigation_icon_size = 0,
@@ -147,8 +148,8 @@ local defaults = {
     },
     developer = {
         allow_modal_drag = false,
-        double_tap_to_open_books = false,
-        single_tap_to_open_context_menu = false,
+        double_tap = false,
+        single_tap_action = "none", -- "none" | "menu" | "open"; double tap takes the other role
     },
     navbar = {
         show_tabs = {
@@ -391,20 +392,23 @@ local defaults = {
         status_bar_enabled = true,
         chapter_time_format = "number",
         hide_in_cbz = true,
+        tap_hide = "both",
     },
     page_browser = {
-        tab_order = { "browser", "aa", "bookmarks", "highlights", "toc", "annotations", "book_details", "book_switcher" },
-        tabs = { browser = true, aa = true, bookmarks = true, highlights = true, annotations = false, toc = true,
-            book_details = false, book_switcher = false },
+        tab_order = { "browser", "aa", "bookmarks", "highlights", "toc", "annotations", "pins", "book_details",
+            "book_switcher" },
+        tabs = { browser = true, aa = true, bookmarks = true, highlights = true, annotations = false, pins = false,
+            toc = true, book_details = false, book_switcher = false },
         show_status_bar = true,
         toc_font_size = 18,
+        toc_show_page_counts = false,
         bookmarks_font_size = 18,
         font_full_page = true,
         contrast_full_page = true,
     },
     annotation_viewer = {
         preview_length = "standard",
-        details = { book = "auto", author = "auto", chapter = true, page = true, date = true, tags = false },
+        details = { book = "auto", author = "auto", chapter = true, page = true, date = true, label = true },
     },
     highlight_lookup = {
         show_labels         = false,
@@ -419,7 +423,7 @@ local defaults = {
         show_koassistant    = true,
         show_ai_assistant   = true,
     },
-    dict_quick_lookup = { show_labels = false },
+    dict_quick_lookup = { show_labels = false, bottom_sheet = true, allow_unknown_items = false },
 
     night_mode_schedule = {
         night_on_h  = 20,

@@ -1,10 +1,15 @@
 local M = {}
+local _ = require("gettext")
 local PluginScan = require("modules/menu/app_launcher/plugin_scan")
+local icons = require("common/inline_icon_map")
 
 local PLUGIN_KEYS = { "kindle", "kindle_plugin" }
 local OPEN_METHOD = "onShowKindleLibrary"
 local THUMBNAILS_DIR = "/mnt/us/system/thumbnails"
+local THUMBNAIL_CACHE_MAX = 512
+local THUMBNAIL_MISS_TTL_S = 30
 local thumbnail_index
+local thumbnail_cache, thumbnail_cache_count = {}, 0
 
 local function suppress_reader_menu(plugin)
     local ui = plugin and plugin.ui
@@ -116,8 +121,7 @@ local function image_size(path)
     return image_size_from_data(data)
 end
 
-local function thumbnail_path(cde_key)
-    if type(cde_key) ~= "string" or cde_key == "" then return nil end
+local function find_thumbnail(cde_key)
     for _i, cde_type in ipairs({ "EBOK", "PDOC" }) do
         local path = THUMBNAILS_DIR .. "/thumbnail_" .. cde_key
             .. "_" .. cde_type .. "_portrait.jpg"
@@ -143,6 +147,35 @@ local function thumbnail_path(cde_key)
     if not path then return nil end
     local width, height = image_size(path)
     if width and height then return path, width, height end
+end
+
+local function modification(path)
+    local ok, lfs = pcall(require, "libs/libkoreader-lfs")
+    return ok and lfs.attributes(path, "modification") or nil
+end
+
+-- Memoized per cde_key: a hit costs one stat instead of reading up to 128KB.
+local function thumbnail_path(cde_key)
+    if type(cde_key) ~= "string" or cde_key == "" then return nil end
+    local hit = thumbnail_cache[cde_key]
+    if hit then
+        if hit.path and modification(hit.path) == hit.mtime then
+            return hit.path, hit.w, hit.h
+        elseif not hit.path and os.time() - hit.checked_at < THUMBNAIL_MISS_TTL_S then
+            return nil
+        end
+    else
+        if thumbnail_cache_count >= THUMBNAIL_CACHE_MAX then
+            thumbnail_cache, thumbnail_cache_count = {}, 0
+        end
+        thumbnail_cache_count = thumbnail_cache_count + 1
+    end
+    local path, width, height = find_thumbnail(cde_key)
+    thumbnail_cache[cde_key] = {
+        path = path, w = width, h = height,
+        mtime = path and modification(path), checked_at = os.time(),
+    }
+    return path, width, height
 end
 M._thumbnailPath = thumbnail_path
 
@@ -258,12 +291,11 @@ local function show_display_mode(menu)
         or BookInfoManager:getSetting("filemanager_display_mode")
     local ButtonDialog = require("ui/widget/buttondialog")
     local UIManager = require("ui/uimanager")
-    local _ = require("gettext")
     local dialog
     local function button(label, icon, mode)
         local active = current == mode
         return {{
-            text = icon .. "  " .. label .. (active and "  \u{2713}" or ""),
+            text = icon .. "  " .. label .. (active and "  " .. icons.check or ""),
             align = "left",
             enabled = not active,
             callback = function()
@@ -280,9 +312,9 @@ local function show_display_mode(menu)
         title = _("Display mode"),
         title_align = "center",
         buttons = {
-            button(_("Mosaic"), "\u{F00A}", "mosaic_image"),
-            button(_("List (detailed)"), "\u{F03A}", "list_image_meta"),
-            button(_("List (basic)"), "\u{F0CA}", "list_image_filename"),
+            button(_("Mosaic"), icons.view_mosaic, "mosaic_image"),
+            button(_("List (detailed)"), icons.view_list, "list_image_meta"),
+            button(_("List (basic)"), icons.view_basic, "list_image_filename"),
         },
     }
     UIManager:show(dialog)
@@ -340,8 +372,6 @@ function M.showBookContextMenu(menu, item, after_change)
         end
     end
 
-    local icons = require("common/inline_icon_map")
-    local _ = require("gettext")
     local clear_cache = {{
         text = icons.delete .. "  " .. _("Clear cache"),
         align = "left",
@@ -383,6 +413,7 @@ function M._decorateLibraryView(menu, plugin)
     menu._zen_renderer = true
     menu._do_center_partial_rows = false
     thumbnail_index = nil
+    thumbnail_cache, thumbnail_cache_count = {}, 0
 
     require("common/ui/background").applyToMenu(menu)
     local StandalonePage = require("modules/filebrowser/patches/standalone_page")
@@ -393,7 +424,7 @@ function M._decorateLibraryView(menu, plugin)
     StandalonePage.apply_status_row(menu, {
         createStatusRow = SharedState.get(plugin, "createStatusRow"),
         repaintTitleBar = SharedState.get(plugin, "repaintTitleBar"),
-        label = require("gettext")("Kindle Library"),
+        label = _("Kindle Library"),
     })
 
     menu.onMenuHold = function(self, item)
@@ -440,7 +471,7 @@ local function apply_view_integration(plugin)
     function Menu:init()
         local is_kindle = M.isLibraryView(self)
         if is_kindle then
-            self.title = require("gettext")("Kindle Library")
+            self.title = _("Kindle Library")
             self._zen_renderer = true
             self._do_center_partial_rows = false
         end

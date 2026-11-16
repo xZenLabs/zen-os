@@ -212,6 +212,39 @@ describe("file browser guard patches", function()
         assert.is_nil(Kindle._imageSizeFromData("GIF89a"))
     end)
 
+    it("memoizes Kindle thumbnail dimensions until the file changes", function()
+        ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
+        local mtime = 1
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function() return mtime end,
+            dir = function() return function() end end,
+        })
+        local jpeg = string.char(
+            0xFF, 0xD8, 0xFF, 0xE0, 0, 2,
+            0xFF, 0xC0, 0, 7, 8, 3, 32, 2, 88)
+        local opens = 0
+        local original_open = io.open
+        rawset(io, "open", function(path)
+            if not path:find("_EBOK_portrait", 1, true) then return nil end
+            opens = opens + 1
+            return { read = function() return jpeg end, close = function() end }
+        end)
+        ZenSpec.unload("modules/filebrowser/patches/kindle_virtual_library")
+        local Kindle = require("modules/filebrowser/patches/kindle_virtual_library")
+
+        local ok, err = pcall(function()
+            assert.are.same({ "/mnt/us/system/thumbnails/thumbnail_KEY_EBOK_portrait.jpg",
+                600, 800 }, { Kindle._thumbnailPath("KEY") })
+            Kindle._thumbnailPath("KEY")
+            assert.are.equal(1, opens)
+            mtime = 2
+            Kindle._thumbnailPath("KEY")
+            assert.are.equal(2, opens)
+        end)
+        rawset(io, "open", original_open)
+        assert(ok, err)
+    end)
+
     it("lists the real paths exposed by the Kindle virtual library", function()
         ZenSpec.replace("modules/menu/app_launcher/plugin_scan", {})
         ZenSpec.replace("lua/open_file_ext", {

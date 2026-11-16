@@ -20,6 +20,18 @@ local kindle_metadata_cache
 local cache_hits = 0
 local cache_misses = 0
 
+-- Upstream BOOKINFO_COLS_SET through cover_h: everything getBookInfo(path, false)
+-- and getDocProps read, so the cover BLOB pages are never loaded.
+local METADATA_COLUMNS = {
+    "directory", "filename", "filesize", "filemtime", "in_progress", "unsupported",
+    "cover_fetched", "has_meta", "has_cover", "cover_sizetag", "ignore_meta",
+    "ignore_cover", "pages", "title", "authors", "series", "series_index",
+    "language", "keywords", "description", "cover_w", "cover_h",
+}
+local METADATA_SELECT_SQL = "SELECT " .. table.concat(METADATA_COLUMNS, ",")
+    .. " FROM bookinfo WHERE directory=? AND filename=? AND in_progress=0;"
+local metadata_stmt, metadata_conn
+
 local function file_signature(path)
     if not path then return "nil" end
     local attr = lfs.attributes(path)
@@ -67,6 +79,27 @@ end
 function M.invalidate()
     group_cache = {}
     kindle_metadata_cache = nil
+end
+
+-- Returns a blob-less statement interchangeable with manager.get_stmt, or nil
+-- before the connection opens or when upstream's column layout differs.
+function M.getMetadataStatement(manager)
+    local conn = type(manager) == "table" and manager.db_conn
+    if not conn or not manager.get_stmt then return nil end
+    if metadata_conn == conn and not (metadata_stmt and metadata_stmt._closed) then
+        return metadata_stmt
+    end
+    metadata_conn, metadata_stmt = conn, nil
+    local ok, stmt = pcall(function()
+        local header = {}
+        manager.get_stmt:_header(header)
+        for index, column in ipairs(METADATA_COLUMNS) do
+            if header[index] ~= column then return nil end
+        end
+        return conn:prepare(METADATA_SELECT_SQL)
+    end)
+    metadata_stmt = ok and stmt or nil
+    return metadata_stmt
 end
 
 function M.getCacheStats()
@@ -129,25 +162,26 @@ local function add_unseen_file(seen, filepath)
     return true
 end
 
-local function get_valid_book_path(home_dir, directory, filename)
+local function get_valid_book_path(home_dir, directory, filename, skip_stat)
     if not directory or not filename then return nil end
     local raw_filepath = directory .. filename
     local normalized_filepath = paths.normPath(raw_filepath)
     if home_dir and not paths.isInHomeDir(normalized_filepath) then return nil end
-    if lfs.attributes(normalized_filepath, "mode") ~= "file" then return nil end
+    if not skip_stat and lfs.attributes(normalized_filepath, "mode") ~= "file" then return nil end
     -- Keep the database key: BookInfoManager and DocSettings may not use the
     -- normalized path on Android symlinked storage.
     return raw_filepath
 end
 
-local function for_each_valid_book_row(conn, sql, callback)
+local function for_each_valid_book_row(conn, sql, callback, skip_stat)
     local result = conn:exec(sql)
     if not result then return 0 end
     local directories = result[1] or {}
     local filenames = result[2] or {}
     local home_dir = paths.getHomeDir()
     for index = 1, #directories do
-        local raw_filepath = get_valid_book_path(home_dir, directories[index], filenames[index])
+        local raw_filepath = get_valid_book_path(home_dir, directories[index],
+            filenames[index], skip_stat)
         if raw_filepath then
             callback(raw_filepath, filenames[index], result, index)
         end
@@ -510,10 +544,11 @@ function M.getLightMetadata(directory)
             SELECT directory, filename, title, authors, series, series_index, keywords
             FROM bookinfo
         ]]
+        -- Callers look up paths they already hold, so missing files need no stat.
         for_each_valid_book_row(BookInfoManager.db_conn, sql,
             function(filepath, _filename, result, index)
                 put_metadata(metadata, filepath, light_metadata_info(result, index))
-            end)
+            end, true)
     end)
     if not ok_query then
         logger.warn("light metadata query error:", err)

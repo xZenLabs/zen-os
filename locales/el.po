@@ -2245,6 +2245,12 @@ msgstr "Διαχωριστική γραμμή"
 msgid "Dividing lines"
 msgstr "Διαχωριστικές γραμμές"
 
+#. Type: setting
+#. Context: Settings label in the reader Lookup settings.
+#: reader_settings.lua:1445
+msgid "Dock to bottom"
+msgstr "Αγκύρωση στο κάτω μέρος"
+
 #. Type: label
 #. Context: Reader tab controls, defaults, profiles, and themes.
 #: reader_controls.lua:559 buttons.lua:33
@@ -3199,6 +3205,12 @@ msgstr "Εικονίδιο: %1"
 msgid "Icons"
 msgstr "Εικονίδια"
 
+#. Type: setting
+#. Context: { text = _("Image minimap"), checked_func = function() return settings.minimap end,
+#: pin_settings.lua:72
+msgid "Image minimap"
+msgstr "Μικροχάρτης εικόνας"
+
 #. Type: message
 #. Context: Μήνυμα στις ρυθμίσεις εμφάνισης του περιβάλλοντος χρήστη.
 #: interface_settings.lua:374
@@ -3954,6 +3966,12 @@ msgstr "Μέγεθος ονομασιών γραμμής πλοήγησης"
 #: quickstart_pages.lua:708
 msgid "Navbar Tabs"
 msgstr "Καρτέλες γραμμής πλοήγησης"
+
+#. Type: format
+#. Context: text = T(_("Navigate to page %1?"), References.pageLabel(self.ui, page)),
+#: reference_drawer.lua:704
+msgid "Navigate to page %1?"
+msgstr "Μετάβαση στη σελίδα %1;"
 
 #. Type: setting
 #. Context: Ονομασία ρύθμισης στις ρυθμίσεις εμφάνισης και λειτουργίας της βιβλιοθήκης.

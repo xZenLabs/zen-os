@@ -182,6 +182,11 @@ describe("quick settings Wi-Fi", function()
             scheduleIn = function(self, delay, callback)
                 self.scheduled[#self.scheduled + 1] = { delay = delay, callback = callback }
             end,
+            unschedule = function(self, callback)
+                for index = #self.scheduled, 1, -1 do
+                    if self.scheduled[index].callback == callback then table.remove(self.scheduled, index) end
+                end
+            end,
             nextTick = function(_self, callback) callback() end,
         }
         ZenSpec.replace("ui/uimanager", UIManager)
@@ -284,11 +289,61 @@ describe("quick settings Wi-Fi", function()
         assert.are.equal(1, updates)
         assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isActive("wifi"))
         assert.are.equal(1, #UIManager.scheduled)
-        assert.are.equal(1, UIManager.scheduled[1].delay)
+        assert.are.equal(2, UIManager.scheduled[1].delay)
 
         NetworkMgr.current_ssid = "Home"
         UIManager.scheduled[1].callback()
         assert.are.equal(2, updates)
+    end)
+
+    it("keeps one SSID poll chain when the toggle refreshes twice", function()
+        local updates = 0
+        local touch_menu = {
+            item_table = { panel = true },
+            _zen_panel_refs = {},
+            updateItems = function() updates = updates + 1 end,
+        }
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.activate("wifi", touch_menu))
+        NetworkMgr.wifi_on, NetworkMgr.connected = true, true
+        NetworkMgr.toggle_callback()
+        NetworkMgr.toggle_callback()
+        assert.are.equal(2, updates)
+        assert.are.equal(1, #UIManager.scheduled)
+        table.remove(UIManager.scheduled, 1).callback()
+        assert.are.equal(2, updates)
+        assert.are.equal(1, #UIManager.scheduled)
+        NetworkMgr.current_ssid = "Home"
+        table.remove(UIManager.scheduled, 1).callback()
+        assert.are.equal(3, updates)
+        assert.are.equal(0, #UIManager.scheduled)
+    end)
+
+    it("rebuilds custom control definitions only when their config changes", function()
+        local Dispatcher = package.loaded["dispatcher"]
+        local labels = 0
+        Dispatcher.menuTextFunc = function() labels = labels + 1; return "Action" end
+        local buttons = _G.__ZEN_UI_PLUGIN.config.quick_settings.custom_buttons
+        buttons[#buttons + 1] = { id = "cb_2", type = "action", action = { toggle_a = true } }
+        for _j = 1, 3 do assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.has("cb_2")) end
+        assert.are.equal(1, labels)
+        buttons[#buttons].action = { toggle_b = true }
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.has("cb_2"))
+        assert.are.equal(2, labels)
+        package.loaded["ui/widget/touchmenu"].init({})
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.has("cb_2"))
+        assert.are.equal(3, labels)
+    end)
+
+    it("reads cached Bluetooth state for the Controls tile", function()
+        local Bluetooth = package.loaded["modules/menu/bluetooth/bluetooth"]
+        local cached, live = true, 0
+        Bluetooth.getCachedState = function() return cached end
+        Bluetooth.isEnabled = function() live = live + 1; return false end
+        assert.is_true(_G.__ZEN_UI_QUICK_SETTINGS.isActive("bluetooth"))
+        assert.are.equal(0, live)
+        cached = nil
+        assert.is_false(_G.__ZEN_UI_QUICK_SETTINGS.isActive("bluetooth"))
+        assert.are.equal(1, live)
     end)
 
     for _i, connected in ipairs({ false, true }) do

@@ -1,6 +1,4 @@
-local function apply_book_status()
-    local zen_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
-
+local function patch_widget(zen_plugin)
     -- Always use the ZenOS custom Book Status layout (home + close buttons, cleaner stats)
     local BookStatusWidget = require("ui/widget/bookstatuswidget")
     local archive_actions = require("common/archive_actions")
@@ -42,47 +40,6 @@ local function apply_book_status()
             local result = original_onChangeBookStatus(self, ...)
             local file = self.ui and self.ui.document and self.ui.document.file
             book_status.invalidate(file)
-            return result
-        end
-    end
-
-    local ok_reader_status, ReaderStatus = pcall(require, "apps/reader/modules/readerstatus")
-    if ok_reader_status and not ReaderStatus._zen_status_cache_invalidation
-            and type(ReaderStatus.markBook) == "function" then
-        ReaderStatus._zen_status_cache_invalidation = true
-        local original_markBook = ReaderStatus.markBook
-        function ReaderStatus:markBook(...)
-            local result = original_markBook(self, ...)
-            local file = self.document and self.document.file
-                or self.ui and self.ui.document and self.ui.document.file
-            book_status.invalidate(file)
-            return result
-        end
-    end
-
-    -- Closing Book Status does not emit CloseDocument, so KOSync misses the final page.
-    if ok_reader_status and not ReaderStatus._zen_end_of_book_progress_sync
-            and type(ReaderStatus.onEndOfBook) == "function" then
-        ReaderStatus._zen_end_of_book_progress_sync = true
-        local original_onEndOfBook = ReaderStatus.onEndOfBook
-        function ReaderStatus:onEndOfBook(...)
-            local result = original_onEndOfBook(self, ...)
-            local status_widget = UIManager:getTopmostVisibleWidget()
-            if getmetatable(status_widget) == BookStatusWidget then
-                local original_onCloseWidget = status_widget.onCloseWidget
-                function status_widget:onCloseWidget(...)
-                    local kosync = self.ui and self.ui.kosync
-                    local settings = kosync and kosync.settings
-                    if self.summary and self.summary.status == "complete"
-                            and settings and settings.auto_sync
-                            and settings.username and settings.userkey then
-                        UIManager:broadcastEvent(Event:new("KOSyncPushProgress"))
-                    end
-                    if original_onCloseWidget then
-                        return original_onCloseWidget(self, ...)
-                    end
-                end
-            end
             return result
         end
     end
@@ -386,6 +343,61 @@ local function apply_book_status()
         content:resetLayout()
         return content
     end
+end
+
+local function patch_reader_status()
+    local ReaderStatus = require("apps/reader/modules/readerstatus")
+    local BookStatusWidget = require("ui/widget/bookstatuswidget")
+    local book_status = require("common/book_status")
+    local Event = require("ui/event")
+    local UIManager = require("ui/uimanager")
+    if not ReaderStatus._zen_status_cache_invalidation
+            and type(ReaderStatus.markBook) == "function" then
+        ReaderStatus._zen_status_cache_invalidation = true
+        local original_markBook = ReaderStatus.markBook
+        function ReaderStatus:markBook(...)
+            local result = original_markBook(self, ...)
+            local file = self.document and self.document.file
+                or self.ui and self.ui.document and self.ui.document.file
+            book_status.invalidate(file)
+            return result
+        end
+    end
+
+    -- Closing Book Status does not emit CloseDocument, so KOSync misses the final page.
+    if not ReaderStatus._zen_end_of_book_progress_sync
+            and type(ReaderStatus.onEndOfBook) == "function" then
+        ReaderStatus._zen_end_of_book_progress_sync = true
+        local original_onEndOfBook = ReaderStatus.onEndOfBook
+        function ReaderStatus:onEndOfBook(...)
+            local result = original_onEndOfBook(self, ...)
+            local status_widget = UIManager:getTopmostVisibleWidget()
+            if getmetatable(status_widget) == BookStatusWidget then
+                local original_onCloseWidget = status_widget.onCloseWidget
+                function status_widget:onCloseWidget(...)
+                    local kosync = self.ui and self.ui.kosync
+                    local settings = kosync and kosync.settings
+                    if self.summary and self.summary.status == "complete"
+                            and settings and settings.auto_sync
+                            and settings.username and settings.userkey then
+                        UIManager:broadcastEvent(Event:new("KOSyncPushProgress"))
+                    end
+                    if original_onCloseWidget then
+                        return original_onCloseWidget(self, ...)
+                    end
+                end
+            end
+            return result
+        end
+    end
+end
+
+-- Both classes load with ReaderUI/Screensaver; don't pull them in at boot.
+local function apply_book_status()
+    local zen_plugin = rawget(_G, "__ZEN_UI_PLUGIN")
+    local on_require = require("common/on_require")
+    on_require.whenLoaded("ui/widget/bookstatuswidget", function() patch_widget(zen_plugin) end)
+    on_require.whenLoaded("apps/reader/modules/readerstatus", patch_reader_status)
 end
 
 return apply_book_status

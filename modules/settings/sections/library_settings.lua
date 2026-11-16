@@ -795,7 +795,7 @@ function M.build(ctx)
     for _i, orientation in ipairs({ "portrait", "landscape" }) do
         local portrait = orientation == "portrait"
         local cols_key, rows_key = "nb_cols_" .. orientation, "nb_rows_" .. orientation
-        local default_cols, default_rows = portrait and 3 or 4, portrait and 3 or 2
+        local default_cols, default_rows = portrait and 3 or 4, 2
         mosaic_items[#mosaic_items + 1] = {
             text = portrait and _("Portrait") or _("Landscape"),
             text_func = function()
@@ -819,7 +819,7 @@ function M.build(ctx)
         text = _("Reset to default"),
         keep_menu_open = true,
         callback = function(touchmenu_instance)
-            save_layout({ nb_cols_portrait = 3, nb_rows_portrait = 3,
+            save_layout({ nb_cols_portrait = 3, nb_rows_portrait = 2,
                 nb_cols_landscape = 4, nb_rows_landscape = 2 }, touchmenu_instance)
         end,
     }
@@ -1200,37 +1200,52 @@ function M.build(ctx)
         callback = show_book_details,
     }, icons.details))
 
+    local BookOpenTap = require("common/book_open_tap")
+    local function developer()
+        if type(config.developer) ~= "table" then config.developer = {} end
+        return config.developer
+    end
+    local function double_tap_enabled() return developer().double_tap == true end
+    local function single_tap() return (BookOpenTap.tapActions(config.developer)) end
+    local function double_tap() return select(2, BookOpenTap.tapActions(config.developer)) end
+    local tap_action_text = { open = _("Open book"), menu = _("Open context menu"), none = _("Nothing") }
+    -- Pickers store only the single-tap action; double tap is derived so a book stays openable.
+    local function tap_picker(label, current, choices, to_single)
+        local sub_items = {}
+        for _i, choice in ipairs(choices) do
+            sub_items[#sub_items + 1] = {
+                text = tap_action_text[choice],
+                radio = true,
+                checked_func = function() return current() == choice end,
+                callback = function()
+                    developer().single_tap_action = to_single(choice)
+                    plugin:saveConfig()
+                end,
+            }
+        end
+        return {
+            text = label,
+            text_func = function() return label .. ": " .. tap_action_text[current()] end,
+            enabled_func = double_tap_enabled,
+            sub_item_table = sub_items,
+        }
+    end
+
     local double_tap_item = {
-        text = _("Double-tap to open a book"),
-        help_text = _("When enabled, tap the same book twice in rapid succession to open it. Keyboard controls are unchanged."),
-        checked_func = function()
-            return type(config.developer) == "table"
-                and config.developer.double_tap_to_open_books == true
-        end,
+        text = _("Double tap"),
+        help_text = _("When enabled, choose what a single and a double tap on a book do. Keyboard controls are unchanged."),
+        checked_func = double_tap_enabled,
         callback = function()
-            if type(config.developer) ~= "table" then config.developer = {} end
-            config.developer.double_tap_to_open_books =
-                config.developer.double_tap_to_open_books ~= true
+            developer().double_tap = not double_tap_enabled()
             plugin:saveConfig()
         end,
         sub_item_table = {
-            {
-                text = _("Single tap to open context menu"),
-                enabled_func = function()
-                    return type(config.developer) == "table"
-                        and config.developer.double_tap_to_open_books == true
-                end,
-                checked_func = function()
-                    return type(config.developer) == "table"
-                        and config.developer.single_tap_to_open_context_menu == true
-                end,
-                callback = function()
-                    if type(config.developer) ~= "table" then config.developer = {} end
-                    config.developer.single_tap_to_open_context_menu =
-                        config.developer.single_tap_to_open_context_menu ~= true
-                    plugin:saveConfig()
-                end,
-            },
+            tap_picker(_("Single tap"), single_tap, { "open", "menu", "none" },
+                function(choice) return choice end),
+            tap_picker(_("Double tap"), double_tap, { "open", "menu" }, function(choice)
+                if choice == "menu" then return "open" end
+                return single_tap() == "open" and "menu" or single_tap()
+            end),
         },
     }
     double_tap_item.checkmark_callback = double_tap_item.callback

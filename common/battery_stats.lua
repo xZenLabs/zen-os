@@ -21,6 +21,7 @@ local pending_gap = false
 local WAKE_DELAY = 20
 local wake_pending, wake_charge_event = false, false
 local wake_timer
+local unflushed = false
 local history
 local history_tail
 local HISTORY_TOTALS = {
@@ -166,6 +167,11 @@ local function battery_dir()
     return found
 end
 
+-- Kindle sysfs design capacity is wrong (Voyage reports 790), so use known values per model
+local KINDLE_DESIGN_MAH = {
+    KindleVoyage = 1300,
+}
+
 local function device_capacity()
     local dir = battery_dir()
     if not dir then return nil, nil end
@@ -182,11 +188,20 @@ local function device_capacity()
         full, design = full - empty, design - design_empty
         if current_charge then current_charge = math.max(0, current_charge - empty) end
     end
-    local full_mah = full and full >= 50000 and full <= 100000000 and full / 1000 or nil
-    local design_mah = design and design >= 50000 and design <= 100000000 and design / 1000 or nil
-    local current_mah = current_charge and current_charge <= 100000000 and current_charge / 1000 or nil
+    -- µAh per spec, but Kindle max77696 writes charge_full/charge_now in mAh
+    local function divisor(raw) return raw and raw < 50000 and 1 or 1000 end
+    local function to_mah(raw, div)
+        local mah = raw and raw / div
+        return mah and mah <= 100000 and mah or nil
+    end
+    local full_div = divisor(full)
+    local full_mah = to_mah(full, full_div)
+    if full_mah and full_mah < 50 then full_mah = nil end
+    local design_mah = KINDLE_DESIGN_MAH[Device.model] or to_mah(design, divisor(design))
+    if design_mah and design_mah < 50 then design_mah = nil end
+    local current_mah = to_mah(current_charge, full_div)
     local health = full_mah and design_mah and full_mah / design_mah * 100 or nil
-    if health and (health <= 0 or health > 200) then health = nil end
+    if health and (health <= 0 or health > 120) then health = nil end
     return full_mah, design_mah, health, current_mah
 end
 
@@ -299,7 +314,8 @@ local function charge_ended(previous, event)
     return previous and not event.charging and (previous.charging or event.level > previous.level)
 end
 
-local function sample(gap, charging_event, force)
+-- defer_flush keeps the sample in memory; the next suspend/tick/close persists it.
+local function sample(gap, charging_event, defer_flush)
     if not settings then return end
     if wake_pending and not force and not sleeping then
         if charging_event then wake_charge_event = true end
@@ -348,10 +364,12 @@ local function sample(gap, charging_event, force)
         for key in pairs(HISTORY_TOTALS) do baseline[key] = stats[key] end
         settings:saveSetting("usage_baseline", baseline)
     end
-    if #events > MAX_EVENTS and archive(events) then
+    local archived = #events > MAX_EVENTS and archive(events)
+    if archived then
         settings:saveSetting("events", { event }) -- Keep the next window's starting sample.
     end
-    settings:flush()
+    unflushed = defer_flush and not archived
+    if not unflushed then settings:flush() end
 end
 
 local function schedule()
@@ -473,6 +491,7 @@ function M.resume()
         UIManager:unschedule(wake_timer)
         UIManager:scheduleIn(WAKE_DELAY, wake_timer)
         return -- wake_timer takes the sample and schedules the next one
+        sample(nil, nil, true) -- Keep the wake path off flash.
     end
     schedule()
 end
@@ -490,6 +509,19 @@ function M.bluetoothChanged()
     UIManager:scheduleIn(3, bt_timer)
 end
 M.wifiChanged = M.bluetoothChanged
+-- FileManager/ReaderUI swaps: record a sample but keep the session (no gap).
+-- Throttled: rapid open/close would otherwise rewrite battery.lua every swap.
+local FLUSH_MIN_SECONDS = 60
+function M.flush()
+    if not settings or sleeping then return end
+    local events = settings:readSetting("events")
+    local previous = events and events[#events]
+    if previous and os.time() - previous.time < FLUSH_MIN_SECONDS then
+        if unflushed then unflushed = false; settings:flush() end
+        return
+    end
+    sample()
+end
 
 function M.stop()
     if not settings then return end
@@ -514,6 +546,7 @@ function M.logInfo()
     local curve = settings:readSetting("curve")
     if type(curve) == "table" and curve[1] and (not first or curve[1][1] < first) then first = curve[1][1] end
     return count, first
+    unflushed = false
 end
 
 function M.reset()

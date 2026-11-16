@@ -25,17 +25,29 @@ return function()
         ReaderRolling._zen_link_marker_patched = true
         local UIManager = require("ui/uimanager")
         local goto_xp = ReaderRolling.onGotoXPointer
+        -- Highlighting selects the whole node: big ones (in-book ToC chapters) fill the page and stall rendering.
+        local function compact(document, node)
+            local text = node and document:getTextFromXPointer(node)
+            if text and #text <= 1000 and text:find("%S") then return node end
+        end
         ReaderRolling.onGotoXPointer = function(self, xp, marker_xp)
             local setting = G_reader_settings:readSetting("followed_link_marker")
             if not marker_xp or setting == false or not References.enabled(self.ui) then
                 return goto_xp(self, xp, marker_xp)
             end
-            -- Flash the link like a tap does instead of the stock margin square.
-            local result = goto_xp(self, xp)
+            -- Flash the target like a tap does; for empty anchors or long notes/chapters, the inline
+            -- around its first word (note number [1], chapter heading). Otherwise the stock margin square.
             local document = self.ui.document
+            local target = compact(document, marker_xp)
+            if not target then
+                local word = document:getNextVisibleWordStart(marker_xp)
+                target = compact(document, word and word:match("^(.+)/text%(%)[^/]*$"))
+            end
+            if not target then return goto_xp(self, xp, marker_xp) end
+            local result = goto_xp(self, xp)
             if self._zen_unmark then UIManager:unschedule(self._zen_unmark) end
             document:highlightXPointer()
-            if not document:highlightXPointer(marker_xp) then return result end
+            if not document:highlightXPointer(target) then return result end
             if setting == true then return result end
             self._zen_unmark = function()
                 self._zen_unmark = nil
@@ -58,12 +70,21 @@ return function()
     if ReaderLink._zen_references_patched then return end
     ReaderLink._zen_references_patched = true
     local tap = ReaderLink.onTap
+    local probes = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }
     ReaderLink.onTap = function(self, arg, ges)
         local result = tap(self, arg, ges)
         if result or not References.enabled(self.ui) or self.ui.paging
             or G_reader_settings:isFalse("tap_to_follow_links")
             or G_reader_settings:isTrue("larger_tap_area_to_follow_links") then return result end
-        return self:onGoToPageLink(ges, true, require("device").screen:scaleByDPI(8))
+        -- Hit-test a few nearby points for an internal link; avoids getPageLinks on every page-turn tap.
+        local d = require("device").screen:scaleByDPI(8)
+        local x, y = ges.pos.x, ges.pos.y
+        for _i, o in ipairs(probes) do
+            local link = self:getLinkFromGes({ pos = { x = math.max(0, x + o[1] * d), y = math.max(0, y + o[2] * d) } })
+            if link and type(link.xpointer) == "string" and link.xpointer:sub(1, 1) == "#" then
+                return self:onGotoLink(link, false, G_reader_settings:isTrue("footnote_link_in_popup"))
+            end
+        end
     end
     local ReaderHighlight = require("apps/reader/modules/readerhighlight")
     local hold = ReaderHighlight.onHold

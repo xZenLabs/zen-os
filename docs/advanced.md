@@ -6,31 +6,17 @@ settingsPath: Zen Settings > General > Advanced
 order: 81
 ---
 
-<!-- Documentation current through ZenOS v3.0.0. -->
+<!-- Documentation current through ZenOS v4.3.0. -->
 
 ![ZenOS settings](/images/zen_os/zen_settings.webp)
 
-## Overview
+Maintenance and troubleshooting tools. You probably won't need these often.
 
-Advanced settings expose maintenance and lower-level behavior. They include metadata extraction, partial refresh, hidden file visibility, debug logging, gesture reset, plugin management, and patch management.
+- **Extract metadata**: builds covers and metadata for every book in the current folder up front, so browsing is faster later.
+- **Partial pages refresh**: faster page turns with less flashing.
+- **Show hidden files**: shows hidden and unsupported files outside your home folder.
+- **Debug logging**: turns on KOReader's verbose logs. Handy when reporting a bug, turn it off after.
+- **Clear all gestures**: wipes Library and reader gestures, keeping top-right tap for bookmarks. Set new ones under **Zen Settings > KOReader > Settings > Taps and gestures > Gesture manager**.
+- **Plugin management** / **Patch management**: open KOReader's tools to turn plugins and patches on or off.
 
-## Options
-
-- Extract metadata and cover images for books in the current directory.
-- Toggle partial page refresh.
-- Show hidden and unsupported files outside the home folder.
-- Toggle KOReader verbose debug logging.
-- Clear gestures while preserving reader top-right bookmark.
-- Open KOReader plugin and patch management tools.
-
-## Setting reference
-
-| Setting | Description |
-| --- | --- |
-| General > Advanced > Extract metadata | Extracts and caches book metadata and cover images for the current directory. |
-| General > Advanced > Partial pages refresh | Enables partial page repaint behavior. |
-| General > Advanced > Show hidden files | Shows hidden and unsupported files outside the home folder and hides them again when disabled. |
-| General > Advanced > Debug logging | Toggles KOReader debug and verbose debug settings. |
-| General > Advanced > Clear all gestures | Clears file manager and reader gestures, then sets reader top-right tap to toggle bookmark. |
-| General > Advanced > Plugin management | Opens KOReader plugin management. |
-| General > Advanced > Patch management | Opens KOReader patch management when available. |
+**Where:** Zen Settings > General > Advanced

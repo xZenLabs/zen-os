@@ -17,26 +17,6 @@ local function apply_brightness_schedule()
         _G.__ZEN_UI_BRIGHTNESS_SCHEDULE = state
     end
 
-    -- Re-install hooks on the current plugin instance (survives FileManager:reinit).
-    do
-        local orig_suspend = zen_plugin.onSuspend
-        zen_plugin.onSuspend = function(self, ...)
-            if state._on_suspend then state._on_suspend() end
-            if type(orig_suspend) == "function" then
-                return orig_suspend(self, ...)
-            end
-        end
-        local orig_resume = zen_plugin.onResume
-        zen_plugin.onResume = function(self, ...)
-            local result
-            if type(orig_resume) == "function" then
-                result = orig_resume(self, ...)
-            end
-            if state._on_resume then state._on_resume() end
-            return result
-        end
-    end
-
     if state.initialized then return end
 
     -- Helpers
@@ -92,8 +72,13 @@ local function apply_brightness_schedule()
         end
     end
 
-    local function set_brightness(value, force)
+    local function set_brightness(value, force, allow_turn_on)
         local Powerd = Device.powerd
+        -- Boot/resume reapply must not relight a frontlight the user switched off.
+        if Powerd and not allow_turn_on and type(Powerd.isFrontlightOff) == "function"
+                and Powerd:isFrontlightOff() then
+            return
+        end
         if Powerd then
             local lo = 0
             local hi = Powerd.fl_max or 100
@@ -119,10 +104,10 @@ local function apply_brightness_schedule()
         end
     end
 
-    local function apply_mode_value(force)
+    local function apply_mode_value(force, allow_turn_on)
         if not uses_mode_values() then return end
         local cfg = get_config()
-        set_brightness(Screen.night_mode and cfg.night_value or cfg.day_value, force)
+        set_brightness(Screen.night_mode and cfg.night_value or cfg.day_value, force, allow_turn_on)
     end
 
     -- -------------------------------------------------------------------------
@@ -134,14 +119,14 @@ local function apply_brightness_schedule()
 
     day_fn = function()
         if is_enabled() then
-            set_brightness(get_config().day_value)
+            set_brightness(get_config().day_value, false, true)
             UIManager:scheduleIn(86400, day_fn)
         end
     end
 
     night_fn = function()
         if is_enabled() then
-            set_brightness(get_config().night_value)
+            set_brightness(get_config().night_value, false, true)
             UIManager:scheduleIn(86400, night_fn)
         end
     end
@@ -170,16 +155,13 @@ local function apply_brightness_schedule()
         UIManager:unschedule(day_fn)
         UIManager:unschedule(night_fn)
     end
-    state._on_resume = function()
-        UIManager:nextTick(function() reschedule() end)
-    end
     state.initialized = true
 
     if type(Screen.toggleNightMode) == "function" then
         local orig_toggle_night_mode = Screen.toggleNightMode
         Screen.toggleNightMode = function(self, ...)
             local result = orig_toggle_night_mode(self, ...)
-            apply_mode_value()
+            apply_mode_value(false, true)
             return result
         end
     end

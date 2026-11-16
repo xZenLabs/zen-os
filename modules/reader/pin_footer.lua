@@ -69,8 +69,21 @@ end
 
 local function inside_right(footer)
     local settings = footer.settings
-    return settings.all_at_once and (settings.dynamic_filler or settings.dynamic_filler2
+    -- No text items: KOReader zeroes text_width, so the inline pin reservation is dropped.
+    return settings.all_at_once and not footer.has_no_mode and (settings.dynamic_filler or settings.dynamic_filler2
         or not settings.disable_progress_bar and settings.progress_bar_position == "alongside")
+end
+
+local function box_width(footer)
+    return footer._zen_pin_label:getSize().w + 2 * controlSize(9)
+end
+
+-- Bare alongside bar: end it a short gap before the box instead of a margin plus reservation.
+local function reserved_width(footer, width)
+    local settings = footer.settings
+    if width == 0 or not footer.has_no_mode or settings.disable_progress_bar
+            or settings.progress_bar_position ~= "alongside" then return width end
+    return box_width(footer) + Screen:scaleBySize(8)
 end
 
 local function paint_label(footer, bb, right, y, height, background)
@@ -85,13 +98,13 @@ local function paint_label(footer, bb, right, y, height, background)
     height = footer._zen_pin_height
     y = math.min(y, Screen:getHeight() - math.max(footer.bottom_padding, Screen:scaleBySize(1)) - height)
     local padding = controlSize(9)
-    local box_width = size.w + 2 * padding
-    local left = right - box_width
-    if background then bb:paintRect(left, y, box_width, height, background) end
-    bb:paintBorder(left, y, box_width, height, controlSize(1), color,
+    local box_w = box_width(footer)
+    local left = right - box_w
+    if background then bb:paintRect(left, y, box_w, height, background) end
+    bb:paintBorder(left, y, box_w, height, controlSize(1), color,
         controlSize(7), G_reader_settings:nilOrTrue("anti_alias_ui"))
     label:paintTo(bb, left + padding, y + math.floor((height - size.h) / 2))
-    footer._zen_pin_dimen = Geom:new{ x = left, y = y, w = box_width, h = height }
+    footer._zen_pin_dimen = Geom:new{ x = left, y = y, w = box_w, h = height }
 end
 
 function M.apply()
@@ -121,7 +134,7 @@ function M.apply()
             local full_width = widget.dimen.w
             local inline = inside_right(self)
             local is_centered = not inline and centered(self)
-            widget.dimen.w = full_width - (inline and 0 or width * (is_centered and 2 or 1))
+            widget.dimen.w = full_width - (inline and 0 or is_centered and 2 * width or reserved_width(self, width))
             paint(widget, bb, x + (is_centered and width or 0), y)
             widget.dimen.w = full_width
             local right = x + full_width - self.horizontal_margin
@@ -142,15 +155,22 @@ function M.apply()
         self._zen_pin_inline = width > 0 and inside_right(self)
         self._zen_pin_right_inset = nil
         self._zen_pin_reserved_width = width
+        self._zen_pin_box_width = width > 0 and box_width(self) or nil
         if width > 0 and screen_width and not self._zen_pin_inline then
-            self._saved_screen_width = screen_width - width * (centered(self) and 2 or 1)
+            self._saved_screen_width = screen_width - (centered(self) and 2 * width or reserved_width(self, width))
         end
         local generator = self.genFooterText
         if width > 0 and self._zen_pin_inline then self.genFooterText = self.genAllFooterText end
         local result = update(self, ...)
         self.genFooterText = generator
         self._saved_screen_width = screen_width
-        self._zen_pin_reserved_width = nil
+        self._zen_pin_reserved_width, self._zen_pin_box_width = nil, nil
+        -- On hide KOReader refreshes only the new, pin-less height; clear the full old footer.
+        local painted = self._zen_painted_dimen
+        if painted and not self.view.footer_visible then
+            self._zen_painted_dimen = nil
+            UIManager:setDirty(self.view.dialog, "ui", painted)
+        end
         return result
     end
     local paint = Footer.paintTo
@@ -158,7 +178,12 @@ function M.apply()
         self._zen_pin_dimen = nil
         local height = self:getHeight()
         if self.footer_content and self.footer_content.dimen then self.footer_content.dimen.h = height end
-        return paint(self, bb, x, y)
+        local result = paint(self, bb, x, y)
+        local dimen = self.footer_content and self.footer_content.dimen
+        if bb == Screen.bb and dimen then
+            self._zen_painted_dimen = Geom:new{ x = dimen.x, y = dimen.y, w = dimen.w, h = dimen.h }
+        end
+        return result
     end
     local close = Footer.onCloseWidget
     Footer.onCloseWidget = function(self, ...)
