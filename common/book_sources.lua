@@ -37,7 +37,14 @@
 --       -- the whole UI, so keep it cheap and don't block: without the
 --       -- cover yet, return the metadata and call changed({ path }) once
 --       -- the cover arrives. Calls to getBookInfo() for the same path from
---       -- inside it go to CoverBrowser's database.
+--       -- inside it go to CoverBrowser's database. The book's custom
+--       -- metadata (KOReader's custom_metadata.lua: edits made in ZenOS's
+--       -- metadata editor or KOReader's Book information, or written by a
+--       -- plugin such as a sync plugin) is shown over these fields (and
+--       -- those books() gives), as KOReader shows it over a file's own; it
+--       -- is never written back to the source. A plugin that writes custom
+--       -- metadata announces it as KOReader does, with the
+--       -- InvalidateMetadataCache event naming the book.
 --       bookInfo = function(path, get_cover) return { ... } end,
 --       -- Optional: for a source whose books appear in file browser
 --       -- listings (it adds them itself, e.g. by wrapping
@@ -178,16 +185,88 @@ function M.statusRevision()
     return M.revision() + status_revision
 end
 
+-- ---- metadata edits ---------------------------------------------------
+-- Sources' books that have custom metadata (path -> true), kept in
+-- G_reader_settings, from ZenOS's editor and the InvalidateMetadataCache
+-- events that announce custom metadata written elsewhere (see
+-- customMetadataChanged). Only these have their sidecar's custom metadata
+-- looked up, so listing a source's whole library doesn't stat sidecars for
+-- every book in it.
+local EDITED_KEY = "zen_book_sources_edited"
+-- Fields an edit may override (the bookinfo fields sources give).
+local EDITABLE = { "title", "authors", "series", "series_index", "language",
+    "keywords", "description" }
+
+local function reader_settings()
+    local settings = rawget(_G, "G_reader_settings")
+    return type(settings) == "table" and settings or nil
+end
+
+local function edited_books()
+    local settings = reader_settings()
+    local edited = settings and settings:readSetting(EDITED_KEY)
+    return type(edited) == "table" and edited or {}
+end
+
+-- The book's custom metadata file (KOReader's custom_metadata.lua), or nil.
+local function custom_metadata_file(path)
+    local ok, DocSettings = pcall(require, "docsettings")
+    if not ok or type(DocSettings) ~= "table"
+            or type(DocSettings.findCustomMetadataFile) ~= "function" then
+        return nil
+    end
+    local ok_find, file = pcall(DocSettings.findCustomMetadataFile, DocSettings, path)
+    return ok_find and type(file) == "string" and file or nil
+end
+
+-- The custom fields of a book in EDITED_KEY, read from its sidecar, or nil.
+local function edits(path)
+    local file = custom_metadata_file(path)
+    local props
+    local ok, DocSettings = pcall(require, "docsettings")
+    if file and ok and type(DocSettings.openSettingsFile) == "function" then
+        local ok_open, settings = pcall(DocSettings.openSettingsFile, file)
+        local custom = ok_open and settings and type(settings.readSetting) == "function"
+            and settings:readSetting("custom_props")
+        if type(custom) == "table" then
+            for _i, key in ipairs(EDITABLE) do
+                if custom[key] ~= nil then
+                    props = props or {}
+                    props[key] = custom[key]
+                end
+            end
+        end
+    end
+    return props
+end
+
+-- info with the book's edits over it (a copy), or info itself.
+local function with_edits(path, info, edited)
+    if not edited[path] then return info end
+    local props = edits(path)
+    if not props then return info end
+    local copy = {}
+    for key, value in pairs(info) do copy[key] = value end
+    for key, value in pairs(props) do copy[key] = value end
+    return copy
+end
+
 --- All sources' books, in registration order: { { file, info }, ... }.
 function M.books()
     load_builtins()
     local out = {}
+    local edited = edited_books()
+    local any_edited = next(edited) ~= nil
     for _i, id in ipairs(order) do
         local books = call(id, sources[id], "books")
         if type(books) == "table" then
             for _j, book in ipairs(books) do
                 if type(book) == "table" and type(book.file) == "string" and book.file ~= ""
                         and type(book.info) == "table" then
+                    if any_edited and edited[book.file] then
+                        local info = with_edits(book.file, book.info, edited)
+                        if info ~= book.info then book = { file = book.file, info = info } end
+                    end
                     out[#out + 1] = book
                 end
             end
@@ -210,6 +289,14 @@ function M.owns(path)
     return owner(path) ~= nil
 end
 
+--- True when a source owns this path and there is no file at it (e.g. a
+-- catalog book not downloaded yet): nothing on the device to act on.
+function M.ownsWithoutFile(path)
+    if owner(path) == nil then return false end
+    local ok, util = pcall(require, "util")
+    return not (ok and type(util.fileExists) == "function" and util.fileExists(path))
+end
+
 --- Opens a source's book. Returns true when a source handled it.
 function M.open(path, ui)
     local id, source = owner(path)
@@ -224,8 +311,8 @@ end
 
 local answering = {} -- paths whose bookInfo is being built (re-entry guard)
 
---- CoverBrowser metadata from the source that has it, or nil.
-function M.bookInfo(path, get_cover)
+-- The sources' own metadata for a book, without edits.
+local function source_book_info(path, get_cover)
     if type(path) ~= "string" or answering[path] then return nil end
     load_builtins()
     answering[path] = true
@@ -239,6 +326,46 @@ function M.bookInfo(path, get_cover)
     end
     answering[path] = nil
     return info
+end
+
+--- CoverBrowser metadata from the source that has it, with the edits made
+-- in ZenOS over it, or nil.
+function M.bookInfo(path, get_cover)
+    local info = source_book_info(path, get_cover)
+    return info and with_edits(path, info, edited_books()) or nil
+end
+
+--- True when a source gives this book's metadata, so ZenOS's metadata
+-- editor keeps its edits in the sidecar (see metadataEdited) instead of
+-- writing them into the book file.
+function M.suppliesMetadata(path)
+    return source_book_info(path, false) ~= nil
+end
+
+--- Tells the sources' views that a book's custom metadata changed (written
+-- by ZenOS's editor, KOReader's Book information or another plugin): it is
+-- shown over the source's metadata from now on, or no more once cleared.
+-- Returns true when a source gives the book's metadata.
+function M.customMetadataChanged(path)
+    if not M.suppliesMetadata(path) then return false end
+    local settings = reader_settings()
+    if settings then
+        -- Drop books whose edits were since cleared.
+        local kept = {}
+        for book in pairs(edited_books()) do
+            if book ~= path and custom_metadata_file(book) then kept[book] = true end
+        end
+        if custom_metadata_file(path) then kept[path] = true end
+        settings:saveSetting(EDITED_KEY, kept)
+    end
+    M.changed({ path })
+    return true
+end
+
+--- Tells the sources' views that a book's metadata was edited in ZenOS's
+-- metadata editor (see customMetadataChanged).
+function M.metadataEdited(path)
+    return M.customMetadataChanged(path)
 end
 
 local STATUSES = { reading = true, complete = true, abandoned = true }
@@ -302,13 +429,8 @@ end
 -- in G_reader_settings so they stay hidden across restarts.
 local DISMISSED_KEY = "zen_book_sources_dismissed_history"
 
-local function settings()
-    local reader_settings = rawget(_G, "G_reader_settings")
-    return type(reader_settings) == "table" and reader_settings or nil
-end
-
 local function dismissed_history()
-    local reader_settings = settings()
+    local reader_settings = reader_settings()
     local dismissed = reader_settings and reader_settings:readSetting(DISMISSED_KEY)
     return type(dismissed) == "table" and dismissed or {}
 end
@@ -380,7 +502,7 @@ function M.dismissHistory(path)
     for _i, entry in ipairs(M.history()) do
         if entry.file == path then time = entry.time break end
     end
-    local reader_settings = settings()
+    local reader_settings = reader_settings()
     if not (time and reader_settings) then return false end
     local dismissed = dismissed_history()
     -- Drop entries whose book the sources no longer list, but only when

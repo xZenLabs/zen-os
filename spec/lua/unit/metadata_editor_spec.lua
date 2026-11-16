@@ -71,6 +71,7 @@ describe("metadata editor from Book Details", function()
                 return true
             end,
             isEpub = function(file) return file:sub(-5) == ".epub" end,
+            editsEmbedded = function(file) return file:sub(-5) == ".epub" end,
             canRestore = function() return true end,
             moveEpubBackup = function() return true, false end,
         }
@@ -166,7 +167,7 @@ describe("metadata editor from Book Details", function()
         assert.are.equal("/books/test.epub", shown.file)
         assert.are.equal("Test title", shown.metadata.title)
         assert.are.equal("Test series", shown.metadata.series_name)
-        assert.is_true(shown.is_epub)
+        assert.is_true(shown.edits_embedded)
         assert.is_true(shown.can_restore)
         assert.is_false(shown.has_custom_cover)
         assert.are.equal(hardcover_callback, shown.on_hardcover)
@@ -418,6 +419,7 @@ describe("metadata editor Hardcover controller", function()
                 return { title = "Local title", authors = { "Local author" }, isbn = "123" }
             end,
             isEpub = function() return false end,
+            editsEmbedded = function() return false end,
         })
         ZenSpec.replace("config/hardcover_token", {
             get = function() return hardcover_token end,
@@ -1299,7 +1301,7 @@ describe("metadata editor Hardcover merge", function()
             draft = Editor.normalizeDraft(metadata),
             original = Editor.normalizeDraft(metadata),
             manual_fields = {},
-            is_epub = true,
+            edits_embedded = true,
             edition_summary = "",
             _refresh = function(self) self.refreshes = (self.refreshes or 0) + 1 end,
         }

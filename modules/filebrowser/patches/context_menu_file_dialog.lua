@@ -1273,7 +1273,9 @@ return function(ctx, self_fc, item)
             end
         end
 
-        if is_file then
+        -- Not for a book source's book with no file here (e.g. a catalog
+        -- book): there is nothing to keep the edits with.
+        if is_file and not require("common/book_sources").ownsWithoutFile(file) then
             table.insert(edit_buttons, {
                 {
                     text = icons.edit .. "  " .. _("Edit metadata"),

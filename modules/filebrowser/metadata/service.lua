@@ -58,6 +58,30 @@ function M.isEpub(file)
     return type(file) == "string" and file:lower():sub(-5) == ".epub"
 end
 
+-- A book whose metadata a book source gives (common/book_sources, e.g. the
+-- Kindle library): its source's metadata would hide changes written into
+-- the file, and the source manages the file, so edits stay in the sidecar
+-- and the source's views show them over its metadata.
+local function book_sources()
+    local BookSources = package.loaded["common/book_sources"]
+    return type(BookSources) == "table" and BookSources or nil
+end
+
+local function source_supplied(file)
+    local BookSources = book_sources()
+    if not (BookSources and type(BookSources.suppliesMetadata) == "function") then
+        return false
+    end
+    local ok, supplied = pcall(BookSources.suppliesMetadata, file)
+    return ok and supplied == true
+end
+
+--- True when edits are written into the book file (an EPUB no book source
+-- gives the metadata of); otherwise they go to the sidecar.
+function M.editsEmbedded(file)
+    return M.isEpub(file) and not source_supplied(file)
+end
+
 function M.normalize(props)
     props = type(props) == "table" and props or {}
     local description = props.description
@@ -474,7 +498,7 @@ function M.load(file)
     if is_current_reader_file(file) then return nil, "open_book" end
 
     local original
-    if M.isEpub(file) then
+    if M.editsEmbedded(file) then
         local props, err = require("modules/filebrowser/metadata/epub").read(file)
         if not props then return nil, err or "invalid_epub" end
         local cache_ok, cache_err = refresh_hash_sidecar(file)
@@ -499,7 +523,7 @@ function M.validate(file, draft)
             return nil, "invalid_series_index"
         end
     end
-    if M.isEpub(file) then
+    if M.editsEmbedded(file) then
         if draft.title == "" then return nil, "missing_title" end
         if draft.language == "" then return nil, "missing_language" end
     end
@@ -588,7 +612,7 @@ function M.save(file, draft, options)
     if not valid then return nil, err end
     if is_current_reader_file(file) then return nil, "open_book" end
 
-    if M.isEpub(file) then
+    if M.editsEmbedded(file) then
         local Epub = require("modules/filebrowser/metadata/epub")
         local embedded, read_err = Epub.read(file)
         if not embedded then return nil, read_err end
@@ -624,6 +648,11 @@ function M.save(file, draft, options)
         if not prepared then return nil, update_or_err end
         local ok, write_err = commit_sidecar(update_or_err)
         if not ok then return nil, write_err or "sidecar_write_failed" end
+    end
+    -- Before invalidate(), whose check reads the metadata back.
+    local BookSources = book_sources()
+    if BookSources and type(BookSources.metadataEdited) == "function" then
+        pcall(BookSources.metadataEdited, file)
     end
     M.invalidate(file, serialized(valid))
     return true
