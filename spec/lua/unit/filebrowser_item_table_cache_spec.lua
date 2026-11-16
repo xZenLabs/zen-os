@@ -24,6 +24,7 @@ describe("file browser item-table cache", function()
     local flat_directories
     local source_readable
     local listing_keys
+    local calibre_files
 
     local module_names = {
         "common/cover_utils",
@@ -39,7 +40,7 @@ describe("file browser item-table cache", function()
         "common/paths", "modules/filebrowser/patches/library_font", "common/utils",
         "gettext", "apps/filemanager/filemanager", "luasettings",
         "config/preset_store", "ui/uimanager", "version",
-        "common/shared_state", "common/book_sources",
+        "common/shared_state", "common/book_sources", "common/book_status",
     }
 
     local function new_filechooser_class()
@@ -119,6 +120,7 @@ describe("file browser item-table cache", function()
         flat_directories = nil
         source_readable = {}
         listing_keys = {}
+        calibre_files = {}
         saved_modules = {}
         for _i, name in ipairs(module_names) do
             saved_modules[name] = package.loaded[name]

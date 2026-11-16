@@ -95,10 +95,13 @@ function M.buildItems()
     return items
 end
 
+-- The Battery button opens the battery page (level, curve, usage).
+-- buildItems() stays for the settings menu.
 function M.open(plugin)
-    return require("modules/settings/zen_settings_page").show(plugin, {
-        title = _("Battery"),
-        root_items = M.buildItems(),
+    return require("modules/settings/battery_page").show(plugin, {
+        close_all_callback = function()
+            pcall(function() require("modules/settings/zen_settings_page").closeActive() end)
+        end,
     })
 end
 
