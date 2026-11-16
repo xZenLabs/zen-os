@@ -55,7 +55,10 @@
 --       -- 0..1 } (either may be nil), or nil for books it knows nothing
 --       -- of. A finished book may add finished_at (Unix time or
 --       -- "YYYY-MM-DD"), counted in the books finished this month and
---       -- year. Read-only: ZenOS never writes it back, and a sidecar on this
+--       -- year. It may also give rating (1..5 stars, as KOReader rates),
+--       -- shown in book details when this device has no rating for the
+--       -- book; return a table with only rating for a book with no status.
+--       -- Read-only: ZenOS never writes it back, and a sidecar on this
 --       -- device wins. Asked for every book without a sidecar, so keep it
 --       -- cheap (return nil early for paths it doesn't own), and call
 --       -- statusChanged() when statuses change.
@@ -250,10 +253,16 @@ local function finished_date(value)
     end
 end
 
---- Reading status from the first source that knows the book:
--- { status, percent_finished, finished_at } (any may be nil), or nil.
--- finished_at is "YYYY-MM-DD".
-function M.status(path)
+-- rating as whole stars, 1..5.
+local function stars(value)
+    value = tonumber(value)
+    if not value then return nil end
+    value = math.floor(value + 0.5)
+    return value >= 1 and value <= 5 and value or nil
+end
+
+-- The status hook's answer from the first source that knows the book.
+local function known_status(path)
     if type(path) ~= "string" or path == "" then return nil end
     load_builtins()
     for _i, id in ipairs(order) do
@@ -264,13 +273,29 @@ function M.status(path)
                 local status = STATUSES[result.status] and result.status or nil
                 local percent = tonumber(result.percent_finished)
                 if percent then percent = math.max(0, math.min(1, percent)) end
-                if status or percent then
+                local rating = stars(result.rating)
+                if status or percent or rating then
                     return { status = status, percent_finished = percent,
-                        finished_at = finished_date(result.finished_at) }
+                        finished_at = finished_date(result.finished_at), rating = rating }
                 end
             end
         end
     end
+end
+
+--- Reading status from the first source that knows the book:
+-- { status, percent_finished, finished_at, rating } (any may be nil, but
+-- not both status and percent_finished), or nil. finished_at is
+-- "YYYY-MM-DD".
+function M.status(path)
+    local known = known_status(path)
+    if known and (known.status or known.percent_finished) then return known end
+end
+
+--- Star rating (1..5) from the first source that knows the book, or nil.
+function M.rating(path)
+    local known = known_status(path)
+    return known and known.rating
 end
 
 -- Source history entries the user removed: path -> the time removed. Kept

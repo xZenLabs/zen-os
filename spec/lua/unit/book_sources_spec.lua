@@ -279,6 +279,26 @@ describe("book sources", function()
         assert.is_true(#warnings >= 1)
     end)
 
+    it("gives a source's star rating, with or without a status", function()
+        BookSources.register("cloud", {
+            books = function() return {} end,
+            status = function(path)
+                if path == "/c/rated.epub" then return { rating = 3.6 } end
+                if path == "/c/read.epub" then return { status = "complete", rating = 5 } end
+                if path == "/c/odd.epub" then return { status = "reading", rating = 9 } end
+                if path == "/c/zero.epub" then return { rating = 0 } end
+            end,
+        })
+
+        assert.are.equal(4, BookSources.rating("/c/rated.epub"))
+        assert.is_nil(BookSources.status("/c/rated.epub"))
+        assert.are.equal(5, BookSources.rating("/c/read.epub"))
+        assert.are.same({ status = "complete", rating = 5 }, BookSources.status("/c/read.epub"))
+        assert.is_nil(BookSources.rating("/c/odd.epub"))
+        assert.is_nil(BookSources.rating("/c/zero.epub"))
+        assert.is_nil(BookSources.rating("/c/unknown.epub"))
+    end)
+
     describe("history", function()
         local saved
 
