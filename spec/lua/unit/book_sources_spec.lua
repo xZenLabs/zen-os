@@ -279,6 +279,92 @@ describe("book sources", function()
         assert.is_true(#warnings >= 1)
     end)
 
+    describe("history", function()
+        local saved
+
+        before_each(function()
+            saved = G_reader_settings:readSetting("zen_book_sources_dismissed_history")
+            G_reader_settings:delSetting("zen_book_sources_dismissed_history")
+        end)
+
+        after_each(function()
+            G_reader_settings:saveSetting("zen_book_sources_dismissed_history", saved)
+        end)
+
+        local function register_cloud(entries)
+            BookSources.register("broken", {
+                books = function() return {} end,
+                history = function() error("offline") end,
+            })
+            BookSources.register("cloud", {
+                books = function() return {} end,
+                history = function() return entries end,
+            })
+            BookSources.register("other", {
+                books = function() return {} end,
+                history = function() return { { file = "/c/b.epub", time = 999 } } end,
+            })
+        end
+
+        it("lists the sources' history newest first, one entry per book", function()
+            register_cloud({
+                { file = "/c/a.epub", time = 100 },
+                { file = "/c/b.epub", time = "300" },
+                { file = "/c/bad.epub" }, { time = 5 }, "junk",
+            })
+
+            assert.are.same({
+                { file = "/c/b.epub", time = 300 },
+                { file = "/c/a.epub", time = 100 },
+            }, BookSources.history())
+        end)
+
+        it("merges it into this device's history, which keeps its own entries", function()
+            local hist = { { file = "/local/new.epub", time = 400 },
+                { file = "/c/a.epub", time = 250 }, { file = "/local/old.epub", time = 50 } }
+            assert.are.equal(hist, BookSources.mergeHistory(hist))
+
+            register_cloud({ { file = "/c/a.epub", time = 500 }, { file = "/c/b.epub", time = 300 },
+                { file = "/c/c.epub", time = 10 } })
+            local files = {}
+            for _i, entry in ipairs(BookSources.mergeHistory(hist)) do
+                files[#files + 1] = entry.file .. "@" .. entry.time
+            end
+            assert.are.same({ "/local/new.epub@400", "/c/b.epub@300", "/c/a.epub@250",
+                "/local/old.epub@50", "/c/c.epub@10" }, files)
+            assert.are.equal(3, #BookSources.mergeHistory(nil))
+        end)
+
+        it("hides a removed entry until the source gives a later time", function()
+            local entries = { { file = "/c/a.epub", time = 100 }, { file = "/c/gone.epub", time = 90 } }
+            register_cloud(entries)
+            assert.is_false(BookSources.dismissHistory("/c/unknown.epub"))
+            assert.is_true(BookSources.dismissHistory("/c/gone.epub"))
+            local statuses = BookSources.statusRevision()
+            assert.is_true(BookSources.dismissHistory("/c/a.epub"))
+            assert.is_true(BookSources.statusRevision() > statuses)
+            assert.are.same({ { file = "/c/b.epub", time = 999 } }, BookSources.history())
+
+            -- While a source's history fails, no dismissal is dropped: the
+            -- failed source may still list the book.
+            table.remove(entries, 2)
+            assert.is_true(BookSources.dismissHistory("/c/b.epub"))
+            assert.are.same({ ["/c/a.epub"] = 100, ["/c/b.epub"] = 999, ["/c/gone.epub"] = 90 },
+                G_reader_settings:readSetting("zen_book_sources_dismissed_history"))
+
+            -- Once every source lists its history, dismissals of books no
+            -- source lists any more are dropped.
+            BookSources.unregister("broken")
+            entries[#entries + 1] = { file = "/c/d.epub", time = 200 }
+            assert.is_true(BookSources.dismissHistory("/c/d.epub"))
+            assert.are.same({ ["/c/a.epub"] = 100, ["/c/b.epub"] = 999, ["/c/d.epub"] = 200 },
+                G_reader_settings:readSetting("zen_book_sources_dismissed_history"))
+
+            entries[1].time = 150
+            assert.are.same({ { file = "/c/a.epub", time = 150 } }, BookSources.history())
+        end)
+    end)
+
     it("joins the listing keys of sources that show books in a folder", function()
         assert.are.equal("", BookSources.listingKey("/books"))
         BookSources.register("cloud", {

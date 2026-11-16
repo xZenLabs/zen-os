@@ -1148,9 +1148,10 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             pcall(ReadHistory.reload, ReadHistory, false)
         end
 
-        local hist = ReadHistory.hist or {}
         local recent = not exclude_rakuyomi
-            and OptionalProvider.call(RAKUYOMI_PROVIDER, "getRecentSeries", hist)
+            and OptionalProvider.call(RAKUYOMI_PROVIDER, "getRecentSeries", ReadHistory.hist or {})
+        -- Books read elsewhere, from book sources (Kindle, a plugin's catalog).
+        local hist = BookSources.mergeHistory(ReadHistory.hist)
         recent = type(recent) == "table" and recent or {}
         dataset.rakuyomi_recent = {}
         for _i, series in ipairs(recent) do dataset.rakuyomi_recent[series.file] = series end

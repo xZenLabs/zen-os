@@ -60,12 +60,21 @@
 --       -- cheap (return nil early for paths it doesn't own), and call
 --       -- statusChanged() when statuses change.
 --       status = function(path) return { status = "complete" } end,
+--       -- Optional: books read elsewhere (e.g. on another device), as
+--       -- { { file = path, time = Unix time last read }, ... }. They join
+--       -- this device's reading history on Home and in the book switcher.
+--       -- A book in this device's history keeps its time from there.
+--       -- Books without a file show only when owns() claims them.
+--       -- Asked whenever those views rebuild, so return a cached list, and
+--       -- call statusChanged() when it changes. "Remove from history"
+--       -- hides an entry until the source gives it a later time.
+--       history = function() return { ... } end,
 --   })
 --
 -- Call changed() when a source's books change, so cached groupings are
 -- rebuilt; changed(paths) also drops ZenOS's cached covers and metadata
 -- for those books. Call statusChanged() when only their reading statuses
--- change: statuses are read again, groupings are kept. A source that errors is skipped; the views keep working.
+-- or history change: they are read again, groupings are kept. A source that errors is skipped; the views keep working.
 -- Books whose path db_bookinfo already lists are not added again.
 
 local logger = require("common/zen_logger").new("book_sources")
@@ -262,6 +271,116 @@ function M.status(path)
             end
         end
     end
+end
+
+-- Source history entries the user removed: path -> the time removed. Kept
+-- in G_reader_settings so they stay hidden across restarts.
+local DISMISSED_KEY = "zen_book_sources_dismissed_history"
+
+local function settings()
+    local reader_settings = rawget(_G, "G_reader_settings")
+    return type(reader_settings) == "table" and reader_settings or nil
+end
+
+local function dismissed_history()
+    local reader_settings = settings()
+    local dismissed = reader_settings and reader_settings:readSetting(DISMISSED_KEY)
+    return type(dismissed) == "table" and dismissed or {}
+end
+
+--- The sources' history: { { file, time }, ... }, newest first, one entry
+-- per book (from the first source that has it), without removed entries.
+function M.history()
+    load_builtins()
+    local dismissed = dismissed_history()
+    local out, seen = {}, {}
+    for _i, id in ipairs(order) do
+        local source = sources[id]
+        if type(source.history) == "function" then
+            local entries = call(id, source, "history")
+            if type(entries) == "table" then
+                for _j, entry in ipairs(entries) do
+                    local file = type(entry) == "table" and entry.file
+                    local time = type(entry) == "table" and tonumber(entry.time)
+                    if type(file) == "string" and file ~= "" and time and not seen[file] then
+                        seen[file] = true
+                        local removed = tonumber(dismissed[file])
+                        if not (removed and time <= removed) then
+                            out[#out + 1] = { file = file, time = time }
+                        end
+                    end
+                end
+            end
+        end
+    end
+    table.sort(out, function(a, b)
+        if a.time ~= b.time then return a.time > b.time end
+        return a.file < b.file
+    end)
+    return out
+end
+
+--- ReadHistory.hist with the sources' history merged in by time (newest
+-- first). Books already in hist keep their entry there. Returns hist
+-- itself when the sources add nothing.
+function M.mergeHistory(hist)
+    hist = type(hist) == "table" and hist or {}
+    local extra = M.history()
+    if #extra == 0 then return hist end
+    local local_files = {}
+    for _i, entry in ipairs(hist) do
+        if type(entry) == "table" and entry.file then local_files[entry.file] = true end
+    end
+    local out, next_extra = {}, 1
+    local function add_extra_until(time)
+        while extra[next_extra] and (time == nil or extra[next_extra].time > time) do
+            local entry = extra[next_extra]
+            if not local_files[entry.file] then out[#out + 1] = entry end
+            next_extra = next_extra + 1
+        end
+    end
+    for _i, entry in ipairs(hist) do
+        add_extra_until(type(entry) == "table" and tonumber(entry.time) or 0)
+        out[#out + 1] = entry
+    end
+    add_extra_until(nil)
+    return out
+end
+
+--- Hides a book's source history entry (its "Remove from history") until
+-- a source gives it a later time. Returns true when there was one.
+function M.dismissHistory(path)
+    if type(path) ~= "string" or path == "" then return false end
+    local time
+    for _i, entry in ipairs(M.history()) do
+        if entry.file == path then time = entry.time break end
+    end
+    local reader_settings = settings()
+    if not (time and reader_settings) then return false end
+    local dismissed = dismissed_history()
+    -- Drop entries whose book the sources no longer list, but only when
+    -- every source listed its history (a failed one may still have them).
+    local listed, complete = {}, true
+    for _i, id in ipairs(order) do
+        if type(sources[id].history) == "function" then
+            local entries = call(id, sources[id], "history")
+            if type(entries) == "table" then
+                for _j, entry in ipairs(entries) do
+                    if type(entry) == "table" and entry.file then listed[entry.file] = true end
+                end
+            else
+                complete = false
+            end
+        end
+    end
+    local kept = {}
+    for file, removed in pairs(dismissed) do
+        if listed[file] or not complete then kept[file] = removed end
+    end
+    kept[path] = time
+    reader_settings:saveSetting(DISMISSED_KEY, kept)
+    M.statusChanged()
+    return true
 end
 
 -- getDocProps() returns these bookinfo fields (CoverBrowser columns 13-20).

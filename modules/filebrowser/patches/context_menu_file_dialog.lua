@@ -1930,6 +1930,8 @@ return function(ctx, self_fc, item)
                             local ReadHistory = require("readhistory")
                             local history_path = item._zen_history_path or file
                             ReadHistory:removeItemByPath(history_path)
+                            -- Also hide it if a book source (read elsewhere) lists it.
+                            require("common/book_sources").dismissHistory(history_path)
                             local plug = zen_plugin or rawget(_G, "__ZEN_UI_PLUGIN")
                             local home = plug and SharedState.get(plug, "home")
                             if home and home.rebuildActive then
