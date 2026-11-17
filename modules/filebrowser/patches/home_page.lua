@@ -1179,8 +1179,10 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             if #dataset.history >= HOME_STRIP_MAX_BOOKS then break end
             local in_library = path ~= nil and LibraryPaths.isInHomeDir(path)
             local is_file = path ~= nil and lfs.attributes(path, "mode") == "file"
-            -- Books from a book source (Kindle, a plugin's catalog) have no file.
-            local is_source = path ~= nil and not is_file and BookSources.owns(path)
+            -- Books from a book source (Kindle, a plugin's catalog) may have no
+            -- file, or one outside the library (a converted Kindle book's cache).
+            local is_source = path ~= nil and not (is_file and in_library)
+                and BookSources.owns(path)
             local is_rakuyomi = path ~= nil and not is_source
                 and (#recent > 0 or exclude_rakuyomi or not in_library)
                 and is_rakuyomi_history_path(path)
