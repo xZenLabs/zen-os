@@ -311,7 +311,6 @@ function M.showContextMenu(menu, item, after_change)
 end
 
 local answering = {} -- paths whose bookInfo is being built (re-entry guard)
-local supplied = {}  -- paths a source gave metadata for this session
 
 -- The sources' own metadata for a book, without edits. The second result
 -- is true when the lookup couldn't be completed (a source's bookInfo
@@ -337,7 +336,6 @@ local function source_book_info(path, get_cover)
         end
     end
     answering[path] = nil
-    if info then supplied[path] = true end
     return info, failed == true and not info
 end
 
@@ -376,14 +374,12 @@ end
 --- True when a source gives this book's metadata, so ZenOS's metadata
 -- editor keeps its edits in the sidecar (see metadataEdited) instead of
 -- writing them into the book file.
--- When the lookup can't be completed, a book known to be a source's (its
--- metadata was given earlier, it has tracked edits, or a source owns it)
--- still counts, so a passing failure never sends edits into its file.
+-- When the lookup can't be completed (a source's bookInfo failed), any book
+-- counts, so a passing failure never sends edits into a source's file; the
+-- sidecar is the safe place for them either way.
 function M.suppliesMetadata(path)
     local info, failed = source_book_info(path, false)
-    if info then return true end
-    if not failed then return false end
-    return supplied[path] == true or edited_books()[path] == true or M.owns(path)
+    return info ~= nil or failed == true
 end
 
 --- Tells the sources' views that a book's custom metadata changed (written
