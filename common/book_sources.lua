@@ -350,12 +350,11 @@ function M.customMetadataChanged(path)
     if not M.suppliesMetadata(path) then return false end
     local settings = reader_settings()
     if settings then
-        -- Drop books whose edits were since cleared.
+        -- Only this book's entry changes: others stay even when their
+        -- sidecar can't be found right now (with_edits() copes with that).
         local kept = {}
-        for book in pairs(edited_books()) do
-            if book ~= path and custom_metadata_file(book) then kept[book] = true end
-        end
-        if custom_metadata_file(path) then kept[path] = true end
+        for book in pairs(edited_books()) do kept[book] = true end
+        kept[path] = custom_metadata_file(path) and true or nil
         settings:saveSetting(EDITED_KEY, kept)
     end
     M.changed({ path })
