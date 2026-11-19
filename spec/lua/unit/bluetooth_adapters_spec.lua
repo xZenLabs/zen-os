@@ -8,7 +8,7 @@ describe("Bluetooth device adapters", function()
             "modules/menu/bluetooth_adapters/kindle", "modules/menu/bluetooth_adapters/pocketbook",
             "device", "liblipclua", "modules/menu/bluetooth/bluetooth",
             "modules/menu/bluetooth/kobo_bluetooth", "modules/menu/bluetooth_switcher",
-            "modules/menu/bluetooth/bluez",
+            "modules/menu/bluetooth/bluez", "common/hid_keys",
         }) do originals[name] = package.loaded[name] or false end
         commands, scheduled, unscheduled = {}, {}, {}
         ZenSpec.replace("ui/uimanager", {
@@ -317,6 +317,44 @@ describe("Bluetooth device adapters", function()
         assert.are.equal("Remote", devices[1].name)
         assert.is_true(devices[1].hid)
         assert.is_true(devices[1].le)
+    end)
+
+    it("confirms a Kindle HID connect from its input node and fails unconfirmed", function()
+        local address, linked, rescans = "AA:BB:CC:DD:EE:FF", false, 0
+        ZenSpec.replace("common/hid_keys", {
+            rescan = function() rescans = rescans + 1 end,
+            connected = function(candidate) return linked and candidate == address end,
+        })
+        ZenSpec.replace("libopenlipclua", { open_no_name = function()
+            return {
+                new_hasharray = function() return { destroy = function() end } end,
+                access_hash_property = function(_self, _service, property)
+                    if property ~= "ListPaired" then return nil end
+                    return {
+                        to_table = function() return {{ Address = address }} end,
+                        destroy = function() end,
+                    }
+                end,
+                set_string_property = function(_self, _service, property)
+                    commands[#commands + 1] = property
+                end,
+                close = function() end,
+            }
+        end })
+        local adapter = require("modules/menu/bluetooth_adapters/kindle").new()
+        local results = {}
+        local function done(ok) results[#results + 1] = ok end
+        adapter.connect({ address = address, hid = true }, done)
+        assert.are.same({}, results) -- btfd lists no link and no node is open yet
+        linked = true
+        scheduled[1].callback()
+        assert.are.same({ true }, results)
+        assert.are.equal(2, rescans)
+        assert.are.same({}, commands) -- no A2DP Connect for HID
+        linked = false
+        adapter.connect({ address = address, hid = true }, done)
+        for index = 2, 10 do scheduled[index].callback() end
+        assert.are.same({ true, false }, results)
     end)
 
     it("reports unsupported Kindle hash properties", function()

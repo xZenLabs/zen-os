@@ -400,7 +400,12 @@ function M.new()
     function adapter.connect(device, done)
         -- btfd Connect is A2DP-only; HID devices connect themselves once bonded and awake.
         if device.hid then
-            Common.verify(adapter, device.address, "connected", true, done)
+            -- btfd only tracks audio links for sure: an open input node also proves a HID one.
+            local Keys = require("common/hid_keys")
+            Common.verify(adapter, device.address, "connected", true, done, function()
+                Keys.rescan() -- a remote that just linked may not be open yet
+                return Keys.connected(device.address)
+            end)
         else
             action("Connect", device, "connected", true, done)
         end
