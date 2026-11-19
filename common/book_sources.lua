@@ -187,11 +187,12 @@ end
 
 -- ---- metadata edits ---------------------------------------------------
 -- Sources' books that have custom metadata (path -> true), kept in
--- G_reader_settings, from ZenOS's editor and the InvalidateMetadataCache
+-- G_reader_settings, from ZenOS's editor, the InvalidateMetadataCache
 -- events that announce custom metadata written elsewhere (see
--- customMetadataChanged). Only these have their sidecar's custom metadata
--- looked up, so listing a source's whole library doesn't stat sidecars for
--- every book in it.
+-- customMetadataChanged), and sidecars found the first time a book's
+-- cover is asked for in a session (see discover_edits). Only these have
+-- their sidecar's custom metadata looked up in books(), so listing a
+-- source's whole library doesn't stat sidecars for every book in it.
 local EDITED_KEY = "zen_book_sources_edited"
 -- Fields an edit may override (the bookinfo fields sources give).
 local EDITABLE = { "title", "authors", "series", "series_index", "language",
@@ -328,11 +329,36 @@ local function source_book_info(path, get_cover)
     return info
 end
 
+local discovered = {} -- paths whose sidecar was looked for this session
+
+-- Adds a source's book to EDITED_KEY when it has custom metadata that was
+-- never announced (written before this was tracked, or without the event),
+-- looking once per book per session. Only asked when the book's cover is
+-- (the book is being drawn), so metadata-only passes over a listing (sort,
+-- series grouping, search) don't stat each book's sidecar. Returns the
+-- edited list.
+local function discover_edits(path)
+    local edited = edited_books()
+    if edited[path] or discovered[path] then return edited end
+    discovered[path] = true
+    local settings = reader_settings()
+    if settings and custom_metadata_file(path) then
+        local kept = {}
+        for book in pairs(edited) do kept[book] = true end
+        kept[path] = true
+        settings:saveSetting(EDITED_KEY, kept)
+        M.changed() -- rebuild groupings with the book's edits
+        return kept
+    end
+    return edited
+end
+
 --- CoverBrowser metadata from the source that has it, with the edits made
 -- in ZenOS over it, or nil.
 function M.bookInfo(path, get_cover)
     local info = source_book_info(path, get_cover)
-    return info and with_edits(path, info, edited_books()) or nil
+    if not info then return nil end
+    return with_edits(path, info, get_cover and discover_edits(path) or edited_books())
 end
 
 --- True when a source gives this book's metadata, so ZenOS's metadata

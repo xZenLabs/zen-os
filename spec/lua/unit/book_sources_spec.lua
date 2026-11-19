@@ -432,8 +432,9 @@ describe("book sources", function()
         it("shows edits made in ZenOS over a source's metadata", function()
             assert.is_true(BookSources.suppliesMetadata("/c/book.epub"))
             assert.is_false(BookSources.suppliesMetadata("/c/other.epub"))
-            -- Custom metadata isn't looked up until it's announced (an edit
-            -- in ZenOS, or InvalidateMetadataCache from KOReader or a plugin).
+            -- Looked up once per session; later edits wait to be announced
+            -- (an edit in ZenOS, or InvalidateMetadataCache).
+            assert.are.equal("Source", BookSources.bookInfo("/c/book.epub", true).title)
             custom["/c/book.epub"] = { title = "Edited", publisher = "P" }
             assert.are.equal("Source", BookSources.bookInfo("/c/book.epub").title)
 
@@ -464,6 +465,7 @@ describe("book sources", function()
         it("shows custom metadata written elsewhere once it's announced", function()
             -- Written by KOReader's Book information or a sync plugin, which
             -- send InvalidateMetadataCache for the book.
+            assert.are.equal("Source", BookSources.bookInfo("/c/book.epub", true).title)
             custom["/c/book.epub"] = { title = "Synced" }
             assert.are.equal("Source", BookSources.bookInfo("/c/book.epub").title)
             local revision = BookSources.revision()
@@ -478,6 +480,26 @@ describe("book sources", function()
             assert.are.equal(revision, BookSources.revision())
             assert.are.same({ ["/c/book.epub"] = true },
                 G_reader_settings:readSetting("zen_book_sources_edited"))
+        end)
+
+        it("finds custom metadata that was never announced", function()
+            -- Written before ZenOS tracked it: found the first time the
+            -- book's cover is asked for, and groupings are rebuilt.
+            custom["/c/book.epub"] = { title = "Old edit" }
+            assert.are.equal("Source", BookSources.books()[1].info.title)
+            -- Metadata-only lookups (sort, grouping, search) don't look.
+            assert.are.equal("Source", BookSources.bookInfo("/c/book.epub", false).title)
+            assert.are.same({}, G_reader_settings:readSetting("zen_book_sources_edited") or {})
+            local revision = BookSources.revision()
+            assert.are.equal("Old edit", BookSources.bookInfo("/c/book.epub", true).title)
+            assert.is_true(BookSources.revision() > revision)
+            assert.are.equal("Old edit", BookSources.books()[1].info.title)
+            assert.are.same({ ["/c/book.epub"] = true },
+                G_reader_settings:readSetting("zen_book_sources_edited"))
+            -- Not looked for again this session.
+            revision = BookSources.revision()
+            BookSources.bookInfo("/c/book.epub", true)
+            assert.are.equal(revision, BookSources.revision())
         end)
     end)
 
