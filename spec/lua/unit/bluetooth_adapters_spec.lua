@@ -294,6 +294,31 @@ describe("Bluetooth device adapters", function()
         assert.is_false(devices[1].connected)
     end)
 
+    it("keeps captured HID metadata for devices btfd also discovered", function()
+        local address = "AA:BB:CC:DD:EE:FF"
+        ZenSpec.replace("libopenlipclua", { open_no_name = function()
+            return {
+                new_hasharray = function() return { destroy = function() end } end,
+                access_hash_property = function(_self, _service, property)
+                    if property ~= "ListDiscovered" then return nil end
+                    return {
+                        to_table = function() return {{ Address = address, Name = "Remote" }} end,
+                        destroy = function() end,
+                    }
+                end,
+                close = function() end,
+            }
+        end })
+        local adapter = require("modules/menu/bluetooth_adapters/kindle").new()
+        adapter.hid_found = {{ address = address, hid = true, le = true }}
+        local devices, err = adapter.getDeviceList()
+        assert.is_nil(err)
+        assert.are.equal(1, #devices)
+        assert.are.equal("Remote", devices[1].name)
+        assert.is_true(devices[1].hid)
+        assert.is_true(devices[1].le)
+    end)
+
     it("reports unsupported Kindle hash properties", function()
         ZenSpec.replace("libopenlipclua", {})
         local adapter = require("modules/menu/bluetooth_adapters/kindle").new()

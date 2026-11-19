@@ -294,6 +294,8 @@ function M.new()
                         if item.rssi then existing.rssi = item.rssi end
                         if item.paired ~= nil then existing.paired = item.paired end
                         if item.connected ~= nil then existing.connected = item.connected end
+                        if existing.hid == nil then existing.hid = item.hid end
+                        if existing.le == nil then existing.le = item.le end
                         if field and item[field] == nil then existing[field] = true end
                     else
                         malformed = true
