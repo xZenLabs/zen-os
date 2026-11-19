@@ -477,6 +477,30 @@ describe("TBR path inventory", function()
         assert.same({ kindle_path }, Index.getAll({ include_new = false }))
     end)
 
+    it("keeps explicit books a book source owns, without a file", function()
+        local cloud_path = "/books/cloud-1.epub"
+        local local_path = "/books/gone.epub"
+        attrs[cloud_path] = { mode = "file" }
+        attrs[local_path] = { mode = "file" }
+        local real_sources = package.loaded["common/book_sources"]
+        finally(function()
+            package.loaded["common/book_sources"] = real_sources
+            package.loaded["common/tbr_index"] = nil -- holds the stub
+        end)
+        ZenSpec.replace("common/book_sources", {
+            owns = function(path) return path == cloud_path end,
+        })
+        local Index = require("common/tbr_index")
+        -- Added while their files existed (a source's books arrive through
+        -- collections sync), then the files went away.
+        assert.is_true(Index.setExplicit(cloud_path, true))
+        assert.is_true(Index.setExplicit(local_path, true))
+        attrs[cloud_path] = nil
+        attrs[local_path] = nil
+
+        assert.same({ cloud_path }, Index.getAll({ include_new = false }))
+    end)
+
     it("rejects missing TBR files and still removes stale membership", function()
         local path = "/books/manga.cbz"
         add_book(path, "reading", 1)

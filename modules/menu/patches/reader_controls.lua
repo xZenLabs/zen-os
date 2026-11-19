@@ -66,7 +66,9 @@ return function(plugin)
         launch(tm, function()
             if id == "toc" then
                 UIManager:show(require("modules/reader/zen_toc_widget"):new{
-                    ui = ui, show_back = false, on_goto = function(page)
+                    ui = ui, show_back = false,
+                    show_page_counts = require("modules/reader/toc_tree").showsCounts(plugin),
+                    on_goto = function(page)
                         if ui.link then ui.link:addCurrentLocationToStack() end
                         ui:handleEvent(require("ui/event"):new("GotoPage", page))
                     end,
@@ -312,12 +314,13 @@ return function(plugin)
 
     local GestureRange = require("ui/gesturerange")
     -- Tap handling for passive widgets (theme swatches) that sit beside their control.
+    -- Named event: a plain "Tap" would also answer parents' propagated Tap events anywhere on screen.
     local TapTarget = InputContainer:extend{}
     function TapTarget:init()
         self.dimen = self[1]:getSize()
-        self.ges_events.Tap = { GestureRange:new{ ges = "tap", range = self.dimen } }
+        self.ges_events.TapSwatch = { GestureRange:new{ ges = "tap", range = self.dimen } }
     end
-    function TapTarget:onTap() self.callback(); return true end
+    function TapTarget:onTapSwatch() self.callback(); return true end
 
     local Dots = Widget:extend{}
     function Dots:paintTo(bb, x, y)

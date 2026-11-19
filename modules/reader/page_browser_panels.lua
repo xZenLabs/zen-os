@@ -9,10 +9,15 @@ local _ = require("gettext")
 
 local M = {}
 
-local function toc_items(pbw)
+-- state = { entries (full tree), expanded, show_counts }; folding persists across rebuilds.
+local function toc_items(pbw, state)
     local ZenTocWidget = require("modules/reader/zen_toc_widget")
-    local entries = ZenTocWidget.getEntries(pbw.ui)
+    local TocTree = require("modules/reader/toc_tree")
     local page = ZenTocWidget.getCurrentPage(pbw.ui)
+    state.entries = state.entries or ZenTocWidget.getEntries(pbw.ui)
+    state.expanded = state.expanded
+        or TocTree.initialFolding(state.entries[ZenTocWidget.getCurrentIndex(state.entries, page) or 0])
+    local entries = TocTree.visible(state.entries, state.expanded)
     local current = ZenTocWidget.getCurrentIndex(entries, page)
     local items = {}
     for i, entry in ipairs(entries) do
@@ -23,6 +28,8 @@ local function toc_items(pbw)
             entry = entry,
             -- Not `state`: MenuItem renders entry.state as a widget.
             toc_state = ZenTocWidget.getRowState(i, current),
+            fold = TocTree.foldState(entry, state.expanded, state.entries.nested),
+            count = TocTree.countText(entry, state.show_counts),
         }
     end
     -- Menu opens on the page holding item_table.current.
@@ -38,7 +45,25 @@ function TocRow:init()
     self.ges_events = { TapSelect = { GestureRange:new{ ges = "tap", range = self.dimen } } }
 end
 
-function TocRow:onTapSelect() return self.menu:onMenuSelect(self.item) end
+-- Left of the title on a parent row folds it; anywhere else navigates.
+function TocRow:onTapSelect(_arg, ges)
+    local ZenTocWidget = require("modules/reader/zen_toc_widget")
+    if self.item.entry.has_children and ges and ges.pos
+            and ges.pos.x < self.dimen.x + ZenTocWidget.foldHitWidth(self.style, self.row) then
+        self.menu:_zenToggleFold(self.item, self.idx)
+        return true
+    end
+    return self.menu:onMenuSelect(self.item)
+end
+
+-- D-pad Right unfolds, Left folds (tree-view idiom shared with KOReader's TOC).
+function TocRow:onHorizontalKey(dx)
+    if self.item.entry.has_children and (self.row.fold == "expanded") == (dx < 0) then
+        self.menu:_zenToggleFold(self.item, self.idx)
+    end
+    return true
+end
+
 function TocRow:onFocus() self.focused = true; return true end
 function TocRow:onUnfocus() self.focused = nil; return true end
 
@@ -74,8 +99,9 @@ function M.build(pbw, kind, width, height, on_navigate)
     if kind ~= "toc" then
         return require("modules/reader/annotation_viewer").build(pbw, kind, width, height)
     end
-    local items = toc_items(pbw)
     local plugin = pbw._zen_plugin
+    local state = { show_counts = require("modules/reader/toc_tree").showsCounts(plugin) }
+    local items = toc_items(pbw, state)
     local config = plugin and plugin.config and plugin.config.page_browser
     local font_size = config and tonumber(config.toc_font_size)
     if not font_size or font_size < 10 or font_size > 40 then
@@ -97,6 +123,14 @@ function M.build(pbw, kind, width, height, on_navigate)
         self.page_items = require("modules/reader/zen_toc_widget").paginate(#self.item_table,
             self.available_height, function(i) return self.item_table[i].height end)
     end
+    -- Rebuilds the rows after folding item (visible index idx); rows above it are unchanged, so its page is kept.
+    function TocMenu:_zenToggleFold(item, idx)
+        require("modules/reader/toc_tree").toggle(state.entries, item.entry, state.expanded)
+        self.item_table = toc_items(pbw, state)
+        self:setupItemHeights()
+        self.page = self:getPageNumber(idx)
+        self:updateItems(1)
+    end
     function TocMenu:updateItems(...)
         Menu.updateItems(self, ...)
         for index, old in ipairs(self.item_group) do
@@ -107,6 +141,7 @@ function M.build(pbw, kind, width, height, on_navigate)
                 row = {
                     entry = item.entry, state = item.toc_state, progress = item.progress,
                     separator = index > 1 and item.toc_state ~= "current" and prev.toc_state ~= "current",
+                    fold = item.fold, count = item.count,
                 },
             }
             self.item_group[index] = row

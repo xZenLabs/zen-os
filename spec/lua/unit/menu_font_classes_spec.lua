@@ -4,7 +4,7 @@ describe("menu font item classes", function()
         "common/zen_logger", "ui/font", "modules/filebrowser/patches/library_font",
         "ui/widget/touchmenu", "ui/widget/menu", "ui/widget/button", "ui/widget/confirmbox",
         "ui/widget/multiconfirmbox", "ui/widget/infomessage", "ui/widget/inputdialog",
-        "ui/widget/buttondialog", "modules/global/patches/menu_font",
+        "ui/widget/buttondialog", "modules/global/patches/menu_font", "libs/libkoreader-lfs",
     }
 
     before_each(function()
@@ -12,9 +12,16 @@ describe("menu font item classes", function()
         for _i, name in ipairs(names) do saved[name] = package.loaded[name] or false end
         ZenSpec.replace("common/zen_logger", { new = function() return { dbg = function() end } end })
         ZenSpec.replace("ui/font", {
-            fontmap = { cfont = "NotoSans-Regular.ttf", ffont = "NotoSans-Bold.ttf" },
+            fontmap = {
+                cfont = "NotoSans-Regular.ttf", ffont = "NotoSans-Regular.ttf",
+                tfont = "NotoSans-Bold.ttf", smallinfofontbold = "NotoSans-Bold.ttf",
+            },
+            regular_font_variant = {},
             getFace = function(_self, name, size) return { name = name, orig_size = size } end,
         })
+        ZenSpec.replace("libs/libkoreader-lfs", { attributes = function() end })
+        ZenSpec.replace("ui/widget/touchmenu", { updateItems = function() end })
+        ZenSpec.replace("ui/widget/menu", { updateItems = function() end })
         ZenSpec.replace("modules/filebrowser/patches/library_font", {
             getFontName = function() return "Custom-Regular.ttf" end,
         })
@@ -45,6 +52,27 @@ describe("menu font item classes", function()
         assert.are.same({ name = "smallinfofont", orig_size = 20 }, TouchMenuItem.face)
         assert.are.equal("Custom-Regular.ttf", MenuItem.font)
         assert.are.equal("Custom-Regular.ttf", MenuItem.infont)
+    end)
+
+    it("maps bold faces to the font's bold file", function()
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function(path) return path == "Custom-Bold.ttf" and "file" or nil end,
+        })
+        require("modules/global/patches/menu_font")()
+        local Font = package.loaded["ui/font"]
+        assert.are.same({
+            cfont = "Custom-Regular.ttf", ffont = "Custom-Regular.ttf",
+            tfont = "Custom-Bold.ttf", smallinfofontbold = "Custom-Bold.ttf",
+        }, Font.fontmap)
+        assert.are.equal("Custom-Regular.ttf", Font.regular_font_variant["Custom-Bold.ttf"])
+    end)
+
+    it("keeps the stock bold faces when the font has no bold file", function()
+        require("modules/global/patches/menu_font")()
+        local Font = package.loaded["ui/font"]
+        assert.are.equal("Custom-Regular.ttf", Font.fontmap.cfont)
+        assert.are.equal("NotoSans-Bold.ttf", Font.fontmap.smallinfofontbold)
+        assert.is_nil(Font.regular_font_variant["Custom-Bold.ttf"])
     end)
 
     it("falls back to a one-shot class patch when the item class is unreachable", function()

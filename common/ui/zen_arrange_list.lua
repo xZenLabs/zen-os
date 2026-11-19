@@ -364,23 +364,10 @@ local function rebuild_icon_row(row)
     local controls_gap = right_w > 0 and Size.padding.default or 0
     local text_max_width = math.max(1,
         content_w - icon_w - icon_gap - right_w - controls_gap)
-    local icon_face = IconItem.getSettingsIconFace(face)
     local row_items = {
         align = "center",
     }
-    local icon_state
-    if not arrange_enabled and item.icon_file then
-        icon_state = CenterContainer:new{
-            dimen = Geom:new{ w = icon_w, h = row.height },
-            IconWidget:new{
-                file = item.icon_file,
-                width = icon_face.size,
-                height = icon_face.size,
-            },
-        }
-    elseif not arrange_enabled and item.icon_glyph then
-        icon_state = IconItem.makeState(item.icon_glyph, icon_w, row.height, icon_face)
-    end
+    local icon_state = not arrange_enabled and IconItem.makeSettingsIcon(item, row.height, face)
     table.insert(row_items, icon_state or HorizontalSpan:new{ width = icon_w })
     table.insert(row_items, HorizontalSpan:new{ width = icon_gap })
     row._zen_settings_style = {

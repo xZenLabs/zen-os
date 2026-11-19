@@ -24,6 +24,20 @@ local restoring_arrange_resume
 local arrange_open_context
 local RESUME_TTL_SECONDS = 6
 
+-- Settings page a standalone page is stacked on, while it is still open
+local function open_parent(page)
+    local parent = page._zen_parent_page
+    return parent and not parent._closed and parent or nil
+end
+
+local function release_active(page)
+    local parent = open_parent(page)
+    if active_page == page then active_page = parent end
+    if rawget(_G, "__ZEN_UI_SETTINGS_PAGE") == page then
+        _G.__ZEN_UI_SETTINGS_PAGE = parent
+    end
+end
+
 IconItem.installMenuPatch()
 
 local function install_modal_keyboard_dismissal()
@@ -698,7 +712,8 @@ function ZenSettingsPage:_rememberResume()
 end
 
 function ZenSettingsPage:_flushDeferredSettingsApplies()
-    if self._deferred_settings_applies_flushed then return end
+    -- Settings still open underneath flushes on its own close
+    if self._deferred_settings_applies_flushed or open_parent(self) then return end
     self._deferred_settings_applies_flushed = true
     local ok, settings_apply = pcall(require, "modules/settings/zen_settings_apply")
     if ok and type(settings_apply.flush_deferred_on_settings_close) == "function" then
@@ -725,10 +740,7 @@ function ZenSettingsPage:closeMenu()
     if self.title_bar and self.title_bar.clearStatusRefresh then
         self.title_bar:clearStatusRefresh()
     end
-    if active_page == self then active_page = nil end
-    if rawget(_G, "__ZEN_UI_SETTINGS_PAGE") == self then
-        _G.__ZEN_UI_SETTINGS_PAGE = nil
-    end
+    release_active(self)
     UIManager:close(self)
     self:_flushDeferredSettingsApplies()
     local refresh = self._close_refresh
@@ -754,10 +766,7 @@ function ZenSettingsPage:onCloseWidget()
     if self.title_bar and self.title_bar.clearStatusRefresh then
         self.title_bar:clearStatusRefresh()
     end
-    if active_page == self then active_page = nil end
-    if rawget(_G, "__ZEN_UI_SETTINGS_PAGE") == self then
-        _G.__ZEN_UI_SETTINGS_PAGE = nil
-    end
+    release_active(self)
     self:_flushDeferredSettingsApplies()
     self._close_refresh = function()
         self._close_refresh = nil
@@ -1033,12 +1042,14 @@ end
 function M.show(plugin, opts)
     opts = opts or {}
     local standalone = type(opts.root_items) == "table"
-    if active_page and not active_page._closed then
-        if not standalone and not active_page._zen_standalone then
-            schedule_open_path(active_page, opts.path, true)
-            return active_page
-        end
+    if active_page and not active_page._closed and active_page._zen_standalone then
         active_page:closeMenu()
+    end
+    -- A standalone page stacks over Settings; closing it hands Settings back.
+    local parent = active_page and not active_page._closed and active_page or nil
+    if parent and not standalone then
+        schedule_open_path(parent, opts.path, true)
+        return parent
     end
     install_modal_keyboard_dismissal()
     local resume
@@ -1067,6 +1078,7 @@ function M.show(plugin, opts)
         _root_items = root_items,
         _initial_resume_path = resume and resume.path or nil,
         _zen_standalone = standalone,
+        _zen_parent_page = parent,
         search_visible = not standalone,
         plugin = plugin,
     }

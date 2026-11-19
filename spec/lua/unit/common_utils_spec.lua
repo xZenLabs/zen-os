@@ -24,6 +24,42 @@ describe("common utils deep merge", function()
     end)
 end)
 
+describe("common utils html font root", function()
+    local utils = require("common/utils")
+
+    local lfs = require("libs/libkoreader-lfs")
+    local dir = lfs.dir
+    after_each(function() lfs.dir = dir end)
+
+    local function deny(denied)
+        lfs.dir = function(path)
+            if denied[path] then error("cannot open " .. path) end
+            return function() end, { close = function() end }
+        end
+    end
+
+    it("roots absolute fonts at / and bundled relative fonts at the working directory", function()
+        assert.are.same({ "/", "/mnt/us/fonts/Book.ttf" }, { utils.htmlFontRoot("/mnt/us/fonts/Book.ttf") })
+        assert.are.same({ ".", "./fonts/noto/NotoSerif-Regular.ttf" },
+            { utils.htmlFontRoot("./fonts/noto/NotoSerif-Regular.ttf") })
+        assert.are.equal(".", utils.htmlFontRoot("fonts/noto/NotoSerif-Regular.ttf"))
+    end)
+
+    it("roots fonts at their own directory when / cannot be listed", function()
+        deny({ ["/"] = true })
+        local root, url = utils.htmlFontRoot("/system/fonts/Book.ttf")
+        assert.are.same({ "/system/fonts", "Book.ttf" }, { root, url })
+        assert.are.same({ root, "Book-Bold.ttf" }, { utils.htmlFontRoot("/system/fonts/Book-Bold.ttf", root) })
+        assert.are.same({ root, "/sdcard/fonts/Book-Italic.ttf" },
+            { utils.htmlFontRoot("/sdcard/fonts/Book-Italic.ttf", root) })
+    end)
+
+    it("returns no root when the font directory cannot be listed either", function()
+        deny({ ["/"] = true, ["/system/fonts"] = true })
+        assert.are.same({ nil, "/system/fonts/Book.ttf" }, { utils.htmlFontRoot("/system/fonts/Book.ttf") })
+    end)
+end)
+
 describe("common utils icon sizing", function()
     local utils = require("common/utils")
 
@@ -68,6 +104,43 @@ describe("common utils badge font sizing", function()
         assert.are.equal(8, utils.getBadgeFontSize(nil, 20, 0.24, 7))
         assert.are.equal(19, utils.getBadgeFontSize(nil, 80, 0.24, 7))
         assert.are.equal(8, utils.getBadgeFontSize(nil, 18, 0.45, 6))
+    end)
+
+    describe("with an explicit badge font size", function()
+        local saved_device
+
+        before_each(function() saved_device = package.loaded["device"] end)
+        after_each(function() package.loaded["device"] = saved_device end)
+
+        local function stub_device(scale)
+            ZenSpec.replace("device", { screen = {
+                scaleBySize = function(_, value) return value * scale end,
+            } })
+        end
+
+        it("honours an explicit badge font size", function()
+            stub_device(1)
+            local config = { browser_cover_badges = { badge_font_size = 14 } }
+            assert.are.equal(14, utils.getBadgeFontSize(config, 40, 0.24, 7))
+        end)
+
+        it("caps an explicit badge font size at the badge box", function()
+            stub_device(1)
+            local config = { browser_cover_badges = { badge_font_size = 30 } }
+            assert.are.equal(12, utils.getBadgeFontSize(config, 20, 0.24, 7))
+        end)
+
+        it("caps with the same pixel budget on a scaled screen", function()
+            stub_device(2)
+            local config = { browser_cover_badges = { badge_font_size = 30 } }
+            assert.are.equal(12, utils.getBadgeFontSize(config, 40, 0.24, 7))
+        end)
+
+        it("lets an explicit badge font size go below the derived minimum", function()
+            stub_device(1)
+            local config = { browser_cover_badges = { badge_font_size = 5 } }
+            assert.are.equal(5, utils.getBadgeFontSize(config, 40, 0.24, 7))
+        end)
     end)
 end)
 

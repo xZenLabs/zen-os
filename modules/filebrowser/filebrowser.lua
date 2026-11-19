@@ -98,7 +98,7 @@ function M.init(logger, plugin)
         return true
     end
 
-    OptionalProvider.call(KINDLE_PROVIDER, "installMetadataIntegration")
+    OptionalProvider.call("common/book_sources", "installMetadataIntegration")
     -- Skip the BookInfo/BookInfoManager wrappers when Rakuyomi isn't installed (nil = scan failed).
     local ok_scan, PluginScan = pcall(require, "modules/menu/app_launcher/plugin_scan")
     local installed = ok_scan and type(PluginScan) == "table" and PluginScan.installed() or nil

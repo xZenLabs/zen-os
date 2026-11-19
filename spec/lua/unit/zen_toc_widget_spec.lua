@@ -5,6 +5,7 @@ describe("Zen TOC hardware focus", function()
     local dirty_calls
     local back_icon
     local close_icon
+    local fold_icons
     local title_spec
     local font_calls
     local text_specs
@@ -50,6 +51,7 @@ describe("Zen TOC hardware focus", function()
         dirty_calls = 0
         back_icon = nil
         close_icon = nil
+        fold_icons = {}
         title_spec = nil
         font_calls = {}
         text_specs = {}
@@ -98,6 +100,7 @@ describe("Zen TOC hardware focus", function()
             new = function(_self, values)
                 if values.file:match("/chevron.left.svg$") then back_icon = values end
                 if values.file:match("/close.svg$") then close_icon = values end
+                if values.file:match("/control%.") then table.insert(fold_icons, values) end
                 values.paintTo = function(self, _bb, x)
                     self.paint_x = x
                 end
@@ -390,13 +393,60 @@ describe("Zen TOC hardware focus", function()
                 self.toc = {
                     { title = " First \xE2\x80\x8Bchapter ", page = 1, depth = 2 },
                     { title = "Second title", page = 1, depth = 1 },
-                    { title = "Too deep", page = 2, depth = 4 },
+                    { title = "Deep", page = 2, depth = 4 },
                 }
             end,
         }
-        assert.are.same({
-            { title = "First chapter · Second title", page = 1, page_label = "1", depth = 1 },
-        }, ZenTocWidget.getEntries({ toc = toc }))
+        local entries = ZenTocWidget.getEntries({ toc = toc })
+        assert.are.equal(2, #entries)
+        assert.is_true(entries.nested)
+        local first = entries[1]
+        assert.are.same({ idx = 1, title = "First chapter · Second title", page = 1, page_label = "1", depth = 1,
+            has_children = true }, first)
+        assert.are.same({ idx = 2, title = "Deep", page = 2, page_label = "2", depth = 4, parent = first }, entries[2])
+    end)
+
+    it("keeps a deeper same-page heading as a subheading and merges its same-page siblings", function()
+        local entries = ZenTocWidget.getEntries({ toc = { toc = {
+            { title = "Prologue", page = 2, depth = 1 },
+            { title = "1: Prologue", page = 2, depth = 2 },
+            { title = "Arc", page = 4, depth = 1 },
+            { title = "Arc", page = 4, depth = 2 },
+            { title = "2: Arc", page = 4, depth = 2 },
+            { title = "3: Short", page = 4, depth = 2 },
+        } } })
+        local titles = {}
+        for i, e in ipairs(entries) do titles[i] = e.title end
+        assert.are.same({ "Prologue", "1: Prologue", "Arc", "2: Arc · 3: Short" }, titles)
+        assert.are.same({ entries[1], entries[3] }, { entries[2].parent, entries[4].parent })
+        assert.are.equal(2, ZenTocWidget.getCurrentIndex(entries, 2))
+    end)
+
+    it("counts chapter pages in page-map labels when the reader shows them", function()
+        local labels = { a = "iv", b = "12", c = "30" }
+        local indexes = { iv = 4, ["12"] = 12, ["30"] = 30 }
+        local entries = ZenTocWidget.getEntries({
+            toc = { toc = {
+                { title = "Front", page = 1, depth = 1, xpointer = "a" },
+                { title = "One", page = 20, depth = 1, xpointer = "b" },
+                { title = "Two", page = 50, depth = 1, xpointer = "c" },
+                { title = "Unmapped", page = 70, depth = 1 },
+            } },
+            pagemap = {
+                wantsPageLabels = function() return true end,
+                getXPointerPageLabel = function(_self, xp, clean) return clean and labels[xp]:upper() or labels[xp] end,
+                getPageLabelProps = function(_self, label)
+                    if label == nil then return 60 end
+                    return indexes[label:lower()], 999
+                end,
+            },
+        })
+        assert.are.same({ "iv", "12", "30", "70" }, { entries[1].page_label, entries[2].page_label,
+            entries[3].page_label, entries[4].page_label })
+        -- Count beside a page-map label is in book pages; chapters without a label get no count.
+        assert.are.same({ 8, 18 }, { entries[1].page_count, entries[2].page_count })
+        assert.is_nil(entries[3].page_count)
+        assert.is_nil(entries[4].page_count)
     end)
 
     it("closes itself and the page browser from the top-right X", function()
@@ -528,5 +578,120 @@ describe("Zen TOC hardware focus", function()
         local ui = { document = { getPageCount = function() return 95 end } }
         assert.are.same({ done = 6, total = 16 },
             ZenTocWidget.getChapterProgress(ui, { { page = 10 }, { page = 80 } }, 2, 85))
+    end)
+
+    local function nested_widget(current_page, show_page_counts)
+        return ZenTocWidget:new{
+            ui = {
+                toc = { toc = {
+                    { title = "Part 1", page = 1, depth = 1 },
+                    { title = "Chapter 1", page = 10, depth = 2 },
+                    { title = "Chapter 2", page = 20, depth = 2 },
+                    { title = "Part 2", page = 30, depth = 1 },
+                    { title = "Chapter 3", page = 40, depth = 2 },
+                    { title = "Chapter 4", page = 50, depth = 2 },
+                } },
+                document = { configurable = { font_size = 21 }, getPageCount = function() return 95 end },
+                getCurrentPage = function() return current_page end,
+            },
+            show_page_counts = show_page_counts,
+        }
+    end
+
+    local function visible_titles(widget)
+        local titles = {}
+        for i, entry in ipairs(widget._entries) do titles[i] = entry.title end
+        return titles
+    end
+
+    it("shows top-level chapters plus the subchapters of the one being read", function()
+        local widget = nested_widget(45)
+        assert.are.same({ "Part 1", "Part 2", "Chapter 3", "Chapter 4" }, visible_titles(widget))
+        assert.are.equal(3, widget._active_entry_idx)
+        assert.are.same({ done = 6, total = 10 }, widget._progress)
+        local counts = {}
+        for i, entry in ipairs(widget._all) do counts[i] = entry.page_count end
+        assert.are.same({ 29, 10, 10, 66, 10, 46 }, counts)
+        assert.are.equal(widget._all[4], widget._all[5].parent)
+
+        widget:paintTo(fake_bb(), 0, 0)
+        -- Page 2 holds the current card and Chapter 4: leaves keep the column but draw no arrow.
+        assert.are.equal(2, widget._toc_page)
+        assert.are.same({}, fold_icons)
+        widget:_gotoTocPage(1)
+        widget:paintTo(fake_bb(), 0, 0)
+        -- Part 2 holds the current chapter, so it starts unfolded; both parts are read, so arrows are dimmed.
+        assert.are.same({ "/active-icons/control.expand.svg", "/active-icons/control.collapse.svg" },
+            { fold_icons[1].file, fold_icons[2].file })
+        assert.are.equal(14, fold_icons[1].width)
+        assert.is_true(fold_icons[1].dim)
+        assert.is_true(fold_icons[2].dim)
+
+        fold_icons = {}
+        nested_widget(5):paintTo(fake_bb(), 0, 0)
+        assert.are.same({ "/active-icons/control.expand.svg", "/active-icons/control.expand.svg" },
+            { fold_icons[1].file, fold_icons[2].file })
+        assert.is_falsy(fold_icons[1].dim) -- current
+        assert.is_falsy(fold_icons[2].dim) -- unread
+    end)
+
+    it("folds from the arrow column or D-pad and keeps the toggled row on screen", function()
+        local selected
+        local widget = nested_widget(45)
+        widget.on_goto = function(page) selected = page end
+        widget:_gotoTocPage(1)
+        local L, style = widget._L, widget._style
+        local hit = ZenTocWidget.foldHitWidth(style, widget:_row(1, 1))
+        assert.are.equal(20 + 14 + 10 + 9 + 12, hit)
+
+        assert.is_true(widget:_onTap({ pos = { x = hit - 1, y = L.list_y + 5 } }))
+        assert.are.same({ "Part 1", "Chapter 1", "Chapter 2", "Part 2", "Chapter 3", "Chapter 4" },
+            visible_titles(widget))
+        assert.are.equal(1, widget._toc_page)
+        assert.are.equal(0, close_calls)
+        assert.is_nil(selected)
+        fold_icons = {}
+        widget:paintTo(fake_bb(), 0, 0)
+        assert.are.equal("/active-icons/control.collapse.svg", fold_icons[1].file)
+        assert.are.equal(1, #fold_icons)
+
+        -- Tapping a leaf's dot area navigates; tapping a parent's title navigates too.
+        assert.is_true(widget:_onTap({ pos = { x = hit - 1, y = L.list_y + style.row_h + 5 } }))
+        assert.are.equal(10, selected)
+        assert.is_true(widget:_onTap({ pos = { x = hit + 1, y = L.list_y + 5 } }))
+        assert.are.equal(1, selected)
+
+        widget:_setFocus("entry", 1)
+        assert.is_true(widget:onKeyPress(key("Left")))
+        assert.are.same({ "Part 1", "Part 2", "Chapter 3", "Chapter 4" }, visible_titles(widget))
+        assert.are.equal(1, widget._zen_focus_entry_idx)
+        assert.is_true(widget:onKeyPress(key("Left")))
+        assert.are.equal(4, #widget._entries)
+        assert.is_true(widget:onKeyPress(key("Right")))
+        assert.are.equal(6, #widget._entries)
+        assert.are.equal("entry", widget._zen_focus_area)
+
+        -- Folding the chapter being read marks its parent as current.
+        widget:_setFocus("entry", 4)
+        assert.is_true(widget:onKeyPress(key("Left")))
+        assert.are.same({ "Part 1", "Chapter 1", "Chapter 2", "Part 2" }, visible_titles(widget))
+        assert.are.equal(4, widget._active_entry_idx)
+        assert.are.same({ done = 16, total = 66 }, widget._progress)
+    end)
+
+    it("appends chapter page counts to titles only when enabled", function()
+        local widget = nested_widget(45, true)
+        widget:paintTo(fake_bb(), 0, 0)
+        local texts = {}
+        for _i, spec in ipairs(text_specs) do texts[spec.text] = spec end
+        assert.is_true(texts["Chapter 3"].bold)
+        assert.is_falsy(texts["(10)"].bold)
+        assert.is_not_nil(texts["(46)"])
+        assert.are.equal(texts["Chapter 4"].fgcolor, texts["(46)"].fgcolor)
+        assert.is_true(texts["(46)"].max_width == nil)
+
+        text_specs = {}
+        nested_widget(45):paintTo(fake_bb(), 0, 0)
+        for _i, spec in ipairs(text_specs) do assert.is_nil(spec.text:match("^%(%d+%)$")) end
     end)
 end)

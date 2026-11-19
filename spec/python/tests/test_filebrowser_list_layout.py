@@ -259,7 +259,8 @@ def test_metadata_list_rows_follow_detailed_item_settings(display_mode: str, cus
             stop(process)
 
 
-def test_double_tap_opening_in_list_mode() -> None:
+@pytest.mark.parametrize("single_tap_action", ["none", "open"])
+def test_double_tap_opening_in_list_mode(single_tap_action: str) -> None:
     runtime = Path(os.environ["KOREADER_DIR"])
     with tempfile.TemporaryDirectory(prefix="zen-ui-list-double-tap-") as temporary:
         root = Path(temporary)
@@ -276,11 +277,11 @@ def test_double_tap_opening_in_list_mode() -> None:
             ko_home,
             socket_path,
             library,
-            zen_config_source="""return {
-  updater = { update_auto_check = false },
-  developer = { double_tap_to_open_books = true },
-  features = { automatic_series_grouping = false },
-}
+            zen_config_source=f"""return {{
+  updater = {{ update_auto_check = false }},
+  developer = {{ double_tap = true, single_tap_action = "{single_tap_action}" }},
+  features = {{ automatic_series_grouping = false }},
+}}
 """,
         )
         try:
@@ -301,13 +302,26 @@ def test_double_tap_opening_in_list_mode() -> None:
 
             initial_windows = driver.visible_ui()["ui"]["windows"]
 
-            assert driver.command("tap_file_chooser_item", path=str(book.resolve()))["ok"] is True
-            assert driver.reader_state()["reader"]["open"] is False
-            assert len(driver.visible_ui()["ui"]["windows"]) == len(initial_windows)
+            def tap() -> None:
+                assert driver.command("tap_file_chooser_item", path=str(book.resolve()))["ok"] is True
 
-            time.sleep(0.35)
-            assert driver.command("tap_file_chooser_item", path=str(book.resolve()))["ok"] is True
-            assert driver.command("tap_file_chooser_item", path=str(book.resolve()))["ok"] is True
+            if single_tap_action == "open":
+                tap()
+                tap()
+                time.sleep(0.45)
+                assert driver.reader_state()["reader"]["open"] is False
+                assert len(driver.visible_ui()["ui"]["windows"]) > len(initial_windows)
+                assert driver.command("reset_showcase_ui")["ok"] is True
+                assert len(driver.visible_ui()["ui"]["windows"]) == len(initial_windows)
+                tap()
+                assert driver.reader_state()["reader"]["open"] is False
+            else:
+                tap()
+                assert driver.reader_state()["reader"]["open"] is False
+                assert len(driver.visible_ui()["ui"]["windows"]) == len(initial_windows)
+                time.sleep(0.35)
+                tap()
+                tap()
             deadline = time.monotonic() + 15
             reader = {"open": False}
             while time.monotonic() < deadline:

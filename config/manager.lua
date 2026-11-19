@@ -216,6 +216,20 @@ local function normalize_renamed_keys(cfg)
         changed = true
     end
 
+    local developer = cfg.developer
+    if type(developer) == "table" and developer.double_tap_to_open_books ~= nil then
+        developer.double_tap = developer.double_tap_to_open_books == true
+        developer.double_tap_to_open_books = nil
+        changed = true
+    end
+    if type(developer) == "table" and developer.single_tap_to_open_context_menu ~= nil then
+        if developer.single_tap_to_open_context_menu == true then
+            developer.single_tap_action = "menu"
+        end
+        developer.single_tap_to_open_context_menu = nil
+        changed = true
+    end
+
     return cfg, changed
 end
 

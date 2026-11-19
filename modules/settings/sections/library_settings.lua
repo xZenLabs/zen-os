@@ -12,6 +12,7 @@ local IconItem = require("common/ui/icon_menu_item")
 local defaults = require("config/defaults")
 local LibraryFontPath = require("common/library_font_path")
 local Accent = require("common/ui/accent")
+local utils = require("common/utils")
 
 local metadata_section    = require("modules/settings/sections/library_settings/metadata_settings")
 local settings_apply      = require("modules/settings/zen_settings_apply")
@@ -551,6 +552,61 @@ function M.build(ctx)
                                 reset_text = _("Accent color"),
                                 reset_callback = function() save_color(nil, nil) end,
                             }, getFullRefreshMode())
+                        end,
+                    },
+                    {
+                        text = _("Text size"),
+                        keep_menu_open = true,
+                        callback = function()
+                            local Screen = require("device").screen
+                            local badge_scale = utils.getBadgeScale(config)
+                            -- Seed from a tile at the shipped mosaic column count:
+                            -- no real tile is as narrow as the scaleBySize(20)
+                            -- floor, and confirming must not shrink badges that
+                            -- already render larger than that floor.
+                            local columns = Screen:getWidth() > Screen:getHeight() and 4 or 3
+                            local tile_w = math.floor(Screen:getWidth() / columns)
+                            local box = math.max(Screen:scaleBySize(20),
+                                math.floor(tile_w * 0.14))
+                            UIManager:show(require("ui/widget/spinwidget"):new{
+                                title_text = _("Text size"),
+                                value = utils.getBadgeFontSize(config,
+                                    math.floor(box * badge_scale), 0.24, 7),
+                                value_min = 6, value_max = 24, value_step = 1,
+                                callback = function(spin)
+                                    if type(config.browser_cover_badges) ~= "table" then
+                                        config.browser_cover_badges = {}
+                                    end
+                                    config.browser_cover_badges.badge_font_size = spin.value
+                                    plugin:saveConfig()
+                                    UIManager:setDirty(nil, getFullRefreshMode())
+                                end,
+                            })
+                        end,
+                    },
+                    {
+                        text = _("Opening banner text size"),
+                        keep_menu_open = true,
+                        callback = function()
+                            -- Same expression the opening banner derives today, so
+                            -- confirming without moving the dial changes nothing.
+                            local Screen = require("device").screen
+                            local seed = math.ceil(Screen:scaleBySize(7)
+                                * utils.getBadgeScale(config))
+                            local configured = type(config.opening_banner) == "table"
+                                and tonumber(config.opening_banner.font_size)
+                            UIManager:show(require("ui/widget/spinwidget"):new{
+                                title_text = _("Opening banner text size"),
+                                value = configured and math.ceil(configured) or seed,
+                                value_min = 6, value_max = 24, value_step = 1,
+                                callback = function(spin)
+                                    if type(config.opening_banner) ~= "table" then
+                                        config.opening_banner = {}
+                                    end
+                                    config.opening_banner.font_size = spin.value
+                                    plugin:saveConfig()
+                                end,
+                            })
                         end,
                     },
                     {
@@ -1200,37 +1256,52 @@ function M.build(ctx)
         callback = show_book_details,
     }, icons.details))
 
+    local BookOpenTap = require("common/book_open_tap")
+    local function developer()
+        if type(config.developer) ~= "table" then config.developer = {} end
+        return config.developer
+    end
+    local function double_tap_enabled() return developer().double_tap == true end
+    local function single_tap() return (BookOpenTap.tapActions(config.developer)) end
+    local function double_tap() return select(2, BookOpenTap.tapActions(config.developer)) end
+    local tap_action_text = { open = _("Open book"), menu = _("Open context menu"), none = _("Nothing") }
+    -- Pickers store only the single-tap action; double tap is derived so a book stays openable.
+    local function tap_picker(label, current, choices, to_single)
+        local sub_items = {}
+        for _i, choice in ipairs(choices) do
+            sub_items[#sub_items + 1] = {
+                text = tap_action_text[choice],
+                radio = true,
+                checked_func = function() return current() == choice end,
+                callback = function()
+                    developer().single_tap_action = to_single(choice)
+                    plugin:saveConfig()
+                end,
+            }
+        end
+        return {
+            text = label,
+            text_func = function() return label .. ": " .. tap_action_text[current()] end,
+            enabled_func = double_tap_enabled,
+            sub_item_table = sub_items,
+        }
+    end
+
     local double_tap_item = {
-        text = _("Double-tap to open a book"),
-        help_text = _("When enabled, tap the same book twice in rapid succession to open it. Keyboard controls are unchanged."),
-        checked_func = function()
-            return type(config.developer) == "table"
-                and config.developer.double_tap_to_open_books == true
-        end,
+        text = _("Double tap"),
+        help_text = _("When enabled, choose what a single and a double tap on a book do. Keyboard controls are unchanged."),
+        checked_func = double_tap_enabled,
         callback = function()
-            if type(config.developer) ~= "table" then config.developer = {} end
-            config.developer.double_tap_to_open_books =
-                config.developer.double_tap_to_open_books ~= true
+            developer().double_tap = not double_tap_enabled()
             plugin:saveConfig()
         end,
         sub_item_table = {
-            {
-                text = _("Single tap to open context menu"),
-                enabled_func = function()
-                    return type(config.developer) == "table"
-                        and config.developer.double_tap_to_open_books == true
-                end,
-                checked_func = function()
-                    return type(config.developer) == "table"
-                        and config.developer.single_tap_to_open_context_menu == true
-                end,
-                callback = function()
-                    if type(config.developer) ~= "table" then config.developer = {} end
-                    config.developer.single_tap_to_open_context_menu =
-                        config.developer.single_tap_to_open_context_menu ~= true
-                    plugin:saveConfig()
-                end,
-            },
+            tap_picker(_("Single tap"), single_tap, { "open", "menu", "none" },
+                function(choice) return choice end),
+            tap_picker(_("Double tap"), double_tap, { "open", "menu" }, function(choice)
+                if choice == "menu" then return "open" end
+                return single_tap() == "open" and "menu" or single_tap()
+            end),
         },
     }
     double_tap_item.checkmark_callback = double_tap_item.callback

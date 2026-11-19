@@ -634,7 +634,9 @@ function M.reader_controls(params)
     if params.action == "open" then
         ui.menu:onShowReaderControls()
     elseif params.action == "toc" then
-        UIManager:show(require("modules/reader/zen_toc_widget"):new{ ui = ui })
+        UIManager:show(require("modules/reader/zen_toc_widget"):new{
+            ui = ui, show_page_counts = require("modules/reader/toc_tree").showsCounts(plugin),
+        })
     elseif params.action == "bookmarks" then
         ui.bookmark:onShowBookmark()
     elseif params.action == "book_info" then

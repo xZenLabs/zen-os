@@ -416,12 +416,6 @@ function M.isActive(plugin)
     return theme_for(plugin) ~= nil
 end
 
--- GC16 page turns clear ghosting but flash every changed pixel; opt-in.
-function M.cleanPageTurns(plugin)
-    local themes = plugin and plugin.config and plugin.config.reader_themes
-    return type(themes) == "table" and themes.clean_page_turns == true
-end
-
 function M.isActiveInReader(plugin, dark_mode)
     local ok, ReaderUI = pcall(require, "apps/reader/readerui")
     local reader = ok and ReaderUI and ReaderUI.instance

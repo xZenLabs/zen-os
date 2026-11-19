@@ -165,6 +165,16 @@ describe("reader controls settings", function()
         assert.are.same({ 11, 30 }, Settings.slider(reader, "h_page_margins", nil, 1).advance({ 10, 30 }, 1))
     end)
 
+    it("keeps side controls separate after an edit makes margins equal", function()
+        reader.doc_settings = ZenSpec.memorySettings({})
+        local slider = Settings.slider(reader, "h_page_margins", nil, 1)
+        reader.document.configurable.h_page_margins = slider.decode(30)
+        assert.are.same({ 30, 30 }, reader.document.configurable.h_page_margins)
+        assert.is_false(Settings.syncedMargins(reader, "h_page_margins"))
+        assert.is_false(reader.doc_settings.data.zen_sync_h_page_margins)
+        assert.is_not_nil(Settings.slider(reader, "h_page_margins", nil, 2))
+    end)
+
     it("syncs horizontal margins by default when equal, then keeps the book's choice", function()
         assert.is_false(Settings.syncedMargins(reader, "h_page_margins"))
         reader.document.configurable.h_page_margins = { 30, 30 }

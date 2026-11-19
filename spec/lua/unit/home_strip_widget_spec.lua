@@ -478,6 +478,47 @@ describe("home strip widget", function()
         end
     end)
 
+    it("refits the series badge when the badge size changes with an explicit font size", function()
+        local config = {
+            browser_cover_badges = { badge_font_size = 10 },
+            browser_series_badge = { show_series_badge = true },
+        }
+        rawset(_G, "__ZEN_UI_PLUGIN", { config = config })
+        require("modules/filebrowser/patches/home/widgets/strip").build{
+            width = 600, height = 300, component_id = "strip",
+            module_cfg = { count = 3, interactive = false, show_badges = true },
+            data = { getBooksForStrip = function()
+                return {{ path = "/book.epub", status = "reading", percent = 0.45,
+                    pages = 120, series_index = 123 }}
+            end },
+        }
+        local cover
+        for _i, widget in ipairs(created) do
+            if widget.kind == "cover" then cover = widget; break end
+        end
+        assert.is_table(cover)
+        local function painted_series_size()
+            for _i, widget in ipairs(created) do
+                if widget.kind == "ui/widget/textwidget" and not widget.free_calls
+                        and (widget.text == "123" or widget.text == "#123") then
+                    return widget.face.size
+                end
+            end
+        end
+        local bb = { paintRect = function() end, paintRectRGB32 = function() end }
+
+        -- The larger circle holds "123" without the "#" at the requested size.
+        config.browser_cover_badges.badge_size = "extra_large"
+        cover:paintTo(bb, 0, 0)
+        assert.are.equal(10, painted_series_size())
+
+        -- Shrinking the badge keeps the requested size, so only the fit width can
+        -- tell the cached label that it no longer fits this circle.
+        config.browser_cover_badges.badge_size = "compact"
+        cover:paintTo(bb, 0, 0)
+        assert.are.equal(7, painted_series_size())
+    end)
+
     it("reduces the page size when the strip is too narrow for readable covers", function()
         local requested = {}
         local Strip = require("modules/filebrowser/patches/home/widgets/strip")
@@ -2413,6 +2454,46 @@ describe("home strip widget", function()
         assert.are.equal(2, #cover_books)
         assert.are.equal(1, refreshed)
         assert.are.equal(0, #scheduled)
+    end)
+
+    it("uses the hydrated cover when a pending tap opens its original book", function()
+        touch_device = true
+        local replay, opened, captured
+        local gate = require("common/book_open_tap")
+        local original = gate.shouldOpen
+        gate.shouldOpen = function(_path, _time, _menu, open) replay = open; return false end
+        local book = { path = "/library/cold.epub", title = "Cold", is_cover_pending = true }
+        local Strip = require("modules/filebrowser/patches/home/widgets/strip")
+        local widget = Strip.build({
+            width = 600, height = 160, component_id = "strip",
+            module_cfg = { count = 4, interactive = true },
+            data = {
+                getBooksForStripPage = function() return { book }, false end,
+                warmStripCover = function() book.is_cover_pending = false; return "warmed" end,
+            },
+            openBook = function(path) opened = path end,
+        })
+        local tapped
+        for _i, child in ipairs(created) do
+            if child.onTapCover then tapped = child; break end
+        end
+        tapped.dimen.contains = function() return true end
+        tapped:onTapCover(nil, { pos = { x = 1, y = 1 }, time = 1 })
+        gate.shouldOpen = original
+        assert.is_function(replay)
+        widget:paintTo({}, 0, 0)
+        run_scheduled()
+        local live_cover
+        for _i, child in ipairs(created) do
+            if child._zen_covers_by_path and not child.free_calls then
+                live_cover = child._zen_covers_by_path[book.path]
+            end
+        end
+        rawset(_G, "__ZEN_UI_SET_OPENING_BANNER_COVER", function(cover) captured = cover end)
+        replay()
+        assert.are.equal(book.path, opened)
+        assert.is_not_nil(live_cover)
+        assert.are.equal(live_cover, captured)
     end)
 
     it("stops visible cover hydration while retained Home is suspended", function()

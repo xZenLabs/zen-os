@@ -2176,6 +2176,10 @@ return function(ctx)
         local selected_row = self.layout and self.layout[selected.y]
         local selected_widget = selected_row and selected_row[selected.x]
         local selected_id = selected_widget and selected_widget._zen_focus_id or ""
+        -- Rows that own Left/Right (TOC folding) take them instead of moving focus.
+        if dx ~= 0 and selected_widget and type(selected_widget.onHorizontalKey) == "function" then
+            return selected_widget:onHorizontalKey(dx)
+        end
         if dx ~= 0 and selected_id:sub(1, 7) ~= "footer:" then
             if BD.mirroredUILayout() then dx = -dx end
         end

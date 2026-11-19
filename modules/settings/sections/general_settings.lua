@@ -74,7 +74,11 @@ function M.build(ctx, extras_items)
 
     table.insert(items, IconItem.decorate({
         text = _("Battery"),
-        sub_item_table_func = require("modules/settings/battery_stats_menu").buildItems,
+        _zen_settings_submenu = true,
+        callback = function()
+            require("modules/settings/battery_stats_menu").open(plugin)
+        end,
+        keep_menu_open = true,
     }, icons.battery))
 
     table.insert(items, IconItem.decorate({

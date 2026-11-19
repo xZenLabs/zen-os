@@ -10,6 +10,8 @@ modules/menu/bluetooth/bluetooth.lua|unit
 modules/menu/bluetooth/kobo_bluetooth.lua|unit
 modules/menu/bluetooth/bluez.lua|unit
 common/book_walker.lua|unit
+common/book_sources.lua|unit
+common/book_sources_kindle.lua|unit
 common/brand_migration.lua|unit
 common/clock_schedule.lua|unit
 common/clock_timer.lua|unit
@@ -183,6 +185,10 @@ modules/filebrowser/patches/search.lua|integration
 modules/filebrowser/patches/standalone_page.lua|integration
 modules/filebrowser/patches/stats_settings.lua|integration
 modules/filebrowser/patches/stats_page.lua|integration
+modules/filebrowser/patches/stats_tabs/books.lua|integration
+modules/filebrowser/patches/stats_tabs/data.lua|unit
+modules/filebrowser/patches/stats_tabs/source.lua|integration
+modules/filebrowser/patches/stats_tabs/view.lua|integration
 modules/filebrowser/patches/status_bar.lua|integration
 modules/filebrowser/patches/status_on_open.lua|integration
 modules/global/global.lua|integration
@@ -277,6 +283,7 @@ modules/reader/page_actions.lua|integration
 modules/reader/patches/reader_references.lua|unit
 modules/reader/zen_toc_widget.lua|integration
 modules/reader/page_browser_panels.lua|unit
+modules/reader/toc_tree.lua|unit
 modules/reader/page_browser_tabs.lua|unit
 modules/reader/book_note.lua|unit
 modules/reader/annotations.lua|unit
@@ -285,6 +292,7 @@ modules/settings/sections/annotation_settings.lua|unit
 modules/reader/page_browser_preview.lua|unit
 modules/reader/page_browser_widget.lua|integration
 modules/registry.lua|integration
+modules/settings/battery_page.lua|integration
 modules/settings/battery_stats_menu.lua|unit
 modules/settings/sections/about_settings.lua|integration
 modules/settings/sections/advanced_settings.lua|integration

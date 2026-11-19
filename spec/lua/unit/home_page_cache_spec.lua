@@ -460,6 +460,44 @@ describe("home data and book caches", function()
         assert.is_false(held[2]._zen_hide_edit)
     end)
 
+    it("passes history context to a book source's menu when holding a recent book on Home", function()
+        local file, passed = "/mnt/us/documents/kindle-book.azw3", {}
+        local BookSources = require("common/book_sources")
+        local orig_show = BookSources.showContextMenu
+        finally(function() BookSources.showContextMenu = orig_show end)
+        BookSources.showContextMenu = function(_menu, item)
+            passed[#passed + 1] = item
+            return item.path == file
+        end
+        local fm = require("apps/filemanager/filemanager").instance
+        fm.file_chooser = { showFileDialog = function() error("source should handle its book") end }
+        local Widget = { new = function(_self, values) return values end }
+        for _i, name in ipairs({ "ui/widget/horizontalgroup", "ui/widget/horizontalspan",
+                "ui/widget/verticalgroup", "ui/widget/verticalspan", "ui/widget/container/framecontainer",
+                "ui/widget/container/inputcontainer", "ui/gesturerange" }) do
+            ZenSpec.replace(name, Widget)
+        end
+        ZenSpec.replace("ui/font", { getFace = function() return {} end })
+        ZenSpec.replace("apps/filemanager/filemanagerutil", {})
+        require("device").screen.scaleBySize = function(_self, value) return value end
+        require("common/ui/background").clearWhiteBackgrounds = function() end
+        require("modules/filebrowser/patches/home/components/registry").gridHeights = function() return { 900 } end
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local build_home_content = select(2, get_compute_row_heights(Home))
+        local rows = {{ id = "featured", build = function(ctx)
+            assert.is_true(ctx.showBookMenu(file, "recently_read"))
+            assert.is_true(ctx.showBookMenu(file, "kindle"))
+            return { paintTo = function() end }
+        end }}
+        build_home_content({ height = 900, dimen = { h = 900 } }, {},
+            { show_status_bar = false, modules = {} }, rows, {})
+        assert.equals(2, #passed)
+        assert.is_true(passed[1]._zen_is_history)
+        assert.equals(file, passed[1]._zen_history_path)
+        assert.is_false(passed[2]._zen_is_history)
+        assert.is_nil(passed[2]._zen_history_path)
+    end)
+
     it("keeps preset row heights on their original grids", function()
         ZenSpec.replace("modules/filebrowser/patches/home/components/registry", {
             layoutUnits = function(rows)
@@ -816,6 +854,35 @@ describe("home data and book caches", function()
         assert.are.equal(kindle_path,
             provider:getFeaturedBook("recently_read", "default").path)
         assert.are.equal(kindle_path,
+            provider:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
+    end)
+
+    it("includes history books a book source owns in Home widgets, without a file", function()
+        local cloud_path = "/storage/emulated/0/cloud-1.epub"
+        history_items[1].file = cloud_path
+        local real_sources = package.loaded["common/book_sources"]
+        finally(function()
+            package.loaded["common/book_sources"] = real_sources
+            package.loaded["modules/filebrowser/patches/home_page"] = nil -- holds the stub
+        end)
+        ZenSpec.replace("common/book_sources", {
+            owns = function(path) return path == cloud_path end,
+        })
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function(path)
+                if path ~= cloud_path then return { mode = "file", modification = 1 } end
+            end,
+        })
+
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+
+        assert.are.equal(cloud_path,
+            provider:getFeaturedBook("recently_read", "default").path)
+        assert.are.equal(cloud_path,
             provider:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
     end)
 

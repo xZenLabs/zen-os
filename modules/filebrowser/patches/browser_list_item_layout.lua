@@ -432,8 +432,6 @@ local function apply_browser_list_item_layout()
             for _i, id in ipairs(field_order) do show[id] = ListFields.enabled(list_cfg, id) end
             local filename = select(2, util.splitFilePathName(filepath))
             local filename_without_suffix, filetype = filemanagerutil.splitFileNameType(filename)
-            local has_description = bookinfo.description ~= nil
-            self.has_description = has_description
 
             local title   = (not self.do_filename_only and not bookinfo.ignore_meta and bookinfo.title) or filename_without_suffix
             local authors = (not bookinfo.ignore_meta and bookinfo.authors)
@@ -827,10 +825,10 @@ local function apply_browser_list_item_layout()
                     and badges.dim_finished_books == true
                     and effective_status == "complete"
                 CoverWidget.set_dimmed_border(self._cover_frame, dim_finished)
-                local saved_do_hint = self.do_hint_opened
-                self.do_hint_opened = false
+                local saved_do_hint, saved_has_desc = self.do_hint_opened, self.has_description
+                self.do_hint_opened, self.has_description = false, false
                 orig_paintTo(self, bb, x, y)
-                self.do_hint_opened = saved_do_hint
+                self.do_hint_opened, self.has_description = saved_do_hint, saved_has_desc
 
                 local folder = config.browser_folder_cover or {}
                 if self.do_cover_image and folder.show_spine_lines == true

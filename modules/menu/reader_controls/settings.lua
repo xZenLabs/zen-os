@@ -136,6 +136,8 @@ function M.slider(reader, name, visible_presets, side)
     local conf = reader.document.configurable
     local value = option.current_func and option.current_func() or conf[name]
     if value == nil then return end
+    -- Side controls must stay separate even when an edit makes the values equal.
+    if name == "h_page_margins" and side then M.setMarginSync(reader, name, false) end
     local fine = name == "font_size" and options.font_fine_tune
     local params = fine and fine.more_options_param or option.more_options_param or {}
     local values = option.values or {}

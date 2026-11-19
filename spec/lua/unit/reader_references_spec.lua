@@ -12,7 +12,8 @@ describe("reader references", function()
         for _i, name in ipairs(names) do saved[name] = package.loaded[name] end
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("device", { screen = { scaleBySize = function(_self, size) return size end } })
-        ZenSpec.replace("common/utils", { resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end })
+        ZenSpec.replace("common/utils", { resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end,
+            htmlFontRoot = function(path) return "root:" .. path, path end })
         ZenSpec.replace("ffi/util", { template = function(text, value) return (text:gsub("%%1", tostring(value))) end })
         ZenSpec.unload("modules/reader/references")
         References = require("modules/reader/references")
@@ -414,8 +415,9 @@ describe("reader references", function()
         ui.font = { font_face = "Book font" }
         ui.document.configurable = { font_size = 18, line_spacing = 150 }
         ui.document.getHTMLFromXPointers = function() return "<p>Reference</p>" end
-        local html, css = PinSettings.content(ui, 9, settings, bb.COLOR_WHITE, bb.COLOR_BLACK)
+        local html, css, _size, font_root = PinSettings.content(ui, 9, settings, bb.COLOR_WHITE, bb.COLOR_BLACK)
         assert.equals("<p>Reference</p>", html)
+        assert.equals("root:/book.ttf", font_root)
         assert.matches("font-family: ZenPinFont; line-height: 2.000", css, 1, true)
         ZenSpec.replace("ui/font", { getFace = function() return nil end })
         html, css = PinSettings.content(ui, 9, settings, bb.COLOR_WHITE, bb.COLOR_BLACK)
@@ -784,10 +786,19 @@ describe("native footnote adapter", function()
 
     it("flashes the followed link instead of the stock margin marker", function()
         local highlighted = {}
-        ui.document = { highlightXPointer = function(_self, xp)
-            if xp then highlighted[#highlighted + 1] = xp else highlighted = {} end
-            return true
-        end }
+        local long = ("x"):rep(1001)
+        local texts = { link = "Note text", other = "Note text", chapter = long, anchor = " ", note = long,
+            ["/p/a"] = "[1]", ["/section/h1"] = "Title", ["/p"] = long }
+        local words = { note = "/p/a/text().1", anchor = "/p/a/text()[2].0", chapter = "/section/h1/text().0",
+            blob = "/p/text().0" }
+        ui.document = {
+            highlightXPointer = function(_self, xp)
+                if xp then highlighted[#highlighted + 1] = xp else highlighted = {} end
+                return true
+            end,
+            getTextFromXPointer = function(_self, xp) return texts[xp] end,
+            getNextVisibleWordStart = function(_self, xp) return words[xp] end,
+        }
         local rolling = { ui = ui, view = {} }
         assert.is_true(ReaderRolling.onGotoXPointer(rolling, "top", "link"))
         assert.equals("top", rolling.went)
@@ -801,6 +812,17 @@ describe("native footnote adapter", function()
         ReaderRolling.onGotoXPointer(rolling, "top", "link")
         rolling._zen_unmark()
         assert.same({}, highlighted)
+        for target, node in pairs({ note = "/p/a", anchor = "/p/a", chapter = "/section/h1" }) do
+            ReaderRolling.onGotoXPointer(rolling, "top", target)
+            assert.is_nil(rolling.marker)
+            assert.same({ node }, highlighted)
+            rolling._zen_unmark()
+        end
+        for _i, target in ipairs({ "blob", "missing" }) do
+            ReaderRolling.onGotoXPointer(rolling, "top", target)
+            assert.equals(target, rolling.marker)
+            assert.same({}, highlighted)
+        end
         G_reader_settings:saveSetting("followed_link_marker", false)
         ReaderRolling.onGotoXPointer(rolling, "top", "link")
         assert.equals("link", rolling.marker)

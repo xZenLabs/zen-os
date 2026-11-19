@@ -597,6 +597,8 @@ describe("reader footer patches", function()
                         free = function() end,
                     }
                 end,
+                -- KOReader after 2026.11 measures footer text through this static helper.
+                getTextWidth = function(text) return #text:gsub("\u{200A}", " ") * 8 end,
             },
             ["apps/reader/readerui"] = {},
             ["ffi/util"] = package.loaded["ffi/util"],

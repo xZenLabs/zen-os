@@ -150,14 +150,16 @@ describe("TouchMenu footer", function()
             copy = function() copies = copies + 1; return background end,
             blitFrom = function(_self, source, ...)
                 assert.are.equal(background, source)
-                restored = { ... }
+                -- Never full-width: older KOReader truncates those on padded framebuffers.
+                if select(1, ...) == 0 then restored = {} end
+                restored[#restored + 1] = { ... }
             end,
         }
         local result = menu:paintTo(bb, 0, 0)
         assert.are.equal("painted", result)
         assert.are.same({ "hatch", "menu" }, paint_order)
         assert.are.same({ 0, 300, 600, 500, 2, "black", 0.4 }, hatch_args)
-        assert.are.same({ 0, 300, 0, 300, 600, 500 }, restored)
+        assert.are.same({ { 0, 300, 0, 300, 300, 500 }, { 300, 300, 300, 300, 300, 500 } }, restored)
 
         hatch_args = nil
         menu:paintTo(bb, 0, 0)
@@ -170,7 +172,8 @@ describe("TouchMenu footer", function()
             hatch_args = nil
             menu.dimen.h = height
             menu:paintTo(bb, 0, 0)
-            assert.are.same({ 0, height, 0, height, 600, 800 - height }, restored)
+            assert.are.same({ { 0, height, 0, height, 300, 800 - height },
+                { 300, height, 300, height, 300, 800 - height } }, restored)
             assert.are.same(case[2], hatch_args)
             assert.are.equal(1, copies)
         end

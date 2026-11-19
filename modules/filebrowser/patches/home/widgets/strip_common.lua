@@ -302,7 +302,8 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
     local _cached_pct_tw, _cached_pct_str, _cached_pct_fs, _cached_pct_dark
     local _cached_pause_tw, _cached_pause_icon, _cached_pause_fs, _cached_pause_dark
     local _cached_pages_tw, _cached_pages_str, _cached_pages_fs, _cached_pages_dark
-    local _cached_series_tw, _cached_series_idx, _cached_series_fs, _cached_series_dark
+    local _cached_series_tw, _cached_series_idx, _cached_series_fs, _cached_series_inner_w,
+        _cached_series_dark
     local _cached_fav_mark, _cached_fav_size, _cached_fav_dark
 
     local function get_fav_mark(size, is_dark)
@@ -484,15 +485,23 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
                 end
                 local r    = math.floor(base_sz / 2)
                 local fs   = utils.getBadgeFontSize(config, base_sz, 0.26, 7)
-                if not _cached_series_tw or _cached_series_idx ~= series_idx or _cached_series_fs ~= fs or _cached_series_dark ~= is_dark then
+                -- The label is fitted to the circle, and an explicit badge font size
+                -- keeps fs constant while the circle grows or shrinks with the badge
+                -- size: the fitted width has to be part of the key, or a resized
+                -- badge reuses a label fitted for the old circle.
+                local inner_w = math.floor(r * 1.30)
+                if not _cached_series_tw or _cached_series_idx ~= series_idx or _cached_series_fs ~= fs
+                        or _cached_series_inner_w ~= inner_w or _cached_series_dark ~= is_dark then
                     WidgetResources.free(_cached_series_tw)
-                    local inner_w = math.floor(r * 1.30)
                     local function make_tw(label, sz)
                         return TextWidget:new{ text=label, face=Font:getFace("cfont",sz), bold=true, fgcolor=badge_fg, padding=0 }
                     end
                     local tw = make_tw(idx_str, fs)
                     if tw:getSize().w > inner_w then
                         WidgetResources.free(tw)
+                        -- Drop the reference: the widest label is gone, and leaving it
+                        -- here would hand the cache a freed widget if no size fits.
+                        tw = nil
                         local no_hash = idx_str:sub(1,1) == "#" and idx_str:sub(2) or idx_str
                         local tw2 = make_tw(no_hash, fs)
                         if tw2:getSize().w <= inner_w then
@@ -512,6 +521,7 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
                     _cached_series_tw   = tw
                     _cached_series_idx  = series_idx
                     _cached_series_fs   = fs
+                    _cached_series_inner_w = inner_w
                     _cached_series_dark = is_dark
                 end
                 local inset = utils.getBadgeInset(r)
@@ -818,6 +828,7 @@ function M.build_strip(ctx, source_key)
         local show_strip_titles = wants_strip_titles
         local books = supplied_books or get_page_books(page_delta or 0) or {}
         local cover_plans = {}
+        local covers_by_path = {}
         if #books == 0 then
         local empty_cover, cover_w, cover_h = cover_common.make_empty_placeholder_cover(
             width, height,
@@ -1096,6 +1107,7 @@ function M.build_strip(ctx, source_key)
             local book = item.book
             local item_w = item.w
             local path = book.path
+            if path then covers_by_path[path] = item.cover end
 
             local content
             if show_strip_titles and title_h > 0 then
@@ -1156,6 +1168,16 @@ function M.build_strip(ctx, source_key)
                     if ctx.openCover then return ctx.openCover(path) end
                     if ges.time ~= nil and not BookOpenTap.shouldOpen(path, ges.time, function()
                         tap.onHoldCover(tap_self, nil, ges)
+                    end, function()
+                        -- Hydration may have freed the tapped frame during the delay.
+                        -- Resolve by path so the pending open keeps its original book.
+                        local entry = page_cache[0]
+                        local covers = entry and not entry.freed and entry.frame
+                            and entry.frame._zen_covers_by_path
+                        if not ctx.skipOpeningBanner then
+                            set_opening_banner_cover(covers and covers[path])
+                        end
+                        ctx.openBook(path)
                     end) then return true end
                     if not ctx.skipOpeningBanner then set_opening_banner_cover(item.cover) end
                     ctx.openBook(path)
@@ -1285,6 +1307,7 @@ function M.build_strip(ctx, source_key)
         page_delta, visual_top, visual_bottom)
 
     local frame = FrameContainer:new{
+        _zen_covers_by_path = covers_by_path,
         width = outer_width,
         height = outer_height,
         padding = 0,
