@@ -515,7 +515,9 @@ function M.load(file)
     return M.normalize(merged_props(original, custom))
 end
 
-function M.validate(file, draft)
+-- embedded: whether the edits go into the book file (M.editsEmbedded), when
+-- the caller already decided it; looked up otherwise.
+function M.validate(file, draft, embedded)
     draft = M.normalize(draft)
     if draft.series_index ~= "" then
         local index = tonumber(draft.series_index)
@@ -523,7 +525,8 @@ function M.validate(file, draft)
             return nil, "invalid_series_index"
         end
     end
-    if M.editsEmbedded(file) then
+    if embedded == nil then embedded = M.editsEmbedded(file) end
+    if embedded then
         if draft.title == "" then return nil, "missing_title" end
         if draft.language == "" then return nil, "missing_language" end
     end
@@ -608,11 +611,13 @@ end
 
 function M.save(file, draft, options)
     options = options or {}
-    local valid, err = M.validate(file, draft)
+    -- Decided once, so validation and the write follow the same route.
+    local edits_embedded = M.editsEmbedded(file) == true
+    local valid, err = M.validate(file, draft, edits_embedded)
     if not valid then return nil, err end
     if is_current_reader_file(file) then return nil, "open_book" end
 
-    if M.editsEmbedded(file) then
+    if edits_embedded then
         local Epub = require("modules/filebrowser/metadata/epub")
         local embedded, read_err = Epub.read(file)
         if not embedded then return nil, read_err end
