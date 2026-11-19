@@ -58,6 +58,7 @@ local function normalize(raw)
     local address = raw.address or raw.Address or raw.addr or raw.mac or raw.MAC
         or raw.bdaddr or raw.BDAddr or raw.bd_address or raw.deviceAddress or raw.macAddress
     if not Common.validAddress(address) then return nil end
+    address = address:upper()
     local name = raw.name or raw.Name or raw.bd_name or raw.deviceName or raw.friendlyName
     local item = {
         id = address, address = address,

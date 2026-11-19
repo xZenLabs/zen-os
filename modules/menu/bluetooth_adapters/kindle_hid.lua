@@ -48,9 +48,10 @@ local function run(command)
 end
 
 -- ace_bt_cli spins on stdin EOF: always send exit, bound it with timeout.
+-- Wait for the pipeline and cleanup before another capture can use HCI or SNOOP.
 local function cli(command, after)
     os.execute("( ( echo " .. command .. "; sleep 1; echo exit ) | timeout 5 " .. CLI
-        .. "; " .. (after or ":") .. " ) >/dev/null 2>&1 &")
+        .. "; " .. (after or ":") .. " ) >/dev/null 2>&1")
 end
 
 local function write(path, content)

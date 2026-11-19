@@ -119,7 +119,7 @@ describe("Bluetooth device adapters", function()
                 new_hasharray = function() return { destroy = function() end } end,
                 access_hash_property = function(_self, _service, property)
                     local values = property == "ListDiscovered"
-                        and {{ Address = address, Name = "Speaker", RSSI = "-40" }}
+                        and {{ Address = address:lower(), Name = "Speaker", RSSI = "-40" }}
                         or property == "ListPaired" and (paired and {{ mac = address }} or {})
                         or property == "ListConnected" and (connected and {{ address = address }} or {})
                     return { to_table = function() return values end, destroy = function() end }
@@ -153,6 +153,8 @@ describe("Bluetooth device adapters", function()
         assert.are.same({}, adapter.getDeviceList(true)) -- known only: no discoveries
         local devices = adapter.getDeviceList()
         assert.are.equal(1, #devices)
+        assert.are.equal(address, devices[1].address)
+        assert.are.equal(address, devices[1].id)
         assert.are.equal("Speaker", devices[1].name)
         assert.are.equal(-40, devices[1].rssi)
         local result

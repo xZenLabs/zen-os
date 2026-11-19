@@ -45,6 +45,43 @@ describe("Kindle HID discovery capture", function()
         assert.are.same({}, Hid.parseSnoop(""))
     end)
 
+    it("finishes HCI commands and cleanup before a capture can restart", function()
+        local snoop = "/mnt/us/bt_snoop_log"
+        local path = os.tmpname()
+        local execute, open = os.execute, io.open
+        local execute_stub = stub(os, "execute", function(command)
+            -- Exercise the real shell pipeline with a local stand-in for ace_bt_cli.
+            if command:find("enableHCI", 1, true) or command:find("disableHCI", 1, true) then
+                command = command:gsub("/usr/bin/ace_bt_cli", "cat"):gsub(snoop, path)
+                return execute(command)
+            end
+            return 0 -- no BLE scan on the test host
+        end)
+        local remove_stub = stub(os, "remove", function(target)
+            assert.equals(snoop, target)
+            return execute("rm -f " .. path) == 0
+        end)
+        local open_stub = stub(io, "open", function(target, mode)
+            return open(target == snoop and path or target, mode)
+        end)
+        local ok, err = pcall(function()
+            Hid.startCapture()
+            local file = assert(open(path, "w"))
+            file:write(header)
+            file:close()
+            assert.same({}, Hid.finishCapture())
+            local remaining = open(path, "r")
+            if remaining then remaining:close() end
+            assert.is_nil(remaining) -- shutdown cleanup completed before returning
+            Hid.startCapture()
+        end)
+        open_stub:revert()
+        remove_stub:revert()
+        execute_stub:revert()
+        os.remove(path)
+        assert.is_true(ok, tostring(err))
+    end)
+
     describe("one-time system setup", function()
         local lfs = require("libs/libkoreader-lfs")
         local RULES, HELPER = "/etc/udev/rules.d/99-bt-keyboard.rules", "/usr/local/bin/dev_is_keyboard.sh"

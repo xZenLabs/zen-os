@@ -955,12 +955,6 @@ function ZenUI:onEvdevInputRemove(path)
     require("common/hid_keys").onRemove(path)
 end
 
--- Not every remote's node comes with a hotplug event: look for it when Bluetooth changes.
-function ZenUI:onBluetoothStateChanged()
-    if self._zenos_brand_inert then return end
-    require("common/hid_keys").rescanSoon()
-end
-
 -- Wi-Fi came up after a skipped check; the updater ignores repeats while one is pending.
 function ZenUI:onNetworkConnected()
     if self._zenos_brand_inert then return end
@@ -1036,6 +1030,8 @@ end
 function ZenUI:onBluetoothStateChanged()
     if self._zenos_brand_inert then return end
     BatteryStats.bluetoothChanged()
+    -- Not every remote node comes with a hotplug event.
+    require("common/hid_keys").rescanSoon()
 end
 
 function ZenUI:onRefreshAdditionalContent()
