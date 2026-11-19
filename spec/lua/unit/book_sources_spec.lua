@@ -462,6 +462,29 @@ describe("book sources", function()
             assert.are.same({}, G_reader_settings:readSetting("zen_book_sources_edited"))
         end)
 
+        it("keeps a known source book source-supplied when its lookup fails", function()
+            local fail = false
+            BookSources.register("flaky", {
+                books = function() return {} end,
+                owns = function(path) return path == "/f/owned.epub" end,
+                bookInfo = function(path)
+                    if fail then error("offline") end
+                    if path == "/f/seen.epub" then return { title = "Seen" } end
+                end,
+            })
+            assert.is_true(BookSources.suppliesMetadata("/f/seen.epub"))
+            fail = true
+            -- Given earlier this session, or owned by a source: still supplied.
+            assert.is_true(BookSources.suppliesMetadata("/f/seen.epub"))
+            assert.is_true(BookSources.suppliesMetadata("/f/owned.epub"))
+            -- Tracked edits mark it as a source's book too.
+            G_reader_settings:saveSetting("zen_book_sources_edited", { ["/f/edited.epub"] = true })
+            assert.is_true(BookSources.suppliesMetadata("/f/edited.epub"))
+            -- An ordinary EPUB keeps embedded editing.
+            assert.is_false(BookSources.suppliesMetadata("/f/plain.epub"))
+            BookSources.unregister("flaky")
+        end)
+
         it("shows custom metadata written elsewhere once it's announced", function()
             -- Written by KOReader's Book information or a sync plugin, which
             -- send InvalidateMetadataCache for the book.

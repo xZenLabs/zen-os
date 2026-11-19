@@ -311,22 +311,34 @@ function M.showContextMenu(menu, item, after_change)
 end
 
 local answering = {} -- paths whose bookInfo is being built (re-entry guard)
+local supplied = {}  -- paths a source gave metadata for this session
 
--- The sources' own metadata for a book, without edits.
+-- The sources' own metadata for a book, without edits. The second result
+-- is true when the lookup couldn't be completed (a source's bookInfo
+-- failed, or the book's lookup is already under way), so a nil info
+-- doesn't mean that no source gives the book's metadata.
 local function source_book_info(path, get_cover)
-    if type(path) ~= "string" or answering[path] then return nil end
+    if type(path) ~= "string" then return nil, false end
+    if answering[path] then return nil, true end
     load_builtins()
     answering[path] = true
-    local info
+    local info, failed
     for _i, id in ipairs(order) do
         local source = sources[id]
         if type(source.bookInfo) == "function" then
-            local result = call(id, source, "bookInfo", path, get_cover)
-            if type(result) == "table" then info = result break end
+            local ok, result = pcall(source.bookInfo, path, get_cover)
+            if not ok then
+                logger.warn("book source failed", id, "bookInfo", result)
+                failed = true
+            elseif type(result) == "table" then
+                info = result
+                break
+            end
         end
     end
     answering[path] = nil
-    return info
+    if info then supplied[path] = true end
+    return info, failed == true and not info
 end
 
 local discovered = {} -- paths whose sidecar was looked for this session
@@ -364,8 +376,14 @@ end
 --- True when a source gives this book's metadata, so ZenOS's metadata
 -- editor keeps its edits in the sidecar (see metadataEdited) instead of
 -- writing them into the book file.
+-- When the lookup can't be completed, a book known to be a source's (its
+-- metadata was given earlier, it has tracked edits, or a source owns it)
+-- still counts, so a passing failure never sends edits into its file.
 function M.suppliesMetadata(path)
-    return source_book_info(path, false) ~= nil
+    local info, failed = source_book_info(path, false)
+    if info then return true end
+    if not failed then return false end
+    return supplied[path] == true or edited_books()[path] == true or M.owns(path)
 end
 
 --- Tells the sources' views that a book's custom metadata changed (written
