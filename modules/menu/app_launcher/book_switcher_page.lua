@@ -197,7 +197,8 @@ function M.loadBooks(limit, exclude_path, config)
     local BookSources = require("common/book_sources")
     local books = {}
     local seen = {}
-    for _i, entry in ipairs(ReadHistory.hist or {}) do
+    -- With books read elsewhere, from book sources.
+    for _i, entry in ipairs(BookSources.mergeHistory(ReadHistory.hist)) do
         local path = entry and entry.file
         local is_book = type(path) == "string" and path ~= ""
             and not BookStatus.isImageFile(path)

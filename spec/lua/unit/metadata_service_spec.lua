@@ -5,7 +5,7 @@ describe("metadata service", function()
     local test_root
     local dependencies = {
         "apps/reader/readerui", "bookinfomanager", "common/cover_utils", "device",
-        "docsettings", "ffi/util", "modules/filebrowser/metadata/epub",
+        "common/book_sources", "docsettings", "ffi/util", "modules/filebrowser/metadata/epub",
         "ui/event", "ui/uimanager",
     }
 
@@ -182,6 +182,46 @@ describe("metadata service", function()
         assert.same({ "BookMetadataChanged" }, events)
         assert.is_nil(lfs.attributes(target .. ".zen-metadata.new"))
         assert.is_nil(lfs.attributes(target .. ".zen-metadata.old"))
+    end)
+
+    it("keeps edits of an EPUB a book source describes in the sidecar", function()
+        local stored = { custom_props = {} }
+        local cached = { title = "Kindle title", authors = "Ada", has_meta = "Y" }
+        local notified = {}
+        mock_docsettings(stored, false)
+        ZenSpec.replace("apps/reader/readerui", { instance = nil })
+        ZenSpec.replace("modules/filebrowser/metadata/epub", {
+            read = function() error("the book file must not be read") end,
+            write = function() error("the book file must not be written") end,
+        })
+        ZenSpec.replace("common/book_sources", {
+            suppliesMetadata = function(path) return path == test_root .. "/book.epub" end,
+            metadataEdited = function(path) notified[#notified + 1] = path end,
+        })
+        ZenSpec.replace("bookinfomanager", {
+            getBookInfo = function() return cached end,
+            setBookInfoProperties = function(_self, _file, props)
+                for key, value in pairs(props) do cached[key] = value == false and nil or value end
+            end,
+        })
+        ZenSpec.replace("ui/event", { new = function(_self, name) return name end })
+        ZenSpec.replace("ui/uimanager", { broadcastEvent = function() end })
+
+        local book = test_root .. "/book.epub"
+        local handle = assert(io.open(book, "wb"))
+        handle:write("not really an EPUB")
+        handle:close()
+
+        assert.is_false(Service.editsEmbedded(book))
+        assert.is_true(Service.editsEmbedded("/books/other.epub"))
+        local draft = assert(Service.load(book))
+        assert.are.equal("Kindle title", draft.title)
+        -- No EPUB rules: KOReader's own metadata has no required fields.
+        assert.is_true(Service.save(book, { title = "Edited", language = "" }))
+
+        assert.are.equal("Edited", stored.custom_props.title)
+        assert.are.equal("Kindle title", stored.doc_props.title)
+        assert.same({ book }, notified)
     end)
 
     it("creates a missing book-info row before applying PDF overrides", function()

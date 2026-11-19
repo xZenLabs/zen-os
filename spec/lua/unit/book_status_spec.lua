@@ -289,6 +289,67 @@ describe("book status", function()
         assert.are.equal(1, booklist_reads)
     end)
 
+    it("takes the status of a book without a sidecar from its book source", function()
+        local booklist_reads, source_reads, revision = 0, 0, 1
+        local statuses = { ["/cloud/read.epub"] = { status = "complete" } }
+        ZenSpec.replace("docsettings", {
+            findSidecarFile = function(_self, path)
+                if path == "/books/book.epub" then return "/books/book.sdr/metadata.lua" end
+            end,
+            open = function()
+                return (settings({ summary = { status = "reading" }, zen_new_mtime = 200 }))
+            end,
+        })
+        ZenSpec.replace("ui/widget/booklist", {
+            getBookInfo = function()
+                booklist_reads = booklist_reads + 1
+                return {}
+            end,
+        })
+        ZenSpec.replace("common/book_sources", {
+            statusRevision = function() return revision end,
+            status = function(path)
+                source_reads = source_reads + 1
+                return statuses[path]
+            end,
+        })
+        local BookStatus = require("common/book_status")
+        local before = BookStatus.revision()
+
+        assert.are.equal("complete", BookStatus.getEffectiveStatusFromFile("/cloud/read.epub"))
+        assert.are.equal("complete", BookStatus.getEffectiveStatusFromFile("/cloud/read.epub"))
+        assert.are.equal(1, source_reads)
+        assert.are.equal(0, booklist_reads)
+        -- Book info passed by a list (the source's bookInfo has no status).
+        -- The cached entry isn't reused for it: the list's table comes back.
+        local listed_info = { title = "Read" }
+        local listed = BookStatus.getFileStatusData("/cloud/read.epub", listed_info)
+        assert.are.equal("complete", listed.effective_status)
+        assert.are.equal(listed_info, listed.book_info)
+
+        -- Unknown to the source: BookList as before.
+        assert.are.equal("new", BookStatus.getEffectiveStatusFromFile("/cloud/unread.epub"))
+        assert.are.equal(1, booklist_reads)
+
+        -- A sidecar on this device wins; the source isn't asked.
+        statuses["/books/book.epub"] = { status = "complete" }
+        local reads = source_reads
+        assert.are.equal("reading", BookStatus.getEffectiveStatusFromFile("/books/book.epub"))
+        assert.are.equal(reads, source_reads)
+
+        -- A source change refreshes cached statuses at once, and the status
+        -- revision (keys of status-filtered listings, Home) moves with it.
+        statuses["/cloud/read.epub"] = { status = "reading", percent_finished = 0.4 }
+        revision = 2
+        assert.is_true(BookStatus.revision() > before)
+        local data = BookStatus.getFileStatusData("/cloud/read.epub")
+        assert.are.equal("reading", data.effective_status)
+        assert.are.equal(0.4, data.percent_finished)
+        statuses["/cloud/unread.epub"] = { status = "abandoned" }
+        revision = 3
+        assert.are.equal("abandoned", BookStatus.getEffectiveStatusFromFile("/cloud/unread.epub"))
+    end)
+
     it("retains more than 32 visible statuses without reopening sidecars", function()
         local opens = 0
         local doc = settings({

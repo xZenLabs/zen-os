@@ -1557,7 +1557,7 @@ local function show_metadata_editor_fixture(options)
     end
     metadata_showcase_editor = require("modules/filebrowser/metadata_editor").show{
         file = file,
-        is_epub = true,
+        edits_embedded = true,
         can_restore = options.file == nil,
         current_cover = current_cover,
         metadata = metadata,

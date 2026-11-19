@@ -973,6 +973,13 @@ function ZenUI:onBookMetadataChanged()
     end
 end
 
+-- Custom metadata changed (KOReader's Book information, a sync plugin, or
+-- ZenOS's own editor): a book source's book shows it over the source's.
+function ZenUI:onInvalidateMetadataCache(file)
+    if self._zenos_brand_inert or type(file) ~= "string" then return end
+    pcall(function() require("common/book_sources").customMetadataChanged(file) end)
+end
+
 function ZenUI:onCloseDocument()
     if self._zenos_brand_inert then return end
     invalidate_annotation_quotes(self)

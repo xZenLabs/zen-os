@@ -326,6 +326,62 @@ describe("TBR path inventory", function()
         assert.are.equal(5, sidecar_lookups)
     end)
 
+    it("lists books by the status their book source gives when they have no sidecar", function()
+        add_book("/books/local.epub", "reading", 1)
+        add_book("/books/downloaded.epub") -- on the device, no sidecar
+        add_book("/books/sidecar.epub", "reading", 1)
+        add_book("/books/plain.epub")
+        local revision = 1
+        local statuses = {
+            ["/books/downloaded.epub"] = { status = "complete" },
+            ["/books/sidecar.epub"] = { status = "complete" }, -- the sidecar wins
+            ["/cloud/finished.epub"] = { status = "complete" },
+            ["/cloud/started.epub"] = { percent_finished = 0.3 },
+            ["/cloud/kept.epub"] = { status = "complete" }, -- has a sidecar here
+        }
+        sidecars["/cloud/kept.epub"] = "/sidecars/kept.lua"
+        local real_sources = package.loaded["common/book_sources"]
+        finally(function()
+            package.loaded["common/book_sources"] = real_sources
+            package.loaded["common/tbr_index"] = nil -- holds the stub
+        end)
+        ZenSpec.replace("common/book_sources", {
+            statusRevision = function() return revision end,
+            status = function(path) return statuses[path] end,
+            books = function()
+                local books = {}
+                for _i, file in ipairs({ "/cloud/finished.epub", "/cloud/started.epub",
+                        "/cloud/kept.epub", "/cloud/unknown.epub", "/books/downloaded.epub",
+                        "/cloud/finished.epub" }) do
+                    books[#books + 1] = { file = file, info = {} }
+                end
+                return books
+            end,
+        })
+        package.loaded["common/book_status"].getEffectiveStatus = function(status, percent)
+            if status then return status end
+            return percent and "reading" or "new"
+        end
+        local Index = require("common/tbr_index")
+
+        assert.same({ "/books/downloaded.epub", "/cloud/finished.epub" },
+            Index.getByStatuses({ complete = true }))
+        assert.same({ "/books/local.epub", "/books/sidecar.epub", "/cloud/started.epub" },
+            Index.getByStatuses({ reading = true }))
+        assert.same({ "/books/plain.epub" }, Index.getByStatuses({ new = true }))
+
+        -- A source's change is picked up at once, and moves the revision.
+        local before = Index.peekRevision()
+        statuses["/cloud/started.epub"] = { status = "abandoned" }
+        assert.same({ "/books/local.epub", "/books/sidecar.epub", "/cloud/started.epub" },
+            Index.getByStatuses({ reading = true }))
+        revision = 2
+        assert.is_true(Index.peekRevision() > before)
+        assert.same({ "/books/local.epub", "/books/sidecar.epub" },
+            Index.getByStatuses({ reading = true }))
+        assert.same({ "/cloud/started.epub" }, Index.getByStatuses({ abandoned = true }))
+    end)
+
     it("preserves and rebuilds a corrupt status cache from Reading and Finished sidecars", function()
         add_book("/books/a.epub", "reading", 1)
         add_book("/books/b.epub", "complete", 1)
