@@ -1,9 +1,10 @@
 local Device = require("device")
+local Bluez = require("modules/menu/bluetooth/bluez")
 local logger = require("common/zen_logger").new("kobo_bluetooth")
 
 local M = {}
 local MTK_SERVICE = "com.kobo.mtk.bluedroid"
-local ADAPTER = "/org/bluez/hci0"
+local ADAPTER = Bluez.ADAPTER
 local PROPERTIES = "org.freedesktop.DBus.Properties"
 local SAGE_RFKILL = "/sys/devices/platform/bt/rfkill/rfkill0/state"
 local SAGE_HCI_LOG = "/tmp/zenos-rtk-hciattach.log"
@@ -158,8 +159,7 @@ local function destination(device_kind)
 end
 
 local function dbus(device_kind, path, method, args)
-    return "dbus-send --system --print-reply --reply-timeout=10000 --dest="
-        .. destination(device_kind) .. " " .. path .. " " .. method .. (args or "")
+    return Bluez.command(destination(device_kind), path, method, args)
 end
 
 local function property(device_kind, value)
@@ -202,53 +202,11 @@ local function log_sage_daemons(context)
     end
 end
 
-local function parse_devices(output)
-    local devices, device, property_name = {}, nil, nil
-    local function finish_device()
-        if device then
-            device.address = device.address or device.path:match("/dev_(.+)$"):gsub("_", ":")
-            device.id = device.path
-            device.name = device.name or device.address
-            devices[#devices + 1] = device
-        end
-    end
-    for line in (output or ""):gmatch("[^\r\n]+") do
-        local next_path = line:match('object path "(/org/bluez/hci0/dev_[%w_]+)"')
-        if next_path then
-            finish_device()
-            device = { path = next_path }
-            property_name = nil
-        elseif device then
-            for _i, name in ipairs({ "Address", "Name", "Paired", "Connected", "Trusted", "RSSI" }) do
-                if line:find('string "' .. name .. '"', 1, true) then
-                    property_name = name
-                    break
-                end
-            end
-            if property_name == "Address" or property_name == "Name" then
-                local value = line:match('variant%s+string%s+"([^"]*)"')
-                if value then device[property_name:lower()] = value end
-            elseif property_name == "RSSI" then
-                local value = line:match("variant%s+int16%s+(-?%d+)")
-                if value then device.rssi = tonumber(value) end
-            elseif property_name then
-                local value = line:match("variant%s+boolean%s+(%w+)")
-                if value then device[property_name:lower()] = value == "true" end
-            end
-            if line:find("variant", 1, true) then
-                property_name = nil
-            end
-        end
-    end
-    finish_device()
-    return devices
-end
-
 local function reconnect_paired(device_kind, attempted, poll)
     local output = query(dbus(device_kind, "/", "org.freedesktop.DBus.ObjectManager.GetManagedObjects"),
         "managed-objects-poll-" .. tostring(poll), true)
     if not output then return end
-    local devices = parse_devices(output)
+    local devices = Bluez.parseDevices(output)
     local total, paired_count, connected_count, launched = 0, 0, 0, 0
     for _i, device in ipairs(devices) do
         total = total + 1
@@ -319,7 +277,7 @@ function M.getDeviceList()
     if not output or output:find("Error", 1, true) then
         return nil, "Could not read Bluetooth devices."
     end
-    return parse_devices(output)
+    return Bluez.parseDevices(output)
 end
 
 function M.startScan(done)
@@ -352,20 +310,8 @@ end
 function M.deviceAction(action, device)
     local device_kind = kind()
     if not device_kind then return false, "Bluetooth device management is unavailable on this Kobo." end
-    local path = device and device.path
-    if type(path) ~= "string" or not path:match("^/org/bluez/hci0/dev_[%x_]+$") then
-        return false, "Invalid Bluetooth device."
-    end
-    local command
-    if action == "forget" then
-        command = dbus(device_kind, ADAPTER, "org.bluez.Adapter1.RemoveDevice",
-            " objpath:" .. path)
-    elseif action == "pair" or action == "connect" or action == "disconnect" then
-        command = dbus(device_kind, path, "org.bluez.Device1."
-            .. action:sub(1, 1):upper() .. action:sub(2))
-    else
-        return false, "Unsupported Bluetooth action."
-    end
+    local command, err = Bluez.actionCommand(destination(device_kind), action, device and device.path)
+    if not command then return false, err end
     if not command_ok(command, "manager-" .. action) then
         return false, "Bluetooth " .. action .. " failed."
     end

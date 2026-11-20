@@ -1,6 +1,7 @@
 describe("ZenOS module initialization", function()
     it("continues after module load and initialization failures", function()
         local calls, warnings = {}, {}
+        local battery_changes, rescans = 0, 0
         local icons_initialized, update_icon_resolved = false, false
         local registry = {
             { id = "missing", file = "missing-provider" },
@@ -10,6 +11,8 @@ describe("ZenOS module initialization", function()
         }
         local function noop() end
         local modules = {
+            ["common/battery_stats"] = { bluetoothChanged = function() battery_changes = battery_changes + 1 end },
+            ["common/hid_keys"] = { rescanSoon = function() rescans = rescans + 1 end },
             ["common/brand_migration"] = { detectStartup = function() return {} end },
             ["modules/filebrowser/patches/incompatible_plugins_check"] = function() return false end,
             ["common/zen_logger"] = { new = function() return {
@@ -54,6 +57,14 @@ describe("ZenOS module initialization", function()
             end,
         }, { __index = _G }))
         local plugin = chunk()
+        plugin:onBluetoothStateChanged()
+        assert.equals(1, battery_changes)
+        assert.equals(1, rescans)
+        plugin._zenos_brand_inert = true
+        plugin:onBluetoothStateChanged()
+        assert.equals(1, battery_changes)
+        assert.equals(1, rescans)
+        plugin._zenos_brand_inert = nil
         assert.is_true(update_icon_resolved)
         plugin.config = {}
         plugin:_initModules()
