@@ -49,6 +49,7 @@ local function record_from(data)
         -- standard pages (KOReader synthetic page length, e.g. 1800 characters)
         std_pages = num(data.pagemap_doc_pages),
         status = summary.status,
+        modified = type(summary.modified) == "string" and summary.modified or nil,   -- day the status was set
         printed = printed or nil,   -- pages are publisher (printed) page labels
         title = props.title or "",
         authors = authors or "",
@@ -58,7 +59,7 @@ local function record_from(data)
     }
 end
 
---- Returns an array of records {file,status,title,authors,md5,percent,pages}.
+--- Returns an array of records {file,status,modified,title,authors,md5,percent,pages}.
 function M.scan()
     local out = {}
     local ok, err = pcall(function()
@@ -116,6 +117,7 @@ function M.scan()
                         local copy = {}
                         for k, v in pairs(rec) do copy[k] = v end
                         copy.file = file
+                        copy.modified = copy.modified or os.date("%Y-%m-%d", mtime)
                         out[#out + 1] = copy
                     end
                 end
@@ -250,8 +252,8 @@ end
 -- An omnibus (several novels in one file) is split into its works so that
 -- every novel counts as a book of its own. The structure comes from the
 -- top level of the table of contents; the size of each entry from the
--- uncompressed size of the spine files. Anything that is not clearly an
--- omnibus stays one book.
+-- uncompressed size of the spine files. Only a book whose title names a
+-- collection is split: the parts of one long novel look the same in the TOC.
 
 local OMNI_VERSION = 1
 local OMNI_MIN_WORK = 150      -- standard pages: a work of its own
@@ -262,7 +264,7 @@ local MAX_READ_BYTES = 1024 * 1024   -- largest OPF / TOC / chapter file read fr
 local MAX_TOC_ENTRIES = 500          -- more top level entries: not looked at
 
 local KEYWORDS = { "sammelband", "omnibus", "anthologie", "anthology", "trilogie", "trilogy",
-    "gesamtausgabe", "in einem band", "sammlung" }
+    "gesamtausgabe", "in einem band", "sammlung", "collection", "box set", "boxed set" }
 local FRONT = { "impressum", "copyright", "danksagung", "über den autor", "über die autor", "about the author",
     "glossar", "vorschau", "leseprobe", "inhalt", "widmung", "titel", "nachwort", "vorwort", "prolog",
     "epilog", "karte", "map", "dramatis", "anhang", "cover", "contents", "acknowledg", "publikation",
@@ -463,6 +465,8 @@ local function hasAny(s, list)
     return false
 end
 
+local function isCollection(title) return hasAny(lower(title or ""), KEYWORDS) end
+
 local function isBad(t)
     for _i, w in ipairs(BAD_WORDS) do
         if t == w or t:sub(1, #w + 1):match("^" .. w .. "[^%a]") then return true end
@@ -476,6 +480,7 @@ end
 --- { {title=, kind="work"|"shorts", ranges={{a,b},...}, share=}, ... } or nil.
 function M.omnibusParts(st, title, bytes_per_std)
     if not st or not st.entries or #st.entries < 2 or not st.total or st.total <= 0 then return nil end
+    if not isCollection(title) then return nil end
     local bpp = bytes_per_std or FALLBACK_BYTES_PER_STD
     local list = {}
     for i, e in ipairs(st.entries) do
@@ -502,8 +507,7 @@ function M.omnibusParts(st, title, bytes_per_std)
             small = 0
         end
     end
-    local kw = hasAny(lower(title or ""), KEYWORDS)
-    if not (big >= 2 or (kw and big >= 1 and small >= 1)) then return nil end
+    if not (big >= 2 or (big >= 1 and small >= 1)) then return nil end
     local parts, shorts, cur, pending = {}, nil, nil, {}
     local function addRange(p, e)
         local r = p.ranges[#p.ranges]
@@ -558,7 +562,8 @@ function M.detectOmnibus(records)
     local dirty, found = false, 0
     local todo = {}
     for _i, r in ipairs(records) do
-        if r.file and r.file:lower():match("%.epub$") and (r.status == "complete" or r.status == "reading") then
+        if r.file and r.file:lower():match("%.epub$") and (r.status == "complete" or r.status == "reading")
+                and isCollection(r.title) then   -- other titles are never split: skip reading the EPUB
             local mtime = lfs.attributes(r.file, "modification")
             if mtime then
                 local c = cached[r.file]

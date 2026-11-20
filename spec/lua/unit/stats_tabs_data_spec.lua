@@ -76,6 +76,20 @@ describe("stats tabs data", function()
         assert.are.equal(4, Data.calendar(S, 2026, 10, false).lead)
     end)
 
+    it("counts a finished book without statistics in the month it was marked", function()
+        local now = os.time{ year = 2026, month = 11, day = 19, hour = 20 }
+        local meta = {
+            { file = "/books/a.epub", status = "complete", title = "", modified = "2026-10-12" },
+            { file = "/books/b.epub", status = "complete", title = "", modified = "2025-12-30" },
+        }
+        local S = Data.compute(make_fetch({}, {}), meta, now)
+        assert.are.equal(2, S.finished_total)
+        assert.are.equal(1, S.fin_this_year)
+        assert.are.equal(1, S.finished_by_month["2026-10"])
+        assert.are.equal(1, S.finished_by_month["2025-12"])
+        assert.are.equal(0, S.fin_with_stats)
+    end)
+
     it("lists a day's books, longest first, with time and pages", function()
         local now = os.time{ year = 2026, month = 10, day = 20, hour = 20 }
         local day = os.time{ year = 2026, month = 10, day = 13, hour = 12 }
