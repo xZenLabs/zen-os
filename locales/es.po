@@ -233,7 +233,7 @@ msgstr "12 horas  (3:30 PM)"
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz.
 #: interface_settings.lua:137
 msgid "12-hour time"
-msgstr "koreader de 12 horas"
+msgstr "Formato de 12 horas"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
@@ -523,7 +523,7 @@ msgid ""
 "\n"
 "Install ZenOS updates directly from your device."
 msgstr ""
-"Todos los ajustes están reunidos en una única pestaña. El icono con un punto indica que hay una actualización disponible..\n"
+"Todos los ajustes están reunidos en una única pestaña. El icono con un punto indica que hay una actualización disponible.\n"
 "\n"
 "Actualiza Zen OS directamente desde el dispositivo."
 
@@ -562,6 +562,18 @@ msgstr "Permitir eliminar libros"
 #: advanced_settings.lua:50
 msgid "Allow dragging reader modals"
 msgstr "Permitir arrastrar los diálogos del lector"
+
+#. Type: setting
+#. Context: Settings label in the Library appearance and behavior settings.
+#: library_settings.lua:318
+msgid "Amber"
+msgstr "Ámbar"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Amber Night"
+msgstr "Noche ámbar"
 
 #. Type: error
 #. Context: Mensaje de error en el editor de metadatos de libros.
@@ -639,6 +651,12 @@ msgstr "No se encontró la carpeta de archivo: %1"
 #: archive_actions.lua:211 archive_actions.lua:255
 msgid "Archive this book?"
 msgstr "¿Archivar este libro?"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Arctic"
+msgstr "Ártico"
 
 #. Type: dialog
 #. Context: Texto de un diálogo en el panel de ajustes rápidos.
@@ -1668,6 +1686,12 @@ msgid "Copy selected files?"
 msgstr "¿Copiar archivos seleccionados?"
 
 #. Type: setting
+#. Context: Settings action for creating a custom copy of a reader theme.
+#: reader_settings.lua
+msgid "Copy theme"
+msgstr "Copiar tema"
+
+#. Type: setting
 #. Context: Etiqueta del número de núcleos del procesador en la información del dispositivo.
 #: about_settings.lua:117
 msgid "Cores"
@@ -2023,10 +2047,28 @@ msgid "Dark mode"
 msgstr "Modo oscuro"
 
 #. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Dark Moss"
+msgstr "Musgo oscuro"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Dark Sky"
+msgstr "Cielo oscuro"
+
+#. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
 #: menus.lua:135 reader_settings.lua:773
 msgid "Dark warm gray"
 msgstr "Gris cálido oscuro"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Darker Sepia"
+msgstr "Sepia más oscuro"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de distribución y widgets de la página de inicio. Etiqueta en la página de estadísticas de lectura. Nombre de un ajuste en los ajustes de la barra de estado de la biblioteca.
@@ -2768,6 +2810,12 @@ msgstr "Favoritos"
 #: featured.lua:6 end_book_settings.lua:6
 msgid "Featured book"
 msgstr "Libro destacado"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Fern"
+msgstr "Helecho"
 
 #. Type: menu
 #. Context: Opción de menú en los menús de KOReader y el selector de menús del panel de inicio rápido.
@@ -4034,6 +4082,12 @@ msgstr "Los metadatos se han guardado, pero no se ha podido guardar la imagen de
 msgid "Metric"
 msgstr "Métrico"
 
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Midnight"
+msgstr "Medianoche"
+
 #. Type: unit
 #. Context: Unidad que acompaña una cantidad o una duración en los ajustes de objetivos de lectura y el widget correspondiente de la página de inicio. Unidad que acompaña una cantidad o una duración en la interfaz de ZenOS.
 #: reading_goals.lua:103 reading_goals.lua:281 incognito_mode.lua:248
@@ -4572,6 +4626,12 @@ msgid "None (folder name only)"
 msgstr "Sin cubierta: solo nombre de carpeta"
 
 #. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Nord"
+msgstr "Nord"
+
+#. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
 #: library_settings.lua:474 library_settings.lua:493
 msgid "Normal"
@@ -4587,7 +4647,7 @@ msgstr "No hay suficiente espacio en Inicio: unidades %1/%2 utilizadas; este wid
 #. Context: Mensaje en los ajustes de la pantalla del final del libro. Mensaje en los ajustes de distribución y widgets de la página de inicio.
 #: end_book_settings.lua:244 home_settings.lua:562
 msgid "Not enough space: %1/%2 units used; this widget needs %3."
-msgstr "No hay suficiente espacio: %1/%2 unidades usades; este widget necesita %3."
+msgstr "No hay suficiente espacio: %1/%2 unidades usadas; este widget necesita %3."
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de proveedores de metadatos de libros. Etiqueta en el editor de metadatos de libros.
@@ -4653,6 +4713,12 @@ msgstr "Desactivado"
 #: zenpm_installer.lua:361 zenpm_installer.lua:369 zenpm_installer.lua:378
 msgid "OK"
 msgstr "Aceptar"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Old Book"
+msgstr "Libro antiguo"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
@@ -4814,6 +4880,12 @@ msgstr "Abrir ZenPM"
 #: opening_banner.lua:472
 msgid "Opening"
 msgstr "Abriendo"
+
+#. Type: setting
+#. Context: Settings label in the Library appearance and behavior settings.
+#: library_settings.lua:587 library_settings.lua:597
+msgid "Opening banner text size"
+msgstr "Tamaño del texto del aviso de apertura"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura.
@@ -5821,6 +5893,12 @@ msgid "RSS Reader plugin is not installed."
 msgstr "El complemento RSS Reader no está instalado."
 
 #. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Sage"
+msgstr "Salvia"
+
+#. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de acciones programadas del dispositivo y de la pantalla de suspensión. Etiqueta en el editor de metadatos de libros. Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la pantalla de lectura. También se usa en otras partes de ZenOS.
 #: metadata_editor.lua:662 metadata_editor.lua:927 metadata_editor.lua:1045
 #: metadata_editor.lua:1242 book_note.lua:105 global_settings.lua:307
@@ -6058,6 +6136,18 @@ msgstr "Enviar con LocalSend"
 msgid "Separator"
 msgstr "Separador"
 
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Sepia"
+msgstr "Sepia"
+
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Sepia Night"
+msgstr "Noche sepia"
+
 #. Type: label
 #. Context: Etiqueta en los grupos de la biblioteca por autores, series y etiquetas.
 #: group_view.lua:1436
@@ -6283,6 +6373,12 @@ msgstr "Mostrar borde inferior"
 #: menu_settings.lua:1251
 msgid "Show brightness slider"
 msgstr "Mostrar barra de brillo"
+
+#. Type: setting
+#. Context: Settings label in the Reader table of contents settings.
+#: reader_settings.lua:1625
+msgid "Show chapter page counts"
+msgstr "Mostrar número de páginas por capítulo"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en los ajustes de apariencia y funcionamiento de la biblioteca.
@@ -7769,6 +7865,12 @@ msgstr "nombre de usuario"
 msgid "Value"
 msgstr "Valor"
 
+#. Type: setting
+#. Context: Built-in reader theme name.
+#: reader_settings.lua
+msgid "Velvet"
+msgstr "Terciopelo"
+
 #. Type: label
 #. Context: Reader document overlap controls.
 #: reader_controls.lua:260
@@ -7854,7 +7956,7 @@ msgstr "¿Qué debe mostrar la pantalla del dispositivo al entrar en reposo?"
 #. Context: Nombre de un ajuste en las pantallas de actualización de ZenOS.
 #: zen_updater.lua:230
 msgid "What's changed"
-msgstr "What's changed"
+msgstr "Cambios"
 
 #. Type: label
 #. Context: Etiqueta en la interfaz de ZenOS.
@@ -8225,550 +8327,550 @@ msgstr "ZenPM se ha instalado. Reinicia KOReader para usarlo."
 #. Context: local d = os.date("*t", ts) return T(_("%1 %2"), d.day, monthShort(d.month)) end
 #: view.lua:406
 msgid "%1 %2"
-msgstr ""
+msgstr "%1 %2"
 
 #. Type: format
 #. Context: local tag, who = nil, b.author if b.omni_all then tag = T(_("%1 books"), b.omni_all) elseif b.omni_k then tag, who = T(_("Book %1 of %2"), b.omni_k, b.omni_n), b.omni_name end
 #: view.lua:393
 msgid "%1 books"
-msgstr ""
+msgstr "%1 libros"
 
 #. Type: format
 #. Context: local m = math.floor((tonumber(sec) or 0) / 60 + 0.5) if m >= 60 then return T(_("%1 h %2 min"), math.floor(m / 60), string.format("%02d", m % 60)) end return T(_("%1 min"), m)
 #: view.lua:58 battery_page.lua:94
 msgid "%1 h %2 min"
-msgstr ""
+msgstr "%1 h %2 min"
 
 #. Type: format
 #. Context: if m >= 60 then return T(_("%1 h %2 min"), math.floor(m / 60), string.format("%02d", m % 60)) end return T(_("%1 min"), m) end
 #: view.lua:59 battery_page.lua:95
 msgid "%1 min"
-msgstr ""
+msgstr "%1 min"
 
 #. Type: format
 #. Context: if S.full_months and S.full_months > 0 then months_label = "(" .. (S.full_months == 1 and _("1 month") or T(_("%1 months"), S.full_months)) .. ")" end
 #: view.lua:273
 msgid "%1 months"
-msgstr ""
+msgstr "%1 meses"
 
 #. Type: format
 #. Context: local sp = { { T(_("%1 so far"), month(S.month)), S.cur_speed, true }, { month(S.prev.m), S.prev.speed },
 #: view.lua:253
 msgid "%1 so far"
-msgstr ""
+msgstr "%1 hasta hoy"
 
 #. Type: label
 #. Context: if S.full_months and S.full_months > 0 then months_label = "(" .. (S.full_months == 1 and _("1 month") or T(_("%1 months"), S.full_months)) .. ")" end
 #: view.lua:273
 msgid "1 month"
-msgstr ""
+msgstr "1 mes"
 
 #. Type: label
 #. Context: self:hourDots(bb, gx + 4, sy + 9, 40, 3600) local lw1 = self:text(bb, _("= 1 hour"), 26, gx + 30, sy, 300, { fg = MID, h = 36 }) self:hourDots(bb, gx + 30 + lw1 + 26, sy + 9, 40, 1800)
 #: view.lua:561
 msgid "= 1 hour"
-msgstr ""
+msgstr "= 1 hora"
 
 #. Type: label
 #. Context: self:hourDots(bb, gx + 30 + lw1 + 26, sy + 9, 40, 1800) self:text(bb, _("= started hour"), 26, gx + 30 + lw1 + 52, sy, 400, { fg = MID, h = 36 })
 #: view.lua:563
 msgid "= started hour"
-msgstr ""
+msgstr "= hora iniciada"
 
 #. Type: label
 #. Context: local h = SECTION_H + 228 self:card(bb, X, y, W, h, _("At a glance")) local by = y + SECTION_H
 #: view.lua:232
 msgid "At a glance"
-msgstr ""
+msgstr "De un vistazo"
 
 #. Type: label
 #. Context: { align = "center", bold = true, h = 60 }) self:text(bb, _("Average reading time"), 23, x2 + 10, cy + 200, wr - 20, { align = "center", fg = MID, h = 32 }) y = y + h + GAP
 #: view.lua:481
 msgid "Average reading time"
-msgstr ""
+msgstr "Tiempo medio de lectura"
 
 #. Type: label
 #. Context: self:bars(bb, X + 20, y + SECTION_H + 44, wl - 40, h - SECTION_H - 44 - 92, vals, labels) self:text(bb, _("Avg. minutes, last 3 months"), 24, X + 10, y + h - 50, wl - 20, { align = "center", fg = MID }) self:card(bb, x2, y, wr, h, _("Per...
 #: view.lua:471
 msgid "Avg. minutes, last 3 months"
-msgstr ""
+msgstr "Media de minutos, últimos 3 meses"
 
 #. Type: format
 #. Context: if b.omni_all then tag = T(_("%1 books"), b.omni_all) elseif b.omni_k then tag, who = T(_("Book %1 of %2"), b.omni_k, b.omni_n), b.omni_name end if tag then
 #: view.lua:394
 msgid "Book %1 of %2"
-msgstr ""
+msgstr "Libro %1 de %2"
 
 #. Type: format
 #. Context: if (S.legacy_count or 0) > 0 then self:text(bb, T(_("Books without reading data: %1"), S.legacy_count), 25, X + 24, y + SECTION_H + 10, W - 48, { h = 34, fg = MID })
 #: view.lua:488
 msgid "Books without reading data: %1"
-msgstr ""
+msgstr "Libros sin datos de lectura: %1"
 
 #. Type: error
 #. Context: S = data, error_text = err and _("Could not read the reading statistics.") or nil, monday_first = stats_settings.week_start_day == 2,
 #: stats_page.lua:1311
 msgid "Could not read the reading statistics."
-msgstr ""
+msgstr "No se han podido leer las estadísticas de lectura."
 
 #. Type: setting
 #. Context: IconItem.decorate({ text = _("Count omnibus volumes as separate books"), help_text = _("Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."),
 #: stats_settings.lua:396
 msgid "Count omnibus volumes as separate books"
-msgstr ""
+msgstr "Contar los recopilatorios como varios libros"
 
 #. Type: label
 #. Context: local h = SECTION_H + 12 + n * row self:card(bb, X, y, W, h, _("Currently reading")) local ac = Accent.color()
 #: view.lua:415
 msgid "Currently reading"
-msgstr ""
+msgstr "Leyendo ahora"
 
 #. Type: label
 #. Context: { _("Today"), nil, int(S.today_pages), S.today_sec }, { _("Daily average"), "(" .. month(S.month) .. ")", int(S.daily_pages), S.daily_sec }, { _("This month so far"), nil, int(S.cur_month.pages), S.cur_month.sec },
 #: view.lua:277
 msgid "Daily average"
-msgstr ""
+msgstr "Media diaria"
 
 #. Type: setting
 #. Context: { "tabs", _("Tabs: overview, books, calendar") }, { "dashboard", _("Dashboard with widgets") }, }) do
 #: stats_settings.lua:378
 msgid "Dashboard with widgets"
-msgstr ""
+msgstr "Panel con widgets"
 
 #. Type: format
 #. Context: { _("Books read"), int(S.finished_total), _("books, all time") }, { T(_("Finished in %1"), S.year), int(S.fin_this_year), _("books") }, { _("Reading time"), int(S.total_sec / 3600), _("hours, all time") },
 #: view.lua:236
 msgid "Finished in %1"
-msgstr ""
+msgstr "Finalizados en %1"
 
 #. Type: format
 #. Context: self:bars(bb, X + 30, y + SECTION_H + 40, W - 60, h2 - SECTION_H - 40 - 96, vals, labels, { small = true }) self:text(bb, T(_("Last 12 months · %1 books finished"), total_with), 27, X, y + h2 - 44, W, { align = "center", fg = MID })
 #: view.lua:507
 msgid "Last 12 months · %1 books finished"
-msgstr ""
+msgstr "Últimos 12 meses · %1 libros finalizados"
 
 #. Type: label
 #. Context: { _("This month so far"), nil, int(S.cur_month.pages), S.cur_month.sec }, { _("Last month"), "(" .. month(S.prev.m) .. ")", int(S.prev.pages), S.prev.sec }, { _("Monthly average"), months_label, S.monthly_pages and int(S.monthly_pages) o...
 #: view.lua:279
 msgid "Last month"
-msgstr ""
+msgstr "Mes pasado"
 
 #. Type: label
 #. Context: { _("Last month"), "(" .. month(S.prev.m) .. ")", int(S.prev.pages), S.prev.sec }, { _("Monthly average"), months_label, S.monthly_pages and int(S.monthly_pages) or "–", S.monthly_sec }, }
 #: view.lua:280
 msgid "Monthly average"
-msgstr ""
+msgstr "Media mensual"
 
 #. Type: error
 #. Context: if not self.S then self:text(buf, self.error_text or _("No reading statistics yet."), 32, X, TOP + 40, W, { align = "center", fg = MID })
 #: view.lua:684
 msgid "No reading statistics yet."
-msgstr ""
+msgstr "Aún no hay estadísticas de lectura."
 
 #. Type: label
 #. Context: end self:text(bb, _("Numbers = books read that day (at least 10 min.)"), 25, X, fy + totals_h + 8, W, { align = "center", fg = MID, h = 36 })
 #: view.lua:664
 msgid "Numbers = books read that day (at least 10 min.)"
-msgstr ""
+msgstr "Números = libros leídos ese día (al menos 10 min.)"
 
 #. Type: label
 #. Context: for _i, l in ipairs(C.legend) do legend[#legend + 1] = { tostring(l.n), l.title } end if C.others then legend[#legend + 1] = { "+", _("Other books") } end local lrows = math.max(1, math.ceil(#legend / 2))
 #: view.lua:544
 msgid "Other books"
-msgstr ""
+msgstr "Otros libros"
 
 #. Type: label
 #. Context: { month(S.prev.m), S.prev.speed }, { _("Overall"), S.speed_all }, }
 #: view.lua:255
 msgid "Overall"
-msgstr ""
+msgstr "Global"
 
 #. Type: label
 #. Context: local bar = ZenTabBar:new{ items = { { text = _("Overview") }, { text = _("Books") }, { text = _("Calendar") } }, selected = self.page,
 #: view.lua:206
 msgid "Overview"
-msgstr ""
+msgstr "Resumen"
 
 #. Type: label
 #. Context: h = BOTTOM - 16 - note_h - y self:card(bb, X, y, W, h, _("Pages & time")) by = y + SECTION_H
 #: view.lua:284
 msgid "Pages & time"
-msgstr ""
+msgstr "Páginas y tiempo"
 
 #. Type: message
 #. Context: if gs and gs.readSetting then chars = tonumber(gs:readSetting("pagemap_chars_per_synthetic_page")) end local note = chars and T(_("Pages = standard pages (%1 characters)."), int(chars)) or _("Pages = standard pages.")
 #: view.lua:332
 msgid "Pages = standard pages (%1 characters)."
-msgstr ""
+msgstr "Páginas = páginas estándar (%1 caracteres)."
 
 #. Type: message
 #. Context: local note = chars and T(_("Pages = standard pages (%1 characters)."), int(chars)) or _("Pages = standard pages.") if (S.legacy_count or 0) > 0 then
 #: view.lua:333
 msgid "Pages = standard pages."
-msgstr ""
+msgstr "Páginas = páginas estándar."
 
 #. Type: label
 #. Context: self:text(bb, _("Avg. minutes, last 3 months"), 24, X + 10, y + h - 50, wl - 20, { align = "center", fg = MID }) self:card(bb, x2, y, wr, h, _("Per book")) local cy = y + SECTION_H
 #: view.lua:472
 msgid "Per book"
-msgstr ""
+msgstr "Por libro"
 
 #. Type: label
 #. Context: local head_h = 60 self:text(bb, spaced(upper(_("Period"))), 22, c1, by + 8, 400, { fg = MID, bold = true, h = head_h - 8 }) self:text(bb, spaced(upper(_("Pages"))), 22, c2r - 240, by + 8, 240,
 #: view.lua:289
 msgid "Period"
-msgstr ""
+msgstr "Periodo"
 
 #. Type: message
 #. Context: if (S.legacy_count or 0) > 0 then note = note .. " " .. T(_("Plus %1 finished books without reading data (≈ %2 pages)."), S.legacy_count, int(S.legacy_pages))
 #: view.lua:335
 msgid "Plus %1 finished books without reading data (≈ %2 pages)."
-msgstr ""
+msgstr "Además, %1 libros finalizados sin datos de lectura (≈ %2 páginas)."
 
 #. Type: label
 #. Context: local figs = { { _("Reading days"), tostring(C.days_read), " / " .. C.days_total }, { _("Reading time"), nil, nil, C.sec },
 #: view.lua:642
 msgid "Reading days"
-msgstr ""
+msgstr "Días de lectura"
 
 #. Type: label
 #. Context: { align = "center", bold = true, h = 76 }) self:text(bb, _("Reading days per book on average"), 23, x2 + 10, cy + 84, wr - 20, { align = "center", fg = MID, h = 32 })
 #: view.lua:476
 msgid "Reading days per book on average"
-msgstr ""
+msgstr "Media de días de lectura por libro"
 
 #. Type: label
 #. Context: h = SECTION_H + 170 self:card(bb, X, y, W, h, _("Reading speed") .. " · " .. _("min / page")) by = y + SECTION_H
 #: view.lua:250
 msgid "Reading speed"
-msgstr ""
+msgstr "Velocidad de lectura"
 
 #. Type: label
 #. Context: { T(_("Finished in %1"), S.year), int(S.fin_this_year), _("books") }, { _("Reading time"), int(S.total_sec / 3600), _("hours, all time") }, }
 #: view.lua:237 view.lua:292 view.lua:643
 msgid "Reading time"
-msgstr ""
+msgstr "Tiempo de lectura"
 
 #. Type: label
 #. Context: local x2 = X + wl + GAP self:card(bb, X, y, wl, h, _("Reading time by weekday")) local vals, labels = {}, {}
 #: view.lua:462
 msgid "Reading time by weekday"
-msgstr ""
+msgstr "Lectura por día de la semana"
 
 #. Type: label
 #. Context: h = SECTION_H + 12 + #S.recent * frow self:card(bb, X, y, W, h, _("Recently finished")) for i, b in ipairs(S.recent) do
 #: view.lua:442
 msgid "Recently finished"
-msgstr ""
+msgstr "Finalizados recientemente"
 
 #. Type: label
 #. Context: { _("Reading time"), nil, nil, C.sec }, { _("Sessions"), tostring(C.sessions) }, }
 #: view.lua:644
 msgid "Sessions"
-msgstr ""
+msgstr "Sesiones"
 
 #. Type: label
 #. Context: local ok, gettext = pcall(require, "gettext") return ok and gettext("Short stories") or "Short stories" end
 #: data.lua:40
 msgid "Short stories"
-msgstr ""
+msgstr "Relatos"
 
 #. Type: message
 #. Context: text = _("Count omnibus volumes as separate books"), help_text = _("Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."), checked_func = function()
 #: stats_settings.lua:397
 msgid "Tabs layout: an omnibus with several novels counts each novel as a book. Stories under 150 pages are grouped as short stories."
-msgstr ""
+msgstr "Diseño con pestañas: en un recopilatorio con varias novelas, cada novela cuenta como un libro. Las historias de menos de 150 páginas se agrupan como relatos."
 
 #. Type: setting
 #. Context: for _i, entry in ipairs({ { "tabs", _("Tabs: overview, books, calendar") }, { "dashboard", _("Dashboard with widgets") },
 #: stats_settings.lua:377
 msgid "Tabs: overview, books, calendar"
-msgstr ""
+msgstr "Pestañas: resumen, libros, calendario"
 
 #. Type: label
 #. Context: { _("Daily average"), "(" .. month(S.month) .. ")", int(S.daily_pages), S.daily_sec }, { _("This month so far"), nil, int(S.cur_month.pages), S.cur_month.sec }, { _("Last month"), "(" .. month(S.prev.m) .. ")", int(S.prev.pages), S.prev....
 #: view.lua:278
 msgid "This month so far"
-msgstr ""
+msgstr "Este mes hasta hoy"
 
 #. Type: label
 #. Context: local cols = { { _("Books read"), int(S.finished_total), _("books, all time") }, { T(_("Finished in %1"), S.year), int(S.fin_this_year), _("books") },
 #: view.lua:235
 msgid "books, all time"
-msgstr ""
+msgstr "libros en total"
 
 #. Type: label
 #. Context: { T(_("Finished in %1"), S.year), int(S.fin_this_year), _("books") }, { _("Reading time"), int(S.total_sec / 3600), _("hours, all time") }, }
 #: view.lua:237
 msgid "hours, all time"
-msgstr ""
+msgstr "horas en total"
 
 #. Type: label
 #. Context: h = SECTION_H + 170 self:card(bb, X, y, W, h, _("Reading speed") .. " · " .. _("min / page")) by = y + SECTION_H
 #: view.lua:250
 msgid "min / page"
-msgstr ""
+msgstr "min / página"
 
 #. Type: format
 #. Context: if fy then self:text(bb, "(" .. T(_("since %1"), monthShort(tonumber(fm)) .. " " .. fy) .. ")", 26, c1 + w1 + 10, ry + 4, 300, { fg = MID, h = row_h })
 #: view.lua:321 view.lua:426
 msgid "since %1"
-msgstr ""
+msgstr "desde %1"
 
 #. Type: dialog
 #. Context: local InfoMessage = require("ui/widget/infomessage") local busy = InfoMessage:new{ text = _("Calculating statistics…"), dismissable = false } UIManager:show(busy)
 #: stats_page.lua:1302
 msgid "Calculating statistics…"
-msgstr ""
+msgstr "Calculando estadísticas…"
 
 #. Type: setting
 #. Context: local function days(seconds) if seconds >= 2 * DAY then return T(_("%1 d"), math.floor(seconds / DAY + 0.5)) end return duration(seconds)
 #: battery_page.lua:141
 msgid "%1 d"
-msgstr ""
+msgstr "%1 d"
 
 #. Type: setting
 #. Context: m = m % 60 if d > 0 then return T(_("%1 d %2 h"), d, h) end if h > 0 then return T(_("%1 h %2 min"), h, m) end
 #: battery_page.lua:93
 msgid "%1 d %2 h"
-msgstr ""
+msgstr "%1 d %2 h"
 
 #. Type: setting
 #. Context: if n == 1 then return _("yesterday") end return T(_("%1 days ago"), n) end
 #: battery_page.lua:154
 msgid "%1 days ago"
-msgstr ""
+msgstr "hace %1 días"
 
 #. Type: setting
 #. Context: if not seconds or seconds < 0 then return "–" end if seconds >= 10 * 3600 then return T(_("%1 h"), math.floor(seconds / 3600 + 0.5)) end return duration(seconds)
 #: battery_page.lua:135
 msgid "%1 h"
-msgstr ""
+msgstr "%1 h"
 
 #. Type: title
 #. Context: if #pts >= 2 then title = T(_("%1 · %2 → %3 %"), label, pts[1][2], pts[#pts][2]) end
 #: battery_page.lua:381
 msgid "%1 · %2 → %3 %"
-msgstr ""
+msgstr "%1 · %2 → %3 %"
 
 #. Type: setting
 #. Context: local how = gain and gain > 0 and (crate and crate > 0 and T(_("+%1 % in %2"), gain, duration(gain * 3600 / crate)) or T(_("+%1 %"), gain)) or nil if st.charging then
 #: battery_page.lua:688
 msgid "+%1 %"
-msgstr ""
+msgstr "+%1 %"
 
 #. Type: setting
 #. Context: local how = gain and gain > 0 and (crate and crate > 0 and T(_("+%1 % in %2"), gain, duration(gain * 3600 / crate)) or T(_("+%1 %"), gain)) or nil if st.charging then
 #: battery_page.lua:688
 msgid "+%1 % in %2"
-msgstr ""
+msgstr "+%1 % en %2"
 
 #. Type: setting
 #. Context: local RANGES = { { id = "1", label = _("1 day") }, { id = "7", label = _("7 days") },
 #: battery_page.lua:158
 msgid "1 day"
-msgstr ""
+msgstr "1 día"
 
 #. Type: setting
 #. Context: { id = "7", label = _("7 days") }, { id = "30", label = _("30 days") }, { id = "charge", label = _("Since charge") },
 #: battery_page.lua:160
 msgid "30 days"
-msgstr ""
+msgstr "30 días"
 
 #. Type: setting
 #. Context: { id = "1", label = _("1 day") }, { id = "7", label = _("7 days") }, { id = "30", label = _("30 days") },
 #: battery_page.lua:159
 msgid "7 days"
-msgstr ""
+msgstr "7 días"
 
 #. Type: message
 #. Context: if st.overall and st.overall > 0 then out[#out + 1] = T(_("A full charge lasts %1 at %2 on average."), days(100 * 3600 / st.overall), rate(st.overall))
 #: battery_page.lua:699
 msgid "A full charge lasts %1 at %2 on average."
-msgstr ""
+msgstr "De media, una carga completa dura %1 a %2."
 
 #. Type: setting
 #. Context: elseif st.remaining then sub = T(_("About %1 left"), duration(st.remaining)) else
 #: battery_page.lua:261
 msgid "About %1 left"
-msgstr ""
+msgstr "Quedan aprox. %1"
 
 #. Type: setting
 #. Context: awake = _("Awake"), bt = _("Bluetooth"), wifi = _("Wi-Fi"), both = _("Wi-Fi + Bluetooth"), asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"), screen_off = _("Screen off"), since_charge = _("Since charge"), full_c...
 #: battery_page.lua:512
 msgid "Asleep"
-msgstr ""
+msgstr "En reposo"
 
 #. Type: setting
 #. Context: return ({ awake = _("Awake"), bt = _("Bluetooth"), wifi = _("Wi-Fi"), both = _("Wi-Fi + Bluetooth"), asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"),
 #: battery_page.lua:511
 msgid "Awake"
-msgstr ""
+msgstr "Activo"
 
 #. Type: message
 #. Context: if st.charging then out[#out + 1] = _("Charging now.") elseif st.since_charge and how then
 #: battery_page.lua:690
 msgid "Charging now."
-msgstr ""
+msgstr "Se está cargando."
 
 #. Type: setting
 #. Context: if st.charging then sub = st.time_to_full and st.time_to_full > 0 and T(_("Charging · full in %1"), duration(st.time_to_full)) or _("Charging")
 #: battery_page.lua:258
 msgid "Charging · full in %1"
-msgstr ""
+msgstr "Cargando · carga completa en %1"
 
 #. Type: message
 #. Context: if #pts < 2 then text(bb, _("Collecting data… The chart fills after a few hours of use."), face(16), px, py, pw, ph, { align = "center", fg = GREY })
 #: battery_page.lua:409
 msgid "Collecting data… The chart fills after a few hours of use."
-msgstr ""
+msgstr "Recopilando datos… El gráfico se completará tras unas horas de uso."
 
 #. Type: setting
 #. Context: else sub = _("Estimate after about an hour of use") end
 #: battery_page.lua:263
 msgid "Estimate after about an hour of use"
-msgstr ""
+msgstr "Estimación disponible tras aprox. una hora de uso"
 
 #. Type: message
 #. Context: elseif how then out[#out + 1] = T(_("Last charge: %1."), how) end
 #: battery_page.lua:696
 msgid "Last charge: %1."
-msgstr ""
+msgstr "Última carga: %1."
 
 #. Type: message
 #. Context: elseif st.since_charge and how then out[#out + 1] = T(_("Last charged %1, %2."), day_ago(self.now - st.since_charge, self.now), how) elseif st.since_charge then
 #: battery_page.lua:692
 msgid "Last charged %1, %2."
-msgstr ""
+msgstr "Última carga: %1, %2."
 
 #. Type: message
 #. Context: elseif st.since_charge then out[#out + 1] = T(_("Last charged %1."), day_ago(self.now - st.since_charge, self.now)) elseif how then
 #: battery_page.lua:694
 msgid "Last charged %1."
-msgstr ""
+msgstr "Última carga: %1."
 
 #. Type: message
 #. Context: if not self.stats then text(bb, _("No battery data on this device."), face(18), cx, cy, cw, s(60), { align = "center", fg = GREY }) return
 #: battery_page.lua:714
 msgid "No battery data on this device."
-msgstr ""
+msgstr "No hay datos de batería en este dispositivo."
 
 #. Type: setting
 #. Context: awake = _("Awake"), bt = _("Bluetooth"), wifi = _("Wi-Fi"), both = _("Wi-Fi + Bluetooth"), asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"), screen_off = _("Screen off"), since_charge = _("Since charge"), full_c...
 #: battery_page.lua:512
 msgid "Per hour"
-msgstr ""
+msgstr "Por hora"
 
 #. Type: setting
 #. Context: asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"), screen_off = _("Screen off"), since_charge = _("Since charge"), full_charge = _("Full charge lasts"), health = _("Health"), full_mah = _("Full capacity"), design...
 #: battery_page.lua:513
 msgid "Screen off"
-msgstr ""
+msgstr "Pantalla apagada"
 
 #. Type: setting
 #. Context: awake = _("Awake"), bt = _("Bluetooth"), wifi = _("Wi-Fi"), both = _("Wi-Fi + Bluetooth"), asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"), screen_off = _("Screen off"), since_charge = _("Since charge"), full_c...
 #: battery_page.lua:512
 msgid "Screen on"
-msgstr ""
+msgstr "Pantalla encendida"
 
 #. Type: setting
 #. Context: { id = "30", label = _("30 days") }, { id = "charge", label = _("Since charge") }, }
 #: battery_page.lua:161 battery_page.lua:513
 msgid "Since charge"
-msgstr ""
+msgstr "Desde la carga"
 
 #. Type: setting
 #. Context: key("awake", _("awake")) key("asleep", _("asleep")) key("band", _("charging"))
 #: battery_page.lua:492
 msgid "asleep"
-msgstr ""
+msgstr "en reposo"
 
 #. Type: setting
 #. Context: end key("awake", _("awake")) key("asleep", _("asleep"))
 #: battery_page.lua:491
 msgid "awake"
-msgstr ""
+msgstr "activo"
 
 #. Type: setting
 #. Context: key("asleep", _("asleep")) key("band", _("charging")) key("bt", _("Bluetooth"))
 #: battery_page.lua:493
 msgid "charging"
-msgstr ""
+msgstr "cargando"
 
 #. Type: setting
 #. Context: while k * 3600 <= span + 1 do ticks[#ticks + 1] = { k * 3600, k == 0 and _("now") or T(_("−%1 h"), k) } k = k + step
 #: battery_page.lua:325 battery_page.lua:333
 msgid "now"
-msgstr ""
+msgstr "ahora"
 
 #. Type: setting
 #. Context: local n = math.floor((midday(now) - midday(t)) / DAY + 0.5) if n <= 0 then return _("today") end if n == 1 then return _("yesterday") end
 #: battery_page.lua:152
 msgid "today"
-msgstr ""
+msgstr "hoy"
 
 #. Type: setting
 #. Context: if n <= 0 then return _("today") end if n == 1 then return _("yesterday") end return T(_("%1 days ago"), n)
 #: battery_page.lua:153
 msgid "yesterday"
-msgstr ""
+msgstr "ayer"
 
 #. Type: setting
 #. Context: while k * DAY <= span + 1 do ticks[#ticks + 1] = { k * DAY, k == 0 and _("now") or T(_("−%1 d"), k) } k = k + step
 #: battery_page.lua:333
 msgid "−%1 d"
-msgstr ""
+msgstr "−%1 d"
 
 #. Type: setting
 #. Context: while k * 3600 <= span + 1 do ticks[#ticks + 1] = { k * 3600, k == 0 and _("now") or T(_("−%1 h"), k) } k = k + step
 #: battery_page.lua:325
 msgid "−%1 h"
-msgstr ""
+msgstr "−%1 h"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Customize tiles"), checked_func = function() return self.customize == true end,
 #: battery_page.lua:651
 msgid "Customize tiles"
-msgstr ""
+msgstr "Personalizar recuadros"
 
 #. Type: setting
 #. Context: health = _("Health"), full_mah = _("Full capacity"), design_mah = _("Design capacity"), empty = _("Empty"), })[id] or id
 #: battery_page.lua:515
 msgid "Empty"
-msgstr ""
+msgstr "Vacío"
 
 #. Type: setting
 #. Context: asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"), screen_off = _("Screen off"), since_charge = _("Since charge"), full_charge = _("Full charge lasts"), health = _("Health"), full_mah = _("Full capacity"), design...
 #: battery_page.lua:513
 msgid "Full charge lasts"
-msgstr ""
+msgstr "Autonomía por carga"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Restore default tiles"), callback = function(touchmenu)
 #: battery_page.lua:659
 msgid "Restore default tiles"
-msgstr ""
+msgstr "Restablecer recuadros predeterminados"
 
 #. Type: title
 #. Context: dialog = ButtonDialog:new{ title = T(_("Tile %1 of %2"), idx, 8), title_align = "center",
 #: battery_page.lua:620
 msgid "Tile %1 of %2"
-msgstr ""
+msgstr "Recuadro %1 de %2"
 
 #. Type: setting
 #. Context: items[#items + 1] = { text = _("Use per hour in"), mandatory_func = function() return options.unit == "mah" and "mAh/h" or "%/h" end,
 #: battery_page.lua:632
 msgid "Use per hour in"
-msgstr ""
+msgstr "Consumo por hora en"
 
 #. Type: setting
 #. Context: local function tile_short(id) if id == "both" then return _("Wi-Fi + BT") end return tile_label(id)
 #: battery_page.lua:521
 msgid "Wi-Fi + BT"
-msgstr ""
+msgstr "Wi-Fi + BT"
 
 #. Type: setting
 #. Context: return ({ awake = _("Awake"), bt = _("Bluetooth"), wifi = _("Wi-Fi"), both = _("Wi-Fi + Bluetooth"), asleep = _("Asleep"), per_hour = _("Per hour"), screen_on = _("Screen on"),
 #: battery_page.lua:511
 msgid "Wi-Fi + Bluetooth"
-msgstr ""
+msgstr "Wi-Fi + Bluetooth"
