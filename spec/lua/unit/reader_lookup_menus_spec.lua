@@ -749,6 +749,26 @@ describe("reader lookup menus", function()
             dialog_spec.buttons[2][1].text,
             dialog_spec.buttons[2][2].text,
         })
+
+        -- AI Dictionary actions sit under the icon row with X-Ray, without opting in to other items.
+        local config = _G.__ZEN_UI_PLUGIN.config.highlight_lookup
+        config.show_xray, config.allow_unknown_items = true, false
+        highlight._highlight_buttons = {
+            xray_lookup = function() return { text = "X-Ray" } end,
+            aidictionary_1 = function() return { text = "AI Explain" } end,
+            aidictionary_3 = function() return { text = "AI Dictionary" } end,
+        }
+        ReaderHighlight.onShowHighlightMenu(highlight)
+        assert.are.same({ "AI Explain", "AI Dictionary", "X-Ray" }, {
+            dialog_spec.buttons[2][1].text,
+            dialog_spec.buttons[2][2].text,
+            dialog_spec.buttons[3][1].text,
+        })
+
+        config.show_aidictionary = false
+        ReaderHighlight.onShowHighlightMenu(highlight)
+        assert.are.equal("X-Ray", dialog_spec.buttons[2][1].text)
+        assert.are.equal(2, #dialog_spec.buttons)
     end)
 
     it("turns dictionary buttons into the configured icon row", function()

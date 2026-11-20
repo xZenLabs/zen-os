@@ -1032,6 +1032,49 @@ describe("metadata editor Hardcover controller", function()
         assert.are.equal("Print", applied.publisher)
     end)
 
+    it("auto-picks the searched book over a derivative title listed first", function()
+        _G.__ZEN_UI_PLUGIN.config.metadata.open_library_enabled = true
+        _G.__ZEN_UI_PLUGIN.config.metadata.hardcover_auto_match = true
+        search_result = {
+            {
+                id = 1,
+                title = "Summary and Analysis of Local title by Local author",
+                authors = { "Guide Publishing" },
+            },
+        }
+        open_library_search_result = {
+            { id = "/works/OL1W", title = "Local title: A Novel", authors = { "Author, Local" } },
+        }
+        open_library_editions_result = {{ id = "/books/OL1M", publisher = "Print" }}
+        local applied
+        local editor = {
+            applyHardcover = function(_self, metadata, _summary, source)
+                applied = { metadata = metadata, source = source }
+                return 0
+            end,
+            getPendingCoverSource = function() end,
+        }
+
+        shown.on_hardcover(shown.metadata, editor)
+
+        assert.is_nil(picker)
+        assert.are.equal("Local title: A Novel", applied.metadata.title)
+        assert.are.equal("open_library", applied.source)
+    end)
+
+    it("expands the closest work in manual results", function()
+        search_result = {
+            { id = 1, title = "Workbook for Local title" },
+            { id = 2, title = "Local title" },
+        }
+        editions_result = {{ id = 9, edition_format = "Paperback" }}
+
+        shown.on_hardcover(shown.metadata, {})
+
+        assert.are.equal(1, #picker.items)
+        assert.are.equal("Local title", picker.items[1].text)
+    end)
+
     it("stages a selected Hardcover edition cover", function()
         _G.__ZEN_UI_PLUGIN.config.metadata.hardcover_auto_match = true
         editions_result = {{

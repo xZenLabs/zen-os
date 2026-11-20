@@ -30,6 +30,7 @@ function M.settingForHighlightKey(key)
     local name = key:match("^%d+_(.*)$") or key
     if name == "xray_lookup" then return "show_xray" end
     if name:find("koassistant", 1, true) then return "show_koassistant" end
+    if name:sub(1, 13) == "aidictionary_" then return "show_aidictionary" end
     if name == "ai_assistant" or name:sub(1, 10) == "assistant_" then
         return "show_ai_assistant"
     end

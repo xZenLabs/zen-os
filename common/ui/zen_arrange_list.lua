@@ -1393,6 +1393,7 @@ local function ensure_submenu_callbacks(items)
     for _i, item in ipairs(items) do
         if not item.hold_callback and has_submenu(item) then
             local submenu_item = item
+            item._zen_arrange_submenu_hold = true
             item.hold_callback = function(parent, refresh)
                 local sub_items = submenu_item.sub_item_table
                 if type(submenu_item.sub_item_table_func) == "function" then
@@ -1611,6 +1612,19 @@ end
 local function on_settings_row_hold(row)
     if row.show_parent._zen_arrange_enabled then return true end
     local item = row.item
+    -- Native menus: same hold contract as TouchMenu:onMenuHold.
+    if row.show_parent._zen_menu_mode and item_is_enabled(item) then
+        local menu = row.show_parent._zen_menu_proxy
+        local hold_callback = type(item.hold_callback_func) == "function"
+            and item.hold_callback_func()
+            or not item._zen_arrange_submenu_hold
+                and (item._zen_arrange_orig_hold_callback or item.hold_callback)
+        if type(hold_callback) == "function" then
+            if item.hold_keep_menu_open == false then menu:closeMenu() end
+            hold_callback(menu, item)
+            return true
+        end
+    end
     local help_text = type(item.help_text_func) == "function"
         and item.help_text_func(row.show_parent._zen_menu_proxy) or item.help_text
     if help_text then

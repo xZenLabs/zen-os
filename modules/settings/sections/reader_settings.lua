@@ -43,8 +43,14 @@ function M.build(ctx)
         return utils.make_enable_feature_item(feature, text, config, save_and_apply)
     end
 
-    -- Returns true if a plugin is loaded in the active UI or PluginLoader.
+    -- Returns true if a plugin is loaded in the active UI or PluginLoader; a list matches any slot.
     local function hasPlugin(slot)
+        if type(slot) == "table" then
+            for _i, name in ipairs(slot) do
+                if hasPlugin(name) then return true end
+            end
+            return false
+        end
         local ok_f, FM = pcall(require, "apps/filemanager/filemanager")
         local ok_r, RU = pcall(require, "apps/reader/readerui")
         local ui = (ok_f and FM.instance) or (ok_r and RU.instance)
@@ -1490,6 +1496,8 @@ function M.build(ctx)
             },
             make_lookup_plugin_item("xray", "show_xray", _("Show X-Ray")),
             make_lookup_plugin_item("koassistant", "show_koassistant", _("Show KOAssistant")),
+            -- Slot is the folder name on newer KOReader, the plugin's own name on older.
+            make_lookup_plugin_item({ "AI_Dictionary", "benedict" }, "show_aidictionary", _("Show AI Dictionary")),
             make_lookup_plugin_item(
                 "assistant",
                 "show_ai_assistant",

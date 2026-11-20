@@ -221,7 +221,8 @@ describe("Hardcover metadata client", function()
     it("falls back to title and author when the ISBN is invalid", function()
         local transport, calls = queued({
             response({ data = { search = {
-                ids = { 7 }, results = {{ title = "Dune" }},
+                ids = { 7 },
+                results = {{ title = "Dune", author_names = { "Frank Herbert" } }},
             } } }),
         })
 
@@ -255,7 +256,8 @@ describe("Hardcover metadata client", function()
         local transport, calls = queued({
             response({ data = { editions = {} } }),
             response({ data = { search = {
-                ids = { 7 }, results = {{ title = "Dune" }},
+                ids = { 7 },
+                results = {{ title = "Dune", author_names = { "Frank Herbert" } }},
             } } }),
         })
 
@@ -269,6 +271,62 @@ describe("Hardcover metadata client", function()
         assert.are.equal("9780441013593", calls[1].variables.isbn)
         assert.are.equal("Dune Frank Herbert", calls[2].variables.query)
         assert.are.equal(2, #calls)
+    end)
+
+    it("searches the title alone when nothing fits both title and author", function()
+        local summary = {
+            title = "Summary and Analysis of Project Hail Mary by Andy Weir",
+            author_names = { "Good Reads Publishing" },
+        }
+        local transport, calls = queued({
+            response({ data = { search = {
+                ids = { 31, 32 },
+                results = {
+                    summary,
+                    { title = "Workbook for Project Hail Mary by Andy Weir" },
+                },
+            } } }),
+            response({ data = { search = {
+                ids = { 7, 31 },
+                results = {
+                    { title = "Project Hail Mary", author_names = { "Andy Weir" } },
+                    summary,
+                },
+            } } }),
+        })
+
+        local works = assert(Hardcover.search("secret-token", {
+            title = "Project Hail Mary",
+            authors = { "Andy Weir" },
+        }, transport))
+
+        assert.are.equal("Project Hail Mary Andy Weir", calls[1].variables.query)
+        assert.are.equal("Project Hail Mary", calls[2].variables.query)
+        assert.are.equal(2, #calls)
+        assert.are.same({ 7, 31, 32 }, { works[1].id, works[2].id, works[3].id })
+        assert.are.equal(3, #works)
+    end)
+
+    it("searches the title alone after a title and author miss, not after an error", function()
+        local transport, calls = queued({
+            response({ data = { search = { ids = {}, results = {} } } }),
+            response({ data = { search = {
+                ids = { 7 }, results = {{ title = "Dune" }},
+            } } }),
+        })
+        local input = { title = "Dune", author = "Frank Herbert" }
+
+        local works = assert(Hardcover.search("secret-token", input, transport))
+
+        assert.are.equal(7, works[1].id)
+        assert.are.equal("Dune", calls[2].variables.query)
+
+        transport, calls = queued({ response({}, 503) })
+        local missing, err = Hardcover.search("secret-token", input, transport)
+
+        assert.is_nil(missing)
+        assert.are.equal("server", err.kind)
+        assert.are.equal(1, #calls)
     end)
 
     it("normalizes editions and ranks audio formats last", function()
@@ -575,7 +633,7 @@ describe("Hardcover metadata HTTPS transport", function()
         assert.is_false(captured.redirect)
         assert.are.equal("application/json", captured.headers.Accept)
         assert.is_nil(captured.source:find("secret-token", 1, true))
-        assert.are.same({ 6, 12 }, timeout_calls[1])
+        assert.are.same({ 15, 30 }, timeout_calls[1])
         assert.are.equal("reset", timeout_calls[2])
         assert.are.same({ "peer", "fail_if_no_peer_cert" }, tls_options.verify)
         assert.matches("/modules/filebrowser/metadata/ca%-bundle%.crt$",

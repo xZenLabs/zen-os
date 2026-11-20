@@ -4,8 +4,8 @@ local logger = require("common/zen_logger").new("metadata_http")
 
 local M = {}
 local USER_AGENT = "ZenOS metadata (https://github.com/xZenLabs/zen-os)"
-local BLOCK_TIMEOUT = 6
-local TOTAL_TIMEOUT = 12
+local BLOCK_TIMEOUT = 15 -- Open Library can take 10+ s to accept a connection
+local TOTAL_TIMEOUT = 30
 local MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 local MAX_COVER_BYTES = 12 * 1024 * 1024
 local ERROR_KINDS = {
@@ -339,6 +339,8 @@ function M.get(url, host, headers, transport, server_retries)
         local status = response and tonumber(response.status)
         local retryable = status == 503
             or (retry_all_server_errors and status and status >= 500 and status <= 599)
+            -- Slow hosts (Open Library) drop connection attempts; a fresh one usually lands.
+            or (attempt == 0 and not response and err.kind == "network")
         if not retryable or attempt == retries then break end
         require("socket").sleep(1)
     end

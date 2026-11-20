@@ -173,6 +173,35 @@ describe("Google Books metadata client", function()
         assert.are.equal("Dune", works[1].title)
     end)
 
+    it("retries a failed connection once", function()
+        local socket = require("socket")
+        original_sleep = socket.sleep
+        local slept, calls = 0, 0
+        socket.sleep = function(seconds) slept = slept + seconds end
+        local works = assert(GoogleBooks.search("key", { title = "Dune" }, function()
+            calls = calls + 1
+            if calls == 1 then return nil, { kind = "network" } end
+            return response({ items = {{
+                id = "volume-1",
+                volumeInfo = { title = "Dune" },
+            }} })
+        end))
+
+        assert.are.equal(1, slept)
+        assert.are.equal(2, calls)
+        assert.are.equal("Dune", works[1].title)
+
+        calls = 0
+        local missing, err = GoogleBooks.search("key", { title = "Dune" }, function()
+            calls = calls + 1
+            return nil, { kind = calls > 2 and "offline" or "network" }
+        end)
+
+        assert.is_nil(missing)
+        assert.are.equal("network", err.kind)
+        assert.are.equal(2, calls)
+    end)
+
     it("maps lookup errors without calling transport for invalid credentials", function()
         local called = false
         local works, err = GoogleBooks.search("", { title = "Dune" }, function()

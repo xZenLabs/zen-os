@@ -125,6 +125,7 @@ modules/filebrowser/metadata/google_books.lua|unit
 modules/filebrowser/metadata/hardcover.lua|unit
 modules/filebrowser/metadata/http.lua|unit
 modules/filebrowser/metadata/isbn.lua|unit
+modules/filebrowser/metadata/match.lua|unit
 modules/filebrowser/metadata/open_library.lua|unit
 modules/filebrowser/metadata/service.lua|unit
 modules/filebrowser/metadata/vendor/slaxdom.lua|unit

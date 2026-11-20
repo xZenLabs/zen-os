@@ -382,6 +382,72 @@ describe("Zen arrange list settings resume", function()
         end
     end)
 
+    it("runs native hold callbacks on root and nested menu-mode rows", function()
+        ZenSpec.unload("common/arrange_state")
+        ZenSpec.unload("common/ui/zen_arrange_list")
+        ArrangeList = require("common/ui/zen_arrange_list")
+        local sort = package.loaded["ui/widget/sortwidget"]
+        local original_new = sort.new
+        sort.new = function(self, options)
+            local picker = original_new(self, options)
+            picker._populateItems = function(parent)
+                parent.main_content = {}
+                for index, item in ipairs(parent.item_table) do
+                    parent.main_content[index] = {
+                        item = item, index = index, show_parent = parent,
+                        onTap = function() return true end,
+                        onHoldTouch = function() return true end,
+                    }
+                end
+            end
+            return picker
+        end
+        local held, taps, enabled = {}, 0, true
+        local item = {
+            text = "Server", help_text = "Help",
+            enabled_func = function() return enabled end,
+            callback = function() taps = taps + 1 end,
+            hold_callback = function(menu, held_item)
+                held[#held + 1] = { menu = menu, item = held_item }
+            end,
+        }
+        local closing = {
+            text = "Reset", hold_keep_menu_open = false,
+            hold_callback_func = function()
+                return function(menu) held[#held + 1] = { menu = menu, closing = true } end
+            end,
+        }
+        local picker = ArrangeList.show{
+            allow_arrange = false, menu_mode = true,
+            item_table = { item, { text = "More", sub_item_table = { item, closing } } },
+        }
+
+        assert.is_true(picker.main_content[1]:onHoldTouch())
+        assert.are.equal(picker._zen_menu_proxy, held[1].menu)
+        assert.are.equal(item, held[1].item)
+
+        -- Submenu rows keep Zen's synthesized opener off the hold path.
+        local shown_count = #shown_widgets
+        assert.is_true(picker.main_content[2]:onHoldTouch())
+        assert.are.equal(shown_count, #shown_widgets)
+
+        picker.main_content[2]:onTap()
+        local submenu = shown_widgets[#shown_widgets]
+        assert.are_not.equal(picker, submenu)
+        assert.is_true(submenu.main_content[1]:onHoldTouch())
+        assert.are.equal(submenu._zen_menu_proxy, held[2].menu)
+
+        enabled = false
+        assert.is_true(submenu.main_content[1]:onHoldTouch())
+        assert.are.equal(2, #held)
+        assert.are.equal("Help", shown_widgets[#shown_widgets].text)
+
+        assert.is_true(submenu.main_content[2]:onHoldTouch())
+        assert.is_true(held[3].closing)
+        assert.is_true(submenu.closed)
+        assert.are.equal(0, taps)
+    end)
+
     it("flashes the tapped row before opening root and nested submenus", function()
         local original_settings = G_reader_settings
         finally(function() _G.G_reader_settings = original_settings end)

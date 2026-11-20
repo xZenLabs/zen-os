@@ -422,6 +422,7 @@ local defaults = {
         show_xray           = true,
         show_koassistant    = true,
         show_ai_assistant   = true,
+        show_aidictionary   = true,
     },
     dict_quick_lookup = { show_labels = false, bottom_sheet = true, allow_unknown_items = false },
 

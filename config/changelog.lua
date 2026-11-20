@@ -458,9 +458,12 @@ return {
     ["4.4.0"] = {
         "Add updated Battery page",
         "Add updated Stats page",
+        "Add bluetooth mapping",
         "Add text size for cover badges and the opening banner (Library > Appearance > Covers > Badges)",
         "Library opens faster: the listing is kept when switching tabs",
         "Plugins can add books to the Authors, Series, Languages, and Tags views",
+        "AI Dictionary plugin actions show in the highlight menu (Reader > Highlight / Lookup > Show AI Dictionary)",
         "Fix: crash on Android when opening a footnote popup",
+        "Fix: long press did nothing on plugin and KOReader menu items opened from the launcher",
     },
 }
