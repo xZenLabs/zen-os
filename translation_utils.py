@@ -18,6 +18,7 @@ Flags:
 
 import argparse
 import ast
+import html
 import json
 import os
 import re
@@ -434,7 +435,9 @@ def apply_translations(locale: str, translations: dict[str, str]) -> int:
     return sum(1 for v in translations.values() if v)
 
 
-_FORMAT_TOKEN_RE = re.compile(r"%\d+(?=[hm]\b)|%(?:\d+\$)?[-+ #0]*\d*(?:\.\d+)?[A-Za-z%]|%\d+")
+# No space flag: "% in" is a literal percent sign, not a conversion
+_FORMAT_TOKEN_RE = re.compile(r"%\d+(?=[hm]\b)|%(?:\d+\$)?[-+#0]*\d*(?:\.\d+)?[A-Za-z%]|%\d+")
+_NOTRANSLATE_RE = re.compile(r'<span translate="no">(.*?)</span>')
 
 
 def _protect_format_tokens(text: str) -> tuple[str, list[str]]:
@@ -448,14 +451,31 @@ def _protect_format_tokens(text: str) -> tuple[str, list[str]]:
     return _FORMAT_TOKEN_RE.sub(replace, text), tokens
 
 
-def _restore_format_tokens(text: str, tokens: list[str]) -> str:
-    """Restore protected format placeholders after translation."""
+def _restore_format_tokens(text: str, tokens: list[str]) -> str | None:
+    """Restore protected format placeholders; None when the service dropped or repeated one."""
     for index, token in enumerate(tokens):
         marker = f"⟪ZENFMT{index}⟫"
         if text.count(marker) != 1:
-            raise ValueError("translation changed a format placeholder marker")
+            return None
         text = text.replace(marker, token)
     return text
+
+
+def _protect_format_tokens_html(text: str) -> str:
+    """Wrap format placeholders in notranslate spans for format=html requests."""
+    return _FORMAT_TOKEN_RE.sub(
+        lambda match: f'<span translate="no">{match.group(0)}</span>', html.escape(text, quote=False),
+    )
+
+
+def _restore_format_tokens_html(text: str, source: str) -> str:
+    """Strip notranslate spans; empty when placeholders or line breaks did not survive."""
+    restored = html.unescape(_NOTRANSLATE_RE.sub(r"\1", text))
+    intact = (
+        sorted(_NOTRANSLATE_RE.findall(text)) == sorted(_FORMAT_TOKEN_RE.findall(source))
+        and restored.count("\n") == source.count("\n")
+    )
+    return restored if intact else ""
 
 
 def google_api_key() -> str | None:
@@ -476,14 +496,13 @@ def google_api_key() -> str | None:
     return None
 
 
-def google_translate_batch(texts: list[str], locale: str, api_key: str, timeout: int = 30) -> list[str]:
-    """Translate up to 128 English strings with Google Cloud Translation Basic."""
-    protected = [_protect_format_tokens(text) for text in texts]
+def _google_request(texts: list[str], locale: str, api_key: str, text_format: str, timeout: int) -> list[str]:
+    """POST one batch to Google Cloud Translation Basic, retrying transient failures."""
     body = json.dumps({
-        "q": [text for text, _tokens in protected],
+        "q": texts,
         "source": "en",
         "target": GOOGLE_LOCALES.get(locale, locale),
-        "format": "text",
+        "format": text_format,
     }).encode("utf-8")
     request = urllib.request.Request(
         GOOGLE_TRANSLATE_URL,
@@ -504,15 +523,29 @@ def google_translate_batch(texts: list[str], locale: str, api_key: str, timeout:
                 raise ValueError("Google returned the wrong number of translations")
             if any(not item.get("translatedText") for item in translations):
                 raise ValueError("Google returned an empty translation")
-            return [
-                _restore_format_tokens(item["translatedText"], tokens)
-                for item, (_text, tokens) in zip(translations, protected)
-            ]
+            return [item["translatedText"] for item in translations]
         except (OSError, ValueError, KeyError, IndexError, TypeError, urllib.error.URLError) as exc:
             last_error = exc
             if attempt < 2:
                 time.sleep(5 * 2 ** attempt)
     raise RuntimeError(f"Google translation failed for {locale}: {last_error}")
+
+
+def google_translate_batch(texts: list[str], locale: str, api_key: str, timeout: int = 30) -> list[str]:
+    """Translate up to 128 English strings; ones whose placeholders do not survive come back empty."""
+    protected = [_protect_format_tokens(text) for text in texts]
+    raw = _google_request([text for text, _tokens in protected], locale, api_key, "text", timeout)
+    results = [_restore_format_tokens(text, tokens) for text, (_text, tokens) in zip(raw, protected)]
+    lost = [index for index, text in enumerate(results) if text is None]
+    if lost:  # marker mangled: retry as HTML, where notranslate spans are honored
+        raw = _google_request(
+            [_protect_format_tokens_html(texts[index]) for index in lost], locale, api_key, "html", timeout,
+        )
+        for index, text in zip(lost, raw):
+            results[index] = _restore_format_tokens_html(text, texts[index])
+            if not results[index]:
+                print(f"  -> placeholder lost, left untranslated: {texts[index]!r}", file=sys.stderr)
+    return results
 
 
 def google_translate(text: str, locale: str, timeout: int = 30) -> str:

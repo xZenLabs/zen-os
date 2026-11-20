@@ -63,6 +63,17 @@ local function showMenuPicker(opts)
     local bar_area_h = has_footer_buttons and 0 or pager.PN_FOOTER_H
     local divider_h = TitleStyle.DIVIDER_HEIGHT
     local header_h = math.max(0, tonumber(opts.header_height) or 0)
+    -- opts.note: a short hint under the title, where no custom header is painted.
+    local note_tb
+    if header_h == 0 and type(opts.note) == "string" and opts.note ~= "" then
+        note_tb = require("ui/widget/textboxwidget"):new{
+            text = opts.note,
+            face = Font:getFace("smallinfofont", 16),
+            width = Screen:getWidth() - 2 * (pad + row_pad),
+            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+        }
+        header_h = note_tb:getSize().h + 2 * pad + divider_h
+    end
 
     local back_sz  = TitleStyle.ICON_SIZE
     local mirrored = BD.mirroredUILayout()
@@ -243,6 +254,7 @@ local function showMenuPicker(opts)
         closed = true
         UIManager:close(dialog, "ui")
         UIManager:forceRePaint()
+        if note_tb then note_tb:free() end
         if type(opts.on_close) == "function" then opts.on_close(item) end
     end
 
@@ -663,7 +675,10 @@ local function showMenuPicker(opts)
         title_tw:paintTo(bb, title_paint_x,
             TitleStyle.VERTICAL_PADDING + math.floor((title_h - title_text_h) / 2))
         bb:paintRect(0, divider_y, sw, divider_h, TitleStyle.DIVIDER_COLOR)
-        if header_h > 0 and type(opts.paint_header) == "function" then
+        if note_tb then
+            note_tb:paintTo(bb, pad + row_pad, title_block_h + pad)
+            bb:paintRect(0, title_block_h + header_h - divider_h, sw, divider_h, TitleStyle.DIVIDER_COLOR)
+        elseif header_h > 0 and type(opts.paint_header) == "function" then
             opts.paint_header(bb, 0, title_block_h, sw, header_h)
             if opts.hide_header_divider ~= true then
                 bb:paintRect(0, title_block_h + header_h - divider_h,

@@ -85,6 +85,25 @@ describe("native KOReader menu shortcuts", function()
         }, found)
     end)
 
+    it("lists the reader's shared menus and own tabs when no book is open", function()
+        package.loaded["apps/reader/readerui"].instance = nil
+        local NativeMenu = require("modules/menu/app_launcher/native_menu")
+
+        local found, note = NativeMenu.scan("reader")
+        assert.are.same({
+            { id = "typeset", title = "Typesetting", text = "Typesetting", bold = true, indent_level = 0 },
+            { id = "tools", title = "Tools", text = "Tools", bold = true, indent_level = 0 },
+            { id = "plugin_management", title = "Plugins", text = "Plugins", bold = false, indent_level = 1 },
+        }, found)
+        assert.is_truthy(note:find("Open a book", 1, true)) -- the picker says why the list is short
+        assert.is_false(NativeMenu.exists("typeset", "reader")) -- only launchable inside a book
+
+        package.loaded["apps/reader/readerui"].instance = { menu = reader_menu }
+        assert.is_nil(select(2, NativeMenu.scan("reader")))
+        package.loaded["apps/filemanager/filemanager"].instance = nil
+        assert.is_nil(select(2, NativeMenu.scan("filemanager")))
+    end)
+
     it("discovers native tabs hidden by Zen Mode", function()
         local native_tabs = filemanager_menu.tab_item_table
         filemanager_menu.tab_item_table = { { id = "zen_ui", sub_item_table = {{}} } }

@@ -51,26 +51,21 @@ local function menu_kind(menu)
     return "filemanager"
 end
 
-local function live_menu(scope, allow_active_fallback)
-    if scope == "reader" or scope == "active" or scope == nil then
-        local ok_reader, ReaderUI = pcall(require, "apps/reader/readerui")
-        local reader = ok_reader and ReaderUI.instance or nil
-        if reader and reader.menu then return reader.menu end
-        if scope == "reader" then return nil end
-    end
+local APPS = { reader = "apps/reader/readerui", filemanager = "apps/filemanager/filemanager" }
 
-    if scope == "filemanager" or scope == "active" or scope == nil then
-        local ok_fm, FileManager = pcall(require, "apps/filemanager/filemanager")
-        local fm = ok_fm and FileManager.instance or nil
-        if fm and fm.menu then return fm.menu end
-        if scope == "filemanager" and not allow_active_fallback then return nil end
-    end
+local function app_menu(kind)
+    local ok, app = pcall(require, APPS[kind])
+    local ui = ok and app.instance or nil
+    return ui and ui.menu or nil
+end
 
-    if allow_active_fallback then
-        local ok_reader, ReaderUI = pcall(require, "apps/reader/readerui")
-        local reader = ok_reader and ReaderUI.instance or nil
-        if reader and reader.menu then return reader.menu end
+-- "active": the reader's menu inside a book, the file manager's otherwise.
+-- borrow: a named scope falls back to the other app's menu.
+local function live_menu(scope, borrow)
+    if scope == "filemanager" then
+        return app_menu("filemanager") or borrow and app_menu("reader") or nil
     end
+    return app_menu("reader") or (scope ~= "reader" or borrow) and app_menu("filemanager") or nil
 end
 
 local function ensure_item_table(menu)
@@ -191,15 +186,31 @@ local function resolve_item(id, scope)
     return item and submenu_items(item, false) and item or nil
 end
 
+-- A scope whose app is not running lists the other app's menus that it shares, and its own
+-- tabs whole: their submenus only exist while that app runs.
+-- Second result: a hint for the picker when the reader's list is cut short that way.
 function M.scan(scope)
     scope = scope or "active"
-    local menu = live_menu(scope, scope == "filemanager")
+    local menu = live_menu(scope, true)
     local items = menu_tree(menu)
     if not items then return {} end
-    local kind = scope == "filemanager" and "filemanager" or menu_kind(menu)
-    local out = {}
-    walk(items, allowed_ids(kind), 0, out, {}, {})
-    return out
+    local kind = scope == "active" and menu_kind(menu) or scope
+    local out, seen = {}, {}
+    walk(items, allowed_ids(kind), 0, out, seen, {})
+    local borrowed = kind ~= menu_kind(menu)
+    if borrowed then
+        local own = 0
+        for _i, id in ipairs(order_for(kind)["KOMenu:menu_buttons"] or {}) do
+            if ROOT_TITLES[id] and not seen[id] then
+                own = own + 1
+                table.insert(out, own, {
+                    id = id, title = ROOT_TITLES[id], text = ROOT_TITLES[id], bold = true, indent_level = 0,
+                })
+            end
+        end
+    end
+    return out, borrowed and kind == "reader"
+        and _("Open a book to see every reader menu, such as those under Typesetting and Navigation.") or nil
 end
 
 function M.exists(id, scope)

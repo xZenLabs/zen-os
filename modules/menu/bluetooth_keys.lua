@@ -36,13 +36,13 @@ function M.show(device, plugin, capture)
         if root_menu then root_menu:updateItems() end
     end
 
-    local function pick(title, items, empty, touch_menu, on_select)
+    local function pick(title, items, empty, touch_menu, on_select, note)
         if #items == 0 then
             if empty then UIManager:show(InfoMessage:new{ text = empty }) end
             return
         end
         require("common/ui/zen_menu_picker"){
-            title = title, items = items, on_select = on_select,
+            title = title, items = items, on_select = on_select, note = note,
             back_hold_callback = touch_menu and touch_menu.backToSettingsRoot,
         }
     end
@@ -125,10 +125,10 @@ function M.show(device, plugin, capture)
         end)
 
         add("koreader_menu", _("KOReader menu"), nil, function(done, touch_menu)
-            local found = require("modules/menu/app_launcher/native_menu").scan(SCREENS[screen][3])
+            local found, note = require("modules/menu/app_launcher/native_menu").scan(SCREENS[screen][3])
             pick(_("Choose KOReader menu"), found, _("No KOReader submenus found"), touch_menu, function(item)
                 done({ label = item.title, koreader_menu = { id = item.id, title = item.title } })
-            end)
+            end, note)
         end).icon_file = require("common/plugin_root") .. "/icons/koreader.png"
 
         -- Native key names have no handlers on a touch-only device.
@@ -148,7 +148,7 @@ function M.show(device, plugin, capture)
             text_func = function()
                 return SCREENS[screen][1] .. ": " .. (Keys.label(binding, screen) or _("(none)"))
             end,
-            keep_menu_open = true,
+            keep_menu_open = true, _zen_arrange_no_close = true, -- choice lists: Back only, no X
             sub_item_table = items,
         }, SCREENS[screen][2])
     end

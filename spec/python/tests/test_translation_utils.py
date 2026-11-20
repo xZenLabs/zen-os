@@ -38,6 +38,29 @@ class TranslationUtilsTest(unittest.TestCase):
         self.assertEqual("test-key", request.get_header("X-goog-api-key"))
         self.assertEqual(["⟪ZENFMT0⟫h", "Hello"], json.loads(request.data)["q"])
 
+    def test_dropped_placeholder_marker_retries_with_notranslate_spans(self):
+        def respond(*texts):
+            return io.BytesIO(json.dumps({"data": {"translations": [{"translatedText": t} for t in texts]}}).encode())
+
+        span = '<span translate="no">%s</span>'
+        responses = [
+            respond("平均で⟪ZENFMT1⟫", "ボタン"),
+            respond(f"{span % '%1'}、{span % '%2'} &amp;", "失われた"),
+        ]
+        with patch.dict(os.environ, {"GOOGLE_TRANSLATE_API_KEY": "test-key"}), \
+                patch("urllib.request.urlopen", side_effect=responses) as urlopen, \
+                patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            self.assertEqual(
+                {"%1 at %2 &": "%1、%2 &", "Button %1": ""},
+                translation_utils.translate_strings("ja", ["%1 at %2 &", "Button %1"]),
+            )
+
+        retry = json.loads(urlopen.call_args.args[0].data)
+        self.assertEqual("html", retry["format"])
+        self.assertEqual([f"{span % '%1'} at {span % '%2'} &amp;", f"Button {span % '%1'}"], retry["q"])
+        self.assertIn("'Button %1'", stderr.getvalue())
+        self.assertEqual("+⟪ZENFMT0⟫ % in ⟪ZENFMT1⟫", translation_utils._protect_format_tokens("+%1 % in %2")[0])
+
     def test_extraction_ignores_comments_and_supports_gettext_aliases(self):
         with tempfile.TemporaryDirectory() as tmp:
             lua_path = Path(tmp) / "menu.lua"

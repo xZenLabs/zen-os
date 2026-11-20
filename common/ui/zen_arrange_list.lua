@@ -654,6 +654,7 @@ local function configure_title_bar(sort_widget, opts)
         width = sort_widget.dimen.w,
         title = sort_widget.title,
         back_visible = opts.back_visible ~= false,
+        close_visible = not opts.hide_close,
         search_visible = false,
         title_full_width = true,
         action = default_action,
@@ -917,6 +918,7 @@ local function open_submenu_for_item(sort_widget, item, resume_path, resume_in_b
         end
     end, {
         close_arrange = sort_widget._zen_arrange_close_all,
+        hide_close = item._zen_arrange_no_close or sort_widget._zen_menu_proxy._zen_hide_close,
         menu_mode = sort_widget._zen_menu_mode,
         refresh_func = type(item.sub_item_table_func) == "function" and function()
             return item.sub_item_table_func(sort_widget._zen_menu_proxy)
@@ -1401,6 +1403,7 @@ local function ensure_submenu_callbacks(items)
                     sub_items = submenu_item.sub_item_table_func()
                 end
                 show_submenu(item_submenu_title(submenu_item), sub_items, refresh, {
+                    hide_close = submenu_item._zen_arrange_no_close or parent and parent._zen_hide_close,
                     plugin = parent and parent._zen_plugin,
                 })
             end
@@ -1456,6 +1459,7 @@ show_submenu = function(title, items, refresh, opts)
     menu_proxy = {
         _zen_settings_resume = opts.settings_resume,
         _zen_plugin = opts.plugin,
+        _zen_hide_close = opts.hide_close, -- inherited by nested submenus
         item_table_stack = {},
         item_table = items,
         backToUpperMenu = function()
@@ -1549,6 +1553,7 @@ show_submenu = function(title, items, refresh, opts)
     sort_widget._zen_arrange_close_all = close_submenu_and_arrange
     configure_title_bar(sort_widget, {
         plugin = opts.plugin,
+        hide_close = opts.hide_close,
         back_callback = function()
             menu_proxy:backToUpperMenu()
             return true

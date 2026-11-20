@@ -9,6 +9,7 @@ describe("Bluetooth button mapping", function()
             "common/dispatcher_menu", "common/ui/glyph_icons", "common/hid_keys", "common/inline_icon_map",
             "common/library_destination", "common/ui/icon_menu_item", "common/ui/zen_menu_picker",
             "common/plugin_root", "ffi/util", "gettext", "modules/menu/bluetooth_keys",
+            "modules/menu/app_launcher/native_menu",
         }) do originals[name] = package.loaded[name] or false end
         quick_settings = rawget(_G, "__ZEN_UI_QUICK_SETTINGS")
         shown, lists, pending, refreshes, bindings, pickers = {}, {}, nil, 0, {}, {}
@@ -103,6 +104,7 @@ describe("Bluetooth button mapping", function()
             "KOReader menu" }, texts(library.sub_item_table))
         assert.are.equal("/zen/icons/koreader.png", reader.sub_item_table[5].icon_file)
         for _i, item in ipairs(library.sub_item_table) do assert.is_true(item._zen_arrange_no_caret) end
+        assert.is_true(reader._zen_arrange_no_close and library._zen_arrange_no_close)
 
         local updates = 0
         reader.sub_item_table[2].callback({ updateItems = function() updates = updates + 1 end })
@@ -114,5 +116,14 @@ describe("Bluetooth button mapping", function()
         assert.are.equal("Reader: Wi-Fi", reader.text_func())
         assert.are.equal("Control: Wi-Fi", reader.sub_item_table[2].text_func())
         assert.are.equal("Action", reader.sub_item_table[3].text_func())
+
+        -- No book open: the reader's menu list is cut short and the picker says so.
+        ZenSpec.replace("modules/menu/app_launcher/native_menu", { scan = function(scope)
+            return { { id = "typeset", title = "Typesetting", text = "Typesetting" } }, scope == "reader" and "hint" or nil
+        end })
+        reader.sub_item_table[5].callback()
+        library.sub_item_table[7].callback()
+        assert.are.equal("hint", pickers[2].note)
+        assert.is_nil(pickers[3].note)
     end)
 end)

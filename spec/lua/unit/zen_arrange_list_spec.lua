@@ -301,6 +301,41 @@ describe("Zen arrange list settings resume", function()
         end
     end)
 
+    it("hides the close button on every submenu under a no-close item", function()
+        local sort = package.loaded["ui/widget/sortwidget"]
+        local original_new = sort.new
+        sort.new = function(self, options)
+            local picker = original_new(self, options)
+            picker.title_bar = { free = function() end }
+            picker[1] = { { { {} } } }
+            return picker
+        end
+        package.loaded["common/ui/icon_menu_item"].getSettingsRowHeight = function() return 10 end
+        local bars = {}
+        package.loaded["common/ui/zen_settings_titlebar"].new = function(_self, opts)
+            bars[#bars + 1] = { opts.title, opts.close_visible }
+            return { getHeight = function() return 0 end }
+        end
+        local nested = { text = "Nested", sub_item_table = { { text = "Leaf" } } }
+        local items = {
+            { text = "Plain", sub_item_table = { { text = "Leaf" } } },
+            { text = "Quiet", _zen_arrange_no_close = true, sub_item_table = { nested } },
+        }
+        local function open(widget, item)
+            widget.getFocusItem = function() return { item = item } end
+            widget:onZenArrangeOpenSubmenu()
+            return shown_widgets[#shown_widgets]
+        end
+
+        local root = ArrangeList.show{ allow_arrange = false, item_table = items }
+        open(root, items[1])
+        open(open(root, items[2]), nested)
+        nested:hold_callback(function() end)
+
+        assert.are.same({ { "", true }, { "Plain", true }, { "Quiet", false }, { "Nested", false },
+            { "Nested", false } }, bars)
+    end)
+
     it("shows help on root and nested widget setting holds without toggling", function()
         ZenSpec.unload("common/arrange_state")
         ZenSpec.unload("common/ui/zen_arrange_list")
