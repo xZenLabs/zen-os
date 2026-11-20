@@ -82,6 +82,28 @@ describe("Kindle HID discovery capture", function()
         assert.is_true(ok, tostring(err))
     end)
 
+    it("removes the BLE scan's temp folder when the CLI exits early", function()
+        local execute = os.execute
+        local dir = os.tmpname()
+        os.remove(dir)
+        execute("mkdir " .. dir)
+        local execute_stub = stub(os, "execute", function(command)
+            if not command:find("mkfifo", 1, true) then return 0 end
+            -- The real script, in the foreground, with a CLI that is gone before its first command.
+            command = command:gsub("/usr/bin/ace_bt_cli", "true")
+                :gsub("mktemp %-d", "%0 " .. dir .. "/XXXXXX"):gsub("&$", "")
+            return execute(command)
+        end)
+        local ok, err = pcall(Hid.startCapture)
+        execute_stub:revert()
+        local listing = io.popen("ls " .. dir)
+        local left = listing:read("*a")
+        listing:close()
+        execute("rm -rf " .. dir)
+        assert.is_true(ok, tostring(err))
+        assert.equals("", left)
+    end)
+
     describe("one-time system setup", function()
         local lfs = require("libs/libkoreader-lfs")
         local RULES, HELPER = "/etc/udev/rules.d/99-bt-keyboard.rules", "/usr/local/bin/dev_is_keyboard.sh"
@@ -132,8 +154,10 @@ describe("Kindle HID discovery capture", function()
         it("applies once and then reports the Kindle as set up", function()
             files[FLAG], files[DMCC] = "", '#!/bin/sh\nif ! [ -e "' .. FLAG .. '" ]; then exit; fi\n'
             assert.is_false(Hid.isSetUp())
+            assert.is_false(Hid.rebootNeeded())
             assert.is_true(Hid.setup())
             assert.is_true(Hid.isSetUp())
+            assert.is_true(Hid.rebootNeeded()) -- until the marker's tmpfs is wiped
             assert.is_truthy(files[RULES] and files[HELPER] and files["/mnt/us/DISABLE_CORE_DUMP"])
             assert.is_truthy(files[DMCC]:find('\nif [ -e "', 1, true))
             assert.is_true(ran("mntroot ro"))
@@ -154,6 +178,32 @@ describe("Kindle HID discovery capture", function()
             assert.are.equal(stock, files[DMCC])
             assert.is_true(ran("mntroot ro"))
             assert.is_false(Hid.isSetUp())
+            assert.is_false(Hid.rebootNeeded())
+        end)
+
+        it("tears down the root filesystem changes and keeps the core dump markers", function()
+            local stock = '#!/bin/sh\nif ! [ -e "' .. FLAG .. '" ]; then exit; fi\n'
+            files[FLAG], files[DMCC] = "", stock
+            assert.is_false(Hid.isApplied())
+            assert.is_true(Hid.setup())
+            assert.is_true(Hid.isApplied())
+
+            fail["mntroot rw"] = true
+            assert.is_false(Hid.teardown())
+            assert.is_truthy(files[RULES] and files[HELPER])
+            fail["mntroot rw"] = nil
+
+            commands = {}
+            assert.is_true(Hid.teardown())
+            assert.is_nil(files[RULES] or files[HELPER])
+            assert.are.equal(stock, files[DMCC])
+            assert.is_truthy(files["/mnt/us/DISABLE_CORE_DUMP"])
+            assert.is_true(ran("mntroot ro"))
+            assert.is_false(Hid.isApplied() or Hid.rebootNeeded() or Hid.isSetUp())
+
+            commands = {}
+            assert.is_true(Hid.teardown()) -- nothing left: root stays read-only
+            assert.are.same({}, commands)
         end)
 
         it("changes nothing when root cannot be remounted or the Kindle is unsupported", function()

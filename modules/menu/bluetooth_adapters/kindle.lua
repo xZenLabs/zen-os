@@ -54,7 +54,8 @@ local function write_property(property, value, numeric)
     return result == true, err
 end
 
-local function normalize(raw)
+-- state: read is_paired/is_connected; discoveries are a stale snapshot and must not set them.
+local function normalize(raw, state)
     local address = raw.address or raw.Address or raw.addr or raw.mac or raw.MAC
         or raw.bdaddr or raw.BDAddr or raw.bd_address or raw.deviceAddress or raw.macAddress
     if not Common.validAddress(address) then return nil end
@@ -65,6 +66,7 @@ local function normalize(raw)
         name = type(name) == "string" and name ~= "" and name or address,
         rssi = tonumber(raw.rssi or raw.RSSI), hid = raw.hid, le = raw.le,
     }
+    if not state then return item end
     if raw.is_paired ~= nil then item.paired = raw.is_paired == 1 or raw.is_paired == true end
     if raw.is_connected ~= nil then item.connected = raw.is_connected == 1 or raw.is_connected == true end
     return item
@@ -241,8 +243,7 @@ function M.setPower(enabled, request)
 end
 
 function M.new()
-    -- hid_enabled: opt-in HID capture/setup, off until triggered
-    local adapter = { id = "kindle", hid_available = Hid.isSupported() }
+    local adapter = { id = "kindle" }
     local function finish_capture(keep)
         if not adapter.capturing then return end
         adapter.capturing = nil
@@ -280,7 +281,7 @@ function M.new()
             local malformed = next(list) and #list == 0 or false
             for _i, raw in ipairs(list) do
                 if type(raw) == "table" then
-                    local item = normalize(raw)
+                    local item = normalize(raw, field ~= nil)
                     if item then
                         local key = item.address:upper()
                         local existing = by_address[key]
@@ -367,10 +368,13 @@ function M.new()
         UIManager:scheduleIn(10, timer)
     end
 
+    -- btfd's own scan only lists audio devices: where supported, a HID capture runs with it.
     function adapter.scan(done)
-        if not (adapter.hid_enabled and Hid.isSupported()) then return discover(done) end
+        if not Hid.isSupported() then return discover(done) end
+        UIManager:forceRePaint() -- known devices show before the capture start blocks
         Hid.startCapture()
         adapter.capturing = true
+        adapter.hid_found = nil -- finds end with the scan that made them
         adapter.scan_done = done
         local timer
         timer = function()
@@ -397,6 +401,8 @@ function M.new()
     -- HID devices need one-time system changes; the switcher asks before setupHid.
     function adapter.hidSetupNeeded() return Hid.isSupported() and not Hid.isSetUp() end
     adapter.setupHid = Hid.setup
+    adapter.hidRebootNeeded = Hid.rebootNeeded
+    adapter.reboot = Hid.reboot
     function adapter.connect(device, done)
         -- btfd Connect is A2DP-only; HID devices connect themselves once bonded and awake.
         if device.hid then

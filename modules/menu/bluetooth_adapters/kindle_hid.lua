@@ -13,6 +13,7 @@ local PRE_GM = "/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC"
 local DMCC_SED = [[sed -i 's|^if %s\(\[ -e "/PRE_GM_DEBUGGING\)|if %s\1|' ]]
 -- HID disconnects otherwise flood the userstore with core dumps
 local MARKERS = { "/mnt/us/DISABLE_CORE_DUMP", "/mnt/us/DISABLE_CORE_DUMP_ALERT" }
+local REBOOT = "/tmp/zenos-bt-hid-reboot" -- tmpfs: outlives KOReader, not a device restart
 local SYSTEM_FILES = {
     ["/usr/local/bin/dev_is_keyboard.sh"] = [[
 #!/bin/sh
@@ -62,18 +63,44 @@ local function write(path, content)
     return ok
 end
 
+-- dmcc.sh only runs where the debug flag exists; setup drops the "! " from its guard there.
+local function dmcc_guard(negation)
+    return exists(PRE_GM)
+        and (read(DMCC) or ""):find('\nif ' .. negation .. '[ -e "' .. PRE_GM, 1, true) ~= nil
+end
+
+-- System files that hold our content, or those that don't.
+local function system_files(ours)
+    local paths = {}
+    for path, content in pairs(SYSTEM_FILES) do
+        if (read(path) == content) == ours then paths[#paths + 1] = path end
+    end
+    return paths
+end
+
 -- What setup still has to change: system files, the dmcc.sh guard, core dump markers.
 local function pending()
-    local stale, markers = {}, {}
-    for path, content in pairs(SYSTEM_FILES) do
-        if read(path) ~= content then stale[#stale + 1] = path end
-    end
+    local markers = {}
     for _i, path in ipairs(MARKERS) do
         if not exists(path) then markers[#markers + 1] = path end
     end
-    -- dmcc.sh only runs where the debug flag exists; its guard gets inverted there.
-    local dmcc = exists(PRE_GM) and (read(DMCC) or ""):find('\nif ! [ -e "' .. PRE_GM, 1, true) ~= nil
-    return stale, dmcc, markers
+    return system_files(false), dmcc_guard("! "), markers
+end
+
+-- Runs change() with root writable, undo() if it fails; root goes back read-only either way.
+local function with_root(what, change, undo)
+    if not run("mntroot rw") then
+        logger.warn(what, "could not remount root read-write")
+        return false
+    end
+    local done, ok = pcall(change)
+    if not done then logger.warn(what, "failed:", tostring(ok)) end
+    ok = done and ok
+    if not ok and undo then undo() end
+    run("sync")
+    if not run("mntroot ro") then logger.warn(what, "could not remount root read-only") end
+    run("udevadm control --reload-rules")
+    return ok
 end
 
 -- ACE stack + uhid only: the system changes white-screen older (BSA) Kindles.
@@ -86,18 +113,33 @@ function M.isSetUp()
     return #stale == 0 and not dmcc and #markers == 0
 end
 
+-- Root filesystem changes are in place, even partly.
+function M.isApplied() return #system_files(true) > 0 or dmcc_guard("") end
+
+-- The system changes only take effect after a full device restart.
+function M.rebootNeeded() return exists(REBOOT) end
+
+-- KOReader's reboot action minus its sleep screen: the restart notice stays up through the clean exit.
+function M.reboot()
+    require("common/restart").request{ action = function()
+        local UIManager = require("ui/uimanager")
+        local Event = require("ui/event")
+        UIManager._entered_poweroff_stage = true
+        UIManager:broadcastEvent(Event:new("Reboot"))
+        UIManager:broadcastEvent(Event:new("Close"))
+        require("device"):saveSettings()
+        os.execute("sleep 1 && reboot &")
+        UIManager:quit()
+    end }
+end
+
 -- Idempotent; a failed run puts back everything it changed.
 function M.setup()
     if not M.isSupported() then return false end
     local stale, dmcc, markers = pending()
     if #stale == 0 and not dmcc and #markers == 0 then return true end
-    if not run("mntroot rw") then
-        logger.warn("setup: could not remount root read-write")
-        return false
-    end
     local previous = {}
-    -- pcall: root must go back read-only whatever happens in between
-    local done, ok = pcall(function()
+    local ok = with_root("setup:", function()
         local ok = run("mkdir -p /usr/local/bin")
         for _i, path in ipairs(markers) do ok = write(path, "") and ok end
         for _i, path in ipairs(stale) do
@@ -107,20 +149,30 @@ function M.setup()
         ok = run("chmod +x /usr/local/bin/dev_is_keyboard.sh") and ok
         if dmcc then ok = run(DMCC_SED:format("! ", "") .. DMCC) and ok end
         return ok
-    end)
-    if not done then logger.warn("setup: failed:", tostring(ok)) end
-    ok = done and ok
-    if not ok then
+    end, function()
         for _i, path in ipairs(markers) do os.remove(path) end
         for path, content in pairs(previous) do
             if content then write(path, content) else os.remove(path) end
         end
         if dmcc then run(DMCC_SED:format("", "! ") .. DMCC) end
-    end
-    run("sync")
-    if not run("mntroot ro") then logger.warn("setup: could not remount root read-only") end
-    run("udevadm control --reload-rules")
-    logger.info("setup:", ok and "applied" or "undone", "files=", #stale, "dmcc=", tostring(dmcc))
+    end)
+    if ok then write(REBOOT, "") end
+    logger.info("setup:", ok and "applied" or "not applied", "files=", #stale, "dmcc=", tostring(dmcc))
+    return ok
+end
+
+-- Puts the root filesystem back to stock. Core dump markers stay: they may be the user's own.
+function M.teardown()
+    local ours, dmcc = system_files(true), dmcc_guard("")
+    os.remove(REBOOT)
+    if #ours == 0 and not dmcc then return true end
+    local ok = with_root("teardown:", function()
+        local ok = true
+        for _i, path in ipairs(ours) do ok = os.remove(path) ~= nil and ok end
+        if dmcc then ok = run(DMCC_SED:format("", "! ") .. DMCC) and ok end
+        return ok
+    end)
+    logger.info("teardown:", ok and "done" or "incomplete", "files=", #ours, "dmcc=", tostring(dmcc))
     return ok
 end
 
@@ -197,8 +249,11 @@ end
 
 -- Scans only once the beacon client is registered: an unregistered request is
 -- queued under a dead session and then scans until btmanagerd restarts.
+-- A CLI that exits early breaks the pipe; ash skips the EXIT trap unless PIPE is trapped too.
 local LE_SCAN = [[
-d=$(mktemp -d) && mkfifo "$d/in" || exit 1
+d=$(mktemp -d) || exit 1
+trap "rm -rf \"$d\"" EXIT; trap exit PIPE
+mkfifo "$d/in" || exit 1
 timeout 16 ]] .. CLI .. [[ < "$d/in" > "$d/out" 2>&1 &
 exec 3> "$d/in"
 echo "ble regble" >&3; sleep 1
@@ -208,7 +263,7 @@ if grep -q "Beacon Client Registered Success" "$d/out"; then
     echo "ble stopbeaconscan" >&3; sleep 1
 fi
 echo exit >&3; exec 3>&-
-wait; rm -rf "$d"
+wait
 ]]
 
 -- The capture must be live before the inquiry starts; results arrive once.

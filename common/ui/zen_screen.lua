@@ -34,6 +34,8 @@ if not ok_iw then ImageWidget = nil end
 
 local _plugin_root = require("common/plugin_root") or ""
 local TITLE_FONT_SIZE = 28
+local SUBTITLE_SIZES = { 22, 20, 18, 16 }
+local SUBTITLE_MAX_LINES = 3 -- at the largest size; longer messages step down to fit
 
 local ZenScreen = InputContainer:extend{
     covers_fullscreen = true,
@@ -50,23 +52,36 @@ local ZenScreen = InputContainer:extend{
     _on_button_action = nil,   -- if set, button tap calls this instead of onClose
 }
 
+-- Wrapped, centered subtitle; explicit newlines break lines.
+local function subtitle_box(text, width, size, for_measurement_only)
+    return TextBoxWidget:new{
+        text      = text,
+        face      = Font:getFace("cfont", size),
+        width     = width,
+        alignment = "center",
+        for_measurement_only = for_measurement_only,
+    }
+end
+
 function ZenScreen:_computeLayout()
     local sw = Screen:getWidth()
     local sh = Screen:getHeight()
     local PAD        = Screen:scaleBySize(20)
     local TITLE_H    = self.title and TitleStyle.HEADER_CONTENT_HEIGHT or 0
     local SEP_H      = 0
-    -- Subtitle band grows to fit wrapped text so long strings don't run off-page.
-    local SUBTITLE_H = 0
+    -- Subtitle takes the largest face that fits the line budget; past the smallest,
+    -- the band grows to fit wrapped text so long strings don't run off-page.
+    local SUBTITLE_H, subtitle_size = 0, nil
     if self.subtitle then
-        local box = TextBoxWidget:new{
-            text      = self.subtitle,
-            face      = Font:getFace("cfont", 22),
-            width     = sw - PAD * 2,
-            alignment = "center",
-        }
-        SUBTITLE_H = box:getSize().h + Screen:scaleBySize(12)
-        box:free()
+        local max_h
+        for _i, size in ipairs(SUBTITLE_SIZES) do
+            local box = subtitle_box(self.subtitle, sw - PAD * 2, size, true)
+            SUBTITLE_H, subtitle_size = box:getSize().h, size
+            max_h = max_h or box:getLineHeight() * SUBTITLE_MAX_LINES
+            box:free()
+            if SUBTITLE_H <= max_h then break end
+        end
+        SUBTITLE_H = SUBTITLE_H + Screen:scaleBySize(12)
     end
     local BTN_H      = Screen:scaleBySize(80)
     self._L = {
@@ -76,6 +91,7 @@ function ZenScreen:_computeLayout()
         title_h    = TITLE_H,
         sep_h      = SEP_H,
         subtitle_h = SUBTITLE_H,
+        subtitle_size = subtitle_size,
         btn_h      = BTN_H,
         -- Content area starts below subtitle, ends above button bar.
         content_y  = TITLE_H + SEP_H + SUBTITLE_H,
@@ -397,12 +413,7 @@ function ZenScreen:paintTo(bb, x, y)
     -- Subtitle above icon (wraps to fit width so long strings don't run off-page).
     if self.subtitle and L.subtitle_h > 0 then
         local sub_y = y + L.title_h + L.sep_h
-        local sw2 = TextBoxWidget:new{
-            text      = self.subtitle,
-            face      = Font:getFace("cfont", 22),
-            width     = L.sw - L.pad * 2,
-            alignment = "center",
-        }
+        local sw2 = subtitle_box(self.subtitle, L.sw - L.pad * 2, L.subtitle_size)
         local ssz = sw2:getSize()
         sw2:paintTo(bb,
             x + L.pad,

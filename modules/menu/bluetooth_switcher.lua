@@ -36,12 +36,12 @@ function M.open(on_changed, settings_subpage, plugin)
         return false
     end
     local adapter = backend.new()
-    local closed, busy, busy_device, scanning = false, false, nil, false
+    local closed, busy, busy_device, busy_text, scanning = false, false, nil, nil, false
     local scan_sequence = 0
     local scan_warning
     local operation_error
     local devices = {}
-    local menu, render, show_actions, start
+    local menu, render, show_actions, start, offer_mapping, offer_unmapping
     IconItem.installMenuPatch()
 
     local function status_items(message)
@@ -86,6 +86,7 @@ function M.open(on_changed, settings_subpage, plugin)
         if closed or busy then return end
         busy = true
         busy_device = device.address
+        busy_text = (action == "connect" or follow_connect) and _("Connecting…") or _("Updating…")
         operation_error = nil
         render(device.address)
         adapter[action](device, function(ok, err)
@@ -103,12 +104,12 @@ function M.open(on_changed, settings_subpage, plugin)
             end
             notify_changed()
             load_devices(device.address)
-            if follow_connect then
-                for _i, current in ipairs(devices) do
-                    if current.address == device.address then
-                        if not current.connected then operate("connect", current) end
-                        break
-                    end
+            if action == "forget" then return offer_unmapping(device) end
+            if action ~= "connect" and not follow_connect then return end
+            for _i, current in ipairs(devices) do
+                if current.address == device.address then
+                    if follow_connect and not current.connected then return operate("connect", current) end
+                    return offer_mapping(current)
                 end
             end
         end)
@@ -129,14 +130,28 @@ function M.open(on_changed, settings_subpage, plugin)
             _("Signal") .. ": " .. (device.rssi and tostring(device.rssi) .. " dBm" or "—"),
         }, "\n")})
     end
+    -- The Kindle HID setup only takes effect after a full device restart: no way out but the button.
+    local function ask_hid_reboot()
+        UIManager:show(ConfirmBox:new{
+            text = _("A full device reboot is required."),
+            dismissable = false,
+            no_ok_button = true,
+            cancel_text = _("Restart Kindle"),
+            cancel_callback = adapter.reboot,
+        })
+    end
     -- Kindle HID devices need one-time system changes: ask first; a failed setup undoes itself.
     local function with_hid_setup(device, proceed)
-        if not (device.hid and adapter.hidSetupNeeded and adapter.hidSetupNeeded()) then return proceed() end
+        if not (device.hid and adapter.hidSetupNeeded) then return proceed() end
+        if not adapter.hidSetupNeeded() then
+            if adapter.hidRebootNeeded() then return ask_hid_reboot() end
+            return proceed()
+        end
         UIManager:show(ConfirmBox:new{
             text = _("Remotes and controllers need a one-time change to this Kindle's system files. Apply it now?"),
             ok_text = _("Apply"),
             ok_callback = function()
-                if adapter.setupHid() then return proceed() end
+                if adapter.setupHid() then return ask_hid_reboot() end
                 UIManager:show(InfoMessage:new{
                     text = _("Could not set up remotes and controllers. The changes were undone."),
                 })
@@ -145,6 +160,36 @@ function M.open(on_changed, settings_subpage, plugin)
     end
     local function pair(device)
         with_hid_setup(device, function() operate("pair", device, true) end)
+    end
+    -- Devices paired before the setup existed still get asked here. capture: straight to a button press.
+    local function map_buttons(device, capture)
+        with_hid_setup(device, function()
+            require("modules/menu/bluetooth_keys").show(device, plugin, capture)
+        end)
+    end
+    -- A remote does nothing until its buttons have actions: offered whenever one connects.
+    offer_mapping = function(device)
+        if not ((device.hid or device.le) and require("common/hid_keys").supported()) then return end
+        UIManager:show(ConfirmBox:new{
+            text = T(_("Assign actions to the buttons on %1?"), device.name),
+            ok_text = _("Map buttons"),
+            cancel_text = _("Not now"),
+            ok_callback = function() map_buttons(device, true) end,
+        })
+    end
+    -- Mappings outlive a forgotten device, ready for its next pairing, unless dropped here.
+    offer_unmapping = function(device)
+        local Keys = require("common/hid_keys")
+        if #Keys.list(device.address) == 0 then return end
+        UIManager:show(ConfirmBox:new{
+            text = T(_("Forget the saved button mappings for %1 as well?"), device.name),
+            ok_text = _("Forget"),
+            cancel_text = _("Keep"),
+            ok_callback = function()
+                Keys.clear(device.address)
+                Keys.save()
+            end,
+        })
     end
     show_actions = function(device)
         local dialog
@@ -169,12 +214,7 @@ function M.open(on_changed, settings_subpage, plugin)
         local Keys = require("common/hid_keys")
         if device.paired and Keys.supported()
                 and (device.hid or device.connected and Keys.connected(device.address)) then
-            -- Devices paired before the setup existed still get asked here.
-            add(icons.keyboard, _("Map buttons"), function()
-                with_hid_setup(device, function()
-                    require("modules/menu/bluetooth_keys").show(device, plugin)
-                end)
-            end)
+            add(icons.keyboard, _("Map buttons"), function() map_buttons(device) end)
         end
         if device.paired then
             add(icons.delete, _("Forget"), function()
@@ -214,21 +254,9 @@ function M.open(on_changed, settings_subpage, plugin)
     end
     render = function(selected_address)
         if closed then return end
-        -- Remotes and controllers need an extra scan the stock one doesn't do; opt-in per session.
-        local hid_search = adapter.hid_available and not adapter.hid_enabled and not scanning and {
-            text = _("Search for remotes and controllers"), _zen_settings_row = true,
-            _zen_display_text = _("Search for remotes and controllers"),
-            callback = function()
-                adapter.hid_enabled = true
-                start()
-            end,
-        } or nil
         local note = scanning and _("Searching for devices…") or scan_warning
         if #devices == 0 then
-            local rows = status_items(note or _("No Bluetooth devices found."))
-            rows[#rows + 1] = hid_search
-            menu:switchItemTable(nil, rows)
-            UIManager:forceRePaint()
+            show_status(note or _("No Bluetooth devices found."))
             return
         end
         local rows, selected_index = {}, nil
@@ -243,7 +271,7 @@ function M.open(on_changed, settings_subpage, plugin)
                 text = device.name, device = device,
                 _zen_settings_row = true,
                 _zen_display_text = device.name,
-                _zen_settings_breadcrumb = busy_device == device.address and _("Updating…")
+                _zen_settings_breadcrumb = busy_device == device.address and busy_text
                     or operation_error and operation_error.address == device.address
                         and operation_error.text
                     or table.concat(detail, " · "),
@@ -266,7 +294,6 @@ function M.open(on_changed, settings_subpage, plugin)
             if device.address == selected_address then selected_index = #rows end
         end
         if note then rows[#rows + 1] = status_items(note)[1] end
-        rows[#rows + 1] = hid_search
         menu:switchItemTable(nil, rows, selected_index)
     end
 

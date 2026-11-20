@@ -5,6 +5,7 @@ local InfoMessage = require("ui/widget/infomessage")
 
 local M = {}
 
+-- opts.action replaces the KOReader restart, e.g. with a device reboot.
 function M.request(opts)
     opts = opts or {}
     if opts.show_notice ~= false then
@@ -12,7 +13,7 @@ function M.request(opts)
             text = _("Restarting") .. "...",
         })
     end
-    UIManager:tickAfterNext(function()
+    UIManager:tickAfterNext(opts.action or function()
         UIManager:broadcastEvent(Event:new("Restart"))
     end)
 end

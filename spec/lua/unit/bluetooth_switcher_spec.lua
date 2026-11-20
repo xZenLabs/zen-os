@@ -167,7 +167,7 @@ describe("Bluetooth switcher", function()
         local device = menu.item_table[3].device
         menu.item_table[3].callback()
         assert.are.equal("Headphones", menu.item_table[3].text)
-        assert.are.equal("Updating…", menu.item_table[3]._zen_settings_breadcrumb)
+        assert.are.equal("Connecting…", menu.item_table[3]._zen_settings_breadcrumb)
         assert.are.equal("Page turner", menu.item_table[2].text)
         assert.are.equal("Paired · -80 dBm", menu.item_table[2]._zen_settings_breadcrumb)
 
@@ -177,13 +177,18 @@ describe("Bluetooth switcher", function()
         for _i, row in ipairs(menu.item_table) do
             if row.device == device then
                 assert.are.equal("Headphones", row.text)
-                assert.are.equal("Updating…", row._zen_settings_breadcrumb)
+                assert.are.equal("Connecting…", row._zen_settings_breadcrumb)
             end
         end
         device.connected = true
         pending_connect(true)
         assert.are.equal("Headphones", menu.item_table[1].text)
         assert.are.equal("Connected · -45 dBm", menu.item_table[1]._zen_settings_breadcrumb)
+
+        adapter.disconnect = function() end
+        menu:onMenuHold(menu.item_table[1])
+        shown[#shown].buttons[2][1].callback()
+        assert.are.equal("Updating…", menu.item_table[1]._zen_settings_breadcrumb)
     end)
 
     it("shows a failed connection beneath its device without replacing the list", function()
@@ -193,7 +198,7 @@ describe("Bluetooth switcher", function()
         adapter.scan_done(true)
 
         menu:onMenuSelect(menu.item_table[2], { x = 0.95 })
-        assert.are.equal("Updating…", menu.item_table[2]._zen_settings_breadcrumb)
+        assert.are.equal("Connecting…", menu.item_table[2]._zen_settings_breadcrumb)
         connect_done(false, "Bluetooth device did not change state.")
         assert.are.same({ "Speaker", "Page turner", "Headphones" },
             { menu.item_table[1].text, menu.item_table[2].text, menu.item_table[3].text })
@@ -201,7 +206,7 @@ describe("Bluetooth switcher", function()
         assert.is_true(menu.item_table[2].device.paired)
 
         menu:onMenuSelect(menu.item_table[2], { x = 0.95 })
-        assert.are.equal("Updating…", menu.item_table[2]._zen_settings_breadcrumb)
+        assert.are.equal("Connecting…", menu.item_table[2]._zen_settings_breadcrumb)
         connect_done(false, "Bluetooth device did not change state.")
         menu.custom_title_bar.action.callback()
         assert.are.equal("Paired · -80 dBm", menu.item_table[2]._zen_settings_breadcrumb)
@@ -209,16 +214,48 @@ describe("Bluetooth switcher", function()
 
     it("powers on before scanning and confirms forget", function()
         state = false
+        local mappings, saves = {}, 0
+        ZenSpec.replace("common/hid_keys", {
+            supported = function() return false end,
+            list = function(address) return mappings[address] or {} end,
+            clear = function(address) mappings[address] = nil end,
+            save = function() saves = saves + 1 end,
+        })
         require("modules/menu/bluetooth_switcher").open()
         assert.is_true(state)
         assert.are.equal(1, adapter.scanned)
-        menu:onMenuHold(menu.item_table[2])
-        local actions = shown[#shown]
-        actions.buttons[3][1].callback()
-        local confirm = shown[#shown]
-        assert.are.equal("Forget Bluetooth device Page turner?", confirm.text)
-        confirm.ok_callback()
-        assert.are.equal("forget", adapter.last_action)
+        local function forget(name)
+            for _i, row in ipairs(menu.item_table) do
+                if row.text == name then menu:onMenuHold(row) end
+            end
+            local actions = shown[#shown]
+            actions.buttons[#actions.buttons][1].callback()
+            local confirm = shown[#shown]
+            assert.are.equal("Forget Bluetooth device " .. name .. "?", confirm.text)
+            adapter.last_action = nil
+            confirm.ok_callback()
+            assert.are.equal("forget", adapter.last_action)
+            return confirm ~= shown[#shown] and shown[#shown] or nil
+        end
+        assert.is_nil(forget("Page turner")) -- no mappings: nothing more to ask
+
+        local speaker = "00:11:22:33:44:55"
+        mappings[speaker] = { {} }
+        local ask = forget("Speaker")
+        assert.are.equal("Forget the saved button mappings for Speaker as well?", ask.text)
+        assert.is_truthy(mappings[speaker]) -- kept unless confirmed
+        ask.ok_callback()
+        assert.is_nil(mappings[speaker])
+        assert.are.equal(1, saves)
+
+        mappings[speaker] = { {} }
+        adapter.forget = function(_device, done) done(false) end
+        menu.item_table[1].device.paired = true
+        local shown_count = #shown
+        menu:onMenuHold(menu.item_table[1])
+        shown[#shown].buttons[#shown[#shown].buttons][1].callback()
+        shown[#shown].ok_callback()
+        assert.are.equal(shown_count + 2, #shown) -- failed forget: mappings are not brought up
     end)
 
     it("asks before the one-time HID setup when pairing and reports a failed one", function()
@@ -239,9 +276,29 @@ describe("Bluetooth switcher", function()
         assert.is_nil(adapter.last_action)
 
         setup_ok = true
+        local rebooting, reboots = false, 0
+        adapter.hidRebootNeeded = function() return rebooting end
+        adapter.reboot = function() reboots = reboots + 1 end
         menu:onMenuHold(row)
         shown[#shown].buttons[2][1].callback() -- Pair from the actions dialog
         shown[#shown].ok_callback()
+        local restart = shown[#shown]
+        assert.are.equal("A full device reboot is required.", restart.text)
+        assert.is_false(restart.dismissable)
+        assert.is_true(restart.no_ok_button) -- the restart is the only way out
+        assert.are.equal("Restart Kindle", restart.cancel_text)
+        assert.is_nil(adapter.last_action) -- pairing waits for the full restart
+
+        needed, rebooting = false, true -- KOReader alone restarted: asked again
+        menu:onMenuSelect(row, { x = 0.95 })
+        assert.are_not.equal(restart, shown[#shown])
+        assert.are.equal("Restart Kindle", shown[#shown].cancel_text)
+        assert.is_nil(adapter.last_action)
+        shown[#shown].cancel_callback()
+        assert.are.equal(1, reboots)
+
+        rebooting = false
+        menu:onMenuSelect(row, { x = 0.95 })
         assert.is_true(row.device.paired)
     end)
 
@@ -250,14 +307,16 @@ describe("Bluetooth switcher", function()
         ZenSpec.replace("common/hid_keys", { supported = function() return true end })
         ZenSpec.replace("modules/menu/bluetooth_keys", { show = function() mapped = mapped + 1 end })
         adapter.hidSetupNeeded = function() return needed end
+        adapter.hidRebootNeeded = function() return false end
         adapter.setupHid = function() return true end
         require("modules/menu/bluetooth_switcher").open()
         local available_row = menu.item_table[3]
         available_row.device.hid = true
         local shown_count = #shown
         menu:onMenuSelect(available_row, { x = 0.95 })
-        assert.are.equal(shown_count, #shown)
         assert.is_true(available_row.device.paired)
+        assert.are.equal(shown_count + 1, #shown) -- no setup question, only the mapping offer
+        assert.is_truthy(shown[#shown].text:find("Assign actions", 1, true))
 
         local function map()
             local row
@@ -276,7 +335,48 @@ describe("Bluetooth switcher", function()
         map()
         assert.are.equal(1, mapped)
         shown[#shown].ok_callback()
-        assert.are.equal(2, mapped)
+        assert.are.equal("Restart Kindle", shown[#shown].cancel_text)
+        assert.are.equal(1, mapped) -- mapping waits for the full restart
+    end)
+
+    it("offers button mapping whenever a BTLE or HID device connects", function()
+        local mapped, supported = {}, true
+        ZenSpec.replace("common/hid_keys", { supported = function() return supported end })
+        ZenSpec.replace("modules/menu/bluetooth_keys", { show = function(device, _plugin, capture)
+            mapped[#mapped + 1] = { device.name, capture }
+        end })
+        require("modules/menu/bluetooth_switcher").open()
+        local remote, headphones = menu.item_table[2], menu.item_table[3]
+        local function connect(row)
+            row.device.connected = false
+            local shown_count = #shown
+            row.callback()
+            assert.are.equal("connect", adapter.last_action)
+            return #shown > shown_count and shown[#shown] or nil
+        end
+
+        assert.is_nil(connect(remote)) -- neither BTLE nor HID
+        remote.device.le = true
+        local offer = connect(remote)
+        assert.are.equal("Assign actions to the buttons on Page turner?", offer.text)
+        assert.are.same({}, mapped) -- declined unless confirmed
+        offer.ok_callback()
+        assert.are.same({ { "Page turner", true } }, mapped) -- straight to the button press
+
+        headphones.device.hid = true
+        headphones.callback() -- pair, then connect
+        assert.are.equal("Assign actions to the buttons on Headphones?", shown[#shown].text)
+
+        remote.device.le, remote.device.hid = nil, true
+        assert.is_truthy(connect(remote))
+        supported = false
+        assert.is_nil(connect(remote))
+        supported = true
+        remote.device.connected = false
+        adapter.connect = function(_device, done) done(false) end
+        local shown_count = #shown
+        remote.callback()
+        assert.are.equal(shown_count, #shown) -- failed connection
     end)
 
     it("shows power and scan failures without starting background work", function()

@@ -1,6 +1,7 @@
 describe("HID button mappings", function()
     local names = { "device", "ui/uimanager", "config/manager", "dispatcher", "common/zen_logger",
-        "common/hid_keys", "apps/reader/readerui", "ffi/util", "libs/libkoreader-lfs" }
+        "common/hid_keys", "apps/reader/readerui", "ffi/util", "libs/libkoreader-lfs",
+        "modules/menu/app_launcher/entry_action" }
     local originals, Keys, hook, config, ticks, executed, saved
 
     local function press(code, value)
@@ -66,9 +67,11 @@ describe("HID button mappings", function()
 
     it("runs a mapping only on its screen and labels it", function()
         local binding = Keys.add("AA:BB:CC:DD:EE:FF", 304)
+        assert.are.same({}, config.hid_keys) -- nothing is stored until the button does something
+        Keys.assign("AA:BB:CC:DD:EE:FF", binding, "reader", "actions", { page_jmp = 1 })
+        Keys.assign("AA:BB:CC:DD:EE:FF", binding, "library", "keys", "LPgFwd")
         assert.are.equal(binding, Keys.add("AA:BB:CC:DD:EE:FF", 304))
-        binding.reader = { page_jmp = 1 }
-        binding.keys = { library = "LPgFwd" }
+        assert.are.equal(1, #config.hid_keys["AA:BB:CC:DD:EE:FF"])
         Keys.save()
         assert.are.equal(1, saved)
         assert.are.equal("Next page", Keys.label(binding, "reader"))
@@ -96,6 +99,52 @@ describe("HID button mappings", function()
         Keys.remove("AA:BB:CC:DD:EE:FF", binding)
         Keys.save()
         assert.is_nil(config.hid_keys["AA:BB:CC:DD:EE:FF"])
+        assert.are.equal(304, press(304))
+
+        Keys.assign("AA:BB:CC:DD:EE:FF", Keys.add("AA:BB:CC:DD:EE:FF", 304), "reader", "keys", "LPgFwd")
+        Keys.assign("AA:BB:CC:DD:EE:FF", Keys.add("AA:BB:CC:DD:EE:FF", 305), "reader", "actions", { page_jmp = 1 })
+        Keys.save()
+        assert.are.equal(193, press(304))
+        Keys.clear("AA:BB:CC:DD:EE:FF") -- a forgotten device's mappings, all at once
+        Keys.save()
+        assert.is_nil(config.hid_keys["AA:BB:CC:DD:EE:FF"])
+        assert.are.equal(304, press(304))
+    end)
+
+    it("keeps one assignment per screen and launches entries", function()
+        local launched = {}
+        ZenSpec.replace("modules/menu/app_launcher/entry_action", function(entry) launched[#launched + 1] = entry end)
+        local address = "AA:BB:CC:DD:EE:FF"
+        local binding = Keys.add(address, 304)
+        local tag = { type = "tag", tag = "Sci-fi", label = "Sci-fi" }
+        Keys.assign(address, binding, "library", "keys", "LPgFwd")
+        Keys.assign(address, binding, "reader", "actions", { page_jmp = 1 })
+        assert.are.same({ "Page forward", "keys" }, { Keys.label(binding, "library") })
+        assert.are.same({ "Next page", "common" }, { Keys.label(binding, "reader") })
+        assert.are.same({ "Next page", "actions" }, { Keys.label({ reader = { page_jmp = 5 } }, "reader") })
+
+        Keys.assign(address, binding, "library", "entries", tag)
+        assert.is_nil(binding.keys) -- the key it replaced is gone, the other screen untouched
+        assert.are.same({ page_jmp = 1 }, binding.reader)
+        assert.are.same({ "Sci-fi", "tag" }, { Keys.label(binding, "library") })
+
+        Keys.save()
+        Keys._connect("/dev/input/event2", address)
+        assert.are.equal(0, press(304))
+        assert.are.equal(0, press(304, 0))
+        run_ticks()
+        assert.are.same({ tag }, launched)
+        assert.are.same({}, executed)
+
+        Keys.assign(address, binding, "library", "actions", { zen_ui_show_home = true })
+        assert.is_nil(binding.entries)
+        -- The dispatcher's "Nothing" leaves an empty table: a button that does nothing is dropped.
+        Keys.assign(address, binding, "library", "actions", {})
+        assert.is_nil(Keys.label(binding, "library"))
+        assert.are.same({ binding }, config.hid_keys[address])
+        Keys.assign(address, binding, "reader", "actions", {})
+        assert.is_nil(config.hid_keys[address])
+        Keys.save()
         assert.are.equal(304, press(304))
     end)
 
@@ -150,7 +199,7 @@ describe("HID button mappings", function()
         local input, opens = require("device").input, 0
         input.input = { is_ffi = true }
         input.open = function() opens = opens + 1 end
-        Keys.add("AA:BB:CC:DD:EE:FF", 304).reader = { page_jmp = 1 }
+        Keys.assign("AA:BB:CC:DD:EE:FF", Keys.add("AA:BB:CC:DD:EE:FF", 304), "reader", "actions", { page_jmp = 1 })
         Keys.save()
         Keys.rescan()
         Keys.onInsert("/dev/input/event2")
@@ -186,7 +235,7 @@ describe("HID button mappings", function()
             return real_open(path, ...)
         end)
         finally(function() open_stub:revert() end)
-        Keys.add("AA:BB:CC:DD:EE:FF", 304).library = { page_jmp = 1 }
+        Keys.assign("AA:BB:CC:DD:EE:FF", Keys.add("AA:BB:CC:DD:EE:FF", 304), "library", "actions", { page_jmp = 1 })
 
         Keys.rescanSoon()
         local delays = {}

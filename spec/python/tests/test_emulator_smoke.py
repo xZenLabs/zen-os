@@ -633,7 +633,7 @@ def test_clean_emulator_renders_fixture_library_and_reader_goldens() -> None:
             assert settings.get("title_font_size") == settings["row_style"]["font_size"]
             assert settings.get("title_bold") is True
             assert settings.get("labels") == [
-                "Home", "Library", "Reader", "Interface", "Extras", "General", "KOReader", "About",
+                "Home", "Library", "Reader", "Interface", "General", "Extras", "KOReader", "About",
             ]
             assert driver.command("settings_page_select", label="Interface")["ok"] is True
             interface_labels = driver.command("settings_page_state")["settings"]["labels"]

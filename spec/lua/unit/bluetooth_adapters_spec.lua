@@ -9,6 +9,7 @@ describe("Bluetooth device adapters", function()
             "device", "liblipclua", "modules/menu/bluetooth/bluetooth",
             "modules/menu/bluetooth/kobo_bluetooth", "modules/menu/bluetooth_switcher",
             "modules/menu/bluetooth/bluez", "common/hid_keys",
+            "modules/menu/bluetooth_adapters/kindle_hid", "common/restart", "ui/event",
         }) do originals[name] = package.loaded[name] or false end
         commands, scheduled, unscheduled = {}, {}, {}
         ZenSpec.replace("ui/uimanager", {
@@ -294,6 +295,35 @@ describe("Bluetooth device adapters", function()
         assert.is_false(devices[1].connected)
     end)
 
+    it("takes Kindle link state from the paired and connected lists, not stale discoveries", function()
+        local gone, known = "AA:BB:CC:DD:EE:01", "AA:BB:CC:DD:EE:02"
+        local replies = {
+            ListDiscovered = {
+                { bd_address = gone, bd_name = "Failed pair", is_paired = 1, is_connected = 1 },
+                { bd_address = known, bd_name = "Speaker", is_paired = 1, is_connected = 1 },
+            },
+            ListPaired = {{ bd_address = known, bd_name = "Speaker", is_paired = 1, is_connected = 0 }},
+        }
+        ZenSpec.replace("libopenlipclua", { open_no_name = function()
+            return {
+                new_hasharray = function() return { destroy = function() end } end,
+                access_hash_property = function(_self, _service, property)
+                    if not replies[property] then return nil end
+                    return { to_table = function() return replies[property] end, destroy = function() end }
+                end,
+                close = function() end,
+            }
+        end })
+        local devices, err = require("modules/menu/bluetooth_adapters/kindle").new().getDeviceList()
+        assert.is_nil(err)
+        assert.are.equal(2, #devices)
+        assert.are.equal("Failed pair", devices[1].name)
+        assert.is_nil(devices[1].paired)
+        assert.is_nil(devices[1].connected)
+        assert.is_true(devices[2].paired)
+        assert.is_false(devices[2].connected)
+    end)
+
     it("keeps captured HID metadata for devices btfd also discovered", function()
         local address = "AA:BB:CC:DD:EE:FF"
         ZenSpec.replace("libopenlipclua", { open_no_name = function()
@@ -317,6 +347,65 @@ describe("Bluetooth device adapters", function()
         assert.are.equal("Remote", devices[1].name)
         assert.is_true(devices[1].hid)
         assert.is_true(devices[1].le)
+    end)
+
+    it("captures HID devices with every Kindle scan where supported", function()
+        local address = "AA:BB:CC:DD:EE:FF"
+        ZenSpec.replace("modules/menu/bluetooth_adapters/kindle_hid", {
+            isSupported = function() return true end,
+            startCapture = function() commands[#commands + 1] = "capture:1" end,
+            finishCapture = function()
+                commands[#commands + 1] = "capture:0"
+                return {{ address = address, name = "Remote", hid = true, le = true }}
+            end,
+            bonded = function() return {} end,
+        })
+        ZenSpec.replace("libopenlipclua", { open_no_name = function()
+            return {
+                new_hasharray = function() return { destroy = function() end } end,
+                access_hash_property = function() return nil end,
+                close = function() end,
+            }
+        end })
+        ZenSpec.replace("liblipclua", { init = function()
+            return {
+                set_int_property = function(_self, _service, property, value)
+                    commands[#commands + 1] = property .. ":" .. value
+                    return 0
+                end,
+                close = function() end,
+            }
+        end })
+        local adapter = require("modules/menu/bluetooth_adapters/kindle").new()
+        local devices
+        adapter.scan(function(ok) devices = ok and adapter.getDeviceList() end)
+        assert.are.same({ "capture:1" }, commands) -- live before the inquiry starts
+        assert.are.equal(2, scheduled[1].delay)
+        scheduled[1].callback()
+        scheduled[2].callback()
+        assert.are.same({ "capture:1", "DiscoverA2DP:1", "capture:0", "DiscoverA2DP:0" }, commands)
+        assert.are.equal(1, #devices)
+        assert.are.equal("Remote", devices[1].name)
+        assert.is_true(devices[1].hid)
+        adapter.scan(function() end) -- finds end with their scan, even if the next one is cancelled
+        adapter.cancelScan()
+        assert.are.same({}, adapter.getDeviceList())
+    end)
+
+    it("restarts the whole Kindle under the restart notice, without the sleep screen", function()
+        local UIManager, action = package.loaded["ui/uimanager"], nil
+        ZenSpec.replace("common/restart", { request = function(opts) action = opts.action end })
+        ZenSpec.replace("ui/event", { new = function(_self, name) return name end })
+        ZenSpec.replace("device", { saveSettings = function() commands[#commands + 1] = "save" end })
+        UIManager.broadcastEvent = function(_self, event) commands[#commands + 1] = event end
+        UIManager.quit = function() commands[#commands + 1] = "quit" end
+        UIManager.reboot_action = function() error("sleep screen shown") end
+        execute_stub = stub(os, "execute", function(command) commands[#commands + 1] = command end)
+        require("modules/menu/bluetooth_adapters/kindle").new().reboot()
+        assert.are.same({}, commands) -- nothing until the notice has painted
+        action()
+        assert.is_true(UIManager._entered_poweroff_stage) -- no "Restoring Kindle GUI" screen
+        assert.are.same({ "Reboot", "Close", "save", "sleep 1 && reboot &", "quit" }, commands)
     end)
 
     it("confirms a Kindle HID connect from its input node and fails unconfirmed", function()

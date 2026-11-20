@@ -45,6 +45,7 @@ local function apply_opds()
     local OPDSParser      = require("opdsparser")
     local CoverUtils      = require("common/cover_utils")
     local CoverCache      = require("common/opds_cover_cache")
+    local WifiWait        = require("common/wifi_wait")
     local icons           = require("common/inline_icon_map")
     local lfs             = require("libs/libkoreader-lfs")
     local utils           = require("common/utils")
@@ -1345,7 +1346,8 @@ local function apply_opds()
         end
         self._zen_prefetched_feed = nil
         self._zen_network_action = nil
-        for _i, key in ipairs({ "_zen_network_wait", "_zen_default_retry", "_zen_input_unlock" }) do
+        if self._zen_network_cancel then self._zen_network_cancel(); self._zen_network_cancel = nil end
+        for _i, key in ipairs({ "_zen_default_retry", "_zen_input_unlock" }) do
             if self[key] then
                 UIManager:unschedule(self[key])
                 self[key] = nil
@@ -1681,12 +1683,11 @@ local function apply_opds()
         end
     end
 
+    -- Radio off: KOReader prompts. Radio on: wait for it to connect, then say so if it never does.
     function OPDSBrowser:runWhenConnected(callback)
         if self._zen_opds_closed then return end
-        if self._zen_network_wait then
-            UIManager:unschedule(self._zen_network_wait)
-            self._zen_network_wait = nil
-        end
+        if self._zen_network_cancel then self._zen_network_cancel() end
+        local InfoMessage = require("ui/widget/infomessage")
         local connected
         connected = function()
             if not self._zen_opds_closed and self._zen_network_action == connected then
@@ -1695,32 +1696,12 @@ local function apply_opds()
             end
         end
         self._zen_network_action = connected
-        if NetworkMgr:isConnected() then return connected() end
-        if not (NetworkMgr.pending_connection or NetworkMgr.pending_connectivity_check) then
-            return NetworkMgr:runWhenConnected(connected)
-        end
-        -- KOReader drops callbacks on EBUSY; keep ours until the existing connection completes.
-        local attempts = 0
-        local wait_for_network
-        wait_for_network = function()
-            if self._zen_network_wait ~= wait_for_network or self._zen_opds_closed then return end
-            if NetworkMgr:isConnected() then
-                self._zen_network_wait = nil
-                return connected()
-            end
-            attempts = attempts + 1
-            if attempts >= 90 then
-                self._zen_network_wait = nil
-                self._zen_network_action = nil
-                UIManager:show(require("ui/widget/infomessage"):new{
-                    text = _("Error connecting to the network"),
-                })
-                return
-            end
-            UIManager:scheduleIn(0.5, wait_for_network)
-        end
-        self._zen_network_wait = wait_for_network
-        UIManager:scheduleIn(0.5, wait_for_network)
+        self._zen_network_cancel = WifiWait.run(connected, function()
+            self._zen_network_action = nil
+            UIManager:show(InfoMessage:new{ text = WifiWait.no_connection_text() })
+        end, function()
+            UIManager:show(InfoMessage:new{ text = _("Connecting to Wi-Fi…"), toast = true, timeout = 2 })
+        end)
     end
 
     -- Ignore item taps briefly after a catalog loads; queued impatient taps land on new items.

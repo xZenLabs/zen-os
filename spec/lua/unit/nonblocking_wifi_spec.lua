@@ -3,6 +3,7 @@ describe("background Wi-Fi toggles", function()
     local Device, UIManager, NetworkMgr, ffiutil, native_ffi
     local scheduled, workers, wifi_on, connected, in_child, standby, notices, events, sleeps, warnings
     local outcome, spawn_failed, off_calls, reads, closed_fds, inherited_flags, shown, closed_notices
+    local alerts_hidden
     local sim_now = 0
     local names = {
         "device", "ui/uimanager", "ui/network/manager", "ui/widget/networksetting",
@@ -11,7 +12,7 @@ describe("background Wi-Fi toggles", function()
         "ffi", "ffi/util", "common/zen_logger", "modules/global/patches/nonblocking_wifi",
         "lj-wpaclient/wpaclient", "ui/network/wpa_supplicant", "ffi/crypto", "ffi/sha2",
         "modules/menu/network_adapters/kobo", "modules/settings/zen_settings_utils",
-        "modules/menu/network_switcher", "ffi/inkview",
+        "modules/menu/network_switcher", "ffi/inkview", "modules/global/patches/connection_alerts",
     }
 
     local function snapshot(value)
@@ -191,6 +192,8 @@ describe("background Wi-Fi toggles", function()
                 close = function() closed_fds = closed_fds + 1 end,
             },
         })
+        alerts_hidden = false
+        ZenSpec.replace("modules/global/patches/connection_alerts", { hidden = function() return alerts_hidden end })
         ZenSpec.unload("modules/global/patches/nonblocking_wifi")
         require("modules/global/patches/nonblocking_wifi")()
     end)
@@ -301,6 +304,27 @@ describe("background Wi-Fi toggles", function()
             assert.are.equal(1, #workers)
             assert.are.equal(0, standby)
         end)
+    end)
+
+    it("hides routine notices but still reports problems when connection alerts are hidden", function()
+        alerts_hidden = true
+        NetworkMgr:toggleWifiOn(nil, false, true)
+        finish_worker()
+        tick()
+        finish_worker()
+        assert.is_true(connected)
+        assert.are.equal(0, #shown)
+
+        NetworkMgr.canResolveHostnames = function() return false end
+        NetworkMgr:showWifiConnected("Home")
+        finish_worker()
+        assert.are.equal(1, #shown)
+        assert.is_truthy(shown[1].text:find("DNS lookup failed", 1, true))
+
+        -- A hidden notice still replaces the one on screen.
+        NetworkMgr:showWifiStarting()
+        assert.same({ shown[1] }, closed_notices)
+        assert.are.equal(1, #shown)
     end)
 
     it("reports IP, route, DNS and check failures without disconnecting Wi-Fi", function()

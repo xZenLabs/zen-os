@@ -552,7 +552,7 @@ function M.open(on_connected, settings_subpage, plugin)
                 NetworkMgr:showWifiConnected(network.ssid)
             elseif NetworkMgr.showWifiNotice then
                 NetworkMgr:showWifiNotice(connected and T(_("Connected to %1."):gsub("%.$", ""):gsub("。$", ""), network.ssid)
-                    or reason or _("Error connecting to the network"), reason and 8 or 2)
+                    or reason or _("Error connecting to the network"), reason and 8 or 2, connected)
             end
             return connected
         end)

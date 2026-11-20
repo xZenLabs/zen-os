@@ -145,7 +145,7 @@ describe("settings menu organization", function()
             has_bluetooth = available
             zenpm_label = available and "Open ZenPM" or "Install ZenPM"
             local root = builder.build({ config = { features = {} } }).sub_item_table
-            assert.are.same({ "Home", "Library", "Reader", "Interface", "Extras", "General", "KOReader", "About" }, labels(root))
+            assert.are.same({ "Home", "Library", "Reader", "Interface", "General", "Extras", "KOReader", "About" }, labels(root))
             assert.is_function(root[7].sub_item_table_func)
             assert.are.same({ "Settings", "Tools", "Quit KOReader" }, labels(root[7].sub_item_table_func()))
             assert.is_true(root[7].sub_item_table_func()[3].keep_menu_open)
@@ -162,8 +162,8 @@ describe("settings menu organization", function()
             assert.are.equal(wallpaper_item, interface[6])
             assert.are.equal("Font: Hyperreadable, 24", interface[5].text_func())
             assert.are.same({ "Font size", "Font", "Reset font" }, labels(interface[5].sub_item_table))
-            assert.are.equal("gear", root[6].icon_glyph)
-            local general = root[6].sub_item_table
+            assert.are.equal("gear", root[5].icon_glyph)
+            local general = root[5].sub_item_table
             local expected = { "Wi-Fi", "Schedules", "Sleep", "Battery", "Advanced", "Updates" }
             if available then table.insert(expected, 2, "Bluetooth") end
             assert.are.same(expected, labels(general))
@@ -238,7 +238,7 @@ describe("settings menu organization", function()
             assert.are.same({ "Original control", "Books" }, labels(root[2].sub_item_table))
             assert.are.equal(double_tap_item, root[2].sub_item_table[2].sub_item_table[1])
             assert.are.same({ "Version", "Device", "Setup Guide", "Report a Bug" }, labels(root[8].sub_item_table))
-            assert.are.same({ zenpm_label, "Zen OPDS", "Zen Search", "Zen Keyboard", "Stats", "Rakuyomi", "Lockdown mode" }, labels(root[5].sub_item_table))
+            assert.are.same({ zenpm_label, "Zen OPDS", "Zen Search", "Zen Keyboard", "Stats", "Rakuyomi", "Lockdown mode" }, labels(root[6].sub_item_table))
         end
         package.loaded["modules/settings/zen_settings"] = original_builder
         for name, original in pairs(originals) do package.loaded[name] = original.value end

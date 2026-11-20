@@ -313,9 +313,10 @@ local function rebuild_icon_row(row)
         and item.arrange_pinned_first ~= true
         and item.arrange_pinned_last ~= true
     local content_w = row.width - left_padding - right_padding
-    local item_has_submenu = type(item.sub_item_table) == "table"
-        or type(item.sub_item_table_func) == "function"
-        or item._zen_settings_submenu == true
+    local item_has_submenu = item._zen_arrange_no_caret ~= true
+        and (type(item.sub_item_table) == "table"
+            or type(item.sub_item_table_func) == "function"
+            or item._zen_settings_submenu == true)
     local face = IconItem.getItemFace(item, item.face or row.face)
     local right_items = { align = "center" }
     if item_checkable then

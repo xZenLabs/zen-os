@@ -148,6 +148,7 @@ local defaults = {
     },
     developer = {
         allow_modal_drag = false,
+        hide_connection_alerts = false,
         double_tap = false,
         single_tap_action = "none", -- "none" | "menu" | "open"; double tap takes the other role
     },

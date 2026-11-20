@@ -459,6 +459,7 @@ return {
         "Add updated Battery page",
         "Add updated Stats page",
         "Add bluetooth mapping",
+        "Add option to hide wifi/bluetooth connection alerts (General > Advanced)",
         "Add text size for cover badges and the opening banner (Library > Appearance > Covers > Badges)",
         "Library opens faster: the listing is kept when switching tabs",
         "Plugins can add books to the Authors, Series, Languages, and Tags views",

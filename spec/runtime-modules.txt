@@ -110,6 +110,7 @@ common/ui/zen_toggle.lua|unit
 common/utils.lua|unit
 common/widget_resources.lua|unit
 common/wifi_state.lua|unit
+common/wifi_wait.lua|unit
 common/zen_logger.lua|unit
 common/zen_screen.lua|unit
 config/changelog.lua|unit
@@ -195,6 +196,7 @@ modules/filebrowser/patches/status_on_open.lua|integration
 modules/global/global.lua|integration
 modules/global/patches/brightness_schedule.lua|integration
 modules/global/patches/cloud_storage_home.lua|integration
+modules/global/patches/connection_alerts.lua|unit
 modules/global/patches/incognito_mode.lua|integration
 modules/global/patches/kindle_autosuspend_resume.lua|unit
 modules/global/patches/kindle_battery_capacity.lua|unit

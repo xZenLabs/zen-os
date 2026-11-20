@@ -246,7 +246,27 @@ local function showMenuPicker(opts)
         if type(opts.on_close) == "function" then opts.on_close(item) end
     end
 
+    -- Chevron button plus title text, the range ZenSettingsTitleBar flashes.
+    local function flashTitleBack()
+        local x = TitleStyle.getLeadingIconX(0) - TitleStyle.BUTTON_PADDING
+        local w = title_x + title_tw:getSize().w + Screen:scaleBySize(8) - x
+        require("common/ui/button_feedback").flashButton(Geom:new{
+            x = mirrored and sw - x - w or x,
+            y = TitleStyle.VERTICAL_PADDING
+                + math.floor((title_h - TitleStyle.BUTTON_SIZE) / 2),
+            w = w,
+            h = TitleStyle.BUTTON_SIZE,
+        })
+    end
+
+    local function goBack()
+        flashTitleBack()
+        closeDialog()
+        return true
+    end
+
     local function backToSettingsRoot()
+        flashTitleBack()
         closeDialog()
         if back_hold_callback then back_hold_callback() end
         return true
@@ -453,26 +473,13 @@ local function showMenuPicker(opts)
                 screen_zone = { ratio_x = 0, ratio_y = 0, ratio_w = 1, ratio_h = 1 },
                 handler     = function(ges)
                     local gx, gy = ges.pos.x, ges.pos.y
-                    local back_x = mirrored
-                        and sw - TitleStyle.LEFT_PADDING - TitleStyle.BUTTON_SIZE
-                        or TitleStyle.LEFT_PADDING
-                    if gx >= back_x and gx < back_x + TitleStyle.BUTTON_SIZE
-                       and gy >= 0 and gy < TitleStyle.HEADER_CONTENT_HEIGHT then
-                        require("common/ui/button_feedback").flashButton(back_iw.dimen)
-                        closeDialog()
-                        return true
-                    end
                     if has_title_action
                             and gx >= title_action_button_x
                             and gx < title_action_button_x + TitleStyle.BUTTON_SIZE
                             and gy >= 0 and gy < TitleStyle.HEADER_CONTENT_HEIGHT then
                         return selectTitleAction()
                     end
-                    if gy >= 0 and gy < TitleStyle.HEADER_CONTENT_HEIGHT then
-                        require("common/ui/button_feedback").flashButton(back_iw.dimen)
-                        closeDialog()
-                        return true
-                    end
+                    if gy >= 0 and gy < TitleStyle.HEADER_CONTENT_HEIGHT then return goBack() end
                     local footer_index = footerButtonAt(gx, gy)
                     if footer_index then
                         selectItem(footer_buttons[footer_index])
@@ -522,6 +529,11 @@ local function showMenuPicker(opts)
                 ges         = "swipe",
                 screen_zone = { ratio_x = 0, ratio_y = 0, ratio_w = 1, ratio_h = 1 },
                 handler     = function(ges)
+                    -- Edge swipe goes back, as on settings pages.
+                    if ges.direction == "east" and ges.pos and ges.pos.x <= sw * 0.33 then
+                        closeDialog()
+                        return true
+                    end
                     local direction = BD.flipDirectionIfMirroredUILayout(ges.direction)
                     if direction == "west" then
                         changePage(1)
@@ -617,11 +629,7 @@ local function showMenuPicker(opts)
     end
 
     function Picker:onPress()
-        if back_focused then
-            require("common/ui/button_feedback").flashButton(back_iw.dimen)
-            closeDialog()
-            return true
-        end
+        if back_focused then return goBack() end
         if title_action_focused then return selectTitleAction() end
         if footer_selected_idx then
             return selectItem(footer_buttons[footer_selected_idx])

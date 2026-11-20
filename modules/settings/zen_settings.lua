@@ -80,8 +80,8 @@ function M.build(plugin)
         library_item,
         IconItem.decorate({ text = _("Reader"), sub_item_table = reader_items }, icons.settings_reader),
         interface_item,
-        IconItem.decorate({ text = _("Extras"), sub_item_table = extras_items }, icons.fav_add),
         IconItem.decorate({ text = _("General"), sub_item_table = general_items }, icons.settings),
+        IconItem.decorate({ text = _("Extras"), sub_item_table = extras_items }, icons.fav_add),
         {
             text = _("KOReader"),
             icon_file = plugin_root .. "/icons/koreader.png",

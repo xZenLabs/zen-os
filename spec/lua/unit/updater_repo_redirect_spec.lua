@@ -21,6 +21,9 @@ describe("updater repository redirects", function()
     local scheduled
     local asset_name
     local shown_screen
+    local original_sleep
+    local slept
+    local release_https
 
     before_each(function()
         original_https = package.loaded["ssl.https"]
@@ -44,6 +47,10 @@ describe("updater repository redirects", function()
         scheduled = {}
         asset_name = "zenos.koplugin.zip"
         shown_screen = nil
+        slept = {}
+        local ffiutil = require("ffi/util")
+        original_sleep = ffiutil.sleep
+        ffiutil.sleep = function(seconds) slept[#slept + 1] = seconds end
         config = { updater = { update_channel = "stable" } }
 
         ZenSpec.replace("ffi/archiver", {})
@@ -107,6 +114,8 @@ describe("updater repository redirects", function()
             end,
             unschedule = function() end,
             show = function(_self, screen) shown_screen = screen end,
+            close = function() end,
+            forceRePaint = function() end,
         })
         ZenSpec.replace("ltn12", {
             sink = {
@@ -145,10 +154,12 @@ describe("updater repository redirects", function()
                 return 1, 200, {}, "HTTP/1.1 200 OK"
             end,
         })
+        release_https = package.loaded["ssl.https"]
         ZenSpec.unload("modules/settings/zen_updater")
     end)
 
     after_each(function()
+        require("ffi/util").sleep = original_sleep
         package.loaded["ssl.https"] = original_https
         package.loaded["ltn12"] = original_ltn12
         package.loaded["ffi/archiver"] = original_archiver
@@ -205,7 +216,6 @@ describe("updater repository redirects", function()
 
     it("logs a dismissed update task separately from an HTTPS response", function()
         package.loaded["ui/trapper"].dismissableRunInSubprocess = function() return false end
-        package.loaded["ui/uimanager"].forceRePaint = function() end
         local updater = require("modules/settings/zen_updater")
         updater.build_update_now_item({}).callback()
         local screen_closed = false
@@ -225,33 +235,69 @@ describe("updater repository redirects", function()
         assert.is_true(task_finished)
     end)
 
-    it("waits for a connection before checking or installing with the radio on", function()
+    it("waits behind a cancellable screen while a powered-on radio connects", function()
         network_up = false
         local manager = package.loaded["ui/network/manager"]
         manager.isWifiOn = function() return true end
-        local waiting = {}
-        manager.runWhenConnected = function(_self, callback) waiting[#waiting + 1] = callback end
+        manager.runWhenConnected = function() error("Must not prompt while Wi-Fi is on") end
         manager.runWhenOnline = function() error("DNS must stay off the UI thread") end
-        package.loaded["ui/uimanager"].forceRePaint = function() end
         local updater = require("modules/settings/zen_updater")
 
-        assert.has_no.errors(updater.build_update_now_item({}).callback)
-        assert.has_no.errors(function() updater.run_update({}) end)
+        updater.build_update_now_item({}).callback()
 
-        assert.are.equal(2, #waiting)
-        assert.is_nil(shown_screen)
-        assert.are.equal(0, #scheduled)
+        assert.are.equal("Connecting to Wi-Fi…", shown_screen.subtitle)
+        assert.are.equal("Cancel", shown_screen.button)
+        assert.is_false(shown_screen.dismissable)
+        assert.are.equal(0.5, scheduled[1].delay)
         assert.are.equal(0, #requests)
 
         network_up = true
-        waiting[1]()
+        scheduled[1].callback()
         assert.are.equal("Checking for updates...", shown_screen.subtitle)
-        assert.are.equal(1, #scheduled)
+        assert.are.equal(0.1, scheduled[2].delay)
+        scheduled[2].callback()
+        assert.are.equal(2, #requests)
+        assert.are.equal("Update available: v999.0.0", shown_screen.subtitle)
     end)
 
-    it("shows a dismissable error when the connection is lost during a check", function()
-        package.loaded["ui/uimanager"].forceRePaint = function() end
-        ZenSpec.replace("ssl.https", { request = function() return nil, "Network is unreachable" end })
+    it("reports no internet connection when a powered-on radio never connects", function()
+        network_up = false
+        package.loaded["ui/network/manager"].isWifiOn = function() return true end
+        local updater = require("modules/settings/zen_updater")
+
+        updater.run_update({})
+        for _i = 1, 20 do scheduled[#scheduled].callback() end
+
+        assert.are.equal("No internet connection.\nConnect to a Wi-Fi network and try again.", shown_screen.subtitle)
+        assert.are.equal("OK", shown_screen.button)
+        assert.is_true(shown_screen.dismissable)
+        assert.is_nil(shown_screen._on_button_action)
+        assert.are.equal(0, #requests)
+    end)
+
+    it("cancels the wait for Wi-Fi from the screen", function()
+        network_up = false
+        package.loaded["ui/network/manager"].isWifiOn = function() return true end
+        local updater = require("modules/settings/zen_updater")
+        updater.run_update({})
+        local closed = false
+        shown_screen.onClose = function() closed = true end
+
+        shown_screen._on_button_action()
+        network_up = true
+        scheduled[1].callback()
+
+        assert.is_true(closed)
+        assert.are.equal("Connecting to Wi-Fi…", shown_screen.subtitle)
+        assert.are.equal(1, #scheduled)
+        assert.are.equal(0, #requests)
+    end)
+
+    it("retries a failed check and shows a dismissable error when the connection is lost", function()
+        ZenSpec.replace("ssl.https", { request = function(request)
+            requests[#requests + 1] = request.url
+            return nil, "Network is unreachable"
+        end })
         local updater = require("modules/settings/zen_updater")
         updater.build_update_now_item({}).callback()
         network_up = false
@@ -259,22 +305,154 @@ describe("updater repository redirects", function()
 
         assert.has_no.errors(scheduled[1].callback)
 
-        assert.are.equal("Network unavailable.", shown_screen.subtitle)
+        assert.are.equal(3, #requests)
+        assert.are.same({ 2, 4 }, slept)
+        assert.are.equal("No internet connection.\nConnect to a Wi-Fi network and try again.", shown_screen.subtitle)
         assert.are.equal("OK", shown_screen.button)
         assert.is_true(shown_screen.dismissable)
         assert.is_nil(shown_screen._on_button_action)
     end)
 
-    it("uses the connection helper without a UI-thread DNS check when Wi-Fi is off", function()
-        network_up = false
-        package.loaded["ui/network/manager"].runWhenOnline = function()
-            error("DNS must stay off the UI thread")
+    it("explains a failed check and retries only failures that can clear up", function()
+        local manager = package.loaded["ui/network/manager"]
+        for _i, case in ipairs({
+            { code = 503, tries = 3, text = "The update server is unavailable (HTTP 503).\nTry again later." },
+            { code = 403, tries = 1, text = "The update server is unavailable (HTTP 403).\nTry again later." },
+            { code = "timeout", online = false, tries = 3,
+              text = "No internet connection.\nWi-Fi is connected, but the internet is not reachable." },
+            { code = "timeout", online = true, tries = 3, text = "Could not reach update server.\nTry again later." },
+        }) do
+            local tries = 0
+            ZenSpec.replace("ssl.https", { request = function()
+                tries = tries + 1
+                return nil, case.code
+            end })
+            manager.isOnline = function() return case.online end
+            scheduled = {}
+            ZenSpec.unload("modules/settings/zen_updater")
+            require("modules/settings/zen_updater").run_update({})
+
+            scheduled[1].callback()
+
+            assert.are.equal(case.tries, tries)
+            assert.are.equal(case.text, shown_screen.subtitle)
+            assert.are.equal("OK", shown_screen.button)
         end
+    end)
+
+    -- Opens the update screen for v999.0.0, then swaps in `request` for what "Update now" does.
+    local function open_update_screen(request)
+        local dir = os.tmpname()
+        os.remove(dir)
+        assert(require("lfs").mkdir(dir))
+        ZenSpec.replace("common/plugin_root", dir .. "/zenos.koplugin")
+        local ltn12 = package.loaded["ltn12"]
+        ltn12.sink.null = function() return function() return 1 end end
+        ltn12.sink.file = function(handle)
+            return function(chunk)
+                if not chunk then handle:close() end
+                return 1
+            end
+        end
+        ZenSpec.replace("ssl.https", release_https)
+        ZenSpec.unload("modules/settings/zen_updater")
+        require("modules/settings/zen_updater").run_update({})
+        scheduled[1].callback()
+        assert.are.equal("Update available: v999.0.0", shown_screen.subtitle)
+        assert.are.equal("Update now", shown_screen.button)
+        ZenSpec.replace("ssl.https", { request = request })
+        return dir
+    end
+
+    it("re-fetches release metadata before downloading and retries a failed download", function()
+        local downloads = {}
+        local dir = open_update_screen(function(request)
+            if request.url:find("api.github.com", 1, true) then
+                requests[#requests + 1] = request.url
+                request.sink([[
+                    [{
+                        "tag_name":"v1000.0.0",
+                        "prerelease":false,
+                        "published_at":"2026-07-13T00:00:00Z",
+                        "assets":[{
+                            "name":"zenos.koplugin.zip",
+                            "browser_download_url":"https://github.com/xZenLabs/zen-os/releases/download/v1000.0.0/zenos.koplugin.zip",
+                            "digest":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                        }]
+                    }]
+                ]])
+                return 1, 200, {}, "HTTP/1.1 200 OK"
+            end
+            if request.method ~= "HEAD" then downloads[#downloads + 1] = request.url end
+            return nil, "timeout"
+        end)
+
+        shown_screen._on_button_action()
+        assert.are.equal("Downloading...", shown_screen.subtitle)
+        assert.are.equal("Cancel", shown_screen.button)
+        assert.are.equal(2, #requests)
+        scheduled[2].callback()
+
+        assert.are.equal(3, #requests)
+        local asset_url = "https://github.com/xZenLabs/zen-os/releases/download/v1000.0.0/zenos.koplugin.zip"
+        assert.are.same({ asset_url, asset_url, asset_url }, downloads)
+        assert.are.same({ 2, 4 }, slept)
+        assert.are.equal("Could not reach update server.\nTry again later.", shown_screen.subtitle)
+        assert.are.equal("OK", shown_screen.button)
+        assert.is_true(shown_screen.dismissable)
+        assert.is_nil(io.open(dir .. "/zenos_update.zip"))
+        os.remove(dir)
+    end)
+
+    it("does not download when the release lookup before it fails or finds nothing newer", function()
+        for _i, case in ipairs({
+            { code = 503, text = "The update server is unavailable (HTTP 503).\nTry again later." },
+            { code = 200, text = "ZenOS is up to date." }, -- No _meta.lua in the temp root: installed is 0.0.0.
+        }) do
+            local downloads = 0
+            local dir = open_update_screen(function(request)
+                if request.url:find("api.github.com", 1, true) then
+                    request.sink([[
+                        [{
+                            "tag_name":"v0.0.0",
+                            "prerelease":false,
+                            "assets":[{
+                                "name":"zenos.koplugin.zip",
+                                "browser_download_url":"https://github.com/xZenLabs/zen-os/releases/download/v0.0.0/zenos.koplugin.zip",
+                                "digest":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+                            }]
+                        }]
+                    ]])
+                    return 1, case.code, {}, "HTTP/1.1 " .. case.code
+                end
+                downloads = downloads + 1
+                return nil, "timeout"
+            end)
+
+            shown_screen._on_button_action()
+            scheduled[2].callback()
+
+            assert.are.equal(0, downloads)
+            assert.are.equal(case.text, shown_screen.subtitle)
+            assert.are.equal("OK", shown_screen.button)
+            assert.is_nil(shown_screen._on_button_action)
+            os.remove(dir)
+            scheduled, requests = {}, {}
+        end
+    end)
+
+    it("leaves the prompt to KOReader without a UI-thread DNS check when Wi-Fi is off", function()
+        network_up = false
+        local prompts = 0
+        local manager = package.loaded["ui/network/manager"]
+        manager.runWhenConnected = function() prompts = prompts + 1 end
+        manager.runWhenOnline = function() error("DNS must stay off the UI thread") end
         local updater = require("modules/settings/zen_updater")
 
         assert.has_no.errors(updater.build_update_now_item({}).callback)
         assert.has_no.errors(function() updater.run_update({}) end)
 
+        assert.are.equal(2, prompts)
         assert.is_nil(shown_screen)
         assert.are.equal(0, #scheduled)
         assert.are.equal(0, #requests)

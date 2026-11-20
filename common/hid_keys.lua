@@ -1,5 +1,6 @@
 -- Button mappings for HID input devices (Bluetooth remotes, gamepads, keyboards).
--- config.hid_keys[address] = { { code, reader = <dispatcher actions>, library = ..., keys = { reader = <key name> } } }
+-- config.hid_keys[address] = { { code, reader = <dispatcher actions>, library = ...,
+--     keys = { reader = <key name> }, entries = { library = <launcher entry> } } }
 local Device = require("device")
 local UIManager = require("ui/uimanager")
 local _ = require("gettext")
@@ -96,15 +97,12 @@ function M.list(address)
     return store()[address] or {}
 end
 
+-- The device's binding for a code; a new one is stored with its first assignment.
 function M.add(address, code)
-    local bindings = store()
-    bindings[address] = bindings[address] or {}
-    for _i, binding in ipairs(bindings[address]) do
+    for _i, binding in ipairs(M.list(address)) do
         if binding.code == code then return binding end
     end
-    local binding = { code = code }
-    table.insert(bindings[address], binding)
-    return binding
+    return { code = code }
 end
 
 function M.remove(address, binding)
@@ -115,6 +113,11 @@ function M.remove(address, binding)
     if bindings[address] and #bindings[address] == 0 then bindings[address] = nil end
 end
 
+-- Drops every mapping of a device.
+function M.clear(address)
+    store()[address] = nil
+end
+
 -- The common action a single-action assignment matches, nil for anything else.
 function M.preset(screen, actions)
     if type(actions) ~= "table" or require("dispatcher"):_itemsCount(actions) ~= 1 then return nil end
@@ -123,20 +126,23 @@ function M.preset(screen, actions)
     end
 end
 
--- What a binding does on a screen, nil when unassigned.
+-- What a binding does on a screen, and its kind: "keys", "common", "actions" or the entry type.
+-- nil when unassigned.
 function M.label(binding, screen)
     local key = binding.keys and binding.keys[screen]
     if key then
         for _i, entry in ipairs(M.KEYS) do
-            if entry[1] == key then return entry[2] end
+            if entry[1] == key then return entry[2], "keys" end
         end
-        return key
+        return key, "keys"
     end
+    local entry = binding.entries and binding.entries[screen]
+    if entry then return entry.label, entry.type end
     local actions = binding[screen]
     local Dispatcher = require("dispatcher")
     if type(actions) ~= "table" or Dispatcher:_itemsCount(actions) == 0 then return nil end
     local preset = M.preset(screen, actions)
-    return preset and preset[3] or Dispatcher:menuTextFunc(actions)
+    return preset and preset[3] or Dispatcher:menuTextFunc(actions), preset and "common" or "actions"
 end
 
 local function key_code(name)
@@ -150,6 +156,35 @@ local function key_code(name)
         end
     end
     return key_codes[name]
+end
+
+-- A screen holds one assignment: dispatcher "actions", a native key ("keys") or a launcher
+-- entry ("entries"). Only a binding that does something stays stored.
+function M.assign(address, binding, screen, field, value)
+    binding[screen] = field == "actions" and value or nil
+    for _i, name in ipairs({ "keys", "entries" }) do
+        local slots = binding[name]
+        if name == field then
+            binding[name] = slots or {}
+            binding[name][screen] = value
+        elseif slots then
+            slots[screen] = nil
+            if next(slots) == nil then binding[name] = nil end
+        end
+    end
+    local used = false
+    for _i, name in ipairs(M.SCREENS) do used = used or M.label(binding, name) ~= nil end
+    local bindings = store()
+    for _i, stored in ipairs(bindings[address] or {}) do
+        if stored == binding then
+            if not used then M.remove(address, binding) end
+            return
+        end
+    end
+    if used then
+        bindings[address] = bindings[address] or {}
+        table.insert(bindings[address], binding)
+    end
 end
 
 -- Synthetic device events and touch/stylus tool buttons are never remote buttons.
@@ -187,12 +222,15 @@ local function hook(_input, ev)
         ev.code = key_code(key) or 0 -- press, repeat and release all follow
         return
     end
-    local actions = binding[screen]
-    if type(actions) ~= "table" or next(actions) == nil then return end
+    local entry, actions = binding.entries and binding.entries[screen], binding[screen]
+    if not entry and (type(actions) ~= "table" or next(actions) == nil) then return end
     ev.code = 0
     if ev.value ~= 1 then return end
     UIManager:nextTick(function()
-        local ok, err = pcall(function() require("dispatcher"):execute(actions) end)
+        local ok, err = pcall(function()
+            if entry then return require("modules/menu/app_launcher/entry_action")(entry) end
+            require("dispatcher"):execute(actions)
+        end)
         if not ok then logger.warn("action failed for button", code, tostring(err)) end
     end)
 end

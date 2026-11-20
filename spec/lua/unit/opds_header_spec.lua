@@ -4,6 +4,7 @@ describe("OPDS header", function()
     local process_done, spawn_failed, pipe_size, pipe_bytes, pipe_reads, fd_closes, terminated, standby
     local native_ffi, native_util
     local NetworkMgr, catalog_requests, next_pages, connection_requests, connection_callback, network_notices
+    local network_toasts
     local cover_bytes, cleared_scope
     local originals = {}
     local replaced = {
@@ -93,9 +94,11 @@ describe("OPDS header", function()
         process_done, spawn_failed, pipe_size, pipe_bytes = true, false, 11, "image-bytes"
         pipe_reads, fd_closes, terminated, standby = 0, 0, 0, 0
         catalog_requests, next_pages, connection_requests, connection_callback, network_notices = {}, 0, 0, nil, {}
+        network_toasts = {}
         NetworkMgr = {
             connected = true,
             isConnected = function(self) return self.connected end,
+            isWifiOn = function(self) return self.wifi_on or false end,
             runWhenConnected = function(self, callback)
                 connection_requests = connection_requests + 1
                 if self.connected then return callback() end
@@ -207,7 +210,12 @@ describe("OPDS header", function()
             unschedule = function(_, callback) unscheduled[callback] = true end,
             setDirty = function() end,
             show = function(_, widget)
-                assert.are.equal("Error connecting to the network", widget.text)
+                if widget.toast then
+                    assert.are.equal("Connecting to Wi-Fi…", widget.text)
+                    network_toasts[#network_toasts + 1] = widget
+                    return
+                end
+                assert.are.equal("No internet connection.\nConnect to a Wi-Fi network and try again.", widget.text)
                 network_notices[#network_notices + 1] = widget
             end,
             preventStandby = function() standby = standby + 1 end,
@@ -1047,8 +1055,31 @@ describe("OPDS header", function()
             wait()
             assert.are.equal(requested + 1, #catalog_requests)
             assert.are.equal("/catalog-" .. flag, catalog_requests[#catalog_requests].url)
-            assert.is_nil(browser._zen_network_wait)
+            assert.is_true(network_toasts[#network_toasts].toast)
         end
+    end)
+
+    it("waits for a powered-on radio to connect instead of prompting, then reports no connection", function()
+        NetworkMgr.connected, NetworkMgr.wifi_on = false, true
+        local browser = setmetatable({}, { __index = Browser })
+        browser:init()
+        browser:updateCatalog("/resumed")
+        assert.are.equal(0, connection_requests)
+        assert.are.equal(1, #network_toasts)
+        scheduled[#scheduled].callback()
+        NetworkMgr.connected = true
+        scheduled[#scheduled].callback()
+        assert.are.equal("/resumed", catalog_requests[1].url)
+
+        NetworkMgr.connected = false
+        browser:updateCatalog("/unreachable")
+        for _i = 1, 20 do
+            assert.are.equal(0, #network_notices)
+            scheduled[#scheduled].callback()
+        end
+        assert.are.equal(1, #network_notices)
+        assert.are.equal(1, #catalog_requests)
+        assert.are.equal(0, connection_requests)
     end)
 
     it("waits for the default catalog and preserves its credentials", function()
@@ -1167,7 +1198,6 @@ describe("OPDS header", function()
         assert.are.equal(0, #catalog_requests)
         assert.are.equal(0, connection_requests)
         assert.are.equal(1, #network_notices)
-        assert.is_nil(browser._zen_network_wait)
         scheduled[#scheduled].callback()
         assert.are.equal(1, #network_notices)
     end)
