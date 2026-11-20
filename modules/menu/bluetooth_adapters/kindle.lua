@@ -1,4 +1,5 @@
 local Common = require("modules/menu/bluetooth_adapters/common")
+local Hid = require("modules/menu/bluetooth_adapters/kindle_hid")
 local UIManager = require("ui/uimanager")
 local logger = require("common/zen_logger").new("bluetooth_kindle")
 
@@ -57,11 +58,12 @@ local function normalize(raw)
     local address = raw.address or raw.Address or raw.addr or raw.mac or raw.MAC
         or raw.bdaddr or raw.BDAddr or raw.bd_address or raw.deviceAddress or raw.macAddress
     if not Common.validAddress(address) then return nil end
+    address = address:upper()
     local name = raw.name or raw.Name or raw.bd_name or raw.deviceName or raw.friendlyName
     local item = {
         id = address, address = address,
         name = type(name) == "string" and name ~= "" and name or address,
-        rssi = tonumber(raw.rssi or raw.RSSI),
+        rssi = tonumber(raw.rssi or raw.RSSI), hid = raw.hid, le = raw.le,
     }
     if raw.is_paired ~= nil then item.paired = raw.is_paired == 1 or raw.is_paired == true end
     if raw.is_connected ~= nil then item.connected = raw.is_connected == 1 or raw.is_connected == true end
@@ -239,8 +241,17 @@ function M.setPower(enabled, request)
 end
 
 function M.new()
-    local adapter = { id = "kindle" }
+    -- hid_enabled: opt-in HID capture/setup, off until triggered
+    local adapter = { id = "kindle", hid_available = Hid.isSupported() }
+    local function finish_capture(keep)
+        if not adapter.capturing then return end
+        adapter.capturing = nil
+        local found = Hid.finishCapture()
+        if keep then adapter.hid_found = found end
+        logger.info("scan", tostring(adapter.scan_id), "HID capture:", #found)
+    end
     local function finish_scan(reason)
+        finish_capture()
         local handle = adapter.scan_handle
         if not handle then return end
         adapter.scan_handle = nil
@@ -253,8 +264,10 @@ function M.new()
         logger.info("scan", adapter.scan_id, "handle close:", tostring(closed), tostring(close_result))
     end
 
-    function adapter.getDeviceList()
-        local discovered, err = read_hash("ListDiscovered")
+    -- known_only: paired and connected devices, without the last scan's discoveries.
+    function adapter.getDeviceList(known_only)
+        local discovered, err = {}, nil
+        if not known_only then discovered, err = read_hash("ListDiscovered") end
         if not discovered then return nil, err end
         local paired, pair_error = read_hash("ListPaired")
         if not paired then return nil, pair_error end
@@ -281,6 +294,8 @@ function M.new()
                         if item.rssi then existing.rssi = item.rssi end
                         if item.paired ~= nil then existing.paired = item.paired end
                         if item.connected ~= nil then existing.connected = item.connected end
+                        if existing.hid == nil then existing.hid = item.hid end
+                        if existing.le == nil then existing.le = item.le end
                         if field and item[field] == nil then existing[field] = true end
                     else
                         malformed = true
@@ -295,16 +310,26 @@ function M.new()
             end
         end
         merge(discovered, nil, "ListDiscovered")
+        merge(not known_only and adapter.hid_found or {}, nil, "HID capture")
         merge(paired, "paired", "ListPaired")
         merge(connected, "connected", "ListConnected")
         if invalid then
             logger.warn("unsupported ListDiscovered/ListPaired/ListConnected reply shape")
             return nil, UNSUPPORTED
         end
+        -- Transport and HID come from the bond store; btfd's lists don't say.
+        local bonded = Hid.isSupported() and Hid.bonded() or {}
+        for _i, device in ipairs(devices) do
+            local info = bonded[device.address:upper()]
+            if info then
+                device.hid = device.hid or info.hid or nil
+                device.le = info.le
+            end
+        end
         return devices
     end
 
-    function adapter.scan(done)
+    local function discover(done)
         next_scan_id = next_scan_id + 1
         adapter.scan_id = next_scan_id
         logger.info("scan", adapter.scan_id, "starting")
@@ -333,12 +358,30 @@ function M.new()
             adapter.scan_timer = nil
             adapter.scan_done = nil
             logger.info("scan", adapter.scan_id, "timer elapsed; reading results")
+            finish_capture(true)
             local completed, callback_error = pcall(done, true)
             finish_scan("timer")
             if not completed then error(callback_error) end
         end
         adapter.scan_timer = timer
         UIManager:scheduleIn(10, timer)
+    end
+
+    function adapter.scan(done)
+        if not (adapter.hid_enabled and Hid.isSupported()) then return discover(done) end
+        Hid.startCapture()
+        adapter.capturing = true
+        adapter.scan_done = done
+        local timer
+        timer = function()
+            if adapter.closed or adapter.scan_timer ~= timer then return end
+            adapter.scan_timer = nil
+            adapter.scan_done = nil
+            discover(done)
+            if not adapter.scan_handle then finish_capture() end
+        end
+        adapter.scan_timer = timer
+        UIManager:scheduleIn(2, timer) -- capture must be live before the inquiry starts
     end
 
     local function action(property, device, field, expected, done)
@@ -351,7 +394,22 @@ function M.new()
         Common.verify(adapter, device.address, field, expected, done)
     end
     function adapter.pair(device, done) action("Bond", device, "paired", true, done) end
-    function adapter.connect(device, done) action("Connect", device, "connected", true, done) end
+    -- HID devices need one-time system changes; the switcher asks before setupHid.
+    function adapter.hidSetupNeeded() return Hid.isSupported() and not Hid.isSetUp() end
+    adapter.setupHid = Hid.setup
+    function adapter.connect(device, done)
+        -- btfd Connect is A2DP-only; HID devices connect themselves once bonded and awake.
+        if device.hid then
+            -- btfd only tracks audio links for sure: an open input node also proves a HID one.
+            local Keys = require("common/hid_keys")
+            Common.verify(adapter, device.address, "connected", true, done, function()
+                Keys.rescan() -- a remote that just linked may not be open yet
+                return Keys.connected(device.address)
+            end)
+        else
+            action("Connect", device, "connected", true, done)
+        end
+    end
     function adapter.disconnect(device, done) action("Disconnect", device, "connected", false, done) end
     function adapter.forget(device, done) action("Unbond", device, "paired", false, done) end
     function adapter.cancelScan()

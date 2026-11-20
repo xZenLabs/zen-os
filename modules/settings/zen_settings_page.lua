@@ -1,5 +1,6 @@
 local BD = require("ui/bidi")
 local Device = require("device")
+local Event = require("ui/event")
 local InfoMessage = require("ui/widget/infomessage")
 local Menu = require("ui/widget/menu")
 local UIManager = require("ui/uimanager")
@@ -618,7 +619,13 @@ function ZenSettingsPage:_leaveNativeViews()
     end
 end
 
+-- Screens stacked over the page (Wi-Fi, Bluetooth, button mapping) close on this.
+local function close_subpages()
+    UIManager:broadcastEvent(Event:new("CloseZenSettingsSubpages"))
+end
+
 function ZenSettingsPage:backToRootMenu()
+    close_subpages()
     self:_leaveNativeViews()
     self:_leaveSearch(false)
     if self.title_bar and self.title_bar.collapseSearch then
@@ -721,6 +728,7 @@ function ZenSettingsPage:closeMenu()
     if self._closed then return true end
     self:_rememberResume()
     self._closed = true
+    close_subpages()
     self:_leaveNativeViews()
     if self._deferred_arrange_parent then
         self._deferred_arrange_parent = nil
@@ -1099,6 +1107,12 @@ function M.show(plugin, opts)
         schedule_open_path(page, opts.path, false)
     end
     return page
+end
+
+-- Hold-on-back from a screen stacked over the page; false when no page is open.
+function M.backToRoot()
+    local page = rawget(_G, "__ZEN_UI_SETTINGS_PAGE")
+    return page ~= nil and page:backToRootMenu()
 end
 
 function M.closeActive()

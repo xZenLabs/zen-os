@@ -274,6 +274,7 @@ local defaults = {
     browser_flat_view = {
         enabled = false,
     },
+    hid_keys = {},  -- button mappings per HID device address
     folder_sort = {},
     folder_display_mode = {},
     folder_cover_paths = {},

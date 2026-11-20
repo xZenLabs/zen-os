@@ -7,7 +7,8 @@ function M.validAddress(address)
         and address:match("^%x%x:%x%x:%x%x:%x%x:%x%x:%x%x$") ~= nil
 end
 
-function M.verify(adapter, address, field, expected, done)
+-- probe: optional extra proof of the state for links the device list does not show.
+function M.verify(adapter, address, field, expected, done, probe)
     local attempts = 0
     local poll
     poll = function()
@@ -27,6 +28,7 @@ function M.verify(adapter, address, field, expected, done)
                 break
             end
         end
+        if probe and not actual then actual = probe() == true end
         if actual == expected then
             adapter.pending = nil
             adapter.pending_done = nil
