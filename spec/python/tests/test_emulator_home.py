@@ -421,7 +421,7 @@ def test_three_widget_home_evenly_spaces_rows_to_the_bottom(
             if first_widget == "datetime":
                 heights = home["widget_heights"]
                 assert int(heights["featured"]) \
-                    > int(heights["stats_triplet"]) * 6, home
+                    > int(heights["stats_triplet"]) * 5, home
         finally:
             stop(process)
 

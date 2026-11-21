@@ -1,6 +1,7 @@
 local Background = require("common/ui/background")
 local Blitbuffer = require("ffi/blitbuffer")
 local Geom = require("ui/geometry")
+local Scale = require("common/ui/scale")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local LineWidget = require("ui/widget/linewidget")
@@ -271,7 +272,7 @@ function M.build(ctx, source_key)
     local text_w = math.max(1, width - cover_col_w - gap)
 
     -- Fonts
-    local scale = clamp(math.max(1, cover_actual_h or col_h) / 300, 0.55, 1.28)
+    local scale = clamp(math.max(1, cover_actual_h or col_h) / Scale.px(300), 0.55, 1.28)
     local detail_scale = ctx.showBookStatus and scale * 2 or scale
     local title_style = text_style(module_cfg, "title")
     local author_style = text_style(module_cfg, "author")
@@ -301,7 +302,7 @@ function M.build(ctx, source_key)
             { progress_style, total_pages and module_cfg.show_progress ~= false and book.status ~= "new" and book.status ~= "tbr", "smallinfofont" },
         }) do
             if entry[2] then
-                local face = get_text_face(entry[1], Screen:scaleBySize(math.floor(entry[1].font_size * detail_scale + 0.5)), entry[3])
+                local face = get_text_face(entry[1], Scale.font(math.floor(entry[1].font_size * detail_scale + 0.5)), entry[3])
                 -- Title/author/series layout uses size * 1.05 per line.
                 natural_h = natural_h + (entry[4] and math.floor(face.size * 1.05 + 0.5) or line_height(entry[1], face))
             end
@@ -327,13 +328,13 @@ function M.build(ctx, source_key)
         end
         return face
     end
-    local title_face = fitting_face(title_style, Screen:scaleBySize(math.floor(title_style.font_size * detail_scale + 0.5)))
-    local meta_face = fitting_face(author_style, Screen:scaleBySize(math.floor(author_style.font_size * detail_scale + 0.5)))
-    local series_face = fitting_face(series_style, Screen:scaleBySize(math.floor(series_style.font_size * detail_scale + 0.5)))
+    local title_face = fitting_face(title_style, Scale.font(math.floor(title_style.font_size * detail_scale + 0.5)))
+    local meta_face = fitting_face(author_style, Scale.font(math.floor(author_style.font_size * detail_scale + 0.5)))
+    local series_face = fitting_face(series_style, Scale.font(math.floor(series_style.font_size * detail_scale + 0.5)))
     local stats_face = fitting_face(progress_style,
-        Screen:scaleBySize(math.floor(progress_style.font_size * detail_scale + 0.5)), "smallinfofont")
+        Scale.font(math.floor(progress_style.font_size * detail_scale + 0.5)), "smallinfofont")
     local status_face = ctx.showBookStatus and fitting_face(status_style,
-        Screen:scaleBySize(math.floor(status_style.font_size * detail_scale + 0.5)), "smallinfofont")
+        Scale.font(math.floor(status_style.font_size * detail_scale + 0.5)), "smallinfofont")
     local desc_face = fitting_face(description_style, description_style.font_size)
     if ctx.fitToBounds then description_style.font_size = desc_face.orig_size or description_style.font_size end
     local raw_description = type(book.description) == "string" and book.description or ""

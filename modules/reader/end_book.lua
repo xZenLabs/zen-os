@@ -1,4 +1,5 @@
 local Blitbuffer = require("ffi/blitbuffer")
+local Scale = require("common/ui/scale")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local Device = require("device")
 local FocusManager = require("ui/widget/focusmanager")
@@ -451,7 +452,7 @@ function EndBook:rebuild()
                 stats_label = TextWidget:new{
                     text = (label or "") ~= "" and label or _("Statistics"),
                     face = require("modules/filebrowser/patches/library_font").getStyleFace(
-                        style.font_face, Screen:scaleBySize(style.font_size)),
+                        style.font_face, Scale.font(style.font_size)),
                     bold = style.bold == true, padding = 0, max_width = content_w,
                 }
                 stats_label_h = stats_label:getSize().h + Screen:scaleBySize(4)

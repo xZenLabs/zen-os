@@ -10,6 +10,7 @@ local function apply_quick_settings()
     local Device = require("device")
     local Event = require("ui/event")
     local Font = require("ui/font")
+    local Scale = require("common/ui/scale")
     local FrameContainer = require("ui/widget/container/framecontainer")
     local Geom = require("ui/geometry")
     local HorizontalGroup = require("ui/widget/horizontalgroup")
@@ -1623,7 +1624,7 @@ local function apply_quick_settings()
 
         local medium_size     = Font.sizemap and Font.sizemap["ffont"] or 24
         local medium_font     = library_font.getFace(medium_size)
-        local small_btn_size  = Screen:scaleBySize(14)
+        local small_btn_size  = Scale.font(14)
         local small_btn_width = Screen:scaleBySize(56)
         local slider_gap      = Screen:scaleBySize(4)
         local slider_width    = inner_width - 2 * small_btn_width - 2 * slider_gap

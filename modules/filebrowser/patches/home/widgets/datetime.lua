@@ -3,6 +3,7 @@ local Blitbuffer = require("ffi/blitbuffer")
 local DateFormat = require("common/date_format")
 local Device = require("device")
 local Geom = require("ui/geometry")
+local Scale = require("common/ui/scale")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local TextWidget = require("ui/widget/textwidget")
 local WidgetResources = require("common/widget_resources")
@@ -39,17 +40,17 @@ local function clock_styles(module_cfg)
     return time_style, date_style, time_font_name, date_font_name
 end
 
-local function new_clock_widgets(Screen, time_font_name, date_font_name,
+local function new_clock_widgets(time_font_name, date_font_name,
         time_str, date_str, time_px, date_px, date_gap)
     date_px = date_px or math.max(8, math.floor(time_px * 0.36))
     local tw = TextWidget:new{
         text = time_str,
-        face = library_font.getStyleFace(time_font_name, Screen:scaleBySize(time_px)),
+        face = library_font.getStyleFace(time_font_name, Scale.font(time_px)),
         bold = true,
     }
     local dw = TextWidget:new{
         text = date_str,
-        face = library_font.getStyleFace(date_font_name, Screen:scaleBySize(date_px)),
+        face = library_font.getStyleFace(date_font_name, Scale.font(date_px)),
         fgcolor = Blitbuffer.COLOR_GRAY_3,
     }
     local ts = tw:getSize()
@@ -77,7 +78,7 @@ local function preferred_height(ctx)
 
     local function keep_if_fits(time_px, date_px)
         local tw, dw, ts, ds, th, dh, overlap = new_clock_widgets(
-            Screen, time_font_name, date_font_name,
+            time_font_name, date_font_name,
             time_str, date_str, time_px, date_px, date_gap)
         local ch = th - overlap + date_gap + dh
         local fits = (ts.w or 0) <= width and (ds.w or 0) <= width
@@ -160,7 +161,7 @@ return {
             local date_str = DateFormat.formatLongWithWeekday()
             local function make_clock_widgets(time_px, date_px)
                 return new_clock_widgets(
-                    Screen, time_font_name, date_font_name,
+                    time_font_name, date_font_name,
                     time_str, date_str, time_px, date_px, date_gap)
             end
 

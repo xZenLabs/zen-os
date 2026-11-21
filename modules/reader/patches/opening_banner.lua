@@ -68,6 +68,7 @@ local function apply_opening_banner()
 
     local Blitbuffer = require("ffi/blitbuffer")
     local Font    = require("ui/font")
+    local Scale   = require("common/ui/scale")
     local utils   = require("common/utils")
     local Geom    = require("ui/geometry")
     local TextWidget = require("ui/widget/textwidget")
@@ -474,14 +475,11 @@ local function apply_opening_banner()
         local configured = type(plug) == "table" and type(plug.config) == "table"
             and type(plug.config.opening_banner) == "table"
             and tonumber(plug.config.opening_banner.font_size)
-        -- The derived default is already device pixels: capping it would shrink
-        -- it on high-DPI screens, so an unset size is returned untouched.
         if not configured then
-            return math.ceil(Screen:scaleBySize(7) * badge_scale)
+            return math.ceil(Scale.font(7) * badge_scale)
         end
         -- 60% keeps the text clear of the strip border.
-        local scale = Screen:scaleBySize(100) / 100
-        local cap = math.max(1, math.floor(strip_h / scale * 0.6))
+        local cap = math.max(1, math.floor(Scale.fontFromPx(strip_h * 0.6)))
         return math.max(1, math.min(math.ceil(configured), cap))
     end
 

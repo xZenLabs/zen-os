@@ -60,4 +60,7 @@ _G.ZenSpec = {
     end,
 }
 
+-- Specs assert authored sizes; scale_spec covers the reference conversion.
+require("common/ui/scale").REFERENCE = 1
+
 _G.G_reader_settings = memory_settings()

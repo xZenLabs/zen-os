@@ -1,4 +1,5 @@
 local Blitbuffer = require("ffi/blitbuffer")
+local Scale = require("common/ui/scale")
 local Geom = require("ui/geometry")
 local Screen = require("device").screen
 local CenterContainer = require("ui/widget/container/centercontainer")
@@ -350,7 +351,7 @@ end
 function M.make_empty_cover_widget(source, max_w, max_h, opts)
     local message = TextBoxWidget:new{
         text = M.get_empty_message(source),
-        face = Font:getFace("smallinfofont", Screen:scaleBySize(10)),
+        face = Font:getFace("smallinfofont", Scale.font(10)),
         width = max_w,
         alignment = "center",
         alignment_strict = true,

@@ -2,6 +2,7 @@
 -- Fullscreen reading stats dashboard with long-press block customization.
 
 local Blitbuffer = require("ffi/blitbuffer")
+local Scale = require("common/ui/scale")
 local ButtonDialog = require("ui/widget/buttondialog")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local Device = require("device")
@@ -429,7 +430,7 @@ local function createDayBookCard(width, title_text, minutes, pages, stat_style)
     stat_style = normalizeStatStyle(stat_style)
     local title = TextWidget:new{
         text = tostring(title_text or ""),
-        face = Font:getFace("smallinfofontbold", Screen:scaleBySize(10)),
+        face = Font:getFace("smallinfofontbold", Scale.font(10)),
         max_width = inner_w,
     }
     local gap = Screen:scaleBySize(stat_style == "divider" and 8 or stat_style == "outline" and 9 or 6)
@@ -484,7 +485,7 @@ local function makeBlockPanel(page_w, content_w, title, body, height)
             dimen = Geom:new{ w = inner_w, h = title_h },
             TextWidget:new{
                 text = title,
-                face = Font:getFace("smallinfofontbold", Screen:scaleBySize(10)),
+                face = Font:getFace("smallinfofontbold", Scale.font(10)),
                 max_width = inner_w,
             },
         }
@@ -510,7 +511,7 @@ end
 local function createFallbackCalendarWidget(width, height)
     local text = TextWidget:new{
         text = _("Statistics calendar is unavailable"),
-        face = Font:getFace("smallinfofont", Screen:scaleBySize(14)),
+        face = Font:getFace("smallinfofont", Scale.font(14)),
         fgcolor = Blitbuffer.COLOR_DARK_GRAY,
         max_width = width - Screen:scaleBySize(16),
     }
@@ -558,7 +559,7 @@ local function showDaySummary(visible_day_ts, books, stat_style)
         width = width,
         align = "left",
         title = title_text,
-        title_face = Font:getFace("smallinfofontbold", Screen:scaleBySize(10)),
+        title_face = Font:getFace("smallinfofontbold", Scale.font(10)),
         show_parent = dialog,
     }
     local close_button = ZenModalClose.installTitleBar(
@@ -572,7 +573,7 @@ local function showDaySummary(visible_day_ts, books, stat_style)
         items[#items + 1] = VerticalSpan:new{ width = Screen:scaleBySize(8) }
         items[#items + 1] = TextWidget:new{
             text = _("No reading data"),
-            face = Font:getFace("smallinfofont", Screen:scaleBySize(14)),
+            face = Font:getFace("smallinfofont", Scale.font(14)),
             fgcolor = Blitbuffer.COLOR_DARK_GRAY,
             max_width = scroll_w,
         }
@@ -735,7 +736,7 @@ local function tuneEmbeddedCalendar(calendar, populate)
         calendar.title_bar.right_icon = nil
         calendar.title_bar.has_right_icon = false
         calendar.title_bar.right_button = nil
-        calendar.title_bar.title_face = Font:getFace("smallinfofontbold", Screen:scaleBySize(10))
+        calendar.title_bar.title_face = Font:getFace("smallinfofontbold", Scale.font(10))
         calendar.title_bar.title_top_padding = 0
         calendar.title_bar.bottom_v_padding = 0
         calendar.title_bar:clear()
@@ -888,10 +889,11 @@ local function buildContent(blocks_config, data, page_w, h_padding, top_padding,
     local function card(opts)
         local height = opts.height or Screen:scaleBySize(74)
         local font_size = tonumber(opts.font_size)
-        opts.value_size = font_size and sz(font_size)
-            or sz(math.max(10, math.min(15, math.floor(height * 0.14))))
-        opts.label_size = font_size and sz(math.max(6, math.floor(font_size * 0.6)))
-            or sz(math.max(6, math.min(9, math.floor(height * 0.08))))
+        local ref_height = height * 100 / Scale.px(100) -- clamps below are reference-screen pixels
+        opts.value_size = Scale.font(font_size
+            or math.max(10, math.min(15, math.floor(ref_height * 0.14))))
+        opts.label_size = Scale.font(font_size and math.max(6, math.floor(font_size * 0.6))
+            or math.max(6, math.min(9, math.floor(ref_height * 0.08))))
         opts.header_size = opts.header and opts.label_size or opts.header_size
         if opts.streak and flame_icon_path then
             local value_widget = TextWidget:new{

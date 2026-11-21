@@ -444,10 +444,11 @@ describe("home basic widgets", function()
         assert.are.equal(10, rendered_label_size())
 
         created = {}
+        -- Requested sizes are pre-scale units: the screen scale must not leak into them.
         require("device").screen.scaleBySize = function(_self, value) return value * 4 end
         ctx.module_cfg.automatic_font_size = true
         component.build(ctx)
-        assert.are.equal(12, rendered_label_size())
+        assert.are.equal(10, rendered_label_size())
     end)
 
     it("insets outlined stats cards to the shared home content width", function()

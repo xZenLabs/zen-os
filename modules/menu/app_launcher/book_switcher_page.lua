@@ -1,5 +1,6 @@
 local M = {}
 local BookOpenTap = require("common/book_open_tap")
+local Scale = require("common/ui/scale")
 local BookStatus = require("common/book_status")
 local icons = require("common/inline_icon_map")
 local paths = require("common/paths")
@@ -285,7 +286,7 @@ function M.build(opts)
     if #books == 0 then
         local message = TextBoxWidget:new{
             text = _("No books to switch to"),
-            face = Font:getFace("smallinfofont", Screen:scaleBySize(18)),
+            face = Font:getFace("smallinfofont", Scale.font(18)),
             width = math.max(1, inner_w - padding * 2),
             alignment = "center",
             alignment_strict = true,

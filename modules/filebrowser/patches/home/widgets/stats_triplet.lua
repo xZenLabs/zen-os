@@ -1,4 +1,5 @@
 local Background = require("common/ui/background")
+local Scale = require("common/ui/scale")
 local Blitbuffer = require("ffi/blitbuffer")
 local Geom = require("ui/geometry")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
@@ -115,9 +116,8 @@ local function label_font_size(module_cfg, font_size)
 end
 
 local function font_size_fits(candidate, fields, stats, inner_w, inner_h, show_icons, module_cfg)
-    local Screen = Device.screen
-    local value_face = Font:getFace("smallinfofont", Screen:scaleBySize(candidate))
-    local label_face = Font:getFace("smallinfofont", Screen:scaleBySize(label_font_size(module_cfg, candidate)))
+    local value_face = Font:getFace("smallinfofont", Scale.font(candidate))
+    local label_face = Font:getFace("smallinfofont", Scale.font(label_font_size(module_cfg, candidate)))
     for _i, field in ipairs(fields) do
         local value_probe = TextWidget:new{
             text = field.get(stats),
@@ -160,18 +160,17 @@ end
 
 local function preferred_height(ctx)
     ctx = type(ctx) == "table" and ctx or {}
-    local Screen = Device.screen
     local module_cfg = type(ctx.module_cfg) == "table" and ctx.module_cfg or {}
     local font_size = module_cfg.automatic_font_size ~= false
         and configured_max_font_size(ctx) or configured_font_size(ctx)
     local value_probe = TextWidget:new{
         text = "A",
-        face = Font:getFace("smallinfofont", Screen:scaleBySize(font_size)),
+        face = Font:getFace("smallinfofont", Scale.font(font_size)),
         bold = true,
     }
     local label_probe = TextWidget:new{
         text = "A",
-        face = Font:getFace("smallinfofont", Screen:scaleBySize(label_font_size(module_cfg, font_size))),
+        face = Font:getFace("smallinfofont", Scale.font(label_font_size(module_cfg, font_size))),
     }
     local value_h = value_probe:getSize().h or 1
     local label_h = label_probe:getSize().h or 1
@@ -225,8 +224,8 @@ return {
             and fitting_font_size(fields, stats, inner_w, inner_h,
                 configured_max_font_size(ctx), show_icons, module_cfg)
             or configured_font_size(ctx)
-        local value_face = Font:getFace("smallinfofont", Screen:scaleBySize(font_size))
-        local label_face = Font:getFace("smallinfofont", Screen:scaleBySize(label_font_size(module_cfg, font_size)))
+        local value_face = Font:getFace("smallinfofont", Scale.font(font_size))
+        local label_face = Font:getFace("smallinfofont", Scale.font(label_font_size(module_cfg, font_size)))
         local row = HorizontalGroup:new{ align = "center" }
         local visual_top
         local visual_bottom
