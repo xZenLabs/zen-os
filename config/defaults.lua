@@ -23,6 +23,7 @@ local defaults = {
         sort_defaults_applied = false,
         statistics_freeze_finished_default_applied = false,
         bim_fbc_migrated = false,
+        comic_info_cache_migrated = false,
         reader_footer_hide_cbz_default_migrated = false,
         context_menu_allow_delete_default_migrated = false,
         library_font_hyperreadable_default_migrated = false,

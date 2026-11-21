@@ -14,6 +14,7 @@ common/book_sources.lua|unit
 common/book_sources_kindle.lua|unit
 common/brand_migration.lua|unit
 common/clock_schedule.lua|unit
+common/comic_info.lua|unit
 common/clock_timer.lua|unit
 common/constants.lua|unit
 common/cover_decode_cache.lua|unit
