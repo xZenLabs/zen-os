@@ -1139,6 +1139,30 @@ describe("file browser group views", function()
         assert.are.equal("authors_detail", second_detail.name)
     end)
 
+    it("unwinds the author stack when a nested series detail is closed by the navbar", function()
+        install_group_view({
+            authors = { { author = "Ada", files = { "/first.epub", "/second.epub" } } },
+        })
+        config.features.automatic_series_grouping = true
+        metadata["/first.epub"] = { title = "First", series = "Saga", series_index = 1 }
+        metadata["/second.epub"] = { title = "Second", series = "Saga", series_index = 2 }
+
+        local root = assert(api.showAuthorsView())
+        local detail = assert(api.restoreDetail("Ada", "authors"))
+        detail.onMenuSelect(detail, detail.item_table[1])
+        local series = assert(find_menu("series_detail"))
+
+        -- Same order as the navbar's closeStandaloneView.
+        series.close_callback()
+        series._zen_close_stack()
+
+        assert.are.same({ series, detail, root }, closed)
+        assert.is_nil(api.getActiveDetail())
+        local reopened, is_new = api.showAuthorsView()
+        assert.is_true(is_new)
+        assert.are_not.equal(root, reopened)
+    end)
+
     it("selects group-detail books without opening them", function()
         install_group_view({
             authors = { { author = "Writer", files = { "/book.epub" } } },

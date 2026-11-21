@@ -58,6 +58,13 @@ local function reopen_root_view(tab_id, injectNavbar)
     return type(fn) == "function" and fn(injectNavbar) ~= nil
 end
 
+local function is_detail_open(menu)
+    for _i, open_menu in ipairs(_detail_menus) do
+        if open_menu == menu then return true end
+    end
+    return false
+end
+
 local function remove_detail_menu(menu)
     for i = #_detail_menus, 1, -1 do
         if _detail_menus[i] == menu then
@@ -1078,7 +1085,7 @@ end
 -- showDetailView: book list for one author/series group
 -- Called from onMenuSelect on the group list menu
 -------------------------------------------------------------------------------
-showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
+showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id, opener)
     local _ = require("gettext")
     local UIManager = require("ui/uimanager")
 
@@ -1164,7 +1171,7 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
             end
             if item.is_series_group then
                 local series_menu = showDetailView(
-                    item, injectNavbar, "series", navbar_tab_id or tab_id)
+                    item, injectNavbar, "series", navbar_tab_id or tab_id, detail_menu)
                 if series_menu then
                     series_menu._zen_restore_parent = {
                         group_name = group_name,
@@ -1210,7 +1217,7 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
                     _zen_after_status_change = group_item._zen_load_files and function(path)
                         fm.file_chooser:refreshPath(path)
                         detail_menu.close_callback()
-                        showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
+                        showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id, opener)
                     end or nil,
                 })
             end
@@ -1248,6 +1255,10 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
 
     -- Close the parent group menu too (used by navbar tap to unwind the full stack)
     detail_menu._zen_close_stack = function()
+        if opener then -- nested series: unwind the detail that opened it, then its root
+            if is_detail_open(opener) then opener.close_callback() end
+            return opener._zen_close_stack()
+        end
         local parent
         if tab_id == "authors" then
             parent = _authors_menu
@@ -1315,7 +1326,7 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
                     _zen_filter_refresh_cb = function()
                         -- Rebuild item_table with new filter: close and reopen.
                         UIManager:close(detail_menu)
-                        showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
+                        showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id, opener)
                     end,
                 })
             end
