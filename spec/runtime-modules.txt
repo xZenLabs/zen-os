@@ -42,6 +42,7 @@ common/library_destination.lua|unit
 common/library_navigation.lua|unit
 common/language_name.lua|unit
 common/memory_policy.lua|unit
+common/metadata_indexer.lua|unit
 common/nav_button_model.lua|unit
 common/optional_provider.lua|unit
 common/paths.lua|unit

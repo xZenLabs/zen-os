@@ -5,6 +5,7 @@ local HistoryIndex = require("common/history_index")
 local icons = require("common/inline_icon_map")
 local submenu_arrow = icons.arrow_right
 local LanguageName = require("common/language_name")
+local MetadataIndexer = require("common/metadata_indexer")
 local paths = require("common/paths")
 local StandalonePage = require("modules/filebrowser/patches/standalone_page")
 local SharedState = require("common/shared_state")
@@ -505,6 +506,31 @@ local function build_group_item_table(groups, data_type)
     return items
 end
 
+local group_getters = {
+    authors = "getGroupedByAuthor",
+    series = "getGroupedBySeries",
+    languages = "getGroupedByLanguage",
+    tags = "getGroupedByTags",
+}
+
+local function rebuild_root_menu(tab_id, menu)
+    if not menu then return end
+    local ok, db = pcall(require, "common/db_bookinfo")
+    if not ok then return end
+    menu.item_table = build_group_item_table(db[group_getters[tab_id]](), tab_id)
+    menu:updateItems()
+end
+
+local function any_root_open()
+    return (_authors_menu or _series_menu or _languages_menu or _tags_menu) ~= nil
+end
+
+local function rebuild_open_roots()
+    for tab_id in pairs(group_getters) do
+        rebuild_root_menu(tab_id, get_root_menu(tab_id))
+    end
+end
+
 -- Forward declaration so showDisplayModeDialog can reference showGroupView.
 local showGroupView
 
@@ -613,23 +639,7 @@ local function showGroupSortDialog(tab_id, menu)
         or tab_id == "languages" and _("Sort languages")
         or tab_id == "tags" and _("Tags") or _("Sort series")
 
-    local function rebuild()
-        if not menu then return end
-        local ok, db = pcall(require, "common/db_bookinfo")
-        if not ok then return end
-        local groups
-        if tab_id == "authors" then
-            groups = db.getGroupedByAuthor()
-        elseif tab_id == "languages" then
-            groups = db.getGroupedByLanguage()
-        elseif tab_id == "tags" then
-            groups = db.getGroupedByTags()
-        else
-            groups = db.getGroupedBySeries()
-        end
-        menu.item_table = build_group_item_table(groups, tab_id)
-        menu:updateItems()
-    end
+    local function rebuild() rebuild_root_menu(tab_id, menu) end
 
     if tab_id == "authors" then
         local current = get_authors_collate()
@@ -1595,6 +1605,8 @@ showGroupView = function(tab_id, injectNavbar, groups)
             end
         end
     end)
+    -- Books never listed in the Library have no metadata to group by yet.
+    MetadataIndexer.start(any_root_open, rebuild_open_roots)
     return menu, true
 end
 
