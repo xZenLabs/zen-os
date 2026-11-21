@@ -1,5 +1,5 @@
 describe("Bluetooth switcher", function()
-    local originals, menu, shown, scheduled, events, adapter, state, changed
+    local originals, menu, shown, scheduled, events, adapter, state, changed, conflict, decline
     local paired = "11:22:33:44:55:66"
     local available = "AA:BB:CC:DD:EE:FF"
 
@@ -16,6 +16,7 @@ describe("Bluetooth switcher", function()
             "common/hid_keys", "modules/menu/bluetooth_keys", "modules/settings/zen_settings_page",
         }) do originals[name] = package.loaded[name] or false end
         shown, scheduled, events, changed = {}, {}, {}, 0
+        menu, conflict, decline = nil, false, nil
         state = true
         adapter = { scanned = 0, closed = false }
         local devices = {
@@ -50,6 +51,8 @@ describe("Bluetooth switcher", function()
         })
         ZenSpec.replace("modules/menu/bluetooth_adapters/kindle", {
             isSupported = function() return true end, new = function() return adapter end,
+            conflict = function() return conflict end,
+            resolveConflict = function(proceed) decline = proceed end,
         })
         ZenSpec.replace("modules/menu/bluetooth_adapters/kobo", { isSupported = function() return false end })
         ZenSpec.replace("modules/menu/bluetooth_adapters/pocketbook", { isSupported = function() return false end })
@@ -103,6 +106,16 @@ describe("Bluetooth switcher", function()
 
     after_each(function()
         for name, module in pairs(originals) do package.loaded[name] = module or nil end
+    end)
+
+    it("offers a conflicting Bluetooth stack's removal before the page, which opens if declined", function()
+        conflict = true
+        assert.is_true(require("modules/menu/bluetooth_switcher").open(nil, true, {}))
+        assert.is_nil(menu)
+        assert.are.equal(0, adapter.scanned)
+        decline()
+        assert.are.equal("bluetooth_switcher", menu.name)
+        assert.are.equal(1, adapter.scanned)
     end)
 
     it("sorts devices, pairs and connects, and cleans up discovery", function()

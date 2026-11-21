@@ -217,5 +217,65 @@ describe("Kindle HID discovery capture", function()
             assert.is_false(Hid.setup())
             assert.are.same({}, commands)
         end)
+
+        describe("Kindle HID Passthrough", function()
+            local DIR, BOOT_JOB = "/mnt/us/kindle_hid_passthrough", "/etc/upstart/hid-passthrough.conf"
+            local DAEMON, UNINSTALLER = DIR .. "/kindle-hid-passthrough", DIR .. "/scripts/install.sh"
+
+            -- Stands in for the uninstaller: removes its own files, and our helper with them.
+            local function uninstalls(trigger)
+                local execute = os.execute
+                os.execute = function(command) -- luacheck: ignore
+                    if command:find(trigger, 1, true) then
+                        files[DAEMON], files[UNINSTALLER], files[HELPER] = nil, nil, nil
+                    end
+                    return execute(command)
+                end
+            end
+
+            it("is spotted by what its uninstaller removes, on supported Kindles only", function()
+                files[DIR .. "/devices.conf"] = "" -- pairings outlive its uninstaller
+                assert.is_false(Hid.passthrough())
+                for _i, trace in ipairs({ DAEMON, BOOT_JOB, "/mnt/us/koreader/plugins/hidpassthrough.koplugin" }) do
+                    files[trace] = ""
+                    assert.is_true(Hid.passthrough())
+                    files["/dev/uhid"] = nil -- no HID support of ours to stand in for it
+                    assert.is_false(Hid.passthrough())
+                    files[trace], files["/dev/uhid"] = nil, ""
+                end
+            end)
+
+            it("is removed by its own uninstaller, after which our setup is redone", function()
+                assert.is_true(Hid.setup())
+                files[DAEMON], files[UNINSTALLER], commands = "", "", {}
+                uninstalls("uninstallAll")
+                assert.is_true(Hid.removePassthrough())
+                assert.is_true(ran("sh " .. UNINSTALLER .. " uninstallAll </dev/null"))
+                assert.is_false(ran("kpm"))
+                assert.is_truthy(files[HELPER])
+                assert.is_true(Hid.isSetUp())
+            end)
+
+            it("is uninstalled through KPM where KPM installed it", function()
+                files[DAEMON], files[UNINSTALLER] = "", ""
+                files["/var/local/kmc/bin/kpm"], files["/mnt/us/kmc/kpm/packages/kindle-hid-passthrough"] = "", ""
+                uninstalls("kpm -y uninstall") -- its hook runs the same uninstaller
+                assert.is_true(Hid.removePassthrough())
+                assert.is_true(ran("/var/local/kmc/bin/kpm -y uninstall kindle-hid-passthrough </dev/null"))
+                assert.is_false(ran("uninstallAll"))
+                assert.is_false(Hid.isSetUp()) -- never set up: nothing of ours to redo
+            end)
+
+            it("counts as still installed while a trace remains", function()
+                files[BOOT_JOB] = "" -- no uninstaller left to run
+                assert.is_false(Hid.removePassthrough())
+                assert.are.same({}, commands)
+
+                files[DAEMON], files[UNINSTALLER] = "", ""
+                uninstalls("uninstallAll")
+                assert.is_false(Hid.removePassthrough())
+                assert.is_true(ran("uninstallAll"))
+            end)
+        end)
     end)
 end)

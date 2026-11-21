@@ -8831,3 +8831,27 @@ msgstr "−%1 d"
 #: battery_page.lua:325
 msgid "−%1 h"
 msgstr "−%1 h"
+
+#. Type: subtitle
+#. Context: Message shown when uninstalling Kindle HID Passthrough from the Bluetooth page fails.
+#: kindle.lua:121
+msgid "Could not uninstall Kindle HID Passthrough. Remove it with its own installer, then restart the Kindle."
+msgstr "Could not uninstall Kindle HID Passthrough. Remove it with its own installer, then restart the Kindle."
+
+#. Type: subtitle
+#. Context: Prompt shown before the Bluetooth page on a Kindle where Kindle HID Passthrough, another Bluetooth tool, is installed.
+#: kindle.lua:110
+msgid "Kindle HID Passthrough is installed and conflicts with Bluetooth in ZenOS. Uninstall it and restart the Kindle? Remotes and controllers will need pairing again."
+msgstr "Kindle HID Passthrough is installed and conflicts with Bluetooth in ZenOS. Uninstall it and restart the Kindle? Remotes and controllers will need pairing again."
+
+#. Type: button
+#. Context: Button that uninstalls Kindle HID Passthrough and restarts the Kindle.
+#: kindle.lua:111
+msgid "Uninstall and restart"
+msgstr "Uninstall and restart"
+
+#. Type: subtitle
+#. Context: Notice shown while Kindle HID Passthrough is being uninstalled.
+#: kindle.lua:114
+msgid "Uninstalling…"
+msgstr "Uninstalling…"

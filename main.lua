@@ -56,6 +56,8 @@ local _ = require("gettext")
 
 local ConfigManager = require("config/manager")
 local BatteryStats = require("common/battery_stats")
+-- Up front: deletePluginSettings runs after KOReader has deleted the plugin's files.
+local KindleHid = require("modules/menu/bluetooth_adapters/kindle_hid")
 local _startup_config = ConfigManager.load()
 local registry = require("modules/registry")
 local zen_updater   = require("modules/settings/zen_updater")
@@ -1091,6 +1093,10 @@ function ZenUI:deletePluginSettings()
     end
     local docprops_cache = package.loaded["common/docprops_cache"]
     if docprops_cache then pcall(docprops_cache.close) end
+
+    -- Kindle: the Bluetooth HID setup's system file changes go too; nothing else could undo them later.
+    local hid_ok, hid_undone = pcall(KindleHid.teardown)
+    if not (hid_ok and hid_undone) then logger.warn("Kindle HID teardown failed:", tostring(hid_undone)) end
 
     pcall(BrandMigration.deletePluginSettings)
 

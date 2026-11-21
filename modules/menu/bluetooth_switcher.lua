@@ -6,7 +6,7 @@ function M.cancelScan()
     return active_menu.cancelScan()
 end
 
-function M.open(on_changed, settings_subpage, plugin)
+local function open(on_changed, settings_subpage, plugin)
     local Device = require("device")
     local Bluetooth = require("modules/menu/bluetooth/bluetooth")
     local Kindle = require("modules/menu/bluetooth_adapters/kindle")
@@ -438,6 +438,16 @@ function M.open(on_changed, settings_subpage, plugin)
     UIManager:forceRePaint()
     UIManager:tickAfterNext(start)
     return true
+end
+
+-- Kindle: a Bluetooth stack installed over the stock one is offered for removal before the page.
+function M.open(on_changed, settings_subpage, plugin)
+    local Kindle = require("modules/menu/bluetooth_adapters/kindle")
+    if Kindle.isSupported(require("device")) and Kindle.conflict() then
+        Kindle.resolveConflict(function() open(on_changed, settings_subpage, plugin) end)
+        return true
+    end
+    return open(on_changed, settings_subpage, plugin)
 end
 
 return M

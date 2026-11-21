@@ -14,6 +14,14 @@ local DMCC_SED = [[sed -i 's|^if %s\(\[ -e "/PRE_GM_DEBUGGING\)|if %s\1|' ]]
 -- HID disconnects otherwise flood the userstore with core dumps
 local MARKERS = { "/mnt/us/DISABLE_CORE_DUMP", "/mnt/us/DISABLE_CORE_DUMP_ALERT" }
 local REBOOT = "/tmp/zenos-bt-hid-reboot" -- tmpfs: outlives KOReader, not a device restart
+-- Kindle HID Passthrough (zampierilucas/kindle-hid-passthrough): a userspace Bluetooth stack
+-- that stops the stock one to take the radio. Its uninstaller leaves only pairings in its folder.
+local PASSTHROUGH = "/mnt/us/kindle_hid_passthrough"
+local PASSTHROUGH_TRACES = { -- daemon, boot job, KOReader plugin
+    PASSTHROUGH .. "/kindle-hid-passthrough", "/etc/upstart/hid-passthrough.conf",
+    "/mnt/us/koreader/plugins/hidpassthrough.koplugin",
+}
+local KPM, KPM_PACKAGE = "/var/local/kmc/bin/kpm", "/mnt/us/kmc/kpm/packages/kindle-hid-passthrough"
 local SYSTEM_FILES = {
     ["/usr/local/bin/dev_is_keyboard.sh"] = [[
 #!/bin/sh
@@ -173,6 +181,29 @@ function M.teardown()
         return ok
     end)
     logger.info("teardown:", ok and "done" or "incomplete", "files=", #ours, "dmcc=", tostring(dmcc))
+    return ok
+end
+
+-- Kindle HID Passthrough is installed; only where our own HID support can stand in for it.
+function M.passthrough()
+    if not M.isSupported() then return false end
+    for _i, path in ipairs(PASSTHROUGH_TRACES) do
+        if exists(path) then return true end
+    end
+    return false
+end
+
+-- Removal is its own uninstaller's job: through KPM where that installed it, so the package
+-- record goes too. It deletes our dev_is_keyboard.sh as well: a finished setup is redone.
+-- Its exit status says nothing, so the traces decide. The stock stack is back after a restart.
+function M.removePassthrough()
+    local set_up = M.isSetUp()
+    if exists(KPM) and exists(KPM_PACKAGE) then run(KPM .. " -y uninstall kindle-hid-passthrough </dev/null") end
+    local uninstaller = PASSTHROUGH .. "/scripts/install.sh"
+    if exists(uninstaller) then run("sh " .. uninstaller .. " uninstallAll </dev/null") end -- no tty: no prompt
+    if set_up then M.setup() end
+    local ok = not M.passthrough()
+    logger.info("passthrough removal:", ok and "done" or "incomplete")
     return ok
 end
 

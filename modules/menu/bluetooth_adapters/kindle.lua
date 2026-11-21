@@ -1,6 +1,7 @@
 local Common = require("modules/menu/bluetooth_adapters/common")
 local Hid = require("modules/menu/bluetooth_adapters/kindle_hid")
 local UIManager = require("ui/uimanager")
+local _ = require("gettext")
 local logger = require("common/zen_logger").new("bluetooth_kindle")
 
 local M = {}
@@ -95,6 +96,34 @@ end
 
 function M.isSupported(Device)
     return Device.isKindle and Device:isKindle()
+end
+
+-- Kindle HID Passthrough stops the stock stack this adapter drives.
+M.conflict = Hid.passthrough
+M.isAvailable = Hid.passthrough -- btfd may be down with it: the Bluetooth entries stay, to reach the offer
+
+-- Offers its uninstaller and the restart that brings the stock stack back. proceed: runs on "Not now".
+function M.resolveConflict(proceed)
+    local ConfirmBox = require("ui/widget/confirmbox")
+    local InfoMessage = require("ui/widget/infomessage")
+    UIManager:show(ConfirmBox:new{
+        text = _("Kindle HID Passthrough is installed and conflicts with Bluetooth in ZenOS. Uninstall it and restart the Kindle? Remotes and controllers will need pairing again."),
+        ok_text = _("Uninstall and restart"),
+        cancel_text = _("Not now"),
+        ok_callback = function()
+            local notice = InfoMessage:new{ text = _("Uninstalling…") }
+            UIManager:show(notice)
+            UIManager:tickAfterNext(function() -- the notice paints before the uninstaller blocks
+                local ok = Hid.removePassthrough()
+                UIManager:close(notice)
+                if ok then return Hid.reboot() end
+                UIManager:show(InfoMessage:new{
+                    text = _("Could not uninstall Kindle HID Passthrough. Remove it with its own installer, then restart the Kindle."),
+                })
+            end)
+        end,
+        cancel_callback = proceed,
+    })
 end
 
 function M.logServiceState(context, handle)

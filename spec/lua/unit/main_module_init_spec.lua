@@ -1,4 +1,21 @@
 describe("ZenOS module initialization", function()
+    local function noop() end
+
+    -- main.lua over stubbed modules; anything not listed loads as an empty table.
+    local function load_main(modules, env)
+        local chunk = assert(loadfile(ZenSpec.root .. "/main.lua"))
+        env = env or {}
+        env._G = { __zen_ui_uimgr_guard = true }
+        env.require = function(name)
+            if name == "missing-provider" then error("provider module missing") end
+            if name == "common/plugin_root" then return ZenSpec.root end
+            if name == "fontlist" then return false end
+            return modules[name] or {}
+        end
+        setfenv(chunk, setmetatable(env, { __index = _G }))
+        return chunk()
+    end
+
     it("continues after module load and initialization failures", function()
         local calls, warnings = {}, {}
         local battery_changes, rescans = 0, 0
@@ -9,7 +26,6 @@ describe("ZenOS module initialization", function()
             { id = "disabled", file = "disabled-provider" },
             { id = "reader", file = "reader-module" },
         }
-        local function noop() end
         local modules = {
             ["common/battery_stats"] = { bluetoothChanged = function() battery_changes = battery_changes + 1 end },
             ["common/hid_keys"] = { rescanSoon = function() rescans = rescans + 1 end },
@@ -46,17 +62,7 @@ describe("ZenOS module initialization", function()
                 return true
             end },
         }
-        local chunk = assert(loadfile(ZenSpec.root .. "/main.lua"))
-        setfenv(chunk, setmetatable({
-            _G = { __zen_ui_uimgr_guard = true },
-            require = function(name)
-                if name == "missing-provider" then error("provider module missing") end
-                if name == "common/plugin_root" then return ZenSpec.root end
-                if name == "fontlist" then return false end
-                return modules[name] or {}
-            end,
-        }, { __index = _G }))
-        local plugin = chunk()
+        local plugin = load_main(modules)
         plugin:onBluetoothStateChanged()
         assert.equals(1, battery_changes)
         assert.equals(1, rescans)
@@ -73,5 +79,32 @@ describe("ZenOS module initialization", function()
         assert.equals(3, #warnings)
         assert.equals("broken", warnings[2][2])
         assert.matches("third-party startup failed", warnings[2][3], 1, true)
+    end)
+
+    it("undoes the Kindle HID system changes with the plugin settings, after its files are gone", function()
+        local purged, torn_down, deleted = false, 0, 0
+        local function loaded(module)
+            return setmetatable(module, { __index = function() return noop end })
+        end
+        local stubs = setmetatable({
+            ["common/brand_migration"] = {
+                detectStartup = function() return {} end,
+                deletePluginSettings = function() deleted = deleted + 1 end,
+            },
+            ["ui/widget/container/widgetcontainer"] = { extend = function(_self, spec) return spec end },
+            ["config/manager"] = { load = function() return {} end },
+            ["modules/menu/bluetooth_adapters/kindle_hid"] = {
+                teardown = function() torn_down = torn_down + 1; return true end,
+            },
+        }, { __index = function(_stubs, name)
+            assert.is_false(purged, "required after the plugin was deleted: " .. name)
+            return loaded({ new = function() return loaded({}) end })
+        end })
+        local plugin = load_main(stubs, { G_reader_settings = { readSetting = noop } })
+        -- KOReader deletes the plugin before the hook: a late require would find nothing.
+        for name in pairs(stubs) do stubs[name] = nil end
+        purged = true
+        assert.is_true(plugin:deletePluginSettings())
+        assert.same({ 1, 1 }, { torn_down, deleted })
     end)
 end)

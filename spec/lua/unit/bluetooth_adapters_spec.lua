@@ -10,6 +10,7 @@ describe("Bluetooth device adapters", function()
             "modules/menu/bluetooth/kobo_bluetooth", "modules/menu/bluetooth_switcher",
             "modules/menu/bluetooth/bluez", "common/hid_keys",
             "modules/menu/bluetooth_adapters/kindle_hid", "common/restart", "ui/event",
+            "ui/widget/confirmbox", "ui/widget/infomessage",
         }) do originals[name] = package.loaded[name] or false end
         commands, scheduled, unscheduled = {}, {}, {}
         ZenSpec.replace("ui/uimanager", {
@@ -406,6 +407,33 @@ describe("Bluetooth device adapters", function()
         action()
         assert.is_true(UIManager._entered_poweroff_stage) -- no "Restoring Kindle GUI" screen
         assert.are.same({ "Reboot", "Close", "save", "sleep 1 && reboot &", "quit" }, commands)
+    end)
+
+    it("uninstalls Kindle HID Passthrough on request and restarts only once it is gone", function()
+        local shown, removed, rebooted, declined, gone = {}, 0, 0, 0, false
+        local UIManager = package.loaded["ui/uimanager"]
+        UIManager.show = function(_self, widget) shown[#shown + 1] = widget end
+        UIManager.close = function(_self, widget) widget.closed = true end
+        UIManager.tickAfterNext = function(_self, callback) callback() end
+        ZenSpec.replace("ui/widget/confirmbox", { new = function(_self, spec) return spec end })
+        ZenSpec.replace("ui/widget/infomessage", { new = function(_self, spec) return spec end })
+        ZenSpec.replace("modules/menu/bluetooth_adapters/kindle_hid", {
+            passthrough = function() return true end,
+            removePassthrough = function() removed = removed + 1; return gone end,
+            reboot = function() rebooted = rebooted + 1 end,
+        })
+        local Kindle = require("modules/menu/bluetooth_adapters/kindle")
+        assert.is_true(Kindle.conflict() and Kindle.isAvailable())
+        Kindle.resolveConflict(function() declined = declined + 1 end)
+        shown[1].cancel_callback()
+        assert.are.same({ 1, 0 }, { declined, removed })
+        shown[1].ok_callback()
+        assert.is_true(shown[2].closed) -- the "Uninstalling…" notice
+        assert.is_truthy(shown[3].text:find("Could not uninstall", 1, true))
+        assert.are.same({ 1, 0 }, { removed, rebooted })
+        gone = true
+        shown[1].ok_callback()
+        assert.are.same({ 2, 1, 4 }, { removed, rebooted, #shown })
     end)
 
     it("confirms a Kindle HID connect from its input node and fails unconfirmed", function()
