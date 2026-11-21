@@ -1673,6 +1673,8 @@ return function(ctx, self_fc, item)
             { key = "series", text = icons.series .. "  " .. _("Series") },
             { key = "access", text = icons.history .. "  " .. _("Recently read") },
             { key = "date_added", text = icons.calendar .. "  " .. _("Date added") },
+            -- KOReader's percent_natural: in progress (highest first), on hold, unopened, finished.
+            { key = "percent_natural", text = icons.reading .. "  " .. _("Progress") },
         }
 
         if is_primary_home then

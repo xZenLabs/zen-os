@@ -590,6 +590,41 @@ describe("automatic series grouping patch", function()
         assert.are.equal(0, fc.item_table[1].percent_finished)
     end)
 
+    it("ranks series groups among books when sorting by progress", function()
+        local function progress(path, title, sort_percent)
+            local book = item(path, title)
+            book.sort_percent = sort_percent
+            return book
+        end
+        local reading = progress("/library/Reading.epub", "Reading", 0.8)
+        local saga_current = progress("/library/Saga-2.epub", "Saga 2", 0.5)
+        local unopened = progress("/library/Unopened.epub", "Unopened", -1)
+        local saga_done = progress("/library/Saga-1.epub", "Saga 1", 1)
+        metadata[saga_done.path] = { series = "Saga", series_index = 1 }
+        metadata[saga_current.path] = { series = "Saga", series_index = 2 }
+        local folder = { text = "Folder/", path = "/library/Folder", attr = { mode = "directory" } }
+        local fc = chooser()
+        fc.getCollate = function() return { can_collate_mixed = false }, "percent_natural" end
+        fc.getSortingFunction = function()
+            return function(a, b)
+                if a.sort_percent == b.sort_percent then return a.text < b.text end
+                if a.sort_percent == 1 then return false end
+                if b.sort_percent == 1 then return true end
+                return a.sort_percent > b.sort_percent
+            end
+        end
+
+        FileChooser.switchItemTable(fc, nil, {
+            folder, reading, saga_current, unopened, saga_done,
+        })
+
+        assert.are.equal(4, #fc.item_table)
+        assert.are.equal(folder, fc.item_table[1])
+        assert.are.equal(reading, fc.item_table[2])
+        assert.are.equal("Saga", fc.item_table[3].text)
+        assert.are.equal(unopened, fc.item_table[4])
+    end)
+
     it("keeps the incoming mixed order when no series group forms", function()
         local zulu = item("/library/Zulu.epub", "Zulu")
         local alpha = item("/library/Alpha.epub", "Alpha")
