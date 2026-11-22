@@ -1259,6 +1259,7 @@ local function apply_quick_settings()
                             pcall(launch)
                         end)
                     end,
+                    hold_callback = function(tm) return PluginScan.hold(plugin, tm) end,
                 }
             elseif cb.type == "folder" or cb.type == "tag" then
                 button_defs[cb.id] = {

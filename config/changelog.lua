@@ -466,6 +466,6 @@ return {
         "CBZ books show title, author, series, tags, and description from their ComicInfo.xml",
         "AI Dictionary plugin actions show in the highlight menu (Reader > Highlight / Lookup > Show AI Dictionary)",
         "Fix: crash on Android when opening a footnote popup",
-        "Fix: long press did nothing on plugin and KOReader menu items opened from the launcher",
+        "Fix: long press did nothing on plugin buttons (Launcher, Controls) and in the plugin and KOReader menus they open",
     },
 }

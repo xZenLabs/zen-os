@@ -428,11 +428,14 @@
                     callback = cell.callback and function()
                         cell.callback()
                     end or nil,
-                    hold_callback = not dim and quick_setting_id == "zenfm"
+                    hold_callback = not dim and (quick_setting_id == "zenfm"
                         and controls and type(controls.hold) == "function"
                         and function()
                             return controls.hold(quick_setting_id, touch_menu)
-                        end or nil,
+                        end
+                        or entry.type == "plugin" and function()
+                            return PluginScan.hold(entry.plugin, touch_menu)
+                        end) or nil,
                 }
             end
         end
