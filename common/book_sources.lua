@@ -469,8 +469,8 @@ end
 local DISMISSED_KEY = "zen_book_sources_dismissed_history"
 
 local function dismissed_history()
-    local reader_settings = reader_settings()
-    local dismissed = reader_settings and reader_settings:readSetting(DISMISSED_KEY)
+    local settings = reader_settings()
+    local dismissed = settings and settings:readSetting(DISMISSED_KEY)
     return type(dismissed) == "table" and dismissed or {}
 end
 
@@ -541,8 +541,8 @@ function M.dismissHistory(path)
     for _i, entry in ipairs(M.history()) do
         if entry.file == path then time = entry.time break end
     end
-    local reader_settings = reader_settings()
-    if not (time and reader_settings) then return false end
+    local settings = reader_settings()
+    if not (time and settings) then return false end
     local dismissed = dismissed_history()
     -- Drop entries whose book the sources no longer list, but only when
     -- every source listed its history (a failed one may still have them).
@@ -564,7 +564,7 @@ function M.dismissHistory(path)
         if listed[file] or not complete then kept[file] = removed end
     end
     kept[path] = time
-    reader_settings:saveSetting(DISMISSED_KEY, kept)
+    settings:saveSetting(DISMISSED_KEY, kept)
     M.statusChanged()
     return true
 end
