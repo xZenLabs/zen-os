@@ -650,8 +650,9 @@ def test_end_book_renders_and_preserves_changed_default_after_restart(width, hei
                 end_covers = driver.command("end_book")["strip_covers"]
                 driver.command("end_book", tap=4)
                 _wait_command(driver, "reader_state", lambda result: not result.get("reader", {}).get("open"))
+                # Covers sit at x=0 until the strip's first paint.
                 home_strip = _wait_command(driver, "home_state", lambda result:
-                                          result["home"].get("strip_covers"))["home"]
+                                          any(cover["x"] for cover in result["home"].get("strip_covers") or []))["home"]
                 home_covers = home_strip["strip_covers"]
                 # The shared strip scales to each screen's available row height.
                 assert abs(end_covers[0]["w"] / end_covers[0]["h"]
