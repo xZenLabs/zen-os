@@ -187,6 +187,25 @@ describe("reader lookup menus", function()
                 end)
             end
 
+            it("translates the queried word instead of the matched headword", function()
+                local buttons = layout(nil, {
+                    { { id = "translate", callback = function() error("stock translate must not run") end } },
+                })
+                local translated
+                require("ui/translator").showTranslation = function(_, word, is_quick_lookup)
+                    translated = { word, is_quick_lookup }
+                end
+                local translate
+                for _j, row in ipairs(buttons) do
+                    for _k, button in ipairs(row) do
+                        if button.id == "translate" then translate = button end
+                    end
+                end
+                assert.is_not_nil(translate)
+                translate.callback()
+                assert.same({ "original", true }, translated)
+            end)
+
             it("omits the AI button when the plugin API is unavailable", function()
                 assert.is_nil(ai_button(layout(nil)))
                 assert.is_nil(ai_button(layout({ assistant_dialog = { show = function() end } })))

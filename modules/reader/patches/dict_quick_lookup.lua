@@ -261,18 +261,17 @@ local function apply()
     -- KOReader 2026.07 removed Translate from the default dictionary layout,
     -- while keeping the action in the button pool.
     local function translate_btn(dict_widget, orig)
-        if orig then
-            return icon_btn(orig, ICON_MAP.translate)
-        end
-        return {
+        local button = orig and icon_btn(orig, ICON_MAP.translate) or {
             id = "translate",
             icon = ICON_MAP.translate,
             text = show_labels() and _("Translate") or nil,
             enabled = not dict_widget.isDocless or not dict_widget:isDocless(),
-            callback = function()
-                Translator:showTranslation(dict_widget.lookupword or dict_widget.word, true)
-            end,
         }
+        -- Translate the queried selection, not the matched dictionary headword.
+        button.callback = function()
+            Translator:showTranslation(dict_widget.word or dict_widget.lookupword, true)
+        end
+        return button
     end
 
     -- Find the existing highlight index for the current selection (rolling docs).
