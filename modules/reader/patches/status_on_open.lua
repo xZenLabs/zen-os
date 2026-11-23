@@ -57,11 +57,16 @@ local function apply_status_on_open()
                 plugin:saveConfig()
             end
         end
-        if self.rolling and self.typeset and not doc_settings:isTrue("zen_vertical_margins_migrated")
-                and (doc_settings:readSetting("copt_t_page_margin") ~= nil
-                    or doc_settings:readSetting("copt_b_page_margin") ~= nil) then
+        if self.rolling and self.typeset and not doc_settings:isTrue("zen_vertical_margins_migrated") then
+            -- Unset or already the user's default: a book opened after the migration, nothing to reset.
+            local function current(key)
+                local saved = doc_settings:readSetting(key)
+                return saved == nil or saved == G_reader_settings:readSetting(key)
+            end
             local ReaderDefaults = require("common/reader_defaults")
-            if ReaderDefaults.isZenPreset(require("config/preset_store").getActivePreset("reader")) then
+            if current("copt_t_page_margin") and current("copt_b_page_margin") then
+                doc_settings:saveSetting("zen_vertical_margins_migrated", true)
+            elseif ReaderDefaults.isZenPreset(require("config/preset_store").getActivePreset("reader")) then
                 local configurable = self.document.configurable
                 configurable.t_page_margin = ReaderDefaults.DEFAULT_VERTICAL_MARGIN
                 configurable.b_page_margin = ReaderDefaults.DEFAULT_VERTICAL_MARGIN
@@ -70,14 +75,15 @@ local function apply_status_on_open()
                 self:saveSettings()
             end
         end
-        -- Default to synced T/B margins once per book when they're already equal; later toggles stick.
-        if self.rolling and self.typeset and not doc_settings:isTrue("zen_margin_sync_defaulted") then
+        -- Equal T/B margins default to synced once per book (later toggles stick); unequal ones never sync.
+        if self.rolling and self.typeset then
             local configurable = self.document.configurable
-            if configurable.t_page_margin == configurable.b_page_margin then
-                configurable.sync_t_b_page_margins = 1
-                self.typeset.sync_t_b_page_margins = true
+            local equal = configurable.t_page_margin == configurable.b_page_margin
+            if not equal or not doc_settings:isTrue("zen_margin_sync_defaulted") then
+                configurable.sync_t_b_page_margins = equal and 1 or 0
+                self.typeset.sync_t_b_page_margins = equal
+                doc_settings:saveSetting("zen_margin_sync_defaulted", true)
             end
-            doc_settings:saveSetting("zen_margin_sync_defaulted", true)
         end
     end
 end

@@ -277,6 +277,55 @@ describe("reader interaction patches", function()
         package.loaded["device"] = saved_device
     end)
 
+    it("keeps unequal default margins on new books across reopens", function()
+        local saved_defaults = package.loaded["common/reader_defaults"]
+        local saved_presets = package.loaded["config/preset_store"]
+        local saved_device = package.loaded["device"]
+        ZenSpec.replace("device", { hasColorScreen = function() return false end })
+        ZenSpec.unload("common/reader_defaults")
+        ZenSpec.replace("config/preset_store", { getActivePreset = function() return "(ZenOS) Pages and %" end })
+        local ReaderUI = { onReaderReady = function() end }
+        ZenSpec.replace("apps/reader/readerui", ReaderUI)
+        ZenSpec.replace("common/book_status", { acknowledgeNewVersion = function() return false end })
+        apply_status_on_open()
+        G_reader_settings:saveSetting("copt_t_page_margin", 25)
+        G_reader_settings:saveSetting("copt_b_page_margin", 15)
+
+        local resets = 0
+        local function open(doc_settings, sync)
+            local ui = {
+                rolling = {},
+                document = { configurable = { t_page_margin = 25, b_page_margin = 15, sync_t_b_page_margins = sync } },
+                doc_settings = doc_settings,
+                typeset = { sync_t_b_page_margins = sync == 1,
+                    onSetPageTopAndBottomMargin = function() resets = resets + 1 end },
+                saveSettings = function() end,
+            }
+            ReaderUI.onReaderReady(ui)
+            return ui
+        end
+        -- First open takes the defaults, with the Zen sync default still on.
+        local doc_settings = ZenSpec.memorySettings()
+        local ui = open(doc_settings, 1)
+        assert.are.equal(0, ui.document.configurable.sync_t_b_page_margins)
+        assert.is_false(ui.typeset.sync_t_b_page_margins)
+        -- Closing writes every option to the sidecar.
+        doc_settings:saveSetting("copt_t_page_margin", 25)
+        doc_settings:saveSetting("copt_b_page_margin", 15)
+        open(doc_settings, 0)
+        -- Opened once before the fix: sidecar margins and a stale sync flag, no migration flag.
+        ui = open(ZenSpec.memorySettings({ copt_t_page_margin = 25, copt_b_page_margin = 15,
+            zen_margin_sync_defaulted = true }), 1)
+        assert.are.equal(0, resets)
+        assert.is_false(ui.typeset.sync_t_b_page_margins)
+
+        G_reader_settings:delSetting("copt_t_page_margin")
+        G_reader_settings:delSetting("copt_b_page_margin")
+        package.loaded["common/reader_defaults"] = saved_defaults
+        package.loaded["config/preset_store"] = saved_presets
+        package.loaded["device"] = saved_device
+    end)
+
     it("starts explicit TBR books as reading and removes them from the collection", function()
         local saved, cached, invalidated, removed = {}, {}, {}, 0
         local ReaderUI = { onReaderReady = function() end }
