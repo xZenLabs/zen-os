@@ -340,6 +340,16 @@ function M.buildSpec(ui, opts)
     local function add_rating()
         if not enabled("rating") then return end
         local rating = book_summary.rating
+        if rating == nil then
+            -- Not rated on this device: a book source's rating (e.g. a
+            -- catalog's), read-only.
+            local ok_sources, BookSources = pcall(require, "common/book_sources")
+            if ok_sources and type(BookSources) == "table"
+                    and type(BookSources.rating) == "function" then
+                local ok_rating, source_rating = pcall(BookSources.rating, file)
+                if ok_rating then rating = source_rating end
+            end
+        end
         local numeric_rating = tonumber(rating)
         if (not numeric_rating or numeric_rating > 0) and is_present(rating) then
             local ok_list, BookList = pcall(require, "ui/widget/booklist")

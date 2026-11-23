@@ -90,6 +90,29 @@ local function fallback_signature(file_path, lfs, file_mtime)
     return "fallback|" .. tostring(file_mtime)
 end
 
+-- Book sources (common/book_sources) can give the status of books without
+-- a sidecar here, e.g. a cloud book read on another device. Only asked once
+-- something has loaded the module (the file browser does at startup).
+local function book_sources()
+    local BookSources = package.loaded["common/book_sources"]
+    return type(BookSources) == "table" and BookSources or nil
+end
+
+local function sources_revision()
+    local BookSources = book_sources()
+    local fn = BookSources and (BookSources.statusRevision or BookSources.revision)
+    if type(fn) ~= "function" then return 0 end
+    local ok, revision = pcall(fn)
+    return ok and tonumber(revision) or 0
+end
+
+local function source_status(file_path)
+    local BookSources = book_sources()
+    if not (BookSources and type(BookSources.status) == "function") then return nil end
+    local ok, status = pcall(BookSources.status, file_path)
+    return ok and type(status) == "table" and status or nil
+end
+
 local function touch_status(cached, validated_at)
     status_cache_tick = status_cache_tick + 1
     cached.last_used = status_cache_tick
@@ -114,7 +137,9 @@ local function display_key()
     return (M.includeNewInTBREnabled() and "new|" or "|") .. tostring(revision)
 end
 
-local function remember_status(file_path, signature, data, source, validated_at)
+-- source_revision: the book sources' revision the entry depends on (entries
+-- for books without a sidecar), checked by TTL hits too.
+local function remember_status(file_path, signature, data, source, validated_at, source_revision)
     if not signature then return end
     local cached = status_cache[file_path]
     if not cached then status_cache_size = status_cache_size + 1
@@ -128,6 +153,7 @@ local function remember_status(file_path, signature, data, source, validated_at)
         validated_at = validated_at or now(),
         display_status = data.display_status,
         display_key = display_key(),
+        source_revision = source_revision,
     }
     touch_status(cached)
     status_cache[file_path] = cached
@@ -149,8 +175,11 @@ end
 
 local function get_fresh_cached_status(file_path, checked_at, allow_booklist)
     local cached = status_cache[file_path]
-    if not cached or (cached.source == "booklist" and not allow_booklist)
+    -- With fallback_info, booklist and book_source entries are rebuilt so the
+    -- caller's table is returned as book_info.
+    if not cached or (cached.source ~= "sidecar" and not allow_booklist)
             or checked_at - cached.validated_at >= STATUS_VALIDATE_TTL_S then return nil end
+    if cached.source_revision and cached.source_revision ~= sources_revision() then return nil end
     touch_status(cached)
     return cached_status_result(file_path, cached, true)
 end
@@ -195,8 +224,9 @@ function M.invalidate(file_path)
     end
 end
 
+-- Also changes when a book source reports a change (its statuses may have).
 function M.revision()
-    return status_revision
+    return status_revision + sources_revision()
 end
 
 function M.clearCache()
@@ -516,10 +546,42 @@ function M.getFileStatusData(file_path, fallback_info)
         end
     end
 
+    -- No sidecar: a book source may know the status (read-only; the sidecar
+    -- wins once there is one). Entries depend on the sources' revision.
+    local source_revision = sources_revision()
+    local source_key = table.concat({
+        "source", tostring(source_revision), tostring(file_mtime) }, "|")
+    local cache_state
+    local existing = status_cache[file_path]
+    if existing and existing.source == "book_source" and fallback_info == nil then
+        cached, cache_state = get_validated_cached_status(file_path, source_key, checked_at)
+        if cached then
+            record_cache_result(cache_state, started_at, file_path)
+            return cached
+        end
+    end
+    local from_source = source_status(file_path)
+    if from_source then
+        local effective_status = M.getEffectiveStatus(
+            from_source.status, from_source.percent_finished)
+        local data = {
+            status = from_source.status,
+            percent_finished = from_source.percent_finished,
+            effective_status = effective_status,
+            display_status = M.getDisplayStatus(file_path, effective_status),
+            book_info = type(fallback_info) == "table" and fallback_info or nil,
+            sidecar_checked = true,
+        }
+        remember_status(file_path, source_key, data, "book_source", checked_at, source_revision)
+        record_cache_result(cache_state == "stale" and "stale" or "miss",
+            started_at, file_path)
+        return data
+    end
+
     local fallback_key = fallback_info == nil
         and fallback_signature(file_path, lfs, file_mtime) or nil
-    local cache_state
     if fallback_key then
+        fallback_key = fallback_key .. "|" .. tostring(source_revision)
         cached, cache_state = get_validated_cached_status(
             file_path, fallback_key, checked_at)
         if cached then
@@ -542,7 +604,7 @@ function M.getFileStatusData(file_path, fallback_info)
         sidecar_checked = true,
     }
     if fallback_key then
-        remember_status(file_path, fallback_key, data, "booklist", checked_at)
+        remember_status(file_path, fallback_key, data, "booklist", checked_at, source_revision)
     end
     record_cache_result(cache_state == "stale" and "stale" or "miss",
         started_at, file_path)

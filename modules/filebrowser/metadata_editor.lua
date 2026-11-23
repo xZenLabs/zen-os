@@ -329,7 +329,7 @@ end
 
 function MetadataEditor:isMetadataDirty()
     for _i, key in ipairs(FIELD_ORDER) do
-        if (key ~= "publisher" or self.is_epub) and self:_fieldChanged(key) then
+        if (key ~= "publisher" or self.edits_embedded) and self:_fieldChanged(key) then
             return true
         end
     end
@@ -436,7 +436,7 @@ function MetadataEditor:_bookDetailsContent(width, height, _face, enabled)
         metadata_face, color)
     local text_w = math.max(1, width - IconItem.getSettingsLeftPadding()
         - thumb_w - gap - pad)
-    local row_count = self.is_epub and 7 or 6
+    local row_count = self.edits_embedded and 7 or 6
     local row_gap = Screen:scaleBySize(4)
     local row_h = math.max(1, math.min(Screen:scaleBySize(46),
         math.floor((height - 2 * pad - row_gap * (row_count - 1)) / row_count)))
@@ -509,7 +509,7 @@ function MetadataEditor:_bookDetailsContent(width, height, _face, enabled)
     add_row(_("Series"), "series", series_text(self.draft))
     add_row(_("Genres"), "genres", join_list(self.draft.genres))
     add_row(_("Language"), "language", self.draft.language)
-    if self.is_epub then add_row(_("Publisher"), "publisher", self.draft.publisher) end
+    if self.edits_embedded then add_row(_("Publisher"), "publisher", self.draft.publisher) end
     add_row(_("Filename"), "filename", file_name(self.file))
     self._cover_focus = CoverTap:new{
         editor = self,
@@ -1087,7 +1087,7 @@ function MetadataEditor:_editField(key)
     local dialog
     local function apply()
         local value = dialog:getInputText()
-        if self.is_epub and (key == "title" or key == "language")
+        if self.edits_embedded and (key == "title" or key == "language")
                 and trim(value) == "" then
             self:showError(key == "title"
                 and _("An EPUB title is required.")
@@ -1127,7 +1127,7 @@ function MetadataEditor:applyHardcover(metadata, summary, source, source_label, 
     self.field_sources = self.field_sources or {}
     local applied, skipped = 0, 0
     for _i, key in ipairs(only_key and { only_key } or FIELD_ORDER) do
-        if (key ~= "publisher" or self.is_epub) and has_value(key, incoming) then
+        if (key ~= "publisher" or self.edits_embedded) and has_value(key, incoming) then
             if not only_key
                     and (self.manual_fields[key] or self.field_sources[key] == "manual") then
                 skipped = skipped + 1
@@ -1171,10 +1171,10 @@ end
 function MetadataEditor:_save(close_all)
     if self.save_pending or not self:isDirty() then return true end
     if type(self.on_save) ~= "function" then return true end
-    if self.is_epub and self.draft.title == "" then
+    if self.edits_embedded and self.draft.title == "" then
         self:showError(_("An EPUB title is required."))
         return true
-    elseif self.is_epub and self.draft.language == "" then
+    elseif self.edits_embedded and self.draft.language == "" then
         self:showError(_("An EPUB language is required."))
         return true
     elseif self.draft.series_index ~= "" and not valid_number(self.draft.series_index) then

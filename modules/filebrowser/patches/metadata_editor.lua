@@ -999,9 +999,10 @@ local function build_show_from_book_details()
             return false
         end
 
-        local is_epub = Service.isEpub(file) == true
+        -- Edits go into the file only for EPUBs no book source describes.
+        local edits_embedded = Service.editsEmbedded(file) == true
         local can_restore = false
-        if is_epub then
+        if edits_embedded then
             local ok_restore, available = pcall(Service.canRestore, file)
             can_restore = ok_restore and available == true
         end
@@ -1014,7 +1015,7 @@ local function build_show_from_book_details()
         return Editor.show{
             file = file,
             metadata = draft,
-            is_epub = is_epub,
+            edits_embedded = edits_embedded,
             can_restore = can_restore,
             has_custom_cover = DocSettings:findCustomCoverFile(file) ~= nil,
             current_cover = current_cover,
@@ -1184,7 +1185,7 @@ local function build_show_from_book_details()
                     logger.dbg("metadata save complete file=", tostring(target))
                     return true
                 end
-                if is_epub and metadata_dirty then
+                if metadata_dirty and Service.editsEmbedded(target) == true then
                     local ConfirmBox = require("ui/widget/confirmbox")
                     UIManager:show(ConfirmBox:new{
                         text = keep_backup

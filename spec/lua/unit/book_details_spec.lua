@@ -189,6 +189,39 @@ describe("reader book details", function()
         assert.are.equal(0, #queried_fields)
     end)
 
+    it("shows a book source's rating only when the book has none here", function()
+        local asked = {}
+        local real_sources = package.loaded["common/book_sources"]
+        finally(function() package.loaded["common/book_sources"] = real_sources end)
+        ZenSpec.replace("common/book_sources", {
+            rating = function(path)
+                asked[#asked + 1] = path
+                return 2
+            end,
+        })
+        local BookDetails = require("modules/reader/book_details")
+        local function rating_text(ui)
+            for _i, detail in ipairs(BookDetails.buildSpec(ui).details) do
+                if detail.text and detail.text:match("^rating ") then return detail.text end
+            end
+        end
+
+        assert.are.equal("rating 4", rating_text(reader_ui()))
+        assert.are.equal(0, #asked)
+
+        local ui = reader_ui()
+        ui.doc_settings = { readSetting = function() return nil end }
+        assert.are.equal("rating 2", rating_text(ui))
+        assert.are.same({ "/books/test.epub" }, asked)
+
+        -- A rating cleared on this device (0) isn't replaced.
+        ui.doc_settings = { readSetting = function(_, key)
+            if key == "summary" then return { rating = 0 } end
+        end }
+        assert.is_nil(rating_text(ui))
+        assert.are.equal(1, #asked)
+    end)
+
     it("hides Back for reader modals and retains it for nested and library details", function()
         local BookDetails = require("modules/reader/book_details")
         local ui = reader_ui()

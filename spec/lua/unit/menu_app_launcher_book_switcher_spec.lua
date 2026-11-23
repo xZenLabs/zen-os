@@ -327,7 +327,7 @@ describe("app launcher book switcher page", function()
         assert.are.equal("/books/finished.epub", books[1].path)
     end)
 
-    it("includes history books a book source owns, without a file", function()
+    it("includes history books a book source owns or read elsewhere, without a file", function()
         replace("readhistory", {
             hist = {
                 { file = "/books/missing.epub" },
@@ -355,15 +355,23 @@ describe("app launcher book switcher page", function()
             package.loaded["modules/menu/app_launcher/book_switcher_page"] = nil -- holds the stub
         end)
         replace("common/book_sources", {
-            owns = function(path) return path == "/books/cloud-1.epub" end,
+            owns = function(path)
+                return path == "/books/cloud-1.epub" or path == "/books/cloud-2.epub"
+            end,
+            -- A book read elsewhere, from a book source's history.
+            mergeHistory = function(hist)
+                local merged = { { file = "/books/cloud-2.epub", time = 300 } }
+                for _i, entry in ipairs(hist) do merged[#merged + 1] = entry end
+                return merged
+            end,
         })
 
         local Page = require("modules/menu/app_launcher/book_switcher_page")
         local books = Page.loadBooks(4, nil, {})
 
-        assert.are.same({ "/books/cloud-1.epub", "/books/one.epub" },
-            { books[1].path, books[2] and books[2].path })
-        assert.are.equal(2, #books)
+        assert.are.same({ "/books/cloud-2.epub", "/books/cloud-1.epub", "/books/one.epub" },
+            { books[1].path, books[2] and books[2].path, books[3] and books[3].path })
+        assert.are.equal(3, #books)
     end)
 
     it("fits one or two rows and handles book taps and removal holds", function()

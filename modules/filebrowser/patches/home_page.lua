@@ -1148,9 +1148,10 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             pcall(ReadHistory.reload, ReadHistory, false)
         end
 
-        local hist = ReadHistory.hist or {}
         local recent = not exclude_rakuyomi
-            and OptionalProvider.call(RAKUYOMI_PROVIDER, "getRecentSeries", hist)
+            and OptionalProvider.call(RAKUYOMI_PROVIDER, "getRecentSeries", ReadHistory.hist or {})
+        -- Books read elsewhere, from book sources (Kindle, a plugin's catalog).
+        local hist = BookSources.mergeHistory(ReadHistory.hist)
         recent = type(recent) == "table" and recent or {}
         dataset.rakuyomi_recent = {}
         for _i, series in ipairs(recent) do dataset.rakuyomi_recent[series.file] = series end
@@ -1178,8 +1179,10 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
             if #dataset.history >= HOME_STRIP_MAX_BOOKS then break end
             local in_library = path ~= nil and LibraryPaths.isInHomeDir(path)
             local is_file = path ~= nil and lfs.attributes(path, "mode") == "file"
-            -- Books from a book source (Kindle, a plugin's catalog) have no file.
-            local is_source = path ~= nil and not is_file and BookSources.owns(path)
+            -- Books from a book source (Kindle, a plugin's catalog) may have no
+            -- file, or one outside the library (a converted Kindle book's cache).
+            local is_source = path ~= nil and not (is_file and in_library)
+                and BookSources.owns(path)
             local is_rakuyomi = path ~= nil and not is_source
                 and (#recent > 0 or exclude_rakuyomi or not in_library)
                 and is_rakuyomi_history_path(path)

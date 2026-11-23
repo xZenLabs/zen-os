@@ -1273,7 +1273,9 @@ return function(ctx, self_fc, item)
             end
         end
 
-        if is_file then
+        -- Not for a book source's book with no file here (e.g. a catalog
+        -- book): there is nothing to keep the edits with.
+        if is_file and not require("common/book_sources").ownsWithoutFile(file) then
             table.insert(edit_buttons, {
                 {
                     text = icons.edit .. "  " .. _("Edit metadata"),
@@ -1930,6 +1932,8 @@ return function(ctx, self_fc, item)
                             local ReadHistory = require("readhistory")
                             local history_path = item._zen_history_path or file
                             ReadHistory:removeItemByPath(history_path)
+                            -- Also hide it if a book source (read elsewhere) lists it.
+                            require("common/book_sources").dismissHistory(history_path)
                             local plug = zen_plugin or rawget(_G, "__ZEN_UI_PLUGIN")
                             local home = plug and SharedState.get(plug, "home")
                             if home and home.rebuildActive then

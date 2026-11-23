@@ -857,6 +857,39 @@ describe("home data and book caches", function()
             provider:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
     end)
 
+    it("includes history books a book source owns outside the library, with a file", function()
+        -- e.g. a converted Kindle book, read from its cache path
+        local cache_path = "/kindle-cache/book.epub"
+        history_items[1].file = cache_path
+        local real_sources = package.loaded["common/book_sources"]
+        finally(function()
+            package.loaded["common/book_sources"] = real_sources
+            package.loaded["modules/filebrowser/patches/home_page"] = nil -- holds the stub
+        end)
+        ZenSpec.replace("common/book_sources", {
+            owns = function(path) return path == cache_path end,
+            mergeHistory = function(hist) return hist end,
+        })
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function(_path, key)
+                if key == "mode" then return "file" end
+                if key == "modification" then return 1 end
+                return { mode = "file", modification = 1 }
+            end,
+        })
+
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+
+        assert.are.equal(cache_path,
+            provider:getFeaturedBook("recently_read", "default").path)
+        assert.are.equal(cache_path,
+            provider:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
+    end)
+
     it("includes history books a book source owns in Home widgets, without a file", function()
         local cloud_path = "/storage/emulated/0/cloud-1.epub"
         history_items[1].file = cloud_path
@@ -867,6 +900,7 @@ describe("home data and book caches", function()
         end)
         ZenSpec.replace("common/book_sources", {
             owns = function(path) return path == cloud_path end,
+            mergeHistory = function(hist) return hist end,
         })
         ZenSpec.replace("libs/libkoreader-lfs", {
             attributes = function(path)
@@ -884,6 +918,41 @@ describe("home data and book caches", function()
             provider:getFeaturedBook("recently_read", "default").path)
         assert.are.equal(cloud_path,
             provider:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
+    end)
+
+    it("shows books a book source says were read elsewhere in Home's history", function()
+        local cloud_path = "/storage/emulated/0/cloud-2.epub"
+        history_items[1] = { file = "/library/alpha.epub", time = 100 }
+        local real_sources = package.loaded["common/book_sources"]
+        finally(function()
+            package.loaded["common/book_sources"] = real_sources
+            package.loaded["modules/filebrowser/patches/home_page"] = nil -- holds the stub
+        end)
+        ZenSpec.replace("common/book_sources", {
+            owns = function(path) return path == cloud_path end,
+            mergeHistory = function(hist)
+                local merged = { { file = cloud_path, time = 200 } }
+                for _i, entry in ipairs(hist) do merged[#merged + 1] = entry end
+                return merged
+            end,
+        })
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function(path, field)
+                if path == cloud_path then return nil end
+                if field == "mode" then return "file" end
+                return { mode = "file", modification = 1 }
+            end,
+        })
+
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+        local strip = provider:getBooksForStrip("recently_read", 4, "default", "strip")
+
+        assert.are.equal(cloud_path, strip[1].path)
+        assert.are.equal("/library/alpha.epub", strip[2].path)
     end)
 
     it("keeps local Home books when optional provider calls fail", function()
