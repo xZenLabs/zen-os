@@ -260,6 +260,28 @@ describe("Bluetooth state cache", function()
         assert.are.same({ true, false, true, false }, states)
     end)
 
+    it("offers the backend's way out of a conflict instead of reporting Bluetooth unavailable", function()
+        local conflict, offered, reasons = true, 0, {}
+        ZenSpec.replace("device", { isKindle = function() return true end })
+        ZenSpec.replace("modules/menu/bluetooth_adapters/kindle", {
+            readState = function() return nil end,
+            conflict = function() return conflict end,
+            isAvailable = function() return conflict end,
+            resolveConflict = function() offered = offered + 1 end,
+        })
+        local Bluetooth = require("modules/menu/bluetooth/bluetooth")
+        local function toggle()
+            return Bluetooth.toggle(function(_ok, reason) reasons[#reasons + 1] = reason end)
+        end
+        assert.is_true(Bluetooth.isAvailable()) -- the entry stays up to reach the offer
+        assert.is_false(toggle())
+        assert.are.same({ 1, {} }, { offered, reasons })
+        conflict = false
+        assert.is_false(Bluetooth.isAvailable())
+        assert.is_false(toggle())
+        assert.are.same({ 1, { "Bluetooth is unavailable." } }, { offered, reasons })
+    end)
+
     it("keeps a newer Bluetooth request pending when the previous request completes", function()
         local Bluetooth = require("modules/menu/bluetooth/bluetooth")
         local callbacks = {}

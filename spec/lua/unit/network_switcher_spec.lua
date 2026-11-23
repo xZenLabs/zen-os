@@ -2676,8 +2676,13 @@ describe("network switcher", function()
         assert.is_true(network_menu.custom_title_bar.back_visible)
         assert.is_false(network_menu.custom_title_bar.close_visible)
         assert.are.equal(plugin, network_menu.custom_title_bar.plugin)
-        assert.are.equal(network_menu.custom_title_bar.back_callback,
-            network_menu.custom_title_bar.back_hold_callback)
+        -- Hold returns to the settings root, which closes this subpage; without a page it just closes.
+        local SettingsPage = { backToRoot = function() return true end }
+        local original_page = package.loaded["modules/settings/zen_settings_page"]
+        package.loaded["modules/settings/zen_settings_page"] = SettingsPage
+        assert.is_true(network_menu.custom_title_bar.back_hold_callback())
+        assert.are.equal(network_menu.custom_title_bar.back_callback, network_menu.onCloseZenSettingsSubpages)
+        package.loaded["modules/settings/zen_settings_page"] = original_page
 
         network_menu.custom_title_bar.back_callback()
         scan_task()

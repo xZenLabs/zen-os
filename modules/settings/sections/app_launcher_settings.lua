@@ -425,7 +425,7 @@ function M.build(ctx)
     end
 
     local function show_koreader_menu_picker(on_select, touch_menu)
-        local found = NativeMenu.scan(ctx.button_scope or "active")
+        local found, note = NativeMenu.scan(ctx.button_scope or "active")
         if #found == 0 then
             local InfoMessage = require("ui/widget/infomessage")
             UIManager:show(InfoMessage:new{ text = _("No KOReader submenus found") })
@@ -434,6 +434,7 @@ function M.build(ctx)
         require("common/ui/zen_menu_picker"){
             title = _("Choose KOReader menu"),
             items = found,
+            note = note,
             back_hold_callback = touch_menu and touch_menu.backToSettingsRoot,
             on_select = on_select,
         }

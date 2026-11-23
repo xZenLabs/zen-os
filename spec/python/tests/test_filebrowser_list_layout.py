@@ -51,12 +51,14 @@ def _write_metadata_epub(path: Path) -> None:
         archive.writestr("OEBPS/chapter.xhtml", chapter)
 
 
-def _write_page_count_cbz(path: Path, temporary: Path) -> None:
+def _write_page_count_cbz(path: Path, temporary: Path, comic_info: str | None = None) -> None:
     image_path = temporary / "page.png"
     Image.new("RGB", (60, 90), (48, 96, 144)).save(image_path)
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as archive:
         archive.write(image_path, "001.png")
         archive.write(image_path, "002.png")
+        if comic_info:
+            archive.writestr("ComicInfo.xml", comic_info)
 
 
 def _seed_bookinfo(
@@ -136,6 +138,21 @@ def _texts(node: object) -> set[str]:
     return found
 
 
+def _visible_texts(driver: ZenDriver) -> tuple[set[str], dict]:
+    chooser = driver.command("file_chooser_items").get("file_chooser", {})
+    visible = {
+        normalize_visible_text(text)
+        for text in chooser.get("visible_texts", [])
+        if isinstance(text, str)
+    }
+    if not visible:
+        visible = {
+            normalize_visible_text(text)
+            for text in _texts(driver.visible_ui().get("ui", {}).get("windows", []))
+        }
+    return visible, chooser
+
+
 @pytest.mark.parametrize("display_mode", ["list_image_meta", "list_only_meta"])
 @pytest.mark.parametrize("customized", [False, True])
 def test_metadata_list_rows_follow_detailed_item_settings(display_mode: str, customized: bool) -> None:
@@ -181,18 +198,7 @@ def test_metadata_list_rows_follow_detailed_item_settings(display_mode: str, cus
             visible: set[str] = set()
             tags_visible = False
             while time.monotonic() < deadline:
-                response = driver.command("file_chooser_items")
-                chooser = response.get("file_chooser", {})
-                visible = {
-                    normalize_visible_text(text)
-                    for text in chooser.get("visible_texts", [])
-                    if isinstance(text, str)
-                }
-                if not visible:
-                    visible = {
-                        normalize_visible_text(text)
-                        for text in _texts(driver.visible_ui().get("ui", {}).get("windows", []))
-                    }
+                visible, chooser = _visible_texts(driver)
                 tags_visible = any(
                     "Focus" in text and "Testing" in text for text in visible
                 ) or {"Focus", "Testing"} <= visible
@@ -331,5 +337,51 @@ def test_double_tap_opening_in_list_mode(single_tap_action: str) -> None:
                 time.sleep(0.1)
             assert reader["open"] is True
             assert Path(reader["file"]).resolve() == book.resolve()
+        finally:
+            stop(process)
+
+
+def test_cbz_rows_show_comicinfo_metadata() -> None:
+    runtime = Path(os.environ["KOREADER_DIR"])
+    with tempfile.TemporaryDirectory(prefix="zen-ui-comicinfo-") as temporary:
+        root = Path(temporary)
+        ko_home = root / "home"
+        ko_home.mkdir()
+        library = root / "library"
+        library.mkdir()
+        semantic_book = library / "semantic.epub"
+        _write_metadata_epub(semantic_book)
+        comic = library / "tagged.cbz"
+        _write_page_count_cbz(comic, root, """<?xml version="1.0" encoding="utf-8"?>
+<ComicInfo>
+  <Title>Comic &amp; Title</Title>
+  <Series>Comic Series</Series>
+  <Number>3</Number>
+  <Writer>Comic Writer</Writer>
+</ComicInfo>""")
+        _seed_bookinfo(ko_home, semantic_book)
+        canonical = comic.resolve()
+        with sqlite3.connect(ko_home / "settings" / "bookinfo_cache.sqlite3") as connection:
+            # Row cached before ComicInfo support: extracted, no metadata.
+            connection.execute(
+                """INSERT INTO bookinfo (directory, filename, filesize, filemtime, in_progress, cover_fetched, pages)
+                   VALUES (?, ?, ?, ?, 0, 'Y', 2)""",
+                (str(canonical.parent) + "/", canonical.name, canonical.stat().st_size, int(canonical.stat().st_mtime)),
+            )
+        socket_path = root / "driver.sock"
+        process = launch(runtime, ko_home, socket_path, library, zen_config_source="return {\n"
+            "  updater = { update_auto_check = false },\n"
+            "  features = { automatic_series_grouping = false },\n"
+            "  navbar = { default_tab = 'books' },\n}\n")
+        try:
+            wait_for_socket(socket_path)
+            driver = ZenDriver(socket_path)
+            expected = {"Comic & Title", "Comic Writer", "#3 – Comic Series"}
+            deadline = time.monotonic() + 30
+            visible: set[str] = set()
+            while time.monotonic() < deadline and not expected <= visible:
+                visible, _chooser = _visible_texts(driver)
+                time.sleep(0.25)
+            assert expected <= visible, f"missing ComicInfo values: {sorted(expected - visible)}; visible: {sorted(visible)}"
         finally:
             stop(process)

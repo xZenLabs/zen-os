@@ -6,7 +6,8 @@ local request_serial = 0
 local changing = false
 local platform
 
--- Power backend: bluetooth_adapters/<platform> exposes readState/setPower (+ optional isAvailable/onSuspend).
+-- Power backend: bluetooth_adapters/<platform> exposes readState/setPower
+-- (+ optional isAvailable/onSuspend, conflict/resolveConflict).
 local function backend()
     if not platform then
         local Device = require("device")
@@ -119,6 +120,12 @@ end
 function M.toggle(complete)
     local state = M.getState()
     if state == nil then
+        local b = backend()
+        -- Something else holds the radio: the backend says what, and offers the way out.
+        if b.conflict and b.conflict() then
+            b.resolveConflict()
+            return false
+        end
         if complete then complete(false, "Bluetooth is unavailable.") end
         return false
     end

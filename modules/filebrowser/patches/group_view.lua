@@ -5,6 +5,7 @@ local HistoryIndex = require("common/history_index")
 local icons = require("common/inline_icon_map")
 local submenu_arrow = icons.arrow_right
 local LanguageName = require("common/language_name")
+local MetadataIndexer = require("common/metadata_indexer")
 local paths = require("common/paths")
 local StandalonePage = require("modules/filebrowser/patches/standalone_page")
 local SharedState = require("common/shared_state")
@@ -56,6 +57,13 @@ local root_show_methods = {
 local function reopen_root_view(tab_id, injectNavbar)
     local fn = M[root_show_methods[tab_id]]
     return type(fn) == "function" and fn(injectNavbar) ~= nil
+end
+
+local function is_detail_open(menu)
+    for _i, open_menu in ipairs(_detail_menus) do
+        if open_menu == menu then return true end
+    end
+    return false
 end
 
 local function remove_detail_menu(menu)
@@ -498,6 +506,31 @@ local function build_group_item_table(groups, data_type)
     return items
 end
 
+local group_getters = {
+    authors = "getGroupedByAuthor",
+    series = "getGroupedBySeries",
+    languages = "getGroupedByLanguage",
+    tags = "getGroupedByTags",
+}
+
+local function rebuild_root_menu(tab_id, menu)
+    if not menu then return end
+    local ok, db = pcall(require, "common/db_bookinfo")
+    if not ok then return end
+    menu.item_table = build_group_item_table(db[group_getters[tab_id]](), tab_id)
+    menu:updateItems()
+end
+
+local function any_root_open()
+    return (_authors_menu or _series_menu or _languages_menu or _tags_menu) ~= nil
+end
+
+local function rebuild_open_roots()
+    for tab_id in pairs(group_getters) do
+        rebuild_root_menu(tab_id, get_root_menu(tab_id))
+    end
+end
+
 -- Forward declaration so showDisplayModeDialog can reference showGroupView.
 local showGroupView
 
@@ -606,23 +639,7 @@ local function showGroupSortDialog(tab_id, menu)
         or tab_id == "languages" and _("Sort languages")
         or tab_id == "tags" and _("Tags") or _("Sort series")
 
-    local function rebuild()
-        if not menu then return end
-        local ok, db = pcall(require, "common/db_bookinfo")
-        if not ok then return end
-        local groups
-        if tab_id == "authors" then
-            groups = db.getGroupedByAuthor()
-        elseif tab_id == "languages" then
-            groups = db.getGroupedByLanguage()
-        elseif tab_id == "tags" then
-            groups = db.getGroupedByTags()
-        else
-            groups = db.getGroupedBySeries()
-        end
-        menu.item_table = build_group_item_table(groups, tab_id)
-        menu:updateItems()
-    end
+    local function rebuild() rebuild_root_menu(tab_id, menu) end
 
     if tab_id == "authors" then
         local current = get_authors_collate()
@@ -1078,7 +1095,7 @@ end
 -- showDetailView: book list for one author/series group
 -- Called from onMenuSelect on the group list menu
 -------------------------------------------------------------------------------
-showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
+showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id, opener)
     local _ = require("gettext")
     local UIManager = require("ui/uimanager")
 
@@ -1164,7 +1181,7 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
             end
             if item.is_series_group then
                 local series_menu = showDetailView(
-                    item, injectNavbar, "series", navbar_tab_id or tab_id)
+                    item, injectNavbar, "series", navbar_tab_id or tab_id, detail_menu)
                 if series_menu then
                     series_menu._zen_restore_parent = {
                         group_name = group_name,
@@ -1210,7 +1227,7 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
                     _zen_after_status_change = group_item._zen_load_files and function(path)
                         fm.file_chooser:refreshPath(path)
                         detail_menu.close_callback()
-                        showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
+                        showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id, opener)
                     end or nil,
                 })
             end
@@ -1248,6 +1265,10 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
 
     -- Close the parent group menu too (used by navbar tap to unwind the full stack)
     detail_menu._zen_close_stack = function()
+        if opener then -- nested series: unwind the detail that opened it, then its root
+            if is_detail_open(opener) then opener.close_callback() end
+            return opener._zen_close_stack()
+        end
         local parent
         if tab_id == "authors" then
             parent = _authors_menu
@@ -1315,7 +1336,7 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id)
                     _zen_filter_refresh_cb = function()
                         -- Rebuild item_table with new filter: close and reopen.
                         UIManager:close(detail_menu)
-                        showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id)
+                        showDetailView(group_item, injectNavbar, tab_id, navbar_tab_id, opener)
                     end,
                 })
             end
@@ -1584,6 +1605,8 @@ showGroupView = function(tab_id, injectNavbar, groups)
             end
         end
     end)
+    -- Books never listed in the Library have no metadata to group by yet.
+    MetadataIndexer.start(any_root_open, rebuild_open_roots)
     return menu, true
 end
 

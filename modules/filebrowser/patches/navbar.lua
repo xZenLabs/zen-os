@@ -3499,7 +3499,8 @@ local function apply_navbar()
 
     local orig_fm_onClose = FileManager.onClose
     function FileManager:onClose(...)
-        utils.closeWidgetsAbove(self)
+        -- Poweroff/reboot keep their screensaver: an empty stack quits before the device halts.
+        if not UIManager._entered_poweroff_stage then utils.closeWidgetsAbove(self) end
         return orig_fm_onClose(self, ...)
     end
 

@@ -187,6 +187,25 @@ describe("reader lookup menus", function()
                 end)
             end
 
+            it("translates the queried word instead of the matched headword", function()
+                local buttons = layout(nil, {
+                    { { id = "translate", callback = function() error("stock translate must not run") end } },
+                })
+                local translated
+                require("ui/translator").showTranslation = function(_, word, is_quick_lookup)
+                    translated = { word, is_quick_lookup }
+                end
+                local translate
+                for _j, row in ipairs(buttons) do
+                    for _k, button in ipairs(row) do
+                        if button.id == "translate" then translate = button end
+                    end
+                end
+                assert.is_not_nil(translate)
+                translate.callback()
+                assert.same({ "original", true }, translated)
+            end)
+
             it("omits the AI button when the plugin API is unavailable", function()
                 assert.is_nil(ai_button(layout(nil)))
                 assert.is_nil(ai_button(layout({ assistant_dialog = { show = function() end } })))
@@ -749,6 +768,26 @@ describe("reader lookup menus", function()
             dialog_spec.buttons[2][1].text,
             dialog_spec.buttons[2][2].text,
         })
+
+        -- AI Dictionary actions sit under the icon row with X-Ray, without opting in to other items.
+        local config = _G.__ZEN_UI_PLUGIN.config.highlight_lookup
+        config.show_xray, config.allow_unknown_items = true, false
+        highlight._highlight_buttons = {
+            xray_lookup = function() return { text = "X-Ray" } end,
+            aidictionary_1 = function() return { text = "AI Explain" } end,
+            aidictionary_3 = function() return { text = "AI Dictionary" } end,
+        }
+        ReaderHighlight.onShowHighlightMenu(highlight)
+        assert.are.same({ "AI Explain", "AI Dictionary", "X-Ray" }, {
+            dialog_spec.buttons[2][1].text,
+            dialog_spec.buttons[2][2].text,
+            dialog_spec.buttons[3][1].text,
+        })
+
+        config.show_aidictionary = false
+        ReaderHighlight.onShowHighlightMenu(highlight)
+        assert.are.equal("X-Ray", dialog_spec.buttons[2][1].text)
+        assert.are.equal(2, #dialog_spec.buttons)
     end)
 
     it("turns dictionary buttons into the configured icon row", function()

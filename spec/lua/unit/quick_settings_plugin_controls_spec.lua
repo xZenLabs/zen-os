@@ -1196,6 +1196,59 @@ describe("quick settings plugin controls", function()
         cfg.columns = 0
     end)
 
+    it("runs a plugin's menu hold callback from its Controls and Launcher buttons", function()
+        local plugin = _G.__ZEN_UI_PLUGIN
+        local target, holds = { key = "marked", method = "__menu_callback" }, {}
+        local PluginScan = require("modules/menu/app_launcher/plugin_scan")
+        PluginScan.exists = function() return true end
+        PluginScan.hold = function(held, menu) holds[#holds + 1] = { plugin = held, menu = menu }; return true end
+
+        local config = plugin.config.quick_settings
+        config.custom_buttons = {{ id = "cb_1", type = "plugin", label = "Marked", plugin = target }}
+        config.button_order, config.show_buttons.cb_1 = { "cb_1" }, true
+        plugin.config.features.app_launcher = true
+        apply_launcher(plugin)
+        local Widget = require("ui/widget/container/centercontainer")
+        local TextWidget = require("ui/widget/textwidget")
+        local original_new = TextWidget.new
+        TextWidget.new = function(self, values)
+            local widget = original_new(self, values)
+            widget.free = function() end
+            return widget
+        end
+        local cfg = { entries = {
+            { type = "plugin", label = "Marked", plugin = target },
+            { type = "folder", label = "Folder", children = {} },
+        } }
+        local Model = require("modules/menu/app_launcher/model")
+        Model.ensure = function() return cfg end
+        Model.enabled_entries = function(entries) return entries end
+        Model.display_label = function(entry) return entry.label end
+        require("common/shared_state").get = function() return nil end
+        require("device").screen.getHeight = function() return 600 end
+        local menu = {}
+        FileManagerMenu.setUpdateItemTable(menu)
+
+        local controls = { item_width = 600 }
+        menu.tab_item_table[1].panel(controls)
+        controls._zen_panel_refs.buttons[1].hold_callback()
+        local launcher = {
+            item_width = 600, height = 2000, screen_size = { h = 600 },
+            bar = Widget:new{ height = 40 }, footer = Widget:new{ height = 40 },
+            footer_top_margin = Widget:new{ height = 8 }, _app_launcher_page = 1,
+        }
+        menu.tab_item_table[2].panel(launcher)
+        local tiles = launcher._zen_panel_refs.buttons
+        assert.is_true(tiles[1].hold_callback())
+        assert.is_nil(tiles[2].hold_callback)
+
+        assert.are.equal(2, #holds)
+        assert.are.equal(target, holds[1].plugin)
+        assert.are.equal(controls, holds[1].menu)
+        assert.are.equal(target, holds[2].plugin)
+        assert.are.equal(launcher, holds[2].menu)
+    end)
+
     it("opens ZenFM settings on hold with a toggle and timeout submenu", function()
         local closes = 0
         local touch_menu = {

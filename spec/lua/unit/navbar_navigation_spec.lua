@@ -2672,6 +2672,21 @@ describe("file browser navbar navigation", function()
         assert.are.same({ "close_history", "close_filemanager" }, calls)
     end)
 
+    it("keeps the screensaver above FileManager while powering off", function()
+        local fm = make_instance()
+        UIManager._window_stack = { { widget = fm }, { widget = { name = "screensaver" } } }
+        package.loaded["common/utils"].closeWidgetsAbove = function()
+            calls[#calls + 1] = "close_screensaver"
+        end
+        calls = {}
+        UIManager._entered_poweroff_stage = true
+
+        FileManager.onClose(fm)
+        UIManager._entered_poweroff_stage = nil
+
+        assert.are.same({ "close_filemanager" }, calls)
+    end)
+
     it("executes configured gestures on History, Favorites, and Collections", function()
         local original_titlebar = package.loaded["ui/widget/titlebar"]
         local original_guard = rawget(_G, "__ZEN_UI_BROADCAST_GUARD_PATCHED")

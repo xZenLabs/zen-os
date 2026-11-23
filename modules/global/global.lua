@@ -16,6 +16,7 @@ local PATCH_MODULES = {
     kindle_network_profile_guard = "modules/global/patches/kindle_network_profile_guard",
     kindle_wakeup_recovery = "modules/global/patches/kindle_wakeup_recovery",
     kobo_bluetooth_fix     = "modules/global/patches/kobo_bluetooth_fix",
+    connection_alerts      = "modules/global/patches/connection_alerts",
     nonblocking_wifi       = "modules/global/patches/nonblocking_wifi",
     lockdown_mode          = "modules/global/patches/lockdown_mode",
     incognito_mode         = "modules/global/patches/incognito_mode",
@@ -193,6 +194,10 @@ function M.init(logger, plugin)
                 run_patch(logger, plugin, "kobo_bluetooth_fix", kobo_bluetooth_fix_fn)
             end
         end
+    end
+    local connection_alerts_fn = load_patch("connection_alerts")
+    if connection_alerts_fn then
+        run_patch(logger, plugin, "connection_alerts", connection_alerts_fn)
     end
     local nonblocking_wifi_fn = load_patch("nonblocking_wifi")
     if nonblocking_wifi_fn then

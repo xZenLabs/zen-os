@@ -23,6 +23,7 @@ local defaults = {
         sort_defaults_applied = false,
         statistics_freeze_finished_default_applied = false,
         bim_fbc_migrated = false,
+        comic_info_cache_migrated = false,
         reader_footer_hide_cbz_default_migrated = false,
         context_menu_allow_delete_default_migrated = false,
         library_font_hyperreadable_default_migrated = false,
@@ -148,6 +149,7 @@ local defaults = {
     },
     developer = {
         allow_modal_drag = false,
+        hide_connection_alerts = false,
         double_tap = false,
         single_tap_action = "none", -- "none" | "menu" | "open"; double tap takes the other role
     },
@@ -274,6 +276,7 @@ local defaults = {
     browser_flat_view = {
         enabled = false,
     },
+    hid_keys = {},  -- button mappings per HID device address
     folder_sort = {},
     folder_display_mode = {},
     folder_cover_paths = {},
@@ -422,6 +425,7 @@ local defaults = {
         show_xray           = true,
         show_koassistant    = true,
         show_ai_assistant   = true,
+        show_aidictionary   = true,
     },
     dict_quick_lookup = { show_labels = false, bottom_sheet = true, allow_unknown_items = false },
 

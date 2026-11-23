@@ -58,4 +58,15 @@ describe("restart notice", function()
         assert.are.equal(1, #UIManager.events)
         assert.are.equal("Restart", UIManager.events[1].name)
     end)
+
+    it("runs a custom action under the same notice instead of restarting", function()
+        local ran = 0
+        require("common/restart").request{ action = function() ran = ran + 1 end }
+
+        assert.are.equal("Restarting...", UIManager.widget.text)
+        UIManager.restart_callback()
+
+        assert.are.equal(1, ran)
+        assert.are.equal(0, #UIManager.events)
+    end)
 end)

@@ -313,9 +313,10 @@ local function rebuild_icon_row(row)
         and item.arrange_pinned_first ~= true
         and item.arrange_pinned_last ~= true
     local content_w = row.width - left_padding - right_padding
-    local item_has_submenu = type(item.sub_item_table) == "table"
-        or type(item.sub_item_table_func) == "function"
-        or item._zen_settings_submenu == true
+    local item_has_submenu = item._zen_arrange_no_caret ~= true
+        and (type(item.sub_item_table) == "table"
+            or type(item.sub_item_table_func) == "function"
+            or item._zen_settings_submenu == true)
     local face = IconItem.getItemFace(item, item.face or row.face)
     local right_items = { align = "center" }
     if item_checkable then
@@ -653,6 +654,7 @@ local function configure_title_bar(sort_widget, opts)
         width = sort_widget.dimen.w,
         title = sort_widget.title,
         back_visible = opts.back_visible ~= false,
+        close_visible = not opts.hide_close,
         search_visible = false,
         title_full_width = true,
         action = default_action,
@@ -916,6 +918,7 @@ local function open_submenu_for_item(sort_widget, item, resume_path, resume_in_b
         end
     end, {
         close_arrange = sort_widget._zen_arrange_close_all,
+        hide_close = item._zen_arrange_no_close or sort_widget._zen_menu_proxy._zen_hide_close,
         menu_mode = sort_widget._zen_menu_mode,
         refresh_func = type(item.sub_item_table_func) == "function" and function()
             return item.sub_item_table_func(sort_widget._zen_menu_proxy)
@@ -1393,12 +1396,14 @@ local function ensure_submenu_callbacks(items)
     for _i, item in ipairs(items) do
         if not item.hold_callback and has_submenu(item) then
             local submenu_item = item
+            item._zen_arrange_submenu_hold = true
             item.hold_callback = function(parent, refresh)
                 local sub_items = submenu_item.sub_item_table
                 if type(submenu_item.sub_item_table_func) == "function" then
                     sub_items = submenu_item.sub_item_table_func()
                 end
                 show_submenu(item_submenu_title(submenu_item), sub_items, refresh, {
+                    hide_close = submenu_item._zen_arrange_no_close or parent and parent._zen_hide_close,
                     plugin = parent and parent._zen_plugin,
                 })
             end
@@ -1454,6 +1459,7 @@ show_submenu = function(title, items, refresh, opts)
     menu_proxy = {
         _zen_settings_resume = opts.settings_resume,
         _zen_plugin = opts.plugin,
+        _zen_hide_close = opts.hide_close, -- inherited by nested submenus
         item_table_stack = {},
         item_table = items,
         backToUpperMenu = function()
@@ -1547,6 +1553,7 @@ show_submenu = function(title, items, refresh, opts)
     sort_widget._zen_arrange_close_all = close_submenu_and_arrange
     configure_title_bar(sort_widget, {
         plugin = opts.plugin,
+        hide_close = opts.hide_close,
         back_callback = function()
             menu_proxy:backToUpperMenu()
             return true
@@ -1611,6 +1618,19 @@ end
 local function on_settings_row_hold(row)
     if row.show_parent._zen_arrange_enabled then return true end
     local item = row.item
+    -- Native menus: same hold contract as TouchMenu:onMenuHold.
+    if row.show_parent._zen_menu_mode and item_is_enabled(item) then
+        local menu = row.show_parent._zen_menu_proxy
+        local hold_callback = type(item.hold_callback_func) == "function"
+            and item.hold_callback_func()
+            or not item._zen_arrange_submenu_hold
+                and (item._zen_arrange_orig_hold_callback or item.hold_callback)
+        if type(hold_callback) == "function" then
+            if item.hold_keep_menu_open == false then menu:closeMenu() end
+            hold_callback(menu, item)
+            return true
+        end
+    end
     local help_text = type(item.help_text_func) == "function"
         and item.help_text_func(row.show_parent._zen_menu_proxy) or item.help_text
     if help_text then

@@ -278,6 +278,23 @@ local TOUCHMENU_STUB = {
     handleEvent = function() return false end,
 }
 
+-- Long press on a plugin button: its menu entry's hold callback, same contract as TouchMenu:onMenuHold.
+function M.hold(plugin, touch_menu)
+    local key = type(plugin) == "table" and plugin.key
+    local mod = type(key) == "string" and live_plugin(key)
+    local entry = type(mod) == "table" and probe_menu_entry(mod, key)
+    if not entry then return false end
+    local ok, handled = pcall(function()
+        local callback = type(entry.hold_callback_func) == "function" and entry.hold_callback_func()
+            or entry.hold_callback
+        if type(callback) ~= "function" then return false end
+        if touch_menu and entry.hold_keep_menu_open == false then touch_menu:closeMenu() end
+        callback(touch_menu or TOUCHMENU_STUB, entry)
+        return true
+    end)
+    return ok and handled
+end
+
 function M.resolve(key, method)
     if type(key) ~= "string" or type(method) ~= "string" then return nil end
     local mod = live_plugin(key)

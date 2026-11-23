@@ -22,6 +22,7 @@ describe("Zen menu picker", function()
     local pager_mirrored
     local touch_resize_dimen
     local image_widgets
+    local flashed
 
     local module_names = {
         "gettext",
@@ -101,9 +102,12 @@ describe("Zen menu picker", function()
         pager_mirrored = nil
         touch_resize_dimen = nil
         image_widgets = {}
+        flashed = nil
 
         ZenSpec.replace("gettext", function(text) return text end)
-        ZenSpec.replace("common/ui/button_feedback", { flashButton = function() end })
+        ZenSpec.replace("common/ui/button_feedback", {
+            flashButton = function(region) flashed = region end,
+        })
         ZenSpec.replace("ui/bidi", {
             mirroredUILayout = function() return mirrored end,
             flipDirectionIfMirroredUILayout = function(direction)
@@ -602,6 +606,37 @@ describe("Zen menu picker", function()
         assert.are.equal(478, text_widgets[2].paint_x)
         assert.is_true(pager_mirrored)
         assert.is_true(shown.touch_zones[1].handler({ pos = { x = 570, y = 20 } }))
+        assert.are.equal(1, closed)
+        assert.are.same({ x = 400, y = 6, w = 169, h = 44 }, flashed)
+    end)
+
+    it("flashes the chevron and title together on a header tap", function()
+        require("common/ui/zen_menu_picker"){
+            title = "Choose control",
+            items = { { text = "Plugin" } },
+        }
+
+        assert.is_true(shown.touch_zones[1].handler({ pos = { x = 150, y = 20 } }))
+        assert.are.same({ x = 31, y = 6, w = 169, h = 44 }, flashed)
+        assert.are.equal(1, closed)
+    end)
+
+    it("goes back on an east swipe from the left third only", function()
+        local items = {}
+        for item_index = 1, 15 do
+            items[item_index] = { text = "Item " .. tostring(item_index) }
+        end
+        require("common/ui/zen_menu_picker"){ items = items }
+        local swipe = shown.touch_zones[3].handler
+        shown:onMenuPickerPage(1)
+
+        assert.is_true(swipe({ direction = "east", pos = { x = 400, y = 400 } }))
+        shown:paintTo({ paintRect = function() end }, 0, 0)
+        assert.are.equal(1, pager_page)
+        assert.are.equal(0, closed)
+        assert.is_true(swipe({ direction = "west", pos = { x = 100, y = 400 } }))
+        assert.are.equal(0, closed)
+        assert.is_true(swipe({ direction = "east", pos = { x = 100, y = 400 } }))
         assert.are.equal(1, closed)
     end)
 

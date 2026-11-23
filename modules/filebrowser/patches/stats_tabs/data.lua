@@ -388,6 +388,9 @@ function Data.compute(fetch, meta, now, legacy)
                 fin_time = fin_time + b.dur
                 finished[#finished + 1] = m
             else
+                -- no statistics: finished the day it was marked
+                local k = tostring(m.modified or ""):match("^%d%d%d%d%-%d%d")
+                if k then S.finished_by_month[k] = (S.finished_by_month[k] or 0) + 1 end
                 S.legacy_count = S.legacy_count + 1
                 if m.pages and m.pages > 0 then
                     S.legacy_pages = S.legacy_pages + m.pages

@@ -4,11 +4,14 @@
 
 local _ = require("gettext")
 local Archiver = require("ffi/archiver")
+local ffiutil = require("ffi/util")
 local json = require("json")
 local logger = require("common/zen_logger").new("zen_updater")
 local ConfigManager = require("config/manager")
 local icons = require("common/inline_icon_map")
 local MarkdownText = require("common/ui/markdown_text")
+local WifiWait = require("common/wifi_wait")
+local T = ffiutil.template
 
 local GITHUB_OWNER = "xZenLabs"
 local GITHUB_REPO = "zen-os"
@@ -407,7 +410,8 @@ local function filter_changelog_entries_for_channel(entries, channel)
     return beta
 end
 
---- Best-effort HTTPS GET; returns the response body string or nil.
+--- Best-effort HTTPS GET; returns the response body string, or nil plus the
+--- HTTP status (number) or LuaSocket error (string) when the request itself failed.
 --- Uses ssl.https (LuaSec, bundled with KOReader). Blocking -- use only
 --- for user-initiated checks.
 local function https_get(url, depth)
@@ -429,7 +433,7 @@ local function https_get(url, depth)
     local started = time.now()
     local NetworkMgr = package.loaded["ui/network/manager"]
     if NetworkMgr and NetworkMgr.logWifiDiagnostics then NetworkMgr:logWifiDiagnostics("update_request_start") end
-    local body = {}
+    local body, failure = {}, nil
     local ok_req, req_err = pcall(function()
         local _body, code, headers, status = https.request{
             url     = url,
@@ -449,7 +453,7 @@ local function https_get(url, depth)
                 body = nil
                 return
             end
-            body = https_get(next_url, depth + 1)
+            body, failure = https_get(next_url, depth + 1)
             return
         end
         -- code can be a string error message on Kobo (e.g. "connection refused")
@@ -466,7 +470,7 @@ local function https_get(url, depth)
                 "body=",
                 snippet
             )
-            body = nil
+            body, failure = nil, code or "no response"
         end
     end)
     logger.dbg("Update HTTPS request finished", "exception=", not ok_req,
@@ -474,15 +478,54 @@ local function https_get(url, depth)
     if NetworkMgr and NetworkMgr.logWifiDiagnostics then NetworkMgr:logWifiDiagnostics("update_request_finish") end
     if not ok_req then
         logger.warn("https_get error:", req_err)
-        return nil
+        return nil, tostring(req_err)
     end
-    if not body then return nil end
+    if not body then return nil, failure end
     if type(body) == "string" then return body end
     return table.concat(body)
 end
 
---- Download a file via HTTPS to dest_path, following up to 5 redirects.
---- Returns true on success, or false + error message on failure.
+local FETCH_ATTEMPTS    = 3 -- releases API tries for a user-initiated check
+local DOWNLOAD_ATTEMPTS = 3
+local RETRY_DELAY       = 2 -- seconds before the first retry; doubles each time
+
+--- Calls request() up to `attempts` times under tighter socket timeouts than LuaSocket's 60 s.
+--- request returns result, failure; transport errors (strings) and 5xx are retried, a 4xx is final.
+--- Sleeps between tries: more than one attempt belongs in a subprocess.
+local function retrying(attempts, timeouts, request)
+    local ok_su, socketutil = pcall(require, "socketutil")
+    if ok_su then
+        socketutil:set_timeout(socketutil[timeouts .. "_BLOCK_TIMEOUT"], socketutil[timeouts .. "_TOTAL_TIMEOUT"])
+    end
+    local result, failure, reason
+    for attempt = 1, attempts do
+        result, failure, reason = request()
+        local transient = type(failure) == "string" or (type(failure) == "number" and failure >= 500)
+        if result or not transient or attempt == attempts then break end
+        logger.dbg("request failed, retrying", "failure=", tostring(failure), "attempt=", attempt)
+        ffiutil.sleep(RETRY_DELAY * 2 ^ (attempt - 1))
+    end
+    if ok_su then socketutil:reset_timeout() end
+    return result, failure, reason
+end
+
+--- User-facing text for a failed request (HTTP status or LuaSocket error string).
+--- Probes DNS to tell a dead uplink from an unreachable server: keep off the UI thread.
+local function network_failure_text(failure)
+    local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
+    if not ok_nm then NetworkMgr = nil end
+    if NetworkMgr and not NetworkMgr:isConnected() then
+        return WifiWait.no_connection_text()
+    end
+    if type(failure) == "number" then
+        return T(_("The update server is unavailable (HTTP %1)."), failure) .. "\n" .. _("Try again later.")
+    end
+    if NetworkMgr and NetworkMgr.isOnline and not NetworkMgr:isOnline() then
+        return _("No internet connection.") .. "\n" .. _("Wi-Fi is connected, but the internet is not reachable.")
+    end
+    return _("Could not reach update server.") .. "\n" .. _("Try again later.")
+end
+
 local function read_sha_from_command(cmd)
     local pipe = io.popen(cmd)
     if not pipe then return nil end
@@ -523,27 +566,29 @@ local function compute_sha256(path)
         or read_sha_from_command("openssl dgst -sha256 " .. q .. " 2>/dev/null")
 end
 
-local function https_download(url, dest_path, expected_sha256, depth)
-    depth = depth or 0
-    if depth > 5 then return false, "too many redirects" end
+--- Download a file via HTTPS to dest_path, following up to 5 redirects.
+--- Returns true on success. A failed transfer returns false + the HTTP status or
+--- LuaSocket error; anything else returns false, nil + a reason ("write" when
+--- dest_path cannot be created, otherwise why the download was rejected).
+local function https_download(url, dest_path, expected_sha256)
     if not is_valid_asset_url(url) then
-        return false, "untrusted origin url"
+        return false, nil, "untrusted origin url"
     end
     if not is_valid_sha256_digest(expected_sha256) then
-        return false, "missing sha256 digest"
+        return false, nil, "missing sha256 digest"
     end
 
     local ok_ssl, https = pcall(require, "ssl.https")
     local ok_ltn, ltn12 = pcall(require, "ltn12")
     if not ok_ssl or not ok_ltn then
-        return false, "ssl.https not available"
+        return false, nil, "ssl.https not available"
     end
 
     -- Resolve any redirect chain via HEAD requests (avoids writing partial data).
     local resolved_url = url
     for _attempt = 1, 5 do
         if not is_valid_asset_url(resolved_url) then
-            return false, "untrusted redirect origin"
+            return false, nil, "untrusted redirect origin"
         end
         local _body, r_code, r_headers = https.request{
             url     = resolved_url,
@@ -555,7 +600,7 @@ local function https_download(url, dest_path, expected_sha256, depth)
             and r_headers and r_headers.location then
             local next_url = resolve_redirect_url(resolved_url, r_headers.location)
             if not next_url or not is_valid_asset_url(next_url) then
-                return false, "untrusted redirect origin"
+                return false, nil, "untrusted redirect origin"
             end
             resolved_url = next_url
         else
@@ -564,12 +609,15 @@ local function https_download(url, dest_path, expected_sha256, depth)
     end
 
     if not is_valid_asset_url(resolved_url) then
-        return false, "untrusted download origin"
+        return false, nil, "untrusted download origin"
     end
 
     -- Perform the actual download.
     local f, ferr = io.open(dest_path, "wb")
-    if not f then return false, ferr end
+    if not f then
+        logger.warn("download target not writable:", ferr)
+        return false, nil, "write"
+    end
 
     local _body, dl_code = https.request{
         url     = resolved_url,
@@ -581,17 +629,17 @@ local function https_download(url, dest_path, expected_sha256, depth)
 
     if dl_code ~= 200 then
         os.remove(dest_path)
-        return false, "HTTP " .. tostring(dl_code)
+        return false, dl_code or "no response"
     end
 
     local actual_sha256 = compute_sha256(dest_path)
     if not actual_sha256 then
         os.remove(dest_path)
-        return false, "sha256 tool unavailable"
+        return false, nil, "sha256 tool unavailable"
     end
     if actual_sha256 ~= expected_sha256:lower() then
         os.remove(dest_path)
-        return false, "sha256 mismatch"
+        return false, nil, "sha256 mismatch"
     end
 
     return true
@@ -704,22 +752,20 @@ function M.clear_update_state(cfg)
 end
 
 --- Perform an actual network check; returns true on success.
-local function do_network_check()
+--- attempts > 1 retries a failed request with delays, so only pass it in a subprocess.
+local function do_network_check(attempts)
     local channel = get_channel()
     local current = get_current_version()
     clear_release_details()
     M._last_error = nil
     logger.dbg("do_network_check channel=", channel, "current=", current)
 
-    local body = https_get(GITHUB_RELEASES_URL .. "?per_page=100")
+    local body, failure = retrying(attempts or 1, "LARGE", function()
+        return https_get(GITHUB_RELEASES_URL .. "?per_page=100")
+    end)
     if not body then
         logger.warn("no response from releases API")
-        local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
-        if ok_nm and NetworkMgr and not NetworkMgr:isConnected() then
-            M._last_error = _("Network unavailable.")
-        else
-            M._last_error = _("Could not reach update server.")
-        end
+        M._last_error = network_failure_text(failure)
         return false
     end
 
@@ -753,14 +799,6 @@ local function do_network_check()
     M._last_error = nil
     logger.dbg("latest=", M._latest_ver, "has_update=", tostring(M._has_update))
     return true
-end
-
-local function ensure_selected_release_details(force_live)
-    if not force_live and M._latest_ver and M._latest_notes and is_valid_asset_url(M._dl_url)
-        and is_valid_sha256_digest(M._latest_sha256) then
-        return true
-    end
-    return do_network_check()
 end
 
 local function load_bundled_changelog_entries(channel)
@@ -881,7 +919,8 @@ end
 ---                  a cancel button via coroutine.resume(co, false).
 --- on_done(net_ok) -- called when the subprocess completes.
 --- on_cancelled()  -- called when dismissed before completion; may be nil.
-local function network_check_async(trap_widget, setup_fn, on_done, on_cancelled, quiet)
+--- attempts        -- request tries inside the subprocess; defaults to 1.
+local function network_check_async(trap_widget, setup_fn, on_done, on_cancelled, quiet, attempts)
     local Trapper = require("ui/trapper")
     Trapper:wrap(function()
         local time = require("ui/time")
@@ -891,7 +930,7 @@ local function network_check_async(trap_widget, setup_fn, on_done, on_cancelled,
         local completed, net_ok, has_upd, latest_ver, dl_url, latest_sha256, latest_notes, last_error =
             dismissable_or_in_process(Trapper, function()
                 local function check()
-                    local ok = do_network_check()
+                    local ok = do_network_check(attempts)
                     return ok, M._has_update, M._latest_ver, M._dl_url, M._latest_sha256, M._latest_notes, M._last_error
                 end
                 if quiet then return run_without_updater_logs(check) end
@@ -1302,7 +1341,14 @@ local function safe_rename(src, dst)
     return run_shell_ok(string.format("mv %q %q", src, dst), "rename")
 end
 
+--- End a busy ZenScreen on a message the user dismisses.
+local function show_result(screen, subtitle)
+    screen._on_button_action = nil
+    screen:update{ subtitle = subtitle, button = _("OK"), dismissable = true }
+end
+
 --- Download, unpack, and reboot using an existing ZenScreen for all UI feedback.
+--- Installs the release selected by the latest live check: refresh it first.
 local function _do_install(screen, plugin_root, plugins_dir)
     local UIManager = require("ui/uimanager")
     local Trapper   = require("ui/trapper")
@@ -1312,39 +1358,19 @@ local function _do_install(screen, plugin_root, plugins_dir)
         return ok_nm and NetworkMgr and NetworkMgr:isConnected()
     end
 
+    local function fail_with(msg)
+        logger.warn("install fail:", msg)
+        show_result(screen, msg)
+    end
+
     logger.info("install begin plugin_root=", plugin_root, "plugins_dir=", plugins_dir)
 
-    logger.dbg("install refreshing release metadata")
-    if not do_network_check() then
-        logger.warn("install abort live metadata refresh failed")
-        screen:update{
-            subtitle    = M._last_error or _("Could not reach update server. Check your internet connection."),
-            button      = _("OK"),
-            dismissable = true,
-        }
-        return
-    end
-    persist_state(os.time())
-    if not M._has_update then
-        logger.warn("install abort no newer release after refresh")
-        screen:update{ subtitle = _("ZenOS is up to date."), button = _("OK"), dismissable = true }
-        return
-    end
     if not is_valid_asset_url(M._dl_url) then
         logger.warn("install abort invalid dl url:", tostring(M._dl_url))
-        screen:update{ subtitle = _("No update asset found."), button = _("OK"), dismissable = true }
-        return
+        return fail_with(_("No update asset found."))
     end
     if not is_valid_sha256_digest(M._latest_sha256) then
-        logger.warn("install abort invalid/missing sha256")
-        screen:update{ subtitle = _("Update failed: missing checksum."), button = _("OK"), dismissable = true }
-        return
-    end
-
-    if not has_network() then
-        logger.warn("install abort no network")
-        screen:update{ subtitle = _("Update failed: network connection lost."), button = _("OK"), dismissable = true }
-        return
+        return fail_with(_("Update failed: missing checksum."))
     end
 
     local zip_path = plugins_dir .. "/zenos_update.zip"
@@ -1360,11 +1386,6 @@ local function _do_install(screen, plugin_root, plugins_dir)
         " staged=", staged_dir,
         " zip=", zip_path
     )
-
-    local function fail_with(msg)
-        logger.warn("install fail:", msg)
-        screen:update{ subtitle = msg, button = _("OK"), dismissable = true }
-    end
 
     local function rollback_active_from_backup()
         logger.warn("rollback start from backup")
@@ -1384,15 +1405,13 @@ local function _do_install(screen, plugin_root, plugins_dir)
         local timed_out = false
         local cancelled = false
 
-        -- Show Cancel button now that co is available to receive the abort signal.
+        -- Point Cancel at the task now that co is available to receive the abort signal.
         -- Passing screen as trap_widget keeps ZenScreen on top (no invisible TrapWidget
         -- is stacked above it), so taps reach _on_button_action normally.
         screen._on_button_action = function()
             cancelled = true
             coroutine.resume(co, false)
         end
-        screen:update{ button = _("Cancel"), later_button = false, dismissable = false }
-        UIManager:forceRePaint()
 
         local timeout_cb = function()
             timed_out = true
@@ -1401,9 +1420,16 @@ local function _do_install(screen, plugin_root, plugins_dir)
         UIManager:scheduleIn(INSTALL_TIMEOUT, timeout_cb)
 
         local completed, ok, err = dismissable_or_in_process(Trapper, function()
-            return https_download(M._dl_url, zip_path, M._latest_sha256)
+            local done, failure, reason = retrying(DOWNLOAD_ATTEMPTS, "FILE", function()
+                return https_download(M._dl_url, zip_path, M._latest_sha256)
+            end)
+            if done then return true end
+            logger.warn("download failed failure=", tostring(failure), "reason=", tostring(reason))
+            if failure then return false, network_failure_text(failure) end
+            return false, reason == "write" and _("Update failed: plugin directory is not writable.")
+                or _("Update failed: the download could not be verified.")
         end, screen)
-        logger.dbg("download task result completed=", tostring(completed), "ok=", tostring(ok), "err=", tostring(err))
+        logger.dbg("download task result completed=", tostring(completed), "ok=", tostring(ok))
 
         UIManager:unschedule(timeout_cb)
         screen._on_button_action = nil  -- prevent stale cancel action on subsequent button states
@@ -1413,23 +1439,16 @@ local function _do_install(screen, plugin_root, plugins_dir)
             if cancelled then
                 screen:onClose()
             elseif timed_out then
-                screen:update{ subtitle = _("Update failed: timed out."), button = _("OK"), dismissable = true }
+                show_result(screen, _("Update failed: timed out."))
             elseif not has_network() then
-                screen:update{ subtitle = _("Update failed: network connection lost."), button = _("OK"), dismissable = true }
+                show_result(screen, _("Update failed: network connection lost."))
             else
-                screen:update{ subtitle = _("Update cancelled."), button = _("OK"), dismissable = true }
+                show_result(screen, _("Update cancelled."))
             end
             return
         end
 
-        if not ok then
-            if not has_network() then
-                screen:update{ subtitle = _("Update failed: network connection lost."), button = _("OK"), dismissable = true }
-            else
-                screen:update{ subtitle = _("Download failed: ") .. (err or _("unknown error")), button = _("OK"), dismissable = true }
-            end
-            return
-        end
+        if not ok then return fail_with(err) end
 
         logger.dbg(
             "download artifact ready zip=",
@@ -1566,9 +1585,83 @@ local function _do_install(screen, plugin_root, plugins_dir)
     end)
 end
 
---- Show the ZenScreen update UI for a known-available update and run the install.
---- Called from both the settings banner and the About > Update ZenOS item.
-local function _show_update_screen_and_install(plugin)
+--- Shows a busy ZenScreen with a Cancel button once Wi-Fi is connecting or connected,
+--- then calls start(screen). Radio off: KOReader prompts first. No connection after the
+--- wait: the screen ends on that message. before_show runs once, just ahead of the screen.
+local function with_connection(title, busy_text, start, before_show)
+    local UIManager = require("ui/uimanager")
+    local ZenScreen = require("common/ui/zen_screen")
+    local screen, cancel_wait
+    local function run() start(screen) end
+    local function show(subtitle)
+        if screen then return screen:update{ subtitle = subtitle } end
+        screen = ZenScreen:new{
+            title        = title,
+            subtitle     = subtitle,
+            button       = _("Cancel"),
+            later_button = false,
+            dismissable  = false,
+        }
+        screen._on_button_action = function()
+            cancel_wait()
+            UIManager:unschedule(run)
+            screen:onClose()
+        end
+        if before_show then before_show() end
+        UIManager:show(screen)
+    end
+    cancel_wait = WifiWait.run(function()
+        show(busy_text)
+        UIManager:forceRePaint()
+        UIManager:scheduleIn(0.1, run)
+    end, function()
+        show_result(screen, WifiWait.no_connection_text())
+    end, function()
+        show(_("Connecting to Wi-Fi…"))
+    end)
+end
+
+local function no_update_text()
+    local current = get_current_version()
+    if M._latest_ver and semver_eq(M._latest_ver, current) then
+        return _("ZenOS is up to date.")
+    elseif M._latest_ver and semver_gt(current, M._latest_ver) then
+        return _("Installed version is newer than the latest release.")
+    end
+    return M._last_error or _("Could not determine update status.")
+end
+
+--- Live release lookup behind a busy ZenScreen: retried, cancellable from its button.
+--- on_update() runs once a newer release is selected; anything else ends the screen on the reason.
+local function refresh_release(screen, on_update)
+    network_check_async(
+        screen,
+        function(co)
+            screen._on_button_action = function()
+                screen._on_button_action = nil
+                coroutine.resume(co, false)
+            end
+        end,
+        function(net_ok)
+            if not net_ok then
+                clear_release_details()
+                return show_result(screen, M._last_error or _("Could not determine update status."))
+            end
+            persist_state(os.time())
+            if not M._has_update then return show_result(screen, no_update_text()) end
+            on_update()
+        end,
+        function()
+            screen._on_button_action = nil
+            screen:onClose()
+        end,
+        false,
+        FETCH_ATTEMPTS
+    )
+end
+
+--- Show the update found by a live check with its changelog; "Update now" installs it.
+local function show_update_screen(plugin)
     local UIManager = require("ui/uimanager")
     local ZenScreen = require("common/ui/zen_screen")
 
@@ -1577,41 +1670,10 @@ local function _show_update_screen_and_install(plugin)
         or ""
     local plugins_dir = plugin_root:match("^(.*)/[^/]+$") or plugin_root
 
-    if not ensure_selected_release_details(true) then
-        UIManager:show(ZenScreen:new{
-            title       = _("ZenOS"),
-            subtitle    = M._last_error or _("Could not reach update server. Check your internet connection."),
-            button      = _("OK"),
-            dismissable = true,
-        })
-        return
-    end
-    persist_state(os.time())
-
-    if not M._has_update then
-        local current = get_current_version()
-        local subtitle
-        if M._latest_ver and semver_eq(M._latest_ver, current) then
-            subtitle = _("ZenOS is up to date.")
-        elseif M._latest_ver and semver_gt(current, M._latest_ver) then
-            subtitle = _("Installed version is newer than the latest release.")
-        else
-            subtitle = M._last_error or _("Could not determine update status.")
-        end
-        UIManager:show(ZenScreen:new{
-            title       = _("ZenOS"),
-            subtitle    = subtitle,
-            button      = _("OK"),
-            dismissable = true,
-        })
-        return
-    end
-
     local ver_label   = M._latest_ver and ("v" .. M._latest_ver) or _("latest")
     local changelog_text = build_single_release_scroll_text(M._latest_notes, M._latest_ver)
 
-    local screen
-    screen = ZenScreen:new{
+    local screen = ZenScreen:new{
         title        = _("ZenOS"),
         title_icon   = true,
         subtitle     = _("Update available") .. ": " .. ver_label,
@@ -1622,32 +1684,27 @@ local function _show_update_screen_and_install(plugin)
         dismissable  = true,
     }
     screen._on_button_action = function()
-        local progress_screen = ZenScreen:new{
-            title        = _("ZenOS"),
-            subtitle     = _("Downloading") .. "...",
-            button       = false,
-            later_button = false,
-            dismissable  = false,
-        }
-        UIManager:close(screen)
-        UIManager:show(progress_screen)
-        UIManager:forceRePaint()
-        UIManager:scheduleIn(0.1, function()
-            _do_install(progress_screen, plugin_root, plugins_dir)
+        with_connection(_("ZenOS"), _("Downloading") .. "...", function(progress_screen)
+            -- Release metadata is live-only: download the asset a fresh lookup selects.
+            refresh_release(progress_screen, function()
+                _do_install(progress_screen, plugin_root, plugins_dir)
+            end)
+        end, function()
+            UIManager:close(screen)
         end)
     end
     UIManager:show(screen)
 end
 
---- Download the latest plugin asset, unpack it over the plugin directory, and
---- prompt the user to restart KOReader.
+--- Check for an update behind a ZenScreen, then offer it or report the outcome.
+--- Called from the settings banner and the Updates > Update ZenOS item.
 function M.run_update(plugin)
-    local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
-    if ok_nm and NetworkMgr then
-        NetworkMgr:runWhenConnected(function() _show_update_screen_and_install(plugin) end)
-    else
-        _show_update_screen_and_install(plugin)
-    end
+    with_connection(nil, _("Checking for updates") .. "...", function(screen)
+        refresh_release(screen, function()
+            require("ui/uimanager"):close(screen)
+            show_update_screen(plugin)
+        end)
+    end)
 end
 
 --- Returns a header action for the ZenOS settings page when an update
@@ -1676,12 +1733,8 @@ function M.build_update_now_item(plugin)
         end,
         keep_menu_open = true,
         callback = function()
-            local UIManager  = require("ui/uimanager")
-            local ZenScreen  = require("common/ui/zen_screen")
-            local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
-
-            -- Force this check to go to the network; keep any persisted banner
-            -- until the live check says otherwise.
+            -- Keep any persisted banner until the live check says otherwise;
+            -- a failed or cancelled check leaves the automatic one due.
             clear_release_details()
             local cfg, updater = load_updater_config()
             if updater then
@@ -1689,79 +1742,7 @@ function M.build_update_now_item(plugin)
                 clear_persisted_release_state(updater)
                 save_updater_config(cfg)
             end
-
-            local function run_check()
-                local screen
-                screen = ZenScreen:new{
-                    subtitle     = _("Checking for updates") .. "...",
-                    button       = _("Cancel"),
-                    later_button = false,
-                    dismissable  = false,
-                }
-                UIManager:show(screen)
-                UIManager:forceRePaint()
-                UIManager:scheduleIn(0.1, function()
-                    network_check_async(
-                        screen,
-                        function(co)
-                            screen._on_button_action = function()
-                                screen._on_button_action = nil
-                                coroutine.resume(co, false)
-                            end
-                        end,
-                        function(net_ok)
-                            screen._on_button_action = nil
-                            if net_ok then
-                                persist_state(os.time())
-                            else
-                                clear_release_details()
-                            end
-                            if not net_ok then
-                                screen:update{
-                                    subtitle    = M._last_error or _("Could not reach update server. Check your internet connection."),
-                                    button      = _("OK"),
-                                    dismissable = true,
-                                }
-                            elseif M._has_update then
-                                screen:update{ dismissable = true }
-                                UIManager:close(screen)
-                                _show_update_screen_and_install(plugin)
-                            else
-                                local current = get_current_version()
-                                if M._latest_ver and semver_eq(M._latest_ver, current) then
-                                    screen:update{
-                                        subtitle    = _("ZenOS is up to date."),
-                                        button      = _("OK"),
-                                        dismissable = true,
-                                    }
-                                elseif M._latest_ver and semver_gt(current, M._latest_ver) then
-                                    screen:update{
-                                        subtitle    = _("Installed version is newer than the latest release."),
-                                        button      = _("OK"),
-                                        dismissable = true,
-                                    }
-                                else
-                                    screen:update{
-                                        subtitle    = M._last_error or _("Could not determine update status."),
-                                        button      = _("OK"),
-                                        dismissable = true,
-                                    }
-                                end
-                            end
-                        end,
-                        function()
-                            screen._on_button_action = nil
-                            screen:onClose()
-                        end
-                    )
-                end)
-            end
-
-            if ok_nm and NetworkMgr then
-                NetworkMgr:runWhenConnected(run_check)
-            else
-                run_check()
-            end
+            M.run_update(plugin)
         end,
     }
 end

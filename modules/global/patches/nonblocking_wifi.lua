@@ -13,6 +13,7 @@ local function apply_nonblocking_wifi()
     local time = require("ui/time")
     local _ = require("gettext")
     local logger = require("common/zen_logger").new("nonblocking_wifi")
+    local Alerts = require("modules/global/patches/connection_alerts")
     local active
     local connection_failure
     local wifi_notice
@@ -260,11 +261,13 @@ local function apply_nonblocking_wifi()
     end
 
     NetworkMgr._zen_nonblocking_wifi = true
-    NetworkMgr.showWifiNotice = function(_self, text, timeout)
+    -- routine: a state change, not a problem; "Hide connection alerts" drops it.
+    NetworkMgr.showWifiNotice = function(_self, text, timeout, routine)
         if connection_notice then UIManager:unschedule(connection_notice) end
         connection_notice = nil
         connection_check = nil
         if wifi_notice then UIManager:close(wifi_notice) end
+        if routine and Alerts.hidden() then wifi_notice = nil; return end
         wifi_notice = require("ui/widget/infomessage"):new{
             text = text,
             toast = true,
@@ -275,7 +278,7 @@ local function apply_nonblocking_wifi()
         UIManager:show(wifi_notice)
     end
     NetworkMgr.showWifiStarting = function(self)
-        self:showWifiNotice(_("Turning on Wi-Fi…"))
+        self:showWifiNotice(_("Turning on Wi-Fi…"), nil, true)
     end
     NetworkMgr.cancelWifiOperations = function(self)
         cancel()
@@ -333,7 +336,7 @@ local function apply_nonblocking_wifi()
             logger.dbg("Wi-Fi connection checks passed")
             self:showWifiNotice(ssid and ssid ~= ""
                 and ffiutil.template(_("Connected to %1."):gsub("%.$", ""):gsub("。$", ""), ssid)
-                or _("Connected."):gsub("%.$", ""):gsub("。$", ""))
+                or _("Connected."):gsub("%.$", ""):gsub("。$", ""), nil, true)
         end, true, 15)
     end
     if Device.isKobo and Device:isKobo() and Device.model == "Kobo_spaBW" then

@@ -56,6 +56,8 @@ local _ = require("gettext")
 
 local ConfigManager = require("config/manager")
 local BatteryStats = require("common/battery_stats")
+-- Up front: deletePluginSettings runs after KOReader has deleted the plugin's files.
+local KindleHid = require("modules/menu/bluetooth_adapters/kindle_hid")
 local _startup_config = ConfigManager.load()
 local registry = require("modules/registry")
 local zen_updater   = require("modules/settings/zen_updater")
@@ -223,6 +225,8 @@ function ZenUI:init()
     self.config = ConfigManager.get() or ConfigManager.load()
     require("modules/reader/book_note").install()
     BatteryStats.start()
+    local hid_ok, hid_err = pcall(function() require("common/hid_keys").init() end)
+    if not hid_ok then logger.warn("HID keys init failed", hid_err) end
     _G.__ZEN_UI_LIBRARY_FONT_CFG = self.config and self.config.library_font or nil
     _zen_plugin_ref = self
     -- KOReader builds a ZenUI per FileManager/ReaderUI; launcher upkeep runs once per process.
@@ -939,6 +943,18 @@ function ZenUI:onResume()
     local UIManager = require("ui/uimanager")
     UIManager:unschedule(resume_clock_timer)
     UIManager:scheduleIn(2, resume_clock_timer)
+    require("common/hid_keys").rescanSoon()
+end
+
+-- Input hotplug (uevent): open a HID remote's node and apply its button mappings.
+function ZenUI:onEvdevInputInsert(path)
+    if self._zenos_brand_inert then return end
+    require("common/hid_keys").onInsert(path)
+end
+
+function ZenUI:onEvdevInputRemove(path)
+    if self._zenos_brand_inert then return end
+    require("common/hid_keys").onRemove(path)
 end
 
 -- Wi-Fi came up after a skipped check; the updater ignores repeats while one is pending.
@@ -1023,6 +1039,8 @@ end
 function ZenUI:onBluetoothStateChanged()
     if self._zenos_brand_inert then return end
     BatteryStats.bluetoothChanged()
+    -- Not every remote node comes with a hotplug event.
+    require("common/hid_keys").rescanSoon()
 end
 
 function ZenUI:onRefreshAdditionalContent()
@@ -1082,6 +1100,10 @@ function ZenUI:deletePluginSettings()
     end
     local docprops_cache = package.loaded["common/docprops_cache"]
     if docprops_cache then pcall(docprops_cache.close) end
+
+    -- Kindle: the Bluetooth HID setup's system file changes go too; nothing else could undo them later.
+    local hid_ok, hid_undone = pcall(KindleHid.teardown)
+    if not (hid_ok and hid_undone) then logger.warn("Kindle HID teardown failed:", tostring(hid_undone)) end
 
     pcall(BrandMigration.deletePluginSettings)
 

@@ -62,6 +62,20 @@ function M.build(ctx)
     })
 
     table.insert(items, {
+        text = _("Hide connection alerts"),
+        help_text = _("Hide the notices shown when Wi-Fi turns on, connects or turns off, and when a Bluetooth keyboard or remote connects or disconnects. Connection problems are still shown."),
+        checked_func = function()
+            return type(config.developer) == "table"
+                and config.developer.hide_connection_alerts == true
+        end,
+        callback = function()
+            if type(config.developer) ~= "table" then config.developer = {} end
+            config.developer.hide_connection_alerts = config.developer.hide_connection_alerts ~= true
+            plugin:saveConfig()
+        end,
+    })
+
+    table.insert(items, {
         text = _("Show hidden files"),
         checked_func = function()
             return type(config.developer) == "table"
@@ -156,6 +170,29 @@ function M.build(ctx)
         end,
         keep_menu_open = true,
     })
+
+    -- Kindle only: undoes the root filesystem changes of the Bluetooth switcher's HID setup.
+    local Hid = require("modules/menu/bluetooth_adapters/kindle_hid")
+    if Hid.isSupported() then
+        table.insert(items, {
+            text = _("Disable Bluetooth HID passthrough"),
+            help_text = _("Undo the changes to this Kindle's system files that let Bluetooth remotes and controllers work."),
+            enabled_func = Hid.isApplied,
+            callback = function()
+                UIManager:show(require("ui/widget/confirmbox"):new{
+                    text = _("Undo the changes to this Kindle's system files for remotes and controllers? The Kindle restarts to finish."),
+                    ok_text = _("Undo and restart"),
+                    ok_callback = function()
+                        if Hid.teardown() then return Hid.reboot() end
+                        UIManager:show(require("ui/widget/infomessage"):new{
+                            text = _("Could not undo all system file changes."),
+                        })
+                    end,
+                })
+            end,
+            keep_menu_open = true,
+        })
+    end
 
     table.insert(items, {
         text = _("Plugin management"),

@@ -23,6 +23,7 @@ describe("file browser group views", function()
     local select_menu_calls
     local home_rebuilds
     local kindle_context_item
+    local indexer
     local saved_modules
     local replaced_modules = {
         "gettext",
@@ -31,6 +32,7 @@ describe("file browser group views", function()
         "common/history_index",
         "common/inline_icon_map",
         "common/language_name",
+        "common/metadata_indexer",
         "common/paths",
         "common/shared_state",
         "modules/filebrowser/patches/standalone_page",
@@ -79,6 +81,7 @@ describe("file browser group views", function()
         select_menu_calls = 0
         home_rebuilds = 0
         kindle_context_item = nil
+        indexer = nil
 
         local plugin = {
             config = config,
@@ -104,6 +107,11 @@ describe("file browser group views", function()
         ZenSpec.replace("common/language_name", {
             get = function(language)
                 return language == "en" and "English" or language
+            end,
+        })
+        ZenSpec.replace("common/metadata_indexer", {
+            start = function(is_wanted, on_indexed)
+                indexer = { is_wanted = is_wanted, on_indexed = on_indexed }
             end,
         })
         ZenSpec.replace("common/paths", { normPath = function(path) return path end })
@@ -1137,6 +1145,46 @@ describe("file browser group views", function()
         assert.is_nil(api.getActivePage("authors"))
         assert.is_true(#closed >= 4)
         assert.are.equal("authors_detail", second_detail.name)
+    end)
+
+    it("unwinds the author stack when a nested series detail is closed by the navbar", function()
+        install_group_view({
+            authors = { { author = "Ada", files = { "/first.epub", "/second.epub" } } },
+        })
+        config.features.automatic_series_grouping = true
+        metadata["/first.epub"] = { title = "First", series = "Saga", series_index = 1 }
+        metadata["/second.epub"] = { title = "Second", series = "Saga", series_index = 2 }
+
+        local root = assert(api.showAuthorsView())
+        local detail = assert(api.restoreDetail("Ada", "authors"))
+        detail.onMenuSelect(detail, detail.item_table[1])
+        local series = assert(find_menu("series_detail"))
+
+        -- Same order as the navbar's closeStandaloneView.
+        series.close_callback()
+        series._zen_close_stack()
+
+        assert.are.same({ series, detail, root }, closed)
+        assert.is_nil(api.getActiveDetail())
+        local reopened, is_new = api.showAuthorsView()
+        assert.is_true(is_new)
+        assert.are_not.equal(root, reopened)
+    end)
+
+    it("indexes uncached books for an open root and lists them once indexed", function()
+        local authors = { { author = "Ada", files = { "/ada.epub" } } }
+        install_group_view({ authors = authors })
+
+        api.showAuthorsView()
+        local root = assert(find_menu("authors"))
+        assert.is_true(indexer.is_wanted())
+
+        authors[2] = { author = "Zed", files = { "/zed.epub" } }
+        indexer.on_indexed()
+        assert.are.same({ "Ada", "Zed" }, { root.item_table[1].text, root.item_table[2].text })
+
+        root.close_callback()
+        assert.is_false(indexer.is_wanted())
     end)
 
     it("selects group-detail books without opening them", function()

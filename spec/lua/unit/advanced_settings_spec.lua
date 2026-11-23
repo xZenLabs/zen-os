@@ -153,6 +153,28 @@ describe("Advanced settings", function()
         assert.are.equal(1, restart_prompts)
     end)
 
+    it("toggles hidden connection alerts without requesting a restart", function()
+        local saved = 0
+        local config = { features = {} }
+        local items = require("modules/settings/sections/advanced_settings").build({
+            config = config,
+            plugin = { saveConfig = function() saved = saved + 1 end },
+            settings_apply = { prompt_restart = function() error("unexpected restart prompt") end },
+        })
+        local alerts_item
+        for _i, item in ipairs(items) do
+            if item.text == "Hide connection alerts" then alerts_item = item end
+        end
+
+        assert.is_false(alerts_item.checked_func())
+        alerts_item.callback()
+        assert.is_true(config.developer.hide_connection_alerts)
+        assert.is_true(alerts_item.checked_func())
+        alerts_item.callback()
+        assert.is_false(alerts_item.checked_func())
+        assert.are.equal(2, saved)
+    end)
+
     it("applies verbose debug logging immediately", function()
         local calls = {}
         G_reader_settings.makeTrue = function(self, key) self:saveSetting(key, true) end
@@ -181,5 +203,45 @@ describe("Advanced settings", function()
         debug_item.callback()
         assert.is_false(debug_item.checked_func())
         assert.same({ "on", "verbose", "quiet", "off" }, calls)
+    end)
+
+    it("undoes the Kindle Bluetooth HID setup and restarts, on supported Kindles only", function()
+        local original = package.loaded["modules/menu/bluetooth_adapters/kindle_hid"]
+        local supported, undone, reboots, shown = false, false, 0, {}
+        ZenSpec.replace("modules/menu/bluetooth_adapters/kindle_hid", {
+            isSupported = function() return supported end,
+            isApplied = function() return true end,
+            teardown = function() return undone end,
+            reboot = function() reboots = reboots + 1 end,
+        })
+        ZenSpec.replace("ui/uimanager", { show = function(_self, widget) shown[#shown + 1] = widget end })
+        ZenSpec.replace("ui/widget/confirmbox", { new = function(_self, widget) return widget end })
+        ZenSpec.replace("ui/widget/infomessage", { new = function(_self, widget) return widget end })
+        local function item()
+            ZenSpec.unload("modules/settings/sections/advanced_settings")
+            for _i, candidate in ipairs(require("modules/settings/sections/advanced_settings").build({
+                config = { features = {}, developer = {} },
+                plugin = { saveConfig = function() end },
+                settings_apply = { prompt_restart = function() end },
+            })) do
+                if candidate.text == "Disable Bluetooth HID passthrough" then return candidate end
+            end
+        end
+        assert.is_nil(item())
+        supported = true
+        local disable = item()
+        assert.is_true(disable.enabled_func())
+
+        disable.callback()
+        assert.are.equal("Undo and restart", shown[1].ok_text)
+        shown[1].ok_callback()
+        assert.are.equal("Could not undo all system file changes.", shown[2].text)
+        assert.are.equal(0, reboots)
+
+        undone = true
+        shown[1].ok_callback()
+        assert.are.equal(1, reboots)
+        assert.are.equal(2, #shown)
+        package.loaded["modules/menu/bluetooth_adapters/kindle_hid"] = original
     end)
 end)

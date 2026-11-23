@@ -2,6 +2,7 @@
 local function build_show_from_book_details()
     local Editor = require("modules/filebrowser/metadata_editor")
     local Service = require("modules/filebrowser/metadata/service")
+    local Match = require("modules/filebrowser/metadata/match")
     local HardcoverStore = require("config/hardcover_token")
     local GoogleBooksStore = require("config/google_books_key")
     local DocSettings = require("docsettings")
@@ -773,8 +774,8 @@ local function build_show_from_book_details()
                                     break
                                 end
                             end
-                            -- ponytail: expand the top work only; batch lookups if ambiguity matters.
-                            work = work or works[1]
+                            -- ponytail: expand the closest work only; batch lookups if ambiguity matters.
+                            work = work or Match.best(works, query)
                             local editions, editions_err = Client.editions(
                                 provider.credential, work)
                             if not editions then return nil, editions_err end
@@ -929,7 +930,7 @@ local function build_show_from_book_details()
                         break
                     end
                 end
-                selected = selected or works[1]
+                selected = selected or Match.best(works, query)
                 if selected then
                     select_work(editor, draft, selected, cover_only,
                         selected.exact_edition == nil, only_key)

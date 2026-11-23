@@ -54,6 +54,7 @@ describe("Zen screen", function()
     local function text_widget(values)
         values = values or {}
         values.getSize = function() return { w = 100, h = 24 } end
+        values.getLineHeight = function() return 24 end
         values.paintTo = function() end
         values.free = function() end
         return values
@@ -355,5 +356,44 @@ describe("Zen screen", function()
             end
         end
         assert.fail("ZenOS title was not rendered")
+    end)
+
+    it("keeps explicit line breaks and steps the subtitle font down for longer messages", function()
+        local boxes = {}
+        -- Half-em glyphs: a line holds width / (size / 2) characters.
+        ZenSpec.replace("ui/widget/textboxwidget", { new = function(_self, values)
+            local lines = 0
+            for line in (values.text .. "\n"):gmatch("(.-)\n") do
+                lines = lines + math.max(1, math.ceil(#line * values.face.size / 2 / values.width))
+            end
+            local box = text_widget(values)
+            box.getSize = function() return { w = values.width, h = lines * values.face.size } end
+            box.getLineHeight = function() return values.face.size end
+            boxes[#boxes + 1] = box
+            return box
+        end })
+        ZenSpec.unload("common/ui/zen_screen")
+        ZenScreen = require("common/ui/zen_screen")
+        local bb = { paintRect = function() end, invertRect = function() end }
+
+        local function painted(subtitle)
+            local screen = new_screen{ subtitle = subtitle, button = "OK" }
+            screen:paintTo(bb, 0, 0)
+            local box = boxes[#boxes]
+            assert.are.equal(subtitle, box.text)
+            assert.are.equal("center", box.alignment)
+            assert.are.equal(560, box.width)
+            assert.is_nil(box.for_measurement_only)
+            assert.is_true(boxes[#boxes - 1].for_measurement_only)
+            assert.are.equal(box:getSize().h + 12, screen._L.subtitle_h)
+            return box.face.size
+        end
+
+        assert.are.equal(22, painted("Checking for updates..."))
+        assert.are.equal(22, painted("No internet connection.\nConnect to a Wi-Fi network and try again."))
+        assert.are.equal(20, painted(("word "):rep(32)))
+        assert.are.equal(16, painted("one\ntwo\nthree\nfour"))
+        -- Nothing fits the budget: the smallest face wraps and the band grows.
+        assert.are.equal(16, painted(("word "):rep(80)))
     end)
 end)

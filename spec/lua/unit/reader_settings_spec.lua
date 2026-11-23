@@ -807,6 +807,14 @@ describe("reader settings", function()
         assert.is_false(by_text["Show AI assistant"].show_func())
         assert.is_true(by_text["Show X-Ray"].checked_func())
 
+        -- AI Dictionary loads under its folder name or, on older KOReader, its own name.
+        local loaded = package.loaded["pluginloader"].loaded_plugins
+        assert.is_false(by_text["Show AI Dictionary"].show_func())
+        loaded.benedict = {}
+        assert.is_true(by_text["Show AI Dictionary"].show_func())
+        loaded.benedict, loaded.AI_Dictionary = nil, {}
+        assert.is_true(by_text["Show AI Dictionary"].show_func())
+
         by_text["Show X-Ray"].callback()
         assert.is_false(by_text["Show X-Ray"].checked_func())
         assert.are.equal(1, saved)

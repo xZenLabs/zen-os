@@ -44,7 +44,7 @@ describe("statistics book records", function()
         package.loaded["common/book_sources"] = {
             status = function(path)
                 if path == "/cloud/read.epub" then
-                    return { status = "complete", percent_finished = 1 }
+                    return { status = "complete", percent_finished = 1, finished_at = "2026-05-06" }
                 end
             end,
             bookInfo = function(path)
@@ -60,7 +60,7 @@ describe("statistics book records", function()
         assert.are.equal("/books/local.epub", records[1].file)
         assert.are.equal("md5", records[1].md5)
         assert.are.same({
-            file = "/cloud/read.epub", status = "complete", title = "Cloud",
+            file = "/cloud/read.epub", status = "complete", modified = "2026-05-06", title = "Cloud",
             authors = "B, C", percent = 1, pages = 320,
         }, records[2])
     end)

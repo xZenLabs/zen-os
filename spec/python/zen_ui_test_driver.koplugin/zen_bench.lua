@@ -349,10 +349,16 @@ end
 -- Harness ---------------------------------------------------------------------
 
 local Bench = {}
+local repaints = 0 -- UI repaint passes since start
 
 function Bench.start()
     if rawget(_G, "__ZEN_UI_BENCH_RUNNING") then return end
     rawset(_G, "__ZEN_UI_BENCH_RUNNING", true)
+    local repaint = UIManager._repaint
+    UIManager._repaint = function(...)
+        repaints = repaints + 1
+        return repaint(...)
+    end
     local init_fts = time.monotonic()
     local runner = coroutine.create(function() Bench.run(init_fts) end)
     local function step()
@@ -368,8 +374,11 @@ function Bench.start()
     UIManager:nextTick(step)
 end
 
+-- A tick is a repaint pass, not a resume: nextTick re-runs in the same pass,
+-- before any repaint, while the coarse clock behind time.now() stands still.
 local function settle(ticks)
-    for _i = 1, ticks or SETTLE do coroutine.yield() end
+    local target = repaints + (ticks or SETTLE)
+    repeat coroutine.yield() until repaints >= target
 end
 
 local function read_targets()

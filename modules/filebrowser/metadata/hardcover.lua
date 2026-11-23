@@ -2,6 +2,7 @@ local json = require("json")
 local logger = require("common/zen_logger").new("hardcover")
 local Http = require("modules/filebrowser/metadata/http")
 local isbn_value = require("modules/filebrowser/metadata/isbn").normalize
+local Match = require("modules/filebrowser/metadata/match")
 
 local M = {}
 
@@ -319,6 +320,23 @@ local function search_text(input)
     return value
 end
 
+local function text_search(token, text, limit, transport)
+    local data, err = request(token, SEARCH_QUERY, {
+        query = text,
+        page = 1,
+        perPage = limit,
+    }, transport)
+    if not data then return nil, err end
+    if type(data.search) ~= "table" or type(data.search.ids) ~= "table" then
+        return nil, failure("malformed")
+    end
+    if #data.search.ids == 0 then return nil, failure("no_match") end
+    local works = search_results(data.search)
+    if not works then return nil, failure("malformed") end
+    if #works == 0 then return nil, failure("no_match") end
+    return works
+end
+
 local normalize_edition
 
 local function is_audio_edition(row)
@@ -386,19 +404,23 @@ function M.search(token, input, transport)
         return nil, failure(isbn and "no_match" or "malformed")
     end
     local limit = math.max(1, math.min(25, math.floor(tonumber(input.limit) or SEARCH_LIMIT)))
-    local data, err = request(token, SEARCH_QUERY, {
-        query = query,
-        page = 1,
-        perPage = limit,
-    }, transport)
-    if not data then return nil, err end
-    if type(data.search) ~= "table" or type(data.search.ids) ~= "table" then
-        return nil, failure("malformed")
+    local works, err = text_search(token, query, limit, transport)
+    local title = trim(input.title)
+    -- Free-text search ranks titles quoting both ("Summary of X by Y") above X itself.
+    if query ~= title and (works or err.kind == "no_match")
+            and not select(2, Match.best(works or {}, input)) then
+        logger.dbg("no confident title and author match; searching title only")
+        local by_title = text_search(token, title, limit, transport)
+        if by_title then
+            local seen = {}
+            for _i, work in ipairs(by_title) do seen[work.id] = true end
+            for _i, work in ipairs(works or {}) do
+                if not seen[work.id] then by_title[#by_title + 1] = work end
+            end
+            works = by_title
+        end
     end
-    if #data.search.ids == 0 then return nil, failure("no_match") end
-    local works = search_results(data.search)
-    if not works then return nil, failure("malformed") end
-    if #works == 0 then return nil, failure("no_match") end
+    if not works then return nil, err end
     logger.dbg("title search complete works=", #works)
     return works
 end

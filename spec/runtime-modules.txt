@@ -8,11 +8,13 @@ main.lua|integration
 common/book_status.lua|unit
 modules/menu/bluetooth/bluetooth.lua|unit
 modules/menu/bluetooth/kobo_bluetooth.lua|unit
+modules/menu/bluetooth/bluez.lua|unit
 common/book_walker.lua|unit
 common/book_sources.lua|unit
 common/book_sources_kindle.lua|unit
 common/brand_migration.lua|unit
 common/clock_schedule.lua|unit
+common/comic_info.lua|unit
 common/clock_timer.lua|unit
 common/constants.lua|unit
 common/cover_decode_cache.lua|unit
@@ -29,6 +31,7 @@ common/dispatcher_menu.lua|unit
 common/docprops_cache.lua|unit
 common/font_language.lua|unit
 common/folder_cover_files.lua|unit
+common/hid_keys.lua|unit
 common/history_index.lua|unit
 common/i18n.lua|unit
 common/icon_packs.lua|unit
@@ -40,6 +43,7 @@ common/library_destination.lua|unit
 common/library_navigation.lua|unit
 common/language_name.lua|unit
 common/memory_policy.lua|unit
+common/metadata_indexer.lua|unit
 common/nav_button_model.lua|unit
 common/optional_provider.lua|unit
 common/paths.lua|unit
@@ -108,6 +112,7 @@ common/ui/zen_toggle.lua|unit
 common/utils.lua|unit
 common/widget_resources.lua|unit
 common/wifi_state.lua|unit
+common/wifi_wait.lua|unit
 common/zen_logger.lua|unit
 common/zen_screen.lua|unit
 config/changelog.lua|unit
@@ -125,6 +130,7 @@ modules/filebrowser/metadata/google_books.lua|unit
 modules/filebrowser/metadata/hardcover.lua|unit
 modules/filebrowser/metadata/http.lua|unit
 modules/filebrowser/metadata/isbn.lua|unit
+modules/filebrowser/metadata/match.lua|unit
 modules/filebrowser/metadata/open_library.lua|unit
 modules/filebrowser/metadata/service.lua|unit
 modules/filebrowser/metadata/vendor/slaxdom.lua|unit
@@ -192,6 +198,7 @@ modules/filebrowser/patches/status_on_open.lua|integration
 modules/global/global.lua|integration
 modules/global/patches/brightness_schedule.lua|integration
 modules/global/patches/cloud_storage_home.lua|integration
+modules/global/patches/connection_alerts.lua|unit
 modules/global/patches/incognito_mode.lua|integration
 modules/global/patches/kindle_autosuspend_resume.lua|unit
 modules/global/patches/kindle_battery_capacity.lua|unit
@@ -227,8 +234,10 @@ modules/menu/network_adapters/kobo.lua|unit
 modules/menu/network_switcher.lua|unit
 modules/menu/bluetooth_adapters/common.lua|unit
 modules/menu/bluetooth_adapters/kindle.lua|unit
+modules/menu/bluetooth_adapters/kindle_hid.lua|unit
 modules/menu/bluetooth_adapters/kobo.lua|unit
 modules/menu/bluetooth_adapters/pocketbook.lua|unit
+modules/menu/bluetooth_keys.lua|unit
 modules/menu/bluetooth_switcher.lua|unit
 modules/menu/patches/app_launcher.lua|integration
 modules/menu/patches/brightness_slider.lua|integration

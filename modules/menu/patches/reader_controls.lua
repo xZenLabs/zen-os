@@ -554,7 +554,9 @@ return function(plugin)
                 cell.dimen = cell.dimen or cell:getSize():copy()
                 cell.image.dimen = cell.image.dimen or cell.image:getSize():copy()
                 cell._reader_control_id = entry.control or entry.id
-                track(cell, activate, nil, header_layout)
+                track(cell, activate, entry.type == "plugin" and function()
+                    return require("modules/menu/app_launcher/plugin_scan").hold(entry.plugin, tm)
+                end or nil, header_layout)
             end
             if arrows then page_arrow(#icons, 1) end
             for _i, widget in ipairs(header_layout) do header_widgets[widget] = true end

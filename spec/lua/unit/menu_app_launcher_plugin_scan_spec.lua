@@ -123,6 +123,37 @@ describe("app launcher plugin scan", function()
         assert.are.equal(items, shown.item_table)
     end)
 
+    it("runs the plugin menu entry's hold callback on long press", function()
+        local held, closes, entry = {}, 0, nil
+        local touch_menu = { closeMenu = function() closes = closes + 1 end }
+        package.loaded.pluginloader.loaded_plugins.marked.addToMainMenu = function(_self, menu)
+            menu.marked = entry
+        end
+        local PluginScan = require("modules/menu/app_launcher/plugin_scan")
+        local plugin = { key = "marked", method = "open" }
+
+        entry = { text = "Marked", callback = function() error("tapped") end }
+        assert.is_false(PluginScan.hold(plugin, touch_menu))
+
+        entry.hold_callback = function(menu, item) held[#held + 1] = { menu = menu, item = item } end
+        assert.is_true(PluginScan.hold(plugin, touch_menu))
+        assert.are.equal(touch_menu, held[1].menu)
+        assert.are.equal(entry, held[1].item)
+        assert.are.equal(0, closes)
+
+        entry.hold_keep_menu_open = false
+        entry.hold_callback_func = function() return function() held[#held + 1] = "func" end end
+        assert.is_true(PluginScan.hold(plugin, touch_menu))
+        assert.are.equal("func", held[2])
+        assert.are.equal(1, closes)
+        assert.is_true(PluginScan.hold(plugin))
+
+        entry.hold_callback_func = function() error("broken") end
+        assert.is_false(PluginScan.hold(plugin, touch_menu))
+        assert.is_false(PluginScan.hold({ key = "manual" }, touch_menu))
+        assert.is_false(PluginScan.hold({ key = "missing" }, touch_menu))
+    end)
+
     it("caches plugin directory names without reading metadata", function()
         local scans = 0
         ZenSpec.replace("common/plugin_root", "/plugins/zenos.koplugin")

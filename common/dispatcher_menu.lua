@@ -11,6 +11,14 @@ local function upvalue(func, target)
     end
 end
 
+-- False only where this KOReader lacks the action or the device fails its condition.
+function M.available(dispatcher, key)
+    dispatcher:init()
+    local specs = upvalue(dispatcher.registerAction, "settingsList")
+    if type(specs) ~= "table" then return true end
+    return specs[key] ~= nil and specs[key].condition ~= false
+end
+
 function M.addSubMenu(dispatcher, caller, menu, location, settings)
     dispatcher:init()
     local specs = upvalue(dispatcher.registerAction, "settingsList")

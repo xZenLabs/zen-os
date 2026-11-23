@@ -28,7 +28,12 @@ function M.new()
         if not ok then done(false, err); return end
         Common.verify(adapter, device.address, field, expected, done)
     end
-    function adapter.pair(device, done) action("pair", device, "paired", true, done) end
+    function adapter.pair(device, done)
+        action("pair", device, "paired", true, function(ok, err)
+            if ok then Kobo.deviceAction("trust", device) end -- untrusted devices cannot reconnect by themselves
+            done(ok, err)
+        end)
+    end
     function adapter.connect(device, done) action("connect", device, "connected", true, done) end
     function adapter.disconnect(device, done) action("disconnect", device, "connected", false, done) end
     function adapter.forget(device, done) action("forget", device, "paired", false, done) end
