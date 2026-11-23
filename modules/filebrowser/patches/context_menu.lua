@@ -930,6 +930,20 @@ local function apply_context_menu()
             new_context_menu_dialog = new_context_menu_dialog,
         }
         file_chooser.showFileDialog = function(self_fc, item)
+            -- A book source's book (common/book_sources): its source's menu
+            -- when it has one, wherever the book is long-pressed. Not for a
+            -- dialog a source asked for itself (the Kindle library's, from
+            -- its own view).
+            if type(item) == "table" and item.is_file ~= false and not item.is_go_up
+                    and not item._is_current_dir and not item._zen_kindle_book
+                    and type(item.path) == "string" then
+                local ok_sources, BookSources = pcall(require, "common/book_sources")
+                if ok_sources and type(BookSources) == "table"
+                        and type(BookSources.showContextMenu) == "function" then
+                    local ok_menu, handled = pcall(BookSources.showContextMenu, self_fc, item)
+                    if ok_menu and handled == true then return end
+                end
+            end
             return require("modules/filebrowser/patches/context_menu_file_dialog")(
                 file_dialog_ctx, self_fc, item)
         end

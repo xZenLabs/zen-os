@@ -1,5 +1,7 @@
 -- zen_ui: status_on_open patch
 -- Marks new, on-hold, and explicit TBR books as reading when opened.
+-- A book source's book (common/book_sources) is opened by its source when
+-- the source handles it, wherever ZenOS opens it from.
 
 local function apply_status_on_open()
     local ok_util, filemanagerutil = pcall(require, "apps/filemanager/filemanagerutil")
@@ -10,6 +12,12 @@ local function apply_status_on_open()
     local _orig_openFile = filemanagerutil.openFile
 
     filemanagerutil.openFile = function(ui, file, caller_pre_callback, no_dialog)
+        local ok_sources, BookSources = pcall(require, "common/book_sources")
+        if ok_sources and type(BookSources) == "table" and type(BookSources.open) == "function" then
+            local ok_open, handled = pcall(BookSources.open, file, ui)
+            if ok_open and handled == true then return end
+        end
+
         local DocSettings = require("docsettings")
         local BookList = require("ui/widget/booklist")
         local book_status = require("common/book_status")

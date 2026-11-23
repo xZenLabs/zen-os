@@ -735,6 +735,43 @@ describe("file browser guard patches", function()
         assert.are.equal("selected", FileChooser.onMenuSelect({}, {}))
     end)
 
+    it("lets a book source open its book wherever ZenOS opens one", function()
+        local opened, asked = {}, {}
+        ZenSpec.replace("apps/filemanager/filemanagerutil", {
+            openFile = function(_, file) opened[#opened + 1] = file return "opened" end,
+            saveSummary = function() end,
+        })
+        ZenSpec.replace("docsettings", {
+            open = function() return { readSetting = function() return { status = "complete" } end } end,
+        })
+        ZenSpec.replace("ui/widget/booklist", { setBookInfoCacheProperty = function() end })
+        ZenSpec.replace("common/book_status", {
+            acknowledgeNewVersion = function() return false end,
+            invalidate = function() end,
+        })
+        ZenSpec.replace("common/tbr_index", {
+            isExplicit = function() return false end,
+            refreshPath = function() end,
+        })
+        ZenSpec.replace("common/memory_policy", { releaseForReader = function() end })
+        ZenSpec.replace("common/book_sources", {
+            open = function(path, ui)
+                asked[#asked + 1] = { path, ui }
+                if path == "/books/broken.epub" then error("boom") end
+                return path == "/books/cloud-1.epub"
+            end,
+        })
+
+        apply_patch("modules/filebrowser/patches/status_on_open")
+        local filemanagerutil = require("apps/filemanager/filemanagerutil")
+        assert.is_nil(filemanagerutil.openFile("fm", "/books/cloud-1.epub"))
+        assert.are.same({}, opened)
+        assert.are.same({ "/books/cloud-1.epub", "fm" }, asked[1])
+        assert.are.equal("opened", filemanagerutil.openFile("fm", "/books/local.epub"))
+        assert.are.equal("opened", filemanagerutil.openFile("fm", "/books/broken.epub"))
+        assert.are.same({ "/books/local.epub", "/books/broken.epub" }, opened)
+    end)
+
     it("marks new, on-hold, and explicit TBR books as reading", function()
         local statuses = {
             new = "new",
