@@ -1026,6 +1026,26 @@ local function refresh_after_delete(path)
     if _tbr_menu then _tbr_menu._zen_tbr_refresh() end
 end
 
+-- A book source reported a change (BookSources.onChanged): open group
+-- pages, their book lists and To Be Read are rebuilt on the next tick (one
+-- refresh for any number of reports).
+local sources_refresh_scheduled = false
+local function sources_changed()
+    if sources_refresh_scheduled then return end
+    if not (any_root_open() or #_detail_menus > 0 or _tbr_menu) then return end
+    sources_refresh_scheduled = true
+    require("ui/uimanager"):nextTick(function()
+        sources_refresh_scheduled = false
+        rebuild_open_roots()
+        for _i, menu in ipairs(_detail_menus) do
+            if type(menu._zen_sources_refresh) == "function" then
+                menu._zen_sources_refresh()
+            end
+        end
+        M.refreshTBRView()
+    end)
+end
+
 -------------------------------------------------------------------------------
 -- Refresh library data after deletion, or redraw after a status change.
 -- One-shot wrapper: restores the original after first call or on next refresh.
@@ -1246,6 +1266,47 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id, opene
     table.insert(_detail_menus, detail_menu)
     detail_menu._zen_remove_file = function(path)
         remove_file(files, path)
+        detail_menu.item_table = buildItems()
+        detail_menu:updateItems()
+    end
+    -- Book sources changed: the group's books are looked up again, then
+    -- redrawn with their current metadata and statuses. A series opened
+    -- from another group's list takes its books from that list's series
+    -- group (the list is refreshed first: it opened first).
+    detail_menu._zen_sources_refresh = function()
+        if type(group_item._zen_load_files) == "function" then
+            files = group_item._zen_load_files() or {}
+        elseif opener then
+            if is_detail_open(opener) then
+                local found = {}
+                for _i, item in ipairs(opener.item_table or {}) do
+                    if item.is_series_group and item.text == group_name
+                            and type(item._zen_files) == "table" then
+                        found = item._zen_files
+                        break
+                    end
+                end
+                files = found
+            end
+        elseif group_getters[tab_id] then
+            local ok, db = pcall(require, "common/db_bookinfo")
+            local getter = ok and db[group_getters[tab_id]]
+            if type(getter) == "function" then
+                local found = {}
+                for _i, item in ipairs(build_group_item_table(getter(), tab_id)) do
+                    if item.text == group_name and type(item._zen_files) == "table" then
+                        found = item._zen_files
+                        break
+                    end
+                end
+                files = found
+            end
+        end
+        -- Reopening (a filter change) takes the books from group_item: keep
+        -- it to the ones just looked up. Loader groups look theirs up again.
+        if type(group_item._zen_load_files) ~= "function" then
+            group_item._zen_files = files
+        end
         detail_menu.item_table = buildItems()
         detail_menu:updateItems()
     end
@@ -1966,6 +2027,11 @@ local function register_group_view_api(zen_plugin)
 end
 
 SharedState.registerLoader("group_view", register_group_view_api)
+
+local ok_sources, BookSources = pcall(require, "common/book_sources")
+if ok_sources and type(BookSources) == "table" and type(BookSources.onChanged) == "function" then
+    BookSources.onChanged(sources_changed)
+end
 
 return function()
     register_group_view_api(rawget(_G, "__ZEN_UI_PLUGIN"))

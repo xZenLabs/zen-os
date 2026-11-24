@@ -955,6 +955,45 @@ describe("home data and book caches", function()
         assert.are.equal("/library/alpha.epub", strip[2].path)
     end)
 
+    it("drops a book from Home's history once its book source no longer has it", function()
+        local cloud_path = "/storage/emulated/0/cloud-2.epub"
+        local owned = true
+        history_items[1] = { file = "/library/alpha.epub", time = 100 }
+        local real_sources = package.loaded["common/book_sources"]
+        finally(function()
+            package.loaded["common/book_sources"] = real_sources
+            package.loaded["modules/filebrowser/patches/home_page"] = nil -- holds the stub
+        end)
+        ZenSpec.replace("common/book_sources", {
+            owns = function(path) return owned and path == cloud_path end,
+            mergeHistory = function(hist)
+                local merged = owned and { { file = cloud_path, time = 200 } } or {}
+                for _i, entry in ipairs(hist) do merged[#merged + 1] = entry end
+                return merged
+            end,
+        })
+        ZenSpec.replace("libs/libkoreader-lfs", {
+            attributes = function(path, field)
+                if path == cloud_path then return nil end
+                if field == "mode" then return "file" end
+                return { mode = "file", modification = 1 }
+            end,
+        })
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local provider = get_build_data_provider(Home)({ browser_cover_badges = {} }, {
+            rows = { order = { "strip" }, enabled = { strip = true } },
+            modules = { strip = {} },
+        })
+        assert.are.equal(cloud_path,
+            provider:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
+
+        owned = false
+        Home.sourcesChanged({ cloud_path })
+
+        assert.are.equal("/library/alpha.epub",
+            provider:getBooksForStrip("recently_read", 4, "default", "strip")[1].path)
+    end)
+
     it("keeps local Home books when optional provider calls fail", function()
         history_items[1] = { file = "/kindle/book.kfx", time = 200 }
         history_items[2] = { file = "/library/alpha.epub", time = 100 }
@@ -1851,6 +1890,89 @@ describe("home data and book caches", function()
 
         assert.are.same({ true, "reused" }, { Home.resumeActive() })
         assert.are.equal(1, resumes)
+    end)
+
+    it("refreshes Home once on the next tick when book sources report changes", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local UIManager = require("ui/uimanager")
+        local ticks, resumes = {}, 0
+        local orig_next_tick = UIManager.nextTick
+        finally(function() UIManager.nextTick = orig_next_tick end)
+        UIManager.nextTick = function(_self, callback) ticks[#ticks + 1] = callback end
+        local menu = {
+            _home_rebuild = function() error("refreshes through resume") end,
+            _zen_home_resume = function(self)
+                resumes = resumes + 1
+                self._zen_home_needs_rebuild = nil
+                return true, "rebuilt"
+            end,
+        }
+        set_home_menu(Home, menu)
+        UIManager._window_stack = { { widget = menu } }
+
+        Home.sourcesChanged({ "/cloud/a.epub" })
+        Home.sourcesChanged()
+        assert.is_true(menu._zen_home_needs_rebuild)
+        assert.are.equal(0, resumes)
+        assert.are.equal(1, #ticks)
+        ticks[1]()
+        assert.are.equal(1, resumes)
+        -- Scheduled again after the refresh.
+        Home.sourcesChanged()
+        assert.are.equal(2, #ticks)
+    end)
+
+    it("leaves Home's refresh for when it's shown again after book sources change", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local UIManager = require("ui/uimanager")
+        local menu = {
+            _home_rebuild = function() error("Home is hidden") end,
+            _zen_home_resume = function() error("Home is hidden") end,
+        }
+        local dialog = {}
+        set_home_menu(Home, menu)
+        UIManager._window_stack = { { widget = menu }, { widget = dialog } }
+
+        Home.sourcesChanged({ "/cloud/a.epub" })
+        assert.is_true(menu._zen_home_needs_rebuild)
+        -- Resumed when the dialog closes.
+        assert.is_true(menu._zen_home_needs_repaint)
+    end)
+
+    it("rebuilds Home when book sources change without naming books", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local UIManager = require("ui/uimanager")
+        local menu = {
+            _home_rebuild = function() error("Home is hidden") end,
+            _zen_home_resume = function() error("Home is hidden") end,
+        }
+        set_home_menu(Home, menu)
+        UIManager._window_stack = { { widget = menu }, { widget = {} } }
+
+        require("common/book_sources").changed()
+        assert.is_true(menu._zen_home_needs_rebuild)
+    end)
+
+    it("registers with the book sources, which tell whether Home is on top", function()
+        local Home = get_home_module(require("modules/filebrowser/patches/home_page"))
+        local UIManager = require("ui/uimanager")
+        local BookSources = require("common/book_sources")
+        local menu = {}
+        set_home_menu(Home, menu)
+        UIManager._window_stack = { { widget = menu } }
+        assert.is_true(BookSources.isHomeOnTop())
+        UIManager._window_stack = { { widget = menu }, { widget = {} } }
+        assert.is_false(BookSources.isHomeOnTop())
+
+        -- Told of changes.
+        local reports = {}
+        local real = Home.sourcesChanged
+        finally(function() Home.sourcesChanged = real end)
+        Home.sourcesChanged = function(paths) reports[#reports + 1] = { paths = paths } end
+        BookSources.changed({ "/cloud/a.epub" })
+        BookSources.statusChanged()
+        BookSources.historyChanged()
+        assert.are.same({ { paths = { "/cloud/a.epub" } }, {}, {} }, reports)
     end)
 
     it("declines tag-strip navigation when Home has no book strip", function()

@@ -25,6 +25,7 @@ describe("file browser item-table cache", function()
     local source_readable
     local listing_keys
     local calibre_files
+    local change_listeners
 
     local module_names = {
         "common/cover_utils",
@@ -79,6 +80,10 @@ describe("file browser item-table cache", function()
                 end
                 return source_items[path] or { { path = path } }, source_readable[path]
             end,
+            -- Like KOReader's: shows the listing it builds.
+            refreshPath = function(self)
+                self.shown_items = self:genItemTableFromPath(self.path)
+            end,
         }
     end
 
@@ -121,6 +126,7 @@ describe("file browser item-table cache", function()
         source_readable = {}
         listing_keys = {}
         calibre_files = {}
+        change_listeners = {}
         saved_modules = {}
         for _i, name in ipairs(module_names) do
             saved_modules[name] = package.loaded[name]
@@ -232,6 +238,7 @@ describe("file browser item-table cache", function()
         ZenSpec.replace("version", { version = "test-koreader" })
         ZenSpec.replace("common/book_sources", {
             listingKey = function(path) return listing_keys[path] or "" end,
+            onChanged = function(listener) change_listeners[#change_listeners + 1] = listener end,
         })
         _G.G_reader_settings = {
             readSetting = function(_, key, default)
@@ -467,6 +474,172 @@ describe("file browser item-table cache", function()
 
         assert.are.equal(2, generated["/library"])
         assert.are.equal(1, generated["/library/series"])
+    end)
+
+    describe("when book sources change", function()
+        local chooser, redrawn, ticks
+
+        before_each(function()
+            chooser = setmetatable({ name = "filemanager", path = "/library" },
+                { __index = FileChooser })
+            redrawn = 0
+            chooser.refreshPath = function() redrawn = redrawn + 1 end
+            package.loaded["apps/filemanager/filemanager"].instance = { file_chooser = chooser }
+            ticks = {}
+            package.loaded["ui/uimanager"].nextTick = function(_self, callback)
+                ticks[#ticks + 1] = callback
+            end
+        end)
+
+        -- Builds and shows the listing (the class's refreshPath: the
+        -- chooser's own one counts redraws).
+        local function show()
+            FileChooser.refreshPath(chooser)
+        end
+
+        local function report(paths, kind)
+            assert.are.equal(1, #change_listeners)
+            change_listeners[1](paths, kind or "books")
+        end
+
+        local function run_ticks()
+            local pending = ticks
+            ticks = {}
+            for _i, callback in ipairs(pending) do callback() end
+        end
+
+        it("redraws the shown folder once after its books change", function()
+            report({ "/library/a.epub" })
+            report({ "/library/b.epub" })
+            assert.are.equal(0, redrawn)
+            assert.are.equal(1, #ticks)
+            run_ticks()
+            assert.are.equal(1, redrawn)
+
+            -- Books in a folder below it (counted, or shown in flat view).
+            report({ "/library/Author/c.epub" })
+            run_ticks()
+            assert.are.equal(2, redrawn)
+
+            -- Not for books in another folder.
+            report({ "/other/d.epub" })
+            run_ticks()
+            assert.are.equal(2, redrawn)
+        end)
+
+        it("redraws the folder a book went to from a source path with no folder", function()
+            report({ "cloud:123", "/library/title.epub" })
+            run_ticks()
+            assert.are.equal(1, redrawn)
+        end)
+
+        it("redraws when the sources' books in its listing change", function()
+            listing_keys["/library"] = "cloud=v1"
+            show()
+            report()
+            run_ticks()
+            assert.are.equal(0, redrawn)
+
+            listing_keys["/library"] = "cloud=v2"
+            report()
+            run_ticks()
+            assert.are.equal(1, redrawn)
+        end)
+
+        it("redraws when a listing nobody has seen yet acknowledged the change", function()
+            listing_keys["/library"] = "cloud=v1"
+            show()
+            listing_keys["/library"] = "cloud=v2"
+            report()
+            -- Home's queries and warming build the folder before the tick.
+            chooser:genItemTableFromPath("/library")
+            chooser:_zen_warm_item_table("/library")
+            run_ticks()
+            assert.are.equal(1, redrawn)
+        end)
+
+        it("redraws after a status change only when it lists sources' books", function()
+            report(nil, "status")
+            run_ticks()
+            assert.are.equal(0, redrawn)
+
+            listing_keys["/library"] = "cloud=v1"
+            show()
+            report(nil, "status")
+            run_ticks()
+            assert.are.equal(1, redrawn)
+        end)
+
+        it("redraws after a history change when sorted by last read", function()
+            report(nil, "history")
+            run_ticks()
+            assert.are.equal(0, redrawn)
+            collate_mode = "access"
+            report(nil, "history")
+            run_ticks()
+            assert.are.equal(1, redrawn)
+        end)
+
+        it("redraws after a history change when the folder's own sort is by last read", function()
+            local real = rawget(_G, "__ZEN_FOLDER_SORT")
+            finally(function() _G.__ZEN_FOLDER_SORT = real end)
+            _G.__ZEN_FOLDER_SORT = {
+                get = function(path) if path == "/library" then return { collate = "access" } end end,
+            }
+            report(nil, "history")
+            run_ticks()
+            assert.are.equal(1, redrawn)
+        end)
+
+        it("reads history times again after a history change", function()
+            local real = package.loaded["readhistory"]
+            finally(function() package.loaded["readhistory"] = real end)
+            package.loaded["readhistory"] = { hist = { { file = "/library/a.epub", time = 1 } } }
+            local HistoryIndex = package.loaded["common/history_index"]
+            local load, loads = HistoryIndex.load, 0
+            HistoryIndex.load = function(...) loads = loads + 1 return load(...) end
+            collate_mode = "access"
+            chooser:genItemTableFromPath("/library")
+            chooser:genItemTableFromPath("/library")
+            local before = loads
+            assert.is_true(before > 0)
+
+            -- The same history entries, one with a new time: only the report tells.
+            package.loaded["readhistory"].hist[1].time = 2
+            report(nil, "history")
+            chooser:genItemTableFromPath("/library")
+            assert.is_true(loads > before)
+        end)
+
+        it("reads history times again after a history change with no browser open", function()
+            local real = package.loaded["readhistory"]
+            finally(function() package.loaded["readhistory"] = real end)
+            package.loaded["readhistory"] = { hist = { { file = "/library/a.epub", time = 1 } } }
+            local HistoryIndex = package.loaded["common/history_index"]
+            local load, loads = HistoryIndex.load, 0
+            HistoryIndex.load = function(...) loads = loads + 1 return load(...) end
+            collate_mode = "access"
+            chooser:genItemTableFromPath("/library")
+            local before = loads
+            assert.is_true(before > 0)
+
+            local FileManager = package.loaded["apps/filemanager/filemanager"]
+            local instance = FileManager.instance
+            FileManager.instance = nil
+            package.loaded["readhistory"].hist[1].time = 2
+            report(nil, "history")
+            assert.are.equal(0, #ticks)
+
+            FileManager.instance = instance
+            chooser:genItemTableFromPath("/library")
+            assert.is_true(loads > before)
+        end)
+
+        it("leaves a browser that isn't shown alone", function()
+            package.loaded["apps/filemanager/filemanager"].instance = nil
+            report({ "/library/a.epub" })
+            assert.are.equal(0, #ticks)
+        end)
     end)
 
     it("rejects a persisted listing once its book source is gone", function()

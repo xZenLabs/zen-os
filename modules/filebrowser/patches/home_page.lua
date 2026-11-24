@@ -4247,6 +4247,49 @@ function M.invalidateLibraryCache()
     invalidate_home_library_dataset()
 end
 
+-- A book source reported a change (BookSources.changed, statusChanged or
+-- historyChanged). Cached details of paths are dropped now; Home is
+-- refreshed on the next tick (one refresh for any number of reports), or
+-- when it's next shown. Refreshing only rebuilds what changed: nothing
+-- when a caller already rebuilt Home itself. The history is always read
+-- again: it lists the sources' books, and only those a source still owns.
+-- Without paths, any book may have changed.
+local sources_refresh_scheduled = false
+function M.sourcesChanged(paths)
+    local any_path = false
+    for _i, path in ipairs(type(paths) == "table" and paths or {}) do
+        if type(path) == "string" and path ~= "" then
+            any_path = true
+            M.invalidateBookCache(path, true)
+        end
+    end
+    if not any_path then
+        local dataset = _home_dataset_cache
+        if dataset then
+            dataset.generation = dataset.generation + 1
+            dataset.history = nil
+            clear_home_dataset_derived(dataset)
+        end
+        mark_home_rebuild_needed()
+    end
+    if not _home_menu or _home_menu._zen_home_closing then return end
+    if not M.isActiveOnTop() then
+        -- Resumed (and rebuilt as needed) when shown again.
+        request_home_repaint(_home_menu, "ui")
+        return
+    end
+    if sources_refresh_scheduled then return end
+    sources_refresh_scheduled = true
+    UIManager:nextTick(function()
+        sources_refresh_scheduled = false
+        if not M.isActiveOnTop() then
+            if _home_menu then request_home_repaint(_home_menu, "ui") end
+            return
+        end
+        if not M.resumeActive() then M.rebuildActive() end
+    end)
+end
+
 function M.invalidateTBRCache()
     local dataset = _home_dataset_cache
     if dataset then
@@ -4361,6 +4404,10 @@ function M.closeAll(force)
 end
 
 Registry.setRefreshCallback(M.rebuildActive)
+if type(BookSources.setHome) == "function" then BookSources.setHome(M) end
+if type(BookSources.onChanged) == "function" then
+    BookSources.onChanged(function(paths) M.sourcesChanged(paths) end)
+end
 MemoryPolicy.registerHomeCache(M)
 
 local function register_home_api(zen_plugin)

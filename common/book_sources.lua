@@ -84,8 +84,15 @@
 -- Call changed() when a source's books change, so cached groupings are
 -- rebuilt; changed(paths) also drops ZenOS's cached covers and metadata
 -- for those books. Call statusChanged() when only their reading statuses
--- or history change: they are read again, groupings are kept. A source that errors is skipped; the views keep working.
--- Books whose path db_bookinfo already lists are not added again.
+-- or history change: they are read again, groupings are kept. Either one
+-- refreshes ZenOS's open views (Home, the file browser, Authors, Series,
+-- Languages, Tags and their book lists, To Be Read): those shown at once,
+-- Home else when it's next shown. A plugin that changes this device's reading history (ReadHistory), for
+-- example by syncing books read elsewhere into it, calls
+-- historyChanged(paths) so Home shows the new order. isHomeOnTop() tells
+-- whether Home is the page shown. A source that errors is skipped; the
+-- views keep working. Books whose path db_bookinfo already lists are not
+-- added again.
 
 local logger = require("common/zen_logger").new("book_sources")
 
@@ -100,6 +107,8 @@ local order = {}    -- ids, in registration order
 local revision = 0
 local status_revision = 0
 local builtins_loaded = false
+local home -- ZenOS's Home page module, once it has loaded (see setHome)
+local change_listeners = {} -- see onChanged
 
 local function load_builtins()
     if builtins_loaded then return end
@@ -161,12 +170,32 @@ local function drop_cached_covers(paths)
     end
 end
 
+--- For ZenOS's views: listener(paths, kind) is called by changed()
+-- ("books"), statusChanged() ("status") and historyChanged() ("history").
+-- paths: the books that changed, or nil when any may have. Listeners
+-- refresh what they show, so they should wait for the next tick (one
+-- refresh for any number of reports).
+function M.onChanged(listener)
+    if type(listener) == "function" then change_listeners[#change_listeners + 1] = listener end
+end
+
+-- Tells the views what changed.
+local function notify(paths, kind)
+    paths = type(paths) == "table" and paths or nil
+    for _i, listener in ipairs(change_listeners) do
+        local ok, err = pcall(listener, paths, kind)
+        if not ok then logger.warn("refreshing a view after a book source change failed", err) end
+    end
+end
+
 --- Marks every source's books as changed (cached groupings are rebuilt).
 -- With a list of paths, also drops ZenOS's cached covers and metadata for
--- them (call it when a book's metadata or cover changes).
+-- them (call it when a book's metadata or cover changes, or its file
+-- comes or goes). Open views are refreshed.
 function M.changed(paths)
     revision = revision + 1
     if type(paths) == "table" then drop_cached_covers(paths) end
+    notify(paths, "books")
 end
 
 --- Changes whenever a source is registered, removed or reports a change.
@@ -175,9 +204,38 @@ function M.revision()
     return revision
 end
 
---- Marks every source's reading statuses as changed (books unchanged).
+--- Marks every source's reading statuses (or history) as changed, books
+-- unchanged. Open views are refreshed.
 function M.statusChanged()
     status_revision = status_revision + 1
+    notify(nil, "status")
+end
+
+--- This device's reading history changed outside KOReader's own reading
+-- (e.g. a sync plugin added books read elsewhere to ReadHistory): Home
+-- reads it again and forgets what it cached for these books (paths may be
+-- nil), then refreshes.
+function M.historyChanged(paths)
+    notify(paths, "history")
+end
+
+--- True when ZenOS's Home is the page shown, or about to be (ZenOS can
+-- start on Home with the file browser hidden behind it).
+function M.isHomeOnTop()
+    if type(home) == "table" and type(home.isActiveOnTop) == "function" then
+        local ok, on_top = pcall(home.isActiveOnTop)
+        if ok and on_top == true then return true end
+    end
+    local FileManager = package.loaded["apps/filemanager/filemanager"]
+    local fm = type(FileManager) == "table" and FileManager.instance or nil
+    return type(fm) == "table" and fm.invisible == true
+        and fm._zen_hidden_home_startup == true
+end
+
+--- ZenOS's Home page registers itself here (internal), for isHomeOnTop():
+-- isActiveOnTop().
+function M.setHome(api)
+    home = type(api) == "table" and api or nil
 end
 
 --- Changes whenever revision() does or a source reports a status change.
@@ -357,7 +415,9 @@ local function discover_edits(path)
         for book in pairs(edited) do kept[book] = true end
         kept[path] = true
         settings:saveSetting(EDITED_KEY, kept)
-        M.changed() -- rebuild groupings with the book's edits
+        -- Rebuild groupings with the book's edits. The views aren't told:
+        -- one is drawing the book now, with them.
+        revision = revision + 1
         return kept
     end
     return edited
