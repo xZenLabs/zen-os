@@ -153,10 +153,7 @@ local function paintCoverBadge(canvas, Blitbuffer, Font, TextWidget, Screen,
             fgcolor = Blitbuffer.COLOR_BLACK,
             padding = 0,
         }
-        local tw_sz = tw:getSize()
-        tw:paintTo(canvas,
-            bdg_x + math.floor((bw     - tw_sz.w) / 2),
-            bdg_y + math.floor((rect_h - tw_sz.h) / 2))
+        require("common/utils").paintBadgeText(canvas, tw, bdg_x + bw / 2, bdg_y + rect_h / 2)
         tw:free()
     end
 end

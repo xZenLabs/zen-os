@@ -248,6 +248,7 @@ return function(plugin)
                 option("rakuyomi_view_mode")
                 option("embedded_css")
                 option("embedded_fonts") -- KOReader enables it only with embedded style and book fonts.
+                option("nightmode_images") -- KOReader shows it only in night mode.
             else
                 option("page_margin", true)
                 option("page_scroll")

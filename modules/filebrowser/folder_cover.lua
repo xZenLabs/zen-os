@@ -1032,14 +1032,12 @@ function M.paintDecorations(item, bb, config, x, y)
         }
         item._zen_folder_count_badge = cached
     end
-    local widget_size = cached.widget:getSize()
     local inset = utils.getBadgeInset(radius)
     local badge_x = frame.dimen.x + frame.dimen.w - radius - inset
     local badge_y = frame.dimen.y + radius + inset
     paint_circle(bb, badge_x, badge_y, radius + 2, foreground)
     paint_circle(bb, badge_x, badge_y, radius, color)
-    cached.widget:paintTo(bb, badge_x - math.floor(widget_size.w / 2),
-        badge_y - math.floor(widget_size.h / 2))
+    utils.paintBadgeText(bb, cached.widget, badge_x, badge_y + 0.5)
 end
 
 function M.decorateWidget(widget, frame, count, config)

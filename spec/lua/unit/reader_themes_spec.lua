@@ -479,6 +479,10 @@ describe("reader themes", function()
         }
         local ReaderTypeset = {
             onReadSettings = function() return true end,
+            onToggleNightmodeImages = function(self, toggle)
+                self.ui.document._nightmode_images = toggle
+                return true
+            end,
         }
         local ReaderFooter = {
             updateFooterContainer = function() end,
@@ -592,6 +596,19 @@ describe("reader themes", function()
         assert.is_function(next_tick_callback)
         next_tick_callback()
         assert.are.equal("full", dirty_calls[1][3])
+
+        -- Color CRe stops pre-inverting theme colors once image inversion is off.
+        local applied
+        document.setStyleSheet = function(_self, _file, css) applied = css end
+        plugin.config.reader_themes.dark_mode = "light_tan"
+        local typeset = setmetatable({ ui = ReaderUI.instance }, { __index = ReaderTypeset })
+        assert.is_true(typeset:onToggleNightmodeImages(false))
+        assert.is_nil(applied)
+        document.render_color = true
+        typeset:onToggleNightmodeImages(false)
+        assert.matches("#17233a", applied, 1, true)
+        typeset:onToggleNightmodeImages(true)
+        assert.matches("#e8dcc5", applied, 1, true)
     end)
     it("captures both configured theme modes even while themes are disabled", function()
         local plugin = { config = { features = { reader_themes = false }, reader_themes = {

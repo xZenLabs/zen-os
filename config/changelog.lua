@@ -461,11 +461,13 @@ return {
         "Add bluetooth mapping",
         "Add option to hide wifi/bluetooth connection alerts (General > Advanced)",
         "Add text size for cover badges and the opening banner (Library > Appearance > Covers > Badges)",
+        "Add back invert image option to Reader Controls",
         "Library opens faster: the listing is kept when switching tabs",
         "Plugins can add books to the Authors, Series, Languages, and Tags views",
         "CBZ books show title, author, series, tags, and description from their ComicInfo.xml",
         "AI Dictionary plugin actions show in the highlight menu (Reader > Highlight / Lookup > Show AI Dictionary)",
         "Fix: crash on Android when opening a footnote popup",
         "Fix: long press did nothing on plugin buttons (Launcher, Controls) and in the plugin and KOReader menus they open",
+        "Fix: icon badges not centered if using a different font than default"
     },
 }

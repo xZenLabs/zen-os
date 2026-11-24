@@ -144,6 +144,52 @@ describe("common utils badge font sizing", function()
     end)
 end)
 
+describe("common utils badge text centring", function()
+    local utils = require("common/utils")
+    local saved_render
+
+    before_each(function() saved_render = package.loaded["ui/rendertext"] end)
+    after_each(function() package.loaded["ui/rendertext"] = saved_render end)
+
+    -- glyphs: { rows above the baseline, ink height } each, in a 30-row line box with its baseline at row 20.
+    local function paint_y(glyphs, cy)
+        ZenSpec.replace("ui/rendertext", {
+            getGlyphByIndex = function(_self, _face, index)
+                return { t = glyphs[index][1], bb = { getHeight = function() return glyphs[index][2] end } }
+            end,
+        })
+        local shaping = {}
+        for index = 1, #glyphs do shaping[index] = { glyph = index, font_num = 0, y_offset = 0 } end
+        local painted_y
+        utils.paintBadgeText({}, {
+            face = { getFallbackFont = function() return {} end },
+            _xtext = glyphs[1] and { shapeLine = function() return shaping end } or nil,
+            getSize = function() return { w = 10, h = 30 } end,
+            getBaseline = function() return 20 end,
+            paintTo = function(_self, _bb, _x, y) painted_y = y end,
+        }, 50, cy)
+        return painted_y
+    end
+
+    it("centres digits on their ink instead of the line box", function()
+        assert.are.equal(87, paint_y({ { 14, 14 } }, 100))
+        assert.are.equal(87, paint_y({ { 14, 14 } }, 100.5))
+    end)
+
+    it("keeps digits in place next to a lone descender", function()
+        assert.are.equal(87, paint_y({ { 14, 14 }, { 10, 15 } }, 100))
+    end)
+
+    it("uses the whole ink when every glyph floats above or dips below the baseline", function()
+        assert.are.equal(92, paint_y({ { 18, 12 } }, 100))
+        assert.are.equal(85, paint_y({ { 14, 18 } }, 100))
+    end)
+
+    it("falls back to the line box when the glyphs cannot be measured", function()
+        assert.are.equal(85, paint_y({}, 100))
+    end)
+end)
+
 describe("Controls menu tab placement", function()
     local utils = require("common/utils")
 

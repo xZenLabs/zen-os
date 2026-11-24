@@ -381,9 +381,7 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
             local cy     = y + border + r + inset
             paintCircle(bb, cx, cy, r + 2, outline)
             paintCircle(bb, cx, cy, r,     badge_col)
-            local mark = get_fav_mark(r * 2, is_dark)
-            local msz  = mark:getSize()
-            mark:paintTo(bb, cx - math.ceil(msz.w/2), cy - math.ceil(msz.h/2))
+            utils.paintBadgeText(bb, get_fav_mark(r * 2, is_dark), cx, cy + 0.5)
         end
 
         -- progress/status: top-right pentagon
@@ -432,8 +430,7 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
                     _cached_pause_fs   = fs
                     _cached_pause_dark = is_dark
                 end
-                local tsz = _cached_pause_tw:getSize()
-                _cached_pause_tw:paintTo(bb, bdg_x + math.floor((bw-tsz.w)/2), bdg_y + math.floor((rect_h-tsz.h)/2))
+                utils.paintBadgeText(bb, _cached_pause_tw, bdg_x + bw / 2, bdg_y + rect_h / 2)
             else
                 local pct_str = math.floor(100 * pct) .. "%"
                 local fs = utils.getBadgeFontSize(config, base_sz, 0.24, 7)
@@ -444,8 +441,7 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
                     _cached_pct_fs   = fs
                     _cached_pct_dark = is_dark
                 end
-                local tsz = _cached_pct_tw:getSize()
-                _cached_pct_tw:paintTo(bb, bdg_x + math.floor((bw-tsz.w)/2), bdg_y + math.floor((rect_h-tsz.h)/2))
+                utils.paintBadgeText(bb, _cached_pct_tw, bdg_x + bw / 2, bdg_y + rect_h / 2)
             end
         end
 
@@ -470,7 +466,7 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
             local by    = y + d.h - bh - inset
             paintPill(bb, bx - 2, by - 2, bw + 4, bh + 4, outline)
             paintPill(bb, bx,     by,     bw,     bh,     badge_col)
-            _cached_pages_tw:paintTo(bb, bx + math.floor((bw-tsz.w)/2), by + math.floor((bh-tsz.h)/2))
+            utils.paintBadgeText(bb, _cached_pages_tw, bx + bw / 2, by + bh / 2)
         end
 
         -- series: bottom-right circle
@@ -529,8 +525,7 @@ local function apply_strip_cover_decorations(frame, book, config, show_badges)
                 local cy = y + d.h - r - inset
                 paintCircle(bb, cx, cy, r + 2, outline)
                 paintCircle(bb, cx, cy, r,     badge_col)
-                local tsz = _cached_series_tw:getSize()
-                _cached_series_tw:paintTo(bb, cx - math.floor(tsz.w/2), cy - math.floor(tsz.h/2))
+                utils.paintBadgeText(bb, _cached_series_tw, cx, cy + 0.5)
             end
         end
 

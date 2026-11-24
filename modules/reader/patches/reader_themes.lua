@@ -45,6 +45,16 @@ local function apply_reader_themes()
         return result
     end
 
+    local orig_onToggleNightmodeImages = ReaderTypeset.onToggleNightmodeImages
+    ReaderTypeset.onToggleNightmodeImages = function(self, ...)
+        local result = orig_onToggleNightmodeImages(self, ...)
+        -- Color CRe pre-inverts theme colors only while it inverts images.
+        if self.ui.document.render_color and ReaderThemes.isActive(plugin) then
+            ReaderThemes.applyCurrent(plugin)
+        end
+        return result
+    end
+
     local orig_updateFooterContainer = ReaderFooter.updateFooterContainer
     ReaderFooter.updateFooterContainer = function(self, ...)
         local result = orig_updateFooterContainer(self, ...)

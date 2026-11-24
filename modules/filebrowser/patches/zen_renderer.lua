@@ -660,8 +660,7 @@ local function apply_zen_renderer()
         local y = frame.dimen.y + frame.dimen.h - height - inset
         paint_pill(bb, x - 2, y - 2, width + 4, height + 4, foreground)
         paint_pill(bb, x, y, width, height, color)
-        widget:paintTo(bb, x + math.floor((width - widget_size.w) / 2),
-            y + math.floor((height - widget_size.h) / 2))
+        utils.paintBadgeText(bb, widget, x + width / 2, y + height / 2)
     end
 
     local function paint_series_badge(item, bb, text, config)
@@ -681,13 +680,12 @@ local function apply_zen_renderer()
             widget = badge_text(item, "_zen_series_badge", text, font_size, foreground)
         end
         item._zen_series_fit = { text = text, radius = radius, max = max_size, size = font_size }
-        local widget_size = widget:getSize()
         local inset = utils.getBadgeInset(radius)
         local x = frame.dimen.x + frame.dimen.w - radius - inset
         local y = frame.dimen.y + frame.dimen.h - radius - inset
         paint_circle(bb, x, y, radius + 2, foreground)
         paint_circle(bb, x, y, radius, color)
-        widget:paintTo(bb, x - math.floor(widget_size.w / 2), y - math.floor(widget_size.h / 2))
+        utils.paintBadgeText(bb, widget, x, y + 0.5)
     end
 
     local function paint_progress_badge(item, bb, config)
@@ -730,10 +728,8 @@ local function apply_zen_renderer()
             or (do_pause and icons.on_hold
                 or (math.floor(100 * item.percent_finished + 0.5) .. "%"))
         local font_size = utils.getBadgeFontSize(config, size, (do_tbr or do_pause) and 0.40 or 0.24, 7)
-        local widget = badge_text(item, "_zen_progress_badge", text, font_size, foreground)
-        local widget_size = widget:getSize()
-        widget:paintTo(bb, x + math.floor((width - widget_size.w) / 2),
-            y + math.floor((rect_h - widget_size.h) / 2))
+        utils.paintBadgeText(bb, badge_text(item, "_zen_progress_badge", text, font_size, foreground),
+            x + width / 2, y + rect_h / 2)
     end
 
     local function paint_favorite_badge(item, bb, config)
@@ -750,10 +746,8 @@ local function apply_zen_renderer()
         local y = frame.dimen.y + radius + inset
         paint_circle(bb, x, y, radius + 2, foreground)
         paint_circle(bb, x, y, radius, color)
-        local widget = badge_text(item, "_zen_favorite_badge", icons.favorite,
-            utils.getBadgeFontSize(config, radius * 2, 0.45, 6), foreground)
-        local widget_size = widget:getSize()
-        widget:paintTo(bb, x - math.ceil(widget_size.w / 2), y - math.ceil(widget_size.h / 2))
+        utils.paintBadgeText(bb, badge_text(item, "_zen_favorite_badge", icons.favorite,
+            utils.getBadgeFontSize(config, radius * 2, 0.45, 6), foreground), x, y + 0.5)
     end
 
     local function paint_native_progress(item, bb, config)

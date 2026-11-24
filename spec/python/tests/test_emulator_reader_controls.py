@@ -761,11 +761,14 @@ def _write_pdf(path, pages=1):
     path.write_bytes(data)
 
 
-@pytest.mark.parametrize("extension", ["pdf", "cbz"])
+@pytest.mark.parametrize("extension", ["pdf", "cbz", "epub"])
 @pytest.mark.parametrize("night_mode", [False, True])
-def test_contrast_paginated_document_inversion(extension, night_mode):
+def test_night_mode_inversion_option(extension, night_mode):
     from fixtures import build_library
 
+    # Paged documents invert the whole page (off by default), EPUB only its images (on by default).
+    section, name, steps = ("page", "nightmode_images", [(1, 0), (2, 1)]) if extension == "epub" \
+        else ("contrast", "nightmode_document", [(2, 1), (1, 0)])
     runtime = Path(os.environ["KOREADER_DIR"])
     with tempfile.TemporaryDirectory(prefix="zrc-", dir="/tmp") as temporary:
         root = Path(temporary)
@@ -774,6 +777,9 @@ def test_contrast_paginated_document_inversion(extension, night_mode):
         library.mkdir()
         if extension == "cbz":
             book = Path(build_library(library)["cbz"])
+        elif extension == "epub":
+            book = library / "controls.epub"
+            _write_reader_epub(book)
         else:
             book = library / "controls.pdf"
             _write_pdf(book)
@@ -795,20 +801,20 @@ def test_contrast_paginated_document_inversion(extension, night_mode):
             _wait_command(driver, "reader_state", lambda result: result.get("reader", {}).get("open"))
             state = driver.command("reader_controls", action="open")
             assert state["section"] == "book_info"
-            state = driver.command("reader_controls", action="choose", id="contrast")
-            assert state["section"] == "contrast"
-            assert "nightmode_document_1" not in state["controls"]
-            state = driver.command("reader_controls", action="choose", id="nightmode_document_1")
-            assert ("nightmode_document_1" in state["controls"]) is night_mode
-            assert ("nightmode_document_2" in state["controls"]) is night_mode
+            state = driver.command("reader_controls", action="choose", id=section)
+            assert state["section"] == section
+            assert f"{name}_1" not in state["controls"]
+            state = driver.command("reader_controls", action="choose", id=f"{name}_1")
+            assert (f"{name}_1" in state["controls"]) is night_mode
+            assert (f"{name}_2" in state["controls"]) is night_mode
             if night_mode:
-                for index, value in [(2, 1), (1, 0)]:
-                    driver.command("reader_controls", action="choose", id=f"nightmode_document_{index}")
+                for index, value in steps:
+                    driver.command("reader_controls", action="choose", id=f"{name}_{index}")
                     state = driver.command("reader_controls", action="paint")
-                    assert state["config"]["nightmode_document"] == value
-                    assert state["selections"][f"nightmode_document_{index}"]
-            driver.command("reader_controls", action="choose", id="contrast")
-            assert "nightmode_document_1" not in driver.command("reader_controls")["controls"]
+                    assert state["config"][name] == value
+                    assert state["selections"][f"{name}_{index}"]
+            driver.command("reader_controls", action="choose", id=section)
+            assert f"{name}_1" not in driver.command("reader_controls")["controls"]
         finally:
             stop(process)
 

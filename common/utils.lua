@@ -477,6 +477,45 @@ function M.paintBadgeCircle(bb, cx, cy, radius, color)
     end
 end
 
+-- Row of a TextWidget where its drawn glyphs are centred; nil when it cannot be measured.
+local function ink_center_row(widget)
+    local xtext = widget._xtext
+    if not xtext then return end
+    local RenderText = require("ui/rendertext")
+    widget._xshaping = widget._xshaping or xtext:shapeLine(widget._shape_start,
+        widget._shape_end, widget._shape_idx_to_substitute_with_ellipsis)
+    local top, low, high -- ink top, lowest and highest glyph bottom: rows above the baseline
+    for _i, xglyph in ipairs(widget._xshaping) do
+        local glyph = RenderText:getGlyphByIndex(
+            widget.face.getFallbackFont(xglyph.font_num), xglyph.glyph, widget.bold)
+        local ink_h = glyph.bb:getHeight()
+        if ink_h > 0 then
+            local t = glyph.t + xglyph.y_offset
+            local b = t - ink_h
+            top = math.max(top or t, t)
+            low = math.min(low or b, b)
+            high = math.max(high or b, b)
+        end
+    end
+    if not top then return end
+    -- The ink ends at the baseline unless every glyph floats above it or dips below it:
+    -- a lone descender must not lift the digits beside it.
+    local bottom = math.max(low, math.min(high, 0))
+    return widget:getBaseline() - (top + bottom) / 2
+end
+
+--- Paints a TextWidget with its glyphs centred on (cx, cy), in pixel-edge coordinates.
+--- Centring the line box leaves digits and icons high: they never use its descender space.
+function M.paintBadgeText(bb, widget, cx, cy)
+    local size = widget:getSize()
+    if widget._zen_ink_row == nil then
+        local ok, row = pcall(ink_center_row, widget)
+        widget._zen_ink_row = ok and row or size.h / 2
+    end
+    -- Half-pixel ties go up, where the line-box centring used to put them.
+    widget:paintTo(bb, math.floor(cx - size.w / 2), math.ceil(cy - widget._zen_ink_row - 0.5))
+end
+
 local function badge_line_painter(bb, width, height, color)
     local thickness = math.max(2, math.floor(math.min(width, height) / 8))
     return function(x0, y0, x1, y1)
