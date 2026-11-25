@@ -5,6 +5,7 @@ local function apply_browser_folder_sort()
 
         Public API (used by context_menu.lua via __ZEN_FOLDER_SORT global):
           FolderSort.get(path)                  → { collate = "title", reverse = false } or nil
+          FolderSort.getActive(path)            → same, or nil where listings ignore it (home)
           FolderSort.set(path, collate, reverse) → save override
           FolderSort.clear(path)                → remove override
     ]]
@@ -62,6 +63,29 @@ local function apply_browser_folder_sort()
         local key = normalize_path(path)
         if not key then return nil end
         return lookup(key, path)
+    end
+
+    local orig_genItemTableFromPath = FileChooser.genItemTableFromPath
+
+    local home_memo = {}
+    local function normalized_home(home_dir)
+        if home_memo.dir ~= home_dir then
+            home_memo.dir, home_memo.key = home_dir, normalize_path(home_dir)
+        end
+        return home_memo.key
+    end
+
+    -- The override a listing of path actually uses: none for the home directory.
+    local function active_override(path, key)
+        local home_dir = paths.getHomeDir()
+        if home_dir and (path == home_dir or key == normalized_home(home_dir)) then
+            return nil
+        end
+        return key and lookup(key, path)
+    end
+
+    function M.getActive(path)
+        return active_override(path, normalize_path(path))
     end
 
     function M.set(path, collate_id, reverse)
@@ -218,26 +242,9 @@ local function apply_browser_folder_sort()
         end
     end
 
-    local orig_genItemTableFromPath = FileChooser.genItemTableFromPath
-
-    local home_memo = {}
-    local function normalized_home(home_dir)
-        if home_memo.dir ~= home_dir then
-            home_memo.dir, home_memo.key = home_dir, normalize_path(home_dir)
-        end
-        return home_memo.key
-    end
-
     FileChooser.genItemTableFromPath = function(self, path, ...)
-        local key = normalize_path(path)
-
         -- Never apply a per-folder sort override to the home directory.
-        local home_dir = paths.getHomeDir()
-        if home_dir and (path == home_dir or key == normalized_home(home_dir)) then
-            return orig_genItemTableFromPath(self, path, ...)
-        end
-
-        local override = key and lookup(key, path)
+        local override = active_override(path, normalize_path(path))
 
         if not override then
             return orig_genItemTableFromPath(self, path, ...)

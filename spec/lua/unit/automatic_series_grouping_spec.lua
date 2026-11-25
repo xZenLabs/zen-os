@@ -625,6 +625,59 @@ describe("automatic series grouping patch", function()
         assert.are.equal(unopened, fc.item_table[4])
     end)
 
+    it("sorts series groups with the folder's own sort override", function()
+        local function progress(path, title, sort_percent)
+            local book = item(path, title)
+            book.sort_percent = sort_percent
+            return book
+        end
+        local function list(global_collate, override)
+            local reading = progress("/library/Shelf/Reading.epub", "Reading", 0.8)
+            local saga_current = progress("/library/Shelf/Saga-2.epub", "Saga 2", 0.5)
+            local unopened = progress("/library/Shelf/Unopened.epub", "Unopened", -1)
+            local saga_done = progress("/library/Shelf/Saga-1.epub", "Saga 1", 1)
+            metadata[saga_done.path] = { series = "Saga", series_index = 1 }
+            metadata[saga_current.path] = { series = "Saga", series_index = 2 }
+            local folder = { text = "Folder/", path = "/library/Shelf/Folder", attr = { mode = "directory" } }
+            _G.__ZEN_FOLDER_SORT = {
+                getActive = function(path) return path == "/library/Shelf" and override or nil end,
+            }
+            local fc = chooser()
+            fc.path = "/library/Shelf"
+            fc.getCollate = function(self)
+                local active = self._zen_sort_override
+                return { can_collate_mixed = false }, active and active.collate or global_collate
+            end
+            fc.getSortingFunction = function(self, _collate, reverse)
+                local _c, collate_id = self:getCollate()
+                local function less(a, b)
+                    if collate_id ~= "percent_natural" or a.sort_percent == b.sort_percent then
+                        return a.text < b.text
+                    end
+                    if a.sort_percent == 1 then return false end
+                    if b.sort_percent == 1 then return true end
+                    return a.sort_percent > b.sort_percent
+                end
+                return function(a, b)
+                    if reverse then return less(b, a) end
+                    return less(a, b)
+                end
+            end
+            FileChooser.switchItemTable(fc, nil, { folder, reading, saga_current, unopened, saga_done })
+            local texts = {}
+            for index, entry in ipairs(fc.item_table) do texts[index] = entry.text end
+            assert.is_nil(fc._zen_sort_override)
+            return texts
+        end
+
+        -- Global Progress, folder sorted by name: the group stays with the folders.
+        assert.are.same({ "Folder/", "Saga", "Reading", "Unopened" },
+            list("percent_natural", { collate = "natural", reverse = false }))
+        -- Global name sort, folder sorted by Progress in reverse: books and the group follow it.
+        assert.are.same({ "Folder/", "Unopened", "Saga", "Reading" },
+            list("natural", { collate = "percent_natural", reverse = true }))
+    end)
+
     it("keeps the incoming mixed order when no series group forms", function()
         local zulu = item("/library/Zulu.epub", "Zulu")
         local alpha = item("/library/Alpha.epub", "Alpha")
