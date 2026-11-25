@@ -621,7 +621,8 @@ describe("file browser group views", function()
         assert.is_truthy(author_dialog.buttons[1][1].text:find("\u{EBBA}", 1, true))
         assert.is_truthy(author_dialog.buttons[1][1].text:find("First name", 1, true))
         assert.is_truthy(author_dialog.buttons[2][1].text:find("Last name", 1, true))
-        assert.are.equal(">", author_dialog.buttons[3][1].text:sub(-1))
+        assert.is_truthy(author_dialog.buttons[3][1].text:find("Book count", 1, true))
+        assert.are.equal(">", author_dialog.buttons[4][1].text:sub(-1))
         author_dialog.buttons[2][1].callback()
 
         assert.are.equal("authors_last", config.group_view.authors_collate)
@@ -641,7 +642,7 @@ describe("file browser group views", function()
         menu:onZenGroupBlankHold()
         file_dialog_args._zen_sort_cb()
         author_dialog = dialogs[#dialogs]
-        author_dialog.buttons[3][1].callback()
+        author_dialog.buttons[4][1].callback()
         sort_dialog_args.on_select(true)
 
         assert.is_true(config.group_view.group_reverse.authors)
@@ -885,7 +886,7 @@ describe("file browser group views", function()
         end
     end)
 
-    it("keeps the Tags page sort limited to tag names", function()
+    it("keeps the Tags page sort limited to tag names and book count", function()
         install_group_view({
             tags = { { tag = "Classics", files = { "/book.epub" } } },
         })
@@ -896,10 +897,11 @@ describe("file browser group views", function()
         menu:onZenGroupBlankHold()
         file_dialog_args._zen_sort_cb()
         local sort_dialog = dialogs[#dialogs]
-        assert.are.equal(3, #sort_dialog.buttons)
+        assert.are.equal(4, #sort_dialog.buttons)
         assert.is_truthy(sort_dialog.buttons[1][1].text:find("Title", 1, true))
         assert.is_truthy(sort_dialog.buttons[2][1].text:find("Title natural", 1, true))
-        assert.is_truthy(sort_dialog.buttons[3][1].text:find("Order", 1, true))
+        assert.is_truthy(sort_dialog.buttons[3][1].text:find("Book count", 1, true))
+        assert.is_truthy(sort_dialog.buttons[4][1].text:find("Order", 1, true))
     end)
 
     it("groups an author's books into series and preserves grouping after sorting", function()
