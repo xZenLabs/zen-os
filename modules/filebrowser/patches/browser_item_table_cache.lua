@@ -414,8 +414,19 @@ local function apply_browser_item_table_cache()
                 end
                 if read_time then
                     item.attr = item.attr or {}
+                    -- The file's own access time, restored if it leaves the history.
+                    if item._zen_fs_access == nil then
+                        item._zen_fs_access = item.attr.access or false
+                    end
                     item.attr.access = read_time
                     if not is_directory and collate.mandatory_func ~= nil then
+                        item.mandatory = chooser:getMenuItemMandatory(item, collate)
+                    end
+                elseif not is_directory and item._zen_fs_access ~= nil and item.attr then
+                    -- A cached item that was in the history but no longer is.
+                    item.attr.access = item._zen_fs_access or nil
+                    item._zen_fs_access = nil
+                    if collate.mandatory_func ~= nil then
                         item.mandatory = chooser:getMenuItemMandatory(item, collate)
                     end
                 end

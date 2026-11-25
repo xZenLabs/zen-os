@@ -4284,6 +4284,11 @@ function M.sourcesChanged(paths)
         mark_home_rebuild_needed()
     end
     if not _home_menu or _home_menu._zen_home_closing then return end
+    -- A drilled-into group's books are looked up again on the next build.
+    local runtime = _home_menu._zen_home_strip_runtime
+    local source = type(runtime) == "table" and runtime.source
+    local drill = type(source) == "table" and source.drill
+    if type(drill) == "table" then drill.files = nil end
     if not M.isActiveOnTop() then
         -- Resumed (and rebuilt as needed) when shown again.
         request_home_repaint(_home_menu, "ui")
