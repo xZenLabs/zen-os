@@ -1396,7 +1396,12 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id, opene
                     _zen_group_name        = group_name,
                     _zen_is_folder_view    = tab_id ~= "status",
                     _zen_sort_cb           = function()
-                        showDetailSortDialog(group_name, tab_id, self, files)
+                        -- Sorts the books shown when an option is picked:
+                        -- book sources may change them while it's open.
+                        showDetailSortDialog(group_name, tab_id, self, files,
+                            function(collate, reverse)
+                                return sortDetailFiles(files, collate, reverse)
+                            end)
                     end,
                     _zen_display_cb        = function()
                         showDisplayModeDialog(self, tab_id, group_name)

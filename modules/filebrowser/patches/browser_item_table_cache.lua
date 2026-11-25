@@ -1193,6 +1193,9 @@ local function apply_browser_item_table_cache()
             local chooser = type(FileManager) == "table" and FileManager.instance
                 and FileManager.instance.file_chooser
             if not (chooser and chooser.name == "filemanager") then return end
+            -- A listing prepared for the next refresh has the old order or
+            -- statuses, and its key doesn't show it.
+            if kind ~= "books" then chooser:_zen_discard_prepared_item_table() end
             local first = pending_refresh == nil
             pending_refresh = pending_refresh or { dirs = {}, status = false }
             -- The latest report's browser is the one refreshed (a new one

@@ -4276,6 +4276,9 @@ function M.sourcesChanged(paths)
         if dataset then
             dataset.generation = dataset.generation + 1
             dataset.history = nil
+            -- Any book's status may have changed (e.g. statusChanged()).
+            dataset.effective_status = {}
+            dataset.status_data = {}
             clear_home_dataset_derived(dataset)
         end
         mark_home_rebuild_needed()
