@@ -40,7 +40,7 @@ msgstr "%1 et ce n'est pas fini. Votre liseuse est bien utilisée."
 #. Context: { 6, { _("A handful of good ones. Your to-be-read pile trembles a little."), _("A small stack. A strong stack.") } }, { 13, { _("%1 books this year. Textbook consistency."), _("%1 books a year keeps the algorithm away.") } }, { 26, { _("...
 #: reading_wrapped.lua:86
 msgid "%1 books a year keeps the algorithm away."
-msgstr "%1 Livres par an éloignent l'algorithme."
+msgstr "%1 livres par an éloignent l'algorithme."
 
 #. Type: message
 #. Context: { 51, { _("%1 books. Who needs weekends?"), _("Your ereader called. It wants a raise.") } }, { 101, { _("%1 books in one year. Do you… sleep?"), _("At this pace, publishers should be scared of you.") } }, { math.huge, { _("%1 books. We c...
@@ -70,7 +70,7 @@ msgstr "%1 livres. Nous avons vérifié deux fois."
 #. Context: { 26, { _("Your to-be-read pile has started negotiating."), _("%1 and counting. Your ereader is well used.") } }, { 51, { _("%1 books. Who needs weekends?"), _("Your ereader called. It wants a raise.") } }, { 101, { _("%1 books in one ye...
 #: reading_wrapped.lua:88
 msgid "%1 books. Who needs weekends?"
-msgstr "%1 Livres. Qui a besoin de week-ends ?"
+msgstr "%1 livres. Qui a besoin de week-ends ?"
 
 #. Type: title
 #. Context: if data.longest_streak >= 2 then add{ title = _("Longest streak"), icon = icon("flame"), stat = T(_("%1 days"), data.longest_streak), description = T(pick(STREAK_QUIPS, data.longest_streak), data.longest_streak) }
@@ -112,13 +112,13 @@ msgstr "%1 GHz"
 #. Context: stat_label = noted.annotations == 1 and _("1 highlight or note") or T(_("%1 highlights and notes"), noted.annotations), description = pick(ANNOTATION_QUIPS, noted.annotations) }, { noted }, 1))
 #: reading_wrapped.lua:356
 msgid "%1 highlights and notes"
-msgstr "%1 Points saillants et notes"
+msgstr "%1 points saillants et notes"
 
 #. Type: message
 #. Context: { 20, { _("A long weekend's worth of reading. Not bad at all."), _("That's a full binge-watch session, but with better dialogue.") } }, { 50, { _("%1 hours lost in other worlds. Worth every one."), _("That's a lot of pages turned instead...
 #: reading_wrapped.lua:68
 msgid "%1 hours lost in other worlds. Worth every one."
-msgstr "%1 Des heures perdues dans d'autres mondes. Chaque instant en valait la peine."
+msgstr "%1 heures perdues dans d'autres mondes. Chaque instant en valait la peine."
 
 #. Type: message
 #. Context: local AUTHOR_QUIPS = { -- percent of the year's reading time; %1 author, %2 percent { 15, { _("You two had a nice thing going."), _("%1 made the shortlist. Fancy.") } }, { 30, { _("Wow, you really must like their writing."), _("%1 took a...
@@ -232,31 +232,31 @@ msgstr "%1 min"
 #. Context: { 3, { _("Two by %1. Once is curiosity. Twice is a pattern."), _("Came back for seconds. Fair.") } }, { 5, { _("Starting a collection, are we?"), _("%2 books in. You're committed now.") } }, { 10, { _("You're working through %1's backlis...
 #: reading_wrapped.lua:115
 msgid "%2 books in. You're committed now."
-msgstr "%2 Réservation effectuée. Vous êtes engagé(e) maintenant."
+msgstr "%2 réservation effectuée. Vous êtes engagé(e) maintenant."
 
 #. Type: message
 #. Context: { 10, { _("You're working through %1's backlist like it's a quest."), _("Their publisher should send you a card.") } }, { math.huge, { _("%2 books. You're not a reader of %1. You're an archive."), _("At this point %1 should name a charac...
 #: reading_wrapped.lua:117
 msgid "%2 books. You're not a reader of %1. You're an archive."
-msgstr "Livres %2. Vous n'êtes pas un lecteur de %1. Vous êtes une archive."
+msgstr "%2 livres. Vous n'êtes pas un lecteur de %1. Vous êtes une archive."
 
 #. Type: message
 #. Context: { 500, { _("%2 solid days of reading. Sleep is for people with fewer books."), _("At this point the library owes you a key.") } }, { math.huge, { _("%2 days, non-stop, nose in a book. Legendary."), _("You didn't read this year. You lived...
 #: reading_wrapped.lua:72
 msgid "%2 days, non-stop, nose in a book. Legendary."
-msgstr "%2 Des jours, sans interruption, le nez plongé dans un livre. Légendaire."
+msgstr "%2 jours, sans interruption, le nez plongé dans un livre. Légendaire."
 
 #. Type: message
 #. Context: { 50, { _("%1 hours lost in other worlds. Worth every one."), _("That's a lot of pages turned instead of doom-scrolled.") } }, { 100, { _("%2 full days of your life, spent entirely on purpose."), _("Your screen time report would be jealo...
 #: reading_wrapped.lua:69
 msgid "%2 full days of your life, spent entirely on purpose."
-msgstr "%2 Des journées entières de votre vie, passées entièrement à dessein."
+msgstr "%2 journées entières de votre vie, passées entièrement à dessein."
 
 #. Type: message
 #. Context: { 250, { _("You could have watched every Lord of the Rings extended cut… %3 times. You chose books."), _("That's a transatlantic flight. %4 of them. Round trip.") } }, { 500, { _("%2 solid days of reading. Sleep is for people with fewer...
 #: reading_wrapped.lua:71
 msgid "%2 solid days of reading. Sleep is for people with fewer books."
-msgstr "%2 Des journées entières de lecture. Le sommeil est pour ceux qui ont moins de livres."
+msgstr "%2 journées entières de lecture. Le sommeil est pour ceux qui ont moins de livres."
 
 #. Type: message
 #. Context: { 30, { _("Wow, you really must like their writing."), _("%1 took a solid slice of your year.") } }, { 50, { _("%2% of your reading year belonged to %1. Flattering, honestly."), _("You and %1: it's practically a book club of two.") } },...
@@ -946,7 +946,7 @@ msgstr "À ce stade, vous êtes co-auteur."
 #. Context: { 50, { _("%2% of your reading year belonged to %1. Flattering, honestly."), _("You and %1: it's practically a book club of two.") } }, { 75, { _("%2% of your reading year. Should we tell %1?"), _("At this point you're less a reader, mor...
 #: reading_wrapped.lua:109
 msgid "At this point you're less a reader, more a devoted fan."
-msgstr "À ce stade, vous êtes moins un lecteur qu'un fan dévoué."
+msgstr "À ce stade, vous êtes moins un lecteur et plus un fan dévoué."
 
 #. Type: label
 #. Context: Libellé dans les boîtes de dialogue de connexion Wi-Fi sur Kobo.
@@ -1102,7 +1102,7 @@ msgstr "Statistiques de batterie"
 #. Context: { 18, 20, _("Evening reader"), "moon_outline", { _("Dinner, then a chapter. Or three."), _("Your evenings have excellent taste.") } }, { 21, 23, _("Bedtime reader"), "moon_outline", { _("One more chapter turns into midnight. Every time."...
 #: reading_wrapped.lua:167
 msgid "Bedtime reader"
-msgstr "lecteur du soir"
+msgstr "Lecteur du soir"
 
 #. Type: message
 #. Context: Message dans le formulaire de signalement de bogue.
@@ -1498,7 +1498,7 @@ msgstr "Chapitres"
 #. Context: { 0, 4, _("Night owl"), "moon_outline", { _("Sleep is a suggestion. Pages are a priority."), _("Your best reading happens when the world is off.") } }, { 5, 8, _("Early bird"), "sun", { _("Chapters before coffee. Respect."), _("You beat...
 #: reading_wrapped.lua:162
 msgid "Chapters before coffee. Respect."
-msgstr "Les chapitres avant le café. Respect."
+msgstr "Des chapitres avant le café. Respect."
 
 #. Type: setting
 #. Context: Nom d’un réglage dans le menu des statistiques de batterie.
@@ -2656,7 +2656,7 @@ msgstr "Remplissage dynamique 2"
 #. Context: { 0, 4, _("Night owl"), "moon_outline", { _("Sleep is a suggestion. Pages are a priority."), _("Your best reading happens when the world is off.") } }, { 5, 8, _("Early bird"), "sun", { _("Chapters before coffee. Respect."), _("You beat...
 #: reading_wrapped.lua:162
 msgid "Early bird"
-msgstr "lève-tôt"
+msgstr "Lève-tôt"
 
 #. Type: action
 #. Context: Nom d’une action dans le guide de configuration. Libellé dans le menu contextuel des livres et dossiers. Nom d’une action dans le navigateur de catalogues de livres en ligne. Également utilisé ailleurs dans ZenOS.
@@ -2776,7 +2776,7 @@ msgstr "Assez de pages pour caler toutes les portes de la maison."
 #. Context: { 5, { _("Picky. Only the good stuff made the cut."), _("Something in here stopped you cold. Good lines do that.") } }, { 25, { _("You came for the story and left with receipts."), _("Enough quotes to win any argument about this book.")...
 #: reading_wrapped.lua:129
 msgid "Enough quotes to win any argument about this book."
-msgstr "Ce livre contient suffisamment de citations pour remporter n'importe quel débat."
+msgstr "Suffisamment de citations pour remporter n'importe quel débat à propos de ce livre."
 
 #. Type: message
 #. Context: Message dans le menu des réseaux Wi-Fi et les boîtes de dialogue de connexion.
@@ -2848,7 +2848,7 @@ msgstr "Même votre chargeur a pris plus de jours de congé que vous."
 #. Context: { 14, 17, _("Afternoon reader"), "sun", { _("Golden light, golden hours."), _("The afternoon slump never stood a chance.") } }, { 18, 20, _("Evening reader"), "moon_outline", { _("Dinner, then a chapter. Or three."), _("Your evenings hav...
 #: reading_wrapped.lua:166
 msgid "Evening reader"
-msgstr "lecteur du soir"
+msgstr "Lecteur du soir"
 
 #. Type: message
 #. Context: _("Stories end, readers don't. Charge up, pick the next one, and we'll see you here next year."), _("Every page you turned this year was time well spent. Same time next year?"), }
@@ -3784,7 +3784,7 @@ msgstr "Articles par ligne"
 #. Context: local SERIES_QUIPS = { -- books from the series this year; %1 series { 2, { _("One book in. The rest of the series is already watching you."), _("Just the one. That's what everyone says before book five."), _("One down. Your free time ha...
 #: reading_wrapped.lua:121
 msgid "Just the one. That's what everyone says before book five."
-msgstr "Un seul. C'est ce que tout le monde dit avant le cinquième tome."
+msgstr "Un seul. C'est ce que tout le monde dit avant le cinquième livre."
 
 #. Type: setting
 #. Context: Nom d’un réglage dans les réglages de disposition et de widgets de l’accueil.
