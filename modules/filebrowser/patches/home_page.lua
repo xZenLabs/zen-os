@@ -2146,7 +2146,22 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
                     return drill.files
                 end
             end
-            drill.files = {}
+            -- No group (e.g. a source report left one book, or only this
+            -- series): match the remaining books by their series metadata.
+            local files = {}
+            local ok_db, db = pcall(require, "common/db_bookinfo")
+            local metadata = ok_db and db and type(db.getLightMetadata) == "function"
+                and db.getLightMetadata() or {}
+            for _i, file in ipairs(paths) do
+                local info = metadata[file]
+                if info and info.series == drill.label then files[#files + 1] = file end
+            end
+            table.sort(files, function(a, b)
+                local a_index = tonumber(metadata[a].series_index) or 0
+                local b_index = tonumber(metadata[b].series_index) or 0
+                return a_index == b_index and a < b or a_index < b_index
+            end)
+            drill.files = files
             return drill.files
         end
         for _i, group in ipairs(source_groups(request.kind)) do

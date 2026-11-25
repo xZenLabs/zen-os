@@ -1241,7 +1241,21 @@ local function apply_browser_item_table_cache()
                         or G_reader_settings:readSetting("collate", "strcoll")
                     return book_sources_key(chooser.path) ~= "" or collate == "access"
                 end
-                if out_of_date() then chooser:refreshPath() end
+                if out_of_date() then
+                    -- A book changed in place leaves folder timestamps (and
+                    -- so the cache key) alone: rebuild from the filesystem.
+                    local invalidated = false
+                    for _i, dir in ipairs(report.dirs) do
+                        if at_or_above(shown, dir) then
+                            chooser:_zen_invalidate_item_table_path(dir)
+                            invalidated = true
+                        end
+                    end
+                    if invalidated then
+                        chooser:_zen_invalidate_item_table_path(chooser.path)
+                    end
+                    chooser:refreshPath()
+                end
             end)
         end)
     end
