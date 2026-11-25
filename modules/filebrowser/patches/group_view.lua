@@ -1277,15 +1277,21 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id, opene
         if type(group_item._zen_load_files) == "function" then
             files = group_item._zen_load_files() or {}
         elseif opener then
-            if is_detail_open(opener) then
+            -- Taken from the list's refreshed books and their series, not its
+            -- items: a series left with one book is shown as that book.
+            if is_detail_open(opener) and type(opener._zen_current_files) == "function" then
+                local db = require("common/db_bookinfo")
+                local metadata = db.getLightMetadata() or {}
                 local found = {}
-                for _i, item in ipairs(opener.item_table or {}) do
-                    if item.is_series_group and item.text == group_name
-                            and type(item._zen_files) == "table" then
-                        found = item._zen_files
-                        break
-                    end
+                for _i, path in ipairs(opener._zen_current_files() or {}) do
+                    local info = metadata[path]
+                    if info and info.series == group_name then found[#found + 1] = path end
                 end
+                table.sort(found, function(a, b)
+                    local a_index = tonumber(metadata[a].series_index) or 0
+                    local b_index = tonumber(metadata[b].series_index) or 0
+                    return a_index == b_index and a < b or a_index < b_index
+                end)
                 files = found
             end
         elseif group_getters[tab_id] then
@@ -1310,6 +1316,7 @@ showDetailView = function(group_item, injectNavbar, tab_id, navbar_tab_id, opene
         detail_menu.item_table = buildItems()
         detail_menu:updateItems()
     end
+    detail_menu._zen_current_files = function() return files end
     detail_menu._zen_group_name = group_name
     detail_menu._zen_tab_id     = tab_id
     detail_menu.close_callback = function()

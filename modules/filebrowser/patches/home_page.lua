@@ -444,6 +444,13 @@ local function trim_home_book_cache()
     end
 end
 
+-- Drops every cached book (freeing their covers), e.g. when any book may
+-- have changed.
+local function clear_home_book_cache()
+    for key in pairs(_home_book_cache) do remove_home_book_cache_entry(key) end
+    _home_book_cache_order = {}
+end
+
 local function cache_home_book(key, book)
     remove_home_book_cache_entry(key)
     for i = #_home_book_cache_order, 1, -1 do
@@ -4264,6 +4271,7 @@ function M.sourcesChanged(paths)
         end
     end
     if not any_path then
+        clear_home_book_cache()
         local dataset = _home_dataset_cache
         if dataset then
             dataset.generation = dataset.generation + 1

@@ -1183,8 +1183,8 @@ local function apply_browser_item_table_cache()
     -- (the sources' books in it, or a status filter), or, after a status or
     -- history change, it lists sources' books or is sorted by last read.
     if ok_sources and type(BookSources.onChanged) == "function" then
-        local pending -- { dirs = { ... }, status = bool }, until the next tick
-        BookSources.onChanged(function(paths, kind)
+        local pending_refresh -- { dirs = { ... }, status = bool }, until the next tick
+        BookSources.onChanged(function(changed_paths, kind)
             -- An entry's time may have changed in place, which the memo's
             -- snapshot check can't see. Dropped even with no browser open,
             -- or one opened later would sort by the old times.
@@ -1193,17 +1193,21 @@ local function apply_browser_item_table_cache()
             local chooser = type(FileManager) == "table" and FileManager.instance
                 and FileManager.instance.file_chooser
             if not (chooser and chooser.name == "filemanager") then return end
-            local first = pending == nil
-            pending = pending or { dirs = {}, status = false }
-            for _i, path in ipairs(paths or {}) do
-                pending.dirs[#pending.dirs + 1] = parent_dir(path)
+            local first = pending_refresh == nil
+            pending_refresh = pending_refresh or { dirs = {}, status = false }
+            -- The latest report's browser is the one refreshed (a new one
+            -- may have opened since the first report this tick).
+            pending_refresh.chooser = chooser
+            for _i, path in ipairs(changed_paths or {}) do
+                pending_refresh.dirs[#pending_refresh.dirs + 1] = parent_dir(path)
             end
-            if kind ~= "books" then pending.status = true end
+            if kind ~= "books" then pending_refresh.status = true end
             if not first then return end
             local UIManager = require("ui/uimanager")
             UIManager:nextTick(function()
-                local report = pending
-                pending = nil
+                local report = pending_refresh
+                pending_refresh = nil
+                chooser = report.chooser
                 local current = FileManager.instance and FileManager.instance.file_chooser
                 if current ~= chooser or type(chooser.path) ~= "string" then return end
                 local shown = strip_trailing_slashes(chooser.path)
