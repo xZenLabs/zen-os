@@ -448,14 +448,17 @@ def _protect_format_tokens(text: str) -> tuple[str, list[str]]:
     return _FORMAT_TOKEN_RE.sub(replace, text), tokens
 
 
+# Google can mangle a marker's brackets (vi returned "⟪" as U+FFFD), so the ASCII core
+# identifies it.
+_FORMAT_MARKER_RE = re.compile(r"[⟪\ufffd]?ZENFMT(\d+)[⟫\ufffd]?")
+
+
 def _restore_format_tokens(text: str, tokens: list[str]) -> str:
     """Restore protected format placeholders after translation."""
-    for index, token in enumerate(tokens):
-        marker = f"⟪ZENFMT{index}⟫"
-        if text.count(marker) != 1:
-            raise ValueError("translation changed a format placeholder marker")
-        text = text.replace(marker, token)
-    return text
+    found = sorted(int(match.group(1)) for match in _FORMAT_MARKER_RE.finditer(text))
+    if found != list(range(len(tokens))):
+        raise ValueError("translation changed a format placeholder marker")
+    return _FORMAT_MARKER_RE.sub(lambda match: tokens[int(match.group(1))], text)
 
 
 def google_api_key() -> str | None:
@@ -477,7 +480,11 @@ def google_api_key() -> str | None:
 
 
 def google_translate_batch(texts: list[str], locale: str, api_key: str, timeout: int = 30) -> list[str]:
-    """Translate up to 128 English strings with Google Cloud Translation Basic."""
+    """Translate up to 128 English strings with Google Cloud Translation Basic.
+
+    A string whose placeholders Google lost or repeated comes back empty: retrying gives
+    the same result, and it must not cost the rest of the batch.
+    """
     protected = [_protect_format_tokens(text) for text in texts]
     body = json.dumps({
         "q": [text for text, _tokens in protected],
@@ -504,10 +511,13 @@ def google_translate_batch(texts: list[str], locale: str, api_key: str, timeout:
                 raise ValueError("Google returned the wrong number of translations")
             if any(not item.get("translatedText") for item in translations):
                 raise ValueError("Google returned an empty translation")
-            return [
-                _restore_format_tokens(item["translatedText"], tokens)
-                for item, (_text, tokens) in zip(translations, protected)
-            ]
+            restored = []
+            for item, (_text, tokens) in zip(translations, protected):
+                try:
+                    restored.append(_restore_format_tokens(item["translatedText"], tokens))
+                except ValueError:
+                    restored.append("")
+            return restored
         except (OSError, ValueError, KeyError, IndexError, TypeError, urllib.error.URLError) as exc:
             last_error = exc
             if attempt < 2:
@@ -544,6 +554,7 @@ def sync_catalogs(po_files: list[str], lua_strings: dict[str, list[tuple[str, in
     """Fully synchronize catalogs, keeping each catalog atomic."""
     msgids = set(lua_strings)
     translation_error = None
+    damaged = []  # (locale, msgid) Google returned with broken placeholders
     for po_file in sorted(po_files, key=lambda name: (name != "en.po", name)):
         locale = po_file[:-3]
         po_path = os.path.join(LOCALES_DIR, po_file)
@@ -562,6 +573,7 @@ def sync_catalogs(po_files: list[str], lua_strings: dict[str, list[tuple[str, in
                 print(f"  -> translating {len(untranslated)} entries")
                 try:
                     synced.update(translate_strings(locale, untranslated))
+                    damaged.extend((locale, msgid) for msgid in untranslated if not synced[msgid])
                 except RuntimeError as exc:
                     translation_error = exc
                     print(f"  -> translation stopped; leaving empty entries", file=sys.stderr)
@@ -575,6 +587,12 @@ def sync_catalogs(po_files: list[str], lua_strings: dict[str, list[tuple[str, in
     if translation_error:
         raise RuntimeError(
             f"catalogs were synchronized, but translation failed; rerun --sync. {translation_error}"
+        )
+    if damaged:
+        raise RuntimeError(
+            f"catalogs were synchronized, but Google broke a format placeholder in {len(damaged)} "
+            "entries, left untranslated; translate them by hand: "
+            + "; ".join(f"[{locale}] {msgid!r}" for locale, msgid in damaged)
         )
 
 

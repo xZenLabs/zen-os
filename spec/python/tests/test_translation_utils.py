@@ -38,6 +38,40 @@ class TranslationUtilsTest(unittest.TestCase):
         self.assertEqual("test-key", request.get_header("X-goog-api-key"))
         self.assertEqual(["⟪ZENFMT0⟫h", "Hello"], json.loads(request.data)["q"])
 
+    def test_placeholder_markers_survive_mangled_brackets_but_not_loss_or_duplication(self):
+        restore = translation_utils._restore_format_tokens
+        self.assertEqual("Hẹn gặp lại bạn tại %1", restore("Hẹn gặp lại bạn tại \ufffdZENFMT0⟫", ["%1"]))
+        self.assertEqual("%2, %1", restore("ZENFMT1, ⟪ZENFMT0\ufffd", ["%1", "%2"]))
+        self.assertEqual("Hallo", restore("Hallo", []))
+        for damaged in ("Hallo", "⟪ZENFMT0⟫ ⟪ZENFMT0⟫", "⟪ZENFMT0⟫ ⟪ZENFMT1⟫", "⟪ZENFMT1⟫"):
+            with self.assertRaises(ValueError):
+                restore(damaged, ["%1"])
+
+    def test_sync_leaves_only_entries_with_broken_placeholders_untranslated(self):
+        def respond(request, timeout=None):
+            # Loses the marker in one string, as Google does for some languages.
+            return io.BytesIO(json.dumps({"data": {"translations": [
+                {"translatedText": "x" if "streak" in text else text.upper()}
+                for text in json.loads(request.data)["q"]
+            ]}}).encode())
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for locale in ("en", "vi", "zh_CN"):
+                (root / f"{locale}.po").write_text(f'msgid ""\nmsgstr ""\n"Language: {locale}\\n"\n', encoding="utf-8")
+            sources = {msgid: [("wrapped.lua", 1, "", "label")] for msgid in ("%1 day streak", "See you in %1")}
+            with patch.object(translation_utils, "LOCALES_DIR", str(root)), \
+                    patch.dict(os.environ, {"GOOGLE_TRANSLATE_API_KEY": "test-key"}), \
+                    patch("urllib.request.urlopen", side_effect=respond) as urlopen, \
+                    patch("sys.stdout", new=io.StringIO()), \
+                    self.assertRaisesRegex(RuntimeError, r"2 entries.*by hand.*\[vi\] '%1 day streak'"):
+                translation_utils.sync_catalogs(["en.po", "vi.po", "zh_CN.po"], sources)
+            # One request per locale: no retries, and the later locale still ran.
+            self.assertEqual(2, urlopen.call_count)
+            for locale in ("vi", "zh_CN"):
+                self.assertEqual({"%1 day streak": "", "See you in %1": "SEE YOU IN %1"},
+                    translation_utils.parse_po(str(root / f"{locale}.po")))
+
     def test_extraction_ignores_comments_and_supports_gettext_aliases(self):
         with tempfile.TemporaryDirectory() as tmp:
             lua_path = Path(tmp) / "menu.lua"
