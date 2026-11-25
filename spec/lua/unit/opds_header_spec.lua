@@ -1388,6 +1388,16 @@ describe("OPDS header", function()
         -- Each failure repaints its item so the generated placeholder replaces the grey box.
         assert.are.equal(2, updated)
         assert.are.equal(2, subprocess_runs)
+
+        -- Another book with the same broken cover reuses the cached failure and repaints too.
+        start_cover_queue({{
+            entry = { cover_url = "https://example.test/http.jpg" },
+            widget = { update = function() updated = updated + 1 end },
+            cover_w = 80, cover_h = 120,
+        }})
+        scheduled[#scheduled].callback()
+        assert.are.equal(3, updated)
+        assert.are.equal(2, subprocess_runs)
     end)
 
     it("draws a title and author placeholder for books without a usable cover", function()

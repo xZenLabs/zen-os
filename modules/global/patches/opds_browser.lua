@@ -252,10 +252,9 @@ local function apply_opds()
             local cached = not item.url and _cover_cache[u]
             if cached and (bb or cached.failed) then
                 logger.dbg("OPDS cover cache hit:", u, "has_bb=", cached.bb ~= nil)
-                if bb then
-                    item.entry.cover_bb = bb
-                    if item.widget then item.widget:update() end
-                end
+                if bb then item.entry.cover_bb = bb end
+                -- A failure cached by an earlier item still replaces this item's grey box.
+                if item.widget then item.widget:update() end
                 if not stopped then UIManager:nextTick(next_cover) end
                 return
             end
