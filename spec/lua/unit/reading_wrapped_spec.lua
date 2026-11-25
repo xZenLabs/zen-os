@@ -1,6 +1,6 @@
 describe("Reading Wrapped", function()
     local Wrapped
-    local shown, saves_at_show, queries, month, cover_paths, period_queries
+    local shown, saves_at_show, queries, month, cover_paths, cached_titles, period_queries
     local original_date, original_time
     local MONTHS = { "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December" }
@@ -46,6 +46,7 @@ describe("Reading Wrapped", function()
             { file = "/books/dune.epub", modified = "2026-04-01 10:00:00" },
         } }
         cover_paths = { Dune = "/books/dune.epub", Emma = "/books/emma.epub", ["Dune Messiah"] = "/books/messiah.epub" }
+        cached_titles = { ["/books/emma.epub"] = "Emma" }
         -- Deterministic clock: os.time encodes month/day, os.date decodes it.
         original_date, original_time = os.date, os.time
         rawset(os, "time", function(t) return t and t.month * 100 + t.day or 0 end)
@@ -80,7 +81,7 @@ describe("Reading Wrapped", function()
         ZenSpec.replace("common/db_bookinfo", { findPathByTitleAuthors = function(title) return cover_paths[title] end })
         ZenSpec.replace("bookinfomanager", { getBookInfo = function(_self, path)
             return { has_cover = true, cover_fetched = true, cover_w = 200, cover_h = 300,
-                cover_bb = { path = path, free = function() end } }
+                title = cached_titles[path], cover_bb = { path = path, free = function() end } }
         end })
         ZenSpec.replace("config/manager", { get = function() return { features = { browser_cover_rounded_corners = true } } end })
         ZenSpec.replace("common/ui/wrapped_screen", { new = function(_self, spec) return spec end })
@@ -117,28 +118,24 @@ describe("Reading Wrapped", function()
     it("builds every slide for a rich year with covers", function()
         local pages, owned = Wrapped.buildPages(data, counts)
         assert.are.same({
-            "Reading Wrapped", false, "Recently finished", false, false, "Top book",
-            "Favorite author", "Most books by one author", "Top series", "Most highlighted", false,
+            "Reading Wrapped", "Books read", "Recently finished", "Time spent reading", "Pages turned", "Top book",
+            "Favorite author", "Most books by one author", "Top series", "Most highlighted", "Longest streak",
             "Biggest day", "Best month", "Reading rhythm", "That's a wrap",
         }, column(pages, "title"))
+        -- Recently finished names the newest finished book.
         assert.are.same({
-            "2026", "4", false, "200m", "4200", "Dune", "Frank Herbert", "Jane Austen", "Dune", "Dune",
-            "5", "120m", "März", "Bedtime reader", false,
+            "2026", "4", "Emma", "200m", "4200", "Dune", "Frank Herbert", "Jane Austen", "Dune", "Dune",
+            "5 days", "120m", "März", "Bedtime reader", false,
         }, column(pages, "stat"))
-        assert.are.same({
-            false, "books read", false, "spent reading", "pages turned", false, false, false, false, false,
-            "day streak", false, false, false, false,
-        }, column(pages, "unit"))
-        -- Books-read grid, finished and time coverflows, single covers elsewhere.
+        -- Coverflows of up to three books (two fall back to a grid), single covers elsewhere.
         assert.are.same({ "/books/dune.epub", "/books/emma.epub", "/books/messiah.epub" }, cover_paths_of(pages[2]))
-        assert.are.equal("grid", pages[2].layout)
+        assert.are.equal("flow", pages[2].layout)
         assert.are.same({ "/books/emma.epub", "/books/dune.epub" }, cover_paths_of(pages[3]))
         assert.are.equal("grid", pages[3].layout)
         assert.are.equal("flow", pages[4].layout)
         assert.are.same({ "/books/emma.epub" }, cover_paths_of(pages[5]))
         assert.are.equal("Most in Emma (1200 pages)", pages[5].stat_label)
         assert.are.same({ "/books/dune.epub" }, cover_paths_of(pages[6]))
-        assert.is_true(pages[6].stat_text)
         assert.are.same({ "/books/dune.epub", "/books/messiah.epub" }, cover_paths_of(pages[7]))
         assert.are.same({ "/books/emma.epub" }, cover_paths_of(pages[8]))
         assert.are.equal("3 books this year", pages[8].stat_label)
@@ -167,13 +164,37 @@ describe("Reading Wrapped", function()
         cover_paths = {}
         local pages, owned = Wrapped.buildPages(data, nil)
         assert.are.same({
-            "Reading Wrapped", false, false, false, "Top book",
+            "Reading Wrapped", "Books read", "Time spent reading", "Pages turned", "Top book",
             "Favorite author", "Biggest day", "Best month", "That's a wrap",
         }, column(pages, "title"))
-        assert.are.same({ false, "books read", "spent reading", "pages turned", false, false, false, false, false },
-            column(pages, "unit"))
         assert.are.equal(0, #owned)
         for _i, page in ipairs(pages) do assert.is_nil(page.covers) end
+    end)
+
+    it("fills quips with the exact numbers behind them", function()
+        local original_random = math.random
+        finally(function() rawset(math, "random", original_random) end)
+        local function descriptions(choose)
+            rawset(math, "random", choose)
+            return column(Wrapped.buildPages(data, counts), "description")
+        end
+        local first = descriptions(function() return 1 end)
+        assert.are.equal("60% of your reading year. Should we tell Frank Herbert?", first[7])
+        assert.are.equal("5 days in a row. Your book started expecting you.", first[11])
+        local last = descriptions(function(n) return n end)
+        assert.are.equal("3 books in. You're committed now.", last[8])
+        data.duration, data.books, data.pages = 151 * 3600, 30, 12345
+        first = descriptions(function() return 1 end)
+        assert.are.equal("30 books. Who needs weekends?", first[2])
+        assert.are.equal("You could have watched every Lord of the Rings extended cut… 13 times. You chose books.", first[4])
+        assert.are.equal("12345 pages. The paper industry sends its regards.", first[5])
+        last = descriptions(function(n) return n end)
+        assert.are.equal("That's a transatlantic flight. 9 of them. Round trip.", last[4])
+    end)
+
+    it("names a finished book after its file when the cover cache has no title", function()
+        cached_titles = {}
+        assert.are.equal("emma", Wrapped.buildPages(data, counts)[3].stat)
     end)
 
     it("names the reading rhythm and falls back to all-day", function()
@@ -189,6 +210,14 @@ describe("Reading Wrapped", function()
         assert.are.equal(1, #shown.pages)
         assert.are.equal("No reading data for 2026 yet. Come back after a few good books.", shown.pages[1].description)
         assert.is_true(shown.rounded_covers)
+    end)
+
+    it("leaves cover corners square when the rounded corners setting is off", function()
+        ZenSpec.replace("config/manager", { get = function() return { features = { browser_cover_rounded_corners = false } } end })
+        plugin(false)
+        Wrapped.show()
+        assert.is_true(#shown.pages > 1)
+        assert.is_false(shown.rounded_covers)
     end)
 
     it("auto-shows once on the intro boot and saves before showing", function()

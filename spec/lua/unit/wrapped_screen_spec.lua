@@ -1,14 +1,15 @@
 describe("Wrapped screen", function()
     local WrappedScreen
     local saved_modules
-    local closed, freed, text_widgets, box_widgets
+    local closed, freed, text_widgets, box_widgets, backdrops, cards, refreshes, corner_buffers
 
     local module_names = {
         "gettext", "ffi/blitbuffer", "device", "device/input", "ui/font", "ui/geometry", "ui/uimanager",
         "ui/widget/container/inputcontainer", "ui/widget/imagewidget", "ui/widget/iconwidget",
         "ui/widget/scrolltextwidget", "ui/widget/textboxwidget", "ui/widget/textwidget",
         "common/plugin_root", "common/ui/zen_button", "common/ui/zen_title_style", "common/ui/button_feedback",
-        "common/ui/zen_screen", "common/ui/wrapped_screen", "common/zen_logger",
+        "common/ui/zen_screen", "common/ui/wrapped_backdrops", "common/ui/wrapped_screen", "common/zen_logger",
+        "common/ui/refresh",
     }
 
     local InputContainer = {}
@@ -29,20 +30,28 @@ describe("Wrapped screen", function()
     local function widget(values, w, h)
         values = values or {}
         values.getSize = function() return { w = w or 100, h = h or 24 } end
-        values.paintTo = function() end
+        values.paintTo = function(_self, _bb, x, y) values.painted = { x = x, y = y } end
         values.free = function() end
         return values
     end
 
-    local bb = { paintRect = function() end, invertRect = function() end }
+    local bb = {
+        paintRect = function() end, invertRect = function() end, blitFrom = function() end,
+        lightenRect = function() end, getType = function() return "bb8" end,
+        paintBorder = function(_self, x, y, w, h) cards[#cards + 1] = { x = x, y = y, w = w, h = h } end,
+    }
 
     before_each(function()
         saved_modules = {}
         for _i, name in ipairs(module_names) do saved_modules[name] = package.loaded[name] or false end
-        closed, freed, text_widgets, box_widgets = 0, 0, {}, {}
+        closed, freed, text_widgets, box_widgets, backdrops, cards, refreshes, corner_buffers = 0, 0, {}, {}, {}, {}, {}, 0
         ZenSpec.replace("gettext", function(text) return text end)
         ZenSpec.replace("ffi/blitbuffer", {
             COLOR_WHITE = "white", COLOR_BLACK = "black", COLOR_LIGHT_GRAY = "light_gray", COLOR_DARK_GRAY = "dark_gray",
+            new = function()
+                corner_buffers = corner_buffers + 1
+                return { blitFrom = function() end, free = function() end }
+            end,
         })
         ZenSpec.replace("device", {
             screen = {
@@ -62,8 +71,11 @@ describe("Wrapped screen", function()
         ZenSpec.replace("ui/uimanager", {
             close = function() closed = closed + 1 end,
             scheduleIn = function() end,
-            setDirty = function() end,
+            setDirty = function(_self, _widget, refresh)
+                if type(refresh) == "function" then refreshes[#refreshes + 1] = (refresh()) end
+            end,
         })
+        ZenSpec.replace("common/ui/refresh", function() return "full" end)
         ZenSpec.replace("ui/widget/container/inputcontainer", InputContainer)
         ZenSpec.replace("ui/widget/imagewidget", { new = function(_self, values) return widget(values, 200, 300) end })
         ZenSpec.replace("ui/widget/iconwidget", { new = function(_self, values) return widget(values, values.width, values.height) end })
@@ -90,6 +102,9 @@ describe("Wrapped screen", function()
         })
         ZenSpec.replace("common/ui/button_feedback", { flashButton = function() end })
         ZenSpec.replace("common/zen_logger", { new = function() return { info = function() end } end })
+        ZenSpec.replace("common/ui/wrapped_backdrops", { paint = function(_bb, index, count, x, y, w, h, clear)
+            backdrops[#backdrops + 1] = { index = index, count = count, x = x, y = y, w = w, h = h, clear = clear }
+        end })
         ZenSpec.unload("common/ui/zen_screen")
         ZenSpec.unload("common/ui/wrapped_screen")
         WrappedScreen = require("common/ui/wrapped_screen")
@@ -105,7 +120,7 @@ describe("Wrapped screen", function()
     local function screen(pages, extra)
         local spec = { pages = pages or {
             { title = "Reading Wrapped", icon = "/icons/zen_ui.svg", stat = "2026", stat_label = "Your year in books", description = "Swipe" },
-            { title = "Time spent reading", icon = "/icons/timer.svg", stat = "12h 30m", stat_label = "spent reading", description = "Quip" },
+            { title = "Time spent reading", icon = "/icons/timer.svg", stat = "12h 30m", description = "Quip" },
             { icon = "/icons/zen_ui.svg", stat = "That's a wrap", stat_label = "2026", description = "Bye" },
         } }
         for key, value in pairs(extra or {}) do spec[key] = value end
@@ -113,8 +128,17 @@ describe("Wrapped screen", function()
     end
 
     local function heading()
-        for _i, w in ipairs(box_widgets) do
+        for _i, w in ipairs(text_widgets) do
             if w.bold and w.face.size == 36 then return w.text end
+        end
+    end
+
+    -- The widget that was actually painted for a text (fitting creates and drops others).
+    local function painted(text)
+        for _i, list in ipairs({ text_widgets, box_widgets }) do
+            for _j, w in ipairs(list) do
+                if w.text == text and w.painted then return w end
+            end
         end
     end
 
@@ -128,13 +152,13 @@ describe("Wrapped screen", function()
         s:paintTo(bb, 0, 0)
         assert.are.equal("Reading Wrapped", heading())
         s:setPage(2)
-        box_widgets = {}
+        text_widgets = {}
         s:paintTo(bb, 0, 0)
         assert.are.equal("Time spent reading", heading())
         assert.are.equal("Back", s.later_button)
         assert.are.equal("Next", s.button)
         s:setPage(3)
-        box_widgets = {}
+        text_widgets = {}
         s:paintTo(bb, 0, 0)
         assert.is_nil(heading())
         assert.are.equal("Done", s.button)
@@ -187,9 +211,9 @@ describe("Wrapped screen", function()
     end)
 
     it("paints single, grid and coverflow layouts and frees the shared covers on close", function()
-        local painted = {}
+        local images = {}
         ZenSpec.replace("ui/widget/imagewidget", { new = function(_self, values)
-            painted[#painted + 1] = { w = values.width, h = values.height }
+            images[#images + 1] = { w = values.width, h = values.height }
             return widget(values, values.width, values.height)
         end })
         ZenSpec.unload("common/ui/wrapped_screen")
@@ -201,21 +225,31 @@ describe("Wrapped screen", function()
             { covers = { cover_a }, layout = "grid", stat = "Dune", stat_label = "7h", description = "Quip" },
             { covers = { cover_a, cover_b, cover_a, cover_b }, layout = "grid", stat = "4", stat_label = "books" },
             { covers = { cover_a, cover_b, cover_a }, layout = "flow", stat = "9h", stat_label = "time" },
+            { covers = { cover_b }, stat = "9" },
         }
         local s = screen(pages, { covers_owned = { bb_a, bb_b }, rounded_covers = true })
         s:paintTo(bb, 0, 0)
-        assert.are.equal(1, #painted)
-        assert.is_true(painted[1].h > painted[1].w)
+        assert.are.equal(1, #images)
+        assert.is_true(images[1].h > images[1].w)
         s:setPage(2)
-        painted = {}
+        images = {}
         s:paintTo(bb, 0, 0)
-        assert.are.equal(4, #painted)
-        assert.is_true(painted[1].w < 200)
+        assert.are.equal(4, #images)
+        assert.is_true(images[1].w < 200)
         s:setPage(3)
-        painted = {}
+        images = {}
         s:paintTo(bb, 0, 0)
-        assert.are.equal(3, #painted)
-        assert.is_true(painted[3].h > painted[1].h)
+        assert.are.equal(3, #images)
+        assert.is_true(images[3].h > images[1].h)
+        -- A slide with less text shows its cover at the same size.
+        s:setPage(1)
+        images = {}
+        s:paintTo(bb, 0, 0)
+        local single = images[1]
+        s:setPage(4)
+        images = {}
+        s:paintTo(bb, 0, 0)
+        assert.are.same(single, images[1])
         s:onClose()
         assert.are.equal(2, freed)
         assert.is_nil(s.covers_owned)
@@ -223,45 +257,79 @@ describe("Wrapped screen", function()
         assert.are.equal(1, closed)
     end)
 
-    it("joins a short stat with its unit on one line and stacks a long one", function()
-        local long = string.rep("B", 30)
-        local s = screen({ { stat = "12h", unit = "spent reading" }, { stat = long, unit = "spent reading" } })
-        s:paintTo(bb, 0, 0)
-        local sizes = {}
-        for _i, w in ipairs(text_widgets) do sizes[w.text] = w.face.size end
-        assert.are.equal(64, sizes["12h"])
-        assert.are.equal(22, sizes["spent reading"])
-        for _i, w in ipairs(box_widgets) do assert.are_not.equal("spent reading", w.text) end
-        s:setPage(2)
-        text_widgets, box_widgets = {}, {}
-        s:paintTo(bb, 0, 0)
-        sizes = {}
-        for _i, w in ipairs(text_widgets) do sizes[w.text] = w.face.size end
-        assert.are.equal(28, sizes[long])
-        local stacked
-        for _i, w in ipairs(box_widgets) do if w.text == "spent reading" then stacked = w end end
-        assert.are.equal(22, stacked.face.size)
+    it("rounds cover corners only when asked to", function()
+        local cover = { bb = {}, w = 200, h = 300 }
+        local function flow() return { { covers = { cover, cover, cover }, layout = "flow", stat = "9h" } } end
+        screen(flow()):paintTo(bb, 0, 0)
+        assert.are.equal(0, corner_buffers)
+        screen(flow(), { rounded_covers = true }):paintTo(bb, 0, 0)
+        -- Three covers plus the outline around the centre one.
+        assert.are.equal(4, corner_buffers)
     end)
 
-    it("shrinks a long stat, wraps when it still overflows, and sizes text stats like the heading", function()
-        local long = string.rep("A", 40)
-        local s = screen({ { stat = long, stat_label = "x", description = "y" }, { stat = "2026" }, { stat = "Dune", stat_text = true } })
-        s:paintTo(bb, 0, 0)
-        local size, wrapped
-        for _i, w in ipairs(text_widgets) do if w.text == long then size = w.face.size end end
-        for _i, w in ipairs(box_widgets) do if w.text == long then wrapped = w end end
-        assert.are.equal(24, size)
-        assert.is_true(wrapped.bold)
-        assert.are.equal(24, wrapped.face.size)
+    it("clears the screen with a full refresh when a slide with covers comes or goes", function()
+        local s = screen({ { stat = "1" }, { stat = "2", covers = { { bb = {}, w = 200, h = 300 } } }, { stat = "3" }, { stat = "4" } })
+        refreshes = {}
         s:setPage(2)
-        text_widgets = {}
-        s:paintTo(bb, 0, 0)
-        for _i, w in ipairs(text_widgets) do if w.text == "2026" then size = w.face.size end end
-        assert.are.equal(64, size)
         s:setPage(3)
-        text_widgets = {}
+        s:setPage(4)
+        assert.are.same({ "full", "full", "ui" }, refreshes)
+    end)
+
+    it("keeps one card and one visual band on every slide and the backdrop behind the icon clear", function()
+        local cover = { bb = {}, w = 200, h = 300 }
+        local s = screen({
+            { title = "Reading Wrapped", icon = "/icons/zen_ui.svg", stat = "2026", description = "Swipe" },
+            { title = "Top book", covers = { cover }, stat = "Dune", stat_label = "7h", description = string.rep("quip ", 40) },
+            { title = "Bye", icon = "/icons/zen_ui.svg" },
+        })
         s:paintTo(bb, 0, 0)
-        for _i, w in ipairs(text_widgets) do if w.text == "Dune" then size = w.face.size end end
-        assert.are.equal(36, size)
+        -- Backdrop spans everything above the dots and buttons.
+        local drop = backdrops[1]
+        assert.are.same({ 1, 3, 0, 0, 600 }, { drop.index, drop.count, drop.x, drop.y, drop.w })
+        assert.are.equal(800 - 80 - 36, drop.h)
+        assert.are.equal(drop.clear.w, drop.clear.h)
+        assert.are.equal(300, drop.clear.x + drop.clear.w / 2)
+        local card, title = cards[1], painted("Reading Wrapped")
+        assert.are.equal(560, card.w)
+        assert.is_true(card.x < title.painted.x and card.y < title.painted.y)
+        assert.is_true(card.y >= drop.clear.y + drop.clear.h)
+        assert.is_true(card.y + card.h <= drop.h)
+        -- The card is sized for the tallest slide: heading, stat, label and wrapped quip.
+        assert.are.equal(36 + 48 + 22 + 40 + 3 * 10 + 2 * 18, card.h)
+        s:setPage(2)
+        s:paintTo(bb, 0, 0)
+        -- Covers need no clear box.
+        assert.is_nil(backdrops[2].clear)
+        assert.are.same(card, cards[2])
+        s:setPage(3)
+        s:paintTo(bb, 0, 0)
+        assert.are.same(card, cards[3])
+        assert.are.same(drop.clear, backdrops[3].clear)
+    end)
+
+    it("draws every stat at one size and ends a long one in an ellipsis after two lines", function()
+        local long = string.rep("A", 40)
+        ZenSpec.replace("ui/widget/textboxwidget", { new = function(_self, values)
+            box_widgets[#box_widgets + 1] = values
+            values.getLineHeight = function() return 50 end
+            return widget(values, values.width, values.height or 150)
+        end })
+        ZenSpec.unload("common/ui/wrapped_screen")
+        WrappedScreen = require("common/ui/wrapped_screen")
+        local s = screen({ { stat = long, stat_label = "x", description = string.rep("quip ", 40) }, { stat = "2026" }, { stat = "Dune" } })
+        s:paintTo(bb, 0, 0)
+        local stat, quip = painted(long), painted(string.rep("quip ", 40))
+        assert.is_true(stat.bold)
+        assert.are.equal(48, stat.face.size)
+        assert.are.equal(100, stat.height)
+        assert.is_true(stat.height_overflow_show_ellipsis)
+        -- Only the stat is cut short.
+        assert.is_nil(quip.height)
+        for page, text in pairs({ [2] = "2026", [3] = "Dune" }) do
+            s:setPage(page)
+            s:paintTo(bb, 0, 0)
+            assert.are.equal(48, painted(text).face.size)
+        end
     end)
 end)
