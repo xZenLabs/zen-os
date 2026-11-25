@@ -934,7 +934,14 @@ local function apply_context_menu()
             -- when it has one, wherever the book is long-pressed. Not for a
             -- dialog a source asked for itself (the Kindle library's, from
             -- its own view).
-            if type(item) == "table" and item.is_file ~= false and not item.is_go_up
+            local config = zen_plugin and zen_plugin.config
+            local features = type(config) == "table" and config.features
+            local lockdown = type(config) == "table" and config.lockdown
+            local context_menu_locked = type(features) == "table"
+                and features.lockdown_mode == true
+                and type(lockdown) == "table" and lockdown.disable_context_menu == true
+            if not context_menu_locked
+                    and type(item) == "table" and item.is_file ~= false and not item.is_go_up
                     and not item._is_current_dir and not item._zen_kindle_book
                     and type(item.path) == "string" then
                 local ok_sources, BookSources = pcall(require, "common/book_sources")
