@@ -252,10 +252,9 @@ local function apply_opds()
             local cached = not item.url and _cover_cache[u]
             if cached and (bb or cached.failed) then
                 logger.dbg("OPDS cover cache hit:", u, "has_bb=", cached.bb ~= nil)
-                if bb then
-                    item.entry.cover_bb = bb
-                    if item.widget then item.widget:update() end
-                end
+                if bb then item.entry.cover_bb = bb end
+                -- A failure cached by an earlier item still replaces this item's grey box.
+                if item.widget then item.widget:update() end
                 if not stopped then UIManager:nextTick(next_cover) end
                 return
             end
@@ -268,7 +267,10 @@ local function apply_opds()
             if not pid then
                 read_fd = nil
                 UIManager:allowStandby()
-                if not item.url then _cover_cache[u] = { failed = true } end
+                if not item.url then
+                    _cover_cache[u] = { failed = true }
+                    if item.widget then item.widget:update() end
+                end
                 logger.warn("OPDS cover subprocess failed:", u)
                 UIManager:nextTick(next_cover)
                 return
@@ -298,10 +300,12 @@ local function apply_opds()
                         if item.widget then item.widget:update() end
                     else
                         _cover_cache[u] = { failed = true }
+                        if item.widget then item.widget:update() end
                     end
                 else
                     logger.warn("OPDS cover fetch returned nil for:", u)
                     _cover_cache[u] = { failed = true }
+                    if item.widget then item.widget:update() end
                 end
                 if not stopped and idx <= #queue then
                     UIManager:nextTick(next_cover)
@@ -721,6 +725,35 @@ local function apply_opds()
 
         local inner_w = math.max(1, cover_w - 2 * COVER_BORDER)
         local inner_h = math.max(1, cover_h - 2 * COVER_BORDER)
+        local cached = entry.cover_url and _cover_cache[entry.cover_url]
+        if not entry.cover_url or (cached and cached.failed) then
+            -- No cover in the feed, or it failed to load: show a generated title/author cover.
+            local title = entry.title or entry.text or ""
+            local author = entry.author or ""
+            local placeholder = CoverUtils.genCover(
+                "zen-opds-placeholder:" .. title .. "\31" .. author,
+                inner_w, inner_h, true, { title = title, authors = author })
+            if placeholder then
+                return FrameContainer:new{
+                    width = cover_w,
+                    height = cover_h,
+                    padding = 0,
+                    bordersize = COVER_BORDER,
+                    color = cover_border_color(entry),
+                    background = Blitbuffer.COLOR_WHITE,
+                    CenterContainer:new{
+                        dimen = Geom:new{ w = inner_w, h = inner_h },
+                        ImageWidget:new{
+                            image = placeholder,
+                            image_disposable = true,
+                            width = inner_w,
+                            height = inner_h,
+                            original_in_nightmode = true,
+                        },
+                    },
+                }
+            end
+        end
         return FrameContainer:new{
             width = cover_w,
             height = cover_h,

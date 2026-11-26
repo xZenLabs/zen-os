@@ -288,6 +288,9 @@ describe("OPDS header", function()
             BORDER_SIZE = 1,
             getRatio = function() return 2 / 3 end,
             calcDims = function(w, h) return math.floor(math.min(w, h * 2 / 3)), h end,
+            genCover = function(key, w, h, no_fallback, metadata)
+                return { key = key, w = w, h = h, no_fallback = no_fallback, metadata = metadata }
+            end,
         })
         ZenSpec.replace("common/utils", setmetatable({
             resolveLocalIcon = function(dir, name) return dir .. name .. ".svg" end,
@@ -1382,7 +1385,39 @@ describe("OPDS header", function()
             assert.is_nil(entry.cover_bb)
             assert.are.equal(0, standby)
         end
-        assert.are.equal(0, updated)
+        -- Each failure repaints its item so the generated placeholder replaces the grey box.
+        assert.are.equal(2, updated)
         assert.are.equal(2, subprocess_runs)
+
+        -- Another book with the same broken cover reuses the cached failure and repaints too.
+        start_cover_queue({{
+            entry = { cover_url = "https://example.test/http.jpg" },
+            widget = { update = function() updated = updated + 1 end },
+            cover_w = 80, cover_h = 120,
+        }})
+        scheduled[#scheduled].callback()
+        assert.are.equal(3, updated)
+        assert.are.equal(2, subprocess_runs)
+    end)
+
+    it("draws a title and author placeholder for books without a usable cover", function()
+        local OPDSMosaicItem = get_upvalue(Browser.updateItems, "OPDSMosaicItem")
+        local build_cover_widget = get_upvalue(OPDSMosaicItem.init, "build_cover_widget")
+        local cover_cache = get_upvalue(build_cover_widget, "_cover_cache")
+        local function content(widget) return widget[1][1] end
+
+        local missing = content(build_cover_widget({ title = "Book", author = "Author" }, 82, 122))
+        assert.are.same({ title = "Book", authors = "Author" }, missing.image.metadata)
+        assert.is_true(missing.image.no_fallback)
+        assert.are.equal(80, missing.image.w)
+        assert.are.equal(120, missing.image.h)
+        assert.is_true(missing.image_disposable)
+
+        local entry = { text = "Untitled", cover_url = "https://example.test/broken.jpg" }
+        assert.is_nil(content(build_cover_widget(entry, 82, 122)).image) -- Still loading.
+        cover_cache[entry.cover_url] = { failed = true }
+        local failed = content(build_cover_widget(entry, 82, 122))
+        assert.are.same({ title = "Untitled", authors = "" }, failed.image.metadata)
+        cover_cache[entry.cover_url] = nil
     end)
 end)
