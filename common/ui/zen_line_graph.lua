@@ -1,4 +1,5 @@
 local Blitbuffer = require("ffi/blitbuffer")
+local Scale = require("common/ui/scale")
 local Device = require("device")
 local Font = require("ui/font")
 local Geom = require("ui/geometry")
@@ -128,7 +129,7 @@ function LineGraph:getPointIndexAt(x)
     local count = #self.series
     if count == 0 then return nil end
     if count == 1 then return 1 end
-    local axis_face = Font:getFace("smallinfofont", Screen:scaleBySize(9))
+    local axis_face = Font:getFace("smallinfofont", Scale.font(9))
     local max_value = graphValues(self.series, self.metric, self.max_value)
     local pad_l = axisLeftPadding(axis_face, max_value)
     local pad_r = Screen:scaleBySize(10)
@@ -144,7 +145,7 @@ function LineGraph:paintTo(bb, x, y)
     local pad_r = Screen:scaleBySize(10)
     local pad_t = Screen:scaleBySize(8)
     local pad_b = Screen:scaleBySize(24)
-    local axis_face = Font:getFace("smallinfofont", Screen:scaleBySize(9))
+    local axis_face = Font:getFace("smallinfofont", Scale.font(9))
     local max_value, values = graphValues(self.series, self.metric, self.max_value)
     local pad_l = axisLeftPadding(axis_face, max_value)
     local plot_x = x + pad_l
@@ -170,7 +171,7 @@ function LineGraph:paintTo(bb, x, y)
         paintText(
             bb,
             self.empty_text or "No reading data",
-            Font:getFace("infofont", Screen:scaleBySize(16)),
+            Font:getFace("infofont", Scale.font(16)),
             faint,
             plot_x + Screen:scaleBySize(8),
             plot_y + math.floor(plot_h / 2) - Screen:scaleBySize(8),

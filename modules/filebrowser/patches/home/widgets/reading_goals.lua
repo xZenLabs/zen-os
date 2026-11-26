@@ -1,4 +1,5 @@
 local Background = require("common/ui/background")
+local Scale = require("common/ui/scale")
 local Blitbuffer = require("ffi/blitbuffer")
 local Geom = require("ui/geometry")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
@@ -60,6 +61,10 @@ local function paint_pill(bb, x, y, w, h, color)
     end
 end
 
+local function bar_height(line_h)
+    return math.max(Scale.px(6), math.min(Scale.px(12), math.floor(line_h * 0.65)))
+end
+
 local function progress_bar(width, current, target, bar_h)
     local pct = 0
     if target > 0 then
@@ -93,10 +98,10 @@ local function create_goal_summary_card(width, row)
     local inner_w = math.max(1, width - padding * 2)
     local title = TextWidget:new{
         text = row.summary_label,
-        face = Font:getFace("smallinfofontbold", Screen:scaleBySize(10)),
+        face = Font:getFace("smallinfofontbold", Scale.font(10)),
         max_width = inner_w,
     }
-    local value_face = Font:getFace("smallinfofont", Screen:scaleBySize(12))
+    local value_face = Font:getFace("smallinfofont", Scale.font(12))
     local values = { align = "center" }
     local stats = {
         tostring(row.pages_current) .. " / " .. tostring(row.pages_target) .. " " .. _("pages"),
@@ -164,7 +169,7 @@ local function show_goals_summary(rows)
         width = width,
         align = "left",
         title = _("Reading goals"),
-        title_face = Font:getFace("smallinfofontbold", Screen:scaleBySize(10)),
+        title_face = Font:getFace("smallinfofontbold", Scale.font(10)),
         show_parent = dialog,
     }
     local close_button = ZenModalClose.installTitleBar(
@@ -317,7 +322,7 @@ return {
         local row_h = math.max(1, math.floor(height / #goal_rows))
 
         for px = max_px, min_px, -1 do
-            local face = Font:getFace("smallinfofont", Screen:scaleBySize(px))
+            local face = Font:getFace("smallinfofont", Scale.font(px))
             local lw, rw = 0, 0
             local candidate_ink_top
             local candidate_ink_bottom
@@ -341,8 +346,7 @@ return {
             local line_probe = TextWidget:new{ text = "A", face = face }
             local candidate_line_h = line_probe:getSize().h or math.max(10, min_px)
             WidgetResources.free(line_probe)
-            local candidate_bar_h = math.max(6,
-                math.min(12, math.floor(candidate_line_h * 0.65)))
+            local candidate_bar_h = bar_height(candidate_line_h)
             local candidate_offset = math.floor((row_h - candidate_line_h) / 2)
             if candidate_ink_top + candidate_offset >= 0
                     and candidate_ink_bottom + candidate_offset <= row_h
@@ -358,7 +362,7 @@ return {
             end
         end
         if not chosen_face then
-            chosen_face = Font:getFace("smallinfofont", Screen:scaleBySize(min_px))
+            chosen_face = Font:getFace("smallinfofont", Scale.font(min_px))
             for _i, row in ipairs(goal_rows) do
                 local left_probe = TextWidget:new{ text = row.label, face = chosen_face }
                 local right_probe = TextWidget:new{
@@ -382,8 +386,7 @@ return {
             local line_probe = TextWidget:new{ text = "A", face = chosen_face }
             chosen_line_h = line_probe:getSize().h or math.max(10, min_px)
             WidgetResources.free(line_probe)
-            chosen_bar_h = math.max(6,
-                math.min(12, math.floor(chosen_line_h * 0.65)))
+            chosen_bar_h = bar_height(chosen_line_h)
         end
         local line_h = chosen_line_h
         local bar_h = chosen_bar_h

@@ -16,6 +16,7 @@ local paths = require("common/paths")
 local PresetStore = require("config/preset_store")
 local ReaderDefaults = require("common/reader_defaults")
 local Accent = require("common/ui/accent")
+local Scale = require("common/ui/scale")
 
 local _plugin_root = require("common/plugin_root") or ""
 
@@ -142,9 +143,8 @@ local function paintCoverBadge(canvas, Blitbuffer, Font, TextWidget, Screen,
             bdg_y + pad_y + math.floor((icon_h - sq) / 2),
             sq, sq, Blitbuffer.COLOR_BLACK)
     elseif Font and TextWidget then
-        local font_sz = (do_tbr or do_pause)
-            and math.max(7, math.floor(badge_size * 0.40))
-            or  math.max(7, math.floor(badge_size * 0.24))
+        local font_sz = math.max(7, Scale.fontFromTunedPx(
+            badge_size * ((do_tbr or do_pause) and 0.40 or 0.24)))
         local tw = TextWidget:new{
             text    = do_tbr and icons.tbr
                 or (do_pause and icons.on_hold or (math.floor(100 * progress) .. "%")),
@@ -196,6 +196,21 @@ local function buildHomeIconBB(avail_w)
         local isz = ico:getSize()
         ico:paintTo(canvas, cx - math.floor(isz.w / 2), cy - math.floor(isz.h / 2))
         ico:free()
+    end)
+    return canvas
+end
+
+-- White slot canvas with the widget centered. Content larger than the slot
+-- (big UI scale) grows the canvas; the screen scales it back to fit.
+-- content: visible size when the widget is a screen-sized centering container.
+local function slotCanvas(Blitbuffer, slot_w, slot_h, widget, content)
+    local sz = widget:getSize()
+    content = content or sz
+    local w, h = math.max(slot_w, content.w), math.max(slot_h, content.h)
+    local canvas = Blitbuffer.new(w, h, Blitbuffer.TYPE_BB8)
+    canvas:fill(Blitbuffer.COLOR_WHITE)
+    pcall(function()
+        widget:paintTo(canvas, math.floor((w - sz.w) / 2), math.floor((h - sz.h) / 2))
     end)
     return canvas
 end
@@ -311,16 +326,8 @@ local function buildContextMenuBB(slot_w, slot_h, cover_info)
         _added_widgets = header_widget and { header_widget } or nil,
     }
 
-    local sz = dialog:getSize()
-    local canvas = Blitbuffer.new(slot_w, slot_h, Blitbuffer.TYPE_BB8)
-    canvas:fill(Blitbuffer.COLOR_WHITE)
-    -- Center dialog horizontally; leave equal top/bottom breathing room.
-    local dx = math.floor((slot_w - sz.w) / 2)
-    local dy = math.floor((slot_h - sz.h) / 2)
-    pcall(function()
-        dialog:paintTo(canvas, dx, dy)
-    end)
-    return canvas
+    return slotCanvas(Blitbuffer, slot_w, slot_h, dialog,
+        dialog.movable and dialog.movable:getSize() or { w = 0, h = 0 })
 end
 
 local function buildQuickSettingsBB(slot_w, slot_h)
@@ -333,17 +340,8 @@ local function buildQuickSettingsBB(slot_w, slot_h)
     local ok_panel, panel = pcall(build_preview, slot_w)
     if not ok_panel or not panel then return nil end
 
-    local ok_size, sz = pcall(function() return panel:getSize() end)
-    if not ok_size or not sz then return nil end
-
-    local canvas = Blitbuffer.new(slot_w, slot_h, Blitbuffer.TYPE_BB8)
-    canvas:fill(Blitbuffer.COLOR_WHITE)
-    local dx = math.max(0, math.floor((slot_w - sz.w) / 2))
-    local dy = math.max(0, math.floor((slot_h - sz.h) / 2))
-    pcall(function()
-        panel:paintTo(canvas, dx, dy)
-    end)
-    return canvas
+    local ok_canvas, canvas = pcall(slotCanvas, Blitbuffer, slot_w, slot_h, panel)
+    return ok_canvas and canvas or nil
 end
 
 local function buildPageBrowserBB(slot_w, slot_h)

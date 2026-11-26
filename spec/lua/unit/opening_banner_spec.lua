@@ -250,15 +250,14 @@ describe("opening banner", function()
         assert.are.equal(208, text_props.max_width)
     end)
 
-    it("keeps the derived size on a high-DPI screen when unset", function()
+    it("keeps the derived size in pre-scale units on a high-DPI screen", function()
         local _, _, shown = install_stubs()
         local font_size
         ZenSpec.replace("ui/font", { getFace = function(_self, _name, size)
             font_size = size
             return {}
         end })
-        -- 3x UI scale: the strip cap is in pre-scale units, so it must not be
-        -- applied to the derived default, which is already device pixels.
+        -- 3x UI scale: Font:getFace scales the size itself, so it must not grow here.
         require("device").screen.scaleBySize = function(_, value) return math.ceil(value * 3) end
         _G.__ZEN_UI_PLUGIN = { config = { browser_cover_badges = {} } }
         apply_patch()
@@ -269,7 +268,7 @@ describe("opening banner", function()
         }))
         local banner = shown[#shown]
         banner:paintTo({ paintRect = function() end }, banner.dimen.x, banner.dimen.y)
-        assert.are.equal(math.ceil(7 * 3 * 1.1), font_size)
+        assert.are.equal(math.ceil(7 * 1.1), font_size)
     end)
 
     it("shows a bottom fallback for each coverless open", function()

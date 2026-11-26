@@ -87,6 +87,19 @@ end)
 
 describe("common utils badge font sizing", function()
     local utils = require("common/utils")
+    local saved_device
+
+    local function stub_device(scale)
+        ZenSpec.replace("device", { screen = {
+            scaleBySize = function(_, value) return value * scale end,
+        } })
+    end
+
+    before_each(function()
+        saved_device = package.loaded["device"]
+        stub_device(1)
+    end)
+    after_each(function() package.loaded["device"] = saved_device end)
 
     it("scales the minimum font size with every badge size", function()
         for _i, preset in ipairs({
@@ -106,18 +119,13 @@ describe("common utils badge font sizing", function()
         assert.are.equal(8, utils.getBadgeFontSize(nil, 18, 0.45, 6))
     end)
 
+    it("derives the same pixel size on a scaled screen", function()
+        stub_device(2)
+        -- Twice the pixels per unit: half the pre-scale size for the same badge box.
+        assert.are.equal(10, utils.getBadgeFontSize(nil, 80, 0.24, 7))
+    end)
+
     describe("with an explicit badge font size", function()
-        local saved_device
-
-        before_each(function() saved_device = package.loaded["device"] end)
-        after_each(function() package.loaded["device"] = saved_device end)
-
-        local function stub_device(scale)
-            ZenSpec.replace("device", { screen = {
-                scaleBySize = function(_, value) return value * scale end,
-            } })
-        end
-
         it("honours an explicit badge font size", function()
             stub_device(1)
             local config = { browser_cover_badges = { badge_font_size = 14 } }

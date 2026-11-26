@@ -38,6 +38,32 @@ local QuickstartScreen = InputContainer:extend{
     on_close = nil,
 }
 
+local DESC_SIZES = { 20, 18, 16 }
+
+-- Largest face whose wrapped text fits fit_h; past the smallest, max_h truncates.
+local function description_box(text, width, fit_h, max_h)
+    local size, h
+    for _i, candidate in ipairs(DESC_SIZES) do
+        local probe = TextBoxWidget:new{
+            text = text, face = Font:getFace("cfont", candidate), width = width,
+            for_measurement_only = true,
+        }
+        size, h = candidate, probe:getSize().h
+        probe:free()
+        if h <= fit_h then break end
+    end
+    local clipped = h > max_h
+    return TextBoxWidget:new{
+        text      = text,
+        face      = Font:getFace("cfont", size),
+        width     = width,
+        alignment = "center",
+        height    = clipped and max_h or nil,
+        height_adjust = clipped,
+        height_overflow_show_ellipsis = clipped,
+    }
+end
+
 function QuickstartScreen:init()
     local sw = Screen:getWidth()
     local sh = Screen:getHeight()
@@ -339,6 +365,7 @@ function QuickstartScreen:paintTo(bb, x, y)
         face    = TitleStyle.getTitleFace(),
         bold    = true,
         padding = 0,
+        max_width = L.sw - L.pad * 2,
     }
     local tsz = title_tw:getSize()
     title_tw:paintTo(bb,
@@ -381,10 +408,20 @@ function QuickstartScreen:paintTo(bb, x, y)
     else
         -- Static page or choice page with an illustrative image
 
+        -- Text that outgrows its band takes room from the visual.
+        local desc_w  = L.sw - L.pad * 2
+        local stacked = page.choices or page.finale -- more content follows the text
+        local fit_h   = stacked and math.floor(L.desc_h / 2) or L.desc_h
+        local max_grow = math.floor(L.img_h * 0.4)
+        local desc_tb = description_box(page.description or "", desc_w, fit_h, fit_h + max_grow)
+        local dsz     = desc_tb:getSize()
+        local grow    = math.min(math.max(0, dsz.h - fit_h), max_grow)
+        local img_h   = L.img_h - grow
+
         -- Image area
         if has_icon then
             pcall(function()
-                local max_h  = L.img_h - Screen:scaleBySize(8)
+                local max_h  = img_h - Screen:scaleBySize(8)
                 local requested_sz = page.icon_size and Screen:scaleBySize(page.icon_size)
                 local icon_sz = requested_sz and math.min(requested_sz, max_h)
                     or math.min(L.sw - L.pad * 2, max_h)
@@ -396,13 +433,13 @@ function QuickstartScreen:paintTo(bb, x, y)
                 local isz = ico:getSize()
                 ico:paintTo(bb,
                     x + math.floor((L.sw - isz.w) / 2),
-                    y + L.img_y + math.floor((L.img_h - isz.h) / 2))
+                    y + L.img_y + math.floor((img_h - isz.h) / 2))
                 ico:free()
             end)
         elseif has_image then
             pcall(function()
                 local max_w = L.sw - L.pad * 2
-                local max_h = L.img_h - Screen:scaleBySize(8)
+                local max_h = img_h - Screen:scaleBySize(8)
                 local iw
                 if page.image_bb then
                     iw = ImageWidget:new{
@@ -425,26 +462,14 @@ function QuickstartScreen:paintTo(bb, x, y)
                 local isz = iw:getSize()
                 iw:paintTo(bb,
                     x + math.floor((L.sw - isz.w) / 2),
-                    y + L.img_y + math.floor((L.img_h - isz.h) / 2))
+                    y + L.img_y + math.floor((img_h - isz.h) / 2))
                 iw:free()
             end)
         end
 
         -- Description text
-        local desc_w  = L.sw - L.pad * 2
-        local desc_tb = TextBoxWidget:new{
-            text      = page.description or "",
-            face      = Font:getFace("cfont", 20),
-            width     = desc_w,
-            alignment = "center",
-        }
-        local dsz = desc_tb:getSize()
-        local desc_paint_y
-        if page.choices or page.finale then
-            desc_paint_y = y + L.desc_y + L.pad
-        else
-            desc_paint_y = y + L.desc_y + math.floor((L.desc_h - dsz.h) / 2)
-        end
+        local desc_paint_y = y + L.desc_y - grow
+            + (stacked and L.pad or math.floor((L.desc_h + grow - dsz.h) / 2))
         desc_tb:paintTo(bb, x + math.floor((L.sw - desc_w) / 2), desc_paint_y)
         desc_tb:free()
 

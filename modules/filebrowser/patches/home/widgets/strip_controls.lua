@@ -1,4 +1,5 @@
 local Background = require("common/ui/background")
+local Scale = require("common/ui/scale")
 local Accent = require("common/ui/accent")
 local Blitbuffer = require("ffi/blitbuffer")
 local ButtonModel = require("common/nav_button_model")
@@ -70,8 +71,8 @@ local function get_control_face(style, size)
 end
 
 local function fit_face(labels, width, style, maximum, minimum)
-    local size = maximum or Device.screen:scaleBySize(10)
-    minimum = minimum or Device.screen:scaleBySize(7)
+    local size = maximum or Scale.font(10)
+    minimum = minimum or Scale.font(7)
     while size > minimum do
         local face = get_control_face(style, size)
         local fits = true
@@ -169,7 +170,7 @@ function M.build(opts)
     local fit_width = flexible_count > 0
         and math.floor(flexible_width / flexible_count) or 1
     local face = fit_face(labels, math.max(1, fit_width), text_style,
-        Device.screen:scaleBySize(text_style.font_size))
+        Scale.font(text_style.font_size))
     local flexible_cell_width = flexible_count > 0
         and math.floor(flexible_width / flexible_count) or 0
     local flexible_remainder = flexible_width - flexible_cell_width * flexible_count
@@ -191,7 +192,7 @@ function M.build(opts)
         local active = entry.id == opts.active_id and source_count > 1
         local content
         if icon_entry then
-            local glyph_face = Font:getFace("smallinfofont", Device.screen:scaleBySize(14))
+            local glyph_face = Font:getFace("smallinfofont", Scale.font(14))
             local glyph
             if entry.id == "search" and search_icon_path then
                 -- Match the glyph's em size so the icon keeps the old visual scale.
@@ -219,9 +220,9 @@ function M.build(opts)
                 or labels[label_index]
             local label_face = face
             if entry.id == opts.active_id and opts.active_group then
-                local base_size = face.orig_size or face.size or Device.screen:scaleBySize(10)
+                local base_size = face.orig_size or face.size or Scale.font(10)
                 label_face = fit_face({ label }, cell_width, text_style, base_size,
-                    math.max(Device.screen:scaleBySize(7), base_size - 1))
+                    math.max(Scale.font(7), base_size - 1))
             end
             content = FrameContainer:new{
                 width = cell_width,

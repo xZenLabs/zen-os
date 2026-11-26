@@ -2301,7 +2301,7 @@ function Driver:handleCommand(command)
                     width = size.w, module_cfg = strip_config,
                 }
                 state.strip_labels = {}
-                state.strip_min_text_size = require("device").screen:scaleBySize(7)
+                state.strip_min_text_size = require("common/ui/scale").font(7)
                 for _i, id in ipairs(strip_config.controls.order) do
                     local ButtonModel = require("common/nav_button_model")
                     local source_label = ButtonModel.label(strip_config.controls,

@@ -1510,7 +1510,8 @@ def test_reader_shared_selection_and_setting_layout(show_chevrons):
             inset = math.ceil(2 * scale)
             for name in ["font_size_decrease", "font_size_increase"]:
                 style = state["step_styles"][name]
-                assert style["size"] == math.ceil(14 * scale) and style["bold"] is False
+                # Scale.font(14): a getFace size, the same on every screen.
+                assert style["size"] == math.ceil(14 * 1264 / 600) and style["bold"] is False
                 assert style["border"] == 0 and style["flash"] is False
                 assert state["bounds"][name]["w"] == math.ceil(56 * scale)
             assert state["bounds"]["font_size_more"]["x"] == (

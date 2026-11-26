@@ -1,4 +1,5 @@
 local logger = require("common/zen_logger").new("home_page")
+local Scale = require("common/ui/scale")
 local author_sort = require("common/author_sort")
 local title_sort = require("common/title_sort")
 local ConfigManager = require("config/manager")
@@ -3207,9 +3208,9 @@ local function build_home_content(menu, zen_config, dcfg, rows, data_provider)
     menu._zen_home_row_gap = row_gap
     menu._zen_home_capacity_units = capacity
 
-    local face_title = Font:getFace("smallinfofont", Screen:scaleBySize(24))
-    local face_value = Font:getFace("smallinfofont", Screen:scaleBySize(20))
-    local face_label = Font:getFace("smallinfofont", Screen:scaleBySize(16))
+    local face_title = Font:getFace("smallinfofont", Scale.font(24))
+    local face_value = Font:getFace("smallinfofont", Scale.font(20))
+    local face_label = Font:getFace("smallinfofont", Scale.font(16))
     local FileManager = require("apps/filemanager/filemanager")
     local filemanagerutil = require("apps/filemanager/filemanagerutil")
 

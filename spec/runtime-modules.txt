@@ -87,6 +87,7 @@ common/ui/markdown_text.lua|unit
 common/ui/pill.lua|unit
 common/ui/raw_paint.lua|unit
 common/ui/refresh.lua|unit
+common/ui/scale.lua|unit
 common/ui/truncated_text_message.lua|unit
 common/ui/zen_arrange_list.lua|unit
 common/ui/zen_button.lua|unit

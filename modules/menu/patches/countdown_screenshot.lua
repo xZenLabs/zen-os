@@ -7,6 +7,7 @@
 --   require("modules/menu/patches/countdown_screenshot").run(seconds)
 
 local BD               = require("ui/bidi")
+local Scale = require("common/ui/scale")
 local Blitbuffer       = require("ffi/blitbuffer")
 local ButtonDialog     = require("ui/widget/buttondialog")
 local CenterContainer  = require("ui/widget/container/centercontainer")
@@ -55,7 +56,7 @@ function CountdownBar:init()
             dimen = Geom:new{ w = screen_w, h = bar_h },
             TextWidget:new{
                 text    = self.count,
-                face    = Font:getFace("infofont", Screen:scaleBySize(13)),
+                face    = Font:getFace("infofont", Scale.font(13)),
                 fgcolor = Blitbuffer.COLOR_WHITE,
             },
         },

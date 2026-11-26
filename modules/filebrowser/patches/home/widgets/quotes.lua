@@ -1,4 +1,5 @@
 local Background = require("common/ui/background")
+local Scale = require("common/ui/scale")
 local Blitbuffer = require("ffi/blitbuffer")
 local Device = require("device")
 local Font = require("ui/font")
@@ -89,7 +90,7 @@ end
 
 local function author_face(quote_font_size)
     return Font:getFace("smallinfofont",
-        Device.screen:scaleBySize(math.max(6, math.floor(quote_font_size * 9 / 10))))
+        Scale.font(math.max(6, math.floor(quote_font_size * 9 / 10))))
 end
 
 local function probe_text(values)
@@ -113,7 +114,7 @@ local function slot_bounds(quotes, content_w, height, inner_h)
     local cached = get_cached_layout(key)
     if cached then return cached, 0 end
 
-    local face = Font:getFace("smallinfofont", Device.screen:scaleBySize(font_size))
+    local face = Font:getFace("smallinfofont", Scale.font(font_size))
     local line_height = automatic and AUTOMATIC_MIN_LINE_HEIGHT or QUOTE_LINE_HEIGHT
     local line = probe_text{ text = "A", width = content_w, face = face, line_height = line_height }
     local probes = 1
@@ -173,7 +174,7 @@ local function preferred_height(ctx)
     local padding = Screen:scaleBySize(8)
     local vertical_padding = automatic_font_size and 0 or Screen:scaleBySize(4)
     local content_w = math.max(30, (tonumber(ctx.width) or Screen:getWidth()) - padding * 2)
-    local quote_face = Font:getFace("smallinfofont", Screen:scaleBySize(quote_font_size))
+    local quote_face = Font:getFace("smallinfofont", Scale.font(quote_font_size))
     local quote_probe = TextBoxWidget:new{
         text = "A\nA",
         width = content_w,
@@ -258,7 +259,7 @@ return {
                     local measured = font_measurements[candidate]
                     if measured then return measured.fits end
                     local candidate_face = Font:getFace(
-                        "smallinfofont", Screen:scaleBySize(candidate)
+                        "smallinfofont", Scale.font(candidate)
                     )
                     local author_h = 0
                     if attribution ~= "" then
@@ -303,7 +304,7 @@ return {
                     min_line_height_step, 11, line_height_fits) / 20
             end
 
-            local quote_face = Font:getFace("smallinfofont", Screen:scaleBySize(quote_font_size))
+            local quote_face = Font:getFace("smallinfofont", Scale.font(quote_font_size))
             local attribution_face = author_face(quote_font_size)
             local two_quote_lines_h
             local three_quote_lines_h
