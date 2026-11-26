@@ -50,6 +50,26 @@ local function apply_search()
         return roots
     end
 
+    local function book_sources()
+        local ok, BookSources = pcall(require, "common/book_sources")
+        if ok and type(BookSources) == "table" then return BookSources end
+    end
+
+    -- Book sources' books without a file (e.g. a catalog's books not
+    -- downloaded yet) that a search of path finds: KOReader's walk only
+    -- sees files. found: the files it found there.
+    local function source_results(self, path, found)
+        local BookSources = book_sources()
+        if not BookSources or type(BookSources.searchResults) ~= "function" then return {} end
+        local present = {}
+        for _i, entry in ipairs(found or {}) do
+            if type(entry) == "table" and type(entry[2]) == "string" then present[entry[2]] = true end
+        end
+        local ok, entries = pcall(BookSources.searchResults, self, path,
+            FileManagerFileSearcher.search_string, present)
+        return ok and type(entries) == "table" and entries or {}
+    end
+
     local orig_getList = FileManagerFileSearcher.getList
     function FileManagerFileSearcher:getList(...)
         if not is_enabled() or type(self._zen_search_paths) ~= "table" then
@@ -62,6 +82,7 @@ local function apply_search()
             local path_dirs, path_files, path_no_metadata_count = orig_getList(self, ...)
             for _j, item in ipairs(path_dirs or {}) do dirs[#dirs + 1] = item end
             for _j, item in ipairs(path_files or {}) do files[#files + 1] = item end
+            for _j, item in ipairs(source_results(self, path, path_files)) do files[#files + 1] = item end
             no_metadata_count = no_metadata_count + (path_no_metadata_count or 0)
         end
         return dirs, files, no_metadata_count
@@ -90,6 +111,12 @@ local function apply_search()
             self.include_metadata = self.ui.coverbrowser and true or false
             self._zen_search_paths = get_search_paths()
             FileManagerFileSearcher.search_path = self._zen_search_paths[1]
+            -- Built here, the book sources' folder index is inherited by the
+            -- search's subprocess instead of rebuilt there each search.
+            local BookSources = book_sources()
+            if BookSources and type(BookSources.prepareFolderIndex) == "function" then
+                pcall(BookSources.prepareFolderIndex)
+            end
             local Trapper = require("ui/trapper")
             Trapper:wrap(function()
                 self:doSearch()
@@ -260,6 +287,19 @@ local function apply_search()
     local orig_onShowSearchResults = FileManagerFileSearcher.onShowSearchResults
 
     function FileManagerFileSearcher:onShowSearchResults(not_cached)
+        -- Results without a file have no CoverBrowser row: their metadata
+        -- comes from their book source, as in folder listings.
+        local BookSources = is_enabled() and book_sources()
+        if BookSources and type(BookSources.ownsWithoutFile) == "function"
+                and type(BookSources.docProps) == "function" then
+            for _i, item in ipairs(FileManagerFileSearcher.search_results or {}) do
+                if type(item) == "table" and item.is_file and type(item.doc_props) ~= "table"
+                        and BookSources.ownsWithoutFile(item.path) then
+                    local ok, props = pcall(BookSources.docProps, item.path)
+                    if ok then item.doc_props = props end
+                end
+            end
+        end
         local result = orig_onShowSearchResults(self, not_cached)
 
         local menu = self.booklist_menu
@@ -294,9 +334,19 @@ local function apply_search()
                 end
             end
 
-            -- Navigate INTO folders on tap instead of to their parent
+            -- Navigate INTO folders on tap instead of to their parent; a
+            -- book source's book without a file opens through its source
+            -- (KOReader ignores paths that don't exist).
             local orig_menu_select = menu.onMenuSelect
             menu.onMenuSelect = function(menu_self, item)
+                if item.is_file and not menu_self._manager.selected_files then
+                    local sources = book_sources()
+                    if sources and type(sources.ownsWithoutFile) == "function"
+                            and sources.ownsWithoutFile(item.path) then
+                        local ok, handled = pcall(sources.open, item.path, menu_self.ui)
+                        if ok and handled == true then return true end
+                    end
+                end
                 if not item.is_file and not menu_self._manager.selected_files then
                     if menu_self.ui and menu_self.ui.file_chooser then
                         menu_self._manager.update_files = nil
