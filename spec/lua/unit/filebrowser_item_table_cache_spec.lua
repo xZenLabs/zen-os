@@ -745,6 +745,46 @@ describe("file browser item-table cache", function()
         assert.are.equal(2, item.attr.access)
     end)
 
+    it("resolves only paths that are there for last-read sorting", function()
+        -- Looking up a missing name (a library source's book, a deleted book
+        -- still in the history) is slow on a Kobo, and realpath() of one
+        -- fails, leaving the path as it was.
+        collate_mode = "access"
+        source_items["/library"] = {
+            { text = "real.epub", path = "/library/real.epub", attr = { mode = "file", modification = 1 } },
+        }
+        package.loaded["common/book_sources"].isLibraryBook = function(path)
+            return path == "/library/cloud.epub"
+        end
+        local lfs = package.loaded["libs/libkoreader-lfs"]
+        local stat = lfs.attributes
+        local stated = {}
+        lfs.attributes = function(path, field)
+            stated[path] = true
+            if path == "/library/deleted.epub" then return nil end
+            return stat(path, field)
+        end
+        local resolved = {}
+        package.loaded["ffi/util"].realpath = function(path)
+            resolved[#resolved + 1] = path
+            return "/real" .. path
+        end
+        local normalized
+        package.loaded["common/history_index"].load = function(normalize)
+            normalized = { normalize("/library/cloud.epub"), normalize("/library/deleted.epub"),
+                normalize("/library/real.epub") }
+            return history_times
+        end
+        local chooser = setmetatable({ name = "filemanager" }, { __index = FileChooser })
+
+        chooser:genItemTableFromPath("/library")
+
+        assert.are.same({ "/library/cloud.epub", "/library/deleted.epub", "/real/library/real.epub" }, normalized)
+        assert.are.same({ "/library/real.epub" }, resolved)
+        assert.is_nil(stated["/library/cloud.epub"], "a library source's book: no file system look-up")
+        assert.is_true(stated["/library/deleted.epub"])
+    end)
+
     it("restores a scalar-only listing snapshot in a fresh cache instance", function()
         source_items["/library"] = {
             {

@@ -345,9 +345,29 @@ local function apply_browser_item_table_cache()
         }, ":")
     end
 
-    local function canonical_path(path)
+    -- Books that plugins add to a folder's listing (common/book_sources)
+    -- change without the folder's timestamp changing.
+    local ok_sources, BookSources = pcall(require, "common/book_sources")
+
+    -- exists: true when the caller knows the path is there (a listed folder).
+    -- realpath() of a missing file fails, leaving the path as given, but on a
+    -- Kobo any look-up of a missing name in a big FAT folder takes about 1 ms
+    -- when it isn't cached: thousands of a library source's books would
+    -- cost seconds a listing. Those aren't library files by the source's
+    -- word, so nothing is looked up; other paths are checked with a stat
+    -- first (fast once cached, which realpath() of a missing file isn't),
+    -- e.g. history entries for deleted books.
+    local function canonical_path(path, exists)
         if not path then return nil end
-        return paths.normPath((ffiUtil.realpath(path) or path):gsub("/$", ""))
+        if exists == nil then
+            if ok_sources and type(BookSources.isLibraryBook) == "function" then
+                local ok, listed = pcall(BookSources.isLibraryBook, path)
+                if ok and listed then exists = false end
+            end
+            if exists == nil then exists = lfs.attributes(path, "mode") ~= nil end
+        end
+        local real = exists and ffiUtil.realpath(path) or nil
+        return paths.normPath((real or path):gsub("/$", ""))
     end
 
     -- Rebuilds the index only when ReadHistory actually changed.  The
@@ -391,7 +411,7 @@ local function apply_browser_item_table_cache()
         local directory_paths = {}
         for _i, item in ipairs(item_table) do
             if not is_special_item(item) and item.attr and item.attr.mode == "directory" then
-                item._zen_canonical_path = canonical_path(item.path)
+                item._zen_canonical_path = canonical_path(item.path, true)
                 directory_paths[#directory_paths + 1] = item._zen_canonical_path
             end
         end
@@ -534,9 +554,8 @@ local function apply_browser_item_table_cache()
         return status_filter(self) ~= nil
     end
 
-    -- Books that plugins add to a folder's listing (common/book_sources)
+    -- Books that plugins add to a folder's listing (BookSources, above)
     -- change without the folder's timestamp changing.
-    local ok_sources, BookSources = pcall(require, "common/book_sources")
     local function book_sources_key(path)
         if not ok_sources or type(BookSources.listingKey) ~= "function" then return "" end
         local ok, key = pcall(BookSources.listingKey, path)
