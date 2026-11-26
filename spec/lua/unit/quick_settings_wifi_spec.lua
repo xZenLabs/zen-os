@@ -241,6 +241,7 @@ describe("quick settings Wi-Fi", function()
         Device.hasFrontlight = function() return false end
         Device.hasGSensor = function() return false end
         Device.isAlwaysFullscreen = function() return true end
+        Device.isEmulator = function() return false end -- KOReader nightly checks it at load
         local resets, selections, updates = 0, 0, 0
         local listener = require("device/devicelistener"):new{ ui = {
             document = { provider = "crengine", resetCallCache = function() resets = resets + 1 end },
