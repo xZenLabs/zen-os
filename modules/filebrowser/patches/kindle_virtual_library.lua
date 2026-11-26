@@ -396,6 +396,10 @@ function M.showBookContextMenu(menu, item, after_change)
         -- which can differ from the cache path shown here.
         _zen_is_history = item._zen_is_history,
         _zen_history_path = item._zen_history_path,
+        -- Collection context, so "Remove from collection" works when the
+        -- book is long-pressed inside a collection view.
+        _zen_collection_name = item._zen_collection_name,
+        _zen_collection_refresh = item._zen_collection_refresh,
         _zen_refresh = function()
             if type(library.refresh) == "function" then library:refresh(true) end
             refresh_view()

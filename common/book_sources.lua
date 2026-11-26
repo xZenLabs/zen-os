@@ -20,13 +20,20 @@
 --       -- missing.
 --       owns = function(path) return ... end,
 --       -- Optional: open a book. Return true when handled; ZenOS then skips
---       -- its own opening (and marking the book as reading).
+--       -- its own opening (and marking the book as reading) and its
+--       -- opening banner. Asked wherever ZenOS opens a book
+--       -- (filemanagerutil.openFile: the file browser, Home, To Be Read,
+--       -- collections, end-of-book suggestions...). Calls to openFile()
+--       -- from inside it open as usual.
 --       open = function(path, ui) return true end,
---       -- Optional: long-press on a book in a group view or on Home. Return
---       -- true when handled. item may carry ZenOS context fields
---       -- (_zen_is_history, _zen_history_path); a source that shows
---       -- FileChooser:showFileDialog() should pass them through so the
---       -- dialog keeps rows such as "Remove from history".
+--       -- Optional: long-press on a book. Return true when handled. Asked
+--       -- wherever ZenOS shows a book's context menu
+--       -- (FileChooser:showFileDialog: the file browser, group views,
+--       -- Home, To Be Read, collections). item may carry ZenOS context
+--       -- fields (_zen_is_history, _zen_history_path); a source that shows
+--       -- FileChooser:showFileDialog() itself (which then shows ZenOS's own
+--       -- dialog) should pass them through so the dialog keeps rows such as
+--       -- "Remove from history".
 --       showContextMenu = function(menu, item, after_change) return true end,
 --       -- Optional: drop cached books (db_bookinfo.invalidate()).
 --       invalidate = function() end,
@@ -298,16 +305,43 @@ function M.ownsWithoutFile(path)
     return not (ok and type(util.fileExists) == "function" and util.fileExists(path))
 end
 
---- Opens a source's book. Returns true when a source handled it.
+-- The source handler running now ("open" or "showContextMenu"), if any: a
+-- source opening a file or showing ZenOS's dialog from its handler goes
+-- through the wrappers that ask the sources, and gets ZenOS's own.
+local handling = {}
+
+-- ZenOS's opening banner, shown on tapping a cover: a source that opens its
+-- book some other way (e.g. a details page) leaves nothing to open.
+local function cancel_opening_banner()
+    local cancel = rawget(_G, "__ZEN_UI_CANCEL_OPENING_BANNER")
+    if type(cancel) == "function" then pcall(cancel) end
+end
+
+--- Opens a source's book. Returns true when a source handled it (ZenOS's
+-- opening banner is then cancelled). False while a source's open handler
+-- runs, so the files it opens open as usual.
 function M.open(path, ui)
+    if handling.open then return false end
     local id, source = owner(path)
-    return id ~= nil and call(id, source, "open", path, ui) == true
+    if id == nil then return false end
+    handling.open = true
+    local handled = call(id, source, "open", path, ui) == true
+    handling.open = nil
+    if handled then cancel_opening_banner() end
+    return handled
 end
 
 --- Long-press on a source's book. Returns true when a source handled it.
+-- False while a source's handler runs, so a source can show ZenOS's own
+-- dialog (FileChooser:showFileDialog) from it.
 function M.showContextMenu(menu, item, after_change)
+    if handling.showContextMenu then return false end
     local id, source = owner(type(item) == "table" and item.path or nil)
-    return id ~= nil and call(id, source, "showContextMenu", menu, item, after_change) == true
+    if id == nil then return false end
+    handling.showContextMenu = true
+    local handled = call(id, source, "showContextMenu", menu, item, after_change) == true
+    handling.showContextMenu = nil
+    return handled
 end
 
 local answering = {} -- paths whose bookInfo is being built (re-entry guard)

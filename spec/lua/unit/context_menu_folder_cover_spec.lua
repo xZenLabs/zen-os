@@ -877,6 +877,52 @@ describe("folder cover context-menu integration", function()
         assert.is_false(viewer.image_disposable)
     end)
 
+    it("shows a book source's menu wherever its book is long-pressed", function()
+        local asked = {}
+        local chooser = { name = "filemanager", path = "/library", showFileDialog = function() return "stock" end }
+        local fm = { file_chooser = chooser }
+        local FileManager = { instance = fm, moveFile = function() end, setupLayout = function() end }
+        install_stubs({
+            FileChooser = { show_filter = {}, show_file = function() return true end },
+            FileManager = FileManager,
+            Files = { isManaged = function() return false end },
+        })
+        -- ZenOS's own dialog (tested above): only whether it's asked for.
+        local dialogs = {}
+        replace("modules/filebrowser/patches/context_menu_file_dialog", function(_ctx, _fc, item)
+            dialogs[#dialogs + 1] = item.path
+        end)
+        replace("common/book_sources", {
+            showContextMenu = function(menu, item)
+                asked[#asked + 1] = { menu = menu, item = item }
+                if item.path == "/library/broken.epub" then error("boom") end
+                return item.path == "/library/cloud-1.epub"
+            end,
+        })
+        apply_patch()
+        FileManager.setupLayout(fm)
+
+        local item = { path = "/library/cloud-1.epub", is_file = true, _zen_is_history = true }
+        assert.is_nil(chooser:showFileDialog(item))
+        assert.are.equal(0, #dialogs)
+        assert.are.equal(chooser, asked[1].menu)
+        assert.are.equal(item, asked[1].item)
+
+        -- Not a source's book, or its source failed: ZenOS's own dialog.
+        chooser:showFileDialog({ path = "/library/book.epub", is_file = true })
+        chooser:showFileDialog({ path = "/library/broken.epub", is_file = true })
+        assert.are.same({ "/library/book.epub", "/library/broken.epub" }, dialogs)
+
+        -- Folders, "..", the current folder and a dialog the Kindle library
+        -- asked for itself never go to the sources.
+        local before = #asked
+        chooser:showFileDialog({ path = "/library/sub", is_file = false })
+        chooser:showFileDialog({ path = "/", is_go_up = true })
+        chooser:showFileDialog({ path = "/library", is_file = false, _is_current_dir = true })
+        chooser:showFileDialog({ path = "/library/cloud-1.epub", is_file = true, _zen_kindle_book = true })
+        assert.are.equal(before, #asked)
+    end)
+
     it("keeps inline icons in plugin actions and preserves Edit ordering", function()
         local shown = {}
         local closed = {}

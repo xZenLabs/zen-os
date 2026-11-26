@@ -87,6 +87,67 @@ describe("book sources", function()
         assert.is_false(BookSources.showContextMenu("menu", { path = "/books/local.epub" }))
     end)
 
+    it("cancels ZenOS's opening banner when a source opens its book", function()
+        local cancels = 0
+        local original_cancel = rawget(_G, "__ZEN_UI_CANCEL_OPENING_BANNER")
+        _G.__ZEN_UI_CANCEL_OPENING_BANNER = function() cancels = cancels + 1 end
+        local handles = true
+        BookSources.register("cloud", {
+            books = function() return {} end,
+            owns = function(path) return path:find("/cloud-", 1, true) ~= nil end,
+            open = function() return handles end,
+        })
+
+        assert.is_true(BookSources.open("/books/cloud-1.epub"))
+        assert.are.equal(1, cancels)
+        handles = false
+        assert.is_false(BookSources.open("/books/cloud-1.epub"))
+        assert.is_false(BookSources.open("/books/local.epub"))
+        assert.are.equal(1, cancels)
+        _G.__ZEN_UI_CANCEL_OPENING_BANNER = original_cancel
+    end)
+
+    it("lets a source's handler open files and show ZenOS's dialog as usual", function()
+        local nested_open, nested_menu
+        BookSources.register("cloud", {
+            books = function() return {} end,
+            owns = function(path) return path:find("/cloud-", 1, true) ~= nil end,
+            open = function(path)
+                -- e.g. opening the downloaded file, or the same path again
+                nested_open = BookSources.open(path)
+                return true
+            end,
+            showContextMenu = function(_menu, item)
+                -- e.g. FileChooser:showFileDialog() for ZenOS's own dialog
+                nested_menu = BookSources.showContextMenu(nil, item)
+                return true
+            end,
+        })
+
+        assert.is_true(BookSources.open("/books/cloud-1.epub"))
+        assert.is_false(nested_open)
+        assert.is_true(BookSources.showContextMenu(nil, { path = "/books/cloud-1.epub" }))
+        assert.is_false(nested_menu)
+        -- And again afterwards: the guard doesn't stick.
+        assert.is_true(BookSources.open("/books/cloud-1.epub"))
+    end)
+
+    it("clears the re-entry guard when a source's handler fails", function()
+        local fail = true
+        BookSources.register("cloud", {
+            books = function() return {} end,
+            owns = function() return true end,
+            open = function() if fail then error("boom") end return true end,
+            showContextMenu = function() if fail then error("boom") end return true end,
+        })
+
+        assert.is_false(BookSources.open("/books/a.epub"))
+        assert.is_false(BookSources.showContextMenu(nil, { path = "/books/a.epub" }))
+        fail = false
+        assert.is_true(BookSources.open("/books/a.epub"))
+        assert.is_true(BookSources.showContextMenu(nil, { path = "/books/a.epub" }))
+    end)
+
     it("reports whether any source owns a path", function()
         BookSources.register("cloud", {
             books = function() return {} end,
