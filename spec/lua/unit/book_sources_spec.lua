@@ -279,6 +279,105 @@ describe("book sources", function()
         assert.are.equal("/books/c.epub", books[1].file)
     end)
 
+    describe("file browser selection", function()
+        local FileManager, FileChooser
+
+        before_each(function()
+            BookSources.register("cloud", {
+                library = true,
+                books = function() return {} end,
+                owns = function(path) return path:find("/cloud/", 1, true) ~= nil end,
+            })
+            FileManager = {
+                onToggleSelectMode = function(self)
+                    if self.selected_files then self.selected_files = nil else self.selected_files = {} end
+                    return true
+                end,
+            }
+            FileChooser = {
+                selectAllFilesInFolder = function(self, do_select)
+                    for _i, item in ipairs(self.item_table) do
+                        if item.is_file then
+                            if do_select then
+                                self.ui.selected_files[item.path] = true
+                                item.dim = true
+                            else
+                                item.dim = nil
+                            end
+                        end
+                    end
+                    self.updated = (self.updated or 0) + 1
+                end,
+                updateItems = function(self) self.updated = (self.updated or 0) + 1 end,
+            }
+            ZenSpec.replace("apps/filemanager/filemanager", FileManager)
+            ZenSpec.replace("ui/widget/filechooser", FileChooser)
+            assert.is_true(BookSources.installSelectionGuard())
+        end)
+
+        after_each(function()
+            ZenSpec.unload("apps/filemanager/filemanager")
+            ZenSpec.unload("ui/widget/filechooser")
+        end)
+
+        it("keeps books without a file out of the selection", function()
+            assert.is_false(BookSources.selectable("/nowhere/cloud/a.epub"))
+            assert.is_true(BookSources.selectable("/nowhere/local/b.epub"))
+
+            local fm = setmetatable({}, { __index = FileManager })
+            fm:onToggleSelectMode()
+            fm.selected_files["/nowhere/cloud/a.epub"] = true
+            fm.selected_files["/nowhere/local/b.epub"] = true
+            assert.is_nil(fm.selected_files["/nowhere/cloud/a.epub"])
+            assert.is_true(fm.selected_files["/nowhere/local/b.epub"])
+            fm.selected_files["/nowhere/local/b.epub"] = nil
+            assert.is_nil(next(fm.selected_files))
+            fm:onToggleSelectMode()
+            assert.is_nil(fm.selected_files)
+        end)
+
+        it("leaves them unselected and not dimmed when selecting all", function()
+            local fm = setmetatable({}, { __index = FileManager })
+            fm:onToggleSelectMode()
+            local chooser = setmetatable({ ui = fm, item_table = {
+                { is_file = true, path = "/nowhere/cloud/a.epub" },
+                { is_file = true, path = "/nowhere/local/b.epub" },
+                { path = "/nowhere/folder" },
+            } }, { __index = FileChooser })
+
+            chooser:selectAllFilesInFolder(true)
+
+            assert.is_nil(chooser.item_table[1].dim)
+            assert.is_true(chooser.item_table[2].dim)
+            assert.is_nil(fm.selected_files["/nowhere/cloud/a.epub"])
+            assert.is_true(fm.selected_files["/nowhere/local/b.epub"])
+            assert.are.equal(2, chooser.updated)
+        end)
+
+        it("guards a selection table set directly, dropping such books already in it", function()
+            local selection = BookSources.guardSelection({
+                ["/nowhere/cloud/a.epub"] = true, ["/nowhere/local/b.epub"] = true,
+            })
+            assert.is_nil(selection["/nowhere/cloud/a.epub"])
+            assert.is_true(selection["/nowhere/local/b.epub"])
+            selection["/nowhere/cloud/c.epub"] = true
+            assert.is_nil(selection["/nowhere/cloud/c.epub"])
+            assert.is_nil(BookSources.guardSelection(nil))
+        end)
+
+        it("doesn't let a false entry for such a book become selected later", function()
+            local selection = BookSources.guardSelection({ ["/nowhere/cloud/a.epub"] = false })
+            assert.is_nil(rawget(selection, "/nowhere/cloud/a.epub"))
+            selection["/nowhere/cloud/a.epub"] = true
+            assert.is_nil(selection["/nowhere/cloud/a.epub"])
+            selection["/nowhere/cloud/c.epub"] = false
+            assert.is_nil(rawget(selection, "/nowhere/cloud/c.epub"))
+            selection["/nowhere/cloud/c.epub"] = true
+            assert.is_nil(selection["/nowhere/cloud/c.epub"])
+            selection["/nowhere/local/b.epub"] = false
+            assert.is_false(selection["/nowhere/local/b.epub"])
+        end)
+    end)
 
     it("changes revision when sources change", function()
         local first = BookSources.revision()

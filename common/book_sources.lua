@@ -485,6 +485,75 @@ function M.booksWithoutFile(folders, present)
     return out
 end
 
+--- True when path may be selected in the file browser's select mode, whose
+-- actions are file operations (delete, move, copy, reading status): not a
+-- source's book without a file on the device.
+function M.selectable(path)
+    return not M.ownsWithoutFile(path)
+end
+
+-- Keeps books without a file out of a file browser selection table (it
+-- drops them as they're added, however they're added).
+local selection_guard = {
+    __newindex = function(selection, path, value)
+        -- Any value, false too: rawset would make the key present, and a
+        -- later assignment to a present key skips __newindex.
+        if value ~= nil and type(path) == "string" and not M.selectable(path) then return end
+        rawset(selection, path, value)
+    end,
+}
+
+--- Guards a selection table (FileManager.selected_files) and returns it.
+function M.guardSelection(selection)
+    if type(selection) == "table" and getmetatable(selection) == nil then
+        for path in pairs(selection) do
+            if type(path) == "string" and not M.selectable(path) then selection[path] = nil end
+        end
+        setmetatable(selection, selection_guard)
+    end
+    return selection
+end
+
+--- Installs the selection guard on the file browser's select mode: every
+-- selection it starts is guarded, and "Select all files in folder" leaves
+-- books without a file unselected (and not dimmed). Collections' and file
+-- search's select modes are left alone: theirs act on collections, or hand
+-- the selection to the file browser.
+function M.installSelectionGuard()
+    local ok_fm, FileManager = pcall(require, "apps/filemanager/filemanager")
+    if not ok_fm or type(FileManager) ~= "table" or type(FileManager.onToggleSelectMode) ~= "function" then
+        return false
+    end
+    if FileManager._zen_selection_guarded then return true end
+    FileManager._zen_selection_guarded = true
+    local orig_toggle = FileManager.onToggleSelectMode
+    function FileManager:onToggleSelectMode(...)
+        local result = orig_toggle(self, ...)
+        M.guardSelection(self.selected_files)
+        return result
+    end
+    local ok_fc, FileChooser = pcall(require, "ui/widget/filechooser")
+    if ok_fc and type(FileChooser) == "table" and type(FileChooser.selectAllFilesInFolder) == "function" then
+        local orig_all = FileChooser.selectAllFilesInFolder
+        function FileChooser:selectAllFilesInFolder(do_select, ...)
+            local result = orig_all(self, do_select, ...)
+            local selection = self.ui and self.ui.selected_files
+            if do_select and type(selection) == "table" then
+                local undimmed = false
+                for _i, item in ipairs(self.item_table or {}) do
+                    if item.is_file and item.dim and not selection[item.path] then
+                        item.dim = nil
+                        undimmed = true
+                    end
+                end
+                if undimmed then self:updateItems(1, true) end
+            end
+            return result
+        end
+    end
+    return true
+end
+
 -- The library source owning path, if any (see library).
 local function library_owner(path)
     if type(path) ~= "string" then return nil end
