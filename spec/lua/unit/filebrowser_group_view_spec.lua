@@ -55,6 +55,7 @@ describe("file browser group views", function()
         "apps/filemanager/filemanager",
         "ui/widget/filechooser",
         "ui/widget/booklist",
+        "common/book_sources",
     }
 
     local function find_menu(name)
@@ -1031,6 +1032,108 @@ describe("file browser group views", function()
 
         assert.is_true(detail.item_table[1]._zen_empty_placeholder)
         assert.is_true(find_menu("authors").item_table[1]._zen_empty_placeholder)
+    end)
+
+    it("refreshes open group pages, book lists and To Be Read when book sources change", function()
+        local listeners = {}
+        package.loaded["common/book_sources"] = setmetatable({
+            onChanged = function(listener) listeners[#listeners + 1] = listener end,
+        }, { __index = require("common/book_sources") })
+        local groups = {
+            authors = { { author = "Ada", files = { "/a.epub" } } },
+            tbr = { "/a.epub" },
+        }
+        install_group_view(groups)
+        config.features.automatic_series_grouping = false
+        metadata["/a.epub"] = { title = "A" }
+        metadata["/b.epub"] = { title = "B" }
+        metadata["/c.epub"] = { title = "C" }
+        api.showAuthorsView()
+        local root = assert(find_menu("authors"))
+        local detail = assert(api.restoreDetail("Ada", "authors"))
+        api.showTBRView()
+        local tbr = assert(find_menu("to_be_read"))
+
+        -- A source added books: to Ada, a new author, and To Be Read.
+        groups.authors = {
+            { author = "Ada", files = { "/a.epub", "/b.epub" } },
+            { author = "Bo", files = { "/c.epub" } },
+        }
+        groups.tbr = { "/a.epub", "/c.epub" }
+        assert.are.equal(1, #listeners)
+        listeners[1]({ "/b.epub", "/c.epub" }, "books")
+
+        assert.are.equal(2, #root.item_table)
+        local detail_paths = {}
+        for _i, item in ipairs(detail.item_table) do detail_paths[#detail_paths + 1] = item.path end
+        table.sort(detail_paths)
+        assert.are.same({ "/a.epub", "/b.epub" }, detail_paths)
+        assert.are.equal(2, #tbr.item_table)
+    end)
+
+    it("keeps a source's new books when a refreshed book list reopens for a filter", function()
+        local listeners = {}
+        package.loaded["common/book_sources"] = setmetatable({
+            onChanged = function(listener) listeners[#listeners + 1] = listener end,
+        }, { __index = require("common/book_sources") })
+        local groups = { authors = { { author = "Ada", files = { "/a.epub" } } } }
+        install_group_view(groups)
+        config.features.automatic_series_grouping = false
+        metadata["/a.epub"] = { title = "A" }
+        metadata["/b.epub"] = { title = "B" }
+        package.loaded.device.isTouchDevice = function() return true end
+        api.showAuthorsView()
+        local root = assert(find_menu("authors"))
+        root.onMenuSelect(root, root.item_table[1])
+        local detail = assert(find_menu("authors_detail"))
+
+        groups.authors = { { author = "Ada", files = { "/a.epub", "/b.epub" } } }
+        listeners[1]({ "/b.epub" }, "books")
+        detail:onZenDetailBlankHold()
+        file_dialog_args._zen_filter_refresh_cb()
+
+        local reopened = assert(menus[#menus])
+        assert.are.equal("authors_detail", reopened.name)
+        assert.are_not.equal(detail, reopened)
+        local paths = {}
+        for _i, item in ipairs(reopened.item_table) do paths[#paths + 1] = item.path end
+        table.sort(paths)
+        assert.are.same({ "/a.epub", "/b.epub" }, paths)
+    end)
+
+    it("refreshes a series opened from an author's list with that author's books", function()
+        local listeners = {}
+        package.loaded["common/book_sources"] = setmetatable({
+            onChanged = function(listener) listeners[#listeners + 1] = listener end,
+        }, { __index = require("common/book_sources") })
+        local groups = {
+            authors = {
+                { author = "Ada", files = { "/first.epub", "/solo.epub" } },
+                { author = "Zed", files = { "/other.epub" } },
+            },
+        }
+        install_group_view(groups)
+        config.features.automatic_series_grouping = true
+        metadata["/first.epub"] = { title = "First", series = "Saga", series_index = 1 }
+        metadata["/second.epub"] = { title = "Second", series = "Saga", series_index = 2 }
+        metadata["/solo.epub"] = { title = "Solo" }
+        metadata["/other.epub"] = { title = "Other", series = "Saga", series_index = 3 }
+        -- One Saga book: a series group needs two.
+        groups.authors[1].files[#groups.authors[1].files + 1] = "/second.epub"
+        api.showAuthorsView()
+        local detail = assert(api.restoreDetail("Ada", "authors"))
+        assert.is_true(detail.item_table[1].is_series_group)
+        detail.onMenuSelect(detail, detail.item_table[1])
+        local series = assert(find_menu("series_detail"))
+
+        -- A source added a third Saga book by Ada (Zed's stays out).
+        metadata["/third.epub"] = { title = "Third", series = "Saga", series_index = 4 }
+        groups.authors[1].files = { "/first.epub", "/second.epub", "/third.epub", "/solo.epub" }
+        listeners[1]({ "/third.epub" }, "books")
+
+        local paths = {}
+        for _i, item in ipairs(series.item_table) do paths[#paths + 1] = item.path end
+        assert.are.same({ "/first.epub", "/second.epub", "/third.epub" }, paths)
     end)
 
     it("reloads TBR books after deletion through the shared refresh hook", function()

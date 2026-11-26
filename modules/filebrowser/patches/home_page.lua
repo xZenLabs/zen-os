@@ -445,6 +445,13 @@ local function trim_home_book_cache()
     end
 end
 
+-- Drops every cached book (freeing their covers), e.g. when any book may
+-- have changed.
+local function clear_home_book_cache()
+    for key in pairs(_home_book_cache) do remove_home_book_cache_entry(key) end
+    _home_book_cache_order = {}
+end
+
 local function cache_home_book(key, book)
     remove_home_book_cache_entry(key)
     for i = #_home_book_cache_order, 1, -1 do
@@ -2140,7 +2147,22 @@ local function build_data_provider(cfg, dcfg, strip_page_state)
                     return drill.files
                 end
             end
-            drill.files = {}
+            -- No group (e.g. a source report left one book, or only this
+            -- series): match the remaining books by their series metadata.
+            local files = {}
+            local ok_db, db = pcall(require, "common/db_bookinfo")
+            local metadata = ok_db and db and type(db.getLightMetadata) == "function"
+                and db.getLightMetadata() or {}
+            for _i, file in ipairs(paths) do
+                local info = metadata[file]
+                if info and info.series == drill.label then files[#files + 1] = file end
+            end
+            table.sort(files, function(a, b)
+                local a_index = tonumber(metadata[a].series_index) or 0
+                local b_index = tonumber(metadata[b].series_index) or 0
+                return a_index == b_index and a < b or a_index < b_index
+            end)
+            drill.files = files
             return drill.files
         end
         for _i, group in ipairs(source_groups(request.kind)) do
@@ -4248,6 +4270,58 @@ function M.invalidateLibraryCache()
     invalidate_home_library_dataset()
 end
 
+-- A book source reported a change (BookSources.changed, statusChanged or
+-- historyChanged). Cached details of paths are dropped now; Home is
+-- refreshed on the next tick (one refresh for any number of reports), or
+-- when it's next shown. Refreshing only rebuilds what changed: nothing
+-- when a caller already rebuilt Home itself. The history is always read
+-- again: it lists the sources' books, and only those a source still owns.
+-- Without paths, any book may have changed.
+local sources_refresh_scheduled = false
+function M.sourcesChanged(paths)
+    local any_path = false
+    for _i, path in ipairs(type(paths) == "table" and paths or {}) do
+        if type(path) == "string" and path ~= "" then
+            any_path = true
+            M.invalidateBookCache(path, true)
+        end
+    end
+    if not any_path then
+        clear_home_book_cache()
+        local dataset = _home_dataset_cache
+        if dataset then
+            dataset.generation = dataset.generation + 1
+            dataset.history = nil
+            -- Any book's status may have changed (e.g. statusChanged()).
+            dataset.effective_status = {}
+            dataset.status_data = {}
+            clear_home_dataset_derived(dataset)
+        end
+        mark_home_rebuild_needed()
+    end
+    if not _home_menu or _home_menu._zen_home_closing then return end
+    -- A drilled-into group's books are looked up again on the next build.
+    local runtime = _home_menu._zen_home_strip_runtime
+    local source = type(runtime) == "table" and runtime.source
+    local drill = type(source) == "table" and source.drill
+    if type(drill) == "table" then drill.files = nil end
+    if not M.isActiveOnTop() then
+        -- Resumed (and rebuilt as needed) when shown again.
+        request_home_repaint(_home_menu, "ui")
+        return
+    end
+    if sources_refresh_scheduled then return end
+    sources_refresh_scheduled = true
+    UIManager:nextTick(function()
+        sources_refresh_scheduled = false
+        if not M.isActiveOnTop() then
+            if _home_menu then request_home_repaint(_home_menu, "ui") end
+            return
+        end
+        if not M.resumeActive() then M.rebuildActive() end
+    end)
+end
+
 function M.invalidateTBRCache()
     local dataset = _home_dataset_cache
     if dataset then
@@ -4362,6 +4436,10 @@ function M.closeAll(force)
 end
 
 Registry.setRefreshCallback(M.rebuildActive)
+if type(BookSources.setHome) == "function" then BookSources.setHome(M) end
+if type(BookSources.onChanged) == "function" then
+    BookSources.onChanged(function(paths) M.sourcesChanged(paths) end)
+end
 MemoryPolicy.registerHomeCache(M)
 
 local function register_home_api(zen_plugin)

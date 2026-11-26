@@ -414,8 +414,19 @@ local function apply_browser_item_table_cache()
                 end
                 if read_time then
                     item.attr = item.attr or {}
+                    -- The file's own access time, restored if it leaves the history.
+                    if item._zen_fs_access == nil then
+                        item._zen_fs_access = item.attr.access or false
+                    end
                     item.attr.access = read_time
                     if not is_directory and collate.mandatory_func ~= nil then
+                        item.mandatory = chooser:getMenuItemMandatory(item, collate)
+                    end
+                elseif not is_directory and item._zen_fs_access ~= nil and item.attr then
+                    -- A cached item that was in the history but no longer is.
+                    item.attr.access = item._zen_fs_access or nil
+                    item._zen_fs_access = nil
+                    if collate.mandatory_func ~= nil then
                         item.mandatory = chooser:getMenuItemMandatory(item, collate)
                     end
                 end
@@ -1007,6 +1018,15 @@ local function apply_browser_item_table_cache()
         local reverse = type(override) == "table"
             and override.reverse or G_reader_settings:isTrue("reverse_collate")
         local stable = stable_key(self, path, override)
+        -- What the shown listing was built with, to tell when a book
+        -- source's change leaves it out of date (see BookSources.onChanged
+        -- below). Only a listing refreshPath shows counts: Home's queries
+        -- and warming build ones nobody sees yet.
+        if self._zen_building_shown_listing then
+            self._zen_building_shown_listing = nil
+            self._zen_listing_stable_keys = self._zen_listing_stable_keys or {}
+            self._zen_listing_stable_keys[path] = stable
+        end
         local key = stable .. "|" .. directory_signature(path)
         local prepared = self._zen_prepared_item_table
         if prepared then
@@ -1117,6 +1137,15 @@ local function apply_browser_item_table_cache()
         return result, true
     end
 
+    -- KOReader shows every listing through refreshPath (changeToPath calls
+    -- it): the first listing it builds is the one shown.
+    local original_refreshPath = FileChooser.refreshPath
+    function FileChooser:refreshPath(...)
+        self._zen_building_shown_listing = true
+        if original_refreshPath then original_refreshPath(self, ...) end
+        self._zen_building_shown_listing = nil
+    end
+
     function FileChooser:_zen_warm_item_table(path)
         if self._dummy or self.name ~= "filemanager"
                 or type(path) ~= "string" or path == "" then return nil end
@@ -1139,6 +1168,96 @@ local function apply_browser_item_table_cache()
             "cache=", tostring(detail.cache), "path=", path, "items=", detail.items,
             "signature_mode=", tostring(detail.signature_mode or "none"))
         return result, detail
+    end
+
+    -- ---- book source changes (BookSources.onChanged) ----------------------
+
+    -- The folder a path is in ("/" for one at the root), or nil (a source's
+    -- own path, such as "cloud:123").
+    local function parent_dir(path)
+        local parent = type(path) == "string" and path:match("^(.*)/[^/]*$")
+        if parent == "" then return "/" end
+        return parent or nil
+    end
+
+    -- True when folder is dir or a folder above it (whose listing counts its
+    -- books, or shows them in flat view).
+    local function at_or_above(folder, dir)
+        if folder == dir then return true end
+        if folder == "/" then return dir:sub(1, 1) == "/" end
+        return dir:sub(1, #folder + 1) == folder .. "/"
+    end
+
+    -- The file browser is redrawn on the next tick (once for any number of
+    -- reports) when its listing is out of date: it shows a folder the
+    -- changed books are in (or one above them), its listing's key changed
+    -- (the sources' books in it, or a status filter), or, after a status or
+    -- history change, it lists sources' books or is sorted by last read.
+    if ok_sources and type(BookSources.onChanged) == "function" then
+        local pending_refresh -- { dirs = { ... }, status = bool }, until the next tick
+        BookSources.onChanged(function(changed_paths, kind)
+            -- An entry's time may have changed in place, which the memo's
+            -- snapshot check can't see. Dropped even with no browser open,
+            -- or one opened later would sort by the old times.
+            if kind ~= "books" then _history_index_memo = nil end
+            local FileManager = package.loaded["apps/filemanager/filemanager"]
+            local chooser = type(FileManager) == "table" and FileManager.instance
+                and FileManager.instance.file_chooser
+            if not (chooser and chooser.name == "filemanager") then return end
+            -- A listing prepared for the next refresh has the old order or
+            -- statuses, and its key doesn't show it.
+            if kind ~= "books" then chooser:_zen_discard_prepared_item_table() end
+            local first = pending_refresh == nil
+            pending_refresh = pending_refresh or { dirs = {}, status = false }
+            -- The latest report's browser is the one refreshed (a new one
+            -- may have opened since the first report this tick).
+            pending_refresh.chooser = chooser
+            for _i, path in ipairs(changed_paths or {}) do
+                pending_refresh.dirs[#pending_refresh.dirs + 1] = parent_dir(path)
+            end
+            if kind ~= "books" then pending_refresh.status = true end
+            if not first then return end
+            local UIManager = require("ui/uimanager")
+            UIManager:nextTick(function()
+                local report = pending_refresh
+                pending_refresh = nil
+                chooser = report.chooser
+                local current = FileManager.instance and FileManager.instance.file_chooser
+                if current ~= chooser or type(chooser.path) ~= "string" then return end
+                local shown = strip_trailing_slashes(chooser.path)
+                local function out_of_date()
+                    for _i, dir in ipairs(report.dirs) do
+                        if at_or_above(shown, dir) then return true end
+                    end
+                    local built = chooser._zen_listing_stable_keys
+                        and chooser._zen_listing_stable_keys[chooser.path]
+                    if built and built ~= stable_key(chooser, chooser.path,
+                            folder_sort_override(chooser.path)) then
+                        return true
+                    end
+                    if not report.status then return false end
+                    local override = folder_sort_override(chooser.path)
+                    local collate = type(override) == "table" and override.collate
+                        or G_reader_settings:readSetting("collate", "strcoll")
+                    return book_sources_key(chooser.path) ~= "" or collate == "access"
+                end
+                if out_of_date() then
+                    -- A book changed in place leaves folder timestamps (and
+                    -- so the cache key) alone: rebuild from the filesystem.
+                    local invalidated = false
+                    for _i, dir in ipairs(report.dirs) do
+                        if at_or_above(shown, dir) then
+                            chooser:_zen_invalidate_item_table_path(dir)
+                            invalidated = true
+                        end
+                    end
+                    if invalidated then
+                        chooser:_zen_invalidate_item_table_path(chooser.path)
+                    end
+                    chooser:refreshPath()
+                end
+            end)
+        end)
     end
 
     local function patch_coverbrowser(coverbrowser)

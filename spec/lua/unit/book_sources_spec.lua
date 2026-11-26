@@ -572,8 +572,12 @@ describe("book sources", function()
             assert.are.equal("Source", BookSources.bookInfo("/c/book.epub", false).title)
             assert.are.same({}, G_reader_settings:readSetting("zen_book_sources_edited") or {})
             local revision = BookSources.revision()
+            -- A view is drawing the book with its edits: none is told.
+            local told = 0
+            BookSources.onChanged(function() told = told + 1 end)
             assert.are.equal("Old edit", BookSources.bookInfo("/c/book.epub", true).title)
             assert.is_true(BookSources.revision() > revision)
+            assert.are.equal(0, told)
             assert.are.equal("Old edit", BookSources.books()[1].info.title)
             assert.are.same({ ["/c/book.epub"] = true },
                 G_reader_settings:readSetting("zen_book_sources_edited"))
@@ -581,6 +585,79 @@ describe("book sources", function()
             revision = BookSources.revision()
             BookSources.bookInfo("/c/book.epub", true)
             assert.are.equal(revision, BookSources.revision())
+        end)
+    end)
+
+    describe("views", function()
+        local reports
+        before_each(function()
+            reports = {}
+            BookSources.revision() -- the built-in sources register first
+            BookSources.onChanged(function(paths, kind)
+                reports[#reports + 1] = { paths = paths, kind = kind }
+            end)
+        end)
+
+        it("are told when sources report changes", function()
+            local second = 0
+            BookSources.onChanged(function() second = second + 1 end)
+            BookSources.changed({ "/c/a.epub" })
+            BookSources.changed()
+            BookSources.statusChanged()
+            BookSources.historyChanged({ "/c/b.epub" })
+            BookSources.historyChanged()
+            assert.are.same({
+                { paths = { "/c/a.epub" }, kind = "books" },
+                { kind = "books" },
+                { kind = "status" },
+                { paths = { "/c/b.epub" }, kind = "history" },
+                { kind = "history" },
+            }, reports)
+            assert.are.equal(5, second)
+        end)
+
+        it("are told when a source comes or goes", function()
+            BookSources.register("cloud", { books = function() return {} end })
+            BookSources.unregister("cloud")
+            assert.are.equal(2, #reports)
+        end)
+
+        it("doesn't move the revisions on a history change", function()
+            local revision, status = BookSources.revision(), BookSources.statusRevision()
+            BookSources.historyChanged({ "/c/a.epub" })
+            assert.are.equal(revision, BookSources.revision())
+            assert.are.equal(status, BookSources.statusRevision())
+        end)
+
+        it("keep working when one fails", function()
+            BookSources.onChanged(function() error("boom") end)
+            local revision = BookSources.revision()
+            BookSources.changed({ "/c/a.epub" })
+            assert.is_true(BookSources.revision() > revision)
+            assert.are.equal(1, #warnings)
+            -- The others are still told.
+            assert.are.equal(1, #reports)
+        end)
+
+        it("tells whether Home is on top", function()
+            local on_top = false
+            BookSources.setHome({ isActiveOnTop = function() return on_top end })
+            assert.is_false(BookSources.isHomeOnTop())
+            on_top = true
+            assert.is_true(BookSources.isHomeOnTop())
+            BookSources.setHome(nil)
+            assert.is_false(BookSources.isHomeOnTop())
+        end)
+
+        it("counts a start on Home behind a hidden file browser as on top", function()
+            BookSources.setHome({ isActiveOnTop = function() return false end })
+            local fm = { invisible = true, _zen_hidden_home_startup = true }
+            local real = package.loaded["apps/filemanager/filemanager"]
+            finally(function() package.loaded["apps/filemanager/filemanager"] = real end)
+            ZenSpec.replace("apps/filemanager/filemanager", { instance = fm })
+            assert.is_true(BookSources.isHomeOnTop())
+            fm._zen_hidden_home_startup = nil -- hidden for another reason
+            assert.is_false(BookSources.isHomeOnTop())
         end)
     end)
 
