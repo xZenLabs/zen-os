@@ -83,6 +83,28 @@ local function elapsed_ms(started_at)
     return (now() - started_at) * 1000
 end
 
+-- Book sources (common/book_sources): library sources' books (a catalog's
+-- books not downloaded yet, say) are in their folder's cover like its files.
+local function book_sources()
+    local BookSources = package.loaded["common/book_sources"]
+    return type(BookSources) == "table" and BookSources or nil
+end
+
+-- Changes when the sources' books in path, or their statuses, change.
+local function sources_key(path)
+    local BookSources = book_sources()
+    if not BookSources then return "" end
+    local key = ""
+    if type(BookSources.listingKey) == "function" then
+        local ok, value = pcall(BookSources.listingKey, path)
+        if ok and value ~= nil then key = tostring(value) end
+    end
+    if key ~= "" and type(BookSources.statusRevision) == "function" then
+        key = key .. "\31" .. tostring(BookSources.statusRevision())
+    end
+    return key
+end
+
 local function descriptor_key(menu, path)
     local settings = rawget(_G, "G_reader_settings")
     local collate, reverse = sort_policy(menu, path)
@@ -97,6 +119,7 @@ local function descriptor_key(menu, path)
         tostring(history_generation),
         tostring(menu and menu.show_hidden),
         tostring(menu and menu.show_filter and menu.show_filter.status),
+        sources_key(path),
     }, "\30")
 end
 
@@ -206,22 +229,48 @@ local function retain_candidate(candidates, item, limit, less)
     if #candidates > limit then table.remove(candidates) end
 end
 
-local function visible_book(menu, path, name, needs_attributes)
-    if name == "." or name == ".." or name:sub(1, 2) == "._"
-            or (name:sub(1, 1) == "." and not (menu and menu.show_hidden == true))
-            or not DOC_EXTENSIONS[name:lower():match("%.([^%.]+)$")] then
-        return nil
+local function visible_name(menu, name)
+    return not (name == "." or name == ".." or name:sub(1, 2) == "._"
+        or (name:sub(1, 1) == "." and not (menu and menu.show_hidden == true))
+        or not DOC_EXTENSIONS[name:lower():match("%.([^%.]+)$")])
+end
+
+local function shown(menu, name, fullpath)
+    if menu and type(menu.show_file) == "function" then
+        local ok_show, result = pcall(menu.show_file, menu, name, fullpath)
+        if ok_show and result == false then return false end
     end
+    return true
+end
+
+local function visible_book(menu, path, name, needs_attributes)
+    if not visible_name(menu, name) then return nil end
     local fullpath = path .. "/" .. name
     local attr = needs_attributes and lfs.attributes(fullpath) or { mode = "file" }
     if needs_attributes and (type(attr) ~= "table" or attr.mode ~= "file") then
         return nil
     end
-    if menu and type(menu.show_file) == "function" then
-        local ok_show, shown = pcall(menu.show_file, menu, name, fullpath)
-        if ok_show and shown == false then return nil end
-    end
+    if not shown(menu, name, fullpath) then return nil end
     return fullpath, attr
+end
+
+-- The library sources' books in folder path that the folder shows (see
+-- BookSources.booksWithoutFile), leaving out paths in present (files the
+-- scan found): { { file, name, attr }, ... }.
+local function source_books(menu, path, present)
+    local BookSources = book_sources()
+    if not BookSources or type(BookSources.booksWithoutFile) ~= "function" then return {} end
+    local folder = path:gsub("/+$", "")
+    if folder == "" then folder = "/" end
+    local ok, books = pcall(BookSources.booksWithoutFile, { [folder] = true }, present)
+    if not ok or type(books) ~= "table" then return {} end
+    local out = {}
+    for _i, book in ipairs(books) do
+        if visible_name(menu, book.name) and shown(menu, book.name, book.file) then
+            out[#out + 1] = book
+        end
+    end
+    return out
 end
 
 local function scan_descriptor(menu, path, max_covers, fallback_count, allow_expensive)
@@ -242,26 +291,32 @@ local function scan_descriptor(menu, path, max_covers, fallback_count, allow_exp
     local exact = true
     local needs_attributes = collate_id == "access" or collate_id == "date"
         or collate_id == "size"
-    for name in iter, dir_obj do
-        local fullpath, attr = visible_book(menu, path, name, needs_attributes)
-        if fullpath then
-            if not count_known then count = count + 1 end
-            if METADATA_COLLATES[collate_id] and metadata == nil then
-                metadata = sort_metadata(path)
-            end
-            local candidate = {
-                is_file = true,
-                file = fullpath,
-                path = fullpath,
-                text = name,
-                attr = attr,
-            }
-            if not prepare_candidate(menu, candidate, collate_id, collate,
-                    metadata or {}, history, allow_expensive) then
-                exact = false
-            end
-            retain_candidate(candidates, candidate, target, less)
+    local function add(fullpath, name, attr)
+        if not count_known then count = count + 1 end
+        if METADATA_COLLATES[collate_id] and metadata == nil then
+            metadata = sort_metadata(path)
         end
+        local candidate = {
+            is_file = true,
+            file = fullpath,
+            path = fullpath,
+            text = name,
+            attr = attr,
+        }
+        if not prepare_candidate(menu, candidate, collate_id, collate,
+                metadata or {}, history, allow_expensive) then
+            exact = false
+        end
+        retain_candidate(candidates, candidate, target, less)
+    end
+    local present, base = {}, path:gsub("/+$", "")
+    for name in iter, dir_obj do
+        present[base .. "/" .. name] = true
+        local fullpath, attr = visible_book(menu, path, name, needs_attributes)
+        if fullpath then add(fullpath, name, attr) end
+    end
+    for _i, book in ipairs(source_books(menu, path, present)) do
+        add(book.file, book.name, book.attr)
     end
     return { count = count, entries = candidates, exact = exact }
 end
@@ -428,7 +483,7 @@ function M.entries(menu, entry, load_members, limit)
     return nil, false
 end
 
-local finished_cache = {} -- path -> { mtime, revision, at, value }
+local finished_cache = {} -- path -> { mtime, revision, sources, at, value }
 
 local function member_status(entry)
     if entry._zen_effective_status then return entry._zen_effective_status end
@@ -448,12 +503,18 @@ local function scan_all_finished(menu, path)
     local needs_attributes = collate_id == "access" or collate_id == "date"
         or collate_id == "size"
     local seen = 0
+    local present, base = {}, path:gsub("/+$", "")
     for name in iter, dir_obj do
+        present[base .. "/" .. name] = true
         local book = visible_book(menu, path, name, needs_attributes)
         if book then
             seen = seen + 1
             if member_status({ path = book }) ~= "complete" then return false end
         end
+    end
+    for _i, book in ipairs(source_books(menu, path, present)) do
+        seen = seen + 1
+        if member_status({ path = book.file }) ~= "complete" then return false end
     end
     return seen > 0
 end
@@ -466,12 +527,15 @@ function M.allBooksFinished(menu, entry, entries, count)
             -- Tiles repaint often; rescan only after a folder or status change (60 s cap for external edits).
             local mtime = lfs.attributes(entry.path, "modification")
             local revision = BookStatus.revision and BookStatus.revision() or 0
+            local sources = sources_key(entry.path)
             local hit = finished_cache[entry.path]
-            if hit and hit.mtime == mtime and hit.revision == revision and os.time() - hit.at < 60 then
+            if hit and hit.mtime == mtime and hit.revision == revision and hit.sources == sources
+                    and os.time() - hit.at < 60 then
                 return hit.value
             end
             local value = scan_all_finished(menu, entry.path)
-            finished_cache[entry.path] = { mtime = mtime, revision = revision, at = os.time(), value = value }
+            finished_cache[entry.path] = { mtime = mtime, revision = revision, sources = sources,
+                at = os.time(), value = value }
             return value
         end
         local loaded = { M.entries(menu, entry, true, count) }

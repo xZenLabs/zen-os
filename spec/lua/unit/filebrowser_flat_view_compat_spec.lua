@@ -169,6 +169,169 @@ describe("filebrowser flat view compatibility patch", function()
         assert.is_false(walked.include_hidden)
     end)
 
+    describe("book sources' books without a file", function()
+        local asked
+
+        before_each(function()
+            asked = nil
+            ZenSpec.replace("common/book_sources", {
+                booksWithoutFile = function(folders, present)
+                    asked = { folders = folders, present = present }
+                    return {
+                        { file = "/library/Series/Cloud.epub", name = "Cloud.epub", folder = "/library/Series",
+                          attr = { mode = "file", size = 3 } },
+                        { file = "/library/Series/.hidden.epub", name = ".hidden.epub",
+                          folder = "/library/Series", attr = { mode = "file" } },
+                        { file = "/library/Series/skip.pdf", name = "skip.pdf",
+                          folder = "/library/Series", attr = { mode = "file" } },
+                    }
+                end,
+            })
+        end)
+
+        after_each(function()
+            ZenSpec.unload("common/book_sources")
+        end)
+
+        local function chooser(hidden)
+            return {
+                name = "filemanager",
+                show_hidden = hidden,
+                show_dir = function() return true end,
+                show_file = function(_, name) return name:match("%.epub$") ~= nil end,
+                getListItem = function(_, parent_path, name, fullpath, attributes)
+                    return { parent_path = parent_path, text = name, path = fullpath, attr = attributes }
+                end,
+            }
+        end
+
+        it("lists them after the files, through the browser's filters", function()
+            local dirs, files = {}, {}
+            FileChooser.getPathList(chooser(false), "/library", "natural", dirs, files)
+
+            assert.are.same({ ["/library"] = true, ["/library/Empty"] = true }, asked.folders)
+            assert.is_true(asked.present["/library/Series/Alpha.epub"])
+            assert.is_true(asked.present["/library/Notes/notes.txt"])
+            assert.are.equal(2, #files)
+            assert.are.same({
+                parent_path = "/library/Series", text = "Cloud.epub",
+                path = "/library/Series/Cloud.epub", attr = { mode = "file", size = 3 },
+            }, files[2])
+        end)
+
+        it("counts them as true, and lists hidden ones only when hidden files show", function()
+            local files = {}
+            FileChooser.getPathList(chooser(false), "/library", nil, {}, files)
+            assert.are.same({ true, true }, files)
+
+            files = {}
+            FileChooser.getPathList(chooser(true), "/library", nil, {}, files)
+            assert.are.same({ true, true, true }, files)
+        end)
+
+        it("knows the folders walked when only counting", function()
+            FileChooser.getPathList(chooser(false), "/library", nil, {}, {})
+            assert.is_true(asked.folders["/library/Empty"])
+        end)
+
+        it("keeps listing files when the book sources fail", function()
+            ZenSpec.replace("common/book_sources", {
+                booksWithoutFile = function() error("source failed") end,
+            })
+            local files = {}
+            FileChooser.getPathList(chooser(false), "/library", nil, {}, files)
+            assert.are.same({ true }, files)
+        end)
+    end)
+
+    describe("library sources' books in a folder's listing", function()
+        local asked
+
+        before_each(function()
+            asked = {}
+            ZenSpec.replace("common/book_sources", {
+                booksWithoutFile = function(folders, present)
+                    asked[#asked + 1] = { folders = folders, present = present }
+                    return {
+                        { file = "/outside/Cloud.epub", name = "Cloud.epub", folder = "/outside",
+                          attr = { mode = "file", size = 3 } },
+                    }
+                end,
+                docProps = function(path) return { title = "Cloud", display_title = "Cloud", path = path } end,
+            })
+        end)
+
+        after_each(function()
+            ZenSpec.unload("common/book_sources")
+        end)
+
+        local function chooser(name)
+            return {
+                name = name or "filemanager",
+                show_file = function() return true end,
+                getListItem = function(_, parent_path, item_name, fullpath, attributes)
+                    return { parent_path = parent_path, text = item_name, path = fullpath, attr = attributes }
+                end,
+            }
+        end
+
+        it("adds them after KOReader's files, with their metadata", function()
+            local dirs, files = {}, {}
+            assert.are.equal("original",
+                FileChooser.getPathList(chooser(), "/outside/", "natural", dirs, files))
+            assert.are.equal(1, original_calls)
+            assert.are.equal(2, #files)
+            assert.are.same({
+                parent_path = "/outside", text = "Cloud.epub", path = "/outside/Cloud.epub",
+                attr = { mode = "file", size = 3 },
+                doc_props = { title = "Cloud", display_title = "Cloud", path = "/outside/Cloud.epub" },
+            }, files[2])
+            assert.is_true(asked[1].folders["/outside"])
+            assert.are.same({}, asked[1].present) -- "original-file" isn't an item
+        end)
+
+        it("counts them as true without knowing the files present", function()
+            local files = {}
+            FileChooser.getPathList(chooser(), "/outside", nil, {}, files)
+            assert.are.same({ "original-file", true }, files)
+            assert.is_nil(asked[1].present)
+        end)
+
+        it("counts one that is also a file in the folder once", function()
+            local lfs = require("libs/libkoreader-lfs")
+            local dir = os.tmpname()
+            os.remove(dir)
+            assert(lfs.mkdir(dir))
+            local handle = assert(io.open(dir .. "/Cloud.epub", "w"))
+            handle:close()
+            ZenSpec.replace("common/book_sources", {
+                booksWithoutFile = function()
+                    return {
+                        { file = dir .. "/Cloud.epub", name = "Cloud.epub", folder = dir,
+                          attr = { mode = "file" } },
+                        { file = dir .. "/Other.epub", name = "Other.epub", folder = dir,
+                          attr = { mode = "file" } },
+                    }
+                end,
+            })
+            local ok, err = pcall(function()
+                local files = {}
+                FileChooser.getPathList(chooser(), dir, nil, {}, files)
+                assert.are.same({ "original-file", true }, files, "Other.epub only")
+            end)
+            os.remove(dir .. "/Cloud.epub")
+            lfs.rmdir(dir)
+            assert(ok, err)
+        end)
+
+        it("leaves other file choosers alone", function()
+            local files = {}
+            FileChooser.getPathList(chooser("pathchooser"), "/outside", "natural", {}, files)
+            assert.are.same({ "original-file" }, files)
+            assert.are.equal(0, #asked)
+        end)
+    end)
+
     it("delegates outside home and when Zen flat view is disabled", function()
         local chooser = { name = "filemanager" }
         local dirs, files = {}, {}
