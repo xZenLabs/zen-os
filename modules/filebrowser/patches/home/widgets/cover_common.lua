@@ -206,6 +206,7 @@ end
 -- Final cover size make_cover_widget renders for these bounds (the RenderCache key).
 function M.target_dims(book, max_w, max_h, opts)
     opts = opts or {}
+    if opts.exact_bounds then return math.max(1,max_w), math.max(1,max_h) end
     local target_w, target_h
     local source_w, source_h
     if opts.uniform == false and book then

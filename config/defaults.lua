@@ -325,6 +325,7 @@ local defaults = {
         downloaded = {},
         large_covers = false,
     },
+    bookshelf_layout = { enabled = false, filter = "all", mode = "covers", density_size = 0, uniform_height = true },
     mosaic_title_strip = {
         show_title  = false,
         show_author = false,

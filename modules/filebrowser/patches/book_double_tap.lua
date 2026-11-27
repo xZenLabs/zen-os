@@ -1,4 +1,5 @@
 local function apply_book_double_tap()
+    local Bookshelf = require("modules/filebrowser/bookshelf_layout")
     local BookOpenTap = require("common/book_open_tap")
     local Cover = require("common/cover_utils")
     local WidgetResources = require("common/widget_resources")
@@ -43,6 +44,14 @@ local function apply_book_double_tap()
             if not path or is_select_mode(self) then
                 BookOpenTap.reset()
                 return original_onTapSelect(self, arg, ges, ...)
+            end
+            if Bookshelf.enabled(self.menu) and self._zen_is_book then
+                BookOpenTap.reset()
+                return original_onTapSelect(self, arg, ges, ...)
+            end
+            if BookOpenTap.actions() == "details" and self.menu and self.dimen and (self.menu.name == "filemanager" or self.menu.name == "kindle_library") then
+                BookOpenTap.reset()
+                return Bookshelf.tap(self, true)
             end
             local function unless_selecting(method)
                 return function()

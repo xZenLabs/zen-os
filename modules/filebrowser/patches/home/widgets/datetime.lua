@@ -70,7 +70,7 @@ local function preferred_height(ctx)
     local time_style, date_style, time_font_name, date_font_name =
         clock_styles(module_cfg)
     local automatic_font_size = module_cfg.automatic_font_size ~= false
-    local date_gap = math.max(1, Screen:scaleBySize(2))
+    local date_gap = Screen:scaleBySize(2)
     local time_str = time_text()
     local date_str = DateFormat.formatLongWithWeekday()
     local best_h
@@ -95,7 +95,7 @@ local function preferred_height(ctx)
             or DEFAULT_MAX_TIME_SIZE, 8, MAX_TIME_SIZE)
         while low <= high do
             local time_px = math.floor((low + high) / 2)
-            if keep_if_fits(time_px) then
+            if keep_if_fits(time_px, module_cfg.auto_date_size) then
                 low = time_px + 1
             else
                 high = time_px - 1
@@ -115,7 +115,7 @@ local function preferred_height(ctx)
         end
     end
 
-    return (best_h or last_h or 1) + Screen:scaleBySize(2)
+    return module_cfg.widget_height_percent and math.max(1, math.floor(Screen:getHeight() * module_cfg.widget_height_percent / 100)) or ((best_h or last_h or 1) + Screen:scaleBySize(2))
 end
 
 return {
@@ -131,7 +131,7 @@ return {
         local time_style, date_style, time_font_name, date_font_name =
             clock_styles(module_cfg)
         local automatic_font_size = module_cfg.automatic_font_size ~= false
-        local date_gap = math.max(1, Screen:scaleBySize(2))
+        local date_gap = Screen:scaleBySize(2)
         local max_content_h = math.max(1, height - Screen:scaleBySize(2))
         local time_widget
         local date_widget
@@ -187,7 +187,7 @@ return {
                 local low, high = min_time_px, max_time_px
                 while low <= high do
                     local time_px = math.floor((low + high) / 2)
-                    if keep_if_fits(time_px) then
+                    if keep_if_fits(time_px, module_cfg.auto_date_size) then
                         low = time_px + 1
                     else
                         high = time_px - 1

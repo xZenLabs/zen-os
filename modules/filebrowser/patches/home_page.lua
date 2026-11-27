@@ -2731,7 +2731,9 @@ local function compute_row_heights(rows, body_h, row_gap, capacity, width, modul
         end
         if not has_flexible_middle then
             -- Keep one middle row flexible so capped outer rows do not leave trailing space.
-            max_heights[math.floor((row_count + 1) / 2)] = nil
+            local mid = math.floor((row_count + 1) / 2)
+            local id = rows[mid].id
+            if id ~= "featured" and id ~= "datetime" then max_heights[mid] = nil end
         end
     end
     local has_flexible_row = false
