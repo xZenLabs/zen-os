@@ -279,6 +279,30 @@ local function apply_automatic_series_grouping()
         group._zen_effective_status = "complete"
     end
 
+    -- browser_folder_sort clears its per-folder override before switchItemTable
+    -- groups series, so resolve the folder's own collate and direction again.
+    local function resolve_sort(file_chooser, with_sort_func)
+        local reverse = G_reader_settings:isTrue("reverse_collate")
+        local function resolve()
+            local collate, collate_id = file_chooser:getCollate()
+            local sort_func = with_sort_func and file_chooser:getSortingFunction(collate, reverse) or nil
+            return collate, collate_id, sort_func
+        end
+        local fsd_api = rawget(_G, "__ZEN_FOLDER_SORT")
+        local override = not file_chooser._zen_sort_override
+            and fsd_api and fsd_api.getActive and fsd_api.getActive(file_chooser.path)
+        if type(override) ~= "table" then
+            local collate, collate_id, sort_func = resolve()
+            return collate, collate_id, reverse, sort_func
+        end
+        if type(override.reverse) == "boolean" then reverse = override.reverse end
+        file_chooser._zen_sort_override = override
+        local ok, collate, collate_id, sort_func = pcall(resolve)
+        file_chooser._zen_sort_override = nil
+        if not ok then error(collate, 0) end
+        return collate, collate_id, reverse, sort_func
+    end
+
     local AutomaticSeries = {}
 
     function AutomaticSeries:sortSeriesItems(items, group_item, file_chooser)
@@ -349,9 +373,7 @@ local function apply_automatic_series_grouping()
         local dir_maps = {}
         local complete = true
 
-        local collate, collate_id = file_chooser:getCollate()
-        local reverse = G_reader_settings:isTrue("reverse_collate")
-        local sort_func = file_chooser:getSortingFunction(collate, reverse)
+        local collate, collate_id, _reverse, sort_func = resolve_sort(file_chooser, true)
         local mixed = G_reader_settings:isTrue("collate_mixed")
             and collate and collate.can_collate_mixed
         local is_name_sort = collate_id == "strcoll"
@@ -507,10 +529,16 @@ local function apply_automatic_series_grouping()
             local dirs = {}
             local files = {}
             local up_item
+            -- Progress collates can't mix folders, but a series group carries the
+            -- progress of its leading book, so rank it among the books.
+            local groups_with_files = has_group and sort_func
+                and type(collate_id) == "string" and collate_id:find("^percent_") ~= nil
 
             for _i, item in ipairs(processed_list) do
                 if item.is_go_up then
                     up_item = item
+                elseif groups_with_files and item.is_series_group then
+                    table.insert(files, item)
                 elseif is_directory(item) then
                     if needs_doc_props_sort then ensure_sort_doc_props(item) end
                     table.insert(dirs, item)
@@ -522,6 +550,12 @@ local function apply_automatic_series_grouping()
 
             if sort_func then
                 local ok_sort, err = pcall(table.sort, dirs, sort_func)
+                if not ok_sort then
+                    logger.warn("sort failed:", err)
+                end
+            end
+            if groups_with_files then
+                local ok_sort, err = pcall(table.sort, files, sort_func)
                 if not ok_sort then
                     logger.warn("sort failed:", err)
                 end
@@ -546,9 +580,10 @@ local function apply_automatic_series_grouping()
                 or (FileChooser.show_filter and FileChooser.show_filter.status) then
             return nil
         end
+        local _collate, collate_id, reverse = resolve_sort(file_chooser)
         return table.concat({
-            tostring(select(2, file_chooser:getCollate())),
-            tostring(G_reader_settings:isTrue("reverse_collate")),
+            tostring(collate_id),
+            tostring(reverse),
             tostring(G_reader_settings:isTrue("collate_mixed")),
             tostring(is_hide_grouped_series_enabled()),
         }, "|")
