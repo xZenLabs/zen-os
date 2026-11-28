@@ -731,7 +731,7 @@ function M.build(ctx)
         local choices = {{ text = default_label or _("Automatic"),
             checked_func = function() return cfg[key] == nil end,
             callback = function(tm) cfg[key] = nil; save_home("reinit"); if tm and tm.updateItems then tm:updateItems() end end }}
-        for _, n in ipairs(values) do
+        for _i, n in ipairs(values) do
             local v = n
             choices[#choices+1] = { text = tostring(v) .. suffix,
                 checked_func = function() return cfg[key] == v end,

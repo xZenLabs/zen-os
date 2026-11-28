@@ -26,7 +26,7 @@ function M.filter(menu, entries)
     local folder = require("modules/filebrowser/folder_cover")
     local status = require("common/book_status")
     local result = {}
-    for _, entry in ipairs(entries) do
+    for _i, entry in ipairs(entries) do
         local path = entry.file or entry.path
         if not folder.isBook(entry) or type(path) ~= "string" then
             result[#result+1] = entry
@@ -111,9 +111,9 @@ function M.plan(menu, first, count)
     end
     local nominal = menu._shelf_nominal_width or limit
     local anchor = math.max(0, math.floor((menu.inner_dimen.w-nominal)/2))
-    for _, cells in ipairs(rows) do
+    for _i, cells in ipairs(rows) do
         local fixed, flexible, spine_count = 0, 0, 0
-        for _, cell in ipairs(cells) do
+        for _i, cell in ipairs(cells) do
             cell.spine = M.entrySpine(menu.item_table[cell.index],cell.index)
             if cell.spine then flexible=flexible+cell.width; spine_count=spine_count+1
             else fixed=fixed+cell.width end
@@ -123,16 +123,16 @@ function M.plan(menu, first, count)
         local full=#cells==(menu._shelf_perrow or 0)
         if flexible>0 and flexible>budget then
             local factor=budget/flexible
-            for _, cell in ipairs(cells) do
+            for _i, cell in ipairs(cells) do
                 if cell.spine then cell.width=math.max(1,math.floor(cell.width*factor)) end
             end
         end
-        local sum=gaps; for _,cell in ipairs(cells) do sum=sum+cell.width end
+        local sum=gaps; for _i,cell in ipairs(cells) do sum=sum+cell.width end
         -- Only a geometry change or non-book entries should need this fallback.
         if sum>nominal then
             local factor=math.max(1,nominal-gaps)/math.max(1,sum-gaps)
-            for _,cell in ipairs(cells) do cell.width=math.max(1,math.floor(cell.width*factor)) end
-            sum=gaps; for _,cell in ipairs(cells) do sum=sum+cell.width end
+            for _i,cell in ipairs(cells) do cell.width=math.max(1,math.floor(cell.width*factor)) end
+            sum=gaps; for _i,cell in ipairs(cells) do sum=sum+cell.width end
         end
         -- Center complete rows; anchor incomplete rows to the full shelf origin.
         cells.offset=full and math.max(0,math.floor((menu.inner_dimen.w-sum)/2)) or anchor
@@ -169,12 +169,12 @@ function M.grid(menu, original, ...)
     local rotated = menu._shelf_landscape ~= nil and menu._shelf_landscape ~= landscape
     local keys = {"nb_cols_portrait", "nb_rows_portrait", "nb_cols_landscape", "nb_rows_landscape"}
     local old = {}
-    for _, k in ipairs(keys) do old[k] = menu[k] end
+    for _i, k in ipairs(keys) do old[k] = menu[k] end
     menu.nb_cols_portrait, menu.nb_rows_portrait = cols, rows
     menu.nb_cols_landscape, menu.nb_rows_landscape = cols+2, rows-1
     -- Borrow the native grid geometry without changing its saved layout settings.
     local ok, result = pcall(original, menu, ...)
-    for _, k in ipairs(keys) do menu[k] = old[k] end
+    for _i, k in ipairs(keys) do menu[k] = old[k] end
     if not ok then error(result) end
     local maxrows = menu.nb_rows or (landscape and rows-1 or rows)
     menu._shelf_rows = maxrows
@@ -283,8 +283,8 @@ local function showPreview(item)
  ges=ges or arg
  if not ges or not ges.pos then return false end
         if self.dimen:contains(ges.pos) then return true end
-        for _, row in ipairs(menu.layout or {}) do
-            for _, other in ipairs(row) do
+        for _i, row in ipairs(menu.layout or {}) do
+            for _i, other in ipairs(row) do
                 if (other._zen_is_book or (other.entry and require("modules/filebrowser/folder_cover").isBook(other.entry))) and other.dimen and other.dimen:contains(ges.pos) then
                     return M.tap(other, not M.enabled(menu))
                 end
@@ -296,8 +296,8 @@ local function showPreview(item)
         ges=ges or arg
         if not ges or not ges.pos then return false end
         if self.dimen:contains(ges.pos) then return true end
-        for _, row in ipairs(menu.layout or {}) do
-            for _, other in ipairs(row) do
+        for _i, row in ipairs(menu.layout or {}) do
+            for _i, other in ipairs(row) do
                 if other.dimen and other.dimen:contains(ges.pos) then
                     M.closePreview(menu,true); redraw(menu)
                     return other:onHoldSelect()
@@ -424,7 +424,7 @@ function M.paintBack(item, bb)
     end
     while fs>5 do
         local fits=true
-        for _,t in ipairs(lines) do
+        for _i,t in ipairs(lines) do
             local pw,ph=measure(t,fs)
             if pw>linew or ph*#lines>h*.25 then fits=false end
         end
@@ -432,7 +432,7 @@ function M.paintBack(item, bb)
         fs=fs-1
     end
     local ty=y+math.floor(h*.07)
-    for _,t in ipairs(lines) do
+    for _i,t in ipairs(lines) do
         local tw=Text:new{text=t,face=Font:getFace("cfont",fs),fgcolor=fg,padding=0,max_width=linew,truncate_with_ellipsis=true}
         local size=tw:getSize()
         if size.w<=linew and ty+size.h<=y+math.floor(h*.34) then

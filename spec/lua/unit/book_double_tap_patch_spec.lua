@@ -45,6 +45,7 @@ describe("Double-tap book item patch", function()
         MosaicItem = item_class()
 
         ZenSpec.replace("common/book_open_tap", {
+            actions = function() return "none", "open" end,
             reset = function() resets = resets + 1 end,
             shouldOpen = function(_path, _time, on_menu, on_open)
                 menu_callback, open_callback = on_menu, on_open

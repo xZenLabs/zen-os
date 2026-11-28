@@ -34,6 +34,17 @@ end
 
 function M.preferred_height(outer_width, module_cfg, data)
     module_cfg = type(module_cfg) == "table" and module_cfg or {}
+    if not module_cfg.widget_height_percent and not module_cfg.synopsis_lines then
+        if module_cfg.wrap_description_text == true
+                and module_cfg.show_description ~= false then
+            if not (data and type(data.getFeaturedBook) == "function") then return nil end
+            local source = HomePresets.featuredSourceKey(module_cfg.default_source)
+            local book = data:getFeaturedBook(source, "default", true)
+            local description = type(book) == "table" and type(book.description) == "string"
+                and util.htmlToPlainTextIfHtml(book.description) or ""
+            if description:gsub("^%s+", ""):gsub("%s+$", "") ~= "" then return nil end
+        end
+    end
     local Screen = Device.screen
     outer_width = math.max(1, tonumber(outer_width) or Screen:getWidth())
     local padding = Screen:scaleBySize(8)

@@ -70,7 +70,7 @@ local function preferred_height(ctx)
     local time_style, date_style, time_font_name, date_font_name =
         clock_styles(module_cfg)
     local automatic_font_size = module_cfg.automatic_font_size ~= false
-    local date_gap = Screen:scaleBySize(2)
+    local date_gap = math.max(1, Screen:scaleBySize(2))
     local time_str = time_text()
     local date_str = DateFormat.formatLongWithWeekday()
     local best_h
@@ -131,7 +131,7 @@ return {
         local time_style, date_style, time_font_name, date_font_name =
             clock_styles(module_cfg)
         local automatic_font_size = module_cfg.automatic_font_size ~= false
-        local date_gap = Screen:scaleBySize(2)
+        local date_gap = math.max(1, Screen:scaleBySize(2))
         local max_content_h = math.max(1, height - Screen:scaleBySize(2))
         local time_widget
         local date_widget

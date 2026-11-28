@@ -512,7 +512,7 @@ local function apply_zen_renderer()
         local frame = CoverWidget.make_cover_widget(book, target_w, target_h, {
             border = border,
             uniform = uniform,
-            exact_bounds = Bookshelf.enabled(self.menu),
+            exact_bounds = Bookshelf.enabled(self.menu) and true or nil,
             -- Paint the banner before the shared border and corner masks.
             decorate = function(cover_frame)
                 local orig_paintTo = cover_frame.paintTo
@@ -944,11 +944,11 @@ local function apply_zen_renderer()
                     local w=Bookshelf.width(self,entry,index)
                     rows[r][#rows[r]+1]={index=index,width=w}
                 end
-                for _, row in ipairs(rows) do
+                for _i, row in ipairs(rows) do
                     local sum=0
-                    for _, cell in ipairs(row) do sum=sum+cell.width end
+                    for _i, cell in ipairs(row) do sum=sum+cell.width end
                     local available=Bookshelf.availableWidth(self)-( #row-1)*Bookshelf.spacing(self)
-                    for _, cell in ipairs(row) do cell.width=math.max(1,math.floor(cell.width*math.min(1,available/sum))) end
+                    for _i, cell in ipairs(row) do cell.width=math.max(1,math.floor(cell.width*math.min(1,available/sum))) end
                 end
             end
             for r,row in ipairs(rows) do
