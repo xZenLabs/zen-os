@@ -760,14 +760,17 @@ return function(ctx, self_fc, item)
                         end
                     end
                 else
+                    local counted_dirs, present = {}, {}
                     local function _cnt(dir, depth)
                         if depth > 5 then return end
                         local ok_d, it, obj = pcall(lfs.dir, dir)
                         if not ok_d then return end
+                        counted_dirs[dir] = true
                         for fname in it, obj do
                             if fname ~= "." and fname ~= ".." and not fname:match("^%.") then
                                 local fpath = dir .. "/" .. fname
                                 local fmode = lfs.attributes(fpath, "mode")
+                                if fmode == "file" then present[fpath] = true end
                                 if fmode == "file" and DocReg:hasProvider(fpath) then
                                     n_books = n_books + 1
                                 elseif fmode == "directory" then
@@ -777,6 +780,22 @@ return function(ctx, self_fc, item)
                         end
                     end
                     _cnt(file, 0)
+                    -- Library sources' books (a catalog's) in those folders; one
+                    -- that is also a file counted above isn't counted again.
+                    local ok_bs, BookSources = pcall(require, "common/book_sources")
+                    if ok_bs and type(BookSources) == "table"
+                            and type(BookSources.booksWithoutFile) == "function" then
+                        local ok_n, books = pcall(BookSources.booksWithoutFile, counted_dirs, present)
+                        if ok_n and type(books) == "table" then
+                            -- The same filters as the files counted above.
+                            for _i, book in ipairs(books) do
+                                if type(book.name) == "string" and not book.name:match("^%.")
+                                        and DocReg:hasProvider(book.file) then
+                                    n_books = n_books + 1
+                                end
+                            end
+                        end
+                    end
                 end
                 local folder_count_str = n_books > 0
                     and (n_books == 1 and _("1 book") or (tostring(n_books) .. " " .. _("books")))

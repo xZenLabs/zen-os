@@ -3718,4 +3718,80 @@ describe("filebrowser cover preloading", function()
         assert.are.equal(2, #extraction_launches)
         assert.are.equal("/last.epub", extraction_launches[2][1].filepath)
     end)
+
+    describe("books whose covers a source fetches", function()
+        local BookInfoManager
+        local saved_sources
+        local invalidated
+
+        before_each(function()
+            saved_sources = package.loaded["common/book_sources"]
+            ZenSpec.replace("common/book_sources", {
+                ownsWithoutFile = function(path) return path:match("^/cloud/") ~= nil end,
+            })
+            BookInfoManager = require("bookinfomanager")
+            BookInfoManager.subprocesses_pids = {}
+            invalidated = {}
+            require("ui/widget/filechooser")._zen_invalidate_item_table_path = function(_self, path)
+                invalidated[#invalidated + 1] = path
+            end
+            G_reader_settings:saveSetting("collate", "title")
+            require("modules/filebrowser/patches/cover_preload")()
+        end)
+
+        after_each(function()
+            package.loaded["common/book_sources"] = saved_sources
+            G_reader_settings:delSetting("collate")
+        end)
+
+        local function paths(files)
+            local out = {}
+            for index, file in ipairs(files) do out[index] = file.filepath end
+            return out
+        end
+
+        it("hands them down at once while CoverBrowser extracts, and queues only files", function()
+            BookInfoManager.subprocesses_pids = { 42 }
+            extracting = true
+            assert.is_true(BookInfoManager:extractInBackground({
+                { filepath = "/books/a.epub" }, { filepath = "/cloud/b.epub" },
+            }))
+            assert.are.equal(1, #extraction_launches)
+            assert.are.same({ "/cloud/b.epub" }, paths(extraction_launches[1]))
+            assert.are.same({ "/books/a.epub" }, paths(BookInfoManager._zen_cover_extract_pending))
+        end)
+
+        it("does not hold files back while only a source is busy", function()
+            extracting = true -- the source reports its download; no subprocess
+            BookInfoManager:extractInBackground({
+                { filepath = "/books/a.epub" }, { filepath = "/cloud/b.epub" },
+            })
+            assert.are.equal(1, #extraction_launches)
+            assert.are.same({ "/books/a.epub", "/cloud/b.epub" }, paths(extraction_launches[1]))
+            assert.is_nil(BookInfoManager._zen_cover_extract_pending)
+            assert.are.same({ "/books/a.epub" }, paths(BookInfoManager._zen_cover_extract_active))
+        end)
+
+        it("never reconciles a batch of source books", function()
+            BookInfoManager:extractInBackground({ { filepath = "/cloud/b.epub" } })
+            assert.are.equal(1, #extraction_launches)
+            assert.is_nil(BookInfoManager._zen_cover_extract_active)
+            assert.is_nil(BookInfoManager._zen_cover_extract_watch)
+            extracting = false
+            while #scheduled > 0 do table.remove(scheduled, 1)() end
+            assert.are.same({}, invalidated)
+            assert.are.same({}, decode_drops)
+            assert.are.equal(0, db_closes)
+        end)
+
+        it("reconciles a mixed batch for its files only", function()
+            BookInfoManager:extractInBackground({
+                { filepath = "/books/a.epub" }, { filepath = "/cloud/b.epub" },
+            })
+            extracting = false
+            while #scheduled > 0 do table.remove(scheduled, 1)() end
+            assert.are.same({ "/books" }, invalidated)
+            assert.are.same({ "/books/a.epub" }, decode_drops)
+        end)
+    end)
 end)

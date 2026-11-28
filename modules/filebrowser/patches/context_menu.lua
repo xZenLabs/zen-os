@@ -428,14 +428,15 @@ local function apply_context_menu()
             ok_callback = function()
                 local previous = file_manager.selected_files
                 if not previous then file_manager:onToggleSelectMode() end
-                file_manager.selected_files = selected_files_copy(pending.files)
+                file_manager.selected_files = require("common/book_sources").guardSelection(
+                    selected_files_copy(pending.files))
                 file_manager.cutfile = pending.cut
                 file_manager:pasteSelectedFiles(check_button.checked, folder)
                 pending.files = selected_files_copy(file_manager.selected_files)
                 if not next(pending.files) then file_manager._zen_selected_clipboard = nil end
                 if previous then
                     if not file_manager.selected_files then file_manager:onToggleSelectMode() end
-                    file_manager.selected_files = previous
+                    file_manager.selected_files = require("common/book_sources").guardSelection(previous)
                     file_manager.file_chooser:refreshPath()
                 elseif file_manager.selected_files then
                     file_manager:onToggleSelectMode(true)
@@ -817,6 +818,13 @@ local function apply_context_menu()
                     "filepath=", tostring(item and item.filepath),
                     "dim_before=", tostring(item and item.dim))
 
+                if file_manager.selected_files and item and item.is_file and not item.dim
+                        and not require("common/book_sources").selectable(item.path or item.file) then
+                    -- A book without a file (a book source's): nothing to delete, move or copy.
+                    -- One already selected (its file since gone) can still be deselected.
+                    require("ui/widget/notification"):notify(_("Not on this device: can't be selected"))
+                    return true
+                end
                 if file_manager.selected_files then
                     local item_key = resolveItemKey(item)
                     if not item_key then

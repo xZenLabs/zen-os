@@ -167,6 +167,369 @@ describe("book sources", function()
         assert.is_false(BookSources.open("/books/a.epub"))
     end)
 
+    it("lists a library source's owned books in the given folders", function()
+        kindle_books = { { file = "/kindle/book.azw3", info = { title = "K" } } }
+        BookSources.register("cloud", {
+            library = true,
+            books = function()
+                return {
+                    { file = "/books/a.epub", info = { title = "A" },
+                      attr = { size = 12, modification = 100 } },
+                    { file = "/books/sub/b.epub", info = { title = "B" } },
+                    { file = "/books/c.epub", info = { title = "C" } },
+                    { file = "/other/d.epub", info = { title = "D" } },
+                    { file = "/books/unowned.epub", info = { title = "U" } },
+                }
+            end,
+            owns = function(path) return path ~= "/books/unowned.epub" end,
+        })
+
+        local books = BookSources.booksWithoutFile(
+            { ["/books"] = true, ["/books/sub"] = true, ["/kindle"] = true },
+            { ["/books/c.epub"] = true, ["/kindle/book.azw3"] = true })
+        table.sort(books, function(a, b) return a.file < b.file end)
+
+        assert.are.equal(2, #books)
+        assert.are.same({
+            file = "/books/a.epub", name = "a.epub", folder = "/books",
+            attr = { mode = "file", size = 12, modification = 100, access = 100, change = 100 },
+        }, books[1])
+        assert.are.same({
+            file = "/books/sub/b.epub", name = "b.epub", folder = "/books/sub",
+            attr = { mode = "file", size = 0, modification = 0, access = 0, change = 0 },
+        }, books[2])
+        assert.are.same({}, BookSources.booksWithoutFile({}, {}))
+        assert.are.same({}, BookSources.booksWithoutFile(nil))
+    end)
+
+    it("lists only library sources' books, whether or not the files present are known", function()
+        BookSources.register("cloud", {
+            library = true,
+            books = function() return { { file = "/books/c.epub", info = { title = "C" } } } end,
+            owns = function(path) return path == "/books/c.epub" end,
+        })
+        BookSources.register("mixed", {
+            books = function() return { { file = "/books/m.epub", info = { title = "M" } } } end,
+            owns = function() return true end,
+        })
+        local folders = { ["/books"] = true }
+
+        local counted = BookSources.booksWithoutFile(folders)
+        assert.are.equal(1, #counted)
+        assert.are.equal("/books/c.epub", counted[1].file)
+        local listed = BookSources.booksWithoutFile(folders, {})
+        assert.are.equal(1, #listed, "not the other source's book, though the scan didn't find it")
+        assert.are.equal("/books/c.epub", listed[1].file)
+        assert.are.equal(0, #BookSources.booksWithoutFile(folders, { ["/books/c.epub"] = true }))
+    end)
+
+    it("asks a source again after its books lookup fails", function()
+        local fail = true
+        BookSources.register("cloud", {
+            library = true,
+            books = function()
+                if fail then error("offline") end
+                return { { file = "/books/a.epub", info = {} } }
+            end,
+            owns = function() return true end,
+        })
+        local folders = { ["/books"] = true }
+
+        assert.are.equal(0, #BookSources.booksWithoutFile(folders))
+        fail = false
+        assert.are.equal(1, #BookSources.booksWithoutFile(folders))
+    end)
+
+    it("looks books up by folder, until the sources' books change", function()
+        local calls, owns_calls = 0, 0
+        local catalog = { { file = "/books/a.epub", info = {}, attr = { size = 1 } },
+            { file = "/books/sub/b.epub", info = {} } }
+        BookSources.register("cloud", {
+            library = true,
+            books = function() calls = calls + 1 return catalog end,
+            owns = function() owns_calls = owns_calls + 1 return true end,
+        })
+        for _i = 1, 5 do
+            assert.are.equal(1, #BookSources.booksWithoutFile({ ["/books"] = true }))
+            assert.are.equal(1, #BookSources.booksWithoutFile({ ["/books/sub"] = true }))
+        end
+        assert.are.equal(1, calls)
+        assert.are.equal(2, owns_calls)
+
+        local first = BookSources.booksWithoutFile({ ["/books"] = true })[1]
+        first.attr.access = 99 -- a caller may change its copy (folder covers do)
+        assert.are.equal(0, BookSources.booksWithoutFile({ ["/books"] = true })[1].attr.access)
+
+        catalog = { { file = "/books/c.epub", info = {} } }
+        BookSources.changed()
+        assert.are.equal("/books/c.epub", BookSources.booksWithoutFile({ ["/books"] = true })[1].file)
+        assert.are.equal(2, calls)
+    end)
+
+    it("lists a library source's books only where it owns them", function()
+        BookSources.register("cloud", {
+            library = true,
+            books = function()
+                return { { file = "/books/c.epub", info = {} }, { file = "/books/gone.epub", info = {} } }
+            end,
+            owns = function(path) return path == "/books/c.epub" end,
+        })
+        local books = BookSources.booksWithoutFile({ ["/books"] = true })
+        assert.are.equal(1, #books)
+        assert.are.equal("/books/c.epub", books[1].file)
+    end)
+
+    describe("file browser selection", function()
+        local FileManager, FileChooser, FileSearcher
+
+        before_each(function()
+            BookSources.register("cloud", {
+                library = true,
+                books = function() return {} end,
+                owns = function(path) return path:find("/cloud/", 1, true) ~= nil end,
+            })
+            FileManager = {
+                onToggleSelectMode = function(self)
+                    if self.selected_files then self.selected_files = nil else self.selected_files = {} end
+                    return true
+                end,
+            }
+            FileChooser = {
+                selectAllFilesInFolder = function(self, do_select)
+                    for _i, item in ipairs(self.item_table) do
+                        if item.is_file then
+                            if do_select then
+                                self.ui.selected_files[item.path] = true
+                                item.dim = true
+                            else
+                                item.dim = nil
+                            end
+                        end
+                    end
+                    self.updated = (self.updated or 0) + 1
+                end,
+                updateItems = function(self) self.updated = (self.updated or 0) + 1 end,
+            }
+            FileSearcher = {
+                setSelectMode = function(self)
+                    if not self.selected_files then self.selected_files = {} end
+                end,
+            }
+            ZenSpec.replace("apps/filemanager/filemanager", FileManager)
+            ZenSpec.replace("ui/widget/filechooser", FileChooser)
+            ZenSpec.replace("apps/filemanager/filemanagerfilesearcher", FileSearcher)
+            assert.is_true(BookSources.installSelectionGuard())
+        end)
+
+        after_each(function()
+            ZenSpec.unload("apps/filemanager/filemanager")
+            ZenSpec.unload("ui/widget/filechooser")
+            ZenSpec.unload("apps/filemanager/filemanagerfilesearcher")
+        end)
+
+        it("keeps them out of file search's selection, which goes to the file browser", function()
+            local menu = { item_table = {
+                { is_file = true, path = "/nowhere/cloud/a.epub" },
+                { is_file = true, path = "/nowhere/local/b.epub" },
+            } }
+            menu.updateItems = function(self) self.updated = (self.updated or 0) + 1 end
+            local searcher = setmetatable({ booklist_menu = menu }, { __index = FileSearcher })
+            searcher:setSelectMode()
+
+            -- KOReader's "Select all": dims and selects every file, then updates.
+            for _i, item in ipairs(menu.item_table) do
+                item.dim = true
+                searcher.selected_files[item.path] = true
+            end
+            menu:updateItems(1, true)
+
+            assert.is_nil(searcher.selected_files["/nowhere/cloud/a.epub"])
+            assert.is_true(searcher.selected_files["/nowhere/local/b.epub"])
+            assert.is_nil(menu.item_table[1].dim)
+            assert.is_true(menu.item_table[2].dim)
+            assert.are.equal(1, menu.updated)
+        end)
+
+        it("keeps books without a file out of the selection", function()
+            assert.is_false(BookSources.selectable("/nowhere/cloud/a.epub"))
+            assert.is_true(BookSources.selectable("/nowhere/local/b.epub"))
+
+            local fm = setmetatable({}, { __index = FileManager })
+            fm:onToggleSelectMode()
+            fm.selected_files["/nowhere/cloud/a.epub"] = true
+            fm.selected_files["/nowhere/local/b.epub"] = true
+            assert.is_nil(fm.selected_files["/nowhere/cloud/a.epub"])
+            assert.is_true(fm.selected_files["/nowhere/local/b.epub"])
+            fm.selected_files["/nowhere/local/b.epub"] = nil
+            assert.is_nil(next(fm.selected_files))
+            fm:onToggleSelectMode()
+            assert.is_nil(fm.selected_files)
+        end)
+
+        it("leaves them unselected and not dimmed when selecting all", function()
+            local fm = setmetatable({}, { __index = FileManager })
+            fm:onToggleSelectMode()
+            local chooser = setmetatable({ ui = fm, item_table = {
+                { is_file = true, path = "/nowhere/cloud/a.epub" },
+                { is_file = true, path = "/nowhere/local/b.epub" },
+                { path = "/nowhere/folder" },
+            } }, { __index = FileChooser })
+
+            chooser:selectAllFilesInFolder(true)
+
+            assert.is_nil(chooser.item_table[1].dim)
+            assert.is_true(chooser.item_table[2].dim)
+            assert.is_nil(fm.selected_files["/nowhere/cloud/a.epub"])
+            assert.is_true(fm.selected_files["/nowhere/local/b.epub"])
+            assert.are.equal(2, chooser.updated)
+        end)
+
+        it("guards a selection table set directly, dropping such books already in it", function()
+            local selection = BookSources.guardSelection({
+                ["/nowhere/cloud/a.epub"] = true, ["/nowhere/local/b.epub"] = true,
+            })
+            assert.is_nil(selection["/nowhere/cloud/a.epub"])
+            assert.is_true(selection["/nowhere/local/b.epub"])
+            selection["/nowhere/cloud/c.epub"] = true
+            assert.is_nil(selection["/nowhere/cloud/c.epub"])
+            assert.is_nil(BookSources.guardSelection(nil))
+        end)
+
+        it("doesn't let a false entry for such a book become selected later", function()
+            local selection = BookSources.guardSelection({ ["/nowhere/cloud/a.epub"] = false })
+            assert.is_nil(rawget(selection, "/nowhere/cloud/a.epub"))
+            selection["/nowhere/cloud/a.epub"] = true
+            assert.is_nil(selection["/nowhere/cloud/a.epub"])
+            selection["/nowhere/cloud/c.epub"] = false
+            assert.is_nil(rawget(selection, "/nowhere/cloud/c.epub"))
+            selection["/nowhere/cloud/c.epub"] = true
+            assert.is_nil(selection["/nowhere/cloud/c.epub"])
+            selection["/nowhere/local/b.epub"] = false
+            assert.is_false(selection["/nowhere/local/b.epub"])
+        end)
+    end)
+
+    describe("file search", function()
+        local matched, catalog, searcher
+
+        before_each(function()
+            matched = {}
+            catalog = {
+                { file = "/books/Moby Dick.epub", info = { title = "Moby Dick" }, attr = { size = 7, modification = 50 } },
+                { file = "/books/sub/Moby Two.epub", info = { title = "Moby Two" } },
+                { file = "/books/.hidden/Moby Hidden.epub", info = {} },
+                { file = "/books/Emma.epub", info = { title = "Emma" } },
+                { file = "/books/Moby Local.epub", info = {} },
+                { file = "/other/Moby Elsewhere.epub", info = {} },
+                { file = "/books/Moby.txt", info = {} },
+                { file = "/books/Moby Excluded.epub", info = {} },
+            }
+            ZenSpec.replace("util", { stringLower = string.lower })
+            ZenSpec.replace("ui/widget/filechooser", {
+                show_hidden = false,
+                show_dir = function() return true end,
+                show_file = function(_self, name) return not name:find("Excluded", 1, true) end,
+            })
+            ZenSpec.replace("document/documentregistry", {
+                hasProvider = function(_self, path) return path:match("%.epub$") ~= nil end,
+            })
+            BookSources.register("cloud", {
+                library = true,
+                books = function() return catalog end,
+                owns = function() return true end,
+            })
+            BookSources.register("mixed", {
+                books = function() return { { file = "/books/Moby Mixed.epub", info = {} } } end,
+                owns = function() return true end,
+            })
+            searcher = {
+                include_content = true,
+                no_metadata_count = 2,
+                isFileMatch = function(self, name, path, query, is_file)
+                    matched[#matched + 1] = { path = path, query = query, is_file = is_file,
+                        content = self.include_content }
+                    self.no_metadata_count = self.no_metadata_count + 1
+                    return name:lower():find(query, 1, true) ~= nil
+                end,
+            }
+        end)
+
+        after_each(function()
+            for _i, name in ipairs({ "ui/widget/filechooser", "document/documentregistry", "util" }) do
+                ZenSpec.unload(name)
+            end
+        end)
+
+        local function paths(entries)
+            local out = {}
+            for _i, entry in ipairs(entries) do out[#out + 1] = entry[2] end
+            table.sort(out)
+            return out
+        end
+
+        it("finds the library sources' matching books in the folder searched", function()
+            local found = { ["/books/Moby Local.epub"] = true }
+            local entries = BookSources.searchResults(searcher, "/books", "Moby", found)
+
+            assert.are.same({ { "Moby Dick.epub", "/books/Moby Dick.epub",
+                { mode = "file", size = 7, modification = 50, access = 50, change = 50 } } }, entries)
+            assert.are.equal(2, searcher.no_metadata_count)
+            assert.is_true(searcher.include_content)
+            assert.is_true(#matched > 0)
+            for _i, call in ipairs(matched) do
+                assert.are.equal("moby", call.query)
+                assert.is_true(call.is_file)
+                assert.is_false(call.content)
+            end
+        end)
+
+        it("searches subfolders as KOReader walks them", function()
+            searcher.include_subfolders = true
+            assert.are.same({ "/books/Moby Dick.epub", "/books/Moby Local.epub", "/books/sub/Moby Two.epub" },
+                paths(BookSources.searchResults(searcher, "/books", "moby")))
+            assert.are.equal(4, #BookSources.searchResults(searcher, "/", "moby"))
+            assert.are.same({ "/other/Moby Elsewhere.epub" },
+                paths(BookSources.searchResults(searcher, "/other", "moby")))
+            assert.are.same({}, BookSources.searchResults(searcher, nil, "moby"))
+        end)
+
+        it("prepares the search text as KOReader's getList does", function()
+            searcher.use_patterns = true
+            BookSources.searchResults(searcher, "/books", "Mo?y*.epub")
+            assert.are.equal("mo.y.*%.epub", matched[1].query)
+        end)
+
+        it("prepares wildcards only with patterns on, or on a KOReader without the option", function()
+            searcher.use_patterns = false
+            BookSources.searchResults(searcher, "/books", "Mo?y*.epub")
+            assert.are.equal("mo?y*.epub", matched[1].query)
+            matched = {}
+            searcher.use_patterns = nil
+            BookSources.searchResults(searcher, "/books", "Mo?y*.epub")
+            assert.are.equal("mo.y.*%.epub", matched[1].query)
+        end)
+
+        it("puts the searcher back when matching fails", function()
+            searcher.isFileMatch = function() error("matching failed") end
+            assert.has_error(function() BookSources.searchResults(searcher, "/books", "moby") end)
+            assert.is_true(searcher.include_content)
+            assert.are.equal(2, searcher.no_metadata_count)
+        end)
+
+        it("builds the folder index ahead of a search", function()
+            local calls = 0
+            BookSources.register("cloud", {
+                library = true,
+                books = function() calls = calls + 1 return catalog end,
+                owns = function() return true end,
+            })
+            BookSources.prepareFolderIndex()
+            assert.are.equal(1, calls)
+            BookSources.searchResults(searcher, "/books", "moby")
+            assert.are.equal(1, calls)
+        end)
+    end)
+
     it("changes revision when sources change", function()
         local first = BookSources.revision()
         BookSources.register("cloud", { books = function() return {} end })
@@ -296,6 +659,52 @@ describe("book sources", function()
             assert.are.same({ "decode:/books/cloud-1.epub", "render:/books/cloud-1.epub" }, cover_drops)
             BookSources.changed()
             assert.are.equal(2, #cover_drops)
+        end)
+    end)
+
+    describe("library sources' metadata", function()
+        local queries
+
+        before_each(function()
+            queries = 0
+            ZenSpec.replace("bookinfomanager", {
+                getBookInfo = function() return nil end,
+                getDocProps = function(_self, path)
+                    queries = queries + 1
+                    if path == "/books/local.epub" then return { title = "Local" } end
+                end,
+            })
+            BookSources.register("cloud", {
+                library = true,
+                books = function() return { { file = "/books/c.epub", info = {} } } end,
+                owns = function(path) return path == "/books/c.epub" end,
+                bookInfo = function(path)
+                    if path == "/books/c.epub" then
+                        return { title = "Cloud", authors = "A", series = "S", series_index = 2 }
+                    end
+                end,
+            })
+            assert.is_true(BookSources.installMetadataIntegration())
+        end)
+
+        after_each(function()
+            ZenSpec.unload("bookinfomanager")
+        end)
+
+        it("answers getDocProps without CoverBrowser's database", function()
+            local BookInfoManager = require("bookinfomanager")
+            local props = BookInfoManager:getDocProps("/books/c.epub")
+            assert.are.equal("Cloud", props.title)
+            assert.are.equal(0, queries)
+            assert.are.equal("Local", BookInfoManager:getDocProps("/books/local.epub").title)
+            assert.are.equal(1, queries)
+        end)
+
+        it("gives list items their metadata, with display_title", function()
+            local props = BookSources.docProps("/books/c.epub")
+            assert.are.same({ title = "Cloud", authors = "A", series = "S", series_index = 2,
+                display_title = "Cloud" }, props)
+            assert.is_nil(BookSources.docProps("/books/local.epub"))
         end)
     end)
 
@@ -461,6 +870,26 @@ describe("book sources", function()
         assert.is_false(BookSources.ownsWithoutFile(nil))
     end)
 
+    it("tells a library source's books without asking the file system", function()
+        local looked = 0
+        ZenSpec.replace("util", { fileExists = function() looked = looked + 1; return false end })
+        BookSources.register("cloud", {
+            library = true,
+            books = function() return {} end,
+            owns = function(path) return path:sub(1, 3) == "/c/" end,
+        })
+        BookSources.register("kindle", {
+            books = function() return {} end,
+            owns = function(path) return path:sub(1, 3) == "/k/" end,
+        })
+
+        assert.is_true(BookSources.isLibraryBook("/c/catalog.epub"))
+        assert.is_false(BookSources.isLibraryBook("/k/owned.azw3"), "an owning source that isn't a library source")
+        assert.is_false(BookSources.isLibraryBook("/books/local.epub"))
+        assert.is_false(BookSources.isLibraryBook(nil))
+        assert.are.equal(0, looked)
+    end)
+
     describe("metadata edits", function()
         local custom, saved_edited, source_info
 
@@ -488,6 +917,23 @@ describe("book sources", function()
 
         after_each(function()
             G_reader_settings:saveSetting("zen_book_sources_edited", saved_edited)
+        end)
+
+        it("keeps a book's attr when it shows edits over its metadata", function()
+            BookSources.register("cloud", {
+                library = true,
+                books = function()
+                    return { { file = "/c/book.epub", info = source_info, attr = { size = 7 } } }
+                end,
+                owns = function() return true end,
+                bookInfo = function(path) if path == "/c/book.epub" then return source_info end end,
+            })
+            custom["/c/book.epub"] = { title = "Edited" }
+            assert.is_true(BookSources.metadataEdited("/c/book.epub"))
+            local book = BookSources.books()[1]
+            assert.are.equal("Edited", book.info.title)
+            assert.are.same({ size = 7 }, book.attr)
+            assert.are.equal(7, BookSources.booksWithoutFile({ ["/c"] = true }, {})[1].attr.size)
         end)
 
         it("shows edits made in ZenOS over a source's metadata", function()

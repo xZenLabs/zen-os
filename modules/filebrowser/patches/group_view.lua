@@ -1095,6 +1095,12 @@ local function toggle_file_selection(menu, item)
     if not (file_manager and file_manager.selected_files ~= nil and item.path) then
         return false
     end
+    if not item.dim and not require("common/book_sources").selectable(item.path) then
+        -- A book without a file (a book source's): nothing to delete, move or copy.
+        local _ = require("gettext")
+        require("ui/widget/notification"):notify(_("Not on this device: can't be selected"))
+        return true
+    end
     item.dim = not item.dim and true or nil
     file_manager.selected_files[item.path] = item.dim
     menu:updateItems()
