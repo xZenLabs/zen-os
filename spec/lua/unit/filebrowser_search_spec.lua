@@ -241,6 +241,77 @@ describe("file browser search", function()
         end)
     end)
 
+    describe("literal matching of the typed text", function()
+        local BookSources, searcher
+
+        before_each(function()
+            -- The table Zen search took when it was applied.
+            require("document/documentregistry").hasProvider = function() return true end
+            ZenSpec.replace("ui/widget/filechooser", {
+                show_hidden = false,
+                show_dir = function() return true end,
+                show_file = function() return true end,
+            })
+            ZenSpec.unload("common/book_sources")
+            BookSources = require("common/book_sources")
+            BookSources.register("spec_cloud", {
+                library = true,
+                books = function()
+                    return {
+                        { file = "/library/Dune Vol. 1.epub", info = {} },
+                        { file = "/library/a1.epub", info = {} },
+                    }
+                end,
+                owns = function(path) return path:sub(1, 9) == "/library/" end,
+            })
+            local FileManagerFileSearcher = require("apps/filemanager/filemanagerfilesearcher")
+            searcher = setmetatable({
+                include_metadata = true,
+                no_metadata_count = 0,
+                ui = { bookinfo = { getDocProps = function(_self, path)
+                    if path == "/library/a1.epub" then return { title = "Dune Vol. 1" } end
+                    return { title = "Other" }
+                end } },
+            }, { __index = FileManagerFileSearcher })
+        end)
+
+        after_each(function()
+            BookSources.unregister("spec_cloud")
+            ZenSpec.unload("common/book_sources")
+            ZenSpec.unload("ui/widget/filechooser")
+            require("apps/filemanager/filemanagerfilesearcher").search_string = nil
+        end)
+
+        local function found(typed)
+            local FileManagerFileSearcher = require("apps/filemanager/filemanagerfilesearcher")
+            FileManagerFileSearcher.search_string = typed
+            local out = {}
+            for _i, entry in ipairs(BookSources.searchResults(searcher, "/library", typed, {})) do
+                out[#out + 1] = entry[2]
+            end
+            table.sort(out)
+            return out
+        end
+
+        for _i, use_patterns in ipairs({ true, false, "absent" }) do
+            for _j, substring in ipairs({ true, false }) do
+                it(("finds names and metadata: use_patterns %s, %s matching"):format(
+                        tostring(use_patterns), substring and "substring" or "whole-word"), function()
+                    if use_patterns == "absent" then searcher.use_patterns = nil
+                    else searcher.use_patterns = use_patterns end
+                    _G.__ZEN_UI_PLUGIN.config.search = { substring = substring }
+                    local both = { "/library/Dune Vol. 1.epub", "/library/a1.epub" }
+                    -- File name (first book) and title (second book).
+                    assert.are.same(both, found("Vol. 1"))
+                    assert.are.same(both, found("Vol"))
+                    -- "." is no wildcard.
+                    assert.are.same({}, found("Vol.1"))
+                    assert.are.same({}, found("V.l"))
+                end)
+            end
+        end
+    end)
+
     it("uses KOReader file search when Zen Search is disabled", function()
         local FileManagerFileSearcher = require("apps/filemanager/filemanagerfilesearcher")
         _G.__ZEN_UI_PLUGIN.config.features.search = false

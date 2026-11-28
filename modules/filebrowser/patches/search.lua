@@ -195,7 +195,7 @@ local function apply_search()
     local str_lower = util.stringLower or string.lower  -- util.stringLower added in newer KOReader
     local DocumentRegistry = require("document/documentregistry")
 
-    local function find_whole_word(text, pattern)
+    local function find_whole_word(text, word)
         -- Word char: ASCII alnum/_ OR any byte ≥ 128 (part of a UTF-8 multibyte sequence,
         -- i.e. any non-ASCII character: Cyrillic, CJK, Arabic, accented Latin, etc.)
         local function is_word_byte(b)
@@ -207,7 +207,7 @@ local function apply_search()
         end
         local start = 1
         while true do
-            local s, e = string.find(text, pattern, start)
+            local s, e = string.find(text, word, start, true)
             if not s then return false end
             local before_ok = (s == 1) or not is_word_byte(text:byte(s - 1))
             local after_ok  = (e == #text) or not is_word_byte(text:byte(e + 1))
@@ -228,6 +228,14 @@ local function apply_search()
             return orig_isFileMatch(self, filename, fullpath, search_string, is_file)
         end
         if not is_file then return false end
+        -- Zen search matches the text as typed, never as a Lua pattern:
+        -- getList hands over a copy made a pattern ("Vol. 1" as "vol%. 1")
+        -- with "Use patterns" on, and always on KOReader v2026.07 and
+        -- earlier (no use_patterns), which a literal match would miss.
+        local typed = FileManagerFileSearcher.search_string
+        if type(typed) == "string" and typed ~= "" then
+            search_string = typed == "*" and typed or str_lower(typed)
+        end
         if search_string == "*" then
             return true
         end
