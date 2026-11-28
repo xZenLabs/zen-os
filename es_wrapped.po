@@ -5231,7 +5231,7 @@ msgstr "Uno menos. Tu tiempo libre ya está avisado."
 #. Context: { 18, 20, _("Evening reader"), "moon_outline", { _("Dinner, then a chapter. Or three."), _("Your evenings have excellent taste.") } }, { 21, 23, _("Bedtime reader"), "moon_outline", { _("One more chapter turns into midnight. Every time."...
 #: reading_wrapped.lua:167
 msgid "One more chapter turns into midnight. Every time."
-msgstr "Un capítulo más y se te vuekven a hacer las tantas. Como siempre."
+msgstr "Un capítulo más y se te vuelven a hacer las tantas. Como siempre."
 
 #. Type: label
 #. Context: Etiqueta en el editor de metadatos de libros.
@@ -5424,7 +5424,7 @@ msgstr "Solapamiento"
 #. Context: BD.filepath(p)), ok_text = _("Overwrite"), ok_callback = function() enqueue(p, a.href) end,
 #: opds_browser.lua:2267
 msgid "Overwrite"
-msgstr "Sobreescribir"
+msgstr "Sobrescribir"
 
 #. Type: option
 #. Context: Opción seleccionable en el menú contextual de libros y carpetas.
