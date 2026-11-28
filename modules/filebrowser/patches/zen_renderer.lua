@@ -315,12 +315,19 @@ local function apply_zen_renderer()
 
     function ZenMosaicItem:update()
         local build_measure = self.menu and self.menu._zen_cover_build_measure
+        local metadata_loaded, metadata_result
         local function load_metadata()
-            if not build_measure then return metadata_without_cover(self.filepath) end
+            if metadata_loaded then return metadata_result end
+            metadata_loaded = true
+            if not build_measure then
+                metadata_result = metadata_without_cover(self.filepath)
+                return metadata_result
+            end
             local started_at = now()
             local result = metadata_without_cover(self.filepath)
             build_measure.metadata_ms = (build_measure.metadata_ms or 0)
                 + (now() - started_at) * 1000
+            metadata_result = result
             return result
         end
         local hydrating_cover = self._zen_cover_hydrating == true
@@ -383,7 +390,7 @@ local function apply_zen_renderer()
         if want_cover and not self.file_deleted
                 and type(RenderCache.hasReusable) == "function" then
             local render_w, render_h
-            if Bookshelf.enabled(self.menu) and Bookshelf.uniformHeight() then
+            if Bookshelf.enabled(self.menu) then
                 render_w, render_h = target_w, target_h
             elseif uniform then
                 render_w, render_h = CoverUtils.calcDims(target_w, target_h)
@@ -889,6 +896,9 @@ local function apply_zen_renderer()
         end
         if Bookshelf.isSpine(self) and not is_file_manager_select_mode() then
             Bookshelf.paintSpine(self, bb, x, y)
+            if self._underline_container.color == Blitbuffer.COLOR_BLACK then
+                bb:paintRect(x, y + self.height, self.width, Size.line.focus_indicator, Blitbuffer.COLOR_BLACK)
+            end
             self.dimen.x, self.dimen.y = x, y
             return
         end
@@ -921,7 +931,9 @@ local function apply_zen_renderer()
     end
 
     function MosaicMenu:_updateItemsBuildUI()
-        Bookshelf.closePreview(self,false)
+        local shelf_page_changed = self._shelf_visible_page ~= self.page
+        Bookshelf.closePreview(self, shelf_page_changed)
+        self._shelf_visible_page = self.page
         if self._zen_renderer == true then Background.applyToMenu(self) end
         local index_offset = (self.page - 1) * self.perpage
         local line_layout = {}

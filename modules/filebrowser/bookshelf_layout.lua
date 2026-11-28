@@ -89,7 +89,7 @@ function M.metrics(menu, entry, index)
     if M.uniformHeight() then return nominal,base end
     local border = 2
     local natural_h = math.floor((nominal-2*border)/cached.ratio+0.5)+2*border
-    return nominal,math.max(12,math.min(menu.item_height, natural_h))
+    return nominal,math.max(12,math.min(base, natural_h))
 end
 function M.width(menu,entry,index)
     local w=M.metrics(menu,entry,index)
@@ -165,7 +165,8 @@ function M.grid(menu, original, ...)
     local screen = require("device").screen
     local landscape = screen:getWidth() > screen:getHeight()
     local old_perpage = menu.perpage
-    local old_first = ((menu.page or 1)-1)*(old_perpage or 1)+1
+    local requested_page = menu.page or 1
+    local old_first = (requested_page-1)*(old_perpage or 1)+1
     local rotated = menu._shelf_landscape ~= nil and menu._shelf_landscape ~= landscape
     local keys = {"nb_cols_portrait", "nb_rows_portrait", "nb_cols_landscape", "nb_rows_landscape"}
     local old = {}
@@ -218,9 +219,11 @@ function M.grid(menu, original, ...)
     menu.perpage=n*maxrows
     menu.page_num=math.max(1,math.ceil(total/menu.perpage))
     -- Keep the previously visible first book on screen after rotation.
-    if rotated and old_perpage and old_perpage > 0 then
+    if (rotated or (menu._shelf_landscape ~= nil and old_perpage ~= menu.perpage)) and old_perpage and old_perpage > 0 then
         menu.page = math.floor((old_first-1)/menu.perpage)+1
         M.closePreview(menu, true)
+    else
+        menu.page = requested_page
     end
     menu._shelf_landscape = landscape
     menu.page=math.max(1,math.min(menu.page or 1,menu.page_num))

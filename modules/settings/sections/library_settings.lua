@@ -1061,7 +1061,7 @@ function M.build(ctx)
     local filters = {}
     for _i, pair in ipairs({ {"all", "All"}, {"reading", "Reading"}, {"tbr", "To Be Read"}, {"complete", "Finished"} }) do
         local id, label = pair[1], pair[2]
-        filters[#filters+1] = { text = label, checked_func = function() return shelf.filter == id end,
+        filters[#filters+1] = { text = _(label), checked_func = function() return shelf.filter == id end,
             callback = function(tm) shelf.filter = id; refresh_shelf(tm) end }
     end
     if shelf.simplified_version ~= 12 then
@@ -1072,13 +1072,13 @@ function M.build(ctx)
     local modes = {}
     for _i, pair in ipairs({{"covers","Covers"},{"spines","Spines"},{"mixed","Mixed"}}) do
         local id,label = pair[1],pair[2]
-        modes[#modes+1] = {text=label, checked_func=function() return (shelf.mode or "covers")==id end, callback=function(tm) shelf.mode=id; refresh_shelf(tm) end}
+        modes[#modes+1] = {text=_(label), checked_func=function() return (shelf.mode or "covers")==id end, callback=function(tm) shelf.mode=id; refresh_shelf(tm) end}
     end
     local function choices(key, default, values)
         local items = {}
         for _i, pair in ipairs(values) do
             local v,label=pair[1],pair[2]
-            items[#items+1]={text=label,checked_func=function() return (shelf[key] or default)==v end,
+            items[#items+1]={text=_(label),checked_func=function() return (shelf[key] or default)==v end,
                 callback=function(tm) shelf[key]=v;refresh_shelf(tm) end}
         end
         return items
