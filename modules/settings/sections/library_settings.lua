@@ -1059,7 +1059,7 @@ function M.build(ctx)
         if touchmenu then touchmenu:updateItems() end
     end
     local filters = {}
-    for _, pair in ipairs({ {"all", "All"}, {"reading", "Reading"}, {"tbr", "To Be Read"}, {"complete", "Finished"} }) do
+    for _i, pair in ipairs({ {"all", "All"}, {"reading", "Reading"}, {"tbr", "To Be Read"}, {"complete", "Finished"} }) do
         local id, label = pair[1], pair[2]
         filters[#filters+1] = { text = label, checked_func = function() return shelf.filter == id end,
             callback = function(tm) shelf.filter = id; refresh_shelf(tm) end }
@@ -1070,13 +1070,13 @@ function M.build(ctx)
         shelf.simplified_version = 12
     end
     local modes = {}
-    for _, pair in ipairs({{"covers","Covers"},{"spines","Spines"},{"mixed","Mixed"}}) do
+    for _i, pair in ipairs({{"covers","Covers"},{"spines","Spines"},{"mixed","Mixed"}}) do
         local id,label = pair[1],pair[2]
         modes[#modes+1] = {text=label, checked_func=function() return (shelf.mode or "covers")==id end, callback=function(tm) shelf.mode=id; refresh_shelf(tm) end}
     end
     local function choices(key, default, values)
         local items = {}
-        for _, pair in ipairs(values) do
+        for _i, pair in ipairs(values) do
             local v,label=pair[1],pair[2]
             items[#items+1]={text=label,checked_func=function() return (shelf[key] or default)==v end,
                 callback=function(tm) shelf[key]=v;refresh_shelf(tm) end}
