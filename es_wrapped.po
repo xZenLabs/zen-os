@@ -29,7 +29,7 @@ msgstr "%2 de %1 %3"
 #. Context: add(with_covers({ title = _("Biggest day"), icon = icon("lightning"), stat = fmt_time(best.duration), stat_label = ts and T(_("%1 %2, %3 pages"), month_name(ts), os.date("*t", ts).day, best.pages) or T(_("%1 pages"), best.pages),
 #: reading_wrapped.lua:369
 msgid "%1 %2, %3 pages"
-msgstr "Páginas %1 %2, %3"
+msgstr "%2 de %1, %3 páginas"
 
 #. Type: format
 #. Context: Texto que incorpora valores variables en el editor de metadatos de libros. Texto que incorpora valores variables en el explorador de catálogos de libros en línea.
@@ -71,13 +71,13 @@ msgstr "%1 libros este año. Constancia de manual."
 #. Context: { 101, { _("%1 books in one year. Do you… sleep?"), _("At this pace, publishers should be scared of you.") } }, { math.huge, { _("%1 books. We checked twice."), _("You are no longer reading books. You are consuming them.") } }, }
 #: reading_wrapped.lua:90
 msgid "%1 books. We checked twice."
-msgstr "%1libros. Hemos tenido que comprobarlo dos veces."
+msgstr "%1 libros. Hemos tenido que comprobarlo dos veces."
 
 #. Type: message
 #. Context: { 26, { _("Your to-be-read pile has started negotiating."), _("%1 and counting. Your ereader is well used.") } }, { 51, { _("%1 books. Who needs weekends?"), _("Your ereader called. It wants a raise.") } }, { 101, { _("%1 books in one ye...
 #: reading_wrapped.lua:88
 msgid "%1 books. Who needs weekends?"
-msgstr "Libros de %1. ¿Quién necesita fines de semana?"
+msgstr "%1 libros. ¿Quién necesita fines de semana?"
 
 #. Type: title
 #. Context: if data.longest_streak >= 2 then add{ title = _("Longest streak"), icon = icon("flame"), stat = T(_("%1 days"), data.longest_streak), description = T(pick(STREAK_QUIPS, data.longest_streak), data.longest_streak) }
@@ -384,7 +384,7 @@ msgstr "1 archivo"
 #. Context: add(with_covers({ title = _("Most highlighted"), icon = icon("annotations"), stat = clean(noted.title), stat_label = noted.annotations == 1 and _("1 highlight or note") or T(_("%1 highlights and notes"), noted.annotations),
 #: reading_wrapped.lua:355
 msgid "1 highlight or note"
-msgstr "1. Resaltar o anotar"
+msgstr "1 Resaltado o anotación"
 
 #. Type: subtitle
 #. Context: Subtítulo en los grupos de la biblioteca por autores, series y etiquetas.
@@ -414,7 +414,7 @@ msgstr "12 horas  (3:30 PM)"
 #. Context: Nombre de un ajuste en los ajustes de apariencia de la interfaz.
 #: interface_settings.lua:137
 msgid "12-hour time"
-msgstr "koreader de 12 horas"
+msgstr "Formato de 12 horas"
 
 #. Type: setting
 #. Context: Nombre de un ajuste en el panel de ajustes rápidos. Nombre de un ajuste en los ajustes de los botones del panel de ajustes rápidos.
@@ -4604,7 +4604,7 @@ msgstr "Lo más destacado"
 #. Context: stat_label = most_pages and clean(most_pages.title) and T(_("Most in %1 (%2 pages)"), clean(most_pages.title), most_pages.pages) or nil, description = T(pick(PAGE_QUIPS, data.pages), data.pages) }, { most_pages }, 1))
 #: reading_wrapped.lua:317
 msgid "Most in %1 (%2 pages)"
-msgstr "La mayoría en %1 (páginas de %2)"
+msgstr "Más páginas leídas en %1 (%2 páginas)"
 
 #. Type: button
 #. Context: Texto de un botón en el menú contextual de libros y carpetas. Nombre de una acción en la guía de configuración.
@@ -5424,7 +5424,7 @@ msgstr "Solapamiento"
 #. Context: BD.filepath(p)), ok_text = _("Overwrite"), ok_callback = function() enqueue(p, a.href) end,
 #: opds_browser.lua:2267
 msgid "Overwrite"
-msgstr "Exagerar"
+msgstr "Sobreescribir"
 
 #. Type: option
 #. Context: Opción seleccionable en el menú contextual de libros y carpetas.
@@ -8763,7 +8763,7 @@ msgstr "Pase lo que pase en %1, lo leíste."
 #. Context: local BEST_DAY_QUIPS = { -- %1 pages that day _("Whatever you had planned that day, the book won."), _("Someone texted you that day. They're still waiting."),
 #: reading_wrapped.lua:142
 msgid "Whatever you had planned that day, the book won."
-msgstr "Whatever you had planned that day, the book won."
+msgstr "Tenías otros planes para ese día, pero ganó el libro."
 
 #. Type: message
 #. Context: Mensaje en los ajustes de distribución y widgets de la página de inicio.
