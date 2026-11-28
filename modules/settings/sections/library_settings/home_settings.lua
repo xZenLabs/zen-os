@@ -727,9 +727,57 @@ function M.build(ctx)
         }
     end
 
+    local function numeric_choice(cfg, key, label, values, suffix, default_label)
+        local choices = {{ text = default_label or _("Automatic"),
+            checked_func = function() return cfg[key] == nil end,
+            callback = function(tm) cfg[key] = nil; save_home("reinit"); if tm and tm.updateItems then tm:updateItems() end end }}
+        for _i, n in ipairs(values) do
+            local v = n
+            choices[#choices+1] = { text = tostring(v) .. suffix,
+                checked_func = function() return cfg[key] == v end,
+                callback = function(tm) cfg[key] = v; save_home("reinit"); if tm and tm.updateItems then tm:updateItems() end end }
+        end
+        return { text_func = function() return label .. ": " .. (cfg[key] and (tostring(cfg[key]) .. suffix) or (default_label or _("Automatic"))) end, sub_item_table = choices }
+    end
+
+    -- Zero represents automatic height; never store it as a percentage.
+    local function percent_stepper(cfg, key, label, minimum, maximum, default)
+        local automatic = default == nil
+        return {
+            text_func = function()
+                local value = cfg[key] or default
+                return label .. ": " .. (value and tostring(value) .. "%" or _("Automatic"))
+            end,
+            keep_menu_open = true,
+            callback = function(tm)
+                local SpinWidget = require("ui/widget/spinwidget")
+                UIManager:show(SpinWidget:new{
+                    title_text = label .. (automatic and " (%) — " .. _("0 = Automatic") or " (%)"),
+                    value = tonumber(cfg[key]) or default or 0,
+                    value_min = automatic and 0 or minimum,
+                    value_max = maximum,
+                    value_step = 5,
+                    default_value = default or 0,
+                    callback = function(spin)
+                        local value = spin.value
+                        if automatic and value == 0 then
+                            cfg[key] = nil
+                        else
+                            cfg[key] = math.max(minimum, value)
+                        end
+                        save_home("reinit")
+                        if tm and tm.updateItems then tm:updateItems() end
+                    end,
+                })
+            end,
+        }
+    end
+
     local function build_datetime_items()
         local mcfg = ensure_datetime_cfg(dcfg)
         return {
+            percent_stepper(mcfg, "widget_height_percent", _("Widget height"), 5, 40),
+            numeric_choice(mcfg, "auto_date_size", _("Date size in automatic mode"), {8,10,12,14,16,18,20,24,28,32}, ""),
             {
                 text = _("Automatic font size"),
                 checked_func = function() return mcfg.automatic_font_size ~= false end,
@@ -1034,6 +1082,34 @@ function M.build(ctx)
             },
         }
         if ctx.widget_config then table.remove(items, 1); table.remove(items, 1); table.remove(items, 1) end
+        items[#items+1] = percent_stepper(mcfg, "cover_width_percent", _("Cover size"), 15, 60, 40)
+        items[#items+1] = percent_stepper(mcfg, "widget_height_percent", _("Widget height"), 5, 60)
+        items[#items+1] = {
+            text_func = function()
+                return _("Maximum synopsis lines") .. ": " .. (mcfg.synopsis_lines and tostring(mcfg.synopsis_lines) or _("Automatic"))
+            end,
+            keep_menu_open = true,
+            callback = function(touchmenu_instance)
+                local SpinWidget = require("ui/widget/spinwidget")
+                UIManager:show(SpinWidget:new{
+                    title_text = _("Maximum synopsis lines") .. " (" .. _("0 = Automatic") .. ")",
+                    value = mcfg.synopsis_lines or 0,
+                    value_min = 0,
+                    value_max = 10,
+                    value_step = 1,
+                    default_value = 0,
+                    callback = function(spin)
+                        -- Store automatic mode as nil, not a zero-line limit.
+                        mcfg.synopsis_lines = spin.value > 0 and spin.value or nil
+                        save_home("reinit")
+                        if touchmenu_instance and touchmenu_instance.updateItems then
+                            touchmenu_instance:updateItems()
+                        end
+                    end,
+                })
+            end,
+        }
+
         if not ctx.widget_config and mcfg.default_source.kind == "custom" then
             items[#items + 1] = {
                 text_func = function()

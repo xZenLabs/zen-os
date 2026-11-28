@@ -12,7 +12,7 @@ local armed_at
 -- Single and double tap actions; single "open" moves the menu to double tap, else double tap opens.
 function M.tapActions(dev)
     local single = type(dev) == "table" and dev.single_tap_action
-    if single ~= "open" and single ~= "menu" then single = "none" end
+    if single ~= "open" and single ~= "menu" and single ~= "details" then single = "none" end
     return single, single == "open" and "menu" or "open"
 end
 
@@ -59,7 +59,7 @@ end
 -- True when this tap opens the book right away.
 function M.willOpen(path, tap_at)
     local single, double = M.actions()
-    if not single or not is_book(path) or is_armed(path, tap_at) then return true end
+    if not single or single == "details" or not is_book(path) or is_armed(path, tap_at) then return true end
     return double == "open" and is_second_tap(path, tap_at or time.now())
 end
 
@@ -67,7 +67,7 @@ end
 function M.shouldOpen(path, tap_at, menu, open)
     if is_armed(path, tap_at) then return true end
     local single, double = M.actions()
-    if not single or not is_book(path) or (single == "open" and not menu) then
+    if not single or single == "details" or not is_book(path) or (single == "open" and not menu) then
         M.reset()
         return true
     end

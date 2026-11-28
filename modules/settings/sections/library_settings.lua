@@ -1050,7 +1050,51 @@ function M.build(ctx)
     -- Layout
     -- -------------------------------------------------------------------------
 
+    local shelf = config.bookshelf_layout or { enabled = false, filter = "all" }
+    config.bookshelf_layout = shelf
+    local function refresh_shelf(touchmenu)
+        plugin:saveConfig()
+        local fc = get_fc()
+        if fc then fc:refreshPath() end
+        if touchmenu then touchmenu:updateItems() end
+    end
+    local filters = {}
+    for _i, pair in ipairs({ {"all", "All"}, {"reading", "Reading"}, {"tbr", "To Be Read"}, {"complete", "Finished"} }) do
+        local id, label = pair[1], pair[2]
+        filters[#filters+1] = { text = label, checked_func = function() return shelf.filter == id end,
+            callback = function(tm) shelf.filter = id; refresh_shelf(tm) end }
+    end
+    if shelf.simplified_version ~= 12 then
+        shelf.uniform_height = true
+        shelf.mode = "covers"
+        shelf.simplified_version = 12
+    end
+    local modes = {}
+    for _i, pair in ipairs({{"covers","Covers"},{"spines","Spines"},{"mixed","Mixed"}}) do
+        local id,label = pair[1],pair[2]
+        modes[#modes+1] = {text=label, checked_func=function() return (shelf.mode or "covers")==id end, callback=function(tm) shelf.mode=id; refresh_shelf(tm) end}
+    end
+    local function choices(key, default, values)
+        local items = {}
+        for _i, pair in ipairs(values) do
+            local v,label=pair[1],pair[2]
+            items[#items+1]={text=label,checked_func=function() return (shelf[key] or default)==v end,
+                callback=function(tm) shelf[key]=v;refresh_shelf(tm) end}
+        end
+        return items
+    end
+    local shelf_settings = {
+        {text=_("Book size"),sub_item_table=choices("density_size",0,{{2,"Small"},{0,"Medium"},{-2,"Large"}})},
+        {text=_("Display style"),sub_item_table=modes},
+        {text=_("Uniform book heights"),checked_func=function() return shelf.uniform_height~=false end,callback=function(tm) shelf.uniform_height=shelf.uniform_height==false;refresh_shelf(tm) end},
+    }
+    local shelf_items = {
+        {text=_("Enable bookshelf"),checked_func=function() return shelf.enabled==true end,callback=function(tm) shelf.enabled=not shelf.enabled;refresh_shelf(tm) end},
+        {text=_("Reading filter"),sub_item_table=filters},
+        {text=_("Bookshelf settings"),sub_item_table=shelf_settings},
+    }
     local layout_items = {
+        { text = _("Bookshelf (experimental)"), sub_item_table = shelf_items },
         IconItem.decorate({ text = _("Mosaic"), sub_item_table = mosaic_items }, icons.view_mosaic),
         IconItem.decorate({ text = _("List"), sub_item_table = list_items }, icons.view_list),
     }
@@ -1264,7 +1308,7 @@ function M.build(ctx)
     local function double_tap_enabled() return developer().double_tap == true end
     local function single_tap() return (BookOpenTap.tapActions(config.developer)) end
     local function double_tap() return select(2, BookOpenTap.tapActions(config.developer)) end
-    local tap_action_text = { open = _("Open book"), menu = _("Open context menu"), none = _("Nothing") }
+    local tap_action_text = { open = _("Open book"), menu = _("Open context menu"), none = _("Nothing"), details = _("Open book details") }
     -- Pickers store only the single-tap action; double tap is derived so a book stays openable.
     local function tap_picker(label, current, choices, to_single)
         local sub_items = {}
@@ -1296,7 +1340,7 @@ function M.build(ctx)
             plugin:saveConfig()
         end,
         sub_item_table = {
-            tap_picker(_("Single tap"), single_tap, { "open", "menu", "none" },
+            tap_picker(_("Single tap"), single_tap, { "open", "menu", "details", "none" },
                 function(choice) return choice end),
             tap_picker(_("Double tap"), double_tap, { "open", "menu" }, function(choice)
                 if choice == "menu" then return "open" end

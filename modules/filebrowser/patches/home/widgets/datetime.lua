@@ -95,7 +95,7 @@ local function preferred_height(ctx)
             or DEFAULT_MAX_TIME_SIZE, 8, MAX_TIME_SIZE)
         while low <= high do
             local time_px = math.floor((low + high) / 2)
-            if keep_if_fits(time_px) then
+            if keep_if_fits(time_px, module_cfg.auto_date_size) then
                 low = time_px + 1
             else
                 high = time_px - 1
@@ -115,7 +115,7 @@ local function preferred_height(ctx)
         end
     end
 
-    return (best_h or last_h or 1) + Screen:scaleBySize(2)
+    return module_cfg.widget_height_percent and math.max(1, math.floor(Screen:getHeight() * module_cfg.widget_height_percent / 100)) or ((best_h or last_h or 1) + Screen:scaleBySize(2))
 end
 
 return {
@@ -187,7 +187,7 @@ return {
                 local low, high = min_time_px, max_time_px
                 while low <= high do
                     local time_px = math.floor((low + high) / 2)
-                    if keep_if_fits(time_px) then
+                    if keep_if_fits(time_px, module_cfg.auto_date_size) then
                         low = time_px + 1
                     else
                         high = time_px - 1

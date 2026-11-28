@@ -28,18 +28,22 @@ local _ = require("gettext")
 local M = {}
 M.SIZE = { units = 3.5 }
 
-local COVER_WIDTH_SHARE = 0.40
+local function cover_share(cfg)
+    return math.max(15, math.min(60, tonumber(cfg.cover_width_percent) or 40)) / 100
+end
 
 function M.preferred_height(outer_width, module_cfg, data)
     module_cfg = type(module_cfg) == "table" and module_cfg or {}
-    if module_cfg.wrap_description_text == true
-            and module_cfg.show_description ~= false then
-        if not (data and type(data.getFeaturedBook) == "function") then return nil end
-        local source = HomePresets.featuredSourceKey(module_cfg.default_source)
-        local book = data:getFeaturedBook(source, "default", true)
-        local description = type(book) == "table" and type(book.description) == "string"
-            and util.htmlToPlainTextIfHtml(book.description) or ""
-        if description:gsub("^%s+", ""):gsub("%s+$", "") ~= "" then return nil end
+    if not module_cfg.widget_height_percent and not module_cfg.synopsis_lines then
+        if module_cfg.wrap_description_text == true
+                and module_cfg.show_description ~= false then
+            if not (data and type(data.getFeaturedBook) == "function") then return nil end
+            local source = HomePresets.featuredSourceKey(module_cfg.default_source)
+            local book = data:getFeaturedBook(source, "default", true)
+            local description = type(book) == "table" and type(book.description) == "string"
+                and util.htmlToPlainTextIfHtml(book.description) or ""
+            if description:gsub("^%s+", ""):gsub("%s+$", "") ~= "" then return nil end
+        end
     end
     local Screen = Device.screen
     outer_width = math.max(1, tonumber(outer_width) or Screen:getWidth())
@@ -47,12 +51,12 @@ function M.preferred_height(outer_width, module_cfg, data)
     local width = math.max(1, outer_width - padding * 2)
     local gap = math.max(4, math.floor(width * 0.025))
     local cover_w = math.max(1,
-        math.floor(math.max(1, width - gap) * COVER_WIDTH_SHARE))
+        math.floor(math.max(1, width - gap) * cover_share(module_cfg)))
     local cover_h = cover_common.uniform_height_for_width(cover_w)
     local base_h = math.max(1, Screen:scaleBySize(4)) + cover_h
     local bottom_pad = math.max(3, math.floor(base_h * 0.02))
     bottom_pad = math.max(3, math.floor((base_h + bottom_pad) * 0.02))
-    return padding * 2 + base_h + bottom_pad
+    return module_cfg.widget_height_percent and math.max(1, math.floor(Screen:getHeight() * module_cfg.widget_height_percent / 100)) or (padding * 2 + base_h + bottom_pad)
 end
 
 local function time_unit(unit)
@@ -203,7 +207,7 @@ function M.build(ctx, source_key)
     -- The assigned height is an upper bound; normal details stop at cover height.
     local col_h = math.max(1, height - col_top_pad - col_bottom_pad)
     -- Reserve at least 60% of the usable row width for book details.
-    local cover_max_w = math.max(1, math.floor(math.max(1, width - gap) * COVER_WIDTH_SHARE))
+    local cover_max_w = math.max(1, math.floor(math.max(1, width - gap) * cover_share(module_cfg)))
     -- Target size lets the provider skip decoding a cover RenderCache already holds.
     local target_w, target_h = cover_common.target_dims(nil, cover_max_w, col_h)
     local book = ctx.data:getFeaturedBook(source, "default", nil, { w = target_w, h = target_h })
@@ -272,7 +276,9 @@ function M.build(ctx, source_key)
     local text_w = math.max(1, width - cover_col_w - gap)
 
     -- Fonts
-    local scale = clamp(math.max(1, cover_actual_h or col_h) / Scale.px(300), 0.55, 1.28)
+    local detail_h = cover_actual_h or col_h
+    if module_cfg.widget_height_percent and not ctx.showBookStatus then detail_h = col_h end
+    local scale = clamp(math.max(1, detail_h) / Scale.px(300), 0.55, 1.28)
     local detail_scale = ctx.showBookStatus and scale * 2 or scale
     local title_style = text_style(module_cfg, "title")
     local author_style = text_style(module_cfg, "author")
@@ -381,7 +387,7 @@ function M.build(ctx, source_key)
         end_progress_text = zen_utils.formatPageCount(total_pages, true)
     end
     local has_progress_text = end_progress_text ~= nil or left_progress_text ~= "" or right_progress_text ~= ""
-    local cover_h = math.max(1, cover_actual_h or col_h)
+    local cover_h = math.max(1, detail_h)
     local progress_h = math.max(1, math.floor(cover_h * 0.022))
     local stats_text_h = 0
     if has_progress_text then
@@ -609,7 +615,7 @@ function M.build(ctx, source_key)
     local side_desc_h = 0
     local lower_room = col_h - cover_h - bottom_h
     -- Detect overflow in the compact layout, then reflow into the freed progress space.
-    if module_cfg.wrap_description_text == true
+    if not module_cfg.synopsis_lines and module_cfg.wrap_description_text == true
             and show_description and desc_text ~= ""
             and lower_room >= desc_line_h then
         local compact_side_available = math.max(
@@ -756,6 +762,7 @@ p { margin: 0; }
             and desc_available >= desc_line_h
         local desc_h = can_show_desc
             and math.floor(desc_available / desc_line_h) * desc_line_h or 0
+        if module_cfg.synopsis_lines then desc_h = math.min(desc_h, module_cfg.synopsis_lines * desc_line_h) end
         local detail_children = { align = "left" }
         for _i, w in ipairs(top_items) do
             table.insert(detail_children, w)

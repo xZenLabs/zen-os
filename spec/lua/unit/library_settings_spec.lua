@@ -102,7 +102,7 @@ describe("library settings", function()
             "Include new books in TBR", "Treat file updates as New", "Show all files from subfolders" },
             labels(items[3].sub_item_table))
         assert.are.same({ "Archive", "Plugin actions", "Allow delete" }, labels(items[4].sub_item_table))
-        assert.are.same({ "Mosaic", "List", "Show item underline" },
+        assert.are.same({ "Bookshelf (experimental)", "Mosaic", "List", "Show item underline" },
             labels(find_item(items, "Layout").sub_item_table))
         assert.are.same({ "Portrait", "Landscape", "Reset to default" },
             labels(find_item(items, "Mosaic").sub_item_table))
@@ -391,9 +391,9 @@ describe("library settings", function()
         local single_tap_item, second_tap_item = double_tap_item.sub_item_table[1], double_tap_item.sub_item_table[2]
         assert.is_true(single_tap_item.enabled_func())
         assert.are.same({ "Single tap: Nothing", "Double tap: Open book" }, texts())
-        assert.are.same({ "Open book", "Open context menu", "Nothing" }, {
+        assert.are.same({ "Open book", "Open context menu", "Open book details", "Nothing" }, {
             single_tap_item.sub_item_table[1].text, single_tap_item.sub_item_table[2].text,
-            single_tap_item.sub_item_table[3].text,
+            single_tap_item.sub_item_table[3].text, single_tap_item.sub_item_table[4].text,
         })
 
         pick(second_tap_item, "Open context menu")

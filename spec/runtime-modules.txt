@@ -124,6 +124,7 @@ config/hardcover_token.lua|unit
 config/manager.lua|unit
 config/preset_store.lua|unit
 config/screensaver_presets.lua|unit
+modules/filebrowser/bookshelf_layout.lua|integration
 modules/filebrowser/filebrowser.lua|integration
 modules/filebrowser/folder_cover.lua|unit
 modules/filebrowser/metadata/epub.lua|unit

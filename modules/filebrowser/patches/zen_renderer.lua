@@ -45,6 +45,8 @@ local function apply_zen_renderer()
     local RenderCache = require("common/cover_render_cache")
     local FolderCover = require("modules/filebrowser/folder_cover")
     local Background = require("common/ui/background")
+    local Bookshelf = require("modules/filebrowser/bookshelf_layout")
+    Bookshelf.bind(plugin_ref)
     local book_status = require("common/book_status")
     local library_font = require("modules/filebrowser/patches/library_font")
     local utils = require("common/utils")
@@ -313,12 +315,19 @@ local function apply_zen_renderer()
 
     function ZenMosaicItem:update()
         local build_measure = self.menu and self.menu._zen_cover_build_measure
+        local metadata_loaded, metadata_result
         local function load_metadata()
-            if not build_measure then return metadata_without_cover(self.filepath) end
+            if metadata_loaded then return metadata_result end
+            metadata_loaded = true
+            if not build_measure then
+                metadata_result = metadata_without_cover(self.filepath)
+                return metadata_result
+            end
             local started_at = now()
             local result = metadata_without_cover(self.filepath)
             build_measure.metadata_ms = (build_measure.metadata_ms or 0)
                 + (now() - started_at) * 1000
+            metadata_result = result
             return result
         end
         local hydrating_cover = self._zen_cover_hydrating == true
@@ -327,6 +336,12 @@ local function apply_zen_renderer()
         local strip_h = strip_metrics(show_title, show_author)
         local content_h = math.max(1, self.height - strip_h)
         local target_w, target_h, border, uniform = cover_dimensions(self.width, content_h)
+        if Bookshelf.enabled(self.menu) and FolderCover.isBook(self.entry) then
+            show_title,show_author,strip_h=false,false,0
+            content_h=self.height
+            local _, natural_h=Bookshelf.metrics(self.menu,self.entry,self.entry.idx or 1)
+            target_w,target_h,border,uniform=math.max(1,self.width-2*border),math.max(1,natural_h-2*border),border,Bookshelf.uniformHeight()
+        end
         local specs = {
             max_cover_w = target_w,
             max_cover_h = target_h,
@@ -359,6 +374,12 @@ local function apply_zen_renderer()
             return
         end
         self._zen_tile_kind = "book"
+        self._shelf_title = nil
+        if Bookshelf.enabled(self.menu) then
+            local meta = load_metadata()
+            local title = meta and not meta.ignore_meta and meta.title
+            self._shelf_title = type(title) == "string" and title:match("%S") and title or fallback_title(self.filepath)
+        end
         self.menu._zen_file_cover_specs = self.do_cover_image and specs or false
 
         local want_cover = self.do_cover_image and not covers_suppressed(self.menu)
@@ -369,7 +390,9 @@ local function apply_zen_renderer()
         if want_cover and not self.file_deleted
                 and type(RenderCache.hasReusable) == "function" then
             local render_w, render_h
-            if uniform then
+            if Bookshelf.enabled(self.menu) then
+                render_w, render_h = target_w, target_h
+            elseif uniform then
                 render_w, render_h = CoverUtils.calcDims(target_w, target_h)
             else
                 metadata = load_metadata()
@@ -496,6 +519,7 @@ local function apply_zen_renderer()
         local frame = CoverWidget.make_cover_widget(book, target_w, target_h, {
             border = border,
             uniform = uniform,
+            exact_bounds = Bookshelf.enabled(self.menu) and true or nil,
             -- Paint the banner before the shared border and corner masks.
             decorate = function(cover_frame)
                 local orig_paintTo = cover_frame.paintTo
@@ -520,6 +544,10 @@ local function apply_zen_renderer()
             dimen = Geom:new{ w = self.width, h = content_h },
             frame,
         }
+        if Bookshelf.enabled(self.menu) then
+            local paint=cover.paintTo
+            function cover:paintTo(bb,x,y) paint(self,bb,x,y+math.floor((content_h-frame:getSize().h)/2)) end
+        end
         self._zen_cover_frame = frame
         if self._has_cover_image then self.menu._has_cover_images = true end
         if hydrate_later then queue_cover_hydration(self) end
@@ -566,6 +594,7 @@ local function apply_zen_renderer()
     end
 
     function ZenMosaicItem:onTapSelect()
+        if not is_file_manager_select_mode() and self.menu.select_directory == nil and self.menu.select_file == nil and Bookshelf.tap(self) then return true end
         if self._zen_is_book and not is_file_manager_select_mode()
                 and self.menu.select_directory == nil and self.menu.select_file == nil then
             local set_cover = rawget(_G, "__ZEN_UI_SET_OPENING_BANNER_COVER")
@@ -576,6 +605,7 @@ local function apply_zen_renderer()
     end
 
     function ZenMosaicItem:onHoldSelect()
+        if Bookshelf.enabled(self.menu) then Bookshelf.closePreview(self.menu,true) end
         self.menu:onMenuHold(self.entry)
         return true
     end
@@ -819,7 +849,9 @@ local function apply_zen_renderer()
 
     local function dim_finished_cover(item, bb, config)
         local badge = config.browser_cover_badges or {}
-        if badge.dim_finished_books ~= true or item._zen_effective_status ~= "complete" then return end
+        if item._zen_effective_status ~= "complete" then return end
+        if Bookshelf.enabled(item.menu) then if not Bookshelf.dimFinished() then return end
+        elseif badge.dim_finished_books ~= true then return end
         local frame = item._zen_cover_frame
         if not frame or not frame.dimen then return end
         local border = frame.bordersize or 0
@@ -846,8 +878,8 @@ local function apply_zen_renderer()
         local menu = self.menu
         local config = plugin_config()
         local badges = config.browser_cover_badges or {}
-        CoverWidget.set_dimmed_border(self._zen_cover_frame,
-            badges.dim_finished_books == true
+        CoverWidget.set_dimmed_border(self._zen_cover_frame, not Bookshelf.enabled(menu) and
+            (Bookshelf.enabled(menu) and Bookshelf.dimFinished() or not Bookshelf.enabled(menu) and badges.dim_finished_books == true)
                 and self._zen_effective_status == "complete")
         local is_library = menu and (menu.name == "filemanager" or menu.name == "history"
             or menu._zen_tab_id or menu._zen_coll_list or menu._zen_group_view
@@ -859,7 +891,22 @@ local function apply_zen_renderer()
                 bb:paintRect(x, y, self.width, self.height, Blitbuffer.COLOR_WHITE)
             end
         end
+        if Bookshelf.enabled(menu) then
+            self.dimen.x,self.dimen.y,self.dimen.w,self.dimen.h=x,y,self.width,self.height
+        end
+        if Bookshelf.isSpine(self) and not is_file_manager_select_mode() then
+            Bookshelf.paintSpine(self, bb, x, y)
+            if self._underline_container.color == Blitbuffer.COLOR_BLACK then
+                bb:paintRect(x, y + self.height, self.width, Size.line.focus_indicator, Blitbuffer.COLOR_BLACK)
+            end
+            self.dimen.x, self.dimen.y = x, y
+            return
+        end
         InputContainer.paintTo(self, bb, x, y)
+        if not is_file_manager_select_mode() and Bookshelf.paintBack(self, bb) then
+            dim_finished_cover(self, bb, config)
+            return
+        end
         dim_finished_cover(self, bb, config)
         if not self._zen_is_book then
             FolderCover.paintDecorations(self, bb, config, x, y)
@@ -878,10 +925,48 @@ local function apply_zen_renderer()
         end
     end
 
+    local stock_recalculate = MosaicMenu._recalculateDimen
+    if stock_recalculate then
+        function MosaicMenu:_recalculateDimen(...) return Bookshelf.grid(self, stock_recalculate, ...) end
+    end
+
     function MosaicMenu:_updateItemsBuildUI()
+        local shelf_page_changed = self._shelf_visible_page ~= self.page
+        Bookshelf.closePreview(self, shelf_page_changed)
+        self._shelf_visible_page = self.page
         if self._zen_renderer == true then Background.applyToMenu(self) end
         local index_offset = (self.page - 1) * self.perpage
         local line_layout = {}
+        local shelf = Bookshelf.enabled(self)
+        local packed = {}
+        if shelf then
+            local rows = Bookshelf.plan(self,index_offset+1,self.perpage)
+            -- A listing can change between dimension calculation and UI build.
+            -- Preserve every native page entry even if that requires a tighter row.
+            local maxrows = self._shelf_rows or #rows
+            if #rows>maxrows and maxrows>0 then
+                rows={}
+                local perrow=math.ceil(self.perpage/maxrows)
+                for slot=1,self.perpage do
+                    local index=index_offset+slot
+                    local entry=self.item_table[index]
+                    if not entry then break end
+                    local r=math.floor((slot-1)/perrow)+1
+                    rows[r]=rows[r] or {}
+                    local w=Bookshelf.width(self,entry,index)
+                    rows[r][#rows[r]+1]={index=index,width=w}
+                end
+                for _i, row in ipairs(rows) do
+                    local sum=0
+                    for _i, cell in ipairs(row) do sum=sum+cell.width end
+                    local available=Bookshelf.availableWidth(self)-( #row-1)*Bookshelf.spacing(self)
+                    for _i, cell in ipairs(row) do cell.width=math.max(1,math.floor(cell.width*math.min(1,available/sum))) end
+                end
+            end
+            for r,row in ipairs(rows) do
+                for j,cell in ipairs(row) do packed[cell.index]={width=cell.width,start=j==1,row=r,offset=row.offset} end
+            end
+        end
         local select_number
         for slot = 1, self.perpage do
             local index = index_offset + slot
@@ -893,28 +978,39 @@ local function apply_zen_renderer()
                 shortcut = self.item_shortcuts[slot]
                 shortcut_style = (slot < 11 or slot > 20) and "square" or "grey_square"
             end
-            if slot % self.nb_cols == 1 then
+            local cell = packed[index]
+            if (shelf and cell and cell.start) or (not shelf and (slot - 1) % self.nb_cols == 0) then
                 if slot > 1 then table.insert(self.layout, line_layout) end
                 line_layout = {}
                 table.insert(self.item_group, VerticalSpan:new{ width = self.item_margin })
                 local row = HorizontalGroup:new{}
-                local container = self._do_center_partial_rows and CenterContainer or LeftContainer
-                table.insert(self.item_group, container:new{
-                    dimen = Geom:new{ w = self.inner_dimen.w, h = self.item_height },
+                local shelf=Bookshelf.enabled(self)
+                local book_h=shelf and Bookshelf.bookHeight(self) or self.item_height
+                local shelf_h=shelf and math.max(3,Screen:scaleBySize(7)) or 0
+                if shelf then table.insert(self.item_group,VerticalSpan:new{width=math.max(0,self.item_height-book_h-shelf_h)}) end
+                local container = (not shelf and self._do_center_partial_rows) and CenterContainer or LeftContainer
+                local row_container = container:new{
+                    dimen = Geom:new{ w = self.inner_dimen.w, h = book_h+shelf_h },
                     row,
-                })
-                table.insert(row, HorizontalSpan:new{ width = self.item_margin })
+                }
+                if Bookshelf.enabled(self) then
+                    Bookshelf.decorateRow(row_container, self.inner_dimen.w, book_h+shelf_h, cell.row, self)
+                    local rp=row.paintTo
+                    function row:paintTo(bb,x,y) rp(self,bb,x,y) end
+                end
+                table.insert(self.item_group, row_container)
+                if not shelf then table.insert(row, HorizontalSpan:new{ width = self.item_margin }) elseif shelf then table.insert(row, HorizontalSpan:new{width=cell.offset or Bookshelf.sideMargin(self)+Bookshelf.innerPadding(self)}) end
                 self._zen_mosaic_row = row
             end
             entry.idx = index
             local common = {
-                height = self.item_height,
-                width = self.item_width,
+                height = Bookshelf.enabled(self) and Bookshelf.bookHeight(self) or self.item_height,
+                width = cell and cell.width or self.item_width,
                 entry = entry,
                 text = Menu.getMenuText(entry),
                 show_parent = self.show_parent,
                 mandatory = entry.mandatory,
-                dimen = self.item_dimen:copy(),
+                dimen = Bookshelf.enabled(self) and Geom:new{w=cell and cell.width or self.item_width,h=Bookshelf.bookHeight(self)} or self.item_dimen:copy(),
                 shortcut = shortcut,
                 shortcut_style = shortcut_style,
                 menu = self,
@@ -925,13 +1021,25 @@ local function apply_zen_renderer()
             local item = FolderCover.isSupported(entry, self) and ZenMosaicItem:new(common)
                 or MosaicMenuItem:new(common)
             table.insert(self._zen_mosaic_row, item)
-            table.insert(self._zen_mosaic_row, HorizontalSpan:new{ width = self.item_margin })
+            local gap = shelf and Bookshelf.spacing(self) or self.item_margin
+            if gap>0 and (not shelf or (packed[index+1] and not packed[index+1].start)) then table.insert(self._zen_mosaic_row, HorizontalSpan:new{ width = gap }) end
             table.insert(line_layout, item)
             if not item.bookinfo_found and not item.is_directory and not item.file_deleted then
                 table.insert(self.items_to_update, item)
             end
         end
         if #line_layout > 0 then table.insert(self.layout, line_layout) end
+        if shelf then
+            for r=#self.layout+1,(self._shelf_rows or 0) do
+                local book_h=Bookshelf.bookHeight(self)
+                local shelf_h=math.max(3,Screen:scaleBySize(7))
+                table.insert(self.item_group,VerticalSpan:new{width=self.item_margin+math.max(0,self.item_height-book_h-shelf_h)})
+                local row=HorizontalGroup:new{HorizontalSpan:new{width=Bookshelf.sideMargin(self)+Bookshelf.innerPadding(self)}}
+                local container=LeftContainer:new{dimen=Geom:new{w=self.inner_dimen.w,h=book_h+shelf_h},row}
+                Bookshelf.decorateRow(container,self.inner_dimen.w,book_h+shelf_h,r,self)
+                table.insert(self.item_group,container)
+            end
+        end
         table.insert(self.item_group, VerticalSpan:new{ width = self.item_margin })
         self._zen_mosaic_row = nil
         return select_number
@@ -941,6 +1049,9 @@ local function apply_zen_renderer()
     MosaicMenu._zen_mosaic_item_class = ZenMosaicItem
     MosaicMenu._zen_mosaic_folder_item_class = ZenMosaicItem
     local ok, FileChooser = pcall(require, "ui/widget/filechooser")
+    if ok and FileChooser and FileChooser._recalculateDimen == stock_recalculate then
+        FileChooser._recalculateDimen = MosaicMenu._recalculateDimen
+    end
     if ok and FileChooser and FileChooser._updateItemsBuildUI == stock_builder then
         FileChooser._updateItemsBuildUI = MosaicMenu._updateItemsBuildUI
     end

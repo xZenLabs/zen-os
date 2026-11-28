@@ -13,6 +13,7 @@ local function apply_browser_item_table_cache()
     local logger = zen_logger.new("browser_item_table_cache")
     local now = zen_logger.now
     local plugin = rawget(_G, "__ZEN_UI_PLUGIN")
+    require("modules/filebrowser/bookshelf_layout").bind(plugin)
 
     local ITEM_TABLE_CACHE_MAX = 32
     local FOLDER_AGGREGATE_CACHE_MAX = 128
@@ -995,7 +996,7 @@ local function apply_browser_item_table_cache()
     end
 
     local original_genItemTableFromPath = FileChooser.genItemTableFromPath
-    function FileChooser:genItemTableFromPath(path)
+    local function cachedGenItemTableFromPath(self, path)
         if self._dummy or self.name ~= "filemanager" then
             return original_genItemTableFromPath(self, path)
         end
@@ -1135,6 +1136,15 @@ local function apply_browser_item_table_cache()
             items = #result,
         }
         return result, true
+    end
+
+    function FileChooser:genItemTableFromPath(path)
+        local shown = self._zen_building_shown_listing
+        local entries, readable = cachedGenItemTableFromPath(self, path)
+        if shown and readable ~= false then
+            entries = require("modules/filebrowser/bookshelf_layout").filter(self, entries)
+        end
+        return entries, readable
     end
 
     -- KOReader shows every listing through refreshPath (changeToPath calls
