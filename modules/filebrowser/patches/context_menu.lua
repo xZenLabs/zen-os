@@ -818,9 +818,10 @@ local function apply_context_menu()
                     "filepath=", tostring(item and item.filepath),
                     "dim_before=", tostring(item and item.dim))
 
-                if file_manager.selected_files and item and item.is_file
+                if file_manager.selected_files and item and item.is_file and not item.dim
                         and not require("common/book_sources").selectable(item.path or item.file) then
                     -- A book without a file (a book source's): nothing to delete, move or copy.
+                    -- One already selected (its file since gone) can still be deselected.
                     require("ui/widget/notification"):notify(_("Not on this device: can't be selected"))
                     return true
                 end
